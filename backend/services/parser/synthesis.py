@@ -13,6 +13,8 @@ when needed, are fetched via `parser.storage._fetch_pdf_bytes`.
 """
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 from typing import Any, Dict, List
 
@@ -27,6 +29,7 @@ from backend.services.ai.prompts import (
     SLIDE_ANALYSIS_PROMPT,
     SYLLABUS_FACTS_EXTRACTION_PROMPT,
     SYNTHESIS_DECK_QUIZ_PROMPT,
+    SYNTHESIS_QUIZ_REPAIR_PROMPT,
     output_language as _output_language,
 )
 from backend.services.ai.quiz_validator import _normalize_answer_index
@@ -37,6 +40,7 @@ from backend.services.parser.deck_plan import (
     build_deck_skeleton,
     select_slides,
 )
+from backend.services.parser.quiz_grounding import GroundingVerdict, assess_grounding
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +113,11 @@ async def generate_quiz_questions(
     skeleton: DeckSkeleton | None = None,
 ) -> List[Dict[str, Any]]:
     """Generate 5–8 deck-level MCQs from content-rich slides spread across
-    every section of the deck, labelled with their real slide numbers."""
+    every section of the deck, labelled with their real slide numbers.
+
+    Every question must cite the slide its answer is stated on
+    (`source_slide`); `ground_deck_quiz` keeps only questions that slide
+    supports, after at most one repair each."""
     skeleton = skeleton or build_deck_skeleton(slides)
     picked = select_slides(skeleton, 10)
     if not picked:
@@ -125,7 +133,92 @@ async def generate_quiz_questions(
     )
     raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
     res = parse_json_response(raw)
-    return res if isinstance(res, list) else []
+    if not isinstance(res, list):
+        return []
+    return await ground_deck_quiz(res, skeleton, lecture_title, ai_model, source_language)
+
+
+def _grounded(q: Dict[str, Any], verdict: GroundingVerdict) -> Dict[str, Any]:
+    return {**q, "source_slide": verdict.source_slide, "support_score": round(verdict.score, 3)}
+
+
+async def _repair_question(
+    q: Dict[str, Any],
+    slide_number: int,
+    skeleton: DeckSkeleton,
+    lecture_title: str,
+    ai_model: str,
+    source_language: str,
+) -> Dict[str, Any] | None:
+    """One regeneration against the cited slide only. The returned question
+    is pinned to that slide, so a model cannot repair by relocating."""
+    prompt = SYNTHESIS_QUIZ_REPAIR_PROMPT.format(
+        lecture_title=lecture_title,
+        concept=str(q.get("concept") or q.get("question") or "")[:200],
+        slide_number=slide_number,
+        slide_text=skeleton.slides[slide_number - 1].text[:1500],
+        output_language=_output_language(source_language),
+    )
+    try:
+        raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
+    except Exception as exc:
+        logger.warning("deck quiz repair failed (non-fatal): %s", exc)
+        return None
+    res = parse_json_response(raw)
+    if isinstance(res, list) and res and isinstance(res[0], dict):
+        res = res[0]
+    if not isinstance(res, dict) or not res:
+        return None
+    return {**res, "source_slide": slide_number}
+
+
+async def ground_deck_quiz(
+    questions: List[Any],
+    skeleton: DeckSkeleton,
+    lecture_title: str,
+    ai_model: str,
+    source_language: str = "en",
+) -> List[Dict[str, Any]]:
+    """Keep only questions whose cited slide supports the key.
+
+    A question below the support threshold gets ONE regeneration against its
+    cited slide, then is dropped. A question with no usable slide (missing,
+    garbage, out of range, empty) is dropped without a repair: there is
+    nothing to repair against. Logs one ``deck_quiz_grounding {json}`` line
+    (proposed/kept/repaired/dropped + drop reasons) for Arc 5 receipts."""
+    # (question | None, was_repaired, drop_reason)
+    async def _one(q: Any) -> tuple[Dict[str, Any] | None, bool, str]:
+        if not isinstance(q, dict):
+            return None, False, "not_an_object"
+        verdict = assess_grounding(q, skeleton)
+        if verdict.ok:
+            return _grounded(q, verdict), False, ""
+        if verdict.source_slide is None:
+            return None, False, verdict.reason
+        repaired = await _repair_question(
+            q, verdict.source_slide, skeleton, lecture_title, ai_model, source_language,
+        )
+        if repaired is None:
+            return None, False, "repair_failed"
+        second = assess_grounding(repaired, skeleton)
+        if second.ok:
+            return _grounded(repaired, second), True, ""
+        return None, False, f"repair_{second.reason}"
+
+    results = await asyncio.gather(*(_one(q) for q in questions))
+    kept = [r for r, _, _ in results if r is not None]
+    reasons: Dict[str, int] = {}
+    for r, _, reason in results:
+        if r is None:
+            reasons[reason] = reasons.get(reason, 0) + 1
+    logger.info("deck_quiz_grounding %s", json.dumps({
+        "proposed": len(questions),
+        "kept": len(kept),
+        "repaired": sum(1 for _, was_repaired, _ in results if was_repaired),
+        "dropped": len(questions) - len(kept),
+        "drop_reasons": reasons,
+    }, sort_keys=True))
+    return kept
 
 
 async def generate_cross_lecture_questions(

@@ -124,12 +124,15 @@ async def test_generate_quiz_skips_llm_when_no_rich_slides(llm):
     assert llm["calls"] == 0
 
 
-async def test_generate_quiz_returns_list_when_model_returns_array(llm):
-    q = {"question": "Q?", "options": ["a", "b", "c", "d"], "correctAnswer": "a"}
-    llm["reply"] = json.dumps([q])
+async def test_generate_quiz_returns_grounded_questions_from_model_array(llm):
     rich = "Graphs consist of vertices and edges that model pairwise relations."
+    q = {"question": "What do graphs consist of?",
+         "options": ["Vertices and edges", "Rows and columns", "Keys and values", "Pages and frames"],
+         "correctAnswer": "Vertices and edges", "source_slide": 2}
+    llm["reply"] = json.dumps([q])
     out = await synthesis.generate_quiz_questions(["Graphs", rich], "Graphs", "cerebras")  # slide 0 is the title
-    assert out == [q]
+    assert [o["question"] for o in out] == [q["question"]]
+    assert out[0]["source_slide"] == 2 and out[0]["support_score"] == 1.0
     assert "Graphs" in llm["bulk_prompts"][0]
 
 
@@ -304,3 +307,120 @@ async def test_rendered_deck_quiz_prompt_requests_source_slide(llm):
     rich = "Graphs consist of vertices and edges that model pairwise relations."
     await synthesis.generate_quiz_questions(["Graphs", rich], "T", "groq")
     assert "source_slide" in llm["bulk_prompts"][0]
+
+
+# ── grounded deck quiz verifier (Arc 4) ──────────────────────────────────────
+import re as _re
+
+from backend.services.parser.quiz_grounding import SUPPORT_THRESHOLD
+from backend.tests.support.quiz_grounding_deck import GRAPH_DECK_PAGES
+
+_REPAIR_MARK = "Rewrite one multiple-choice question"
+
+
+def _mcq(question, options, answer, source, concept="c"):
+    return {"question": question, "options": options, "correctAnswer": answer,
+            "source_slide": source, "concept": concept, "explanation": "e", "difficulty": "easy"}
+
+
+GOOD = _mcq("Which algorithm computes shortest paths from a single source?",
+            ["Dijkstra", "Kruskal", "Prim", "Floyd"], "Dijkstra", 3, concept="Dijkstra")
+OTHER_SLIDE = _mcq("Which algorithm builds a minimum spanning tree?",
+                   ["Kruskal", "Bellman", "Floyd", "Johnson"], "Kruskal", 3, concept="MST")
+BAD_NUMBER = _mcq("How many colors suffice for planar maps?",
+                  ["5 colors", "3 colors", "6 colors", "8 colors"], "5 colors", 5, concept="Coloring")
+AMBIGUOUS = _mcq("What does an edge join?",
+                 ["Two adjacent faces", "Exactly two vertices", "Three cycles", "A forest"],
+                 "Two adjacent faces", 2, concept="Edges")
+NO_SOURCE = {k: v for k, v in GOOD.items() if k != "source_slide"}
+OUT_OF_RANGE = {**GOOD, "source_slide": 99}
+GARBAGE = {**GOOD, "source_slide": "somewhere"}
+
+
+def _router(first_reply, repairs=None):
+    """The deck-quiz call gets ``first_reply``; a repair call gets the entry of
+    ``repairs`` keyed by the [Slide N] label in its prompt (else '{}')."""
+    repairs = repairs or {}
+
+    def reply(prompt):
+        if _REPAIR_MARK in prompt:
+            for n, r in repairs.items():
+                if f"[Slide {n}]:" in prompt:
+                    return r
+            return "{}"
+        return first_reply
+    return reply
+
+
+def _repair_prompts(llm):
+    return [p for p in llm["bulk_prompts"] if _REPAIR_MARK in p]
+
+
+async def test_adversarial_questions_are_all_rejected_when_repairs_fail(llm):
+    llm["reply"] = _router(json.dumps([GOOD, OTHER_SLIDE, BAD_NUMBER, AMBIGUOUS, NO_SOURCE, OUT_OF_RANGE, GARBAGE]))
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert [q["question"] for q in out] == [GOOD["question"]]
+    assert out[0]["source_slide"] == 3 and out[0]["support_score"] >= SUPPORT_THRESHOLD
+    # One repair each for (a), (b), (c) against their cited slide; none for (d).
+    labels = sorted(int(_re.search(r"\[Slide (\d+)\]:", p).group(1)) for p in _repair_prompts(llm))
+    assert labels == [2, 3, 5]
+    assert llm["calls"] == 1 + 3
+
+
+async def test_repair_sees_only_the_cited_slide_and_a_grounded_repair_ships(llm):
+    fixed = _mcq("Which algorithm requires non-negative edge weights?",
+                 ["Dijkstra", "Kruskal", "Prim", "Floyd"], "Dijkstra", 3)
+    llm["reply"] = _router(json.dumps([OTHER_SLIDE]), {3: json.dumps(fixed)})
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert [q["question"] for q in out] == [fixed["question"]]
+    assert out[0]["source_slide"] == 3
+    (prompt,) = _repair_prompts(llm)
+    assert prompt.count("[Slide ") == 1
+    assert "Dijkstra computes shortest paths" in prompt
+    assert "Kruskal builds" not in prompt and "University of Marburg" not in prompt
+
+
+async def test_repair_that_relocates_to_another_slide_is_pinned_back_and_dropped(llm):
+    moved = _mcq("Which algorithm builds a minimum spanning tree?",
+                 ["Kruskal", "Bellman", "Floyd", "Johnson"], "Kruskal", 4)
+    llm["reply"] = _router(json.dumps([OTHER_SLIDE]), {3: json.dumps(moved)})
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert out == []
+    assert len(_repair_prompts(llm)) == 1  # exactly one attempt, then drop
+
+
+async def test_repair_exception_drops_only_that_question(llm):
+    def reply(prompt):
+        if _REPAIR_MARK in prompt:
+            raise RuntimeError("provider down")
+        return json.dumps([GOOD, OTHER_SLIDE])
+    llm["reply"] = reply
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert [q["question"] for q in out] == [GOOD["question"]]
+
+
+async def test_no_shipped_question_cites_a_nonexistent_slide(llm):
+    sources = [None, "somewhere", 0, -3, 7, 99, 1.5, True, [3], 1, "Slide 3", 3]
+    llm["reply"] = _router(json.dumps([{**GOOD, "source_slide": s} for s in sources]),
+                           {1: json.dumps({**GOOD, "source_slide": 99})})
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert len(out) == 2
+    assert all(1 <= q["source_slide"] <= len(GRAPH_DECK_PAGES) for q in out)
+    assert all(q["source_slide"] == 3 for q in out)
+    assert llm["calls"] == 2  # quiz + the one repair for in-range slide 1
+
+
+async def test_one_structured_summary_line_per_generation(llm, caplog):
+    import logging
+    fixed = _mcq("Which algorithm requires non-negative edge weights?",
+                 ["Dijkstra", "Kruskal", "Prim", "Floyd"], "Dijkstra", 3)
+    llm["reply"] = _router(json.dumps([GOOD, OTHER_SLIDE, BAD_NUMBER, NO_SOURCE, OUT_OF_RANGE]),
+                           {3: json.dumps(fixed)})
+    with caplog.at_level(logging.INFO, logger=synthesis.logger.name):
+        await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    lines = [r.getMessage() for r in caplog.records if r.getMessage().startswith("deck_quiz_grounding ")]
+    assert len(lines) == 1
+    payload = json.loads(lines[0].split(" ", 1)[1])
+    assert payload["proposed"] == 5 and payload["kept"] == 2 and payload["repaired"] == 1
+    assert payload["dropped"] == 3
+    assert payload["drop_reasons"] == {"no_source": 1, "source_out_of_range": 1, "repair_failed": 1}
