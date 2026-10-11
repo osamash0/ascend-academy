@@ -92,6 +92,8 @@ const ALLOWED = [
   /learnstation-luna$/,
   // The app-wide Luna renderer and its types: pure SVG, no data, no network.
   /^@\/features\/avatar\/LunaAvatar$/,
+  // Luna alive at hero size (Home): same art, live eyes. Pure SVG + Motion.
+  /^@\/features\/avatar\/LunaHero$/,
   /^@\/features\/avatar\/types$/,
   // Anything inside this namespace.
   /^\.{1,2}\//,
