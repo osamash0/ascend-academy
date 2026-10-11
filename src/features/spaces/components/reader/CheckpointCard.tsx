@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ArrowRight, Check, Sparkles, X } from 'lucide-react';
+import { ArrowRight, Check, PenLine, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Checkpoint } from '../../data/liveRepository';
 import { QuestionView } from '../rehearsal/QuestionView';
@@ -32,12 +32,14 @@ interface Props {
   onDone: (outcome: CheckpointOutcome) => void;
   /** Told when the question panel opens and closes — the reader must not go quiet under it. */
   onOpenChange?: (open: boolean) => void;
+  /** The other way to check: explain the idea in your own words. */
+  onTeach?: () => void;
   onDismiss: () => void;
 }
 
 type Phase = 'offer' | 'loading' | 'asking' | 'done' | 'failed';
 
-export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onOpenChange, onDismiss }: Props) {
+export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onOpenChange, onTeach, onDismiss }: Props) {
   const reduce = useReducedMotion();
   const [phase, setPhase] = useState<Phase>('offer');
   const [cp, setCp] = useState<Checkpoint | null>(null);
@@ -112,17 +114,29 @@ export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onO
           </p>
           <p className="mt-1.5 pr-6 text-[15px] leading-[1.4] text-foreground">{idea.name}</p>
           <p className="mt-1 text-[13px] text-quiet">
-            {phase === 'failed' ? "Couldn't write a question just now." : 'One question, while it is fresh?'}
+            {phase === 'failed' ? "Couldn't write a question just now." : 'Check it while it is fresh.'}
           </p>
+          <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"
             onClick={start}
             disabled={phase === 'loading'}
-            className="console-focusable mt-4 inline-flex h-9 items-center gap-2 rounded-full bg-white px-4 text-[13px] font-medium text-background transition-colors disabled:bg-white/[0.12] disabled:text-quiet"
+            className="console-focusable inline-flex h-9 items-center gap-2 rounded-full bg-white px-4 text-[13px] font-medium text-background transition-colors disabled:bg-white/[0.12] disabled:text-quiet"
           >
-            {phase === 'loading' ? 'Writing it from the pages…' : phase === 'failed' ? 'Try again' : 'Check myself'}
+            {phase === 'loading' ? 'Writing it from the pages…' : phase === 'failed' ? 'Try again' : 'One question'}
             {phase === 'offer' && <ArrowRight aria-hidden className="h-3.5 w-3.5" />}
           </button>
+          {onTeach && phase !== 'loading' && (
+            <button
+              type="button"
+              onClick={onTeach}
+              className="console-focusable inline-flex h-9 items-center gap-2 rounded-full bg-white/[0.08] px-4 text-[13px] text-foreground transition-colors hover:bg-white/[0.14]"
+            >
+              <PenLine aria-hidden className="h-3.5 w-3.5" />
+              Explain it back
+            </button>
+          )}
+          </div>
         </motion.div>
       )}
 
