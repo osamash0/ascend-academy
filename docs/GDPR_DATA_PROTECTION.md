@@ -41,17 +41,35 @@ business step, out of scope for an engineering PR).
 
 ## 2. Data inventory (what PII lives where)
 
-Enumerated in `backend/services/account_service.py::EXPORT_TABLES` /
-`LECTURE_OWNER_COLUMNS` — that list is the single source of truth (both
-export and this doc read from it, so they cannot drift silently). As of this
-writing: `profiles`, `achievements`, `student_progress`, `learning_events`,
-`xp_events`, `notifications`, `user_feedback`, `course_enrollments`,
-`course_visits`, `lecture_visits`, `nudge_dismissals`,
-`schedule_item_completions`, `upload_quotas`, `review_schedule`,
-`review_log`, `exam_attempts`, `practice_attempts`,
-`student_catalog_courses`, `friend_requests`, `user_roles`, plus
-`lectures` (professor- or student-owned) and derived `slides`/
-`quiz_questions`/`slide_embeddings`/`worksheets` reachable through them.
+Enumerated in `backend/services/account_service.py::EXPORT_TABLES` (plus
+the dedicated owned-lecture / worksheet / tutor-transcript reads in
+`export_user_data`) — that code is the source of truth; this list is a copy
+and must be updated with it. A db test (`backend/tests/db/test_gdpr_coverage.py`)
+and the read-only probe (`backend/scripts/gdpr_coverage_probe.py`) fail when a
+user-linked column is neither exported nor explicitly excluded. As of this
+writing the export contains, one key per table:
+
+- Account and settings: `profiles`, `user_roles`, `onboarding_progress`,
+  `notification_preferences`, `notifications`, `user_feedback`.
+- Progress and activity: `achievements`, `xp_events`, `learning_events`,
+  `learning_events_daily_rollup`, `student_progress`, `concept_mastery`,
+  `course_enrollments`, `course_visits`, `lecture_visits`,
+  `student_catalog_courses`, `nudge_dismissals`, `schedule_item_completions`.
+- Study and assessment: `review_schedule`, `review_log`, `exam_attempts`,
+  `practice_attempts`, `practice_sheets`, `v4_rehearsal_attempts`,
+  `assignment_enrollments`.
+- Teaching and uploads: `assignments`, `courses`, `course_blueprints`,
+  `material_sources`, `parse_runs`, `upload_quotas`, `llm_calls`,
+  `lectures` (professor- or student-owned), `worksheets_uploaded`.
+- Social: `friend_requests` (both sides).
+- AI tutor: `tutor_sessions` and their `tutor_messages`.
+- Production-only, when present: `api_tokens` (without `token_hash`),
+  `course_access`.
+
+Not exported: derived lecture content (slides, quiz questions, embeddings) is
+not a per-person row and is not in the export; `learning_events_legacy_20260721`
+(a rollback copy duplicated in `learning_events`) and `account_erasure_jobs`
+(erasure bookkeeping) are excluded on purpose (`EXPORT_EXCLUSIONS`).
 
 ## 3. Right to erasure (Art. 17)
 
