@@ -20,6 +20,12 @@ import enGamification from './locales/en/gamification.json';
 import enOnboarding from './locales/en/onboarding.json';
 import enAvatar from './locales/en/avatar.json';
 import enAskLuna from './locales/en/askLuna.json';
+import enV4Spaces from './locales/en/v4Spaces.json';
+import enV4Reader from './locales/en/v4Reader.json';
+import enV4Space from './locales/en/v4Space.json';
+import enV4Library from './locales/en/v4Library.json';
+import enV4People from './locales/en/v4People.json';
+import enV4Settings from './locales/en/v4Settings.json';
 
 import deCommon from './locales/de/common.json';
 import deNav from './locales/de/nav.json';
@@ -39,6 +45,12 @@ import deGamification from './locales/de/gamification.json';
 import deOnboarding from './locales/de/onboarding.json';
 import deAvatar from './locales/de/avatar.json';
 import deAskLuna from './locales/de/askLuna.json';
+import deV4Spaces from './locales/de/v4Spaces.json';
+import deV4Reader from './locales/de/v4Reader.json';
+import deV4Space from './locales/de/v4Space.json';
+import deV4Library from './locales/de/v4Library.json';
+import deV4People from './locales/de/v4People.json';
+import deV4Settings from './locales/de/v4Settings.json';
 
 export const SUPPORTED_LANGUAGES = ['en', 'de'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -65,6 +77,12 @@ const resources = {
     onboarding: enOnboarding,
     avatar: enAvatar,
     askLuna: enAskLuna,
+    v4Spaces: enV4Spaces,
+    v4Reader: enV4Reader,
+    v4Space: enV4Space,
+    v4Library: enV4Library,
+    v4People: enV4People,
+    v4Settings: enV4Settings,
   },
   de: {
     common: deCommon,
@@ -85,6 +103,12 @@ const resources = {
     onboarding: deOnboarding,
     avatar: deAvatar,
     askLuna: deAskLuna,
+    v4Spaces: deV4Spaces,
+    v4Reader: deV4Reader,
+    v4Space: deV4Space,
+    v4Library: deV4Library,
+    v4People: deV4People,
+    v4Settings: deV4Settings,
   },
 };
 
@@ -97,7 +121,7 @@ i18n
     supportedLngs: SUPPORTED_LANGUAGES as unknown as string[],
     nonExplicitSupportedLngs: true,
     load: 'languageOnly',
-    ns: ['common', 'nav', 'landing', 'auth', 'settings', 'dashboard', 'professor', 'upload', 'lecture', 'legal', 'review', 'exam', 'search', 'myMaterials', 'gamification', 'onboarding', 'avatar', 'askLuna'],
+    ns: ['common', 'nav', 'landing', 'auth', 'settings', 'dashboard', 'professor', 'upload', 'lecture', 'legal', 'review', 'exam', 'search', 'myMaterials', 'gamification', 'onboarding', 'avatar', 'askLuna', 'v4Spaces', 'v4Reader', 'v4Space', 'v4Library', 'v4People', 'v4Settings'],
     defaultNS: 'common',
     detection: {
       order: ['localStorage', 'navigator'],

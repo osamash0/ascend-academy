@@ -24,6 +24,19 @@ def _uid(user: Any) -> str:
     return uid
 
 
+async def _lang(request: Request, uid: str) -> str:
+    """The language the app is showing (`?lang=`), else the profile's.
+
+    The app sends it with every request, so switching languages answers in
+    the new one at once instead of after the profile write lands. Anything
+    but a supported locale falls back to the profile.
+    """
+    asked = request.query_params.get("lang")
+    if asked in service.LANGUAGE_NAMES:
+        return asked
+    return await service.preferred_language(uid)
+
+
 async def _lecture_access(lecture_id: UUID, user: Any) -> str:
     uid = _uid(user)
     if not await service.can_view_lecture(lecture_id, uid):
@@ -44,7 +57,7 @@ async def reader_course(request: Request, course_id: UUID, user: Any = Depends(v
 @limiter.limit("60/minute")
 async def reader_lecture(request: Request, lecture_id: UUID, user: Any = Depends(verify_token)):
     uid = await _lecture_access(lecture_id, user)
-    return await service.get_lecture(lecture_id, await service.preferred_language(uid))
+    return await service.get_lecture(lecture_id, await _lang(request, uid))
 
 
 @router.get("/lectures/{lecture_id}/ideas")
@@ -63,7 +76,7 @@ async def reader_explain(
     user: Any = Depends(verify_token),
 ):
     uid = await _lecture_access(lecture_id, user)
-    return await service.explain_page(lecture_id, page, user_id=uid, locale=await service.preferred_language(uid))
+    return await service.explain_page(lecture_id, page, user_id=uid, locale=await _lang(request, uid))
 
 
 class _Turn(BaseModel):
@@ -94,7 +107,7 @@ async def reader_ask(
         body.question,
         [t.model_dump() for t in body.thread],
         user_id=uid,
-        locale=await service.preferred_language(uid),
+        locale=await _lang(request, uid),
     )
 
 
@@ -145,7 +158,7 @@ async def reader_rehearsal(request: Request, body: RehearsalBody, course_id: UUI
         body.count,
         weak_ideas=[w[:60] for w in body.weak_ideas],
         user_id=uid,
-        locale=await service.preferred_language(uid),
+        locale=await _lang(request, uid),
     )
 
 
@@ -168,7 +181,7 @@ async def reader_checkpoint(request: Request, body: CheckpointBody, lecture_id: 
         body.last,
         body.idea,
         user_id=uid,
-        locale=await service.preferred_language(uid),
+        locale=await _lang(request, uid),
     )
 
 
@@ -193,7 +206,7 @@ async def reader_teach_back(request: Request, body: TeachBody, lecture_id: UUID,
         body.idea,
         body.explanation,
         user_id=uid,
-        locale=await service.preferred_language(uid),
+        locale=await _lang(request, uid),
     )
 
 

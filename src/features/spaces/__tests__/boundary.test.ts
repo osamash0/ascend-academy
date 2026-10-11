@@ -97,6 +97,16 @@ const ALLOWED = [
   // The viewer's loadout as plain context (filled by App from outside the seal).
   /^@\/features\/avatar\/viewerLoadout$/,
   /^@\/features\/avatar\/types$/,
+  /*
+   * Language. `react-i18next` and the shared registry `@/i18n` are pure (no
+   * data, no network). `useLanguagePreference` is the one deliberate
+   * exception: it saves the choice to the user's profile, and it is the app's
+   * single language setting — the same one the server reads to pick the
+   * language of AI answers. A v4 copy of it would let the two drift apart.
+   */
+  /^react-i18next$/,
+  /^@\/i18n$/,
+  /^@\/hooks\/useLanguagePreference$/,
   // Anything inside this namespace.
   /^\.{1,2}\//,
 ];

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Smartphone, Sun, X } from 'lucide-react';
@@ -98,13 +99,15 @@ const TOC_WITH_PANEL = 1640;
 const TOC_WIDTH = 260;
 
 type View = 'slide' | 'explain' | 'text';
-const VIEWS: { id: View; label: string }[] = [
-  { id: 'slide', label: 'Page' },
-  { id: 'explain', label: 'Explain' },
-  { id: 'text', label: 'Text' },
+/* Labels live in the v4Reader namespace (views.page / views.explain / views.text). */
+const VIEWS: { id: View; label: 'page' | 'explain' | 'text' }[] = [
+  { id: 'slide', label: 'page' },
+  { id: 'explain', label: 'explain' },
+  { id: 'text', label: 'text' },
 ];
 
 export default function LessonFacesScreen() {
+  const { t: tr } = useTranslation('v4Reader');
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
   const { state, space, lesson, prev, next } = useReaderLesson(spaceId, lessonId);
   const content = useReaderContent(spaceId, lessonId);
@@ -888,7 +891,7 @@ export default function LessonFacesScreen() {
       </div>
       <div
         role="tablist"
-        aria-label="How to read this page"
+        aria-label={tr('views.label')}
         className={cn('flex rounded-full p-1', overPage)}
       >
         {VIEWS.map((v) => {
@@ -918,7 +921,7 @@ export default function LessonFacesScreen() {
                   className="absolute inset-0 rounded-full bg-white"
                 />
               )}
-              <span className="relative">{v.label}</span>
+              <span className="relative">{tr(`views.${v.label}`)}</span>
             </button>
           );
         })}

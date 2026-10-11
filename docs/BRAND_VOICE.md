@@ -77,7 +77,7 @@ This applies everywhere Learnstation speaks: the AI tutor, generated summaries a
 - **Errors keep "wir"-ownership.** "Wir konnten dich nicht anmelden" — never the passive-bureaucratic "Anmeldung leider nicht möglich".
 - **Gender-inclusive forms, consistently.** "Dozent:in", "Studierende:r", "Nutzer:in" — this is policy, not a one-off choice.
 - **Structure over syntax.** Split long German sentences rather than mirroring English rhythm; German compounds punish literal translation.
-- **AI output**: the tutor and professor-chat surfaces answer in the language the user writes in. Generated content (summaries, quizzes, taglines) stays English for now — a deliberate, scoped-down first step.
+- **AI output**: the tutor and professor-chat surfaces answer in the language the user writes in. In the v4 reader (2026-10-11), generated content follows the reader's language setting too — Explain, Ask, checkpoints, rehearsals and Teach it back — in this register (du, inclusive forms, no "!"), keeping a deck's technical terms in brackets the first time and quoting slides verbatim. Generated content elsewhere (summaries, quizzes, taglines in the older screens) still stays English for now.
 
 ## Naming
 
