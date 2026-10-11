@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { inDialog, isTyping } from './keys';
+import { inDialog, isTyping, menuOpen } from './keys';
 import { mark, reset as resetAll, retry as retryAll, stateOf, type RecallState, type TermState } from './recall';
 
 const OFF: RecallState = { on: false, terms: {} };
@@ -78,7 +78,7 @@ export function useRecall(canvasId: string, enabled: boolean) {
     if (!enabled) return;
     const down = (e: KeyboardEvent) => {
       if (e.key !== 'r' && e.key !== 'R') return;
-      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target) || inDialog(e.target)) return;
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target) || inDialog(e.target) || menuOpen(e.target)) return;
       toggleRef.current();
     };
     window.addEventListener('keydown', down);

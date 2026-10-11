@@ -75,11 +75,13 @@ export const CleanBlock = memo(function CleanBlock({
       data-flash={flash ? 'true' : undefined}
       data-glow={glow ? 'true' : undefined}
       tabIndex={sourced ? 0 : undefined}
-      onPointerEnter={(e) => sourced && onPointerEnter(block.id, e.pointerType)}
+      // In Recall the paragraph is a quiz: resting on it must not cover the term with Peek (the marker still opens it).
+      onPointerEnter={(e) => sourced && !recall && onPointerEnter(block.id, e.pointerType)}
       // Touch fires pointerleave after every tap; only a mouse really leaves.
       onPointerLeave={(e) => sourced && e.pointerType !== 'touch' && e.pointerType !== 'pen' && onPointerLeave()}
       onKeyDown={(e) => {
-        if (!sourced) return;
+        // Only the paragraph's own keys: a button inside it (a blank, Knew it, the marker) keeps Space and Esc.
+        if (!sourced || e.target !== e.currentTarget) return;
         if (e.key === ' ') {
           e.preventDefault();
           onOpenPeek(block.id);
