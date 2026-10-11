@@ -79,6 +79,15 @@ async def can_view_course(course_id: UUID, user_id: str) -> bool:
 LANGUAGE_NAMES = {"de": "German", "en": "English"}
 
 
+#: The product's German register (docs/BRAND_VOICE.md, "German register"), for
+#: everything the model writes to a German reader — the first German run said
+#: "Ordnen Sie …".
+GERMAN_REGISTER = (
+    "Address the student as du, never Sie (\"Ordne …\", \"Schau dir … an\"); use "
+    "gender-inclusive forms (Studierende, Dozent:in); no exclamation marks."
+)
+
+
 def write_in(locale: str, served: str) -> str:
     """How a reader prompt is told which language to answer in.
 
@@ -92,15 +101,18 @@ def write_in(locale: str, served: str) -> str:
     """
     want = LANGUAGE_NAMES.get(locale, "English")
     have = LANGUAGE_NAMES.get(served, want)
-    if want == have:
-        return f"Write in {want}."
-    return (
-        f"Write everything in {want} — titles, steps, questions, options, explanations — even "
-        f"though the slides are in {have}. Two exceptions only: the first time you use a technical "
-        f"term of the subject, add the slides' {have} term in brackets (e.g. a German "
-        f"\"Attributhülle (attribute closure)\"), never for everyday words; and any \"spot\" is "
-        f"copied word for word from the slide, in {have}, because the reader finds it there."
+    rule = (
+        f"Write in {want}."
+        if want == have
+        else (
+            f"Write everything in {want} — titles, steps, questions, options, explanations — even "
+            f"though the slides are in {have}. Two exceptions only: the first time you use a technical "
+            f"term of the subject, add the slides' {have} term in brackets (e.g. a German "
+            f"\"Attributhülle (attribute closure)\"), never for everyday words; and any \"spot\" is "
+            f"copied word for word from the slide, in {have}, because the reader finds it there."
+        )
     )
+    return f"{rule} {GERMAN_REGISTER}" if want == "German" else rule
 
 
 async def preferred_language(user_id: str) -> str:

@@ -99,7 +99,9 @@ def test_the_answer_follows_the_reader_and_keeps_the_slides_words():
     from backend.services.v4_reader_service import write_in
 
     assert write_in("en", "en") == "Write in English."
-    assert write_in("de", "de") == "Write in German."
+    # German always carries the product's register: du, never Sie.
+    assert write_in("de", "de").startswith("Write in German.") and "never Sie" in write_in("de", "de")
+    assert "never Sie" not in write_in("en", "de")
     mixed = write_in("de", "en")
     # A German reader on an English deck: German answers, English terms and spots.
     # A German reader on an English deck: all German, but the terms named once and the spots verbatim.
