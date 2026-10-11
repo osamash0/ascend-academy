@@ -352,12 +352,17 @@ def _map_deck_quiz(quiz_questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]
                 q.get("correctAnswer"), options,
             )
             continue
-        # slideId is 1-based from LLM; frontend/embeddings use 0-based index
+        # source_slide is the verified 1-based deck number (Arc 4); slideId is
+        # the pre-v3 key, kept so stubbed/older output still maps.
+        # Frontend/embeddings use the 0-based index.
+        src = q.get("source_slide")
+        if src is None:
+            src = q.get("slideId", 1)
         try:
-            slide_id_0 = max(0, int(q.get("slideId", 1)) - 1)
+            slide_id_0 = max(0, int(src) - 1)
         except (TypeError, ValueError):
             slide_id_0 = 0
-        mapped.append({
+        entry = {
             "question": q.get("question", ""),
             "options": options,
             "correctAnswer": ans_idx,
@@ -365,7 +370,10 @@ def _map_deck_quiz(quiz_questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]
             "concept": q.get("concept", ""),
             "difficulty": q.get("difficulty", ""),
             "linked_slides": [slide_id_0],
-        })
+        }
+        if q.get("support_score") is not None:
+            entry["support_score"] = q["support_score"]
+        mapped.append(entry)
     if dropped:
         logger.warning(
             "V4 quiz: dropped %d of %d questions with unresolvable answers",

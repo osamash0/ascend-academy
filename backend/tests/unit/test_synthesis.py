@@ -474,3 +474,10 @@ async def test_unexpected_error_drops_only_that_question(llm, monkeypatch, caplo
     assert [q["question"] for q in out] == [GOOD["question"]] * 2
     line = next(r.getMessage() for r in caplog.records if r.getMessage().startswith("deck_quiz_grounding "))
     assert json.loads(line.split(" ", 1)[1])["drop_reasons"] == {"grounding_error": 1}
+
+
+async def test_grounded_question_maps_to_its_zero_based_source_slide(llm):
+    llm["reply"] = _router(json.dumps([GOOD]))
+    mapped = synthesis._map_deck_quiz(await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq"))
+    assert mapped[0]["linked_slides"] == [2]
+    assert mapped[0]["support_score"] >= SUPPORT_THRESHOLD
