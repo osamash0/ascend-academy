@@ -38,7 +38,10 @@ from typing import Any, Mapping
 from backend.services.ai.quiz_validator import _normalize_answer_index
 from backend.services.parser.deck_plan import DeckSkeleton
 
-SUPPORT_THRESHOLD = 0.3
+# Calibrated on 19 real DBS/SR question pairs (2026-10-11): grounded min 0.663,
+# ungrounded max 0.339 (both SR slide 7) -- 0.5 is the midpoint, margins >= 0.16.
+# See tests/unit/test_quiz_grounding_real_decks.py.
+SUPPORT_THRESHOLD = 0.5
 
 _UMLAUTS = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue"})
 _WORD = re.compile(r"[^\W_]+")
