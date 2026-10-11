@@ -1,8 +1,8 @@
 # Deck Lab — old vs new slide selection (no LLM calls)
 
 <!--
-  generated : 2026-10-11 02:37:43Z
-  commit    : 8b7731f
+  generated : 2026-10-11 09:03:10Z
+  commit    : c15fdb0-dirty
   deck dir  : ~/Downloads (25 decks)
   threshold : SUPPORT_THRESHOLD = 0.5
   LLM calls : 0
@@ -86,39 +86,41 @@ prompt / deck pages; last page is 1-based.
 ## Boilerplate stripped per parse
 
 Tokens removed = whitespace tokens of the raw pages minus those of the stripped
-skeleton texts (whitespace tokens, not model tokens). Per slide prompt = removed /
-pages: the IMPLIED saving if every per-slide prompt sent stripped text. Today only
-the meta and quiz prompts do; per-slide synthesis still sends `raw_slides[i]`
-(unified_orchestrator.py), so this saving is implied, not yet realized (follow-up).
+skeleton texts (whitespace tokens, not model tokens); the meta and quiz prompts
+read the stripped texts. Per-slide synthesis (batch and per-slide prompts) now
+sends the stripped text too, except where stripping would leave fewer than
+25 characters (the raw page is sent) and on image-only pages (vision).
+Realized = tokens per-slide synthesis no longer sends, computed with the same rule
+(`deck_plan.synthesis_text`); per synthesized slide = realized / text-routed slides.
 
-| Deck | Template lines | Tokens removed | Implied tokens saved per slide prompt |
-|---|---:|---:|---:|
-| `00 DBS Einfuehrung.pdf` | 4 | 261 | 3.8 |
-| `00 DBS Introduction.pdf` | 4 | 311 | 4.7 |
-| `00__SR_Organisatorisches_v06_11.04.2025.pdf` | 2 | 208 | 8.0 |
-| `01 DBS Basics.pdf` | 5 | 549 | 10.2 |
-| `01__SR_Rechnernetze_Organisation_v03_16.04.2025.pdf` | 2 | 374 | 8.7 |
-| `02 DBS Relational Design.pdf` | 5 | 1340 | 11.2 |
-| `03 DBS Normalization.pdf` | 5 | 915 | 11.2 |
-| ` 03__SR_Prozesse_v07_27.04.2025.pdf` | 2 | 718 | 8.4 |
-| `04 DBS Relational Algebra.pdf` | 5 | 1083 | 12.4 |
-| `04__SR_Betriebsmittel_v05_26.04.2026.pdf` | 2 | 285 | 8.1 |
-| `05 DBS SQL.pdf` | 5 | 1633 | 12.0 |
-| `05__SR_Speicherverwaltung_v02_06.05.2026.pdf` | 2 | 464 | 8.9 |
-| `06 DBS Integrity.pdf` | 5 | 414 | 9.2 |
-| `06__SR_Dateiverwaltung_v02_13.05.2026.pdf` | 2 | 347 | 8.1 |
-| `07 DBS Transactions.pdf` | 5 | 824 | 10.4 |
-| `07__SR_EA_v04_19.05.2026.pdf` | 2 | 315 | 8.5 |
-| `08 DBS Query Processing.pdf` | 6 | 911 | 13.2 |
-| `08__SR_Virtualisierung_v04_21.05.2026.pdf` | 2 | 330 | 7.9 |
-| `09 DBS Index Structures.pdf` | 5 | 1199 | 9.3 |
-| `09__SR_Kommunikation_v01_26.05.2026.pdf` | 2 | 345 | 7.7 |
-| `10__SR_Datentransfer_v02_01.06.2026.pdf` | 2 | 695 | 8.8 |
-| `11__SR_Linklayer_v01_01.06.2026.pdf` | 2 | 207 | 8.0 |
-| `12__SR_LANS_v03_12.06.2026.pdf` | 2 | 547 | 8.5 |
-| `13__SR_Netze_v02_16.06.2026.pdf` | 2 | 280 | 8.0 |
-| `14__SR_Internet_v02_16.06.2026.pdf` | 2 | 375 | 8.2 |
-| **Total (25 decks)** | 82 | 14930 | 9.4 |
+| Deck | Template lines | Tokens removed | Realized tokens saved (synthesis) | Realized per synthesized slide |
+|---|---:|---:|---:|---:|
+| `00 DBS Einfuehrung.pdf` | 4 | 261 | 254 | 3.8 |
+| `00 DBS Introduction.pdf` | 4 | 311 | 308 | 4.7 |
+| `00__SR_Organisatorisches_v06_11.04.2025.pdf` | 2 | 208 | 208 | 8.0 |
+| `01 DBS Basics.pdf` | 5 | 549 | 546 | 10.3 |
+| `01__SR_Rechnernetze_Organisation_v03_16.04.2025.pdf` | 2 | 374 | 374 | 8.7 |
+| `02 DBS Relational Design.pdf` | 5 | 1340 | 1336 | 11.2 |
+| `03 DBS Normalization.pdf` | 5 | 915 | 912 | 11.3 |
+| ` 03__SR_Prozesse_v07_27.04.2025.pdf` | 2 | 718 | 718 | 8.4 |
+| `04 DBS Relational Algebra.pdf` | 5 | 1083 | 1079 | 12.5 |
+| `04__SR_Betriebsmittel_v05_26.04.2026.pdf` | 2 | 285 | 285 | 8.1 |
+| `05 DBS SQL.pdf` | 5 | 1633 | 1623 | 12.1 |
+| `05__SR_Speicherverwaltung_v02_06.05.2026.pdf` | 2 | 464 | 464 | 8.9 |
+| `06 DBS Integrity.pdf` | 5 | 414 | 411 | 9.3 |
+| `06__SR_Dateiverwaltung_v02_13.05.2026.pdf` | 2 | 347 | 347 | 8.1 |
+| `07 DBS Transactions.pdf` | 5 | 824 | 814 | 10.4 |
+| `07__SR_EA_v04_19.05.2026.pdf` | 2 | 315 | 315 | 8.5 |
+| `08 DBS Query Processing.pdf` | 6 | 911 | 907 | 13.3 |
+| `08__SR_Virtualisierung_v04_21.05.2026.pdf` | 2 | 330 | 330 | 7.9 |
+| `09 DBS Index Structures.pdf` | 5 | 1199 | 1195 | 9.3 |
+| `09__SR_Kommunikation_v01_26.05.2026.pdf` | 2 | 345 | 345 | 7.7 |
+| `10__SR_Datentransfer_v02_01.06.2026.pdf` | 2 | 695 | 695 | 8.8 |
+| `11__SR_Linklayer_v01_01.06.2026.pdf` | 2 | 207 | 207 | 8.0 |
+| `12__SR_LANS_v03_12.06.2026.pdf` | 2 | 547 | 547 | 8.5 |
+| `13__SR_Netze_v02_16.06.2026.pdf` | 2 | 280 | 280 | 8.0 |
+| `14__SR_Internet_v02_16.06.2026.pdf` | 2 | 375 | 375 | 8.2 |
+| **Total (25 decks)** | 82 | 14930 | 14875 | 9.4 |
 
 ## Slide roles and sections
 

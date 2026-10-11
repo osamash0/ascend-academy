@@ -1,6 +1,7 @@
 import pytest
 
 from backend.eval.deck_lab import (
+    SYNTH_MIN_CHARS,
     boilerplate_tokens_removed,
     corpus_totals,
     deck_span,
@@ -13,6 +14,8 @@ from backend.eval.deck_lab import (
     role_histogram,
     score_deck,
     section_coverage,
+    synthesis_tokens_saved,
+    text_routed,
 )
 from backend.services.parser.deck_plan import build_deck_skeleton
 from backend.tests.support.deck_lab_decks import LONG_DECK, SHORT_DECK
@@ -115,3 +118,33 @@ def test_corpus_totals_of_nothing_is_zero_not_a_crash():
     t = corpus_totals([])
     assert t.decks == 0
     assert t.mean_span_new == 0.0 and t.meta_share_new == 0.0 and t.tokens_saved_per_slide == 0.0
+
+
+def test_synth_min_chars_matches_the_orchestrator():
+    from backend.services.parser import unified_orchestrator as uo
+    assert SYNTH_MIN_CHARS == uo._MIN_TEXT_FOR_SYNTH
+
+
+def test_text_routed_skips_image_only_pages():
+    assert text_routed(["", "tiny", "  " + "x" * 24 + "  ", "y" * 25]) == [3]
+    assert text_routed(LONG_DECK) == list(range(18))
+
+
+def test_synthesis_tokens_saved_uses_the_production_fallback(long_sk):
+    # 15 content pages x 3 footer tokens; title (19 chars) and both agendas
+    # (24 chars) fall back to raw and save nothing.
+    assert synthesis_tokens_saved(LONG_DECK, long_sk) == (45, 18)
+    assert synthesis_tokens_saved(SHORT_DECK, build_deck_skeleton(SHORT_DECK)) == (9, 4)
+
+
+def test_score_deck_reports_realized_saving():
+    r = score_deck("00 DBS Syn.pdf", LONG_DECK)
+    assert (r.synth_tokens_saved, r.synth_slides) == (45, 18)
+    assert r.realized_saved_per_synth_slide == pytest.approx(2.5)
+
+
+def test_corpus_totals_pool_realized_saving():
+    t = corpus_totals([score_deck("a", LONG_DECK), score_deck("b", SHORT_DECK)])
+    assert (t.synth_tokens_saved, t.synth_slides) == (54, 22)
+    assert t.realized_saved_per_synth_slide == pytest.approx(54 / 22)
+    assert corpus_totals([]).realized_saved_per_synth_slide == 0.0

@@ -4,7 +4,8 @@ Measures what the deck skeleton (services/parser/deck_plan.py) changed in
 what the pipeline SHOWS the model, on the user's real PDFs:
   - quiz input: which slides the deck-quiz prompt reads (budget 10)
   - meta pass:  which slides the lecture-meta prompt reads (budget 15)
-  - boilerplate: template tokens the skeleton strips from every slide
+  - boilerplate: template tokens the skeleton strips, and how many of them
+                 per-slide synthesis no longer sends (realized saving)
   - structure:  role histogram and section count
 
 The "old" selectors are re-implemented here as named reference functions
@@ -41,12 +42,15 @@ from backend.services.parser.deck_plan import (
     build_deck_skeleton,
     select_meta_slides,
     select_slides,
+    synthesis_text,
 )
 from backend.services.parser.quiz_grounding import SUPPORT_THRESHOLD, assess_grounding
 
 QUIZ_BUDGET = 10
 META_BUDGET = 15
 QUIZ_MIN_CHARS = 50  # select_slides' default; also the eligibility rule
+SYNTH_MIN_CHARS = 25  # unified_orchestrator._MIN_TEXT_FOR_SYNTH (pinned by a unit test;
+                      # importing the orchestrator here would pull in supabase/redis)
 
 
 # ── selectors ────────────────────────────────────────────────────────────
@@ -113,6 +117,24 @@ def boilerplate_tokens_removed(pages: Sequence[str], skeleton: DeckSkeleton) -> 
     return raw - kept
 
 
+def text_routed(pages: Sequence[str]) -> list[int]:
+    """Pages per-slide TEXT synthesis handles; the rest go to vision."""
+    return [i for i, p in enumerate(pages) if len((p or "").strip()) >= SYNTH_MIN_CHARS]
+
+
+def synthesis_tokens_saved(pages: Sequence[str], skeleton: DeckSkeleton) -> tuple[int, int]:
+    """(whitespace tokens per-slide synthesis no longer sends, text-routed
+    slides), computed with the production rule deck_plan.synthesis_text:
+    stripped text, raw fallback when stripping leaves < SYNTH_MIN_CHARS."""
+    idxs = text_routed(pages)
+    saved = sum(
+        whitespace_tokens(pages[i])
+        - whitespace_tokens(synthesis_text(pages[i], skeleton, i, SYNTH_MIN_CHARS))
+        for i in idxs
+    )
+    return saved, len(idxs)
+
+
 def role_histogram(skeleton: DeckSkeleton) -> dict[str, int]:
     counts = Counter(s.role for s in skeleton.slides)
     return {role.value: counts.get(role, 0) for role in SlideRole}
@@ -134,6 +156,8 @@ class DeckReport:
     meta_old: tuple[int, ...]
     meta_new: tuple[int, ...]
     boilerplate_removed: int
+    synth_tokens_saved: int
+    synth_slides: int
     roles: tuple[tuple[str, int], ...]
 
     @property
@@ -164,6 +188,10 @@ class DeckReport:
     def tokens_saved_per_slide(self) -> float:
         return self.boilerplate_removed / self.pages if self.pages else 0.0
 
+    @property
+    def realized_saved_per_synth_slide(self) -> float:
+        return self.synth_tokens_saved / self.synth_slides if self.synth_slides else 0.0
+
 
 def score_deck(name: str, pages: Sequence[str]) -> DeckReport:
     pages = list(pages)
@@ -172,6 +200,7 @@ def score_deck(name: str, pages: Sequence[str]) -> DeckReport:
     quiz_new = new_quiz_selection(sk)
     covered_old, eligible = section_coverage(sk, quiz_old)
     covered_new, _ = section_coverage(sk, quiz_new)
+    synth_saved, synth_slides = synthesis_tokens_saved(pages, sk)
     return DeckReport(
         name=name,
         pages=len(pages),
@@ -185,6 +214,8 @@ def score_deck(name: str, pages: Sequence[str]) -> DeckReport:
         meta_old=tuple(legacy_meta_selection(pages)),
         meta_new=tuple(new_meta_selection(sk)),
         boilerplate_removed=boilerplate_tokens_removed(pages, sk),
+        synth_tokens_saved=synth_saved,
+        synth_slides=synth_slides,
         roles=tuple(role_histogram(sk).items()),
     )
 
@@ -205,6 +236,8 @@ class CorpusTotals:
     meta_reaches_end_new: int
     boilerplate_lines: int
     boilerplate_removed: int
+    synth_tokens_saved: int
+    synth_slides: int
     roles: tuple[tuple[str, int], ...]
 
     @property
@@ -218,6 +251,10 @@ class CorpusTotals:
     @property
     def tokens_saved_per_slide(self) -> float:
         return self.boilerplate_removed / self.pages if self.pages else 0.0
+
+    @property
+    def realized_saved_per_synth_slide(self) -> float:
+        return self.synth_tokens_saved / self.synth_slides if self.synth_slides else 0.0
 
 
 def corpus_totals(reports: Sequence[DeckReport]) -> CorpusTotals:
@@ -240,6 +277,8 @@ def corpus_totals(reports: Sequence[DeckReport]) -> CorpusTotals:
         meta_reaches_end_new=sum(1 for r in reports if r.pages and r.meta_last_new == r.pages),
         boilerplate_lines=sum(r.boilerplate_lines for r in reports),
         boilerplate_removed=sum(r.boilerplate_removed for r in reports),
+        synth_tokens_saved=sum(r.synth_tokens_saved for r in reports),
+        synth_slides=sum(r.synth_slides for r in reports),
         roles=tuple((role.value, roles.get(role.value, 0)) for role in SlideRole),
     )
 
@@ -424,18 +463,22 @@ def render_markdown(reports: Sequence[DeckReport], probe: ProbeResult, provenanc
         "## Boilerplate stripped per parse",
         "",
         "Tokens removed = whitespace tokens of the raw pages minus those of the stripped",
-        "skeleton texts (whitespace tokens, not model tokens). Per slide prompt = removed /",
-        "pages: the IMPLIED saving if every per-slide prompt sent stripped text. Today only",
-        "the meta and quiz prompts do; per-slide synthesis still sends `raw_slides[i]`",
-        "(unified_orchestrator.py), so this saving is implied, not yet realized (follow-up).",
+        "skeleton texts (whitespace tokens, not model tokens); the meta and quiz prompts",
+        "read the stripped texts. Per-slide synthesis (batch and per-slide prompts) now",
+        "sends the stripped text too, except where stripping would leave fewer than",
+        f"{SYNTH_MIN_CHARS} characters (the raw page is sent) and on image-only pages (vision).",
+        "Realized = tokens per-slide synthesis no longer sends, computed with the same rule",
+        "(`deck_plan.synthesis_text`); per synthesized slide = realized / text-routed slides.",
         "",
-        "| Deck | Template lines | Tokens removed | Implied tokens saved per slide prompt |",
-        "|---|---:|---:|---:|",
+        "| Deck | Template lines | Tokens removed | Realized tokens saved (synthesis) "
+        "| Realized per synthesized slide |",
+        "|---|---:|---:|---:|---:|",
     ]
     for r in reports:
         out.append(f"| {_label(r.name)} | {r.boilerplate_lines} | {r.boilerplate_removed} | "
-                   f"{r.tokens_saved_per_slide:.1f} |")
-    out.append(f"| {total} | {t.boilerplate_lines} | {t.boilerplate_removed} | {t.tokens_saved_per_slide:.1f} |")
+                   f"{r.synth_tokens_saved} | {r.realized_saved_per_synth_slide:.1f} |")
+    out.append(f"| {total} | {t.boilerplate_lines} | {t.boilerplate_removed} | "
+               f"{t.synth_tokens_saved} | {t.realized_saved_per_synth_slide:.1f} |")
 
     out += [
         "",

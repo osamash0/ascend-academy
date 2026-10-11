@@ -35,8 +35,9 @@ def test_cli_writes_scorecard_for_discovered_decks(deck_dir, tmp_path):
     assert "| `00 DBS Syn.pdf` | 83% | 83% | 15 | 18 |" in md
     assert "| **Total (2 decks)** | 86% | 86% | 1/2 decks to the end | 2/2 decks to the end |" in md
     # boilerplate
-    assert "| `00 DBS Syn.pdf` | 1 | 54 | 3.0 |" in md
-    assert "| **Total (2 decks)** | 2 | 66 | 3.0 |" in md
+    assert "| `00 DBS Syn.pdf` | 1 | 54 | 45 | 2.5 |" in md
+    assert "| **Total (2 decks)** | 2 | 66 | 54 | 2.5 |" in md
+    assert "implied" not in md.lower()
     # roles
     assert "| `00 DBS Syn.pdf` | 3 | 1 | 2 | 0 | 15 | 0 | 0 | 0 | 0 |" in md
     # probe decks are not in the synthetic dir
@@ -89,7 +90,7 @@ def test_probe_section_states_interpretation_and_advisory_consequence():
     assert "lower bound on paraphrase fidelity" in md
     assert "not that the verifier cannot be fooled" in md
     assert "ENFORCE_SUPPORT_THRESHOLD=False" in md and "flagged, not dropped" in md
-    assert "Implied tokens saved per slide prompt" in md
+    assert "Realized per synthesized slide" in md
 
 
 def _probe_md(pairs):
