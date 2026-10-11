@@ -18,9 +18,9 @@ import statistics
 
 import pytest
 
+from backend.eval.decks import real_deck_pages
 from backend.services.parser.deck_plan import build_deck_skeleton
 from backend.services.parser.quiz_grounding import SUPPORT_THRESHOLD, assess_grounding, support_score
-from backend.tests.unit.test_deck_plan_real_decks import real_deck_pages
 
 MARGIN = 0.1
 EN_OFF_TOPIC = ["Photosynthesis in chloroplasts", "Plate tectonics", "Baroque counterpoint"]

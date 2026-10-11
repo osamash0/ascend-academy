@@ -3,23 +3,10 @@
 These are skipped when the PDFs are absent (CI). They pin what the
 2026-09-17 review measured by hand: the DBS deck repeats template lines on
 all 66 pages, which used to leak into every per-slide prompt."""
-import os
-from pathlib import Path
-
 import pytest
 
+from backend.eval.decks import DECK_DIR, real_deck_pages
 from backend.services.parser.deck_plan import SlideRole, build_deck_skeleton
-
-DECK_DIR = Path(os.environ.get("DECK_LAB_DIR", Path.home() / "Downloads"))
-
-
-def real_deck_pages(name: str):
-    path = DECK_DIR / name
-    if not path.exists():
-        return None
-    import fitz
-    with fitz.open(path) as doc:
-        return [page.get_text("text") for page in doc]
 
 
 @pytest.fixture
