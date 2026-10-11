@@ -18,6 +18,10 @@ export interface World {
   viewer: Person;
   spaces: Space[];
   lessons: Lesson[];
+  /** The Lessons the viewer last touched, newest first (Home ranks these). */
+  activity: { lessonId: string; at: string }[];
+  /** Consecutive study days, as the streak engine counts them. */
+  streakDays: number;
 }
 
 let live: World | null = null;

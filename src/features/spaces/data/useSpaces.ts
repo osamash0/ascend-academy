@@ -8,7 +8,9 @@ import {
   discoverSpaces,
   joinedByViewer,
   spaceById,
+  liveWorld,
 } from './world';
+import { homeFromWorld } from './home';
 import {
   adjacentLessons,
   lessonsForSpace,
@@ -67,10 +69,20 @@ export function useScenario(): Scenario {
   return scenario;
 }
 
-/** Mimics a network round-trip so skeletons are actually exercised. */
+/**
+ * Mimics a network round-trip so skeletons are actually exercised.
+ *
+ * Live, the world was loaded once by LiveGate before this screen rendered, so
+ * there is no round trip to mimic: an unforced scenario is ready at once.
+ */
 function useSettled(scenario: Scenario, delay = 600): LoadState {
-  const [state, setState] = useState<LoadState>('loading');
+  const instant = liveWorld() !== null && scenario === 'ready';
+  const [state, setState] = useState<LoadState>(instant ? 'ready' : 'loading');
   useEffect(() => {
+    if (instant) {
+      setState('ready');
+      return;
+    }
     if (scenario === 'loading') {
       setState('loading');
       return;
@@ -82,7 +94,7 @@ function useSettled(scenario: Scenario, delay = 600): LoadState {
       );
     }, delay);
     return () => clearTimeout(id);
-  }, [scenario, delay]);
+  }, [scenario, delay, instant]);
   return state;
 }
 
@@ -272,6 +284,18 @@ export function useHome(): HomeResult {
    * states are switchable. They are as real as the happy path.
    */
   const forced = new URLSearchParams(window.location.search).get('mock');
+  const world = liveWorld();
+  if (world) {
+    const home = homeFromWorld(world);
+    return {
+      state,
+      kind: home.kind,
+      next: ready ? home.next : null,
+      feed: ready ? home.feed : [],
+      recent: ready ? home.recent : [],
+      streakDays: ready ? home.streakDays : 0,
+    };
+  }
   const kind =
     forced === 'onboard'
       ? 'onboard'

@@ -66,6 +66,29 @@ async def reader_explain(
     return await service.explain_page(lecture_id, page, user_id=uid, locale=await service.preferred_language(uid))
 
 
+class _Reading(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    page: int = Field(ge=1, le=2000)
+    #: Time spent on the page being left; under 2 s it is not counted as read.
+    seconds: float = Field(ge=0, le=6 * 3600)
+
+
+@router.post("/lectures/{lecture_id}/progress")
+@limiter.limit("240/minute")
+async def reader_progress(
+    request: Request,
+    lecture_id: UUID,
+    body: _Reading,
+    user: Any = Depends(verify_token),
+):
+    """The page the reader just left. Writes the rows the old reader writes —
+    progress, visits, streak, a slide_view event — so v4 reading counts."""
+    from backend.services.v4_reading_service import record_reading
+
+    uid = await _lecture_access(lecture_id, user)
+    return await record_reading(lecture_id, uid, body.page, body.seconds)
+
+
 class _Turn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     question: str = Field(min_length=1, max_length=400)

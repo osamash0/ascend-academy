@@ -22,6 +22,7 @@ import {
   useRelated,
 } from '../data/useReader';
 import { markTrail } from '../data/trail';
+import { useReadingProgress } from '../data/reading';
 import { GlassPill } from '../components/reader/glass/GlassPill';
 import { readPrefs, writePrefs, type ReaderPrefs } from '../data/readerPrefs';
 import { useIdle } from '../components/reader/useIdle';
@@ -156,6 +157,9 @@ export default function LessonFacesScreen() {
 
   const pdfRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
+
+  /* Count the reading: progress, visits and the streak, page by page. */
+  useReadingProgress(lessonId, pdfPage, !!spaceId && isLive(spaceId) && numPages > 0);
 
   /* Leave a mark where you are, so the course can offer to pick up here. */
   useEffect(() => {

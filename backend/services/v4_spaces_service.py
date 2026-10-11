@@ -85,6 +85,21 @@ WHERE cl.lecture_id = ANY($2::uuid[])
 ORDER BY cl.lecture_id, cl.weight DESC NULLS LAST, c.canonical_name
 """
 
+# The last time the viewer touched each visible lecture — progress saved or
+# lecture opened, whichever is later. Home's "continue" and "recent" read this.
+_ACTIVITY_SQL = """
+SELECT lecture_id, max(at) AS at FROM (
+  SELECT lecture_id, updated_at AS at FROM student_progress
+   WHERE user_id = $1::uuid AND lecture_id = ANY($2::uuid[]) AND updated_at IS NOT NULL
+  UNION ALL
+  SELECT lecture_id, visited_at FROM lecture_visits
+   WHERE user_id = $1::uuid AND lecture_id = ANY($2::uuid[])
+) t
+GROUP BY lecture_id
+ORDER BY at DESC
+LIMIT 20
+"""
+
 # A lesson shows its strongest ideas, not every tag the graph collected.
 _MAX_CONCEPTS = 12
 _CLEARED_AT = 0.8
@@ -146,10 +161,11 @@ async def get_world(user_id: str) -> Dict[str, Any]:
             list(author_ids),
         )
         viewer_row = await conn.fetchrow(
-            "SELECT user_id, display_name, full_name, email, avatar_url "
+            "SELECT user_id, display_name, full_name, email, avatar_url, current_streak "
             "FROM public.profiles WHERE user_id = $1::uuid",
             user_id,
         )
+        activity = await conn.fetch(_ACTIVITY_SQL, user_id, lecture_ids)
 
     people = {r["user_id"]: _person(r) for r in people_rows}
     unknown = {"id": "unknown", "name": "Former member", "avatarUrl": None}
@@ -242,4 +258,7 @@ async def get_world(user_id: str) -> Dict[str, Any]:
         "viewer": _person(viewer_row) if viewer_row else None,
         "spaces": spaces_out,
         "lessons": lessons_out,
+        # What Home ranks: the lessons the viewer last touched, newest first.
+        "activity": [{"lessonId": str(r["lecture_id"]), "at": r["at"].isoformat()} for r in activity],
+        "streakDays": (viewer_row["current_streak"] or 0) if viewer_row else 0,
     }

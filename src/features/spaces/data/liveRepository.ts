@@ -146,6 +146,12 @@ export function createLiveRepository(http: V4Transport) {
     /* The reader, on real courses and lectures (`/v4/reader`, FEATURE_V4_READER). */
     readerCourse: (id: string) => http.get<ReaderCourse>(`${root}/reader/courses/${idPath(id)}`),
     readerLecture: (id: string) => http.get<ReaderLecture>(`${root}/reader/lectures/${idPath(id)}`),
+    /** The page just left, and how long it was open. Writes progress, visits, streak. */
+    recordReading: (id: string, page: number, seconds: number) =>
+      http.post<{ pagesRead: number; percentComplete: number }>(`${root}/reader/lectures/${idPath(id)}/progress`, {
+        page,
+        seconds,
+      }),
     readerIdeas: (id: string) => http.get<{ concepts: ReaderConcept[] }>(`${root}/reader/lectures/${idPath(id)}/ideas`),
     explainPage: (id: string, page: number) =>
       http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/explain`, {}),
