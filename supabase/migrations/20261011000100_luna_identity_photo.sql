@@ -9,6 +9,11 @@
 -- recreated; grants are restated, including the explicit anon revoke that
 -- Supabase's default privileges make necessary (see 20261010010000).
 -- Old clients keep working: they simply ignore the extra column.
+--
+-- Versioned 20261011000100 (merged as ...000000): PR #77 adds
+-- 20261011000000_revoke_anon_security_definer_execute, and a shared version
+-- can get a migration silently skipped. This file is safe to re-run (drop +
+-- recreate with the same grants), so the copy applied to prod is unaffected.
 
 DROP FUNCTION IF EXISTS public.get_luna_loadouts(uuid[]);
 

@@ -40,7 +40,7 @@ interface PublicLoadoutRow {
   luna_loadout: unknown;
   luna_suit_color: string | null;
   luna_visor_tint: string | null;
-  /** Added in migration 20261011000000; absent from the older RPC. */
+  /** Added in migration 20261011000100; absent from the older RPC. */
   avatar_url?: string | null;
 }
 
