@@ -9,7 +9,7 @@ import type { Concept, Lesson, Space } from '../types';
 import { contributionsForLesson } from '../mocks/contributions';
 import { visibleContributions } from '../mocks/engagement';
 import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { StageRow as Row } from '../components/stage';
@@ -50,6 +50,7 @@ const CONCEPT_STATE: Record<Concept['progress'], { label: string; cls: string }>
 };
 
 export default function LessonScreen() {
+  const viewer = useViewer();
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
   const navigate = useNavigate();
   /*

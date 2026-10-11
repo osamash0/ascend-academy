@@ -1,6 +1,6 @@
 import { ArrowLeft, Award } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { moments } from '../mocks/moments';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
@@ -51,6 +51,7 @@ const formatWhen = (iso: string) =>
   });
 
 export default function MomentsScreen() {
+  const viewer = useViewer();
   const screenState = useScreenState();
   const all = moments();
 

@@ -3,7 +3,7 @@ import { useReducer } from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { isStarred, starCount, toggleStar } from '../mocks/engagement';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import type { Grounding, Origin, Person, Space, SpaceMode, Visibility } from '../types';
 import { Avatar } from './Avatar';
 
@@ -235,6 +235,7 @@ export function AuthorLine({
   linkToProfile?: boolean;
   className?: string;
 }) {
+  const viewer = useViewer();
   const body = (
     <>
       {/* One avatar component everywhere — see Avatar.tsx. */}

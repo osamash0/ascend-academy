@@ -11,7 +11,7 @@ import { LessonTile } from '../components/LessonTile';
 import type { HomeItem } from '../mocks/library';
 import { askAcknowledgement, askModel, askSuggestions } from '../mocks/assistant';
 import { useHome } from '../data/useSpaces';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Masthead, Sep, Skylight, StageRow, UpNext, ghostPill, stageAccentFor } from '../components/stage';
 import { Scene, SURFACES } from '../components/Scene';
@@ -93,6 +93,7 @@ const greeting = () => {
 };
 
 export default function HomeScreen() {
+  const viewer = useViewer();
   const navigate = useNavigate();
   const { state, kind, next, feed, recent, streakDays } = useHome();
   const [newOpen, setNewOpen] = useState(false);

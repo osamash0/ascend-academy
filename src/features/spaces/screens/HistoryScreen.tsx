@@ -1,7 +1,7 @@
 import { ArrowLeft, Flame } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import {
   currentRun,
   daysStudied,
@@ -67,6 +67,7 @@ const formatShort = (iso: string) =>
   });
 
 export default function HistoryScreen() {
+  const viewer = useViewer();
   const screenState = useScreenState();
   const run = currentRun();
   const best = longestRun();

@@ -7,7 +7,7 @@ import { Pressable } from '../components/Pressable';
 import { topicIcon } from '@/lib/topicIcon';
 import type { Membership, Role, Space } from '../types';
 import { useSpace } from '../data/useSpaces';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { contributionsForLesson, contributionsForSpace } from '../mocks/contributions';
 import { visibleContributions } from '../mocks/engagement';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -76,6 +76,7 @@ export default function SpaceScreen({
   /** Driven by the URL segment — see SpaceRoute. */
   tab?: SpaceTab;
 }) {
+  const viewer = useViewer();
   const navigate = useNavigate();
   /** Tabs are routes, so switching one is navigation, not local state. */
   const setTab = (t: SpaceTab) =>

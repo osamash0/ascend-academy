@@ -268,6 +268,10 @@ if settings.feature_v4_reader:
     from backend.api.v1.v4_reader import router as v4_reader_router
     v1_router.include_router(v4_reader_router)
 
+if settings.feature_v4:
+    from backend.api.v1.v4_spaces import router as v4_spaces_router
+    v1_router.include_router(v4_spaces_router)
+
 # Ask Luna (hint-first tutor with curated widgets) — off by default; FEATURE_ASK_LUNA=1 to enable.
 if settings.feature_ask_luna:
     v1_router.include_router(ask_luna_router)

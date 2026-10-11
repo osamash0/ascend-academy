@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Download, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { viewerStanding } from '../mocks/library';
 import { StudioShell } from '../components/StudioShell';
 import { ListSkeleton, SpacesError } from '../components/states';
@@ -120,6 +120,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function SettingsScreen() {
+  const viewer = useViewer();
   const screenState = useScreenState();
   const standing = viewerStanding();
   const [notifyMentions, setNotifyMentions] = useState(true);

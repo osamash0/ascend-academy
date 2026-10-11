@@ -6,7 +6,7 @@ import { Pressable } from '../components/Pressable';
 import { ControllerHints } from '@/components/console';
 import type { Space } from '../types';
 import { useSpaces } from '../data/useSpaces';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { SpaceTile } from '../components/SpaceTile';
 import { Scene, SURFACES } from '../components/Scene';
@@ -72,6 +72,7 @@ interface Group {
 }
 
 export default function SpacesScreen() {
+  const viewer = useViewer();
   const navigate = useNavigate();
   const { state, mine, discover } = useSpaces();
   const [tab, setTab] = useState<Tab>('mine');

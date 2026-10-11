@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { people, viewer } from '../mocks/people';
+import { people } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { spaceById } from '../mocks/spaces';
 import {
   linalgContributions,
@@ -40,6 +41,7 @@ import { Masthead, Sep, Skylight, StageRow, backLink, ghostPillSm, stageCard, st
  */
 
 export default function PersonScreen() {
+  const viewer = useViewer();
   const screenState = useScreenState();
   const { personId } = useParams<{ personId: string }>();
   const person = people.find((p) => p.id === personId);

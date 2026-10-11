@@ -9,7 +9,7 @@ import { spaceById } from '../mocks/spaces';
 import { visibleLessonsForSpace } from '../mocks/lessons';
 import { visibleContributions } from '../mocks/engagement';
 import { conceptById, contributionsForConcept } from '../mocks/concepts';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { useScreenState } from '../data/useSpaces';
@@ -53,6 +53,7 @@ const STATE: Record<ConceptProgress, { label: string; blurb: string; cls: string
 };
 
 export default function ConceptScreen() {
+  const viewer = useViewer();
   const screenState = useScreenState();
   const { spaceId, conceptId } = useParams<{ spaceId: string; conceptId: string }>();
   const space = spaceId ? spaceById(spaceId) : undefined;

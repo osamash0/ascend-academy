@@ -13,7 +13,7 @@ import {
   currentRequests,
   declineRequest,
 } from '../mocks/social';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { useScreenState } from '../data/useSpaces';
@@ -40,6 +40,7 @@ import { Masthead, Sep, Skylight, ghostPillSm, stageCard, whitePillSm } from '..
 type Tab = 'ranking' | 'friends' | 'requests';
 
 export default function SocialScreen() {
+  const viewer = useViewer();
   const screenState = useScreenState();
   /*
    * Accepting or declining mutates a store outside React, so a tick re-reads

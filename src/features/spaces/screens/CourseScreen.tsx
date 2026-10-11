@@ -10,7 +10,7 @@ import { useCourse, useFind, useRehearsalHistory } from '../data/useReader';
 import { latestInCourse, readTrail } from '../data/trail';
 import { ideaAt, lightIdeas, type Light } from '../components/course/light';
 import { planToday, type TodayStep } from '../components/course/today';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 
 /**
  * A real course, as one journey.
@@ -35,6 +35,7 @@ import { viewer } from '../mocks/people';
 const SUGGESTIONS = ['functional dependency', 'two phase locking', 'B+ tree', 'join'];
 
 export default function CourseScreen({ courseId }: { courseId: string }) {
+  const viewer = useViewer();
   const { state, course } = useCourse(courseId);
   const [query, setQuery] = useState('');
   const found = useFind(courseId, query);

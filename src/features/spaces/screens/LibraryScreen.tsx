@@ -16,7 +16,7 @@ import {
 } from '../studio/shelf';
 import { inDialog, isTyping } from '../studio/keys';
 import { FLIGHT_EASE } from '../studio/motion';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Masthead, Skylight, ghostPillSm } from '../components/stage';
 import { Scene, SURFACES } from '../components/Scene';
@@ -64,6 +64,7 @@ const asFilter = (v: string | null): ShelfFilter =>
 const LIBRARY_ACCENT = null;
 
 export default function LibraryScreen() {
+  const viewer = useViewer();
   const { state, items, continueItem, words } = useShelf();
   /* Read beside the shelf, so both settle together rather than one after the other. */
   const { items: contributions } = useLibrary('contribution');

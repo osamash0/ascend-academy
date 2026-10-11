@@ -1,7 +1,7 @@
 import { ArrowLeft, BookOpen, Check, Heart, Sparkles, Star, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { viewerStanding } from '../mocks/library';
 import {
   standingFor,
@@ -83,6 +83,7 @@ const formatWhen = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
 export default function RankScreen() {
+  const viewer = useViewer();
   const screenState = useScreenState();
   const { xp } = viewerStanding();
   const { rank, into, span, toNext, pct } = standingFor(xp);

@@ -3,6 +3,7 @@
  * The repository never substitutes fixtures for errors or missing live rows.
  */
 import type { ExplainAnswer } from '../components/reader/iui/spec';
+import type { Person } from '../types';
 
 /** A course, read as the reader's Space: its lectures in order. */
 export interface ReaderCourse {
@@ -137,6 +138,8 @@ const idPath = (id: string) => encodeURIComponent(id);
 
 export function createLiveRepository(http: V4Transport) {
   return {
+    /* The signed-in person (`/v4/me`, FEATURE_V4). */
+    me: () => http.get<Person>(`${root}/me`),
     /* The reader, on real courses and lectures (`/v4/reader`, FEATURE_V4_READER). */
     readerCourse: (id: string) => http.get<ReaderCourse>(`${root}/reader/courses/${idPath(id)}`),
     readerLecture: (id: string) => http.get<ReaderLecture>(`${root}/reader/lectures/${idPath(id)}`),

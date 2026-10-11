@@ -14,7 +14,6 @@ import { cn } from '@/lib/utils';
 import type { Role, SpaceMode } from '../types';
 import { canDelete, spaceById } from '../mocks/spaces';
 import { membersForSpace, orphansForSpace } from '../mocks/contributions';
-import { viewer } from '../mocks/people';
 import { StudioAction, StudioPill, StudioShell } from '../components/StudioShell';
 import { ListSkeleton, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';

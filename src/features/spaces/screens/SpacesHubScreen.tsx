@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import {
   actionFor,
   hubInitialSelection,
@@ -66,6 +66,7 @@ import { ListSkeleton, SpacesError } from '../components/states';
  */
 
 export default function SpacesHubScreen() {
+  const viewer = useViewer();
   const screenState = useScreenState();
   const [selected, setSelected] = useState(() => hubInitialSelection());
 

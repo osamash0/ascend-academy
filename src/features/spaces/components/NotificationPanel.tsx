@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar } from './Avatar';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { AppNotification, NotificationKind } from '../mocks/notifications';
 import { groupedByDay, markAllRead, unreadCount } from '../mocks/notifications';
@@ -71,6 +71,7 @@ function Row({
   n: AppNotification;
   onOpen: (n: AppNotification) => void;
 }) {
+  const viewer = useViewer();
   const Icon = KIND_ICON[n.type];
 
   return (

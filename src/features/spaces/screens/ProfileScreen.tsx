@@ -5,7 +5,7 @@ import { libraryItems, viewerStanding } from '../mocks/library';
 import { moments } from '../mocks/moments';
 import { standingFor } from '../mocks/rank';
 import { currentRun } from '../mocks/history';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { visibleSpaces } from '../mocks/spaces';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Avatar, RankRing } from '../components/Avatar';
@@ -33,6 +33,7 @@ import { Sep, Skylight, StageRow, ghostPillSm, stageCard } from '../components/s
 
 
 export default function ProfileScreen() {
+  const viewer = useViewer();
   const screenState = useScreenState();
   /*
    * From the one standing, not from two literals sitting here.

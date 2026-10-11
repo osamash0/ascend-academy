@@ -15,7 +15,7 @@ import type { ContributionType, Space, SpaceMode, Visibility } from '../types';
 import { createSpace, joinCodeFor, spaceByJoinCode } from '../mocks/spaces';
 import { addLesson, publishedLessonsForSpace } from '../mocks/lessons';
 import { addContribution } from '../mocks/contributions';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { AuthorLine, ClassificationChips, LessonCount } from './badges';
 
 /**
@@ -321,6 +321,7 @@ export function AddLessonDialog({
   onOpenChange: (v: boolean) => void;
   onAdded?: () => void;
 }) {
+  const viewer = useViewer();
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
 
@@ -417,6 +418,7 @@ export function ContributeDialog({
   onOpenChange: (v: boolean) => void;
   onAdded?: () => void;
 }) {
+  const viewer = useViewer();
   const [title, setTitle] = useState('');
   const [excerpt, setExcerpt] = useState('');
   const [type, setType] = useState<ContributionType>('text');
