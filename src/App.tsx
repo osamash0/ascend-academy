@@ -152,6 +152,18 @@ const queryClient = new QueryClient({
   },
 });
 
+/*
+ * Where v4 exists.
+ *
+ * Dev: always, on fixtures by default and public, so the design can be
+ * reviewed without a session. Production: only when VITE_FEATURE_V4 is set
+ * AND the data mode is live — a production build must never serve the
+ * fixture world to real users — and then always behind sign-in.
+ */
+const V4_LIVE = import.meta.env.VITE_V4_DATA_MODE === 'live';
+const V4_ENABLED =
+  import.meta.env.DEV || (['1', 'true'].includes(import.meta.env.VITE_FEATURE_V4 ?? '') && V4_LIVE);
+
 export function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
   const { user, role, loading } = useAuth();
 
@@ -285,9 +297,10 @@ function AppRoutes() {
         {import.meta.env.DEV && <Route path="/pixi-lab" element={<PixiLab />} />}
         {import.meta.env.DEV && <Route path="/avatar-lab" element={<AvatarLab />} />}
         {import.meta.env.DEV && <Route path="/ask-luna-lab" element={<AskLunaLab />} />}
-        {/* v4 Spaces screen — mock data, dev-only. Public (no auth) so the
-            design can be reviewed without a session. Append
-            ?mock=empty|loading|error to inspect the other states. */}
+        {/* v4. In dev on fixtures it is public, so the design can be reviewed
+            without a session (append ?mock=empty|loading|error for the other
+            states). Live — and therefore in production — it is signed-in only.
+            See V4_ENABLED above. */}
         {/*
           One layout route for the whole v4 namespace, carrying the single
           MotionConfig. `Scene` and `StudioShell` each mounted their own, which
@@ -297,8 +310,8 @@ function AppRoutes() {
           routes, and one of them forgetting it would have shipped a design
           study into production with nothing failing.
         */}
-        {import.meta.env.DEV && (
-          <Route element={<MotionRoot />}>
+        {V4_ENABLED && (
+          <Route element={V4_LIVE ? <ProtectedRoute><MotionRoot /></ProtectedRoute> : <MotionRoot />}>
             {/* The hub. Replaces the Mine/Discover tabs, which the handoff
                 deletes — membership is a badge, never a section split. */}
             <Route path="/v4/spaces" element={<V4SpacesHub />} />

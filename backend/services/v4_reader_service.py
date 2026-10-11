@@ -807,7 +807,17 @@ async def course_map(course_id: UUID) -> dict[str, Any]:
         return {
             **lec,
             "poster": poster,
-            "ideas": [{"name": i["name"], "first_page": min(i["slide_indices"]) + 1} for i in ideas]
+            # A concept linked to the lecture as a whole has no page to jump to,
+            # so it has no place on the map. One of those used to take the
+            # whole Space down: min() of an empty list.
+            "ideas": sorted(
+                (
+                    {"name": i["name"], "first_page": min(i["slide_indices"]) + 1}
+                    for i in ideas
+                    if i.get("slide_indices")
+                ),
+                key=lambda i: i["first_page"],
+            )
             if isinstance(ideas, list)
             else None,
         }

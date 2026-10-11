@@ -213,7 +213,10 @@ async def _lecture_context(lecture: dict[str, Any], locale: str) -> tuple[str, i
         return "", 0
     ideas = await get_cache(f"v4reader:{IDEAS_VERSION}:{lecture['id']}:{lecture['content_revision']}")
     idea_line = (
-        "Ideas: " + "; ".join(f"{i['name']} (from p{min(i['slide_indices']) + 1})" for i in ideas)
+        "Ideas: "
+        + "; ".join(
+            f"{i['name']} (from p{min(i['slide_indices']) + 1})" for i in ideas if i.get("slide_indices")
+        )
         if isinstance(ideas, list)
         else ""
     )
