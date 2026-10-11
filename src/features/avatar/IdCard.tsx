@@ -76,18 +76,6 @@ function useTilt() {
   return { ref, reduce, rotateX, rotateY, sheen, onMove, onLeave };
 }
 
-function Field({ n, label, value, className }: { n: string; label: string; value: React.ReactNode; className?: string }) {
-  return (
-    <div className={cn('min-w-0 leading-tight', className)}>
-      <p className="truncate text-[7px] font-semibold uppercase tracking-wider opacity-60">
-        <span className="mr-1 tabular-nums">{n}.</span>
-        {label}
-      </p>
-      <p className="truncate text-[11px] font-bold">{value}</p>
-    </div>
-  );
-}
-
 export function IdCard({ data, className }: { data: IdCardData; className?: string }) {
   const { t, i18n } = useTranslation('avatar');
   const { ref, reduce, rotateX, rotateY, sheen, onMove, onLeave } = useTilt();
@@ -200,36 +188,59 @@ export function IdCard({ data, className }: { data: IdCardData; className?: stri
                 return <circle key={i} cx={x} cy={y} r={i % 5 === 0 ? 1 : 0.5} fill="#fff" opacity={i % 3 === 0 ? 0.6 : 0.3} />;
               })}
             </svg>
-            <div className="relative flex items-center justify-between px-4 pt-3">
-              <div className="leading-none">
-                <p className="text-[8px] font-bold uppercase tracking-[0.25em] text-white/50">Learnstation · {t('card.academy')}</p>
-                <p className="text-[13px] font-black uppercase tracking-wide">{t('card.crew')}</p>
+
+            <div className="relative flex h-full flex-col p-[6%]">
+              {/* masthead, same rhythm as the licence */}
+              <div className="flex items-baseline justify-between">
+                <p className="text-[13px] font-black tracking-tight">Learnstation</p>
+                <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-white/50">{t('card.crew')}</p>
               </div>
-              <span className="font-mono text-[9px] tracking-wider text-white/60">{no}</span>
+
+              <div className="mt-[5%] flex min-h-0 flex-1 gap-[5%]">
+                <div className="aspect-square h-full shrink-0 overflow-hidden rounded-[14px] ring-1 ring-white/15">
+                  <LunaAvatar loadout={{ ...data.loadout, aura: 'aura-none', companion: 'companion-none' }} variant="head" size={140} animated={false} className="h-full w-full" />
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <p className="shrink-0 truncate text-[20px] font-black leading-[1.1] tracking-tight">{data.name}</p>
+                  <p className="mt-1 inline-flex min-w-0 shrink-0 items-center gap-1 text-[11px] font-medium leading-tight text-white/60">
+                    <span className="truncate">{where}</span>
+                    {data.verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-label={t('card.verified')} />}
+                  </p>
+                  <div className="mt-auto grid shrink-0 grid-cols-2 gap-x-4">
+                    <div>
+                      <p className="text-[8px] font-semibold uppercase tracking-[0.16em] text-white/45">{t('card.rank')}</p>
+                      <p className="text-[15px] font-black leading-tight">{data.rank}</p>
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-semibold uppercase tracking-[0.16em] text-white/45">{t('card.level')}</p>
+                      <p className="text-[15px] font-black leading-tight tabular-nums">{data.level}</p>
+                    </div>
+                  </div>
+                  {data.badges.length > 0 && (
+                    <div className="mt-1.5 flex min-w-0 shrink-0 gap-1 overflow-hidden">
+                      {data.badges.slice(0, 2).map((b) => (
+                        <span key={b} className="truncate rounded-full border border-white/15 px-2 py-0.5 text-[9px] font-semibold text-white/75">
+                          {b}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-[4%] flex items-end justify-between border-t border-white/10 pt-2">
+                <div>
+                  <p className="text-[8px] font-semibold uppercase tracking-[0.16em] text-white/45">{t('card.number')}</p>
+                  <p className="font-mono text-[11px] font-semibold tracking-[0.12em]">{no}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[8px] font-semibold uppercase tracking-[0.16em] text-white/45">{t('card.since')}</p>
+                  <p className="text-[11px] font-semibold tabular-nums">{fmt(data.memberSince)}</p>
+                </div>
+              </div>
             </div>
-            <div className="relative mt-3 flex gap-4 px-4">
-              <div className="w-[34%] shrink-0 overflow-hidden rounded-xl ring-1 ring-white/15">
-                <LunaAvatar loadout={{ ...data.loadout, aura: 'aura-none', companion: 'companion-none' }} variant="head" size={140} animated={false} className="h-auto w-full" />
-              </div>
-              <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-2 text-white">
-                <Field n="1" label={t('card.name')} value={data.name} className="col-span-2" />
-                <Field n="2" label={t('card.rank')} value={data.rank} />
-                <Field n="3" label={t('card.level')} value={data.level} />
-                <Field
-                  n="4"
-                  label={t('card.station')}
-                  value={
-                    <span className="inline-flex items-center gap-1">
-                      {where}
-                      {data.verified && <BadgeCheck className="h-3 w-3 text-emerald-400" aria-label={t('card.verified')} />}
-                    </span>
-                  }
-                  className="col-span-2"
-                />
-                <Field n="5" label={t('card.since')} value={fmt(data.memberSince)} className="col-span-2" />
-              </div>
-            </div>
-            <p className="absolute bottom-2.5 left-4 right-4 truncate text-[9px] text-white/45">{data.badges.slice(0, 3).join(' · ')}</p>
+
+            {/* a soft starlight sheen that follows the tilt */}
             <motion.div
               aria-hidden
               className="pointer-events-none absolute inset-0 mix-blend-screen"
