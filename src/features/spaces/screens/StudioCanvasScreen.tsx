@@ -594,7 +594,7 @@ export default function StudioCanvasScreen() {
           >
             <ChevronLeft aria-hidden className="h-5 w-5" />
           </Link>
-          <div className="order-3 w-full min-w-0 text-center lg:pointer-events-none lg:absolute lg:inset-x-[18rem] lg:top-1/2 lg:order-2 lg:w-auto lg:-translate-y-1/2">
+          <div className="order-3 w-full min-w-0 text-center xl:pointer-events-none xl:absolute xl:inset-x-[27rem] xl:top-1/2 xl:order-2 xl:w-auto xl:-translate-y-1/2">
             <div className="flex min-w-0 items-baseline justify-center gap-2">
               <nav aria-label="Breadcrumb" className="flex shrink-0 items-baseline gap-2">
                 <Link
@@ -611,7 +611,7 @@ export default function StudioCanvasScreen() {
             </div>
             {item.sample && <p className="mt-1 truncate text-[12.5px] text-faint">Sample pages in this preview</p>}
           </div>
-          <div className="order-2 ml-auto flex items-center gap-2 lg:order-3">
+          <div className="order-2 ml-auto flex items-center gap-2 xl:order-3">
             <button
               ref={recall.toggleRef}
               type="button"
