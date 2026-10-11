@@ -11,6 +11,7 @@ Observed 2026-10-11, 19 pairs (8 DBS English, 11 SR German):
 SUPPORT_THRESHOLD = 0.5 sits at the midpoint; both margins are >= 0.16.
 Ablation on the same pairs: no suffix stripping -> grounded min 0.427;
 no inverse-slide-frequency weighting -> ungrounded max 0.500.
+The pairs live in backend/eval/data/grounding_calibration.py (moved verbatim in Arc 8).
 """
 from __future__ import annotations
 
@@ -18,6 +19,7 @@ import statistics
 
 import pytest
 
+from backend.eval.data.grounding_calibration import DBS_PAIRS, SR_PAIRS
 from backend.eval.decks import real_deck_pages
 from backend.services.parser.deck_plan import build_deck_skeleton
 from backend.services.parser.quiz_grounding import SUPPORT_THRESHOLD, assess_grounding, support_score
@@ -25,48 +27,6 @@ from backend.services.parser.quiz_grounding import SUPPORT_THRESHOLD, assess_gro
 MARGIN = 0.1
 EN_OFF_TOPIC = ["Photosynthesis in chloroplasts", "Plate tectonics", "Baroque counterpoint"]
 DE_OFF_TOPIC = ["Photosynthese in Chloroplasten", "Plattentektonik", "Barocker Kontrapunkt"]
-
-# (1-based slide, stem, grounded key, ungrounded key)
-DBS_PAIRS = [
-    (19, "Which problem arises when each advisor keeps their own client data?",
-     "Redundancy through double client entries", "Waste of physical storage through multiply saved data"),
-    (24, "How many records did AT&T store in 2015?", "1.9 trillion records", "3.4 trillion records"),
-    (26, "Why is searching a 10 Gbyte CSV file slow?",
-     "On average 10/2 Gbyte will be read", "The DBMS distributes the file over a server cluster"),
-    (30, "What happens to data when every software manages its own formats?",
-     "Data are saved redundantly", "Users must know the internal representation of the data"),
-    (31, "What do applications lack without data independence?",
-     "They must know the internal representation and storage media", "Data are saved redundantly in many formats"),
-    (16, "Which task does a DBMS take over for multi-user operation?",
-     "Transaction management and access control", "Redundancy through double client entries"),
-    (35, "Which systems surround database systems in IT infrastructures?",
-     "Batch and data stream systems", "Text processing and accounting software"),
-    (11, "What does a database management system manage?",
-     "Access to one or more databases", "Batch and data stream systems"),
-]
-SR_PAIRS = [
-    (3, "Was ermöglicht ein Prozess auf einem Ein-Prozessor-System?",
-     "Quasi-parallele Ausführung", "Zeitscheiben im Millisekundenbereich"),
-    (4, "Was besitzen Threads im Gegensatz zu Prozessen nicht?",
-     "Eine eigene Ressourcenumgebung wie einen Speicherbereich", "Einen eigenen Befehlszähler und Stack im Kernteil"),
-    (7, "Wodurch wird der Ablauf beim Multitasking gesteuert?",
-     "Durch Zeitscheiben", "Durch die Prozesstabelle im Hauptspeicher"),
-    (14, "Wie nennt man die Zeit, nach der das Betriebssystem neu zuteilt?", "Zeitscheibe", "Prozesskontrollblock"),
-    (17, "Was ist eine Prozesstabelle?",
-     "Eine Liste von Prozesskontrollblöcken", "Eine exakte Kopie des Elternprozesses"),
-    (18, "Was erzeugt der Systemaufruf fork()?",
-     "Eine exakte Kopie des ausführenden Prozesses als Kindprozess", "Eine Liste von Prozesskontrollblöcken"),
-    (24, "In welchem Zustand wartet ein Prozess auf ein Ereignis?",
-     "Blockiert", "In der Prozesstabelle im Hauptspeicher"),
-    (16, "Was besitzt jeder Prozess, das vor dem Zugriff anderer Prozesse geschützt ist?",
-     "Einen eigenen Adressraum", "Eine eigene Zeitscheibe"),
-    (26, "Wo werden Prozesse verwaltet, die auf ein Ereignis warten?",
-     "In ereignisspezifischen Warteschlangen", "In der Prozesstabelle im Hauptspeicher"),
-    (27, "Welcher Programmfehler kann zur Deaktivierung eines Prozesses führen?",
-     "Divide by Zero", "Ein Deadlock zwischen zwei Semaphoren"),
-    (28, "Was gehört zur Buchführung über Prozesse?",
-     "Verwaltung der Prozesstabelle", "Präemptives Multitasking mit Zeitscheiben"),
-]
 
 
 def _q(stem, key, distractors, slide):
