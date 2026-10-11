@@ -7,9 +7,16 @@
 --                      text; that already lives in public.slides).
 --   slide_provenance — one entry per slide: synthesis route (batch /
 --                      per_slide / vision / heuristic), prompt name+version,
---                      requested model, synthesis_failed, needs_review.
---                      Serving provider and cost are NOT attributable per
---                      slide yet (llm_calls has no run_id); not stored.
+--                      input_text (stripped / raw), requested model,
+--                      synthesis_failed, needs_review, and served_by: the
+--                      provider/model/tokens/cost of each metered LLM call
+--                      that carried the slide (a batch call is shared by its
+--                      slides; cost_usd is the slide's even share). Vision
+--                      calls are not metered (ai/vision.py reports no usage).
+--   llm_usage        — run totals over the metered calls made before the
+--                      receipt was written (calls, tokens, cost, by prompt,
+--                      by provider). Later calls of the run (localization)
+--                      are in public.llm_calls by run_id.
 --   quiz_grounding   — synthesis.ground_deck_quiz's summary
 --                      (proposed/kept/repaired/dropped/drop_reasons/flagged/
 --                      flag_reasons).
@@ -37,6 +44,7 @@ CREATE TABLE IF NOT EXISTS public.parse_receipts (
     deck_skeleton    JSONB,
     slide_provenance JSONB       NOT NULL DEFAULT '[]'::jsonb,
     quiz_grounding   JSONB,
+    llm_usage        JSONB,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

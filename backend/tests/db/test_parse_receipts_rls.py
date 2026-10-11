@@ -275,3 +275,21 @@ def test_deleting_parse_run_cascades_its_receipt(db_conn, make_user, make_lectur
         cur.execute("DELETE FROM public.parse_runs WHERE run_id = %s", (str(run_id),))
         cur.execute("SELECT count(*) FROM public.parse_receipts WHERE run_id = %s", (str(run_id),))
         assert cur.fetchone()[0] == 0
+
+
+def test_llm_usage_is_nullable_jsonb(db_conn, make_user, make_lecture):
+    lecture = make_lecture(make_user(role="professor"))
+    with db_conn.cursor() as cur:
+        run_id = _make_run(cur, lecture)
+        cur.execute(
+            "INSERT INTO public.parse_receipts (run_id, lecture_id, llm_usage) "
+            "VALUES (%s, %s, %s::jsonb) RETURNING llm_usage",
+            (str(run_id), str(lecture), json.dumps({"calls": 2, "cost_usd": 0.0009})),
+        )
+        assert cur.fetchone()[0] == {"calls": 2, "cost_usd": 0.0009}
+        run2 = _make_run(cur, lecture)
+        cur.execute(
+            "INSERT INTO public.parse_receipts (run_id, lecture_id) VALUES (%s, %s) RETURNING llm_usage",
+            (str(run2), str(lecture)),
+        )
+        assert cur.fetchone()[0] is None
