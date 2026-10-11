@@ -261,5 +261,37 @@ describe('asking on the canvas', () => {
     expect(names).toContain('Can I split the left-hand side too?');
     expect(names).not.toContain('Why does repeated data cause problems?');
   });
+
+  describe('suggestions follow what was really answered', () => {
+    const FD = 'What is a functional dependency?';
+    const chips = () => screen.getAllByRole('button').map((b) => b.textContent);
+
+    it('a free-typed question hides its canonical chip', async () => {
+      await mount();
+      expect(chips()).toContain(FD);
+      await ask('explain fds to me');
+      expect(chips()).not.toContain(FD);
+    });
+
+    it('a question it cannot answer records nothing', async () => {
+      await mount();
+      const before = chips().filter((c) => c === FD || c === 'Why does repeated data cause problems?');
+      await ask('Tell me a joke');
+      expect(chips().filter((c) => c === FD || c === 'Why does repeated data cause problems?')).toEqual(before);
+    });
+
+    it('Remove brings the chip back, Undo hides it again', async () => {
+      await mount();
+      await ask(FD);
+      await act(async () => { vi.advanceTimersByTime(3000); });
+      expect(chips()).not.toContain(FD);
+      fireEvent.click(screen.getByRole('button', { name: 'Remove this answer' }));
+      await act(async () => { vi.advanceTimersByTime(500); });
+      expect(chips()).toContain(FD);
+      fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+      await act(async () => { vi.advanceTimersByTime(50); });
+      expect(chips()).not.toContain(FD);
+    });
+  });
 });
 

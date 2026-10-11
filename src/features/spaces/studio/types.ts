@@ -99,6 +99,8 @@ export interface GeneratedBlock {
   markdown: string;
   citations: Citation[];
   askedAs: string;
+  /** The canonical scripted question this answered, so suggestions know it was asked however it was typed. */
+  question?: string;
   /** Typed parts the answer is composed of; `markdown` stays the plain-text version for screen readers and Morph. */
   blocks?: AnswerBlock[];
   /** A quiet label for the shape of the answer ("A table to try"). */

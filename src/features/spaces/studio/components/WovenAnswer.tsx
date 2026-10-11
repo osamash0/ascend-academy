@@ -142,24 +142,24 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek, fly
 
         {shaped ? (
           <>
-            <p className="sr-only">{block.markdown}</p>
             {shaped.map((b, i) => (
               <motion.div
                 key={i}
                 data-block-delay={animate ? blockDelay(i) : undefined}
                 initial={animate ? { opacity: 0, y: 6, filter: 'blur(4px)' } : false}
-                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'none' }}
                 transition={{ duration: BLOCK_S, delay: blockDelay(i) }}
                 className={i > 0 ? 'mt-3' : undefined}
               >
                 {i === firstText && !settled ? (
-                  <p className="studio-prose studio-woven-text" aria-hidden="true">
-                    <span data-woven-words>
+                  <p className="studio-prose studio-woven-text">
+                    <span className="sr-only">{words.join(' ')}</span>
+                    <span data-woven-words aria-hidden="true">
                       {words.map((w, wi) => (
                         <motion.span
                           key={wi}
                           initial={{ opacity: 0, filter: 'blur(6px)' }}
-                          animate={{ opacity: 1, filter: 'blur(0px)' }}
+                          animate={{ opacity: 1, filter: 'none' }}
                           transition={{ duration: WORD_S, delay: GROW_S * 0.2 + delays[wi] }}
                         >
                           {w}{' '}
@@ -167,10 +167,6 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek, fly
                       ))}
                     </span>
                   </p>
-                ) : i === firstText ? (
-                  <div aria-hidden="true">
-                    <AnswerBlockView block={b} />
-                  </div>
                 ) : (
                   <AnswerBlockView block={b} />
                 )}
@@ -179,27 +175,27 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek, fly
           </>
         ) : (
           <>
-        {settled ? (
-            <motion.div initial={animate ? { opacity: 0.6 } : false} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
-              <Markdown className="studio-woven-text">{block.markdown}</Markdown>
-            </motion.div>
-          ) : (
-            <p className="studio-prose studio-woven-text">
-              <span className="sr-only">{words.join(' ')}</span>
-              <span data-woven-words aria-hidden="true">
-                {words.map((w, i) => (
-                  <motion.span
-                    key={i}
-                    initial={{ opacity: 0, filter: 'blur(6px)' }}
-                    animate={{ opacity: 1, filter: 'blur(0px)' }}
-                    transition={{ duration: WORD_S, delay: GROW_S * 0.2 + delays[i] }}
-                  >
-                    {w}{' '}
-                  </motion.span>
-                ))}
-              </span>
-            </p>
-          )}
+            {settled ? (
+              <motion.div initial={animate ? { opacity: 0.6 } : false} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
+                <Markdown className="studio-woven-text">{block.markdown}</Markdown>
+              </motion.div>
+            ) : (
+              <p className="studio-prose studio-woven-text">
+                <span className="sr-only">{words.join(' ')}</span>
+                <span data-woven-words aria-hidden="true">
+                  {words.map((w, i) => (
+                    <motion.span
+                      key={i}
+                      initial={{ opacity: 0, filter: 'blur(6px)' }}
+                      animate={{ opacity: 1, filter: 'none' }}
+                      transition={{ duration: WORD_S, delay: GROW_S * 0.2 + delays[i] }}
+                    >
+                      {w}{' '}
+                    </motion.span>
+                  ))}
+                </span>
+              </p>
+            )}
           </>
         )}
 

@@ -172,7 +172,8 @@ export default function StudioCanvasScreen() {
   };
   /* ── Living Learn: asking on the canvas (spec §4) ── */
   const { ask, answering } = useAsk();
-  const [asked, setAsked] = useState<string[]>([]);
+  // Suggestions follow what is really on the page: Remove brings a chip back, Undo hides it again.
+  const asked = (doc?.blocks ?? []).flatMap((b) => (b.origin === 'generated' ? [b.question ?? b.askedAs] : []));
   const suggestions = nextSuggestions(asked);
   const [freshId, setFreshId] = useState<string | null>(null);
   const [glowId, setGlowId] = useState<string | null>(null);
@@ -258,7 +259,6 @@ export default function StudioCanvasScreen() {
 
   const onAsk = async (question: string) => {
     if (!docRef.current) return;
-    setAsked((a) => [...a, question]);
     setEngaged(true);
     showNotice(null);
     const active = document.activeElement;
@@ -290,6 +290,7 @@ export default function StudioCanvasScreen() {
       markdown: result.answer.markdown,
       citations: result.answer.citations,
       askedAs: question,
+      ...(result.answer.question && { question: result.answer.question }),
       anchorId,
       ...(result.answer.blocks && { blocks: result.answer.blocks }),
       ...(result.answer.format && { format: result.answer.format }),

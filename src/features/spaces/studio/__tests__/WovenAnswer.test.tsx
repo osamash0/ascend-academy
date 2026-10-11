@@ -157,9 +157,9 @@ describe('WovenAnswer, shaped', () => {
     await act(async () => { vi.advanceTimersByTime(1200); });
     expect(onSettled).toHaveBeenCalledTimes(1);
   });
-  it('keeps the plain-text answer for screen readers', () => {
+  it('does not add a second, hidden reading of a settled answer', () => {
     render(<WovenAnswer block={shaped} fresh={false} onSettled={vi.fn()} onRemove={vi.fn()} />);
-    expect(document.querySelector('.sr-only')).toHaveTextContent('Plain words.');
+    expect(document.querySelector('.sr-only')).toBeNull();
   });
 });
 
