@@ -139,3 +139,38 @@ def test_service_role_writes_and_reads_calls(db_conn):
             assert cur.fetchone() == ([3],)
         finally:
             _reset(cur)
+
+
+@pytest.fixture
+async def wired_pool(pg_dsn, applied_migrations):
+    """Point the app's global asyncpg pool at the throwaway database."""
+    import asyncpg
+    import backend.core.database as core
+
+    pool = await asyncpg.create_pool(pg_dsn, min_size=1, max_size=2, statement_cache_size=0)
+    old = core.db_pool
+    core.db_pool = pool
+    try:
+        yield pool
+    finally:
+        core.db_pool = old
+        await pool.close()
+
+
+async def test_log_llm_call_round_trips_run_context_through_asyncpg(wired_pool, db_conn):
+    from backend.services.ai.cost import LLMUsage, log_llm_call
+
+    run_id = uuid.uuid4()
+    await log_llm_call(
+        user_id=None, course_id=None, feature="batch_analyze_text_slides",
+        provider_id="groq", model="gpt-oss-20b",
+        usage=LLMUsage(prompt_tokens=900, completion_tokens=120), cost_usd=0.0,
+        run_id=str(run_id), slide_indices=(0, 1, 2), prompt_name="BATCH_SLIDE_PROMPT",
+    )
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "SELECT provider, model, prompt_tokens, completion_tokens, slide_indices, prompt_name "
+            "FROM public.llm_calls WHERE run_id = %s",
+            (str(run_id),),
+        )
+        assert cur.fetchall() == [("groq", "gpt-oss-20b", 900, 120, [0, 1, 2], "BATCH_SLIDE_PROMPT")]

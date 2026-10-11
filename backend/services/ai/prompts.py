@@ -14,12 +14,7 @@ constant, and the version lives in a *parallel* lookup dict keyed by the
 constant's name. This is strictly additive — no existing call site changes
 behavior.
 
-TODO(P1-1 llm-cost-accounting): once the ``llm_calls`` logging table lands
-(branch fix/p1-1-llm-cost-accounting), thread ``PROMPT_VERSIONS[name]``
-through as the ``prompt_version`` column on every row so a bad output can be
-correlated back to the prompt version that produced it, per P4-3's
-acceptance criteria. Until then, ``orchestrator._generate_with_rotation``
-below logs ``prompt_name``/version at call time as a breadcrumb.
+``llm_calls.prompt_name`` (Arc 7) records the key; join ``PROMPT_VERSIONS`` for the version.
 """
 
 from typing import Dict
