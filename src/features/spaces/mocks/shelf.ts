@@ -165,20 +165,25 @@ export const setRecall = (id: string, knew: number, total: number): void =>
 export const touch = (id: string, now: string = new Date().toISOString()): void =>
   patch(id, (i) => (i.lastOpenedAt === now ? i : { ...i, lastOpenedAt: now }));
 
+/** Only a file that has been read can be shared: one still developing, or one that failed, stays as it is. */
 export const share = (id: string, spaceId: string, role: Role, mode: Mode): void => {
   const o = shareOutcome(role, mode);
-  patch(id, (i) => ({
-    ...i,
-    share:
-      o.kind === 'draft'
-        ? { kind: 'draft', spaceId, as: o.as }
-        : { kind: 'shared', spaceId, as: o.as, likes: 0, endorsed: false, cleared: 0 },
-  }));
+  patch(id, (i) =>
+    i.stage !== 'ready'
+      ? i
+      : {
+          ...i,
+          share:
+            o.kind === 'draft'
+              ? { kind: 'draft', spaceId, as: o.as }
+              : { kind: 'shared', spaceId, as: o.as, likes: 0, endorsed: false, cleared: 0 },
+        },
+  );
 };
 
 export const publish = (id: string): void =>
   patch(id, (i) =>
-    i.share.kind === 'draft'
+    i.share.kind === 'draft' && i.stage === 'ready'
       ? {
           ...i,
           share: {

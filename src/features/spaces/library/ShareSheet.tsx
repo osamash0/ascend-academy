@@ -18,10 +18,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { shareOutcome, type Role, type ShelfItem } from '../studio/shelf';
+import { shareOutcome, shareSplit, type Role, type ShelfItem } from '../studio/shelf';
 import { shelfActions, shelfSpaceName } from '../data/useShelf';
 import { useMySpaces } from '../data/useSpaces';
 import { Journey } from './Journey';
+import { ABOVE_SELECT_BAR } from './toasts';
 
 /**
  * Share from the page (One Library spec §5.6). The sheet says what will happen
@@ -59,8 +60,7 @@ export function ShareSheet({
 }) {
   const all = items ?? (item ? [item] : []);
   const one = !items && item ? item : null;
-  const shareable = all.filter((i) => i.share.kind === 'private');
-  const skipped = all.length - shareable.length;
+  const { go: shareable, left } = shareSplit(all);
   const { spaces, state } = useMySpaces();
   const [chosen, setChosen] = useState<string | null>(null);
   // Opened without a Radix trigger, so focus comes back by hand: the named target, else whatever had focus.
@@ -77,7 +77,7 @@ export function ShareSheet({
     } else {
       for (const i of shareable) shelfActions.share(i.id, space.id, role, space.mode);
       const did = `${shareable.length} ${outcome.kind === 'draft' ? `drafted in ${space.name}` : 'shared'}`;
-      toast(skipped ? `${did} · ${skipped} already shared` : did);
+      toast([did, ...left].join(' · '), ABOVE_SELECT_BAR);
     }
     onOpenChange(false);
     onShared?.();
@@ -108,12 +108,8 @@ export function ShareSheet({
           <DialogDescription>Choose a Space. What happens next is written below before you confirm.</DialogDescription>
         </DialogHeader>
         {one && <Journey item={one} className="lg:hidden" />}
-        {!one && skipped > 0 && (
-          <p className="text-[13.5px] text-quiet">
-            {skipped === 1
-              ? '1 is already in a Space and stays as it is.'
-              : `${skipped} are already in a Space and stay as they are.`}
-          </p>
+        {!one && left.length > 0 && (
+          <p className="text-[13.5px] text-quiet">Left as they are: {left.join(' · ')}.</p>
         )}
         {state !== 'ready' ? (
           <p className="text-[14px] text-quiet">Looking for your Spaces…</p>

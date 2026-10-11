@@ -375,6 +375,7 @@ export function Cover({
         <button
           type="button"
           role="checkbox"
+          data-select-box={item.id}
           aria-checked={select.checked}
           aria-label={coverLabel(item, title)}
           onClick={select.onToggle}

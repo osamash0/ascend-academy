@@ -15,9 +15,10 @@ import { FLIGHT_EASE } from '../studio/motion';
 import { inDialog } from '../studio/keys';
 import { shelfActions } from '../data/useShelf';
 import { ShareSheet } from './ShareSheet';
+import { ABOVE_SELECT_BAR } from './toasts';
 
 /**
- * Select's toolbar (One Library spec §5.8) — the one dense moment on the shelf,
+ * Select's bar (One Library spec §5.8; a labelled group of actions) — the one dense moment on the shelf,
  * on purpose. It slides up from the bottom while you are choosing, and goes
  * when you are done (Done, or Esc).
  *
@@ -52,7 +53,11 @@ export function SelectBar({
   const [sharing, setSharing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const n = selected.length;
-  const drafts = selected.filter((i) => i.share.kind === 'draft');
+  const drafts = selected.filter((i) => i.share.kind === 'draft' && i.stage === 'ready');
+  /* After an action empties the selection, focus moves to the bar's first action still enabled. */
+  const barRef = useRef<HTMLDivElement>(null);
+  const firstEnabled = () => barRef.current?.querySelector<HTMLElement>('button:not(:disabled)') ?? null;
+  const justRemoved = useRef(false);
 
   /* Esc leaves Select — unless a dialog of ours has it, which closes first. */
   const done = useRef(onDone);
@@ -72,7 +77,7 @@ export function SelectBar({
 
   const publish = () => {
     for (const d of drafts) shelfActions.publish(d.id);
-    toast(drafts.length === 1 ? 'Published 1 draft' : `Published ${drafts.length} drafts`);
+    toast(drafts.length === 1 ? 'Published 1 draft' : `Published ${drafts.length} drafts`, ABOVE_SELECT_BAR);
   };
 
   const remove = () => {
@@ -80,9 +85,11 @@ export function SelectBar({
       const r = shelfActions.remove(i.id);
       return r ? [r] : [];
     });
+    justRemoved.current = true;
     setConfirming(false);
     onClear();
     toast(`Removed ${removed.length}`, {
+      ...ABOVE_SELECT_BAR,
       action: {
         label: 'Undo',
         onClick: () => {
@@ -96,8 +103,9 @@ export function SelectBar({
     <AnimatePresence>
       {open && (
         <motion.div
+          ref={barRef}
           key="selection"
-          role="toolbar"
+          role="group"
           aria-label="Selection"
           className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-[calc(100%-2rem)] max-w-[760px] items-center gap-1 overflow-x-auto rounded-full border border-white/12 bg-[#0b0b0b]/95 px-2 py-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.55)] backdrop-blur-md"
           initial={reduce ? { opacity: 0 } : { opacity: 0, y: 32 }}
@@ -135,9 +143,23 @@ export function SelectBar({
             Done
           </button>
 
-          <ShareSheet items={selected} open={sharing} onOpenChange={setSharing} onShared={onClear} />
+          <ShareSheet
+            items={selected}
+            open={sharing}
+            onOpenChange={setSharing}
+            onShared={onClear}
+            returnFocus={firstEnabled}
+          />
           <Dialog open={confirming} onOpenChange={setConfirming}>
-            <DialogContent className="max-w-sm">
+            <DialogContent
+              className="max-w-sm"
+              onCloseAutoFocus={(e) => {
+                if (!justRemoved.current) return;
+                justRemoved.current = false;
+                e.preventDefault();
+                firstEnabled()?.focus();
+              }}
+            >
               <DialogHeader>
                 <DialogTitle>Remove {n} from your Library?</DialogTitle>
                 <DialogDescription>

@@ -141,17 +141,46 @@ export default function LibraryScreen() {
     () => sortItems(filterItems(items, filter, q, shelfTitle), sort, shelfTitle),
     [items, filter, q, sort],
   );
-  /* Only what is on the shelf can be selected: a removed cover drops out by itself. */
+  /*
+   * The selection is what you can see: a removed cover, or one a filter or
+   * search hides, drops out — so the count, Select all and every action mean
+   * the covers in front of you.
+   */
   const selected = useMemo(
-    () => (selecting ? items.filter((i) => picked.has(i.id)) : []),
-    [selecting, items, picked],
+    () => (selecting ? shown.filter((i) => picked.has(i.id)) : []),
+    [selecting, shown, picked],
   );
+  useEffect(() => {
+    if (!selecting) return;
+    setPicked((prev) => {
+      const visible = new Set(shown.map((i) => i.id));
+      const next = [...prev].filter((id) => visible.has(id));
+      return next.length === prev.size ? prev : new Set(next);
+    });
+  }, [selecting, shown]);
+
+  /* Focus never falls to the page: out of Select it goes to "Select…"; in through a cover's menu, to its checkbox. */
+  const pillRef = useRef<HTMLButtonElement>(null);
+  const focusNext = useRef<{ to: 'pill' } | { to: 'box'; id: string } | null>(null);
+  useEffect(() => {
+    const f = focusNext.current;
+    if (!f) return;
+    if (f.to === 'pill' && !selecting) pillRef.current?.focus();
+    else if (f.to === 'box' && selecting)
+      document.querySelector<HTMLElement>(`[data-select-box="${f.id}"]`)?.focus();
+    else return;
+    focusNext.current = null;
+  }, [selecting]);
 
   const enterSelect = (first?: string) => {
+    // In through "Select…" (which goes), focus lands on the first cover's checkbox.
+    const box = first ?? shown[0]?.id;
+    focusNext.current = box ? { to: 'box', id: box } : null;
     setPicked(new Set(first ? [first] : []));
     setParam(filter === 'words' ? { f: null, select: '1' } : { select: '1' });
   };
   const leaveSelect = () => {
+    focusNext.current = { to: 'pill' };
     setPicked(new Set());
     setParam({ select: null });
   };
@@ -261,7 +290,7 @@ export default function LibraryScreen() {
                   ))}
                 </div>
                 {items.length > 0 && !selecting && (
-                  <button type="button" onClick={() => enterSelect()} className={ghostPillSm}>
+                  <button ref={pillRef} type="button" onClick={() => enterSelect()} className={ghostPillSm}>
                     <CheckSquare aria-hidden className="h-3.5 w-3.5" />
                     Select…
                   </button>

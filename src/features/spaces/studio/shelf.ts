@@ -106,6 +106,23 @@ export function filterItems(
   });
 }
 
+/**
+ * Sharing several at once (Select): only ready, private files go; the rest stay
+ * as they are, and `left` names why, e.g. ["1 still being prepared", "1 already in a Space"].
+ */
+export function shareSplit(items: ShelfItem[]): { go: ShelfItem[]; left: string[] } {
+  const go = items.filter((i) => i.stage === 'ready' && i.share.kind === 'private');
+  const preparing = items.filter((i) => i.stage === 'developing').length;
+  const unread = items.filter((i) => i.stage === 'failed').length;
+  const inSpace = items.filter((i) => i.stage === 'ready' && i.share.kind !== 'private').length;
+  const left = [
+    preparing && `${preparing} still being prepared`,
+    unread && `${unread} couldn’t be read`,
+    inSpace && `${inSpace} already in a Space`,
+  ].filter((p): p is string => !!p);
+  return { go, left };
+}
+
 export type ShelfSort = 'recent' | 'added' | 'az';
 
 const byDesc = (a: string, b: string) => (a < b ? 1 : a > b ? -1 : 0);

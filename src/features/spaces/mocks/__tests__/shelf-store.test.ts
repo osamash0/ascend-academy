@@ -34,6 +34,10 @@ describe('mutations', () => {
   });
   it('share follows role and mode', () => {
     const id = store.bringIn('S.pdf');
+    // Only a file that has been read can be shared.
+    store.share(id, 's-dbs', 'member', 'guided');
+    expect(store.getItems()[0].share.kind).toBe('private');
+    store.settleDeveloping(id, true);
     store.share(id, 's-dbs', 'member', 'guided');
     expect(store.getItems()[0].share).toMatchObject({ kind: 'shared', as: 'contribution', likes: 0, endorsed: false, cleared: 0 });
     store.share(id, 's-linalg', 'owner', 'open');

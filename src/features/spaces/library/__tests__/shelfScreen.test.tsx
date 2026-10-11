@@ -87,7 +87,7 @@ describe('the shelf', () => {
     await settle();
     expect(loc()).toContain('select=1');
     expect(screen.getByRole('checkbox', { name: /^Normalization\.pdf,/ })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('toolbar', { name: 'Selection' })).toHaveTextContent('1 selected');
+    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('1 selected');
   });
 
   it('tells Lesson-backed text tiles apart: their Lesson’s title, initials and Space', async () => {
