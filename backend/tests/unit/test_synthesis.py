@@ -282,6 +282,44 @@ async def test_meta_sees_slides_beyond_fifteen(llm):
     assert "Part 50" in llm["text_prompts"][0]
 
 
+async def test_meta_prompt_reads_exactly_the_deck_plan_meta_selection(llm, monkeypatch):
+    llm["reply"] = "{}"
+    slides = ["Title"] + [f"Note {_letters(i)} explains how transactions keep data consistent." for i in range(30)]
+    monkeypatch.setattr(synthesis, "select_meta_slides", lambda sk: [0, 7, 21])
+    await synthesis.analyze_lecture_meta(slides, "groq")
+    prompt = llm["text_prompts"][0]
+    assert prompt.count("[Slide ") == 3
+    assert "[Slide 8]" in prompt and "[Slide 22]" in prompt
+
+
+# Golden digests of the rendered meta prompt, captured from the inline
+# selection BEFORE it moved into deck_plan.select_meta_slides (Arc 6 task 2):
+# the refactor must leave the prompt byte-identical.
+_META_PROMPT_GOLDEN = {
+    "long_fixture": ("21ef66bfce2acd4ace9ed9da2bc4d6af4dcc0a0c830ac8c1d767f8d8e328739d", 1937),
+    "sixty_one_slides": ("fc09a51aa1dcba1d280424f7fc6675944b270e9fd99c05a45e2822ec397c9781", 1461),
+}
+
+
+async def test_meta_prompt_is_byte_identical_to_the_pre_refactor_prompt(llm):
+    import hashlib
+
+    from backend.tests.support.deck_lab_decks import LONG_DECK
+
+    decks = {
+        "long_fixture": LONG_DECK,
+        "sixty_one_slides": ["Title"] + [
+            f"1. Part {i}" if i % 10 == 0 else f"Note {_letters(i)} explains how transactions keep data consistent."
+            for i in range(60)
+        ],
+    }
+    for name, deck in decks.items():
+        llm["text_prompts"].clear()
+        await synthesis.analyze_lecture_meta(deck, "groq")
+        prompt = llm["text_prompts"][0]
+        assert (hashlib.sha256(prompt.encode()).hexdigest(), len(prompt)) == _META_PROMPT_GOLDEN[name], name
+
+
 # ── grounded deck quiz prompts (Arc 4) ───────────────────────────────────────
 
 def test_deck_quiz_prompt_asks_for_source_slide_and_is_versioned():

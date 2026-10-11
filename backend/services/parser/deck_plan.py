@@ -220,3 +220,15 @@ def select_slides(
         if not progressed:
             break
     return sorted(i for sec, idxs in by_section.items() for i in _spread(idxs, quota[sec]))
+
+
+def select_meta_slides(skeleton: DeckSkeleton, budget: int = 15) -> list[int]:
+    """Slides the lecture-meta prompt reads: up to ``budget`` spread across
+    all sections over META_ROLES (any non-empty text), and always the title
+    slide, which names the lecture."""
+    if budget <= 0:
+        return []
+    picked = select_slides(skeleton, budget, META_ROLES, min_chars=1)
+    if skeleton.slides and 0 not in picked:
+        picked = [0] + picked[: budget - 1]
+    return picked

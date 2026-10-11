@@ -35,9 +35,9 @@ from backend.services.ai.prompts import (
 from backend.services.ai.quiz_validator import _normalize_answer_index
 from backend.services.ai.voice import with_voice
 from backend.services.parser.deck_plan import (
-    META_ROLES,
     DeckSkeleton,
     build_deck_skeleton,
+    select_meta_slides,
     select_slides,
 )
 from backend.services.parser.quiz_grounding import GroundingVerdict, assess_grounding
@@ -71,9 +71,7 @@ async def analyze_lecture_meta(
     IDENTICAL to before this parameter existed (regression guard).
     """
     skeleton = skeleton or build_deck_skeleton(slides)
-    picked = select_slides(skeleton, 15, META_ROLES, min_chars=1)
-    if skeleton.slides and 0 not in picked:
-        picked = [0] + picked[:14]
+    picked = select_meta_slides(skeleton)
     combined_text = "\n\n".join(
         f"[Slide {i + 1}]: {skeleton.slides[i].text[:400]}" for i in picked
     )
