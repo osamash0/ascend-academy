@@ -172,6 +172,31 @@ async def reader_checkpoint(request: Request, body: CheckpointBody, lecture_id: 
     )
 
 
+class TeachBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    first: int = Field(ge=1, le=2000)
+    last: int = Field(ge=1, le=2000)
+    idea: str = Field(min_length=1, max_length=120)
+    explanation: str = Field(min_length=1, max_length=2000)
+
+
+@router.post("/lectures/{lecture_id}/teach-back")
+@limiter.limit("10/minute")
+async def reader_teach_back(request: Request, body: TeachBody, lecture_id: UUID, user: Any = Depends(verify_token)):
+    from backend.services.v4_teachback_service import teach_back
+
+    uid = await _lecture_access(lecture_id, user)
+    return await teach_back(
+        lecture_id,
+        body.first,
+        body.last,
+        body.idea,
+        body.explanation,
+        user_id=uid,
+        locale=await service.preferred_language(uid),
+    )
+
+
 class _Result(BaseModel):
     model_config = ConfigDict(extra="forbid")
     lecture_id: UUID

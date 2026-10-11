@@ -7,6 +7,7 @@ import {
   dataMode,
   loadLiveRepository,
   type Checkpoint,
+  type TeachBack,
   type ReaderConcept,
   type ReaderCourse,
   type ReaderCourseMap,
@@ -459,6 +460,14 @@ export function fetchCheckpoint(lectureId: string, first: number, last: number, 
     checkpoints.set(key, p);
   }
   return p;
+}
+
+/** Read an explanation against the idea's key points. The first time for an idea also writes those. */
+export function teachBack(lectureId: string, first: number, last: number, idea: string, explanation: string): Promise<TeachBack> {
+  return Promise.race([
+    loadLiveRepository().then((repo) => repo.teachBack(lectureId, { first, last, idea, explanation })),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Teach-back timed out')), 120_000)),
+  ]);
 }
 
 export async function saveRehearsal(courseId: string, title: string, lectureIds: string[], results: RehearsalResult[]) {
