@@ -2,6 +2,7 @@ import { Flame, PartyPopper, Play, Plus, RotateCw, Sparkles } from 'lucide-react
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LunaHero } from '@/features/avatar/LunaHero';
+import { useViewerLoadout } from '@/features/avatar/viewerLoadout';
 import { cn } from '@/lib/utils';
 import { Pressable, PressableLink } from '../components/Pressable';
 import { topicIcon } from '@/lib/topicIcon';
@@ -121,6 +122,7 @@ export default function HomeScreen() {
   const [keys, setKeys] = useState(0);
   const [sent, setSent] = useState(0);
   /* Big, but never crowding a phone. */
+  const viewerLoadout = useViewerLoadout();
   const [sizeLuna, setSizeLuna] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 640 ? 230 : 340));
   useEffect(() => {
     const on = () => setSizeLuna(window.innerWidth < 640 ? 230 : 340);
@@ -232,6 +234,7 @@ export default function HomeScreen() {
           cheers when you send, and droops a little when it is very late.
         */}
         <LunaHero
+          loadout={viewerLoadout}
           size={sizeLuna}
           accent={accent}
           attention={asking ? 'listening' : 'idle'}

@@ -34,6 +34,8 @@ import {
 } from 'motion/react';
 import { getLunaColors } from '../../../learnstation-luna/utils/colors';
 import { DEFAULT_LOADOUT, itemById } from './catalog';
+import { drawGear } from './art';
+import { outfitLayers, type OutfitId } from './outfits';
 import { moodPhase } from './mood';
 import type { Loadout } from './types';
 
@@ -74,6 +76,9 @@ export function LunaHero({
   const uid = 'lh' + useId().replace(/[^a-zA-Z0-9]/g, '');
   const lo = { ...DEFAULT_LOADOUT, ...loadout };
   const visor = itemById(lo.visor) ?? itemById(DEFAULT_LOADOUT.visor)!;
+  // The student's whole Luna, not just her colours: a home or style look takes
+  // the helmet off; otherwise her helmet gear (antenna, halo...) is worn.
+  const look = outfitLayers(lo.outfit && lo.outfit !== 'outfit-none' ? (lo.outfit.slice('outfit-'.length) as OutfitId) : null, uid);
   const colors = useMemo(() => getLunaColors(moodPhase('bright')), []);
   const glow = accent ?? 'rgba(255,255,255,0.9)';
 
@@ -324,10 +329,16 @@ export function LunaHero({
         </defs>
 
         <motion.g style={reduce ? undefined : { y: bob, rotate: tilt, originX: '80px', originY: '62px' }}>
-          {/* Helmet — moves least. */}
+          {/* Helmet (or, in a look, the headscarf's drape) — moves least. */}
           <motion.g style={reduce ? undefined : { x: helmetX, y: helmetY }}>
-            <circle cx="80" cy="62" r="38" fill={`url(#${uid}-glass)`} />
-            <circle cx="80" cy="62" r="38" fill="none" stroke={visor.color} strokeWidth="3" opacity="0.95" />
+            {look ? (
+              look.back
+            ) : (
+              <>
+                <circle cx="80" cy="62" r="38" fill={`url(#${uid}-glass)`} />
+                <circle cx="80" cy="62" r="38" fill="none" stroke={visor.color} strokeWidth="3" opacity="0.95" />
+              </>
+            )}
           </motion.g>
 
           {/* Face — moves more. */}
@@ -376,8 +387,15 @@ export function LunaHero({
             </AnimatePresence>
           </motion.g>
 
-          {/* The glass catching light, now and then. */}
-          {!reduce && (
+          {/* What she wears on top: a look's hat turns with her face; helmet gear sits on the helmet. */}
+          {look ? (
+            <motion.g style={reduce ? undefined : { x: faceX, y: faceY }}>{look.front}</motion.g>
+          ) : (
+            <motion.g style={reduce ? undefined : { x: helmetX, y: helmetY }}>{drawGear(lo.gear, uid, !reduce)}</motion.g>
+          )}
+
+          {/* The glass catching light, now and then (no glass without the helmet). */}
+          {!reduce && !look && (
             <g clipPath={`url(#${uid}-helmet)`}>
               <motion.rect
                 x="20"
@@ -392,7 +410,7 @@ export function LunaHero({
               />
             </g>
           )}
-          <path d="M52 42 Q64 32 82 36" stroke="white" strokeWidth="2.4" fill="none" strokeLinecap="round" opacity="0.45" />
+          {!look && <path d="M52 42 Q64 32 82 36" stroke="white" strokeWidth="2.4" fill="none" strokeLinecap="round" opacity="0.45" />}
         </motion.g>
 
         {/* Sparks on a hello or a cheer. */}

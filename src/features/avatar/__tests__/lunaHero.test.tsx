@@ -51,4 +51,17 @@ describe('LunaHero', () => {
     const ring = screen.getByRole('button', { name: /say hi/i }).querySelector('circle[r="38"][stroke]');
     expect(ring?.getAttribute('stroke')?.toLowerCase()).toBe('#e8a598');
   });
+
+  it('wears her helmet and helmet gear by default', () => {
+    const { container } = render(<LunaHero loadout={{ gear: 'gear-antenna' }} />);
+    expect(container.querySelector('circle[r="38"]')).not.toBeNull(); // the visor ring
+    expect(container.querySelector('path[d="M80 24 L80 9"]')).not.toBeNull(); // the antenna
+  });
+
+  it('takes the helmet off and wears the look in a home or style look', () => {
+    const { container } = render(<LunaHero loadout={{ outfit: 'outfit-texas', gear: 'gear-antenna' }} />);
+    expect(container.querySelector('circle[r="38"]')).toBeNull(); // no helmet
+    expect(container.querySelector('path[d="M80 24 L80 9"]')).toBeNull(); // no helmet gear
+    expect(container.querySelector('path[d^="M57 38 Q56 14"]')).not.toBeNull(); // the cowboy hat
+  });
 });

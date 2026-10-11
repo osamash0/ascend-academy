@@ -20,6 +20,7 @@ import { ConfettiCanvas } from "@/components/ConfettiCanvas";
 import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
 import { FEATURES } from "@/lib/featureFlags";
 import { GearUnlockWatcher } from "@/features/avatar/GearUnlockWatcher";
+import { ViewerLoadoutBridge } from "@/features/avatar/ViewerLoadoutBridge";
 import { MotionRoot } from "@/features/spaces/components/MotionRoot";
 
 function LanguagePreferenceBootstrap({ children }: { children: ReactNode }) {
@@ -734,7 +735,9 @@ const App = () => {
                   <GamificationProvider>
                     {/* Lives beside the provider (needs the router; the provider doesn't). */}
                     <GearUnlockWatcher />
-                    <AppRoutes />
+                    <ViewerLoadoutBridge>
+                      <AppRoutes />
+                    </ViewerLoadoutBridge>
                   </GamificationProvider>
                 </SocialProvider>
               </LanguagePreferenceBootstrap>
