@@ -30,3 +30,5 @@ ALTER TABLE public.account_erasure_jobs ENABLE ROW LEVEL SECURITY;
 -- No policies: only the service role (which bypasses RLS) reads or writes.
 REVOKE ALL ON public.account_erasure_jobs FROM PUBLIC;
 REVOKE ALL ON public.account_erasure_jobs FROM anon, authenticated;
+-- Explicit, rather than relying on Supabase's default privileges.
+GRANT ALL ON public.account_erasure_jobs TO service_role;

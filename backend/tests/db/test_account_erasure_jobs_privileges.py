@@ -26,6 +26,15 @@ def test_no_client_role_can_touch_it(db_conn, role):
             assert cur.fetchone()[0] is False, f"{role} has {priv}"
 
 
+def test_service_role_has_full_access(db_conn):
+    with db_conn.cursor() as cur:
+        for priv in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+            cur.execute(
+                "SELECT has_table_privilege('service_role', 'public.account_erasure_jobs', %s)", (priv,)
+            )
+            assert cur.fetchone()[0] is True, f"service_role lacks {priv}"
+
+
 def test_rls_is_enabled(db_conn):
     with db_conn.cursor() as cur:
         cur.execute(

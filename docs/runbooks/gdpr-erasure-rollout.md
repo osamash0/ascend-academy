@@ -13,7 +13,18 @@ table every account deletion returns 502 (safe: the account stays untouched).
    `python -m backend.scripts.gdpr_coverage_probe "$DATABASE_URL"`
 2. Apply the migration BY HAND, one transaction, only after Abi's go-ahead:
    `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261013000000_account_erasure_jobs.sql`
-3. Verify: `SELECT has_table_privilege('anon','public.account_erasure_jobs','SELECT');` -- must be `f`
+3. Verify (all three must hold):
+   - `SELECT has_table_privilege('anon','public.account_erasure_jobs','SELECT');` -- must be `f`
+   - `SELECT has_table_privilege('authenticated','public.account_erasure_jobs','SELECT');` -- must be `f`
+   - `SELECT bool_and(has_table_privilege('service_role','public.account_erasure_jobs',p)) FROM unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE']) p;` -- must be `t`
+
+   **If any check fails, stop: do not deploy the backend.** The old backend
+   never touches this table, so leaving prod as is is safe. Either fix the
+   grant by hand (`REVOKE ALL ... FROM anon, authenticated;` /
+   `GRANT ALL ... TO service_role;`) and re-check, or roll back with
+   `DROP TABLE public.account_erasure_jobs;` (it is empty until the new
+   backend runs) and report to Abi. If the migration itself errored, `-1`
+   already rolled it back; nothing to undo.
 4. Deploy the backend and the worker together (the worker must see the new
    `drain_erasure_jobs_cron`, which runs every 10 minutes, unconditionally).
    The backend image needs `supabase>=2.27,<3.0` (requirements-docker.txt).
