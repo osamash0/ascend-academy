@@ -119,17 +119,66 @@ def test_owner_professor_reads_own_receipt(db_conn, make_user, make_lecture):
     assert str(run_id) in visible
 
 
-def test_other_professor_cannot_read_receipt(db_conn, make_user, make_lecture):
+def _lecture_visible(cur, lecture_id) -> bool:
+    cur.execute("SELECT 1 FROM public.lectures WHERE id = %s", (str(lecture_id),))
+    return cur.fetchone() is not None
+
+
+def test_non_owner_who_can_see_the_lecture_cannot_read_receipt(
+    db_conn, make_user, make_lecture, make_course, make_course_enrollment
+):
+    # `other` must be able to SEE the lecture (via course enrollment), so the
+    # lectures RLS inside the policy's EXISTS cannot hide the receipt for us;
+    # only the explicit owner clause can.
     owner = make_user(role="professor")
     other = make_user(role="professor")
-    run_id = _make_receipt(db_conn, make_lecture(owner))
+    lecture = make_lecture(owner)
+    course = make_course(owner)
+    with db_conn.cursor() as cur:
+        cur.execute("UPDATE public.lectures SET course_id = %s WHERE id = %s",
+                    (str(course), str(lecture)))
+    make_course_enrollment(other, course)
+    run_id = _make_receipt(db_conn, lecture)
     with db_conn.cursor() as cur:
         _as_user(cur, other)
         try:
+            assert _lecture_visible(cur, lecture), "fixture broken: non-owner must see the lecture"
             visible = _visible_runs(cur)
         finally:
             _reset(cur)
     assert str(run_id) not in visible
+
+
+def test_admin_who_can_see_the_lecture_cannot_read_receipt(db_conn, make_user, make_lecture):
+    # Signup downgrades a self-declared admin, so grant the role directly.
+    admin = make_user(role="student")
+    with db_conn.cursor() as cur:
+        cur.execute("DELETE FROM public.user_roles WHERE user_id = %s", (str(admin),))
+        cur.execute("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'admin')", (str(admin),))
+    lecture = make_lecture(make_user(role="professor"))
+    run_id = _make_receipt(db_conn, lecture)
+    with db_conn.cursor() as cur:
+        _as_user(cur, admin)
+        try:
+            assert _lecture_visible(cur, lecture), "fixture broken: admin must see the lecture"
+            visible = _visible_runs(cur)
+        finally:
+            _reset(cur)
+    assert str(run_id) not in visible
+
+
+def test_privilege_catalog_is_locked_down(db_conn):
+    # RLS WITH CHECK failures and missing grants share SQLSTATE 42501, and
+    # UPDATE/DELETE without a policy silently touch 0 rows, so assert the
+    # grants themselves.
+    write_privs = ["INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"]
+    with db_conn.cursor() as cur:
+        def has(role, priv):
+            cur.execute("SELECT has_table_privilege(%s, 'public.parse_receipts', %s)", (role, priv))
+            return cur.fetchone()[0]
+        assert {p: has("authenticated", p) for p in write_privs} == dict.fromkeys(write_privs, False)
+        assert {p: has("anon", p) for p in write_privs + ["SELECT"]} == dict.fromkeys(write_privs + ["SELECT"], False)
+        assert has("authenticated", "SELECT") is True
 
 
 def test_enrolled_student_sees_lecture_but_not_its_receipt(db_conn, make_user, make_lecture):
@@ -215,5 +264,14 @@ def test_deleting_lecture_cascades_its_receipt(db_conn, make_user, make_lecture)
     run_id = _make_receipt(db_conn, lecture)
     with db_conn.cursor() as cur:
         cur.execute("DELETE FROM public.lectures WHERE id = %s", (str(lecture),))
+        cur.execute("SELECT count(*) FROM public.parse_receipts WHERE run_id = %s", (str(run_id),))
+        assert cur.fetchone()[0] == 0
+
+
+def test_deleting_parse_run_cascades_its_receipt(db_conn, make_user, make_lecture):
+    lecture = make_lecture(make_user(role="professor"))
+    run_id = _make_receipt(db_conn, lecture)
+    with db_conn.cursor() as cur:
+        cur.execute("DELETE FROM public.parse_runs WHERE run_id = %s", (str(run_id),))
         cur.execute("SELECT count(*) FROM public.parse_receipts WHERE run_id = %s", (str(run_id),))
         assert cur.fetchone()[0] == 0
