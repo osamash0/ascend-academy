@@ -9,9 +9,9 @@
  */
 import type { RankTierName } from '@/lib/rank';
 
-export type Slot = 'suit' | 'visor' | 'gear' | 'patch' | 'companion' | 'aura' | 'backdrop';
+export type Slot = 'outfit' | 'suit' | 'visor' | 'gear' | 'patch' | 'companion' | 'aura' | 'backdrop';
 
-export const SLOTS: readonly Slot[] = ['suit', 'visor', 'gear', 'patch', 'companion', 'aura', 'backdrop'];
+export const SLOTS: readonly Slot[] = ['outfit', 'suit', 'visor', 'gear', 'patch', 'companion', 'aura', 'backdrop'];
 
 /** How an item is earned. `streak` reads the *best* streak — a lapse never takes gear away. */
 export type Unlock =
@@ -34,6 +34,8 @@ export interface AvatarItem {
    */
   color?: string;
   color2?: string;
+  /** Outfit slot only: where you're from (home) or what you're into (style). */
+  group?: 'home' | 'style';
 }
 
 /** One chosen item id per slot. */

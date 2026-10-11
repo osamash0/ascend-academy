@@ -6,6 +6,29 @@
  */
 import { useMemo, useState } from 'react';
 import { SuitLocker } from '@/features/avatar/SuitLocker';
+import { LunaAvatar } from '@/features/avatar/LunaAvatar';
+import { itemsForSlot } from '@/features/avatar/catalog';
+import { IdCard, type IdCardData } from '@/features/avatar/IdCard';
+
+// A neutral drawn silhouette standing in for an uploaded photo (no real person).
+const SAMPLE_PHOTO =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 100"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfd8dc"/><stop offset="1" stop-color="#90a4ae"/></linearGradient></defs><rect width="80" height="100" fill="url(#g)"/><circle cx="40" cy="38" r="17" fill="#5d4037"/><circle cx="40" cy="41" r="14" fill="#d7a98c"/><path d="M12 100 Q14 66 40 64 Q66 66 68 100 Z" fill="#37474f"/></svg>',
+  );
+
+const SAMPLE: IdCardData = {
+  userId: 'demo-user-0001',
+  name: 'Mira Al-Hassan',
+  photoUrl: null,
+  loadout: { gear: 'gear-headphones', backdrop: 'backdrop-lunar' },
+  rank: 'Scholar',
+  level: 13,
+  institution: 'Philipps-Universität Marburg',
+  verified: true,
+  memberSince: new Date('2026-04-14'),
+  badges: ['Bookworm', 'On Fire', 'First Quiz Completed'],
+};
 import type { AvatarProgress } from '@/features/avatar/types';
 
 const ALL_BADGES = [
@@ -55,6 +78,28 @@ export default function AvatarLab() {
             })}
           </div>
         </div>
+
+        {/* The ID card, both faces. */}
+        <section className="mb-10">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-white/50">ID card</h2>
+          <div className="grid gap-6 md:grid-cols-2">
+            <IdCard data={SAMPLE} />
+            <IdCard data={{ ...SAMPLE, photoUrl: SAMPLE_PHOTO }} />
+          </div>
+        </section>
+
+        {/* Every home look at a glance (the locker below lets you try them on). */}
+        <section className="mb-10">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-white/50">Home looks</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {itemsForSlot('outfit').map((item) => (
+              <div key={item.id} className="overflow-hidden rounded-xl border border-white/10" title={item.id}>
+                <LunaAvatar loadout={{ outfit: item.id, backdrop: 'backdrop-lunar' }} size={180} className="h-auto w-full" />
+                <p className="px-2 py-1.5 text-xs text-white/70">{item.id.replace('outfit-', '')}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <SuitLocker progress={progress} showMoodPreview onSave={(l) => console.info('[avatar-lab] save', l)} />
       </div>
