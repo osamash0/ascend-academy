@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     # university LLM via OPENAI_BASE_URL + OPENAI_MODEL. Slower models may need
     # a higher LLM_TIMEOUT_SECONDS (default 25; gpt-4o-mini wants ~90).
     parser_llm_model: str = Field(alias="PARSER_LLM_MODEL", default="cerebras")
+    # Arc 8: deck-quiz grounding scorer. "lexical" (default) is the Arc 4
+    # token-overlap verifier. "semantic" adds a Gemini embedding signal
+    # (services/parser/semantic_grounding.py); it needs a calibrated
+    # SEMANTIC_SUPPORT_THRESHOLD and falls back to lexical until then.
+    grounding_scorer: str = Field(alias="GROUNDING_SCORER", default="lexical")
     # LEGACY: the standalone Fast Upload pipeline was retired in the Phase-0
     # sweep (module archived under backend/_legacy/). This field is unused by the
     # live app and kept only so the archived module remains revertable.

@@ -18,7 +18,9 @@ import json
 import logging
 from typing import Any, Dict, List
 
+from backend.core.config import settings
 from backend.services.ai.call_context import llm_call_scope
+from backend.services.ai.embeddings import EMBED_BATCH_MAX, generate_embeddings_batch
 from backend.services.ai.orchestrator import (
     generate_text_bulk,
     generate_text,
@@ -41,7 +43,14 @@ from backend.services.parser.deck_plan import (
     select_meta_slides,
     select_slides,
 )
+from backend.services.parser import semantic_grounding
 from backend.services.parser.quiz_grounding import STRUCTURAL_REASONS, GroundingVerdict, assess_grounding
+from backend.services.parser.semantic_grounding import (
+    BoundedEmbedder,
+    EmbeddingBudgetExceeded,
+    semantic_support,
+    semantic_texts,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +67,26 @@ MAX_CONCURRENT_REPAIRS = 3
 # keeping 0% of on-topic hallucinations. Do NOT re-enable enforcement without a
 # semantic scorer and a re-run of that probe. Structural verdicts are dropped
 # in both modes.
+# Arc 8: the semantic scorer exists (GROUNDING_SCORER=semantic). The probe
+# re-run and its pre-registered gate are in
+# docs/superpowers/plans/2026-10-11-arc-8-semantic-grounding.md; this flag
+# changes only as that gate decides.
 ENFORCE_SUPPORT_THRESHOLD = False
+
+# Arc 8: per-deck embedding budget for GROUNDING_SCORER=semantic. The first
+# request embeds every cited slide plus each question's key and distractor
+# claims (12 questions x 5 texts = 60); enforce-mode repairs may fetch the
+# rest. One request carries at most EMBED_BATCH_MAX texts.
+MAX_GROUNDING_EMBED_TEXTS = 120
+
+
+async def _grounding_embed(texts: List[str]) -> List[List[float]]:
+    """Production embedder for semantic grounding: one batched Gemini request."""
+    return await generate_embeddings_batch(list(texts))
+
+
+def _requested_scorer() -> str:
+    return "semantic" if getattr(settings, "grounding_scorer", "lexical") == "semantic" else "lexical"
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +250,38 @@ async def ground_deck_quiz(
     over_cap = max(0, proposed - MAX_DECK_QUIZ_QUESTIONS)
     questions = questions[:MAX_DECK_QUIZ_QUESTIONS]
     repair_slots = asyncio.Semaphore(MAX_CONCURRENT_REPAIRS)
+    scorer = _requested_scorer()
+    threshold = semantic_grounding.SEMANTIC_SUPPORT_THRESHOLD
+    fallback = ""
+    embedder: BoundedEmbedder | None = None
+    if scorer == "semantic":
+        if threshold is None:
+            fallback = "uncalibrated"  # never call the embedding API without a calibrated threshold
+        else:
+            embedder = BoundedEmbedder(_grounding_embed, MAX_GROUNDING_EMBED_TEXTS, EMBED_BATCH_MAX)
+            texts: List[str] = []
+            for q in questions:
+                if isinstance(q, dict):
+                    try:
+                        texts += semantic_texts(q, skeleton)
+                    except Exception:  # _one reports this question's own failure
+                        pass
+            try:
+                await embedder(list(dict.fromkeys(texts)))  # the whole deck in one request
+            except EmbeddingBudgetExceeded:
+                fallback, embedder = "over_embed_cap", None
+            except Exception as exc:
+                logger.warning("semantic grounding unavailable, using lexical (non-fatal): %s", exc)
+                fallback, embedder = "embedding_error", None
+
+    async def _verdict(q: Dict[str, Any]) -> GroundingVerdict:
+        if embedder is None:
+            return assess_grounding(q, skeleton)
+        try:
+            return await semantic_support(q, skeleton, embedder, threshold)
+        except Exception as exc:
+            logger.warning("semantic grounding failed for one question, using lexical: %s", exc)
+            return assess_grounding(q, skeleton)
 
     async def _checked(q: Any) -> tuple[Dict[str, Any] | None, bool, str]:
         try:
@@ -233,7 +293,7 @@ async def ground_deck_quiz(
     async def _one(q: Any) -> tuple[Dict[str, Any] | None, bool, str]:
         if not isinstance(q, dict):
             return None, False, "not_an_object"
-        verdict = assess_grounding(q, skeleton)
+        verdict = await _verdict(q)
         if verdict.ok:
             return _grounded(q, verdict), False, ""
         if verdict.reason in STRUCTURAL_REASONS or verdict.source_slide is None:
@@ -246,7 +306,7 @@ async def ground_deck_quiz(
             )
         if repaired is None:
             return None, False, "repair_failed"
-        second = assess_grounding(repaired, skeleton)
+        second = await _verdict(repaired)
         if second.ok:
             return _grounded(repaired, second), True, ""
         return None, False, f"repair_{second.reason}"
@@ -272,6 +332,10 @@ async def ground_deck_quiz(
         "flagged": sum(flag_reasons.values()),
         "flag_reasons": flag_reasons,
     }
+    if scorer == "semantic":
+        summary["scorer"] = "semantic" if embedder is not None else "lexical"
+        if fallback:
+            summary["scorer_fallback"] = fallback
     logger.info("deck_quiz_grounding %s", json.dumps(summary, sort_keys=True))
     if stats is not None:
         stats.update(summary)
