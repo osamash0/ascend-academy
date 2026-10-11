@@ -107,6 +107,10 @@ export function sortItems(items: ShelfItem[], s: ShelfSort): ShelfItem[] {
   if (s === 'az') return out.sort((a, b) => a.filename.localeCompare(b.filename));
   if (s === 'added') return out.sort((a, b) => byDesc(a.addedAt, b.addedAt));
   return out.sort((a, b) => {
+    // A file still being read (or that failed) leads, newest first: what you just brought in is where you look.
+    const aLive = a.stage !== 'ready';
+    if (aLive !== (b.stage !== 'ready')) return aLive ? -1 : 1;
+    if (aLive) return byDesc(a.addedAt, b.addedAt);
     if (a.lastOpenedAt && b.lastOpenedAt) return byDesc(a.lastOpenedAt, b.lastOpenedAt);
     if (a.lastOpenedAt) return -1;
     if (b.lastOpenedAt) return 1;

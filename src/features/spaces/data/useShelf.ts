@@ -16,6 +16,13 @@ import { useScreenState } from './useSpaces';
 /** Re-export of the store's mutations, for screens. */
 export const shelfActions = shelfStore;
 
+/**
+ * `?mock=import-error` makes every brought-in file fail to read. It is read here,
+ * beside the store, so the shared Scenario type (which screens settle on) stays as it was.
+ */
+export const importWillFail = (): boolean =>
+  new URLSearchParams(window.location.search).get('mock') === 'import-error';
+
 const MATERIAL_ID = 'm-norm';
 
 function wordsNow(): WordEntry[] {

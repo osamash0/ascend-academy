@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
-import { Layers, Plus, Search, Upload } from 'lucide-react';
+import { Layers, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useShelf, shelfSpaceName } from '../data/useShelf';
 import { useLibrary } from '../data/useSpaces';
@@ -22,6 +22,7 @@ import { Scene, SURFACES } from '../components/Scene';
 import { EnterList, EnterListItem } from '../components/Enter';
 import { SpacesError, SpacesSkeleton } from '../components/states';
 import { Cover } from '../library/Cover';
+import { BringInTile, DropVeil, useBringIn } from '../library/BringIn';
 import { ContinueCard } from '../library/ContinueCard';
 import { YourWords } from '../library/YourWords';
 
@@ -74,6 +75,23 @@ export default function LibraryScreen() {
   const [sort, setSort] = useState<ShelfSort>('recent');
   const [grouped, setGrouped] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const bring = useBringIn(state === 'ready');
+  const tile = (variant: 'cell' | 'empty') => (
+    <BringInTile inputRef={bring.inputRef} onFiles={bring.bringFiles} variant={variant} />
+  );
+
+  /* "{file} is ready", said politely, when a cover finishes developing. */
+  const stages = useRef(new Map<string, ShelfItem['stage']>());
+  const [said, setSaid] = useState({ n: 0, text: '' });
+  useEffect(() => {
+    const ready: string[] = [];
+    for (const i of items) {
+      if (stages.current.get(i.id) === 'developing' && i.stage === 'ready') ready.push(i.filename);
+      stages.current.set(i.id, i.stage);
+    }
+    if (ready.length)
+      setSaid((s) => ({ n: s.n + 1, text: ready.map((f) => `${f} is ready`).join('. ') }));
+  }, [items]);
 
   /** One URL param, set or cleared, leaving the others (mock, select) alone. */
   const setParam = (key: string, value: string | null) =>
@@ -121,6 +139,10 @@ export default function LibraryScreen() {
         <Skylight accent={LIBRARY_ACCENT} />
         {body}
       </div>
+      <div key={said.n} role="status" aria-live="polite" className="sr-only">
+        {said.text}
+      </div>
+      <DropVeil show={bring.veil} />
     </Scene>
   );
 
@@ -137,7 +159,7 @@ export default function LibraryScreen() {
       </header>
 
       {items.length === 0 ? (
-        <EmptyShelf />
+        tile('empty')
       ) : (
         <>
           <div className="mt-8 flex flex-col items-center gap-4">
@@ -230,7 +252,7 @@ export default function LibraryScreen() {
                     <ContinueCard item={continueItem} />
                   </div>
                 )}
-                <Shelf items={shown} grouped={big && grouped} />
+                <Shelf items={shown} grouped={big && grouped} cell={tile('cell')} />
                 {shown.length === 0 && <NothingHere filter={filter} q={q} />}
               </>
             )}
@@ -243,7 +265,7 @@ export default function LibraryScreen() {
 
 const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(232px,1fr))] gap-[18px]';
 
-function Shelf({ items, grouped }: { items: ShelfItem[]; grouped: boolean }) {
+function Shelf({ items, grouped, cell }: { items: ShelfItem[]; grouped: boolean; cell: React.ReactNode }) {
   if (!grouped) {
     return (
       <section aria-labelledby="your-shelf">
@@ -252,7 +274,7 @@ function Shelf({ items, grouped }: { items: ShelfItem[]; grouped: boolean }) {
         </h2>
         <EnterList aria-labelledby="your-shelf" className={GRID}>
           <EnterListItem>
-            <BringInCell />
+            {cell}
           </EnterListItem>
           {items.map((item) => (
             <EnterListItem key={item.id}>
@@ -272,7 +294,7 @@ function Shelf({ items, grouped }: { items: ShelfItem[]; grouped: boolean }) {
           <EnterList aria-label={gi === 0 ? 'Your shelf' : g.title} className={GRID}>
             {gi === 0 && (
               <EnterListItem>
-                <BringInCell />
+                {cell}
               </EnterListItem>
             )}
             {g.items.map((item) => (
@@ -287,24 +309,6 @@ function Shelf({ items, grouped }: { items: ShelfItem[]; grouped: boolean }) {
   );
 }
 
-/** The first cell. Bringing a file in is wired with the drop (One Library Task 4). */
-function BringInCell() {
-  return (
-    <div className="flex h-full min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-white/[0.18] p-5 text-center">
-      <button
-        type="button"
-        disabled
-        title="Not open yet in this preview"
-        className="console-focusable flex flex-col items-center gap-1 rounded-xl px-3 py-2 text-[13px] text-quiet"
-      >
-        <Plus aria-hidden className="mb-1 h-5 w-5" />
-        <span className="text-[15px] font-medium text-foreground">Bring something in</span>
-        PDF, PPTX or a photo
-      </button>
-    </div>
-  );
-}
-
 function NothingHere({ filter, q }: { filter: ShelfFilter; q: string }) {
   const line = q
     ? `Nothing on your shelf is called “${q}”.`
@@ -312,17 +316,4 @@ function NothingHere({ filter, q }: { filter: ShelfFilter; q: string }) {
       ? 'Nothing shared yet. When a page is ready for others, share it from the page itself.'
       : 'Nothing left to read. Everything here is read through.';
   return <p className="mt-8 text-center text-[14px] text-quiet">{line}</p>;
-}
-
-/** An empty Library is one calm invitation (spec §5.1). The drop is wired in Task 4. */
-function EmptyShelf() {
-  return (
-    <div className="mt-12 flex min-h-[44vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/15 bg-white/[0.015] px-6 py-16 text-center">
-      <Upload aria-hidden className="mb-5 h-6 w-6 text-quiet" />
-      <p className="text-[19px] font-medium tracking-[-0.01em]">Bring in your first file</p>
-      <p className="mx-auto mt-2 max-w-[44ch] text-[14.5px] leading-relaxed text-quiet">
-        PDF, PPTX or a photo. It becomes a page you can read, ask and remember.
-      </p>
-    </div>
-  );
 }
