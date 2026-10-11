@@ -246,3 +246,48 @@ async def test_log_never_raises(conn_factory):
     conn = conn_factory(RuntimeError("db down"))
     await log_llm_call(**_log_kwargs(run_id="run-1"))
     assert len(conn.executed) == 1
+
+
+@pytest.fixture(autouse=True)
+def fresh_missing_flag(monkeypatch):
+    from backend.services.ai import cost as cost_module
+    monkeypatch.setattr(cost_module, "_run_context_columns_missing", False)
+
+
+async def test_missing_columns_fall_back_once_per_process(conn_factory, fresh_missing_flag, caplog):
+    import logging
+    from backend.services.ai.cost import log_llm_call
+    conn = conn_factory(asyncpg.exceptions.UndefinedColumnError('column "run_id" does not exist'))
+    with caplog.at_level(logging.WARNING, logger="backend.services.ai.cost"):
+        await log_llm_call(**_log_kwargs(run_id="run-1", prompt_name="P"))
+        await log_llm_call(**_log_kwargs(run_id="run-2", prompt_name="P"))
+    # fail, legacy, legacy
+    assert len(conn.executed) == 3
+    assert "run_id" not in conn.executed[2][0]
+    assert len([r for r in caplog.records if "run-context columns" in r.getMessage()]) == 1
+
+
+async def test_log_never_raises_when_the_legacy_fallback_also_fails(conn_factory, fresh_missing_flag):
+    from backend.services.ai.cost import log_llm_call
+
+    class _Both(_Conn):
+        async def execute(self, query, *args):
+            self.executed.append((query, args))
+            if len(self.executed) == 1:
+                raise asyncpg.exceptions.UndefinedColumnError("no run_id")
+            raise RuntimeError("db down")
+
+    conn = _Both()
+    import backend.core.database as db
+
+    async def get_db_connection():
+        return conn
+
+    import pytest as _p
+    mp = _p.MonkeyPatch()
+    mp.setattr(db, "get_db_connection", get_db_connection)
+    try:
+        await log_llm_call(**_log_kwargs(run_id="run-1"))
+    finally:
+        mp.undo()
+    assert len(conn.executed) == 2

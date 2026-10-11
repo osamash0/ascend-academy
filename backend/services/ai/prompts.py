@@ -14,7 +14,8 @@ constant, and the version lives in a *parallel* lookup dict keyed by the
 constant's name. This is strictly additive — no existing call site changes
 behavior.
 
-``llm_calls.prompt_name`` (Arc 7) records the key; join ``PROMPT_VERSIONS`` for the version.
+``llm_calls.prompt_name`` (Arc 7) is usually a ``PROMPT_VERSIONS`` key (join it for the
+version), but some legacy call sites pass free-form names that will not join.
 """
 
 from typing import Dict

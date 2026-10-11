@@ -161,6 +161,10 @@ _RUN_CONTEXT_INSERT = """
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 """
 
+# Sticky per process: once the database has reported the run-context columns
+# missing, skip the doomed INSERT (and its warning) for every later call.
+_run_context_columns_missing = False
+
 
 async def log_llm_call(
     *,
@@ -183,6 +187,7 @@ async def log_llm_call(
     written without it, so a deploy-before-migrate never loses a cost row."""
     import asyncpg
 
+    global _run_context_columns_missing
     from backend.core.database import get_db_connection
 
     prompt_tokens = usage.prompt_tokens if usage else 0
@@ -193,7 +198,7 @@ async def log_llm_call(
     try:
         conn_cm = await get_db_connection()
         async with conn_cm as conn:
-            if not has_context:
+            if not has_context or _run_context_columns_missing:
                 await conn.execute(_LEGACY_INSERT, *base)
                 return
             try:
@@ -203,8 +208,9 @@ async def log_llm_call(
                     prompt_name,
                 )
             except asyncpg.exceptions.UndefinedColumnError:
+                _run_context_columns_missing = True
                 logger.warning("llm_calls has no run-context columns yet (migration "
-                               "20261012010000 not applied); logging without them")
+                               "20261012010000 not applied); logging without them (once per process)")
                 await conn.execute(_LEGACY_INSERT, *base)
     except Exception as exc:
         logger.warning("Failed to log llm_calls row (feature=%s provider=%s): %s",
