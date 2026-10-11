@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Home, TrendingUp, BarChart3, Users, Crown, Settings, LogOut, Layers, BookOpen, LayoutDashboard, Archive, Upload, FolderOpen, Repeat, Search, type LucideIcon } from 'lucide-react';
+import { Home, TrendingUp, BarChart3, Users, Crown, Settings, LogOut, Layers, BookOpen, LayoutDashboard, Archive, Upload, FolderOpen, Repeat, Search, Menu, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { FEATURES } from '@/lib/featureFlags';
 import { NotificationBell } from '@/components/NotificationBell';
 import { UploadsIndicator } from '@/components/UploadsIndicator';
 import { ProfileChip } from './ProfileChip';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { StudentRoutes, PublicRoutes, SharedRoutes, ProfessorRoutes, AdminRoutes } from '@/lib/routes';
 
 interface NavTab {
@@ -71,6 +72,9 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
   const { t } = useTranslation(['nav']);
   const navigate = useNavigate();
   const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Close the phone menu once a tab has taken the student somewhere.
+  useEffect(() => setMenuOpen(false), [location.pathname]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -117,7 +121,7 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
           the account-menu's hit area). `shrink-0` here plus a capped name
           width in ProfileChip means this group has a real, bounded natural
           size the layout can actually respect. */}
-      <div className="flex shrink-0 items-center gap-4">
+      <div className="flex shrink-0 items-center gap-3 md:gap-4">
         <button
           onClick={() => navigate(homeRoute)}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-primary shadow-glow-primary hover:scale-105 transition-transform"
@@ -125,11 +129,14 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
         >
           <Layers className="h-5 w-5 text-primary-foreground" />
         </button>
-        <ProfileChip className="hidden md:flex" />
+        {/* Phones get the avatar alone, so the account menu (Profile, My ID,
+            Settings, Sign out) stays one tap away at every width. */}
+        <ProfileChip compact className="flex" />
       </div>
 
-      {/* Center: tabs */}
-      <nav className="flex items-center gap-1">
+      {/* Center: tabs. Below md they move into the menu sheet (right), so
+          the bar never runs wider than a phone. */}
+      <nav className="hidden md:flex items-center gap-1">
         {tabs.map((tab) => {
           const isActive = location.pathname.startsWith(tab.to);
           const label = tab.labelKey ? t(tab.labelKey) : tab.label;
@@ -159,7 +166,7 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
       </nav>
 
       {/* Right: system tray */}
-      <div className="flex items-center gap-2 lg:gap-3">
+      <div className="flex min-w-0 items-center gap-2 lg:gap-3">
         {onOpenSearch && (
           <button
             onClick={onOpenSearch}
@@ -171,23 +178,57 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
             <kbd className="hidden rounded border border-white/10 bg-white/5 px-1 text-[10px] font-black lg:inline">⌘K</kbd>
           </button>
         )}
-        <LiveClock />
+        <span className="hidden lg:inline">
+          <LiveClock />
+        </span>
         {(role === 'professor' || role === 'student') && <UploadsIndicator />}
         <NotificationBell />
         <Link
           to={SharedRoutes.SETTINGS}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-white/10 transition"
+          className="hidden lg:flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-white/10 transition"
           aria-label="Settings"
         >
           <Settings className="h-5 w-5" />
         </Link>
         <button
           onClick={handleSignOut}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition"
+          className="hidden lg:flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition"
           aria-label="Sign out"
         >
           <LogOut className="h-5 w-5" />
         </button>
+        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+          <SheetTrigger
+            className="console-focusable flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-white/10 transition md:hidden"
+            aria-label="Open navigation"
+          >
+            <Menu className="h-5 w-5" />
+          </SheetTrigger>
+          <SheetContent side="right" aria-describedby={undefined} className="w-72 border-white/10 bg-black/95 px-4 pt-14">
+            <SheetTitle className="sr-only">Navigation</SheetTitle>
+            <nav className="flex flex-col gap-1">
+              {tabs.map((tab) => {
+                const isActive = location.pathname.startsWith(tab.to);
+                const label = tab.labelKey ? t(tab.labelKey) : tab.label;
+                return (
+                  <Link
+                    key={tab.to}
+                    to={tab.to}
+                    aria-current={isActive ? 'page' : undefined}
+                    onClick={() => setMenuOpen(false)}
+                    className={cn(
+                      'console-focusable flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors',
+                      isActive ? 'bg-white/10 text-white' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+                    )}
+                  >
+                    <tab.icon className="h-4 w-4" />
+                    {label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </SheetContent>
+        </Sheet>
       </div>
     </header>
   );
