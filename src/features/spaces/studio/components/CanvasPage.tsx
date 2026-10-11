@@ -3,11 +3,13 @@ import { AnimatePresence, motion } from 'motion/react';
 import { CleanBlock } from './CleanBlock';
 import { OriginalPage } from './OriginalPage';
 import { PageDivider } from './PageDivider';
+import { ProgressRing } from './ProgressRing';
 import { WovenAnswer } from './WovenAnswer';
 import { hasSource } from '../edit';
 import { minConfidence } from '../geometry';
 import type { PageGroup } from '../geometry';
 import type { CanvasView } from '../useMorph';
+import { pageProgress, recallLabel, stateOf, type RecallState, type TermState } from '../recall';
 import type { SourcePage } from '../types';
 
 interface Props {
@@ -35,6 +37,21 @@ interface Props {
   /** A citation chip names a *source* block; the screen finds the paragraph that covers it. */
   onOpenPeekSource(sourceBlockId: string): void;
   theme?: 'light' | 'dark';
+  /** Recall mode, while it is on: summary terms become blanks, and each page shows its ring. */
+  recall?: CanvasRecall | null;
+}
+
+export interface CanvasRecall {
+  state: RecallState;
+  onReveal(key: string): void;
+  onMark(key: string, t: 'knew' | 'notYet'): void;
+}
+
+/** What a summary block needs to render its terms as blanks; a new one whenever any mark changes. */
+export interface BlockRecall {
+  get(key: string): TermState;
+  onReveal(key: string): void;
+  onMark(key: string, t: 'knew' | 'notYet'): void;
 }
 
 /**
@@ -58,6 +75,14 @@ export function CanvasPage(p: Props) {
         if (hasSource(b) && (minConfidence(b.source, p.pages) ?? 1) < 0.8) ids.add(b.id);
     return ids;
   }, [p.groups, p.pages]);
+  const recall = p.recall ?? null;
+  const blockRecall = useMemo<BlockRecall | null>(
+    () =>
+      recall
+        ? { get: (key) => stateOf(recall.state, key), onReveal: recall.onReveal, onMark: recall.onMark }
+        : null,
+    [recall],
+  );
   return (
     <div className="space-y-12">
       {p.groups.map((g) => {
@@ -96,7 +121,17 @@ export function CanvasPage(p: Props) {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15 }}
                 >
-                  <PageDivider page={g.page} />
+                  <PageDivider
+                    page={g.page}
+                    ring={
+                      recall
+                        ? (() => {
+                            const { knew, total } = pageProgress(g.blocks, recall.state);
+                            return <ProgressRing knew={knew} total={total} label={recallLabel(g.page, knew, total)} />;
+                          })()
+                        : undefined
+                    }
+                  />
                   <div className="space-y-2">
                     {g.blocks.map((b, i) =>
                       b.origin === 'generated' ? (
@@ -124,6 +159,7 @@ export function CanvasPage(p: Props) {
                           flash={p.flashBlockId === b.id}
                           glow={p.glowId === b.id}
                           theme={p.theme}
+                          recall={b.origin === 'summary' ? blockRecall : null}
                           markerDisabled={p.sourceRemoved}
                           onPointerEnter={p.onBlockPointerEnter}
                           onPointerLeave={p.onBlockPointerLeave}

@@ -63,3 +63,7 @@ export function retry(s: RecallState): RecallState {
 }
 
 export const reset = (s: RecallState): RecallState => ({ ...s, terms: {} });
+
+/** A page's ring, as read aloud: "Recall, page 6: 1 of 3 known". */
+export const recallLabel = (page: number, knew: number, total: number) =>
+  `Recall, page ${page}: ${knew} of ${total} known`;

@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Markdown } from './Markdown';
@@ -7,6 +7,7 @@ import {
 } from '../motion';
 import { hasSource } from '../edit';
 import type { CanvasBlock } from '../types';
+import type { BlockRecall } from './CanvasPage';
 
 interface Props {
   block: CanvasBlock;
@@ -33,6 +34,8 @@ interface Props {
   glow?: boolean;
   /** The glow's teal depends on the ground it sits on. */
   theme?: 'light' | 'dark';
+  /** Recall mode, summary blocks only: key terms render as blanks you reveal. */
+  recall?: BlockRecall | null;
   onPointerEnter(blockId: string, pointerType: string): void;
   onPointerLeave(): void;
   onOpenPeek(blockId: string): void;
@@ -48,7 +51,7 @@ interface Props {
  * hover or focus to keep the margin quiet.
  */
 export const CleanBlock = memo(function CleanBlock({
-  block, page, index, count, morph, flying, lowConfidence, active, flash, markerDisabled, glow = false, theme = 'dark',
+  block, page, index, count, morph, flying, lowConfidence, active, flash, markerDisabled, glow = false, theme = 'dark', recall = null,
   onPointerEnter, onPointerLeave, onOpenPeek, onClosePeek,
 }: Props) {
   const sourced = hasSource(block);
@@ -59,6 +62,10 @@ export const CleanBlock = memo(function CleanBlock({
   const [glowed, setGlowed] = useState(false);
   if (glow && !glowed) setGlowed(true);
   const { on: GLOW_ON, off: GLOW_OFF } = glowColors(theme);
+  const termRecall = useMemo(
+    () => (recall ? { blockId: block.id, page, get: recall.get, onReveal: recall.onReveal, onMark: recall.onMark } : undefined),
+    [recall, block.id, page],
+  );
   return (
     <motion.div
       data-block-id={block.id}
@@ -131,6 +138,7 @@ export const CleanBlock = memo(function CleanBlock({
       >
         <Markdown
           className={cn(lowConfidence && 'underline decoration-dotted decoration-muted-foreground underline-offset-4')}
+          recall={termRecall}
         >
           {block.markdown}
         </Markdown>

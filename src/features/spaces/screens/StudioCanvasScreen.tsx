@@ -25,6 +25,8 @@ import { groupByPage, pagesInView, pickAnchorPage, regionForBlock } from '../stu
 import { FLIGHT_EASE, FLIGHT_S, PAGE_ENTER_S } from '../studio/motion';
 import type { ShelfItem } from '../studio/shelf';
 import { useMorph } from '../studio/useMorph';
+import { pageProgress, stateOf, termKey, termsIn } from '../studio/recall';
+import { useRecall } from '../studio/useRecall';
 import { usePageNav } from '../studio/usePageNav';
 import { usePeek } from '../studio/usePeek';
 import { blockAtReadingLine, useReadingLine } from '../studio/useReadingLine';
@@ -37,6 +39,7 @@ import '../studio/studio-surface.css';
 
 const HINT = 'Rest on a paragraph to see the source, press S, or ask below.';
 const HINT_NO_ORIGINAL = 'Use ← → to move between pages, or ask below.';
+const HINT_RECALL = ' · R to recall';
 /** How long "Back on page N" stands in for the hint. */
 const BACK_ON_MS = 4000;
 
@@ -134,6 +137,65 @@ export default function StudioCanvasScreen() {
   const viewPages = useMemo(() => pagesInView(groups, pages, morph.shown), [groups, pages, morph.shown]);
   const railGroups = useMemo(() => groups.filter((g) => viewPages.includes(g.page)), [groups, viewPages]);
   const nav = usePageNav(viewPages, morph.shown);
+
+  const reduceMotion = useReducedMotion();
+  const reduceMotionRef = useRef(reduceMotion);
+  reduceMotionRef.current = reduceMotion;
+
+  /* ── Recall (Learn, deeper §2): key terms become blanks; Learn only, kept per Material ── */
+  const recall = useRecall(materialId ?? '', !original);
+  const recallOn = recall.state.on && !original;
+  /** Every summary term on the canvas, in reading order: the one list the counts and Try again share. */
+  const summaryKeys = useMemo(
+    () =>
+      (doc?.blocks ?? []).flatMap((b) => (b.origin === 'summary' ? termsIn(b.markdown).map((_, i) => termKey(b.id, i)) : [])),
+    [doc],
+  );
+  const recallKnew = summaryKeys.filter((k) => stateOf(recall.state, k) === 'knew').length;
+  const recallTotal = summaryKeys.length;
+  const notYet = summaryKeys.filter((k) => stateOf(recall.state, k) === 'notYet');
+  const anyMarked = summaryKeys.some((k) => stateOf(recall.state, k) !== 'blank');
+  const canvasRecall = useMemo(
+    () => (recallOn ? { state: recall.state, onReveal: recall.reveal, onMark: recall.markTerm } : null),
+    [recallOn, recall.state, recall.reveal, recall.markTerm],
+  );
+  const railProgress = useMemo(
+    () => (recallOn ? new Map(railGroups.map((g) => [g.page, pageProgress(g.blocks, recall.state)])) : null),
+    [recallOn, railGroups, recall.state],
+  );
+  const recallToggle = useRef<HTMLButtonElement>(null);
+  /** The term Try again lands on, once it is a blank again. */
+  const focusTerm = useRef<string | null>(null);
+  const startOver = useRef(false);
+  useEffect(() => {
+    if (startOver.current) {
+      startOver.current = false;
+      recallToggle.current?.focus();
+    }
+    const key = focusTerm.current;
+    if (!key) return;
+    focusTerm.current = null;
+    const cut = key.lastIndexOf(':');
+    const blockId = key.slice(0, cut);
+    const index = Number(key.slice(cut + 1));
+    // Its place among the block's blanks: the terms before it that are blank too.
+    let nth = 0;
+    for (let j = 0; j < index; j++) if (stateOf(recall.state, termKey(blockId, j)) === 'blank') nth += 1;
+    const el = document
+      .querySelector(`[data-view="clean"] [data-block-id="${blockId.replace(/["\\]/g, '\\$&')}"]`)
+      ?.querySelectorAll<HTMLElement>('button[aria-label^="Reveal term"]')[nth];
+    if (!el) return;
+    el.scrollIntoView?.({ block: 'center', behavior: reduceMotionRef.current ? 'auto' : 'smooth' });
+    el.focus({ preventScroll: true });
+  }, [recall.state]);
+  const onTryAgain = () => {
+    focusTerm.current = notYet[0] ?? null;
+    recall.retry();
+  };
+  const onStartOver = () => {
+    startOver.current = true;
+    recall.reset();
+  };
   /* The hint stays until you've turned a page or switched faces once. */
   const [engaged, setEngaged] = useState(false);
   useEffect(() => {
@@ -194,6 +256,17 @@ export default function StudioCanvasScreen() {
     // Back on the shelf, focus comes home to this page's cover.
     rememberOpened(itemId);
   }, [itemId, opensCanvas]);
+  /*
+   * Recall flows back to the shelf, so the cover's "Recall k/n" is real. A page
+   * where nothing was ever marked leaves the shelf's count as it was.
+   */
+  const recallFedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!itemId || !opensCanvas || recallTotal === 0) return;
+    if (recallFedFor.current !== itemId && !anyMarked) return;
+    recallFedFor.current = itemId;
+    shelfActions.setRecall(itemId, recallKnew, recallTotal);
+  }, [itemId, opensCanvas, recallKnew, recallTotal, anyMarked]);
   /* Which material the last reported page belongs to: a new one starts over, so its arrival is not a turn. */
   const lastReported = useRef<{ itemId: string; page: number } | null>(null);
   const currentPage = nav.current;
@@ -292,7 +365,6 @@ export default function StudioCanvasScreen() {
     setAnnounce('');
     announceTimer.current = setTimeout(() => setAnnounce(text), 50);
   }, []);
-  const reduceMotion = useReducedMotion();
   /** The composer's wrapper: "Added below" means below what the composer leaves visible. */
   const composerRef = useRef<HTMLDivElement>(null);
 
@@ -569,6 +641,22 @@ export default function StudioCanvasScreen() {
           </div>
           <div className="order-2 ml-auto flex items-center gap-2 lg:order-3">
             <button
+              ref={recallToggle}
+              type="button"
+              onClick={recall.toggle}
+              aria-pressed={recall.state.on}
+              disabled={original}
+              title={original ? 'Recall works in Learn' : undefined}
+              className={cn(
+                'console-focusable h-9 rounded-full px-3.5 text-[13px] transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                recall.state.on
+                  ? 'bg-[rgb(var(--studio-chip))] text-foreground'
+                  : 'text-faint hover:bg-[rgb(var(--studio-chip))] hover:text-foreground',
+              )}
+            >
+              Recall
+            </button>
+            <button
               type="button"
               onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Use light theme' : 'Use dark theme'}
@@ -593,7 +681,7 @@ export default function StudioCanvasScreen() {
 
       {/* The contents, down the left edge — wide screens only. */}
       <div className="fixed bottom-24 left-0 top-[112px] z-20 hidden w-60 overflow-y-auto overflow-x-hidden pl-8 pr-4 min-[1180px]:block">
-        <PageRail groups={railGroups} current={nav.current} onPage={nav.go} />
+        <PageRail groups={railGroups} current={nav.current} onPage={nav.go} progress={railProgress} />
       </div>
 
       <div className="min-[1180px]:pl-60">
@@ -634,8 +722,36 @@ export default function StudioCanvasScreen() {
                 onRemoveAnswer={onRemoveAnswer}
                 onOpenPeekSource={onOpenPeekSource}
                 theme={theme}
+                recall={canvasRecall}
               />
             </LayoutGroup>
+            {recallOn && recallTotal > 0 && (notYet.length > 0 || anyMarked) && (
+              <div className="mt-12 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-quiet">
+                {notYet.length > 0 && (
+                  <>
+                    <p>
+                      {notYet.length} {notYet.length === 1 ? 'term' : 'terms'} to try again
+                    </p>
+                    <button
+                      type="button"
+                      onClick={onTryAgain}
+                      className="console-focusable min-h-6 rounded-full bg-[rgb(var(--studio-chip))] px-3 py-1 text-foreground"
+                    >
+                      Try again
+                    </button>
+                  </>
+                )}
+                {anyMarked && (
+                  <button
+                    type="button"
+                    onClick={onStartOver}
+                    className="console-focusable min-h-6 rounded-full px-2 py-1 text-faint hover:text-foreground"
+                  >
+                    Start over
+                  </button>
+                )}
+              </div>
+            )}
           </main>
           {gutter && (
             <div className="pr-2">
@@ -673,9 +789,7 @@ export default function StudioCanvasScreen() {
               ? `Back on page ${backOn}`
               : engaged
                 ? null
-                : material.sourceRemoved
-                  ? HINT_NO_ORIGINAL
-                  : HINT
+                : (material.sourceRemoved ? HINT_NO_ORIGINAL : HINT).replace(/\.$/, '') + HINT_RECALL
           }
           onAsk={onAsk}
           pager={

@@ -1,12 +1,15 @@
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { firstWords } from '../text';
+import { ProgressRing } from './ProgressRing';
 import type { PageGroup } from '../geometry';
 
 interface Props {
   groups: PageGroup[];
   current: number | null;
   onPage(page: number): void;
+  /** Recall mode: each page's knew / total, keyed by page. */
+  progress?: ReadonlyMap<number, { knew: number; total: number }> | null;
 }
 
 /** A page's name in the rail: its first heading, else its first words. */
@@ -22,7 +25,7 @@ function labelFor(g: PageGroup): string {
  * One entry per page, the page you are on lit. An index you press, not a
  * progress bar.
  */
-export function PageRail({ groups, current, onPage }: Props) {
+export function PageRail({ groups, current, onPage, progress }: Props) {
   const entries = useMemo(() => groups.map((g) => ({ page: g.page, key: `${g.materialId}-${g.page}`, label: labelFor(g) })), [groups]);
   return (
     <nav aria-label="Pages of this Material" className="w-full">
@@ -42,7 +45,13 @@ export function PageRail({ groups, current, onPage }: Props) {
                 )}
               >
                 <span className="w-5 shrink-0 tabular-nums">{e.page || '·'}</span>
-                <span className="line-clamp-2">{e.label}</span>
+                <span className="line-clamp-2 flex-1">{e.label}</span>
+                {progress && progress.has(e.page) && (
+                  // The divider reads the ring aloud; here it is only seen.
+                  <span aria-hidden className="self-center">
+                    <ProgressRing knew={progress.get(e.page)!.knew} total={progress.get(e.page)!.total} size={14} label="" />
+                  </span>
+                )}
               </button>
             </li>
           );
