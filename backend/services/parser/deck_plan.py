@@ -7,8 +7,9 @@ repeated by the export template, a role for each slide, and section
 boundaries. It is pure: no I/O, no network, deterministic for a given input.
 
 By design, lines repeated on >=60% of pages are stripped as boilerplate, and
-the stripped text now feeds the meta and quiz prompts, so a genuinely repeated
-content line (e.g. a recurring "Step 1" heading) is invisible to them.
+the stripped text feeds the meta, quiz and per-slide synthesis prompts (see
+synthesis_text for the per-slide raw fallback), so a genuinely repeated content
+line (e.g. a recurring "Step 1" heading) is invisible to them.
 """
 from __future__ import annotations
 
@@ -160,6 +161,19 @@ def build_deck_skeleton(pages: list[str]) -> DeckSkeleton:
         for i in range(len(pages))
     )
     return DeckSkeleton(boilerplate=boilerplate, slides=slides, sections=sections)
+
+
+def synthesis_text(raw: str, skeleton: DeckSkeleton | None, index: int, min_chars: int) -> str:
+    """The text per-slide synthesis sends the model for page ``index``.
+
+    The boilerplate-stripped skeleton text when the deck has boilerplate and
+    stripping leaves at least ``min_chars`` characters; otherwise ``raw``, so a
+    slide whose text is (almost) all template is never sent empty. Only the LLM
+    input changes: the persisted slide content stays raw."""
+    if skeleton is None or not skeleton.boilerplate or not 0 <= index < len(skeleton.slides):
+        return raw
+    stripped = skeleton.slides[index].text
+    return stripped if len(stripped.strip()) >= min_chars else raw
 
 
 def skeleton_receipt(skeleton: DeckSkeleton) -> dict:

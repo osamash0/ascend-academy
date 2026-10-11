@@ -1400,3 +1400,59 @@ async def test_receipt_write_failure_never_fails_the_parse(monkeypatch, caplog):
     assert RunStatus.COMPLETED in rec["status"]
     assert rec["errors"] == []
     assert "parse receipt write failed" in caplog.text
+
+
+# ── Arc 7: per-slide synthesis input ─────────────────────────────────────────
+
+ARC7_FOOTER = "Prof Example Course Footer"
+ARC7_DECK = [
+    f"Short Title Bravo\n{ARC7_FOOTER}",  # stripped = 17 chars -> raw fallback
+    f"Breadth-first search visits every vertex level by level.\n{ARC7_FOOTER}",
+    f"Depth-first search follows one branch to its end first.\n{ARC7_FOOTER}",
+    f"Dijkstra finds shortest paths with nonnegative weights.\n{ARC7_FOOTER}",
+]
+
+
+def _slide_contents(events):
+    return {d["index"]: d["slide"]["content"] for t, d in events if t == "slide"}
+
+
+async def test_batch_synthesis_gets_stripped_text_but_slides_keep_raw_content(monkeypatch):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    rec, run = _patch_common(monkeypatch, pages=ARC7_DECK)
+    sent = {}
+
+    async def capturing_batch(slides_input, ai_model="cerebras", blueprint=None, **_kw):
+        sent.update({s["index"]: s["text"] for s in slides_input})
+        return [{"index": s["index"], "title": f"S{s['index']}", "summary": f"sum{s['index']}",
+                 "slide_type": "text"} for s in slides_input]
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", capturing_batch)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+
+    assert sent[1] == "Breadth-first search visits every vertex level by level."
+    assert all(ARC7_FOOTER not in sent[i] for i in (1, 2, 3))
+    assert sent[0] == ARC7_DECK[0]  # never sent near-empty
+    assert _slide_contents(events) == dict(enumerate(ARC7_DECK))
+
+
+async def test_per_slide_fallback_gets_stripped_text_but_slides_keep_raw_content(monkeypatch):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    rec, run = _patch_common(monkeypatch, pages=ARC7_DECK)
+
+    async def failing_batch(*_a, **_k):
+        raise RuntimeError("batch provider down")
+
+    seen = {}
+
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+        seen[idx] = text
+        return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text"}
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", failing_batch)
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+
+    assert seen[2] == "Depth-first search follows one branch to its end first."
+    assert seen[0] == ARC7_DECK[0]
+    assert _slide_contents(events) == dict(enumerate(ARC7_DECK))

@@ -820,7 +820,14 @@ async def parse_pdf_unified(
 
                 results_map: Dict[int, Any] = {}
                 if text_idxs:
-                    text_items = [(i, raw_slides[i]) for i in text_idxs]
+                    from backend.services.parser.deck_plan import synthesis_text
+                    # Arc 7: the model reads boilerplate-stripped text (raw
+                    # fallback under _MIN_TEXT_FOR_SYNTH); routing above and the
+                    # persisted content below stay on the raw page.
+                    text_items = [
+                        (i, synthesis_text(raw_slides[i], skeleton, i, _MIN_TEXT_FOR_SYNTH))
+                        for i in text_idxs
+                    ]
                     # Note: any slide here carrying a regen instruction routes
                     # itself to the per-slide fallback inside the helper (the
                     # batch schema has no per-slide instruction hook), so
@@ -876,9 +883,15 @@ async def parse_pdf_unified(
                     i, route, ai_model=ai_model, synthesis_failed=synthesis_failed,
                     needs_review=needs_review, review_reason=review_reason,
                 ))
+                # Text routes echo the (stripped) synthesis input as content;
+                # students must see the real page, so pin it to the raw text.
+                content = (
+                    raw_slides[i] if route in ("batch", "per_slide")
+                    else res.get("content", raw_slides[i])
+                )
                 ui_slide = {
                     "title": title,
-                    "content": res.get("content", raw_slides[i]) or "",
+                    "content": content or "",
                     "summary": res.get("summary", "") or "",
                     "slide_type": res.get("slide_type", "text"),
                     "questions": [],
