@@ -2,7 +2,8 @@
 
     GET /api/v1/lectures/{lecture_id}/parse-receipt
         The latest receipt for a lecture the caller owns: deck skeleton,
-        per-slide synthesis provenance, and the deck-quiz grounding summary.
+        per-slide synthesis provenance (incl. serving provider/model/cost),
+        the deck-quiz grounding summary, and the run's LLM usage totals.
 
 The read goes through the service-role client (RLS bypassed, mirroring
 worksheets.py), so ownership is enforced here: the course professor or the
@@ -30,7 +31,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["parse-receipts"])
 
 _RECEIPT_COLUMNS = (
-    "run_id", "lecture_id", "deck_skeleton", "slide_provenance", "quiz_grounding", "created_at",
+    "run_id", "lecture_id", "deck_skeleton", "slide_provenance", "quiz_grounding",
+    "llm_usage", "created_at",
 )
 
 

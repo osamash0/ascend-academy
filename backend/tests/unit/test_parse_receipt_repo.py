@@ -71,3 +71,22 @@ async def test_save_parse_receipt_stores_sql_null_for_missing_parts(conn):
     ((_query, args),) = conn.executed
     assert args[2] is None and args[4] is None
     assert json.loads(args[3]) == []
+
+
+async def test_save_parse_receipt_writes_llm_usage_as_jsonb(conn):
+    usage = {"calls": 2, "cost_usd": 0.0009, "by_prompt": {}, "by_provider": {}}
+    await repos.save_parse_receipt(
+        uuid4(), uuid4(), deck_skeleton=None, slide_provenance=[], quiz_grounding=None,
+        llm_usage=usage,
+    )
+    ((query, args),) = conn.executed
+    assert "llm_usage = EXCLUDED.llm_usage" in query
+    assert json.loads(args[5]) == usage
+
+
+async def test_save_parse_receipt_stores_sql_null_without_llm_usage(conn):
+    await repos.save_parse_receipt(
+        uuid4(), uuid4(), deck_skeleton=None, slide_provenance=[], quiz_grounding=None,
+    )
+    ((_query, args),) = conn.executed
+    assert args[5] is None

@@ -40,7 +40,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence
 from uuid import UUID
 
 import redis.asyncio as aioredis
@@ -376,7 +376,8 @@ def _provenance_entry(
     input_text: Optional[str] = None,
 ) -> Dict[str, Any]:
     """One slide's receipt line. ``requested_model`` is the model the parse
-    asked for (head of the provider chain). ``input_text`` says whether the
+    asked for (head of the provider chain); the serving provider/model/cost are
+    added at finalize by _llm_usage_receipt. ``input_text`` says whether the
     prompt got boilerplate-stripped or raw text: BATCH_SLIDE_PROMPT is shared
     with raw-text callers, so its version tag alone cannot say."""
     from backend.services.ai.prompts import get_prompt_version
@@ -401,6 +402,53 @@ def _provenance_entry(
     }
 
 
+def _llm_usage_receipt(
+    slide_provenance: List[Dict[str, Any]], calls: Sequence[ServedCall],
+) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Fold this attempt's metered LLM calls into the receipt (Arc 7). Pure:
+    returns new provenance entries plus the run totals.
+
+    Each entry gains ``served_by`` (one item per call that carried the slide:
+    provider, model, prompt, tokens, cost, and ``shared_by`` = how many slides
+    the call covered) and ``cost_usd`` (the slide's even share of those calls).
+    Run-level calls (meta, quiz, facts, ...) have no slide and count only in
+    the totals. Vision, embeddings and the admin-slide classifier are not
+    metered; ``unmetered`` names them so the totals are not read as complete."""
+    provenance = [{**entry, "served_by": [], "cost_usd": 0.0} for entry in slide_provenance]
+    by_index = {entry["index"]: entry for entry in provenance}
+    totals: Dict[str, Any] = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0,
+                              "cost_usd": 0.0, "by_prompt": {}, "by_provider": {}}
+    for call in calls:
+        totals["calls"] += 1
+        totals["prompt_tokens"] += call.prompt_tokens
+        totals["completion_tokens"] += call.completion_tokens
+        totals["cost_usd"] += call.cost_usd
+        for key, name in (("by_prompt", call.prompt_name or "unnamed"), ("by_provider", call.provider)):
+            bucket = totals[key].setdefault(name, {"calls": 0, "cost_usd": 0.0})
+            bucket["calls"] += 1
+            bucket["cost_usd"] += call.cost_usd
+        shared_by = len(call.slide_indices or ())
+        for i in call.slide_indices or ():
+            entry = by_index.get(i)
+            if entry is None:
+                continue
+            entry["served_by"].append({
+                "provider": call.provider, "model": call.model, "prompt": call.prompt_name,
+                "prompt_tokens": call.prompt_tokens, "completion_tokens": call.completion_tokens,
+                "cost_usd": round(call.cost_usd, 6), "shared_by": shared_by,
+            })
+            entry["cost_usd"] += call.cost_usd / shared_by
+    for entry in provenance:
+        entry["cost_usd"] = round(entry["cost_usd"], 6)
+    totals["cost_usd"] = round(totals["cost_usd"], 6)
+    for key in ("by_prompt", "by_provider"):
+        for bucket in totals[key].values():
+            bucket["cost_usd"] = round(bucket["cost_usd"], 6)
+    totals["vision_metered"] = False
+    totals["unmetered"] = ["vision", "embeddings", "admin_slide_classifier"]
+    return provenance, totals
+
+
 async def _write_parse_receipt(
     run_id: UUID,
     lecture_id: UUID,
@@ -408,10 +456,19 @@ async def _write_parse_receipt(
     skeleton: Any,
     slide_provenance: List[Dict[str, Any]],
     quiz_grounding: Optional[Dict[str, Any]],
+    served_calls: Sequence[ServedCall] = (),
 ) -> None:
     """Arc 5: persist what this parse saw and decided, for the professor.
-    A receipt is diagnostics, so failing to write one is logged and never
-    fails a parse that otherwise succeeded."""
+    Arc 7: plus who served each slide and what the run cost so far. A receipt
+    is diagnostics, so failing to build or write any part of it is logged and
+    never fails a parse that otherwise succeeded; a failed usage fold still
+    writes the rest of the receipt."""
+    llm_usage: Optional[Dict[str, Any]] = None
+    try:
+        slide_provenance, llm_usage = _llm_usage_receipt(slide_provenance, served_calls)
+    except Exception as exc:
+        logger.warning("parse receipt llm usage fold failed (non-fatal) run=%s: %s",
+                       run_id, exc, exc_info=True)
     try:
         from backend.services.parser.deck_plan import skeleton_receipt
 
@@ -421,6 +478,7 @@ async def _write_parse_receipt(
             deck_skeleton=skeleton_receipt(skeleton) if skeleton is not None else None,
             slide_provenance=slide_provenance,
             quiz_grounding=quiz_grounding,
+            llm_usage=llm_usage,
         )
     except Exception as exc:
         logger.warning("parse receipt write failed (non-fatal) run=%s: %s", run_id, exc, exc_info=True)
@@ -993,7 +1051,8 @@ async def parse_pdf_unified(
                 from backend.services.parser.synthesis import extract_syllabus_facts
                 from backend.services.course_context_service import upsert_course_context_facts
                 combined = "\n\n---\n\n".join(admin_slide_texts[:5])
-                facts = await extract_syllabus_facts(combined, ai_model)
+                with llm_call_scope(prompt_name="SYLLABUS_FACTS_EXTRACTION_PROMPT"):
+                    facts = await extract_syllabus_facts(combined, ai_model)
                 if facts:
                     await upsert_course_context_facts(course_uuid, facts)
             except Exception as exc:
@@ -1026,9 +1085,10 @@ async def parse_pdf_unified(
                     from backend.services.parser.synthesis import (
                         generate_cross_lecture_questions, _map_cross_lecture_quiz,
                     )
-                    cross_raw = await generate_cross_lecture_questions(
-                        lecture_title, course_synthesis_ctx["prior_lectures"], ai_model
-                    )
+                    with llm_call_scope(prompt_name="CROSS_LECTURE_QUIZ_PROMPT"):
+                        cross_raw = await generate_cross_lecture_questions(
+                            lecture_title, course_synthesis_ctx["prior_lectures"], ai_model
+                        )
                     deck_quiz += _map_cross_lecture_quiz(cross_raw)
                 except Exception as exc:
                     logger.warning("cross-lecture quiz generation failed (non-fatal): %s", exc)
@@ -1048,6 +1108,7 @@ async def parse_pdf_unified(
                 skeleton=skeleton,
                 slide_provenance=slide_provenance,
                 quiz_grounding=quiz_stats or None,
+                served_calls=list(served_calls),
             )
             # A reader locale is only published as an atomic snapshot of the
             # canonical source revision — never a partial translation. But a

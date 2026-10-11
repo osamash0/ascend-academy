@@ -279,10 +279,12 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     async def finalize_lecture(lid, desc, total):
         rec["finalize"].append((desc, total))
 
-    async def save_parse_receipt(run_id, lecture_id, *, deck_skeleton, slide_provenance, quiz_grounding):
+    async def save_parse_receipt(run_id, lecture_id, *, deck_skeleton, slide_provenance, quiz_grounding,
+                                 llm_usage=None):
         rec.setdefault("receipts", []).append({
             "run_id": run_id, "lecture_id": lecture_id, "deck_skeleton": deck_skeleton,
             "slide_provenance": slide_provenance, "quiz_grounding": quiz_grounding,
+            "llm_usage": llm_usage,
         })
 
     monkeypatch.setattr(uo.repos, "get_or_create_run", get_or_create_run)
@@ -1325,7 +1327,7 @@ async def test_receipt_provenance_records_batch_and_vision_routes(monkeypatch):
     assert prov[0] == {
         "index": 0, "route": "batch", "prompt": "BATCH_SLIDE_PROMPT",
         "prompt_version": PROMPT_VERSIONS["BATCH_SLIDE_PROMPT"], "requested_model": "groq",
-        "input_text": "raw",
+        "input_text": "raw", "served_by": [], "cost_usd": 0.0,
         "synthesis_failed": False, "needs_review": False, "review_reason": None,
     }
     assert prov[2]["input_text"] == "raw"
@@ -1597,3 +1599,109 @@ async def test_each_parse_attempt_and_concurrent_parse_gets_its_own_calls_list(m
     assert len(lists) == 3
     assert all(l is not None for l in lists)
     assert len({id(l) for l in lists}) == 3
+
+
+# ── Arc 7: serving provider/cost in the receipt ─────────────────────────────
+
+def _served(provider, model, pt, ct, cost, prompt, slides):
+    from backend.services.ai.call_context import ServedCall
+    return ServedCall(provider=provider, model=model, prompt_tokens=pt, completion_tokens=ct,
+                      cost_usd=cost, prompt_name=prompt, slide_indices=slides)
+
+
+def test_llm_usage_receipt_splits_a_batch_call_and_totals_the_run():
+    prov = [{"index": 0, "route": "batch"}, {"index": 1, "route": "batch"}, {"index": 2, "route": "vision"}]
+    calls = [
+        _served("openai", "gpt-4o-mini", 2000, 1000, 0.0009, "BATCH_SLIDE_PROMPT", (0, 1)),
+        _served("groq", "gpt-oss-120b", 500, 100, 0.0, "LECTURE_META_ANALYSIS_PROMPT", None),
+        _served("groq", "gpt-oss-20b", 300, 50, 0.0, None, (7,)),  # slide not in receipt
+    ]
+    out, usage = uo._llm_usage_receipt(prov, calls)
+    assert "served_by" not in prov[0]  # input not mutated
+    assert out[0]["served_by"] == [{
+        "provider": "openai", "model": "gpt-4o-mini", "prompt": "BATCH_SLIDE_PROMPT",
+        "prompt_tokens": 2000, "completion_tokens": 1000, "cost_usd": 0.0009, "shared_by": 2,
+    }]
+    assert out[0]["cost_usd"] == pytest.approx(0.00045)
+    assert out[2]["served_by"] == [] and out[2]["cost_usd"] == 0.0
+    assert usage["calls"] == 3
+    assert (usage["prompt_tokens"], usage["completion_tokens"]) == (2800, 1150)
+    assert usage["cost_usd"] == pytest.approx(0.0009)
+    assert usage["by_prompt"]["LECTURE_META_ANALYSIS_PROMPT"] == {"calls": 1, "cost_usd": 0.0}
+    assert usage["by_prompt"]["unnamed"]["calls"] == 1
+    assert usage["by_provider"]["openai"] == {"calls": 1, "cost_usd": 0.0009}
+    assert usage["vision_metered"] is False
+    assert usage["unmetered"] == ["vision", "embeddings", "admin_slide_classifier"]
+
+
+def test_run_level_calls_count_in_totals_but_never_in_a_slide():
+    prov = [{"index": 0, "route": "batch"}]
+    calls = [_served("groq", "m", 10, 5, 0.01, "CROSS_LECTURE_QUIZ_PROMPT", None)]
+    out, usage = uo._llm_usage_receipt(prov, calls)
+    assert out[0]["served_by"] == [] and out[0]["cost_usd"] == 0.0
+    assert usage["cost_usd"] == pytest.approx(0.01)
+    assert usage["by_prompt"]["CROSS_LECTURE_QUIZ_PROMPT"]["calls"] == 1
+
+
+async def test_receipt_records_serving_provider_and_cost(monkeypatch):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    import backend.services.parser.synthesis as synthesis
+    from backend.services.ai import cost as cost_module
+    from backend.services.ai.cost import LLMUsage
+
+    rec, run = _patch_common(monkeypatch, pages=[LONG_A, LONG_B, ""])
+    logged = []
+
+    async def fake_log(**kw):
+        logged.append(kw)
+
+    async def noop(*_a, **_k):
+        return None
+
+    monkeypatch.setattr(cost_module, "log_llm_call", fake_log)
+    monkeypatch.setattr(cost_module, "get_redis_or_none", lambda: None)
+    monkeypatch.setattr(ai_orchestrator._rotator, "flush_openai_cost_to_redis", noop)
+
+    async def metered(provider, model, pt, ct):
+        await ai_orchestrator._account_for_call(
+            provider, model, LLMUsage(prompt_tokens=pt, completion_tokens=ct),
+            user_id=None, course_id=None, feature="test", duration_seconds=0.0,
+        )
+
+    async def batch(slides_input, ai_model="cerebras", blueprint=None, **_kw):
+        await metered("openai", "gpt-4o-mini", 2000, 1000)  # $0.0003 + $0.0006
+        return [{"index": s["index"], "title": f"S{s['index']}", "summary": f"sum{s['index']}",
+                 "slide_type": "text"} for s in slides_input]
+
+    async def meta(slides, model, course_context_hint="", source_language="en", skeleton=None):
+        await metered("groq", "gpt-oss-120b", 500, 100)
+        return {"title": "L", "summary": "D"}
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", batch)
+    monkeypatch.setattr(synthesis, "analyze_lecture_meta", meta)
+    await _run("h", OWNER, filename="Deck.pdf")
+
+    (receipt,) = rec["receipts"]
+    prov = receipt["slide_provenance"]
+    assert prov[0]["served_by"][0]["provider"] == "openai"
+    assert prov[0]["served_by"][0]["shared_by"] == 2
+    assert prov[0]["cost_usd"] == pytest.approx(0.00045)
+    assert prov[2]["served_by"] == []  # vision: not metered
+    usage = receipt["llm_usage"]
+    assert usage["calls"] == 2 and usage["cost_usd"] == pytest.approx(0.0009)
+    assert usage["by_prompt"]["LECTURE_META_ANALYSIS_PROMPT"]["calls"] == 1
+    assert {row["run_id"] for row in logged} == {str(run.run_id)}
+
+
+async def test_usage_fold_failure_still_writes_the_receipt(monkeypatch):
+    rec, run = _patch_common(monkeypatch)
+
+    def boom(*_a, **_k):
+        raise RuntimeError("fold exploded")
+
+    monkeypatch.setattr(uo, "_llm_usage_receipt", boom)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+    assert events[-1][0] == "complete"
+    (receipt,) = rec["receipts"]
+    assert receipt["llm_usage"] is None
+    assert "served_by" not in receipt["slide_provenance"][0]

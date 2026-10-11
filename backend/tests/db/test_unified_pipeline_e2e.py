@@ -178,3 +178,47 @@ async def test_save_parse_receipt_round_trip_replaces_not_duplicates(
     assert len(rows) == 1
     assert rows[0] == (other_lecture, True, [{"index": 0, "route": "batch"}], {"proposed": 3, "kept": 2})
     assert rows[0][0] != first_lecture
+
+
+async def test_parse_tags_llm_calls_with_its_run_and_receipt_totals_them(
+    wired_pool, db_conn, make_user, monkeypatch
+):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    from backend.services.ai import cost as cost_module
+    from backend.services.ai.cost import LLMUsage
+
+    prof = make_user(role="professor")
+    pages = [
+        "Breadth-first search visits every vertex level by level.",
+        "Depth-first search follows one branch to its end first.",
+    ]
+    _patch_synthesis(monkeypatch, pages=pages, deck_quiz=[])
+    monkeypatch.setattr(cost_module, "get_redis_or_none", lambda: None)
+
+    async def batch(slides_input, ai_model="cerebras", blueprint=None, **_kw):
+        await ai_orchestrator._account_for_call(
+            "groq", "gpt-oss-20b", LLMUsage(prompt_tokens=800, completion_tokens=200),
+            user_id=None, course_id=None, feature="batch_analyze_text_slides",
+            duration_seconds=0.0, prompt_name="BATCH_SLIDE_PROMPT",
+        )
+        return [{"index": s["index"], "title": "T", "summary": "S", "slide_type": "text"}
+                for s in slides_input]
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", batch)
+    await _run("hash_llm_ctx", prof)
+
+    cur = db_conn.cursor()
+    cur.execute("SELECT run_id FROM parse_runs WHERE pdf_hash = %s", ("hash_llm_ctx",))
+    (run_id,) = cur.fetchone()
+    cur.execute(
+        "SELECT provider, slide_indices, prompt_tokens FROM public.llm_calls "
+        "WHERE run_id = %s AND prompt_name = 'BATCH_SLIDE_PROMPT'",
+        (run_id,),
+    )
+    assert cur.fetchall() == [("groq", [0, 1], 800)]
+    cur.execute("SELECT llm_usage, slide_provenance FROM parse_receipts WHERE run_id = %s", (run_id,))
+    usage, prov = cur.fetchone()
+    assert usage["by_prompt"]["BATCH_SLIDE_PROMPT"]["calls"] == 1
+    assert usage["prompt_tokens"] >= 800
+    assert prov[0]["served_by"][0]["provider"] == "groq"
+    assert prov[0]["served_by"][0]["shared_by"] == 2

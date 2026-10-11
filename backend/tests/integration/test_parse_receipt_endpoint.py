@@ -40,7 +40,7 @@ def _seed_lecture(fake, *, lecture_id, professor_id=None, student_owner_id=None)
     }).execute()
 
 
-def _seed_receipt(fake, *, run_id, lecture_id, created_at, kept=3) -> None:
+def _seed_receipt(fake, *, run_id, lecture_id, created_at, kept=3, llm_usage=None) -> None:
     fake.table("parse_receipts").insert({
         "run_id": run_id,
         "lecture_id": lecture_id,
@@ -56,6 +56,7 @@ def _seed_receipt(fake, *, run_id, lecture_id, created_at, kept=3) -> None:
         }],
         "quiz_grounding": {"proposed": 4, "kept": kept, "repaired": 1,
                            "dropped": 4 - kept, "drop_reasons": {"no_source": 4 - kept}},
+        "llm_usage": llm_usage,
         "created_at": created_at,
     }).execute()
 
@@ -75,7 +76,7 @@ def test_owner_gets_the_latest_receipt(client, app, fake_supabase, professor_use
     assert body["success"] is True
     data = body["data"]
     assert set(data) == {"run_id", "lecture_id", "deck_skeleton", "slide_provenance",
-                         "quiz_grounding", "created_at"}
+                         "quiz_grounding", "llm_usage", "created_at"}
     assert data["run_id"] == RUN_NEW
     assert data["quiz_grounding"]["kept"] == 3
     assert data["deck_skeleton"]["boilerplate"] == ["footer seite #"]
@@ -145,3 +146,31 @@ def test_enrolled_student_gets_404(client, app, fake_supabase, professor_user, s
     assert r.status_code == 404
     assert r.json()["detail"] == "Lecture not found."
     assert "deck_skeleton" not in r.text
+
+
+_USAGE = {"calls": 2, "prompt_tokens": 2500, "completion_tokens": 1100, "cost_usd": 0.0009,
+          "by_prompt": {"BATCH_SLIDE_PROMPT": {"calls": 1, "cost_usd": 0.0009}},
+          "by_provider": {"openai": {"calls": 1, "cost_usd": 0.0009}}, "vision_metered": False,
+          "unmetered": ["vision", "embeddings", "admin_slide_classifier"]}
+
+
+def test_owner_gets_llm_usage(client, app, fake_supabase, professor_user):
+    _auth_as(app, professor_user)
+    _seed_lecture(fake_supabase, lecture_id=LECTURE_A, professor_id=professor_user.id)
+    _seed_receipt(fake_supabase, run_id=RUN_NEW, lecture_id=LECTURE_A,
+                  created_at="2026-10-12T10:00:00+00:00", llm_usage=_USAGE)
+    r = client.get(_url(LECTURE_A))
+    assert r.status_code == 200, r.text
+    assert r.json()["data"]["llm_usage"] == _USAGE
+
+
+def test_llm_usage_is_not_leaked_to_non_owners(client, app, fake_supabase, professor_user,
+                                               other_professor_user, student_user):
+    _seed_lecture(fake_supabase, lecture_id=LECTURE_A, professor_id=professor_user.id)
+    _seed_receipt(fake_supabase, run_id=RUN_NEW, lecture_id=LECTURE_A,
+                  created_at="2026-10-12T10:00:00+00:00", llm_usage=_USAGE)
+    for who in (other_professor_user, student_user):
+        _auth_as(app, who)
+        r = client.get(_url(LECTURE_A))
+        assert r.status_code == 404
+        assert "llm_usage" not in r.text and "cost_usd" not in r.text
