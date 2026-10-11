@@ -53,6 +53,10 @@ export function useBringIn(enabled: boolean) {
       setVeil(false);
       bringFiles(e.dataTransfer?.files);
     };
+    const reset = () => {
+      depth.current = 0;
+      setVeil(false);
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== 'u' || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       if (isTyping(e.target) || inDialog(e.target)) return;
@@ -66,12 +70,16 @@ export function useBringIn(enabled: boolean) {
     window.addEventListener('dragleave', onLeave);
     window.addEventListener('drop', onDrop);
     window.addEventListener('keydown', onKey);
+    window.addEventListener('blur', reset);
+    window.addEventListener('dragend', reset);
     return () => {
       window.removeEventListener('dragenter', onEnter);
       window.removeEventListener('dragover', onOver);
       window.removeEventListener('dragleave', onLeave);
       window.removeEventListener('drop', onDrop);
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('blur', reset);
+      window.removeEventListener('dragend', reset);
       depth.current = 0;
       setVeil(false);
     };
@@ -162,10 +170,10 @@ export function useDeveloping(item: ShelfItem): { phase: 'reading' | 'writing'; 
   const [phase, setPhase] = useState<'reading' | 'writing'>('reading');
   const [pulse, setPulse] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const { id, stage } = item;
+  const { id, stage, broughtIn } = item;
 
   useEffect(() => {
-    if (stage !== 'developing') return;
+    if (stage !== 'developing' || !broughtIn) return;
     setPhase('reading');
     setPulse(false);
     const t = timers.current;
@@ -181,7 +189,7 @@ export function useDeveloping(item: ShelfItem): { phase: 'reading' | 'writing'; 
       t.forEach(clearTimeout);
       t.length = 0;
     };
-  }, [id, stage]);
+  }, [id, stage, broughtIn]);
 
   return { phase, pulse };
 }

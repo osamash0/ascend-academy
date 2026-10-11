@@ -186,17 +186,19 @@ export function Cover({ item }: { item: ShelfItem }) {
   const fade = { duration: reduce ? 0.15 : 0.6, ease: FLIGHT_EASE };
   const showLines = glancing && !!item.cover && lines.length > 0 && item.stage === 'ready';
   const developing = item.stage === 'developing';
+  /* Only what you brought in this visit develops in front of you; a seeded file is simply still being prepared. */
+  const live = developing && !!item.broughtIn;
   const { phase, pulse } = useDeveloping(item);
   /* A cover that arrives developing comes in with a scale and a fade (a fade alone when motion is reduced). */
   const [enter] = useState(() =>
-    developing ? (reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96 }) : false,
+    live ? (reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96 }) : false,
   );
   const devLook = reduce
     ? { opacity: 0.5, filter: 'blur(0px) grayscale(0)' }
     : phase === 'writing'
       ? { opacity: 0.8, filter: 'blur(5px) grayscale(0.4)' }
       : { opacity: 0.5, filter: 'blur(14px) grayscale(1)' };
-  const imgFade = { duration: reduce ? 0.15 : developing || pulse ? 1.4 : 0.6, ease: FLIGHT_EASE };
+  const imgFade = { duration: reduce ? 0.15 : live || pulse ? 1.4 : 0.6, ease: FLIGHT_EASE };
   /* Open: the page frame grows to the window, then the page takes over (spec §5.4). */
   const zoom = useZoomThrough();
   const frameRef = useRef<HTMLDivElement>(null);
@@ -241,7 +243,7 @@ export function Cover({ item }: { item: ShelfItem }) {
                     ? { opacity: 0, filter: reduce ? 'blur(0px) grayscale(0)' : 'blur(5px) grayscale(0)' }
                     : { opacity: 1, filter: 'blur(0px) grayscale(0)' }
               }
-              transition={developing || pulse ? imgFade : fade}
+              transition={live || pulse ? imgFade : fade}
             />
           ) : (
             /* No page yet: a quiet tile with the file's initial. */
@@ -252,7 +254,7 @@ export function Cover({ item }: { item: ShelfItem }) {
               {item.filename.trim().charAt(0).toUpperCase()}
             </div>
           )}
-          {developing && (
+          {live && (
             <p
               aria-hidden
               className="absolute inset-x-0 bottom-2.5 text-center text-[12px] font-semibold tracking-[0.01em] text-[#222]"
@@ -292,7 +294,7 @@ export function Cover({ item }: { item: ShelfItem }) {
             {item.sample && <span className="ml-2 rounded-full bg-white/[0.07] px-2 py-px text-[11px]">Sample pages</span>}
           </p>
           <div className="mt-2.5">
-            <LifeBar read={item.progress.pagesRead} total={item.pageCount} developing={developing} />
+            <LifeBar read={item.progress.pagesRead} total={item.pageCount} developing={live} />
           </div>
           <LifeLine item={item} className="mt-2" />
           <StateChip item={item} pulse={pulse} />

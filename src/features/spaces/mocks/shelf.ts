@@ -132,6 +132,7 @@ export const bringIn = (filename: string, now: string = new Date().toISOString()
       lastPage: null,
       addedAt: now,
       sample: true,
+      broughtIn: true,
     },
     ...items,
   ]);
@@ -143,7 +144,7 @@ export const settleDeveloping = (id: string, ok: boolean): void =>
 
 /** Try again: a failed import begins developing afresh. */
 export const retryDeveloping = (id: string): void =>
-  patch(id, (i) => (i.stage === 'failed' ? { ...i, stage: 'developing' } : i));
+  patch(id, (i) => (i.stage === 'failed' ? { ...i, stage: 'developing', broughtIn: true } : i));
 
 export const markRead = (id: string, page: number): void =>
   patch(id, (i) => {

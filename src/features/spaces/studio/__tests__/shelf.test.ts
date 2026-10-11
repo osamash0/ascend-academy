@@ -90,6 +90,12 @@ describe('sortItems', () => {
   it('recent: opened newest first, never-opened last', () => {
     expect(sortItems([a, b, c], 'recent').map((i) => i.id)).toEqual(['c', 'a', 'b']);
   });
+  it('recent: developing and failed lead, newest first, ahead of opened ones', () => {
+    const d1 = item({ id: 'd1', stage: 'developing', addedAt: '2026-10-02T00:00:00Z' });
+    const d2 = item({ id: 'd2', stage: 'developing', addedAt: '2026-10-10T00:00:00Z' });
+    const f = item({ id: 'f', stage: 'failed', addedAt: '2026-10-06T00:00:00Z' });
+    expect(sortItems([a, d1, c, f, d2], 'recent').map((i) => i.id)).toEqual(['d2', 'f', 'd1', 'c', 'a']);
+  });
   it('added newest first', () => {
     expect(sortItems([a, b, c], 'added').map((i) => i.id)).toEqual(['b', 'c', 'a']);
   });

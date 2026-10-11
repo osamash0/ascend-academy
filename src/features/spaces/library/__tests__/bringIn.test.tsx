@@ -64,6 +64,18 @@ describe('bringing something in', () => {
     expect(within(ready.parentElement as HTMLElement).getByText('Sample pages')).toBeInTheDocument();
   });
 
+  it('leaves seeded files being prepared alone: still developing, never announced', async () => {
+    at();
+    await settle();
+    const seeded = shelf.getItems().filter((i) => i.stage === 'developing');
+    expect(seeded.length).toBeGreaterThan(0);
+    await advance(10_000);
+    expect(shelf.getItems().filter((i) => i.stage === 'developing').map((i) => i.id)).toEqual(
+      seeded.map((i) => i.id),
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('');
+  });
+
   it('shows the veil on a file drag and brings the dropped files in', async () => {
     at();
     await settle();
@@ -85,6 +97,20 @@ describe('bringing something in', () => {
     const dataTransfer = { types: ['Files'] };
     fireEvent.dragEnter(window, { dataTransfer });
     fireEvent.dragLeave(window, { dataTransfer });
+    await advance(400);
+    expect(screen.queryByText('Drop to bring it in')).toBeNull();
+  });
+
+  it('drops the veil when the window loses focus or the drag ends', async () => {
+    at();
+    await settle();
+    const dataTransfer = { types: ['Files'] };
+    fireEvent.dragEnter(window, { dataTransfer });
+    fireEvent.blur(window);
+    await advance(400);
+    expect(screen.queryByText('Drop to bring it in')).toBeNull();
+    fireEvent.dragEnter(window, { dataTransfer });
+    fireEvent.dragEnd(window);
     await advance(400);
     expect(screen.queryByText('Drop to bring it in')).toBeNull();
   });

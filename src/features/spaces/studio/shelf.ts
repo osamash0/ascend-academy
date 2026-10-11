@@ -23,6 +23,8 @@ export interface ShelfItem {
   addedAt: string;
   /** Preview honesty: true when the item opens the sample pages, not its own. */
   sample?: boolean;
+  /** Brought in during this visit: only these develop in front of you. Seeded items never carry it. */
+  broughtIn?: boolean;
 }
 
 export type JourneyStep = 'brought' | 'understood' | 'shared' | 'landed';

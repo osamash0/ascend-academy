@@ -83,7 +83,7 @@ export default function LibraryScreen() {
 
   /* "{file} is ready", said politely, when a cover finishes developing. */
   const stages = useRef(new Map<string, ShelfItem['stage']>());
-  const [said, setSaid] = useState({ n: 0, text: '' });
+  const [said, setSaid] = useState('');
   useEffect(() => {
     const ready: string[] = [];
     for (const i of items) {
@@ -91,7 +91,7 @@ export default function LibraryScreen() {
       stages.current.set(i.id, i.stage);
     }
     if (ready.length)
-      setSaid((s) => ({ n: s.n + 1, text: ready.map((f) => `${f} is ready`).join('. ') }));
+      setSaid(ready.map((f) => `${f} is ready`).join('. '));
   }, [items]);
 
   /** One URL param, set or cleared, leaving the others (mock, select) alone. */
@@ -140,8 +140,8 @@ export default function LibraryScreen() {
         <Skylight accent={LIBRARY_ACCENT} />
         {body}
       </div>
-      <div key={said.n} role="status" aria-live="polite" className="sr-only">
-        {said.text}
+      <div role="status" aria-live="polite" className="sr-only">
+        {said}
       </div>
       <DropVeil show={bring.veil} />
     </Scene>
