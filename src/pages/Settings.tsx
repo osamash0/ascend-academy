@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth, Profile } from '@/lib/auth';
+import { UserAvatar } from '@/features/avatar/UserAvatar';
+import { StudentRoutes } from '@/lib/routes';
 import { useLanguagePreference } from '@/hooks/useLanguagePreference';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,15 +34,6 @@ interface ExportData extends Record<string, unknown> {
 type AiModelOption = 'auto' | 'cerebras' | 'groq' | 'openrouter' | 'cloudflare' | 'openai';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-
-const PRESET_AVATARS = [
-    { url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Felix&backgroundColor=b6e3f4', label: 'Robot Felix' },
-    { url: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Max&backgroundColor=ffdfbf', label: 'Adventurer Max' },
-    { url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Joy&backgroundColor=c0aede', label: 'Emoji Joy' },
-    { url: 'https://api.dicebear.com/7.x/micah/svg?seed=Alex&backgroundColor=ffdfbf', label: 'Micah Alex' },
-    { url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sam&backgroundColor=b6e3f4', label: 'Avatar Sam' },
-    { url: 'https://api.dicebear.com/7.x/personas/svg?seed=Riley&backgroundColor=ffdfbf', label: 'Persona Riley' },
-] as const;
 
 const AI_MODEL_IDS: AiModelOption[] = ['auto', 'cerebras', 'groq', 'openai', 'openrouter', 'cloudflare'];
 
@@ -76,9 +69,7 @@ function GeneralSettings({
     const { toast } = useToast();
     const { safeSetState } = useSafeAsync();
     const gamification = useGamification();
-
-    const [isUploading, setIsUploading] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const navigate = useNavigate();
 
     const [fullName, setFullName] = useState('');
     const [displayName, setDisplayName] = useState('');
@@ -95,53 +86,6 @@ function GeneralSettings({
 
     const hasUnsavedChanges = fullName !== (profile?.full_name || '') ||
         displayName !== (profile?.display_name || '');
-
-    const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (!event.target.files?.length || !user) return;
-        safeSetState(setIsUploading, true);
-
-        try {
-            const file = event.target.files[0];
-            const fileExt = file.name.split('.').pop();
-            const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-
-            const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file);
-            if (uploadError) throw uploadError;
-
-            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-            const { error: updateError } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('user_id', user.id);
-            if (updateError) throw updateError;
-
-            await onUpdate();
-            gamification.evaluate();
-            toast({ title: t('settings:avatar.updated'), description: t('settings:avatar.updatedDescription') });
-        } catch (error: unknown) {
-            toast({
-                title: t('settings:avatar.uploadError'),
-                description: error instanceof Error ? error.message : t('settings:avatar.uploadErrorDescription'),
-                variant: "destructive"
-            });
-        } finally {
-            safeSetState(setIsUploading, false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-    }, [user, onUpdate, toast, safeSetState, gamification, t]);
-
-    const handleSelectPreset = useCallback(async (url: string) => {
-        if (!user) return;
-        safeSetState(setIsUploading, true);
-        try {
-            const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('user_id', user.id);
-            if (error) throw error;
-            await onUpdate();
-            gamification.evaluate();
-            toast({ title: t('settings:avatar.updated'), description: t('settings:avatar.presetUpdated') });
-        } catch {
-            toast({ title: t('settings:avatar.presetError'), description: t('settings:avatar.presetErrorDescription'), variant: "destructive" });
-        } finally {
-            safeSetState(setIsUploading, false);
-        }
-    }, [user, onUpdate, toast, safeSetState, gamification, t]);
 
     const handleSaveProfile = useCallback(async () => {
         if (!user) return;
@@ -176,63 +120,12 @@ function GeneralSettings({
             </div>
             
             <div className="flex flex-col md:flex-row gap-8 pb-8 border-b border-border">
-                {/* Avatar Section */}
-                <div className="flex-shrink-0 flex flex-col items-center">
-                    <div className="relative mb-6 group">
-                        <div className="w-24 h-24 rounded-full overflow-hidden border border-border shadow-sm bg-muted flex items-center justify-center relative">
-                            {profile?.avatar_url ? (
-                                <img
-                                    src={profile.avatar_url}
-                                    alt="Profile avatar"
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                        (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${profile.full_name || 'User'}`;
-                                    }}
-                                />
-                            ) : (
-                                <User className="w-10 h-10 text-muted-foreground" aria-hidden="true" />
-                            )}
-                            {isUploading && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
-                                    <Loader2 className="w-6 h-6 text-primary animate-spin" aria-hidden="true" />
-                                </div>
-                            )}
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
-                            disabled={isUploading}
-                            aria-label={t('settings:avatar.changeAvatar')}
-                            className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full shadow-md transition-transform active:scale-95 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                        >
-                            <Camera className="w-4 h-4" aria-hidden="true" />
-                        </button>
-                    </div>
-
-                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} disabled={isUploading} aria-label={t('settings:aria.uploadAvatar')} />
-
-                    <div className="w-full mt-2 max-w-[200px]">
-                        <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider text-center">{t('settings:avatar.presetsTitle')}</p>
-                        <div className="grid grid-cols-3 gap-2">
-                            {PRESET_AVATARS.map((preset) => (
-                                <button
-                                    key={preset.url}
-                                    onClick={() => handleSelectPreset(preset.url)}
-                                    disabled={isUploading}
-                                    aria-label={`Select ${preset.label} avatar`}
-                                    aria-pressed={profile?.avatar_url === preset.url}
-                                    className={`w-full aspect-square rounded-lg flex items-center justify-center p-1.5 border transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1
-                                        ${profile?.avatar_url === preset.url
-                                            ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                                            : 'border-transparent bg-muted/50 hover:bg-muted'}`}
-                                >
-                                    <img src={preset.url} alt={preset.label} className="w-full h-full object-contain" loading="lazy" />
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                {/* Avatar — one face app-wide; changed in the Suit Locker (/avatar). */}
+                <div className="flex-shrink-0 flex flex-col items-center gap-4">
+                    <UserAvatar userId={user?.id} name={profile?.display_name || profile?.full_name} avatarUrl={profile?.avatar_url} size={96} />
+                    <Button variant="outline" size="sm" onClick={() => navigate(StudentRoutes.AVATAR)}>
+                        {t('settings:avatar.changeAvatar')}
+                    </Button>
                 </div>
 
                 {/* Profile Form */}

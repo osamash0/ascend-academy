@@ -4,7 +4,8 @@
  * drawer forever with no reason given for the failure.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderWithProviders as render } from "@/test/renderWithProviders";
 import userEvent from "@testing-library/user-event";
 
 const fetchUserDetailMock = vi.fn();

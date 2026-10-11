@@ -26,6 +26,8 @@ export const StudentRoutes = {
   EXAM_REPORT: (examId: string) => `/exam/report/${examId}`,
   STUDY_GUIDE: (courseId: string) => `/course/${courseId}/study-guide`,
   ASCENT: '/ascent',
+  AVATAR: '/avatar',
+  ASK_LUNA: '/ask-luna',
   ACHIEVEMENTS: '/achievements',
   LEADERBOARD: '/leaderboard',
   INSIGHTS: '/insights',
