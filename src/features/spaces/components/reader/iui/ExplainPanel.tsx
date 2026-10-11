@@ -60,7 +60,7 @@ interface Turn {
 /** How long one block takes to "arrive". */
 const BLOCK_MS = 520;
 
-const STARTERS = ['Show me how this works', 'Give me an example to try', 'What do students get wrong here?'];
+const STARTERS = ['Show me how this works', 'Give me an example to try', 'What do people get wrong here?'];
 
 export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot, onAsk, ask, queued, related }: Props) {
   const reduce = useReducedMotion();
@@ -210,14 +210,14 @@ export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot
           {/* The idea, elsewhere in the course: lectures connect. */}
           {!composing && related && related.links.length > 0 && (
             <motion.nav
-              aria-label="Also taught in this course"
+              aria-label="Also taught in this Space"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: timing.card }}
               className="mt-8 rounded-2xl border border-white/[0.07] p-4"
             >
               <p className="mb-2.5 text-[12.5px] text-quiet">
-                <span className="text-foreground">{related.idea}</span> also appears elsewhere in the course
+                <span className="text-foreground">{related.idea}</span> also appears elsewhere in the Space
               </p>
               <ul className="space-y-1">
                 {related.links.map((l) => (
@@ -303,8 +303,8 @@ export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             maxLength={400}
-            placeholder={ask ? 'Ask about this slide — or ask for a tool…' : 'Ask the tutor about this slide…'}
-            aria-label="Ask about this slide"
+            placeholder={ask ? 'Ask about this page — or ask for a tool…' : 'Ask the tutor about this page…'}
+            aria-label="Ask about this page"
             className="h-9 min-w-0 flex-1 bg-transparent text-[14px] text-foreground outline-none placeholder:text-faint"
           />
           <button

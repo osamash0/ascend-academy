@@ -20,7 +20,7 @@ describe('the chapter strip', () => {
   it('names the idea you are in, and jumps to an idea’s first page', async () => {
     const onJump = vi.fn();
     render(<ChapterStrip chapters={chaptersOf(SECTIONS, 82)} page={34} onJump={onJump} />);
-    const nav = screen.getByRole('navigation', { name: 'Ideas in this lecture' });
+    const nav = screen.getByRole('navigation', { name: 'Ideas in this Lesson' });
     expect(nav).toHaveTextContent(/Idea 2 of 3.*Closure/);
     /* Page 34 of 32–40: said as what is left, not as page numbers to decode. */
     expect(nav).toHaveTextContent('6 pages left in this idea');

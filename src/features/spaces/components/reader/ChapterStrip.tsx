@@ -54,7 +54,7 @@ export function ChapterStrip({ chapters, page, onJump, lights = [] }: Props) {
   const left = ahead <= 0 ? 'Last page of this idea' : `${ahead} ${ahead === 1 ? 'page' : 'pages'} left in this idea`;
 
   return (
-    <nav aria-label="Ideas in this lecture" className="w-full" onPointerLeave={() => setHover(null)}>
+    <nav aria-label="Ideas in this Lesson" className="w-full" onPointerLeave={() => setHover(null)}>
       <div className="mb-2 flex h-[18px] items-baseline justify-between gap-4 overflow-hidden text-[12.5px]">
         <AnimatePresence mode="wait" initial={false}>
           <motion.p

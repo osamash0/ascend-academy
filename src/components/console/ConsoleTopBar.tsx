@@ -120,10 +120,10 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
       <div className="flex shrink-0 items-center gap-4">
         <button
           onClick={() => navigate(homeRoute)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br from-primary to-secondary shadow-glow-primary hover:scale-105 transition-transform"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-primary shadow-glow-primary hover:scale-105 transition-transform"
           aria-label="Home"
         >
-          <Rocket className="h-6 w-6 text-white" />
+          <Rocket className="h-6 w-6 text-primary-foreground" />
         </button>
         <ProfileChip className="hidden md:flex" />
       </div>

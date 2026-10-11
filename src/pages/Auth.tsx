@@ -205,7 +205,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen console-bg flex relative overflow-hidden">
+    <div className="min-h-screen bg-black flex relative overflow-hidden">
       {/* Top-left Back button */}
       <div className="absolute top-6 left-6 z-20">
         <Button
@@ -231,8 +231,8 @@ export default function Auth() {
       </div>
 
       {/* Left side: Luna branding (hidden on mobile, visible on lg screens) */}
-      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center border-r border-white/5 bg-[#060a14] overflow-hidden z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-violet-500/10 blur-[100px]" />
+      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center border-r border-white/5 bg-black overflow-hidden z-10">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] to-white/[0.02] blur-[100px]" />
         
         <div className="relative z-10 flex flex-col items-center">
           <Suspense fallback={<div className="w-64 h-64 animate-pulse rounded-full bg-white/5" />}>
@@ -282,8 +282,8 @@ export default function Auth() {
         >
           {/* Brand Logo */}
           <div className="flex items-center gap-4 mb-12 justify-center cursor-pointer" onClick={() => navigate('/')}>
-            <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl flex items-center justify-center shadow-glow-primary">
-              <Layers className="w-7 h-7 text-white" />
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-glow-primary">
+              <Layers className="w-7 h-7 text-black" />
             </div>
             <div className="flex flex-col text-left">
               <span className="text-xl font-bold text-foreground">Learnstation</span>
@@ -317,7 +317,7 @@ export default function Auth() {
                         : 'border-white/5 bg-white/2 hover:border-white/10'
                         }`}
                     >
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedRole === role ? 'bg-primary text-white' : 'bg-white/5 text-muted-foreground'}`}>
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedRole === role ? 'bg-primary text-primary-foreground' : 'bg-white/5 text-muted-foreground'}`}>
                         <Icon className="w-5 h-5" />
                       </div>
                       <span className={`text-xs font-bold uppercase tracking-widest ${selectedRole === role ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -398,7 +398,7 @@ export default function Auth() {
             <Button
               type="submit"
               size="xl"
-              className="w-full h-16 bg-primary hover:bg-primary/90 text-white font-bold rounded-2xl shadow-glow-primary border-none text-lg transition-all active:scale-95"
+              className="w-full h-16 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-2xl shadow-glow-primary border-none text-lg transition-all active:scale-95"
               disabled={loading || (!isLogin && !privacyConsent)}
             >
               {loading ? (
@@ -456,7 +456,9 @@ export default function Auth() {
             </button>
           </div>
 
-          {/* Performance Hint */}
+          {/* Sign-up hint only. Signing in needs no reassurance card
+              (Abi, 2026-10-10: remove "Your dashboard is ready."). */}
+          {!isLogin && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -467,9 +469,10 @@ export default function Auth() {
               <Sparkles className="w-5 h-5 text-xp" />
             </div>
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-relaxed">
-              {isLogin ? t('auth:performanceHint.signIn') : t('auth:performanceHint.signUp')}
+              {t('auth:performanceHint.signUp')}
             </p>
           </motion.div>
+          )}
         </motion.div>
       </div>
     </div>

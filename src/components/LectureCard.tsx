@@ -70,7 +70,7 @@ export const LectureCard = memo(function LectureCard({
     >
       {isNextUp && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-          <div className="bg-primary text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-glow-primary whitespace-nowrap">
+          <div className="bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-glow-primary whitespace-nowrap">
             Up Next
           </div>
         </div>
@@ -149,7 +149,7 @@ export const LectureCard = memo(function LectureCard({
           <span className="text-xs font-bold text-muted-foreground group-hover:text-primary uppercase tracking-widest transition-colors">
             {actionText}
           </span>
-          <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all duration-300">
+          <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
             <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
           </div>
         </div>

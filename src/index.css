@@ -68,19 +68,21 @@
     --card: 222 30% 14%;
     --card-foreground: 220 25% 96%;
 
-    /* ── Primary: Academic Indigo (Saturated but Readable) ── */
-    --primary: 235 85% 65%;
-    /* #5E6BFF — Slightly warmer, less harsh */
-    --primary-foreground: 0 0% 100%;
-    --primary-dim: 235 70% 50%;
+    /* ── Primary: Monochrome (2026-10-10, Abi: no purple brand) ──
+       The brand is white on black. Colour belongs to the content — a deck's
+       or a Space's own light (see features/spaces/components/stage.tsx) —
+       never to the chrome. */
+    --primary: 0 0% 96%;
+    /* #F5F5F5 — the white pill */
+    --primary-foreground: 0 0% 4%;
+    --primary-dim: 0 0% 70%;
     /* Solid borders */
-    --primary-subtle: 235 85% 65% / 0.12;
+    --primary-subtle: 0 0% 100% / 0.10;
     /* Soft backgrounds */
 
-    /* ── Secondary: Knowledge Purple ── */
-    --secondary: 265 55% 58%;
-    /* #8B5CF6 — Softer than cosmic violet */
-    --secondary-foreground: 0 0% 100%;
+    /* ── Secondary: Silver ── */
+    --secondary: 0 0% 62%;
+    --secondary-foreground: 0 0% 4%;
 
     /* ── Accent: Achievement Cyan ── */
     --accent: 188 85% 55%;
@@ -102,8 +104,8 @@
     --xp: 45 95% 55%;
     /* #FCD34D — Gold plasma */
     --xp-foreground: 222 35% 9%;
-    --level: 280 80% 62%;
-    /* #A78BFA — Nebula purple */
+    --level: 0 0% 85%;
+    /* Silver — rank is the brand's white, not a colour of its own */
     --level-foreground: 0 0% 100%;
     --streak: 15 90% 58%;
     /* #FB923C — Flame orange (NEW) */
@@ -119,7 +121,7 @@
     --border: 222 22% 20%;
     /* #232B3F — Visible but unobtrusive */
     --input: 222 22% 20%;
-    --ring: 235 85% 65%;
+    --ring: 0 0% 90%;
 
     --radius: 0.875rem;
     /* Slightly tighter for UI density */
@@ -127,17 +129,17 @@
     /* ── Sidebar ── */
     --sidebar-background: 222 30% 12%;
     --sidebar-foreground: 220 25% 96%;
-    --sidebar-primary: 235 85% 65%;
+    --sidebar-primary: 0 0% 96%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 222 28% 18%;
-    --sidebar-accent-foreground: 235 80% 85%;
+    --sidebar-accent-foreground: 0 0% 90%;
     --sidebar-border: 222 22% 20%;
-    --sidebar-ring: 235 85% 65%;
+    --sidebar-ring: 0 0% 90%;
 
     /* ── Learning State Colors (NEW) ── */
-    --learning-new: 235 85% 65%;
+    --learning-new: 0 0% 92%;
     /* Primary — New content */
-    --learning-review: 265 55% 58%;
+    --learning-review: 0 0% 65%;
     /* Secondary — Review due */
     --learning-mastered: 158 65% 48%;
     /* Success — Completed */
@@ -146,21 +148,20 @@
 
     /* ── Living Gradients (More Restrained) ── */
     --gradient-hero: linear-gradient(135deg,
-        hsl(235 85% 65%) 0%,
-        hsl(265 55% 58%) 50%,
-        hsl(188 85% 55%) 100%);
+        hsl(0 0% 100%) 0%,
+        hsl(0 0% 78%) 100%);
 
     --gradient-surface: linear-gradient(180deg,
         hsl(222 30% 14%) 0%,
         hsl(222 35% 9%) 100%);
 
     --gradient-glow: radial-gradient(circle at 50% 50%,
-        hsl(235 85% 65% / 0.12) 0%,
+        hsl(0 0% 100% / 0.06) 0%,
         transparent 70%);
 
     --gradient-aurora: linear-gradient(90deg,
-        hsl(235 85% 65% / 0.08) 0%,
-        hsl(265 55% 58% / 0.08) 50%,
+        hsl(0 0% 100% / 0.05) 0%,
+        hsl(0 0% 100% / 0.03) 50%,
         hsl(188 85% 55% / 0.08) 100%);
 
     /* ── Premium Shadows (Deeper for Gaming Depth) ── */
@@ -173,7 +174,7 @@
       0 8px 16px -8px hsl(222 35% 5% / 0.5);
 
     /* Glow effects (Reduced for comfort) */
-    --shadow-glow-primary: 0 0 30px hsl(235 85% 65% / 0.2);
+    --shadow-glow-primary: 0 0 30px hsl(0 0% 100% / 0.10);
     --shadow-glow-success: 0 0 25px hsl(158 65% 48% / 0.25);
     --shadow-glow-xp: 0 0 25px hsl(45 95% 55% / 0.35);
     --shadow-glow-accent: 0 0 30px hsl(188 85% 55% / 0.2);
@@ -192,8 +193,8 @@
     /* ── Console layer (dark-first, theme-independent) ── */
     --console-bg: #070b14;
     --glow-done: 34 197 94;      /* emerald */
-    --glow-progress: 99 102 241; /* indigo */
-    --glow-new: 168 85 247;      /* violet */
+    --glow-progress: 200 200 210; /* white light */
+    --glow-new: 150 150 160;      /* silver */
 
     /* ── v4 semantic layer (Learnstation foundations v1.15) ──
        Additive only. These name concepts the v3 token set has no word for.
@@ -201,9 +202,9 @@
 
     /* Origin — Official vs Community must never blur (Separation, Rule 1).
        Deliberately far apart in hue so the two never read as a gradient of
-       each other: Official is the cool authoritative indigo of the path,
-       Community is a warm amber that belongs to people. */
-    --origin-official: 235 85% 65%;
+       each other: Official is the brand's own white — the authority of the
+       path — and Community is a warm amber that belongs to people. */
+    --origin-official: 0 0% 88%;
     --origin-community: 32 95% 60%;
 
     /* Grounding — a quiet marker, never a warning (Grounding, Rule 2/3).
@@ -212,7 +213,7 @@
     --not-grounded: 220 12% 55%;
 
     /* Space modes — who may publish into the path. */
-    --mode-guided: 235 60% 62%;
+    --mode-guided: 0 0% 80%;
     --mode-open: 158 55% 50%;
 
     /* Engagement — Like targets contributions, Star targets whole Spaces.
@@ -243,7 +244,7 @@
     /* Accent eyebrow. Replaces text-primary/80, which reads 3.18:1 on the
        console and 2.82:1 on a card — a clear AA failure at the 10–11px sizes
        eyebrows are actually set at. */
-    --eyebrow: 235 85% 78%;
+    --eyebrow: 0 0% 82%;
   }
 
   /* ── Light Mode: Unified "Settings" Aesthetic ── */
@@ -255,12 +256,12 @@
     --surface-2: 210 15% 96%;          /* #F1F3F5 — Light Hover */
     --surface-3: 210 15% 92%;          /* #E9ECEF — Active Press */
 
-    --primary: 235 75% 55%;            /* #4F5DE8 — Standard Indigo */
+    --primary: 0 0% 9%;                /* #171717 — Monochrome: black on white */
     --primary-foreground: 0 0% 100%;
-    --primary-dim: 235 65% 45%;
-    --primary-subtle: 235 75% 55% / 0.08;
+    --primary-dim: 0 0% 25%;
+    --primary-subtle: 0 0% 0% / 0.06;
 
-    --secondary: 265 50% 52%;
+    --secondary: 0 0% 35%;
     --secondary-foreground: 0 0% 100%;
 
     --accent: 188 75% 42%;
@@ -280,7 +281,7 @@
 
     --xp: 45 90% 48%;
     --xp-foreground: 222 35% 12%;
-    --level: 280 70% 55%;
+    --level: 0 0% 30%;
     --level-foreground: 0 0% 100%;
     --streak: 15 85% 52%;
     --streak-foreground: 0 0% 100%;
@@ -290,18 +291,18 @@
 
     --border: 210 15% 90%;
     --input: 210 15% 90%;
-    --ring: 235 75% 55%;
+    --ring: 0 0% 9%;
 
     --radius: 0.875rem;
 
     --sidebar-background: 210 20% 98%;
     --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 235 75% 55%;
+    --sidebar-primary: 0 0% 9%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 15% 94%;
-    --sidebar-accent-foreground: 235 65% 40%;
+    --sidebar-accent-foreground: 0 0% 20%;
     --sidebar-border: 210 15% 90%;
-    --sidebar-ring: 235 75% 55%;
+    --sidebar-ring: 0 0% 9%;
 
     --gradient-hero: none;             /* Flattened for notebook clarity */
     --gradient-surface: none;
@@ -313,7 +314,7 @@
     --shadow-lg: 0 12px 32px -8px hsl(220 30% 10% / 0.2), 0 4px 12px -4px hsl(220 30% 10% / 0.15);
     --shadow-xl: 0 24px 60px -12px hsl(220 30% 10% / 0.25), 0 12px 24px -8px hsl(220 30% 10% / 0.2);
 
-    --shadow-glow-primary: 0 0 20px hsl(235 75% 55% / 0.12);
+    --shadow-glow-primary: 0 0 20px hsl(0 0% 0% / 0.08);
     --shadow-glow-success: 0 0 20px hsl(158 50% 42% / 0.18);
     --shadow-glow-xp: 0 0 20px hsl(45 90% 48% / 0.25);
     --shadow-glow-accent: 0 0 25px hsl(188 75% 42% / 0.15);
@@ -342,8 +343,8 @@
        now, because no Inter was actually loaded. */
     font-optical-sizing: auto;
     background-image:
-      radial-gradient(ellipse at 20% 20%, hsl(235 85% 65% / 0.025) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 80%, hsl(265 55% 58% / 0.025) 0%, transparent 50%);
+      radial-gradient(ellipse at 20% 20%, hsl(0 0% 100% / 0.015) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, hsl(0 0% 100% / 0.01) 0%, transparent 50%);
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 
@@ -535,9 +536,9 @@
 
   .text-gradient-aurora {
     background: linear-gradient(90deg,
-        hsl(235 85% 65%),
-        hsl(265 55% 58%),
-        hsl(188 85% 55%));
+        hsl(0 0% 100%),
+        hsl(0 0% 70%),
+        hsl(0 0% 100%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -705,7 +706,7 @@
     box-shadow:
       0 0 0 3px #070b14,
       0 0 0 5px rgba(255, 255, 255, 0.85),
-      0 0 24px rgba(99, 102, 241, 0.55);
+      0 0 24px rgba(255, 255, 255, 0.25);
   }
 
   /* ── Animation Utilities ── */
@@ -797,7 +798,7 @@
 
   /* ── Gaming Mode Toggle ── */
   .gaming-mode {
-    --shadow-glow-primary: 0 0 50px hsl(235 85% 65% / 0.35);
+    --shadow-glow-primary: 0 0 50px hsl(0 0% 100% / 0.18);
     --shadow-glow-success: 0 0 40px hsl(158 65% 48% / 0.4);
     --shadow-glow-xp: 0 0 40px hsl(45 95% 55% / 0.5);
     --shadow-glow-accent: 0 0 50px hsl(188 85% 55% / 0.3);
@@ -838,12 +839,12 @@
 
   0%,
   100% {
-    box-shadow: 0 0 15px hsl(235 85% 65% / 0.15);
+    box-shadow: 0 0 15px hsl(0 0% 100% / 0.08);
     opacity: 1;
   }
 
   50% {
-    box-shadow: 0 0 30px hsl(235 85% 65% / 0.3);
+    box-shadow: 0 0 30px hsl(0 0% 100% / 0.15);
     opacity: 0.95;
   }
 }

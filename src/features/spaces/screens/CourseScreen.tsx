@@ -52,8 +52,8 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
   );
 
   if (state === 'loading') return chrome(<DetailSkeleton />);
-  if (state === 'error') return chrome(<SpacesError what="this course" />);
-  if (!course) return chrome(<NotFound what="Course" backTo="/v4/spaces" backLabel="Back to Spaces" />);
+  if (state === 'error') return chrome(<SpacesError what="this Space" />);
+  if (!course) return chrome(<NotFound what="Space" backTo="/v4/spaces" backLabel="Back to Spaces" />);
 
   const pages = course.lectures.reduce((n, l) => n + l.total_slides, 0);
   const lessonHref = (id: string) => `/v4/space/${course.id}/lesson/${id}`;
@@ -81,9 +81,9 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
         {/* The masthead. */}
         <div className="text-center">
           <p className="text-[13px] tabular-nums text-quiet">
-            Course
+            Space
             <span aria-hidden className="mx-2 text-faint">·</span>
-            {course.lectures.length} lectures
+            {course.lectures.length} {course.lectures.length === 1 ? 'Lesson' : 'Lessons'}
             <span aria-hidden className="mx-2 text-faint">·</span>
             {pages} pages
           </p>
@@ -162,7 +162,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
               className="mt-3 overflow-hidden rounded-3xl border border-white/[0.08] bg-[#0b0b0c]"
             >
               {found.results.length === 0 && !found.busy && (
-                <li className="px-5 py-4 text-[14px] text-quiet">Nothing in this course mentions that.</li>
+                <li className="px-5 py-4 text-[14px] text-quiet">Nothing in this Space mentions that.</li>
               )}
               {found.results.map((r) => (
                 <li key={`${r.lecture_id}-${r.page}`} className="border-b border-white/[0.05] last:border-0">
@@ -191,7 +191,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
         {/* The journey. */}
         <div className="mt-20 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           <div>
-            <h2 className="text-[26px] font-medium tracking-[-0.02em]">The course, lit by what you know</h2>
+            <h2 className="text-[26px] font-medium tracking-[-0.02em]">The Space, lit by what you know</h2>
             {/* The map shows what is lit; a count of it would only say it again. */}
             {marks.length === 0 && (
               <p className="mt-1 text-[13.5px] text-quiet">Every idea starts dark. A rehearsal lights the ones you get right.</p>
@@ -204,7 +204,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             <li className="flex items-center gap-1.5"><IdeaDot light="dark" />Not tested yet</li>
           </ul>
         </div>
-        <ol aria-label="Lectures" className="relative mt-10">
+        <ol aria-label="Lessons" className="relative mt-10">
           <span aria-hidden className="absolute bottom-6 left-[19px] top-6 w-px bg-gradient-to-b from-white/[0.18] via-white/[0.08] to-transparent" />
           {course.lectures.map((l, i) => (
             <motion.li

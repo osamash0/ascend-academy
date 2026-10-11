@@ -44,7 +44,7 @@ function Points({ data }: { data: DataPoint[] }) {
         ((d.y - yMin) / rangeY) * 10 - 5,
         ((d.z - zMin) / rangeZ) * 10 - 5,
       ] as [number, number, number],
-      color: d.color || '#6366f1'
+      color: d.color || '#94a3b8'
     }));
   }, [data]);
 

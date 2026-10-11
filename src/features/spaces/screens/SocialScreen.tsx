@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Check, Search, Trophy, UserPlus, Users, X } from 'lucide-react';
+import { Check, Search, UserPlus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { leaderboard } from '../mocks/library';
 
@@ -20,7 +20,7 @@ import { useScreenState } from '../data/useSpaces';
 import { ListSkeleton, SpacesError } from '../components/states';
 import { AuthorLine } from '../components/badges';
 import { Avatar } from '../components/Avatar';
-import { BentoCell } from '../components/BentoCell';
+import { Masthead, Sep, Skylight, ghostPillSm, stageCard, whitePillSm } from '../components/stage';
 
 /**
  * Social — "who else, and how am I doing?"
@@ -70,11 +70,18 @@ export default function SocialScreen() {
   const me = leaderboard.find((r) => r.isViewer);
   /** The person immediately above you — the only gap worth reporting. */
   const ahead = leaderboard[myPosition - 2];
+  /** You, and whoever is either side of you on the board. */
+  const neighbours = leaderboard.slice(Math.max(0, myPosition - 2), myPosition + 1);
 
+  // Social stands on the stage. People are not a subject, so the light is
+  // the brand's — neutral white — never a colour (monochrome brand).
   const chrome = (body: React.ReactNode) => (
-    <Scene surface={SURFACES.social} status="progress" motionKey="social">
+    <Scene surface={SURFACES.social} status="progress" motionKey="social" accent={null}>
       <SpacesTopBar active="social" viewer={viewer} />
-      {body}
+      <div className="relative">
+        <Skylight accent={null} />
+        {body}
+      </div>
     </Scene>
   );
 
@@ -85,88 +92,40 @@ export default function SocialScreen() {
   return chrome(
     <>
 
-      <div className="mx-auto max-w-5xl px-6 pb-24 pt-8 lg:px-8">
-        <header className="space-y-3">
-          <h1 className="text-4xl font-bold tracking-[-0.02em] sm:text-[44px]">Social</h1>
-          <p className="max-w-[54ch] text-[15.5px] leading-[1.75] text-quiet">
-            The people you’re learning alongside, and where you stand.
-          </p>
+      <div className="relative mx-auto max-w-5xl px-6 pb-24 pt-10 lg:px-8">
+        <header>
+          <Masthead title="Social" lede="The people you’re learning alongside." />
         </header>
 
         {/*
-          At a glance, then the roster. The bento reports the facts — where you
-          stand, who is waiting — the way the console reports trophies or online
-          friends. The people themselves stay a list: a roster is a chronology
-          of names, and turning names into widgets would make them decorative.
-
-          Doc 2: Social shows no Space cards and no Lessons. "Spaces in common"
-          below is a count on a person, not a way into a Space.
+          ── Where you stand, drawn ──
+          Was an eyebrow ("6 friends · #1 on the board") over three bento
+          cells that repeated it and then opened the tabs beneath them — one
+          fact, three times (Abi, 2026-10-10). Now the standing is a race line:
+          you and your neighbours on the board, placed by XP, and one sentence
+          for the gap. The counts live on the tabs, once.
         */}
-        <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {/*
-            A summary of a list on this same screen, which until now did
-            nothing when clicked — the same shape as Library's "Your latest
-            note" cell. `onClick`, not `to`: the board is already here, so
-            there is no URL to point at, only a place to go on the page.
-          */}
-          <BentoCell
-            icon={Trophy}
-            label="Where you stand"
-            className="sm:col-span-2"
-            onClick={showMyStanding}
-            art={
-              <div className="absolute inset-0 bg-gradient-to-l from-primary/30 via-secondary/15 to-transparent" />
-            }
-          >
-            <p className="text-[30px] font-semibold leading-none tabular-nums">
-              #{myPosition}
-              <span className="ml-2 text-[17px] text-quiet">of {leaderboard.length}</span>
-            </p>
-            <p className="mt-3 text-[13px] text-quiet tabular-nums">
-              {me?.rank} · {me?.xp.toLocaleString()} XP
-            </p>
-            {/* Ranked by XP only — Doc 1 locks progression to XP, so there is
-                no star or like count anywhere on this screen. */}
-            <p className="mt-1 text-[12.5px] text-faint">
-              {ahead ? `${(ahead.xp - (me?.xp ?? 0)).toLocaleString()} XP behind ${ahead.person.name}` : 'Top of the board'}
-            </p>
-          </BentoCell>
+        <button
+          type="button"
+          onClick={showMyStanding}
+          aria-label={
+            ahead
+              ? `Number ${myPosition} on the board, ${(ahead.xp - (me?.xp ?? 0)).toLocaleString()} XP behind ${ahead.person.name}. Show the board.`
+              : `Top of the board. Show the board.`
+          }
+          className="console-focusable group mx-auto mt-14 block w-full max-w-2xl rounded-3xl px-6 py-8 text-left transition-colors hover:bg-white/[0.03]"
+        >
+          <RaceLine around={neighbours} />
+          <p className="mt-6 text-center text-[15px] text-quiet">
+            <span className="font-medium text-foreground">#{myPosition}</span>
+            <Sep />
+            {ahead
+              ? `${(ahead.xp - (me?.xp ?? 0)).toLocaleString()} XP behind ${ahead.person.name}`
+              : 'Nobody ahead of you'}
+          </p>
+        </button>
 
-          <BentoCell icon={Users} label="Friends" onClick={() => setTab('friends')}>
-            <p className="text-[28px] font-semibold leading-none tabular-nums">
-              {friends.length}
-            </p>
-            <div className="mt-3 flex -space-x-2">
-              {friends.slice(0, 5).map((f) => (
-                <Avatar
-                  key={f.id}
-                  person={f}
-                  size="sm"
-                  isViewer={f.id === viewer.id}
-                  className="border-2 border-[#0d111c]"
-                />
-              ))}
-            </div>
-          </BentoCell>
-
-          {/* Requests is the only actionable cell here, so it is the only one
-              that carries colour. */}
-          <BentoCell icon={UserPlus} label="Requests" onClick={() => setTab('requests')}>
-            <p
-              className={cn(
-                'text-[28px] font-semibold leading-none tabular-nums',
-                friendRequests.length > 0 && 'text-primary',
-              )}
-            >
-              {friendRequests.length}
-            </p>
-            <p className="mt-2 text-[13px] text-quiet">
-              {friendRequests.length === 0 ? 'Nothing waiting' : 'Waiting on you'}
-            </p>
-          </BentoCell>
-        </div>
-
-        <div role="tablist" aria-label="Social" className="mt-9 flex flex-wrap items-center gap-1.5">
+        <div role="tablist" aria-label="Social" className="mt-16 flex flex-wrap items-center justify-center gap-1.5">
           {(
             [
               ['ranking', 'Ranking'],
@@ -192,7 +151,7 @@ export default function SocialScreen() {
         </div>
 
         {tab === 'ranking' && (
-          <section className="mt-7">
+          <section className="mt-8">
             <p className="mb-4 text-[13.5px] text-faint">
               Ranked by XP — earned from learning, and from work of yours that other
               people found useful.
@@ -213,7 +172,7 @@ export default function SocialScreen() {
                   className={cn(
                     'flex items-center gap-4 rounded-2xl border px-5 py-3.5',
                     r.isViewer
-                      ? 'border-primary/30 bg-primary/[0.07]'
+                      ? 'border-white/[0.16] bg-white/[0.06]'
                       : 'border-transparent hover:bg-white/[0.03]',
                   )}
                 >
@@ -222,12 +181,13 @@ export default function SocialScreen() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <AuthorLine person={r.person} />
-                    <p className="mt-1 text-[12.5px] text-faint tabular-nums">
-                      {r.rank}
-                      {r.sharedSpaces > 0 && (
-                        <> · {r.sharedSpaces} {r.sharedSpaces === 1 ? 'Space' : 'Spaces'} in common</>
-                      )}
-                    </p>
+                    {/* Position and XP already rank the row; the tier word
+                        on every line was the same word ten times. */}
+                    {r.sharedSpaces > 0 && (
+                      <p className="mt-1 text-[12.5px] text-faint tabular-nums">
+                        {r.sharedSpaces} {r.sharedSpaces === 1 ? 'Space' : 'Spaces'} in common
+                      </p>
+                    )}
                   </div>
                   <span className="shrink-0 text-[14px] font-semibold text-quiet tabular-nums">
                     {r.xp.toLocaleString()} XP
@@ -239,7 +199,7 @@ export default function SocialScreen() {
         )}
 
         {tab === 'friends' && (
-          <section className="mt-7">
+          <section className="mt-8">
             {friends.length === 0 ? (
               <Empty
                 title="No friends yet"
@@ -256,7 +216,7 @@ export default function SocialScreen() {
                     <Link
                       to={`/v4/person/${p.id}`}
                       aria-label={`View ${p.name}'s profile`}
-                      className="console-focusable flex h-9 shrink-0 items-center rounded-full border border-white/12 bg-white/[0.04] px-4 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.08]"
+                      className={cn(ghostPillSm, 'shrink-0')}
                     >
                       View profile
                     </Link>
@@ -283,7 +243,7 @@ export default function SocialScreen() {
         )}
 
         {tab === 'requests' && (
-          <section className="mt-7">
+          <section className="mt-8">
             {friendRequests.length === 0 ? (
               <Empty title="No requests" body="Nothing waiting for you right now." />
             ) : (
@@ -291,7 +251,7 @@ export default function SocialScreen() {
                 {friendRequests.map((r) => (
                   <li
                     key={r.person.id}
-                    className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-5 py-3.5"
+                    className={cn(stageCard, 'flex items-center justify-between gap-4 px-5 py-3.5')}
                   >
                     <div className="min-w-0">
                       <AuthorLine person={r.person} />
@@ -308,7 +268,7 @@ export default function SocialScreen() {
                           toast(`${r.person.name} is now a friend`);
                         }}
                         aria-label={`Accept ${r.person.name}`}
-                        className="console-focusable flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900"
+                        className={whitePillSm}
                       >
                         <Check aria-hidden className="h-3.5 w-3.5" />
                         Accept
@@ -344,6 +304,39 @@ function Empty({ title, body }: { title: string; body: string }) {
       <UserPlus aria-hidden className="mx-auto mb-3 h-5 w-5 text-quiet" />
       <p className="mb-1.5 text-[16px] font-semibold">{title}</p>
       <p className="mx-auto max-w-[44ch] text-[14px] leading-relaxed text-quiet">{body}</p>
+    </div>
+  );
+}
+
+/**
+ * The board, as a place: you and your neighbours on one track, spaced by XP.
+ * Distance is the gap — nobody has to read a number to see it.
+ */
+function RaceLine({ around }: { around: typeof leaderboard }) {
+  const xs = around.map((r) => r.xp);
+  const lo = Math.min(...xs);
+  const hi = Math.max(...xs);
+  const at = (xp: number) => (hi === lo ? 50 : 8 + ((xp - lo) / (hi - lo)) * 84);
+  return (
+    <div aria-hidden className="relative h-20">
+      <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/[0.12]" />
+      {around.map((r) => (
+        <div
+          key={r.person.id}
+          className="absolute top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+          style={{ left: `${at(r.xp)}%` }}
+        >
+          <Avatar
+            person={r.person}
+            size={r.isViewer ? 'lg' : 'md'}
+            isViewer={r.isViewer}
+            className={cn(r.isViewer ? 'ring-2 ring-white' : 'opacity-70')}
+          />
+          <span className={cn('mt-2 whitespace-nowrap text-[12px] tabular-nums', r.isViewer ? 'text-foreground' : 'text-faint')}>
+            {r.isViewer ? 'You' : r.person.name.split(' ')[0]}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

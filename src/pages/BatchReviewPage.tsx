@@ -141,7 +141,7 @@ export default function BatchReviewPage() {
             >
               <ChevronLeft className="w-5 h-5" />
             </Button>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neutral-500 to-neutral-600 flex items-center justify-center shadow-lg shadow-neutral-500/20">
               <PartyPopper className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -155,7 +155,7 @@ export default function BatchReviewPage() {
             <Button
               onClick={markAllReviewed}
               data-testid="mark-all-reviewed"
-              className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-lg shadow-violet-500/25"
+              className="gap-2 bg-gradient-to-r from-neutral-600 to-neutral-600 hover:from-neutral-700 hover:to-neutral-700 text-white shadow-lg shadow-neutral-500/25"
             >
               <CheckCircle2 className="w-4 h-4" />
               Done reviewing all
@@ -220,7 +220,7 @@ export default function BatchReviewPage() {
                       ? 'bg-destructive/10 shadow-none'
                       : inProgress
                         ? 'bg-amber-500/10 shadow-none'
-                        : 'bg-gradient-to-br from-violet-500 to-indigo-600 shadow-violet-500/20'
+                        : 'bg-gradient-to-br from-neutral-500 to-neutral-600 shadow-neutral-500/20'
                   }`}
                 >
                   {failed ? (
@@ -267,7 +267,7 @@ export default function BatchReviewPage() {
                   {!failed && !inProgress && row.lecture_id && (
                     <Button
                       onClick={() => navigate(ProfessorRoutes.LECTURE_EDIT(row.lecture_id!))}
-                      className="gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-md shadow-violet-500/20"
+                      className="gap-1.5 bg-gradient-to-r from-neutral-600 to-neutral-600 hover:from-neutral-700 hover:to-neutral-700 text-white shadow-md shadow-neutral-500/20"
                     >
                       Open editor <ArrowRight className="w-3.5 h-3.5" />
                     </Button>

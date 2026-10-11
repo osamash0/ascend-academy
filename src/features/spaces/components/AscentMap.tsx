@@ -31,7 +31,7 @@ import { FOLD_THRESHOLD, MAP_PALETTE } from './SpaceMap';
  *     honestly here rather than described as something it is not.
  *     NEEDS-BACKEND: `joinedAt` on the Space, which `Membership` already has
  *     per person.
- *   • The **palette is identical**: gold for earned, violet for where you are
+ *   • The **palette is identical**: gold for earned, white for where you are
  *     now, near-black for everything else. Two maps with different colour
  *     meanings would be worse than one map.
  *   • **Never two hundred dots**: the same `FOLD_THRESHOLD`, imported rather
@@ -180,10 +180,10 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
               <stop offset="45%" stopColor={MAP_PALETTE.goldCore} stopOpacity="0.14" />
               <stop offset="100%" stopColor={MAP_PALETTE.goldCore} stopOpacity="0" />
             </radialGradient>
-            <radialGradient id="am-halo-violet">
-              <stop offset="0%" stopColor={MAP_PALETTE.violetEdge} stopOpacity="0.45" />
-              <stop offset="50%" stopColor={MAP_PALETTE.violetCore} stopOpacity="0.12" />
-              <stop offset="100%" stopColor={MAP_PALETTE.violetCore} stopOpacity="0" />
+            <radialGradient id="am-halo-here">
+              <stop offset="0%" stopColor={MAP_PALETTE.hereEdge} stopOpacity="0.45" />
+              <stop offset="50%" stopColor={MAP_PALETTE.hereCore} stopOpacity="0.12" />
+              <stop offset="100%" stopColor={MAP_PALETTE.hereCore} stopOpacity="0" />
             </radialGradient>
           </defs>
 
@@ -270,7 +270,7 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                     cx={p.x}
                     cy={p.y}
                     r={44}
-                    fill={p.light === 1 ? 'url(#am-halo-gold)' : 'url(#am-halo-violet)'}
+                    fill={p.light === 1 ? 'url(#am-halo-gold)' : 'url(#am-halo-here)'}
                     opacity={0.35 + p.light * 0.65}
                   />
                 )}
@@ -283,14 +283,14 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                     p.light === 1
                       ? MAP_PALETTE.goldCore
                       : p.current
-                        ? MAP_PALETTE.violetEdge
+                        ? MAP_PALETTE.hereEdge
                         : MAP_PALETTE.ink
                   }
                   stroke={
                     p.light === 1
                       ? MAP_PALETTE.goldEdge
                       : p.current
-                        ? MAP_PALETTE.violetRim
+                        ? MAP_PALETTE.hereRim
                         : MAP_PALETTE.bodyStroke
                   }
                   strokeWidth={1.5}
@@ -303,7 +303,7 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                     cy={p.y}
                     r={15}
                     fill="none"
-                    stroke={MAP_PALETTE.violetEdge}
+                    stroke={MAP_PALETTE.hereEdge}
                     strokeWidth={2}
                     strokeLinecap="round"
                     strokeDasharray={`${p.light * 2 * Math.PI * 15} ${2 * Math.PI * 15}`}

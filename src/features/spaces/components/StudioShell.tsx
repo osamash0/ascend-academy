@@ -66,8 +66,8 @@ export function StudioShell({
             >
               <ChevronLeft aria-hidden className="h-5 w-5" />
             </Link>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-lg shadow-violet-500/20">
-              <Icon aria-hidden className="h-5 w-5 text-white" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary">
+              <Icon aria-hidden className="h-5 w-5 text-primary-foreground" />
             </div>
             <div className="min-w-0">
               <h1 className="truncate text-lg font-bold text-foreground">{title}</h1>
@@ -83,17 +83,21 @@ export function StudioShell({
   );
 }
 
-/** The gradient primary action `BatchReviewPage` uses for batch operations. */
+/**
+ * Studio's primary action. Was a violet→indigo gradient lifted from
+ * `BatchReviewPage`; the brand is monochrome now (2026-10-10), so the default
+ * is the brand's own solid pill. `emerald` stays for confirm/save.
+ */
 export function StudioAction({
   children,
   disabled,
   onClick,
-  tone = 'violet',
+  tone = 'primary',
 }: {
   children: React.ReactNode;
   disabled?: boolean;
   onClick?: () => void;
-  tone?: 'violet' | 'emerald';
+  tone?: 'primary' | 'emerald';
 }) {
   return (
     /*
@@ -110,10 +114,10 @@ export function StudioAction({
       animate={{ opacity: disabled ? 0.4 : 1 }}
       initial={false}
       className={cn(
-        'console-focusable inline-flex h-9 items-center gap-2 rounded-lg px-4 text-[13px] font-semibold text-white shadow-lg',
-        tone === 'violet'
-          ? 'bg-gradient-to-r from-violet-600 to-indigo-600 shadow-violet-500/25 hover:from-violet-700 hover:to-indigo-700'
-          : 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-500/25 hover:from-emerald-700 hover:to-teal-700',
+        'console-focusable inline-flex h-9 items-center gap-2 rounded-lg px-4 text-[13px] font-semibold shadow-lg',
+        tone === 'primary'
+          ? 'bg-primary text-primary-foreground shadow-black/20 hover:bg-primary/90'
+          : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-emerald-500/25 hover:from-emerald-700 hover:to-teal-700',
         disabled && 'cursor-not-allowed',
       )}
     >
@@ -132,7 +136,7 @@ export function StudioPill({
 }) {
   const tones = {
     ready: 'bg-emerald-500/15 text-emerald-400',
-    processing: 'bg-violet-500/15 text-violet-400',
+    processing: 'bg-white/[0.10] text-foreground',
     draft: 'bg-white/[0.08] text-muted-foreground',
     warn: 'bg-amber-500/15 text-amber-400',
   } as const;

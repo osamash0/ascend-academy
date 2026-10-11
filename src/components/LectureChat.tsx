@@ -521,8 +521,8 @@ export function LectureChat({
                                     type="submit"
                                     size="icon"
                                     disabled={!input.trim() || isLoading}
-                                    className="absolute right-1.5 w-10 h-10 rounded-xl bg-gradient-to-r from-primary to-secondary 
-                                        hover:opacity-90 text-white shadow-glow-primary/30 
+                                    className="absolute right-1.5 w-10 h-10 rounded-xl bg-primary 
+                                        hover:opacity-90 text-primary-foreground shadow-glow-primary/30 
                                         transition-all duration-200 disabled:opacity-30 disabled:shadow-none"
                                     title={t('lecture:chat.sendMessage')}
                                 >

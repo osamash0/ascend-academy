@@ -94,7 +94,7 @@ export function UploadQueuePanel({ files, onRemove, onReorder, onRetry, submitte
             }}
             className={cn(
               'flex items-center gap-3 px-4 py-2.5 border-b border-border/50 last:border-b-0',
-              dragOverIndex === index && 'bg-violet-500/5',
+              dragOverIndex === index && 'bg-neutral-500/5',
             )}
           >
             {!submitted && (
@@ -116,7 +116,7 @@ export function UploadQueuePanel({ files, onRemove, onReorder, onRetry, submitte
               <button
                 type="button"
                 onClick={() => onRetry(entry.fileId)}
-                className="inline-flex items-center gap-1 text-xs font-medium text-violet-600 hover:text-violet-700 shrink-0"
+                className="inline-flex items-center gap-1 text-xs font-medium text-neutral-600 hover:text-neutral-700 shrink-0"
                 data-testid="retry-file"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Retry

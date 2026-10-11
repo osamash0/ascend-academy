@@ -12,6 +12,7 @@ import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes'
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
+import { StageRow as Row } from '../components/stage';
 import { isLive, useReaderContent, useReaderLesson, useRehearsalHistory } from '../data/useReader';
 import { lightIdeas } from '../components/course/light';
 import { readTrail } from '../data/trail';
@@ -47,29 +48,6 @@ const CONCEPT_STATE: Record<Concept['progress'], { label: string; cls: string }>
   discovered: { label: 'Read', cls: 'border-white/15 bg-white/[0.05] text-quiet' },
   untouched: { label: 'Not yet', cls: 'border-white/10 bg-transparent text-faint' },
 };
-
-function Row({
-  title,
-  lede,
-  count,
-  children,
-}: {
-  title: string;
-  lede?: string;
-  count?: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="mt-20">
-      <h2 className="text-[26px] font-medium tracking-[-0.02em]">
-        {title}
-        {count !== undefined && <span className="ml-2.5 text-quiet tabular-nums">{count}</span>}
-      </h2>
-      {lede && <p className="mt-1.5 max-w-[60ch] text-[15px] leading-relaxed text-quiet">{lede}</p>}
-      <div className="mt-6">{children}</div>
-    </section>
-  );
-}
 
 export default function LessonScreen() {
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
@@ -236,6 +214,7 @@ export default function LessonScreen() {
 
           {/* The masthead, centred over the deck. */}
           <div className="mx-auto mt-6 max-w-3xl text-center">
+            {/* No Space name: the back link right above already says it. */}
             <p className="text-[13px] tabular-nums text-quiet">
               Lesson {lesson.order}
               {pageCount > 0 && (
@@ -304,7 +283,7 @@ export default function LessonScreen() {
                   className="console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-6 text-[14px] font-medium transition-colors hover:bg-white/[0.09]"
                 >
                   <Target aria-hidden className="h-4 w-4" />
-                  Rehearse this lecture
+                  Rehearse this Lesson
                 </Link>
               )}
             </div>
@@ -325,7 +304,6 @@ export default function LessonScreen() {
                 </div>
                 <p className="text-[12.5px] tabular-nums text-quiet">
                   {cleared} of {lesson.concepts.length} ideas cleared
-                  {lesson.contributionCount > 0 && ` · ${lesson.contributionCount} contributions`}
                 </p>
               </div>
             )}
@@ -344,7 +322,7 @@ export default function LessonScreen() {
       <div className="relative mx-auto max-w-6xl px-6 lg:px-8">
         {/* ── Ideas: each where it lives in the deck ── */}
         {ideasPending ? (
-          <Row title="The ideas" lede="Grouping the deck into the ideas it teaches…">
+          <Row title="The ideas" lede="Grouping the Lesson into the ideas it teaches…">
             <div aria-hidden className="space-y-2 md:w-[42%]">
               {[0, 1, 2, 3].map((i) => (
                 <motion.div
@@ -362,8 +340,8 @@ export default function LessonScreen() {
             title="The ideas"
             lede={
               live
-                ? 'In the order the deck teaches them. Each lights up once a checkpoint or a rehearsal proves it.'
-                : 'In the order the deck teaches them. Each lights up on the Space’s map as you clear it.'
+                ? 'In the order the Lesson teaches them. Each lights up once a checkpoint or a rehearsal proves it.'
+                : 'In the order the Lesson teaches them. Each lights up on the Space’s map as you clear it.'
             }
           >
             <IdeaExplorer

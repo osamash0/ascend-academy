@@ -211,7 +211,7 @@ export default function ProfessorDashboard() {
             </div>
             <h2 className="text-xl font-bold text-foreground mb-2">{t('professor:errorTitle', { defaultValue: 'Failed to load dashboard' })}</h2>
             <p className="text-sm text-muted-foreground mb-6">{t('professor:errorDescription', { defaultValue: 'There was an issue fetching your lectures. Please try again.' })}</p>
-            <Button onClick={fetchData} className="w-full rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold h-12">
+            <Button onClick={fetchData} className="w-full rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-12">
               {t('professor:retryButton', { defaultValue: 'Retry connection' })}
             </Button>
           </div>

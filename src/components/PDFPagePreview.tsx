@@ -18,7 +18,7 @@ export function PDFPagePreview({ pageNumber, width = 200, className, onClick }: 
   return (
     <div 
       className={cn(
-        "relative rounded-lg overflow-hidden border border-border/50 bg-muted/20 cursor-pointer transition-all hover:scale-[1.02] hover:ring-2 hover:ring-violet-500/50 shadow-sm",
+        "relative rounded-lg overflow-hidden border border-border/50 bg-muted/20 cursor-pointer transition-all hover:scale-[1.02] hover:ring-2 hover:ring-neutral-500/50 shadow-sm",
         className
       )}
       onClick={onClick}

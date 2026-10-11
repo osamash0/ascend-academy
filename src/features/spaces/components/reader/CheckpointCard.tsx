@@ -212,8 +212,8 @@ export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onO
                 </p>
                 <p className="mx-auto mt-1.5 max-w-sm text-[14px] leading-[1.5] text-quiet">
                   {correct === grades.length
-                    ? 'It shows on the strip and on your course map.'
-                    : 'Your course map will bring it back before the exam.'}
+                    ? 'It shows on the strip and on the Space’s map.'
+                    : 'The Space’s map will bring it back before the exam.'}
                 </p>
                 <button
                   type="button"

@@ -67,7 +67,7 @@ export function ContentVisibilityPanel({ items, onToggle }: ContentVisibilityPan
               <tr key={item.id} className="hover:bg-white/5 transition-colors">
                 <td className="p-4">
                   <span className={`px-2 py-1 rounded text-xs font-medium uppercase tracking-wider ${
-                    item.type === 'course' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'
+                    item.type === 'course' ? 'bg-neutral-500/20 text-neutral-400' : 'bg-blue-500/20 text-blue-400'
                   }`}>
                     {item.type}
                   </span>

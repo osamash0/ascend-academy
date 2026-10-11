@@ -97,7 +97,7 @@ const TOC_WIDTH = 260;
 
 type View = 'slide' | 'explain' | 'text';
 const VIEWS: { id: View; label: string }[] = [
-  { id: 'slide', label: 'Slide' },
+  { id: 'slide', label: 'Page' },
   { id: 'explain', label: 'Explain' },
   { id: 'text', label: 'Text' },
 ];
@@ -638,7 +638,7 @@ export default function LessonFacesScreen() {
       engage();
       setCompanion(null);
       setView('explain');
-      setQueued({ question: `Explain this from the slide: “${words}”`, n: ++queuedN.current });
+      setQueued({ question: `Explain this from the page: “${words}”`, n: ++queuedN.current });
       return;
     }
     setQuote(text);
@@ -876,7 +876,7 @@ export default function LessonFacesScreen() {
           onClick={() => setPref({ night: !night })}
           aria-pressed={night}
           aria-label={night ? 'Light paper' : 'Night paper'}
-          title={night ? 'Light paper' : 'Night paper — dark slides for long sessions'}
+          title={night ? 'Light paper' : 'Night paper — dark pages for long sessions'}
           className="console-focusable flex h-8 w-8 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
         >
           {night ? <Sun aria-hidden className="h-4 w-4" /> : <Moon aria-hidden className="h-4 w-4" />}

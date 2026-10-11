@@ -31,10 +31,10 @@ export interface RankTier {
 export const RANK_TIERS: RankTier[] = [
   { index: 0, name: 'Newcomer', min: 0,     ring: { from: 'hsl(220 12% 55%)', to: 'hsl(220 12% 40%)' }, glow: null,                       animated: false },
   { index: 1, name: 'Learner',  min: 500,   ring: { from: 'hsl(158 65% 48%)', to: 'hsl(188 85% 55%)' }, glow: null,                       animated: false },
-  { index: 2, name: 'Scholar',  min: 1500,  ring: { from: 'hsl(235 85% 65%)', to: 'hsl(188 85% 55%)' }, glow: 'hsl(235 85% 65% / 0.25)',  animated: false },
-  { index: 3, name: 'Expert',   min: 3500,  ring: { from: 'hsl(265 55% 58%)', to: 'hsl(235 85% 65%)' }, glow: 'hsl(265 55% 58% / 0.30)',  animated: false },
-  { index: 4, name: 'Master',   min: 7000,  ring: { from: 'hsl(280 80% 62%)', to: 'hsl(265 55% 58%)' }, glow: 'hsl(280 80% 62% / 0.35)',  animated: false },
-  { index: 5, name: 'Legend',   min: 13000, ring: { from: 'hsl(45 95% 55%)',  to: 'hsl(280 80% 62%)' }, glow: 'hsl(45 95% 55% / 0.40)',   animated: true  },
+  { index: 2, name: 'Scholar',  min: 1500,  ring: { from: 'hsl(199 89% 48%)', to: 'hsl(188 85% 55%)' }, glow: 'hsl(199 89% 48% / 0.25)',  animated: false },
+  { index: 3, name: 'Expert',   min: 3500,  ring: { from: 'hsl(210 20% 82%)', to: 'hsl(199 89% 48%)' }, glow: 'hsl(210 20% 82% / 0.30)',  animated: false },
+  { index: 4, name: 'Master',   min: 7000,  ring: { from: 'hsl(0 0% 100%)', to: 'hsl(210 20% 72%)' }, glow: 'hsl(0 0% 100% / 0.35)',  animated: false },
+  { index: 5, name: 'Legend',   min: 13000, ring: { from: 'hsl(45 95% 55%)',  to: 'hsl(0 0% 100%)' }, glow: 'hsl(45 95% 55% / 0.40)',   animated: true  },
   { index: 6, name: 'Immortal', min: 25000, ring: { from: 'hsl(45 95% 55%)',  to: 'hsl(188 85% 55%)' }, glow: 'hsl(45 95% 55% / 0.50)',   animated: true  },
 ];
 

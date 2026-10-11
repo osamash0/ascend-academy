@@ -13,6 +13,7 @@ import {
 } from '../mocks/history';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
+import { Skylight } from '../components/stage';
 import { EnterGroup, EnterItem, EnterList, EnterListItem } from '../components/Enter';
 import { useScreenState } from '../data/useSpaces';
 import { ListSkeleton, SpacesError } from '../components/states';
@@ -76,9 +77,13 @@ export default function HistoryScreen() {
   const days = [...studyDays].sort((a, b) => b.date.localeCompare(a.date));
 
   const chrome = (body: React.ReactNode) => (
-    <Scene surface={SURFACES.profile} status="progress" motionKey="history">
+    // Profile's rooms share its stage and its neutral light (monochrome brand).
+    <Scene surface={SURFACES.profile} status="progress" motionKey="history" accent={null}>
       <SpacesTopBar active="profile" viewer={viewer} />
-      {body}
+      <div className="relative">
+        <Skylight accent={null} />
+        {body}
+      </div>
     </Scene>
   );
 
@@ -86,7 +91,7 @@ export default function HistoryScreen() {
   if (screenState === 'error') return chrome(<SpacesError what="your study history" />);
 
   return chrome(
-    <div className="mx-auto max-w-3xl px-6 pb-24 pt-8 lg:px-8">
+    <div className="relative mx-auto max-w-3xl px-6 pb-24 pt-8 lg:px-8">
       <Link
         to="/v4/profile"
         className="console-focusable inline-flex items-center gap-2 rounded-full text-[13.5px] text-quiet transition-colors hover:text-foreground"
@@ -102,7 +107,7 @@ export default function HistoryScreen() {
               <Flame aria-hidden className="h-4 w-4" />
               Study history
             </p>
-            <h1 className="mt-3 text-5xl font-bold tracking-[-0.02em] tabular-nums">
+            <h1 className="mt-3 text-5xl font-medium tracking-[-0.035em] tabular-nums">
               {run} {run === 1 ? 'day' : 'days'} running
             </h1>
             <p className="mt-3 text-[15px] text-quiet">

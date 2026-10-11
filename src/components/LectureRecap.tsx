@@ -147,7 +147,7 @@ export function LectureRecap({
       <Button
         data-testid="recap-done"
         onClick={onDone}
-        className="w-full gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary border-none hover:opacity-90"
+        className="w-full gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-glow-primary border-none hover:opacity-90"
       >
         <Zap className="w-4 h-4" />
         Back to dashboard

@@ -268,7 +268,7 @@ export default function StudentDashboard() {
           </div>
           <h2 className="text-xl font-bold text-foreground mb-2">{t('dashboard:errorTitle', { defaultValue: 'Failed to load dashboard' })}</h2>
           <p className="text-sm text-muted-foreground mb-6">{t('dashboard:errorDescription', { defaultValue: 'There was a connection issue. Please try again.' })}</p>
-          <Button onClick={() => refetch()} className="w-full rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold h-12">
+          <Button onClick={() => refetch()} className="w-full rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-12">
             {t('dashboard:retryButton', { defaultValue: 'Retry connection' })}
           </Button>
         </div>

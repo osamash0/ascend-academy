@@ -51,7 +51,7 @@ function nodeClass(type: TreeNode['type'], active: boolean, clickable: boolean) 
   const ring = active ? 'ring-2 ring-primary shadow-glow-primary' : '';
   switch (type) {
     case 'root':
-      return `${base} ${cursor} ${ring} bg-gradient-to-r from-primary to-secondary text-white border-primary/40 font-bold`;
+      return `${base} ${cursor} ${ring} bg-gradient-to-r from-primary to-secondary text-primary-foreground border-primary/40 font-bold`;
     case 'cluster':
       return `${base} ${cursor} ${ring} bg-secondary/20 text-foreground border-secondary/40 font-semibold`;
     case 'slide':
@@ -284,7 +284,7 @@ function MindMapTree({
                           e.stopPropagation();
                           toggleCollapse(n.data.id);
                         }}
-                        className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-background border border-border text-foreground text-[10px] font-bold flex items-center justify-center shadow hover:bg-primary hover:text-white transition"
+                        className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-background border border-border text-foreground text-[10px] font-bold flex items-center justify-center shadow hover:bg-primary hover:text-primary-foreground transition"
                       >
                         {isCollapsed ? '+' : '−'}
                       </button>
@@ -339,7 +339,7 @@ function MindMapReady({
             data-testid={`mindmap-view-${v}`}
             className={`px-3 h-7 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors ${
               view === v
-                ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary/30'
+                ? 'bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-glow-primary/30'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -410,7 +410,7 @@ export function MindMap({
             onClick={state.onGenerate}
             disabled={state.isGenerating}
             data-testid="mindmap-generate"
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-sm font-bold disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-primary-foreground text-sm font-bold disabled:opacity-50"
           >
             {state.isGenerating ? (
               <>
@@ -443,7 +443,7 @@ export function MindMap({
         {state.onRetry && (
           <button
             onClick={state.onRetry}
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:opacity-90"
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:opacity-90"
           >
             Retry
           </button>
