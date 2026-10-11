@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Home, TrendingUp, BarChart3, Users, Crown, Settings, LogOut, Rocket, BookOpen, LayoutDashboard, Archive, Upload, FolderOpen, Repeat, Search, type LucideIcon } from 'lucide-react';
+import { Home, TrendingUp, BarChart3, Users, Crown, Settings, LogOut, Layers, BookOpen, LayoutDashboard, Archive, Upload, FolderOpen, Repeat, Search, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { FEATURES } from '@/lib/featureFlags';
@@ -105,7 +105,7 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
   }, []);
 
   return (
-    <header ref={headerRef} className="sticky top-0 z-40 flex items-center justify-between gap-4 px-5 lg:px-10 py-3 bg-gradient-to-b from-[#070b14]/80 via-[#070b14]/30 to-transparent backdrop-blur-[2px]">
+    <header ref={headerRef} className="sticky top-0 z-40 flex items-center justify-between gap-4 px-5 lg:px-10 py-3 bg-gradient-to-b from-black/80 via-black/30 to-transparent backdrop-blur-[2px]">
       {/* Left: brand + identity.
           M24/M44: this group used to be allowed to flex-shrink freely
           (`min-w-0`, no `shrink-0`) while its content (the rocket Home
@@ -123,7 +123,7 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-primary shadow-glow-primary hover:scale-105 transition-transform"
           aria-label="Home"
         >
-          <Rocket className="h-6 w-6 text-primary-foreground" />
+          <Layers className="h-5 w-5 text-primary-foreground" />
         </button>
         <ProfileChip className="hidden md:flex" />
       </div>

@@ -79,7 +79,7 @@ export function ConsoleLayout({ children }: ConsoleLayoutProps) {
       <ConsoleBoot />
       <ConsoleTopBar onOpenSearch={FEATURES.globalSearch ? openPalette : undefined} />
       {location.pathname !== homeRoute && (
-        <div className="px-5 lg:px-10 py-3 bg-gradient-to-b from-[#070b14]/30 to-transparent border-b border-white/5 z-30 relative backdrop-blur-sm">
+        <div className="px-5 lg:px-10 py-3 bg-gradient-to-b from-black/30 to-transparent border-b border-white/5 z-30 relative backdrop-blur-sm">
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>

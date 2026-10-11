@@ -65,7 +65,13 @@ export const SURFACES = {
    * (Abi, 2026-09-18: "make it not on focus mode").
    */
   lessonFaces: 'browse',
-  practice: 'focus',
+  /**
+   * Practice stands on the stage, chrome stripped: the same black as the
+   * Lesson it is opened from and the rehearsal beside it, lit by the Space's
+   * colour. It was `focus` navy, and walking in from the Lesson crossed a seam
+   * (2026-10-11). No texture and no top bar — the working rule still holds.
+   */
+  practice: 'stage',
   map: 'focus',
   /** The real-course reader's rooms: one black, top bar included. */
   course: 'stage',

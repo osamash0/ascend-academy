@@ -6,9 +6,9 @@ import {
   ChevronDown,
   Compass,
   Home,
+  Layers,
   LogOut,
   Orbit,
-  Rocket,
   Search,
   Settings,
   Users,
@@ -131,7 +131,7 @@ export function SpacesTopBar({
           transition={{ duration: 0.3 }}
         />
       )}
-      {/* Left: rocket + identity. shrink-0 so a long name can never compress
+      {/* Left: the mark + identity. shrink-0 so a long name can never compress
           this group into the tabs — the bug the old bar had to fix twice. */}
       <div className="flex shrink-0 items-center gap-4">
         <Pressable
@@ -140,7 +140,7 @@ export function SpacesTopBar({
           aria-label="Home"
           className="console-focusable flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-primary shadow-glow-primary"
         >
-          <Rocket aria-hidden className="h-6 w-6 text-primary-foreground" />
+          <Layers aria-hidden className="h-5 w-5 text-primary-foreground" />
         </Pressable>
 
         <button

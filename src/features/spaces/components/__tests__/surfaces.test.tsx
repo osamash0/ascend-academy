@@ -20,10 +20,12 @@ const read = (p: string) =>
 describe('Practice is private', () => {
   const practice = read('screens/PracticeScreen.tsx');
 
-  it('is a focus surface', () => {
-    // Working, not choosing: the console texture comes off.
-    expect(SURFACES.practice).toBe('focus');
+  it('is a plain surface with no top bar', () => {
+    // Working, not choosing: the console texture comes off, and the five
+    // destinations go with it. Stage (since 2026-10-11) or focus — never browse.
+    expect(['focus', 'stage']).toContain(SURFACES.practice);
     expect(practice).toContain('SURFACES.practice');
+    expect(practice).not.toContain('SpacesTopBar');
   });
 
   it('grants no XP and touches no rank', () => {
