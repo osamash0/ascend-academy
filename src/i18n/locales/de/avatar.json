@@ -190,6 +190,8 @@
     "since": "Crew seit",
     "verified": "Verifizierte Hochschule",
     "title": "Dein Ausweis",
-    "hint": "Wähl unten dein Foto, und dein Crew-Ausweis wird zum Lernführerschein."
+    "hint": "Wähl unten dein Foto, und dein Crew-Ausweis wird zum Lernführerschein.",
+    "edit": "Im Anzugspind bearbeiten",
+    "mine": "Mein Ausweis"
   }
 }

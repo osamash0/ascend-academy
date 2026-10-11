@@ -190,6 +190,8 @@
     "since": "Crew since",
     "verified": "Verified university",
     "title": "Your ID",
-    "hint": "Choose your photo below and your Crew ID becomes a Learner Licence."
+    "hint": "Choose your photo below and your Crew ID becomes a Learner Licence.",
+    "edit": "Edit in Suit Locker",
+    "mine": "My ID"
   }
 }
