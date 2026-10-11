@@ -13,6 +13,7 @@ import { useSocialUser } from "../useSocialUser";
 import { useFriends, useMySocialExtras, useSetSocialProfile, useUserCourses, useWeeklyXpByDay } from "../hooks";
 import { Avatar, InstitutionBadge, Panel, RoleBadges, SectionHeading } from "../components/atoms";
 import { CourseChips, FriendsRow, PresenceCard, StatCards } from "../components/ProfileBlocks";
+import { IdCardDialog } from "@/features/avatar/IdCardDialog";
 
 export default function SocialProfile() {
   // useSocialUser() falls back to placeholder values ("You", 0 XP, level 1,
@@ -67,7 +68,12 @@ export default function SocialProfile() {
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
         <Panel>
           <div className="flex items-start gap-4">
-            <Avatar user={me} size="xl" showDot />
+            {/* Your face opens your ID card. */}
+            <IdCardDialog>
+              <button type="button" className="shrink-0 rounded-[18px] transition hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60" aria-label="My ID">
+                <Avatar user={me} size="xl" showDot />
+              </button>
+            </IdCardDialog>
             <div className="min-w-0 flex-1">
               <h1 className="font-display text-2xl font-bold text-foreground">{me.name}</h1>
               <div className="mt-1">

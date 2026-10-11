@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, Settings, TrendingUp, LogOut, User, Shirt, MessageCircleQuestion } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, Settings, TrendingUp, LogOut, User, Shirt, MessageCircleQuestion, IdCard as IdCardIcon } from 'lucide-react';
+import { IdCardDialog } from '@/features/avatar/IdCardDialog';
 import { FEATURES } from '@/lib/featureFlags';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/lib/auth';
@@ -32,6 +34,7 @@ export function ProfileChip({ className }: ProfileChipProps) {
   const { profile, role, signOut } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation('avatar');
+  const [idOpen, setIdOpen] = useState(false);
   if (!profile) return null;
 
   const name = profile.display_name || profile.full_name || 'Player';
@@ -53,7 +56,8 @@ export function ProfileChip({ className }: ProfileChipProps) {
   );
 
   return (
-    <DropdownMenu>
+    <>
+      <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
           'group flex min-w-0 items-center gap-3 rounded-[16px] px-1.5 py-1 -mx-1.5 outline-none transition-all',
@@ -99,6 +103,10 @@ export function ProfileChip({ className }: ProfileChipProps) {
           <User className="mr-2 h-4 w-4" />
           Profile
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setIdOpen(true)}>
+          <IdCardIcon className="mr-2 h-4 w-4" />
+          {t('card.mine')}
+        </DropdownMenuItem>
         {role === 'student' && (
           <DropdownMenuItem onClick={() => navigate(StudentRoutes.AVATAR)}>
             <Shirt className="mr-2 h-4 w-4" />
@@ -130,6 +138,9 @@ export function ProfileChip({ className }: ProfileChipProps) {
           Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenu>
+      {/* Mounted outside the menu so it survives the menu closing. */}
+      <IdCardDialog open={idOpen} onOpenChange={setIdOpen} />
+    </>
   );
 }

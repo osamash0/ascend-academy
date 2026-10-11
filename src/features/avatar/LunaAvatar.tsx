@@ -22,6 +22,8 @@ import {
   drawPatch,
 } from './art';
 import type { Loadout, Mood } from './types';
+import { LunaBody } from './bodies';
+import { outfitLayers, type OutfitId } from './outfits';
 
 const INK = '#4A3F6B';
 
@@ -58,6 +60,8 @@ export function LunaAvatar({
   const uid = 'la' + useId().replace(/[^a-zA-Z0-9]/g, '');
   const lo = { ...DEFAULT_LOADOUT, ...loadout };
 
+  // A home look takes the helmet off and replaces the suit, gear and patch.
+  const look = outfitLayers(lo.outfit && lo.outfit !== 'outfit-none' ? (lo.outfit.slice('outfit-'.length) as OutfitId) : null, uid);
   const suit = itemById(lo.suit) ?? itemById(DEFAULT_LOADOUT.suit)!;
   const visor = itemById(lo.visor) ?? itemById(DEFAULT_LOADOUT.visor)!;
   const colors = useMemo(() => getLunaColors(moodPhase(mood)), [mood]);
@@ -140,23 +144,19 @@ export function LunaAvatar({
           />
         )}
 
-        {!head && (
-          <g>
-            <path d="M54 112 Q40 120 36 134" stroke={suitInk} strokeWidth="2.5" fill="none" strokeLinecap="round" />
-            <path d="M106 112 Q120 120 124 134" stroke={suitInk} strokeWidth="2.5" fill="none" strokeLinecap="round" />
-            <circle cx="35" cy="138" r="6.5" fill={suitFill} stroke={suitInk} strokeWidth="1.8" />
-            <circle cx="125" cy="138" r="6.5" fill={suitFill} stroke={suitInk} strokeWidth="1.8" />
-            <ellipse cx="66" cy="160" rx="9" ry="7" fill="#4A3F6B" stroke="#2D2445" strokeWidth="1.2" />
-            <ellipse cx="94" cy="160" rx="9" ry="7" fill="#4A3F6B" stroke="#2D2445" strokeWidth="1.2" />
-            <rect x="52" y="102" width="56" height="52" rx="24" fill={suitFill} stroke={suitInk} strokeWidth="2.5" />
-            <rect x="66" y="118" width="28" height="19" rx="7" fill="#F4F1FA" stroke={INK} strokeWidth="1.4" opacity="0.95" />
-            {drawPatch(lo.patch, uid, anim)}
-          </g>
-        )}
+        {!head && look && look.body}
+        {!head && !look && <LunaBody suitFill={suitFill} suitInk={suitInk} collar={visor.color} patch={drawPatch(lo.patch, uid, anim)} />}
 
-        {/* Helmet */}
-        <circle cx="80" cy="62" r="38" fill={`url(#${uid}-glass)`} />
-        <circle cx="80" cy="62" r="38" fill="none" stroke={visorStroke} strokeWidth="3" opacity="0.95" />
+        {look ? (
+          // Helmet off: the look's back layer (e.g. a headscarf's drape) sits behind the face.
+          look.back
+        ) : (
+          <>
+            {/* Helmet */}
+            <circle cx="80" cy="62" r="38" fill={`url(#${uid}-glass)`} />
+            <circle cx="80" cy="62" r="38" fill="none" stroke={visorStroke} strokeWidth="3" opacity="0.95" />
+          </>
+        )}
         <circle cx="80" cy="62" r="30" fill={`url(#${uid}-face)`} stroke={INK} strokeWidth="1.8" />
         <ellipse cx="64" cy="50" rx="4" ry="3" fill="#000" opacity={0.06 + colors.craterBaseOpacity} />
         <ellipse cx="94" cy="76" rx="3.5" ry="2.6" fill="#000" opacity={0.05 + colors.craterBaseOpacity} />
@@ -165,9 +165,9 @@ export function LunaAvatar({
 
         <circle cx="62" cy="68" r="3.6" fill="#E8A598" opacity="0.5" />
         <circle cx="98" cy="68" r="3.6" fill="#E8A598" opacity="0.5" />
-        <path d="M52 42 Q64 32 82 36" stroke="white" strokeWidth="2.4" fill="none" strokeLinecap="round" opacity="0.45" />
+        {!look && <path d="M52 42 Q64 32 82 36" stroke="white" strokeWidth="2.4" fill="none" strokeLinecap="round" opacity="0.45" />}
 
-        {drawGear(lo.gear, uid, anim)}
+        {look ? look.front : drawGear(lo.gear, uid, anim)}
       </g>
 
       {drawAuraFront(lo.aura, uid, anim)}
