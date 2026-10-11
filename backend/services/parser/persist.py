@@ -329,6 +329,9 @@ async def insert_deck_quizzes(
         # Lives in the existing metadata jsonb, no migration.
         if q.get("support_score") is not None:
             extra["support_score"] = q["support_score"]
+        # Advisory verdict (low_support/ambiguous/number_not_on_slide) kept, not dropped.
+        if q.get("grounding_flag"):
+            extra["grounding_flag"] = q["grounding_flag"]
         # Roadmap Phase 3.4: cross-lecture "connects to earlier material"
         # questions carry which prior lecture they draw on.
         if q.get("source_lecture_id"):

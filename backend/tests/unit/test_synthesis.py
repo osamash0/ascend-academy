@@ -390,11 +390,17 @@ def _router(first_reply, repairs=None):
     return reply
 
 
+@pytest.fixture
+def enforce(monkeypatch):
+    """Opt a test into the hard-gate (repair-then-drop) mode."""
+    monkeypatch.setattr(synthesis, "ENFORCE_SUPPORT_THRESHOLD", True)
+
+
 def _repair_prompts(llm):
     return [p for p in llm["bulk_prompts"] if _REPAIR_MARK in p]
 
 
-async def test_adversarial_questions_are_all_rejected_when_repairs_fail(llm):
+async def test_adversarial_questions_are_all_rejected_when_repairs_fail(enforce, llm):
     llm["reply"] = _router(json.dumps([GOOD, OTHER_SLIDE, BAD_NUMBER, AMBIGUOUS, NO_SOURCE, OUT_OF_RANGE, GARBAGE]))
     out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
     assert [q["question"] for q in out] == [GOOD["question"]]
@@ -405,7 +411,7 @@ async def test_adversarial_questions_are_all_rejected_when_repairs_fail(llm):
     assert llm["calls"] == 1 + 3
 
 
-async def test_repair_sees_only_the_cited_slide_and_a_grounded_repair_ships(llm):
+async def test_repair_sees_only_the_cited_slide_and_a_grounded_repair_ships(enforce, llm):
     fixed = _mcq("Which algorithm requires non-negative edge weights?",
                  ["Dijkstra", "Kruskal", "Prim", "Floyd"], "Dijkstra", 3)
     llm["reply"] = _router(json.dumps([OTHER_SLIDE]), {3: json.dumps(fixed)})
@@ -418,7 +424,7 @@ async def test_repair_sees_only_the_cited_slide_and_a_grounded_repair_ships(llm)
     assert "Kruskal builds" not in prompt and "University of Marburg" not in prompt
 
 
-async def test_repair_that_relocates_to_another_slide_is_pinned_back_and_dropped(llm):
+async def test_repair_that_relocates_to_another_slide_is_pinned_back_and_dropped(enforce, llm):
     moved = _mcq("Which algorithm builds a minimum spanning tree?",
                  ["Kruskal", "Bellman", "Floyd", "Johnson"], "Kruskal", 4)
     llm["reply"] = _router(json.dumps([OTHER_SLIDE]), {3: json.dumps(moved)})
@@ -427,7 +433,7 @@ async def test_repair_that_relocates_to_another_slide_is_pinned_back_and_dropped
     assert len(_repair_prompts(llm)) == 1  # exactly one attempt, then drop
 
 
-async def test_repair_exception_drops_only_that_question(llm):
+async def test_repair_exception_drops_only_that_question(enforce, llm):
     def reply(prompt):
         if _REPAIR_MARK in prompt:
             raise RuntimeError("provider down")
@@ -437,7 +443,7 @@ async def test_repair_exception_drops_only_that_question(llm):
     assert [q["question"] for q in out] == [GOOD["question"]]
 
 
-async def test_no_shipped_question_cites_a_nonexistent_slide(llm):
+async def test_no_shipped_question_cites_a_nonexistent_slide(enforce, llm):
     sources = [None, "somewhere", 0, -3, 7, 99, 1.5, True, [3], 1, "Slide 3", 3]
     llm["reply"] = _router(json.dumps([{**GOOD, "source_slide": s} for s in sources]),
                            {1: json.dumps({**GOOD, "source_slide": 99})})
@@ -448,7 +454,7 @@ async def test_no_shipped_question_cites_a_nonexistent_slide(llm):
     assert llm["calls"] == 2  # quiz + the one repair for in-range slide 1
 
 
-async def test_one_structured_summary_line_per_generation(llm, caplog):
+async def test_one_structured_summary_line_per_generation(enforce, llm, caplog):
     import logging
     fixed = _mcq("Which algorithm requires non-negative edge weights?",
                  ["Dijkstra", "Kruskal", "Prim", "Floyd"], "Dijkstra", 3)
@@ -464,7 +470,7 @@ async def test_one_structured_summary_line_per_generation(llm, caplog):
     assert payload["drop_reasons"] == {"no_source": 1, "source_out_of_range": 1, "repair_failed": 1}
 
 
-async def test_model_array_is_capped_and_repairs_are_bounded(llm, caplog):
+async def test_model_array_is_capped_and_repairs_are_bounded(enforce, llm, caplog):
     import logging
     llm["reply"] = _router(json.dumps([OTHER_SLIDE] * 30))
     with caplog.at_level(logging.INFO, logger=synthesis.logger.name):
@@ -477,7 +483,7 @@ async def test_model_array_is_capped_and_repairs_are_bounded(llm, caplog):
     assert payload["drop_reasons"]["over_cap"] == 18
 
 
-async def test_repair_concurrency_is_bounded(monkeypatch):
+async def test_repair_concurrency_is_bounded(enforce, monkeypatch):
     import asyncio
     state = {"now": 0, "peak": 0}
 
@@ -524,7 +530,7 @@ async def test_grounded_question_maps_to_its_zero_based_source_slide(llm):
 
 # ── Arc 5: grounding summary returned, not only logged ───────────────────────
 
-async def test_grounding_summary_is_returned_through_stats(llm):
+async def test_grounding_summary_is_returned_through_stats(enforce, llm):
     fixed = _mcq("Which algorithm requires non-negative edge weights?",
                  ["Dijkstra", "Kruskal", "Prim", "Floyd"], "Dijkstra", 3)
     llm["reply"] = _router(json.dumps([GOOD, OTHER_SLIDE, BAD_NUMBER, NO_SOURCE, OUT_OF_RANGE]),
@@ -535,6 +541,7 @@ async def test_grounding_summary_is_returned_through_stats(llm):
     assert stats == {
         "proposed": 5, "kept": 2, "repaired": 1, "dropped": 3,
         "drop_reasons": {"no_source": 1, "source_out_of_range": 1, "repair_failed": 1},
+        "flagged": 0, "flag_reasons": {},
     }
 
 
@@ -553,3 +560,88 @@ async def test_stats_untouched_when_no_quiz_is_attempted(llm):
     stats: dict = {}
     out = await synthesis.generate_quiz_questions(["short", "also short"], "T", "cerebras", stats=stats)
     assert out == [] and stats == {}
+
+
+# ── advisory-by-default grounding (measured 87.5% false-drop at 0.5) ──────────
+
+def _summary(caplog):
+    line = next(r.getMessage() for r in caplog.records if r.getMessage().startswith("deck_quiz_grounding "))
+    return json.loads(line.split(" ", 1)[1])
+
+
+def test_enforcement_is_off_by_default():
+    assert synthesis.ENFORCE_SUPPORT_THRESHOLD is False
+
+
+async def test_advisory_keeps_low_support_flagged_without_a_repair_call(llm):
+    llm["reply"] = _router(json.dumps([OTHER_SLIDE]))
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert [q["question"] for q in out] == [OTHER_SLIDE["question"]]
+    assert out[0]["grounding_flag"] == "low_support"
+    assert 0 <= out[0]["support_score"] < SUPPORT_THRESHOLD
+    assert out[0]["source_slide"] == 3
+    assert llm["calls"] == 1 and _repair_prompts(llm) == []
+
+
+async def test_advisory_keeps_ambiguous_and_number_not_on_slide_flagged(llm):
+    llm["reply"] = _router(json.dumps([AMBIGUOUS, BAD_NUMBER]))
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert [q["grounding_flag"] for q in out] == ["ambiguous", "number_not_on_slide"]
+    assert llm["calls"] == 1
+
+
+async def test_ok_question_has_no_grounding_flag(llm):
+    llm["reply"] = _router(json.dumps([GOOD]))
+    (q,) = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert "grounding_flag" not in q and q["support_score"] >= SUPPORT_THRESHOLD
+
+
+@pytest.mark.parametrize("mode", [False, True])
+async def test_structural_failures_are_dropped_in_both_modes_without_repair(llm, monkeypatch, mode):
+    monkeypatch.setattr(synthesis, "ENFORCE_SUPPORT_THRESHOLD", mode)
+    no_answer = {**GOOD, "correctAnswer": "nonsense"}
+    llm["reply"] = _router(json.dumps([NO_SOURCE, OUT_OF_RANGE, GARBAGE, no_answer, "str"]))
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert out == [] and llm["calls"] == 1
+
+
+async def test_advisory_summary_counts_flags_and_matches_stats(llm, caplog):
+    import logging
+    llm["reply"] = _router(json.dumps([GOOD, OTHER_SLIDE, AMBIGUOUS, BAD_NUMBER, NO_SOURCE, OUT_OF_RANGE]))
+    stats: dict = {}
+    with caplog.at_level(logging.INFO, logger=synthesis.logger.name):
+        await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq", stats=stats)
+    assert stats == {
+        "proposed": 6, "kept": 4, "repaired": 0, "dropped": 2,
+        "drop_reasons": {"no_source": 1, "source_out_of_range": 1},
+        "flagged": 3,
+        "flag_reasons": {"low_support": 1, "ambiguous": 1, "number_not_on_slide": 1},
+    }
+    assert _summary(caplog) == stats
+
+
+async def test_over_cap_is_structural_in_advisory_mode(llm):
+    llm["reply"] = _router(json.dumps([GOOD] * 30))
+    stats: dict = {}
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq", stats=stats)
+    assert len(out) == 12 and stats["drop_reasons"] == {"over_cap": 18} and stats["flagged"] == 0
+
+
+async def test_enforce_mode_still_repairs_then_drops_and_has_no_flags(enforce, llm):
+    llm["reply"] = _router(json.dumps([OTHER_SLIDE]))
+    stats: dict = {}
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq", stats=stats)
+    assert out == [] and len(_repair_prompts(llm)) == 1
+    assert stats["flagged"] == 0 and stats["flag_reasons"] == {}
+
+
+def test_structural_reasons_are_the_documented_set():
+    from backend.services.parser.quiz_grounding import STRUCTURAL_REASONS
+    assert STRUCTURAL_REASONS == frozenset({"no_source", "source_out_of_range", "empty_slide", "no_answer"})
+
+
+async def test_flag_survives_mapping(llm):
+    llm["reply"] = _router(json.dumps([OTHER_SLIDE, GOOD]))
+    mapped = synthesis._map_deck_quiz(await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq"))
+    assert mapped[0]["grounding_flag"] == "low_support"
+    assert "grounding_flag" not in mapped[1]

@@ -96,3 +96,9 @@ def test_unverified_question_has_no_support_score_key():
     out = _map_deck_quiz([q])[0]
     assert out["linked_slides"] == [1]
     assert "support_score" not in out
+
+
+def test_grounding_flag_is_carried_only_when_present():
+    base = {"question": "Q", "options": ["a", "b", "c", "d"], "correctAnswer": "a", "source_slide": 2}
+    assert _map_deck_quiz([{**base, "grounding_flag": "low_support"}])[0]["grounding_flag"] == "low_support"
+    assert "grounding_flag" not in _map_deck_quiz([base])[0]

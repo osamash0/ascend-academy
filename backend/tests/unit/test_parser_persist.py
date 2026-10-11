@@ -391,3 +391,15 @@ async def test_insert_deck_quizzes_records_support_score_in_metadata(conn):
     meta = json.loads([a for a in args if isinstance(a, str) and '"is_deck"' in a][0])
     assert meta["support_score"] == 0.812
     assert meta["linked_slides"] == [3]
+
+
+async def test_insert_deck_quizzes_records_grounding_flag_only_when_present(conn):
+    sid3 = uuid4()
+    base = {"question": "Q", "options": ["alpha", "beta", "gamma", "delta"],
+            "correctAnswer": "alpha", "linked_slides": [3]}
+    await persist.insert_deck_quizzes(uuid4(), {3: sid3}, [{**base, "grounding_flag": "low_support"}])
+    meta = json.loads([a for a in _last_execute_args(conn) if isinstance(a, str) and '"is_deck"' in a][0])
+    assert meta["grounding_flag"] == "low_support"
+    await persist.insert_deck_quizzes(uuid4(), {3: sid3}, [base])
+    meta = json.loads([a for a in _last_execute_args(conn) if isinstance(a, str) and '"is_deck"' in a][0])
+    assert "grounding_flag" not in meta

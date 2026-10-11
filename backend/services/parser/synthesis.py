@@ -40,7 +40,7 @@ from backend.services.parser.deck_plan import (
     select_meta_slides,
     select_slides,
 )
-from backend.services.parser.quiz_grounding import GroundingVerdict, assess_grounding
+from backend.services.parser.quiz_grounding import STRUCTURAL_REASONS, GroundingVerdict, assess_grounding
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,16 @@ logger = logging.getLogger(__name__)
 # untrusted, so it bounds how many repair LLM calls a parse can trigger.
 MAX_DECK_QUIZ_QUESTIONS = 12
 MAX_CONCURRENT_REPAIRS = 3
+
+# Grounding is ADVISORY by default: content verdicts (low_support, ambiguous,
+# number_not_on_slide) keep the question and flag it (`grounding_flag`) instead
+# of dropping it. The verifier is a lexical-overlap filter; measured by the
+# drop-risk probe (commit c50a97f) at SUPPORT_THRESHOLD=0.5 it falsely drops
+# 87.5% of genuine paraphrased questions (14/16, all 8 German) while falsely
+# keeping 0% of on-topic hallucinations. Do NOT re-enable enforcement without a
+# semantic scorer and a re-run of that probe. Structural verdicts are dropped
+# in both modes.
+ENFORCE_SUPPORT_THRESHOLD = False
 
 
 # ---------------------------------------------------------------------------
@@ -149,6 +159,10 @@ def _grounded(q: Dict[str, Any], verdict: GroundingVerdict) -> Dict[str, Any]:
     return {**q, "source_slide": verdict.source_slide, "support_score": round(verdict.score, 3)}
 
 
+def _flagged(q: Dict[str, Any], verdict: GroundingVerdict) -> Dict[str, Any]:
+    return {**_grounded(q, verdict), "grounding_flag": verdict.reason}
+
+
 async def _repair_question(
     q: Dict[str, Any],
     slide_number: int,
@@ -187,12 +201,14 @@ async def ground_deck_quiz(
     source_language: str = "en",
     stats: Dict[str, Any] | None = None,
 ) -> List[Dict[str, Any]]:
-    """Keep only questions whose cited slide supports the key.
+    """Verify each question against its cited slide.
 
-    A question below the support threshold gets ONE regeneration against its
-    cited slide, then is dropped. A question with no usable slide (missing,
-    garbage, out of range, empty) is dropped without a repair: there is
-    nothing to repair against. Logs one ``deck_quiz_grounding {json}`` line
+    A question with no usable slide or answer (missing, garbage, out of
+    range, empty slide, no key) is dropped without a repair in every mode:
+    there is nothing to repair against. A content verdict (low_support,
+    ambiguous, number_not_on_slide) is advisory by default: the question is
+    kept and flagged via ``grounding_flag``. With ENFORCE_SUPPORT_THRESHOLD it
+    instead gets ONE regeneration against its cited slide, then is dropped. Logs one ``deck_quiz_grounding {json}`` line
     (proposed/kept/repaired/dropped + drop reasons) and, when ``stats`` is
     given, merges the same summary into it for the parse receipt."""
     # (question | None, was_repaired, drop_reason)
@@ -214,8 +230,10 @@ async def ground_deck_quiz(
         verdict = assess_grounding(q, skeleton)
         if verdict.ok:
             return _grounded(q, verdict), False, ""
-        if verdict.source_slide is None:
+        if verdict.reason in STRUCTURAL_REASONS or verdict.source_slide is None:
             return None, False, verdict.reason
+        if not ENFORCE_SUPPORT_THRESHOLD:
+            return _flagged(q, verdict), False, ""
         async with repair_slots:
             repaired = await _repair_question(
                 q, verdict.source_slide, skeleton, lecture_title, ai_model, source_language,
@@ -229,6 +247,10 @@ async def ground_deck_quiz(
 
     results = await asyncio.gather(*(_checked(q) for q in questions))
     kept = [r for r, _, _ in results if r is not None]
+    flag_reasons: Dict[str, int] = {}
+    for r, _, _ in results:
+        if r is not None and r.get("grounding_flag"):
+            flag_reasons[r["grounding_flag"]] = flag_reasons.get(r["grounding_flag"], 0) + 1
     reasons: Dict[str, int] = {}
     for r, _, reason in results:
         if r is None:
@@ -241,6 +263,8 @@ async def ground_deck_quiz(
         "repaired": sum(1 for _, was_repaired, _ in results if was_repaired),
         "dropped": proposed - len(kept),
         "drop_reasons": reasons,
+        "flagged": sum(flag_reasons.values()),
+        "flag_reasons": flag_reasons,
     }
     logger.info("deck_quiz_grounding %s", json.dumps(summary, sort_keys=True))
     if stats is not None:
@@ -380,6 +404,8 @@ def _map_deck_quiz(quiz_questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]
         }
         if q.get("support_score") is not None:
             entry["support_score"] = q["support_score"]
+        if q.get("grounding_flag"):
+            entry["grounding_flag"] = q["grounding_flag"]
         mapped.append(entry)
     if dropped:
         logger.warning(

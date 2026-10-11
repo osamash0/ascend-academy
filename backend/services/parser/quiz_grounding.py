@@ -121,6 +121,12 @@ def parse_source_slide(raw: Any) -> int | None:
     return None
 
 
+# Verdicts that mean "nothing usable to check against": never keepable, never
+# repairable. Everything else that is not "ok" is a CONTENT verdict
+# (low_support, ambiguous, number_not_on_slide) from a lexical heuristic.
+STRUCTURAL_REASONS = frozenset({"no_source", "source_out_of_range", "empty_slide", "no_answer"})
+
+
 @dataclass(frozen=True)
 class GroundingVerdict:
     score: float
