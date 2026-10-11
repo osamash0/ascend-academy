@@ -175,3 +175,15 @@ Every page can be read at the depth you need right now. You can skim the gist, r
 - `explore` and `sandbox` blocks.
 - Spaced-repetition scheduling of recall terms. The Review engine exists on main and is a later bridge.
 - Persisting depth.
+
+## 6. As built (2026-10-11)
+
+| Section | As built |
+|---|---|
+| §2.3 state | The recall state is keyed by **Material** (`studio:recall:<materialId>`), because pages belong to a Material now (One Library). Canvas-wide summary-term totals feed the shelf card through `setRecall`. |
+| §2.2 Again | The footer counts across the whole Material. Try again returns a hidden term's page to Summary, then focuses the blank. Start over is a button beside the footer line, not a menu. |
+| §2.2 reveal | Knew it / Not yet appear when you reveal a term. A revealed term you never marked can be tapped later to show the pair again. A term that is already seen does not replay its reveal. |
+| §1.6 check | Radios choose an option, and a **Check** button commits it. Focus then moves to the explanation. |
+| §3.3 keys | `[` and `]` change the depth of the page you are focused in, falling back to the current page. They work with Alt/AltGr (German layouts). Shift+arrow or Shift+Space on the dial sets every page. |
+| §3.4 motion | Keep-place scrolls use `behavior: 'instant'`, because the app sets `scroll-behavior: smooth`. **Full → Page uses a crossfade.** The per-page Morph flight is deferred. |
+| §3.2 Page | The inline page carries `data-inline` and is ignored by page navigation and keep-place. Your answers, notes and handwriting follow the image. Going back to a paragraph that is hidden at the current depth first returns its page to Summary. |
