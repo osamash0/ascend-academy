@@ -32,7 +32,30 @@ import { useViewer } from '../data/viewer';
  * on it — right lights it, wrong marks it to revisit, untested stays dark.
  */
 
-const SUGGESTIONS = ['functional dependency', 'two phase locking', 'B+ tree', 'join'];
+/**
+ * Topics to try, from this course's own ideas.
+ *
+ * These were four Database Systems terms, offered in every course — "B+ tree"
+ * in Softwaretechnik. One idea per lecture now, taken from the middle of its
+ * list (a lecture's first ideas are its housekeeping slides), up to four;
+ * lecture titles stand in while no ideas are known yet.
+ */
+export function topicSuggestions(
+  lectures: { title: string; ideas: { name: string }[] | null }[],
+): string[] {
+  const picked: string[] = [];
+  for (const l of lectures) {
+    const ideas = l.ideas ?? [];
+    const name = ideas.length ? ideas[Math.floor(ideas.length / 2)].name : null;
+    if (name && !picked.includes(name)) picked.push(name);
+    if (picked.length === 4) return picked;
+  }
+  for (const l of lectures) {
+    if (picked.length === 4) break;
+    if (!picked.includes(l.title)) picked.push(l.title);
+  }
+  return picked;
+}
 
 export default function CourseScreen({ courseId }: { courseId: string }) {
   const viewer = useViewer();
@@ -143,7 +166,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
           </label>
           {query.trim().length < 2 ? (
             <div className="mt-3 flex flex-wrap justify-center gap-2">
-              {SUGGESTIONS.map((s) => (
+              {topicSuggestions(course.lectures).map((s) => (
                 <button
                   key={s}
                   type="button"

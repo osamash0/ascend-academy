@@ -9,7 +9,7 @@ import { topicIcon } from '@/lib/topicIcon';
 import { AskBar } from '../components/AskBar';
 import { LessonTile } from '../components/LessonTile';
 import type { HomeItem } from '../mocks/library';
-import { askAcknowledgement, askModel, askSuggestions } from '../mocks/assistant';
+import { askAcknowledgement, askModel, askSuggestionsNow } from '../data/assistant';
 import { useHome } from '../data/useSpaces';
 import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -285,7 +285,7 @@ export default function HomeScreen() {
       >
         <AskBar
           placeholder="Ask about your Spaces, Lessons or practice…"
-          suggestions={askSuggestions}
+          suggestions={askSuggestionsNow()}
           model={askModel}
           onSubmit={(q) => {
             setAsked(q);
