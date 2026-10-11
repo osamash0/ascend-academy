@@ -158,6 +158,23 @@ def build_deck_skeleton(pages: list[str]) -> DeckSkeleton:
     return DeckSkeleton(boilerplate=boilerplate, slides=slides, sections=sections)
 
 
+def skeleton_receipt(skeleton: DeckSkeleton) -> dict:
+    """JSON-safe view of a skeleton for the Arc 5 parse receipt. Slide text is
+    left out on purpose (it already lives in public.slides); ``chars`` is the
+    boilerplate-stripped length a professor can use to spot empty slides."""
+    return {
+        "boilerplate": sorted(skeleton.boilerplate),
+        "slides": [
+            {"index": s.index, "role": s.role.value, "section": s.section, "chars": len(s.text)}
+            for s in skeleton.slides
+        ],
+        "sections": [
+            {"index": s.index, "title": s.title, "start": s.start, "end": s.end}
+            for s in skeleton.sections
+        ],
+    }
+
+
 QUIZ_ROLES = frozenset({SlideRole.CONTENT, SlideRole.SUMMARY, SlideRole.EXERCISE})
 META_ROLES = frozenset({SlideRole.TITLE, SlideRole.AGENDA, SlideRole.SECTION, SlideRole.SUMMARY, SlideRole.CONTENT})
 
