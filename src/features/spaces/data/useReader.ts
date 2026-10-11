@@ -7,6 +7,7 @@ import {
   dataMode,
   loadLiveRepository,
   type Checkpoint,
+  type ReaderLink,
   type TeachBack,
   type ReaderConcept,
   type ReaderCourse,
@@ -468,6 +469,34 @@ export function teachBack(lectureId: string, first: number, last: number, idea: 
     loadLiveRepository().then((repo) => repo.teachBack(lectureId, { first, last, idea, explanation })),
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Teach-back timed out')), 120_000)),
   ]);
+}
+
+/**
+ * Which ideas of the course build on which. Asked once `ready` (enough
+ * lectures grouped); a partial answer is asked again when the rest arrive.
+ */
+export function useCourseLinks(
+  courseId: string | undefined,
+  ready: boolean,
+  grouped: number,
+): { state: 'idle' | 'loading' | 'ready' | 'error'; links: ReaderLink[] } {
+  const [out, setOut] = useState<{ state: 'idle' | 'loading' | 'ready' | 'error'; links: ReaderLink[] }>({
+    state: 'idle',
+    links: [],
+  });
+  useEffect(() => {
+    if (!courseId || !ready || !isLive(courseId)) return;
+    let alive = true;
+    setOut((o) => ({ ...o, state: o.links.length ? o.state : 'loading' }));
+    loadLiveRepository()
+      .then((repo) => repo.courseLinks(courseId))
+      .then((r) => alive && setOut({ state: 'ready', links: r.links }))
+      .catch(() => alive && setOut((o) => ({ ...o, state: o.links.length ? 'ready' : 'error' })));
+    return () => {
+      alive = false;
+    };
+  }, [courseId, ready, grouped]);
+  return out;
 }
 
 export async function saveRehearsal(courseId: string, title: string, lectureIds: string[], results: RehearsalResult[]) {

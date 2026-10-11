@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils';
 import { Scene, SURFACES } from '../components/Scene';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
-import { useCourse, useFind, useRehearsalHistory } from '../data/useReader';
+import { useCourse, useCourseLinks, useFind, useRehearsalHistory } from '../data/useReader';
+import { CourseMap } from '../components/course/CourseMap';
 import { latestInCourse, readTrail } from '../data/trail';
 import { ideaAt, lightIdeas, type Light } from '../components/course/light';
 import { planToday, type TodayStep } from '../components/course/today';
@@ -46,6 +47,10 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
   /* Read once: the trail only changes while you are in the reader. */
   const [trail] = useState(readTrail);
   const [resume] = useState(() => latestInCourse(courseId));
+  /* The same ideas, two ways: the journey (lecture by lecture) or the map (what builds on what). */
+  const [view, setView] = useState<'journey' | 'map'>('journey');
+  const grouped = course?.lectures.filter((l) => l.ideas).length ?? 0;
+  const links = useCourseLinks(courseId, view === 'map' && grouped >= Math.max(2, Math.ceil((course?.lectures.length ?? 0) / 2)), grouped);
   /* The exam date this student set for this course, if any (this browser only). */
   const [exam, setExam] = useState(() => examDateFor(courseId));
   const chooseExam = (date: string | null) => {
@@ -225,13 +230,35 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
               <p className="mt-1 text-[13.5px] text-quiet">Every idea starts dark. A rehearsal lights the ones you get right.</p>
             )}
           </div>
-          <ul aria-label="Legend" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-quiet">
+          <div role="tablist" aria-label="How to see the course" className="flex rounded-full bg-white/[0.06] p-1">
+            {(['journey', 'map'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="tab"
+                aria-selected={view === v}
+                onClick={() => setView(v)}
+                className={cn(
+                  'console-focusable h-8 rounded-full px-4 text-[13px] transition-colors',
+                  view === v ? 'bg-white text-background' : 'text-quiet hover:text-foreground',
+                )}
+              >
+                {v === 'journey' ? 'Journey' : 'Map'}
+              </button>
+            ))}
+          </div>
+          <ul aria-label="Legend" className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-quiet">
             <li className="flex items-center gap-1.5"><IdeaDot light="lit" />Tested, right</li>
             <li className="flex items-center gap-1.5"><IdeaDot light="fading" />Fading</li>
             <li className="flex items-center gap-1.5"><IdeaDot light="weak" />To revisit</li>
             <li className="flex items-center gap-1.5"><IdeaDot light="dark" />Not tested yet</li>
           </ul>
         </div>
+        {view === 'map' ? (
+          <div className="mt-8">
+            <CourseMap lectures={course.lectures} marks={marks} links={links.links} linksState={links.state} readHref={readHref} />
+          </div>
+        ) : (
         <ol aria-label="Lectures" className="relative mt-10">
           <span aria-hidden className="absolute bottom-6 left-[19px] top-6 w-px bg-gradient-to-b from-white/[0.18] via-white/[0.08] to-transparent" />
           {course.lectures.map((l, i) => (
@@ -313,6 +340,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             </motion.li>
           ))}
         </ol>
+        )}
       </div>
     </div>,
   );
