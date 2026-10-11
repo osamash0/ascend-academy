@@ -36,6 +36,48 @@ class _RecordingAdmin:
         return _Auth()
 
 
+def _wire(monkeypatch, calls, *, manifest_fails=False, job_fails=False, auth_fails=False, run_ok=True, ready_raises=False, run_raises=False):
+    from backend.services import erasure as er
+
+    async def manifest(uid, client=None):
+        calls.append(("manifest", uid))
+        if manifest_fails:
+            raise er.ErasureError("listing failed")
+        return er.ErasureManifest(subject_id=uid)
+
+    async def create(m, client=None):
+        calls.append("job")
+        if job_fails:
+            raise er.ErasureError("insert failed")
+        return "job-1"
+
+    async def ready(job_id, client=None):
+        calls.append("ready")
+        if ready_raises:
+            raise RuntimeError("db hiccup")
+
+    async def run(job_id, client=None):
+        calls.append("run")
+        if run_raises:
+            raise RuntimeError("db hiccup")
+        return run_ok
+
+    class _Admin:
+        class auth:  # noqa: N801 - mirrors supabase client shape
+            class admin:  # noqa: N801
+                @staticmethod
+                def delete_user(uid):
+                    calls.append(("auth_delete", uid))
+                    if auth_fails:
+                        raise RuntimeError("auth down")
+
+    monkeypatch.setattr(auth_api, "build_erasure_manifest", manifest)
+    monkeypatch.setattr(auth_api, "create_erasure_job", create)
+    monkeypatch.setattr(auth_api, "mark_erasure_job_ready", ready)
+    monkeypatch.setattr(auth_api, "run_erasure_job", run)
+    monkeypatch.setattr(auth_api, "supabase_admin", _Admin)
+
+
 def test_delete_account_returns_502_when_admin_delete_fails(app, professor_user, monkeypatch):
     _wire(monkeypatch, [])
     monkeypatch.setattr(auth_api, "supabase_admin", _RecordingAdmin(fail=True))
@@ -57,44 +99,6 @@ def test_delete_account_requires_authentication(app, monkeypatch):
     assert r.status_code == 401
 
 
-def _wire(monkeypatch, calls, *, manifest_fails=False, job_fails=False, auth_fails=False, run_ok=True):
-    from backend.services import erasure as er
-
-    async def manifest(uid, client=None):
-        calls.append("manifest")
-        if manifest_fails:
-            raise er.ErasureError("listing failed")
-        return er.ErasureManifest(subject_id=uid)
-
-    async def create(m, client=None):
-        calls.append("job")
-        if job_fails:
-            raise er.ErasureError("insert failed")
-        return "job-1"
-
-    async def ready(job_id, client=None):
-        calls.append("ready")
-
-    async def run(job_id, client=None):
-        calls.append("run")
-        return run_ok
-
-    class _Admin:
-        class auth:  # noqa: N801 - mirrors supabase client shape
-            class admin:  # noqa: N801
-                @staticmethod
-                def delete_user(uid):
-                    calls.append("auth_delete")
-                    if auth_fails:
-                        raise RuntimeError("auth down")
-
-    monkeypatch.setattr(auth_api, "build_erasure_manifest", manifest)
-    monkeypatch.setattr(auth_api, "create_erasure_job", create)
-    monkeypatch.setattr(auth_api, "mark_erasure_job_ready", ready)
-    monkeypatch.setattr(auth_api, "run_erasure_job", run)
-    monkeypatch.setattr(auth_api, "supabase_admin", _Admin)
-
-
 def _post(app, professor_user):
     app.dependency_overrides[verify_token] = lambda: professor_user
     return TestClient(app).post("/api/auth/delete-account", headers=H)
@@ -105,7 +109,7 @@ def test_records_the_job_before_deleting_and_removes_files_after(app, professor_
     _wire(monkeypatch, calls)
     resp = _post(app, professor_user)
     assert resp.status_code == 200
-    assert calls == ["manifest", "job", "auth_delete", "ready", "run"]
+    assert calls == [("manifest", professor_user.id), "job", ("auth_delete", professor_user.id), "ready", "run"]
     assert resp.json() == {"message": "Account deleted.", "files": "removed"}
 
 
@@ -114,7 +118,7 @@ def test_aborts_before_anything_when_the_manifest_fails(app, professor_user, mon
     _wire(monkeypatch, calls, manifest_fails=True)
     resp = _post(app, professor_user)
     assert resp.status_code == 502
-    assert calls == ["manifest"]  # the account and its files are untouched
+    assert calls == [("manifest", professor_user.id)]  # the account and its files are untouched
 
 
 def test_aborts_when_the_job_cannot_be_recorded(app, professor_user, monkeypatch):
@@ -122,7 +126,7 @@ def test_aborts_when_the_job_cannot_be_recorded(app, professor_user, monkeypatch
     _wire(monkeypatch, calls, job_fails=True)
     resp = _post(app, professor_user)
     assert resp.status_code == 502
-    assert "auth_delete" not in calls
+    assert not any(isinstance(c, tuple) and c[0] == "auth_delete" for c in calls)
 
 
 def test_says_files_are_finishing_when_the_run_is_deferred(app, professor_user, monkeypatch):
@@ -174,3 +178,19 @@ def test_export_data_returns_502_when_export_fails(app, professor_user, monkeypa
     r = TestClient(app).get("/api/auth/export-data", headers=H)
 
     assert r.status_code == 502
+
+
+def test_a_failing_ready_mark_still_answers_200_finishing(app, professor_user, monkeypatch):
+    calls = []
+    _wire(monkeypatch, calls, ready_raises=True)
+    resp = _post(app, professor_user)
+    assert resp.status_code == 200
+    assert resp.json()["files"] == "finishing"
+
+
+def test_a_raising_run_still_answers_200_finishing(app, professor_user, monkeypatch):
+    calls = []
+    _wire(monkeypatch, calls, run_raises=True)
+    resp = _post(app, professor_user)
+    assert resp.status_code == 200
+    assert resp.json()["files"] == "finishing"

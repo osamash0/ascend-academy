@@ -69,6 +69,7 @@ beforeEach(() => {
   useAuthMock.mockReset();
   apiGetMock.mockReset();
   apiPostMock.mockReset();
+  toastFn.mockClear();
 });
 
 /** Mount the Data & Privacy pane (selected via the `?tab=` query param). */
@@ -136,10 +137,12 @@ describe("Settings — GDPR account erasure", () => {
     );
 
     await waitFor(() => expect(signOut).toHaveBeenCalled());
-    expect(toastFn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "Your account is deleted. Your files are being removed.",
-      }),
+    const deletedToasts = toastFn.mock.calls.filter(
+      ([arg]) => /deleteSuccess|Account deleted/.test(arg?.title ?? ""),
+    );
+    expect(deletedToasts).toHaveLength(1);
+    expect(deletedToasts[0][0].description).toMatch(
+      /deleteSuccessFilesFinishing|still being removed/,
     );
   });
 

@@ -59,10 +59,12 @@ writing: `profiles`, `achievements`, `student_progress`, `learning_events`,
 
 1. Invalidates the caller's cached bearer token immediately (no replay
    within the 45s token-cache TTL).
-2. Calls `account_service.erase_user_storage_and_derived_data(uid)` —
-   deletes Storage-bucket objects (`pdf-uploads`, `worksheets`) and any
-   `slide_embeddings` rows for lectures the user owns. This step is
-   idempotent and safe to retry; it does not touch `auth.users`.
+2. Builds an erasure manifest (every file the user owns in `avatars`,
+   `lecture-pdfs`, `lecture-posters`, `pdf-uploads`, `worksheets`) and
+   durably records it as a job (`backend/services/erasure.py`) BEFORE
+   anything is deleted; if either fails the endpoint returns 502 and the
+   account is untouched. After the account is gone the job is run to remove
+   the files, and retried by the worker drain if that fails.
 3. Deletes the `auth.users` row via the service-role admin API. Every table
    in §2 references `auth.users(id) ON DELETE CASCADE` (directly, or
    transitively via `lectures.professor_id`/`lectures.student_owner_id`), so
@@ -78,7 +80,8 @@ Two known exceptions, both intentional (see the module docstring in
   deleting their account must not delete a professor's live course
   material out from under enrolled students.
 - Content-addressed `pdf-uploads` blobs are only removed when no other
-  user's lecture still references the same `pdf_hash` (dedup safety).
+  user's lecture still references the same `pdf_hash` (dedup safety; see
+  `backend/services/erasure.py`).
 
 Regression coverage: `backend/tests/db/test_account_erasure_cascade.py`
 (real local Postgres, not mocked) proves the FK-cascade path end-to-end —

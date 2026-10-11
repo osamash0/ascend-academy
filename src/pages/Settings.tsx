@@ -557,12 +557,14 @@ function DataPrivacySettings({ user, signOut, navigate }: { user: { id: string }
             // A failure here has to surface as a failure.
             const result = await apiClient.post<{ files?: string }>('/api/auth/delete-account', {});
 
-            if (result?.files === 'finishing') {
-                toast({ title: 'Your account is deleted. Your files are being removed.' });
-            }
             await signOut();
             navigate('/');
-            toast({ title: t('settings:data.deleteSuccess'), description: t('settings:data.deleteSuccessDescription') });
+            toast({
+                title: t('settings:data.deleteSuccess'),
+                description: result?.files === 'finishing'
+                    ? t('settings:data.deleteSuccessFilesFinishing')
+                    : t('settings:data.deleteSuccessDescription'),
+            });
         } catch (error: unknown) {
             toast({ 
                 title: t('settings:data.deleteError'), 

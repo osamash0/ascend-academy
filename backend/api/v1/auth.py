@@ -160,8 +160,14 @@ async def delete_account_endpoint(
         )
 
     # 4. The files. A failure is retried by the worker, never swallowed.
-    await mark_erasure_job_ready(job_id)
-    finished = await run_erasure_job(job_id)
+    # The account is already gone, so nothing here may turn into an error
+    # response: the drain cron picks up 'awaiting_auth_delete'/'pending' jobs.
+    try:
+        await mark_erasure_job_ready(job_id)
+        finished = await run_erasure_job(job_id)
+    except Exception as e:
+        logger.error("Erasure job %s for %s not finished inline: %s", job_id, uid, e)
+        finished = False
     return {"message": "Account deleted.", "files": "removed" if finished else "finishing"}
 
 
