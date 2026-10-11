@@ -32,6 +32,14 @@ from typing import Dict
 # ``PROMPT_VERSIONS.get(prompt_name, "unversioned")`` without importing the
 # constant itself.
 # ---------------------------------------------------------------------------
+# Version policy (Arc 7): a version names the prompt's INPUT CONTRACT, not
+# only its template text. Bump when the template changes OR when the prompt's
+# single caller changes what it interpolates (which slides; stripped vs raw
+# text), because outputs before and after are not comparable under one tag.
+# A prompt shared by callers with different inputs is NOT bumped for one
+# caller's change (BATCH_SLIDE_PROMPT: the unified parse sends boilerplate-
+# stripped text, file_parse_service/slide_synth_service send raw); the parse
+# receipt records the per-slide input instead (slide_provenance[].input_text).
 PROMPT_VERSIONS: Dict[str, str] = {
     # v1 -> v2 (S-4 follow-up, prompt-injection hardening pass): added an
     # explicit rule that retrieved/extracted document text is data, not
@@ -49,8 +57,8 @@ PROMPT_VERSIONS: Dict[str, str] = {
     # v1 -> v2 on the three synthesis prompts: added the {output_language}
     # rule so generated content stays in the deck's own source language
     # instead of drifting to English (source_language plumbing).
-    "LECTURE_META_ANALYSIS_PROMPT": "v2",       # was parser/synthesis.py:analyze_lecture_meta
-    "SLIDE_ANALYSIS_PROMPT": "v2",              # was parser/synthesis.py:analyze_slide
+    "LECTURE_META_ANALYSIS_PROMPT": "v3",       # was parser/synthesis.py:analyze_lecture_meta — v3 (Arc 7, retroactive for Arc 2): input is skeleton-selected, boilerplate-stripped slides across the whole deck, not slides[:15] raw
+    "SLIDE_ANALYSIS_PROMPT": "v3",              # was parser/synthesis.py:analyze_slide — v3 (Arc 7): {text} is boilerplate-stripped (raw fallback under 25 chars)
     # v3 (Arc 4 grounded quiz): slideId -> source_slide (the [Slide N] label the
     # key is stated on) plus grounding rules; verified by parser/quiz_grounding.py.
     "SYNTHESIS_DECK_QUIZ_PROMPT": "v3",         # was parser/synthesis.py:generate_quiz_questions

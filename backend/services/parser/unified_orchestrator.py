@@ -332,6 +332,17 @@ def _slide_route(*, ai_mode: bool, is_vision: bool, res: Any) -> str:
     return "per_slide"
 
 
+def _input_text_kind(route: str, raw: str, sent: Optional[str]) -> Optional[str]:
+    """What this slide's synthesis prompt received (Arc 7): "stripped"
+    (boilerplate removed by deck_plan.synthesis_text), "raw" (the page as
+    extracted; vision always gets raw), or None when no LLM call was made."""
+    if route == "heuristic":
+        return None
+    if route in ("batch", "per_slide") and sent is not None and sent != raw:
+        return "stripped"
+    return "raw"
+
+
 def _provenance_entry(
     index: int,
     route: str,
@@ -340,10 +351,12 @@ def _provenance_entry(
     synthesis_failed: bool,
     needs_review: bool,
     review_reason: Optional[str],
+    input_text: Optional[str] = None,
 ) -> Dict[str, Any]:
     """One slide's receipt line. ``requested_model`` is the model the parse
-    asked for (head of the provider chain); the provider that actually served
-    the call is not threaded back per slide yet, so it is not recorded."""
+    asked for (head of the provider chain). ``input_text`` says whether the
+    prompt got boilerplate-stripped or raw text: BATCH_SLIDE_PROMPT is shared
+    with raw-text callers, so its version tag alone cannot say."""
     from backend.services.ai.prompts import get_prompt_version
 
     prompt = _ROUTE_PROMPTS.get(route)
@@ -359,6 +372,7 @@ def _provenance_entry(
         "prompt": prompt,
         "prompt_version": get_prompt_version(prompt) if prompt else None,
         "requested_model": model,
+        "input_text": input_text,
         "synthesis_failed": synthesis_failed,
         "needs_review": needs_review,
         "review_reason": review_reason,
@@ -779,6 +793,7 @@ async def parse_pdf_unified(
         embed_tasks: List[asyncio.Task] = []
         previous_narrative = ""
         slide_provenance: List[Dict[str, Any]] = []
+        synth_inputs: Dict[int, str] = {}  # Arc 7: text each slide prompt received
 
         # Roadmap Phase 3 (course brain): collect administrative-slide text
         # during the loop so it can feed one combined syllabus-fact extraction
@@ -828,6 +843,7 @@ async def parse_pdf_unified(
                         (i, synthesis_text(raw_slides[i], skeleton, i, _MIN_TEXT_FOR_SYNTH))
                         for i in text_idxs
                     ]
+                    synth_inputs.update(text_items)
                     # Note: any slide here carrying a regen instruction routes
                     # itself to the per-slide fallback inside the helper (the
                     # batch schema has no per-slide instruction hook), so
@@ -882,6 +898,7 @@ async def parse_pdf_unified(
                 slide_provenance.append(_provenance_entry(
                     i, route, ai_model=ai_model, synthesis_failed=synthesis_failed,
                     needs_review=needs_review, review_reason=review_reason,
+                    input_text=_input_text_kind(route, raw_slides[i], synth_inputs.get(i)),
                 ))
                 # Text routes echo the (stripped) synthesis input as content;
                 # students must see the real page, so pin it to the raw text.

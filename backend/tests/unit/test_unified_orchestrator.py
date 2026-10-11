@@ -1325,8 +1325,10 @@ async def test_receipt_provenance_records_batch_and_vision_routes(monkeypatch):
     assert prov[0] == {
         "index": 0, "route": "batch", "prompt": "BATCH_SLIDE_PROMPT",
         "prompt_version": PROMPT_VERSIONS["BATCH_SLIDE_PROMPT"], "requested_model": "groq",
+        "input_text": "raw",
         "synthesis_failed": False, "needs_review": False, "review_reason": None,
     }
+    assert prov[2]["input_text"] == "raw"
     assert prov[1]["route"] == "batch"
     assert prov[2]["route"] == "vision"
     assert prov[2]["prompt"] == "SLIDE_VISION_PROMPT"
@@ -1456,3 +1458,34 @@ async def test_per_slide_fallback_gets_stripped_text_but_slides_keep_raw_content
     assert seen[2] == "Depth-first search follows one branch to its end first."
     assert seen[0] == ARC7_DECK[0]
     assert _slide_contents(events) == dict(enumerate(ARC7_DECK))
+
+
+def test_input_text_kind():
+    assert uo._input_text_kind("heuristic", "raw", None) is None
+    assert uo._input_text_kind("batch", "raw page", "stripped page") == "stripped"
+    assert uo._input_text_kind("per_slide", "raw page", "raw page") == "raw"
+    assert uo._input_text_kind("per_slide", "raw page", None) == "raw"
+    assert uo._input_text_kind("vision", "raw page", "stripped page") == "raw"
+
+
+async def test_receipt_records_what_text_each_slide_prompt_received(monkeypatch):
+    rec, run = _patch_common(monkeypatch, pages=ARC7_DECK)
+    await _run("h", OWNER, filename="Deck.pdf")
+    prov = rec["receipts"][0]["slide_provenance"]
+    assert [p["input_text"] for p in prov] == ["raw", "stripped", "stripped", "stripped"]
+
+
+async def test_on_demand_receipt_has_no_input_text(monkeypatch):
+    rec, run = _patch_common(monkeypatch, pages=["raw text 0", "raw text 1"])
+    await _run("h", OWNER, filename="Deck.pdf", parsing_mode="on_demand")
+    assert [p["input_text"] for p in rec["receipts"][0]["slide_provenance"]] == [None, None]
+
+
+def test_prompt_versions_follow_the_input_contract_policy():
+    from backend.services.ai.prompts import PROMPT_VERSIONS
+    # Single-caller prompts whose input changed: bumped.
+    assert PROMPT_VERSIONS["SLIDE_ANALYSIS_PROMPT"] == "v3"
+    assert PROMPT_VERSIONS["LECTURE_META_ANALYSIS_PROMPT"] == "v3"
+    # Shared with raw-text callers (file_parse_service, slide_synth_service): not
+    # bumped; slide_provenance[].input_text says what each slide received.
+    assert PROMPT_VERSIONS["BATCH_SLIDE_PROMPT"] == "v3"
