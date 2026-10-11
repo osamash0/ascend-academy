@@ -2,6 +2,7 @@
 """Erasure: an exact manifest first, a durable job, then deletion that is
 retried rather than swallowed."""
 import pytest
+from supabase_auth.errors import AuthApiError
 
 from backend.services import erasure as er
 
@@ -10,8 +11,9 @@ OTHER = "22222222-2222-2222-2222-222222222222"
 
 
 class _Res:
-    def __init__(self, data):
+    def __init__(self, data, count=None):
         self.data = data
+        self.count = count
 
 
 class FakeTable:
@@ -23,6 +25,22 @@ class FakeTable:
 
     def eq(self, c, v):
         self.f.append(lambda r: r.get(c) == v)
+        return self
+
+    def lt(self, c, v):
+        self.f.append(lambda r: (r.get(c) or 0) < v)
+        return self
+
+    def gte(self, c, v):
+        self.f.append(lambda r: (r.get(c) or 0) >= v)
+        return self
+
+    def order(self, col):
+        self.sort = col
+        return self
+
+    def limit(self, n):
+        self.cap = n
         return self
 
     def in_(self, c, vs):
@@ -57,7 +75,9 @@ class FakeTable:
         if self.op == "delete":
             self.store.tables[self.name] = [r for r in rows if r not in hit]
             return _Res(hit)
-        return _Res([dict(r) for r in hit])
+        out = sorted(hit, key=lambda r: r.get(getattr(self, "sort", None) or "", ""))
+        n = len(out)
+        return _Res([dict(r) for r in out[:getattr(self, "cap", None)]], count=n)
 
 
 class FakeBucket:
@@ -101,7 +121,7 @@ class FakeAuthAdmin:
 
     def get_user_by_id(self, uid):
         if uid not in self.store.auth_users:
-            raise RuntimeError("User not found (404)")
+            raise AuthApiError("User not found", 404, "user_not_found")
         return {"id": uid}
 
 
@@ -248,7 +268,7 @@ async def test_drain_resolves_awaiting_jobs_by_auth_state():
     c.auth_users.discard(UID)
     c.tables["lectures"] = [r for r in c.tables["lectures"] if r["id"] == "L9"]
     out = await er.drain(client=c)
-    assert out == {"finished": 1, "retrying": 0, "cancelled": 1}
+    assert out == {"finished": 1, "retrying": 0, "cancelled": 1, "stuck": 0}
     assert c.tables[er.JOBS] == []
 
 
@@ -264,3 +284,61 @@ async def test_executor_deletes_rows_of_every_no_fk_user_table():
     assert await er.run_job(job, client=c) is True
     for t in er.NO_FK_USER_TABLES:
         assert c.tables[t] == [{"user_id": OTHER}], t
+
+
+def _fresh_pending(c, **extra):
+    return c.tables.setdefault(er.JOBS, []).append(
+        {"id": f"x{len(c.tables.get(er.JOBS, []))}", "subject_id": OTHER, "status": "pending",
+         "manifest": er.ErasureManifest(subject_id=OTHER).to_json(), "attempts": 0,
+         "updated_at": "2026-01-01T00:00:00+00:00", **extra})
+
+
+@pytest.mark.asyncio
+async def test_exhausted_jobs_do_not_starve_a_fresh_one():
+    c = owner_world()
+    c.auth_users.discard(OTHER)
+    for i in range(5):
+        _fresh_pending(c, attempts=er.MAX_ATTEMPTS, updated_at=f"2000-01-0{i + 1}T00:00:00+00:00")
+    _fresh_pending(c)
+    out = await er.drain(client=c, limit=3)
+    assert out["finished"] == 1 and out["stuck"] == 5
+    assert len(c.tables[er.JOBS]) == 5
+
+
+@pytest.mark.asyncio
+async def test_generic_404_text_is_not_proof_the_account_is_gone():
+    c = owner_world()
+
+    def boom(uid):
+        raise Exception("404 Not Found: host not found")
+
+    c.auth.admin.get_user_by_id = boom
+    assert er._auth_user_exists(c, UID) is None
+    job = await er.create_job(await er.build_erasure_manifest(UID, client=c), client=c)
+    await er.mark_ready(job, client=c)
+    assert await er.run_job(job, client=c) is False
+    assert c.removed == {}
+
+
+def test_structured_not_found_means_gone_other_auth_errors_inconclusive():
+    c = owner_world()
+    c.auth_users.discard(UID)
+    assert er._auth_user_exists(c, UID) is False
+    assert er._auth_user_exists(c, OTHER) is True
+
+    def boom(uid):
+        raise AuthApiError("bad gateway", 502, None)
+
+    c.auth.admin.get_user_by_id = boom
+    assert er._auth_user_exists(c, OTHER) is None
+
+
+@pytest.mark.asyncio
+async def test_drain_skips_fresh_awaiting_and_unreachable_auth():
+    c = owner_world()
+    await er.create_job(await er.build_erasure_manifest(UID, client=c), client=c)   # fresh, account alive
+    assert await er.drain(client=c) == {"finished": 0, "retrying": 0, "cancelled": 0, "stuck": 0}
+    c.tables[er.JOBS][0]["created_at"] = "2000-01-01T00:00:00+00:00"                 # stale, but auth down
+    c.auth.admin.get_user_by_id = lambda uid: (_ for _ in ()).throw(Exception("timeout"))
+    assert await er.drain(client=c) == {"finished": 0, "retrying": 0, "cancelled": 0, "stuck": 0}
+    assert len(c.tables[er.JOBS]) == 1 and c.removed == {}

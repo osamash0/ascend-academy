@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi.concurrency import run_in_threadpool
+from supabase_auth.errors import AuthApiError
 
 from backend.core.database import supabase_admin
 
@@ -177,8 +178,12 @@ def _auth_user_exists(c, uid: str) -> bool | None:
     try:
         c.auth.admin.get_user_by_id(uid)
         return True
-    except Exception as e:
-        return False if ("404" in str(e) or "not found" in str(e).lower()) else None
+    except AuthApiError as e:
+        # Only the auth API's own structured answer proves the account is gone;
+        # a proxy 404 or a DNS "host not found" must never look like that.
+        return False if (e.status == 404 and e.code == "user_not_found") else None
+    except Exception:
+        return None
 
 
 def _hash_still_referenced(c, pdf_hash: str) -> bool:
@@ -237,10 +242,20 @@ async def run_job(job_id: str, client=None) -> bool:
 async def drain(client=None, limit: int = 20) -> dict[str, int]:
     """Finish what an endpoint call could not. Called by the worker cron."""
     c = _client(client)
-    out = {"finished": 0, "retrying": 0, "cancelled": 0}
-    rows = await run_in_threadpool(lambda: c.table(JOBS).select("*").execute().data or [])
+    out = {"finished": 0, "retrying": 0, "cancelled": 0, "stuck": 0}
+
+    def _load():
+        # Oldest-touched first; exhausted jobs never occupy a slot.
+        live = (c.table(JOBS).select("*").lt("attempts", MAX_ATTEMPTS)
+                .order("updated_at").limit(limit).execute().data or [])
+        stuck = c.table(JOBS).select("id", count="exact").gte("attempts", MAX_ATTEMPTS).execute()
+        return live, int(stuck.count or 0)
+
+    rows, out["stuck"] = await run_in_threadpool(_load)
+    if out["stuck"]:
+        logger.error("%s erasure job(s) exceeded %s attempts; need a person", out["stuck"], MAX_ATTEMPTS)
     cutoff = (datetime.now(timezone.utc) - STALE_AWAITING).isoformat()
-    for job in rows[:limit]:
+    for job in rows:
         if job["status"] == "awaiting_auth_delete":
             exists = await run_in_threadpool(_auth_user_exists, c, job["subject_id"])
             if exists is True and job["created_at"] < cutoff:
@@ -251,8 +266,5 @@ async def drain(client=None, limit: int = 20) -> dict[str, int]:
             if exists is not False:
                 continue                              # too fresh, or auth unreachable
             await mark_ready(job["id"], client=c)
-        if int(job.get("attempts") or 0) >= MAX_ATTEMPTS:
-            logger.error("erasure job %s exceeded %s attempts; needs a person", job["id"], MAX_ATTEMPTS)
-            continue
         out["finished" if await run_job(job["id"], client=c) else "retrying"] += 1
     return out
