@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
@@ -78,4 +79,6 @@ class EmbeddingCache:
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"model": self.model, "dims": self.dims, "vectors": dict(sorted(self.vectors.items()))}
-        self.path.write_text(json.dumps(payload, separators=(",", ":")) + "\n", encoding="utf-8")
+        tmp = self.path.with_suffix(self.path.suffix + ".tmp")
+        tmp.write_text(json.dumps(payload, separators=(",", ":")) + "\n", encoding="utf-8")
+        os.replace(tmp, self.path)  # atomic: a crash mid-write never truncates the saved cache

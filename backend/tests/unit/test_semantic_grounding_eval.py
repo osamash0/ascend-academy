@@ -284,3 +284,21 @@ def test_decide_default_count_resolves_at_call_time(monkeypatch):
     cal = sge.Calibration(0.5, (0.9,), (0.1,))
     probe = sge.SemanticProbeResult(0.5, _probe_with_lexical(0, 0, n=2).outcomes, ())
     assert not any("incomplete" in f for f in sge.decide(cal, probe).failures)
+
+
+def test_save_is_atomic_a_crash_mid_write_keeps_the_previous_cache(tmp_path, monkeypatch):
+    path = tmp_path / "emb.json"
+    EmbeddingCache(path, "m@2", 2, {text_key("x", "m@2"): [1.0, 0.0]}).save()
+    from pathlib import Path
+
+    real = Path.write_text
+
+    def crash(self, data, *a, **k):
+        real(self, data[: len(data) // 2], *a, **k)  # truncated write, then the process dies
+        raise OSError("disk died")
+
+    monkeypatch.setattr(Path, "write_text", crash)
+    with pytest.raises(OSError):
+        EmbeddingCache(path, "m@2", 2, {text_key("y", "m@2"): [0.0, 1.0]}).save()
+    monkeypatch.undo()
+    assert EmbeddingCache.load(path, "m@2", 2).missing(["x"]) == []

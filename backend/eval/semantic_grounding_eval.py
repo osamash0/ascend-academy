@@ -274,8 +274,6 @@ async def run_semantic_grounding(deck_dir: Path, cache_path: Path, allow_api: bo
     texts += [t for *_, q, sk in pr_items for t in semantic_texts(q, sk)]
     unique = list(dict.fromkeys(texts))
     await embed(unique)  # one prefetch: every miss goes out together
-    if cache.fetched:
-        cache.save()  # paid vectors hit the disk before anything can fail
     calibration = await calibrate(cal_items, embed, EMBEDDING_MODEL_ID)  # calibration decks only
     probe = await run_semantic_probe(pr_items, embed, calibration.threshold, missing_probe)  # once, at that threshold
     check_lexical_baseline(probe)  # before any decision is built
