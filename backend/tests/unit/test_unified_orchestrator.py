@@ -1465,6 +1465,7 @@ def test_input_text_kind():
     assert uo._input_text_kind("batch", "raw page", "stripped page") == "stripped"
     assert uo._input_text_kind("per_slide", "raw page", "raw page") == "raw"
     assert uo._input_text_kind("per_slide", "raw page", None) == "raw"
+    assert uo._input_text_kind("batch", "raw page", None) == "raw"
     assert uo._input_text_kind("vision", "raw page", "stripped page") == "raw"
 
 
