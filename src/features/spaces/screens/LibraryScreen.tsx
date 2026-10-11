@@ -1,135 +1,116 @@
-import { useMemo, useReducer, useState } from 'react';
-import {
-  FileText,
-  FolderInput,
-  Heart,
-  NotebookPen,
-  PenLine,
-  Plus,
-  Sparkles,
-  Unlink,
-  Upload,
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { EnterList, EnterListItem } from '../components/Enter';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { motion, useReducedMotion } from 'motion/react';
+import { Layers, Plus, Search, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Pressable, PressableLink } from '../components/Pressable';
-import type { LibraryItem, LibraryKind } from '../types';
+import { useShelf, shelfSpaceName } from '../data/useShelf';
 import { useLibrary } from '../data/useSpaces';
+import {
+  filterItems,
+  groupBySpace,
+  sortItems,
+  type ShelfFilter,
+  type ShelfItem,
+  type ShelfSort,
+} from '../studio/shelf';
+import { inDialog, isTyping } from '../studio/keys';
+import { FLIGHT_EASE } from '../studio/motion';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
-import { NoteEditor } from '../components/NoteEditor';
-import { addNote, updateNote } from '../mocks/notes';
-import { myContributionById } from '../mocks/library';
-import { ReanchorDialog } from '../components/ReanchorDialog';
 import { Masthead, Skylight, ghostPillSm } from '../components/stage';
 import { Scene, SURFACES } from '../components/Scene';
-import { EndorsedBadge } from '../components/badges';
+import { EnterList, EnterListItem } from '../components/Enter';
 import { SpacesError, SpacesSkeleton } from '../components/states';
+import { Cover } from '../library/Cover';
+import { ContinueCard } from '../library/ContinueCard';
+import { YourWords } from '../library/YourWords';
 
 /**
- * Library — "what's mine?"
+ * Library — the shelf (One Library spec §5.1).
  *
- * Filtered by **author**, not by content type: the objects you made, wherever
- * they live. A Space shows everyone's work in one room; Library shows only
- * yours across every room — the one view Spaces structurally cannot give.
+ * Everything you brought in, as living covers; what you wrote, as "Your
+ * words". One index: the Studio home, uploads, drafts and impact screens are
+ * gone, and their questions are filters here (`?f=reading|shared|words`).
  *
- * Two rules shape everything here:
- *
- *   • **No Space cards.** Items name the Space they live in as context, but a
- *     Space is never an entry point from here. That is what keeps "one screen,
- *     one object" true.
- *   • **Items are pointers, except Notes.** Opening a contribution or a
- *     material takes you to it in its Space; Library never re-renders Space
- *     content, which is what made the rejected version a duplicate index.
- *     Notes are read and written here directly — they are private, appear
- *     nowhere else, and are the thing you most want across Spaces at once.
- *
- * Learn mode: calm and browsable. The dense work — managing uploads, drafts
- * across Spaces, how your work landed — hangs off this screen as separate
- * Studio screens, never mixed in.
+ * Learn mode: calm and browsable. Search, sort and grouping only appear once
+ * the shelf is big enough to need them (9 items), so a new shelf stays quiet.
  */
 
-type Filter = 'all' | LibraryKind;
-
-const FILTERS: { key: Filter; label: string }[] = [
+const FILTERS: { key: ShelfFilter; label: string }[] = [
   { key: 'all', label: 'Everything' },
-  { key: 'note', label: 'Notes' },
-  { key: 'material', label: 'Uploads' },
-  { key: 'contribution', label: 'Published' },
+  { key: 'reading', label: 'Reading' },
+  { key: 'shared', label: 'Shared' },
+  { key: 'words', label: 'Your words' },
 ];
 
-const KIND_ICON = {
-  note: NotebookPen,
-  material: Upload,
-  contribution: Sparkles,
-} as const;
+const SORTS: { key: ShelfSort; label: string }[] = [
+  { key: 'recent', label: 'Recently opened' },
+  { key: 'added', label: 'Added' },
+  { key: 'az', label: 'A–Z' },
+];
 
-const KIND_LABEL = {
-  note: 'Note',
-  material: 'Upload',
-  contribution: 'Published',
-} as const;
+/** From this many items up, the shelf offers search, sort and grouping. */
+const BIG_SHELF = 9;
 
-const formatSize = (bytes?: number) =>
-  bytes === undefined ? null : `${(bytes / 1_000_000).toFixed(1)} MB`;
-
-/**
- * Where a note lives, or an honest admission that it does not live anywhere.
- *
- * A note written in Library belongs to no Lesson until you put it in one, so
- * both anchor fields are empty. Interpolating them regardless produced
- * "Unknown Lesson · No Space yet" — two invented strings joined by a separator
- * for a note that had simply not been filed.
- */
-const noteContext = (lessonTitle?: string, spaceName?: string) => {
-  const parts = [lessonTitle, spaceName].filter((p) => p && p.trim().length > 0);
-  return parts.length > 0 ? parts.join(' · ') : 'Not filed in a Space yet';
-};
-
-const formatWhen = (iso: string) => {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-};
+const asFilter = (v: string | null): ShelfFilter =>
+  FILTERS.some((f) => f.key === v) ? (v as ShelfFilter) : 'all';
 
 const LIBRARY_ACCENT = null;
 
 export default function LibraryScreen() {
-  /** Bodies edited this session, so the row shows the edit immediately. */
-  const [noteBodies, setNoteBodies] = useState<Record<string, string>>({});
-  const [filter, setFilter] = useState<Filter>('all');
-  /*
-   * Library could edit a note but never write one — the empty state's only
-   * control was inert, so the surface Doc 2 calls "read and written in Library
-   * directly" could only be read.
-   */
-  const [composing, setComposing] = useState(false);
-  /** The orphan being re-filed, if the dialog is open. */
-  const [reanchoring, setReanchoring] = useState<LibraryItem | null>(null);
+  const { state, items, continueItem, words } = useShelf();
+  /* Read beside the shelf, so both settle together rather than one after the other. */
+  const { items: contributions } = useLibrary('contribution');
   /*
    * A re-anchor mutates a store outside React, and `useLibrary` recomputes on
-   * render — so the list needs a nudge to re-read it. `useReducer` rather than
-   * a counter in `useState`: the value is never read, and an unread `useState`
-   * pair is the dead `writeTick` that was just removed from this file.
+   * render — so the orphans need a nudge to be re-read.
    */
   const [, reread] = useReducer((n: number) => n + 1, 0);
-  const { state, items, pending } = useLibrary();
+  const [params, setParams] = useSearchParams();
+  const reduce = useReducedMotion();
+  const filter = asFilter(params.get('f'));
+  const big = items.length >= BIG_SHELF;
+  const q = big ? (params.get('q') ?? '') : '';
+  const [sort, setSort] = useState<ShelfSort>('recent');
+  const [grouped, setGrouped] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
+  /** One URL param, set or cleared, leaving the others (mock, select) alone. */
+  const setParam = (key: string, value: string | null) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set(key, value);
+        else next.delete(key);
+        return next;
+      },
+      { replace: true },
+    );
 
-  const shown = useMemo(
-    () => (filter === 'all' ? items : items.filter((i) => i.kind === filter)),
-    [items, filter],
+  /* `/` finds, on the shelf only, and never while you are typing or in a dialog. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTyping(e.target) || inDialog(e.target)) return;
+      const box = searchRef.current;
+      if (!box) return;
+      e.preventDefault();
+      box.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const counts = useMemo(
+    () => ({
+      all: items.length,
+      reading: filterItems(items, 'reading', '').length,
+      shared: filterItems(items, 'shared', '').length,
+      words: words.length,
+    }),
+    [items, words],
   );
-
-  /*
-   * The empty state already invites you to write, on the two filters where
-   * writing is the answer — so the toolbar action would be the same button
-   * twice, 270px apart. On Uploads and Published the empty state sends you to
-   * your Spaces instead, which is a different action, so the toolbar keeps its
-   * own.
-   */
-  const emptyAlreadyOffersNote =
-    shown.length === 0 && !composing && (filter === 'note' || filter === 'all');
+  const shown = useMemo(() => sortItems(filterItems(items, filter, q), sort), [items, filter, q, sort]);
 
   // Library stands on the stage. It has no subject of its own, so its light
   // is the brand's — neutral white — never a colour (monochrome brand).
@@ -146,374 +127,202 @@ export default function LibraryScreen() {
   if (state === 'loading') return chrome(<SpacesSkeleton />);
   if (state === 'error') return chrome(<SpacesError what="your Library" />);
 
+  const fade = { duration: reduce ? 0.15 : 0.24, ease: FLIGHT_EASE };
+  const showContinue = !!continueItem && (filter === 'all' || filter === 'reading') && !q;
+
   return chrome(
-    <div className="relative mx-auto max-w-5xl px-6 pb-24 pt-10 lg:px-8">
+    <div className="relative mx-auto max-w-[1120px] px-4 pb-24 pt-10 sm:px-6 lg:px-8">
       <header>
-        <Masthead
-          title="Library"
-          lede="Everything you’ve made — your notes, your uploads and the work you’ve published."
-        />
+        <Masthead title="Library" lede="What you brought in, what you made of it, and what you shared." />
       </header>
 
-      {/*
-        At a glance, and the doors into Studio.
-
-        Deliberately *not* a row of counts: the filter tabs below already show
-        Notes / Uploads / Published, and repeating them here would be the same
-        redundancy that made the Spaces hero and the Home streak chip worth
-        cutting. These cells each say something the list cannot —
-
-          • the latest note, in full, because Doc 2 rule 5 makes Notes the one
-            Library item that is read and written *here* rather than being a
-            pointer into a Space;
-          • what is waiting on you in uploads and drafts;
-          • how your published work landed.
-
-        The last three are also the doors into the Studio screens. Library
-        itself stays Learn — calm and browsable — and the dense work opens
-        *from* here as its own screen.
-      */}
-      {/*
-        The doors into Studio, as doors. This was a bento whose cells repeated
-        the list beneath it — the latest note is the list's first row, the
-        upload count is the Uploads filter (Abi, 2026-10-10: one fact, once).
-        What only these said was *where the dense work opens*, so that is all
-        that is left; a dot marks the one with something waiting.
-      */}
-      <nav aria-label="Studio" className="mt-8 flex flex-wrap items-center justify-center gap-2">
-        <Link to="/v4/library/studio" className={ghostPillSm}>
-          <PenLine aria-hidden className="h-3.5 w-3.5" />
-          Studio
-        </Link>
-        <Link to="/v4/library/uploads" className={ghostPillSm}>
-          <Upload aria-hidden className="h-3.5 w-3.5" />
-          Uploads
-          {pending.length > 0 && (
-            <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-white" aria-label={`${pending.length} still being prepared`} />
-          )}
-        </Link>
-        <Link to="/v4/library/drafts" className={ghostPillSm}>
-          <FileText aria-hidden className="h-3.5 w-3.5" />
-          Drafts
-        </Link>
-        <Link to="/v4/library/impact" className={ghostPillSm}>
-          <Sparkles aria-hidden className="h-3.5 w-3.5" />
-          How your work landed
-        </Link>
-      </nav>
-
-      {/*
-        Filters, and the one action this screen owns.
-
-        "New note" used to exist only inside the empty state, so it disappeared
-        the moment you had a single note — and Library is the surface Doc 2
-        rule 5 says notes are *written* in. Writing your second note meant
-        opening a Lesson to do it.
-
-        Beside the filters rather than in the header, because this is where the
-        list begins and the note appears at the top of it. Same `h-9` white
-        pill as SpaceScreen's "Add Lesson"; the empty state keeps the larger
-        `h-11` form, which is that screen's precedent too.
-      */}
-      <h2 className="mt-20 text-[26px] font-medium tracking-[-0.02em]">Everything you made</h2>
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-      <div role="tablist" aria-label="Filter" className="flex flex-wrap items-center gap-1.5">
-        {FILTERS.map((f) => {
-          const count = f.key === 'all' ? items.length : items.filter((i) => i.kind === f.key).length;
-          return (
-            <button
-              key={f.key}
-              role="tab"
-              aria-selected={filter === f.key}
-              onClick={() => setFilter(f.key)}
-              className={cn(
-                'console-focusable h-9 rounded-full px-4 text-[13.5px] font-medium transition-colors',
-                filter === f.key
-                  ? 'bg-white/[0.10] text-foreground'
-                  : 'text-quiet hover:bg-white/[0.05] hover:text-foreground',
-              )}
-            >
-              {f.label}
-              <span className="ml-1.5 tabular-nums text-faint">{count}</span>
-            </button>
-          );
-        })}
-      </div>
-
-        {!emptyAlreadyOffersNote && (
-        <Pressable
-          type="button"
-          onClick={() => setComposing(true)}
-          disabled={composing}
-          className="console-focusable inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900"
-        >
-          <Plus aria-hidden className="h-4 w-4" />
-          New note
-        </Pressable>
-        )}
-      </div>
-
-      {/* Writing a new note. Unanchored: it is yours and belongs to no Lesson
-          until you put it in one. */}
-      {composing && (
-        <div className="mt-6">
-          <NoteEditor
-            autoOpen
-            placeholder="Write it down while it is fresh…"
-            onSave={(body) => {
-              addNote({ lessonId: '', body });
-              setComposing(false);
-            }}
-          />
-        </div>
-      )}
-
-      {shown.length === 0 && !composing ? (
-        <EmptyLibrary filter={filter} onWriteNote={() => setComposing(true)} />
+      {items.length === 0 ? (
+        <EmptyShelf />
       ) : (
-        <EnterList whenVisible className="mt-6 space-y-2.5">
-          {shown.map((item) => (
-            <EnterListItem key={item.id} id={`item-${item.id}`}>
-              {/* Doc 2 rule 5: everything here is a pointer into its Space —
-                  except Notes, which are read *and written* in Library. */}
-              {item.kind === 'note' ? (
-                <div>
-                  <NoteEditor
-                    value={noteBodies[item.id] ?? item.body}
-                    onSave={(body) => {
-                      const id = item.id.replace(/^lib-note-/, '');
-                      updateNote(id, body);
-                      setNoteBodies((m) => ({ ...m, [item.id]: body }));
-                    }}
-                  />
-                  {/* Where it is filed — said here, on the note, now that the
-                      "latest note" cell that used to say it is gone. */}
-                  <p className="mt-1.5 px-1 text-[12.5px] text-faint">
-                    {noteContext(item.lessonTitle, item.spaceName ?? undefined)}
-                  </p>
-                </div>
-              ) : (
-                <LibraryRow item={item} onReanchor={() => setReanchoring(item)} />
-              )}
-            </EnterListItem>
-          ))}
-        </EnterList>
-      )}
+        <>
+          <div className="mt-8 flex flex-col items-center gap-4">
+            <div
+              role="tablist"
+              aria-label="Filter"
+              className="flex flex-wrap items-center justify-center gap-1.5"
+            >
+              {FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === f.key}
+                  onClick={() => setParam('f', f.key === 'all' ? null : f.key)}
+                  className={cn(
+                    'console-focusable h-9 rounded-full px-4 text-[13.5px] font-medium transition-colors',
+                    filter === f.key
+                      ? 'bg-white/[0.10] text-foreground'
+                      : 'text-quiet hover:bg-white/[0.05] hover:text-foreground',
+                  )}
+                >
+                  {f.label}
+                  <span className="ml-1.5 tabular-nums text-faint">{counts[f.key]}</span>
+                </button>
+              ))}
+            </div>
 
-      {/*
-        Mounted from the id on the row. A Library item is a projection of a
-        contribution, not the contribution itself, so the dialog is given the
-        real one — it needs `orphaned` to refuse a move it should not make.
-      */}
-      {reanchoring &&
-        (() => {
-          const c = myContributionById(reanchoring.id.replace(/^lib-con-/, ''));
-          if (!c) return null;
-          return (
-            <ReanchorDialog
-              contribution={c}
-              spaceId={reanchoring.spaceId}
-              spaceName={reanchoring.spaceName}
-              /*
-               * Library only ever lists your own work, so the author branch of
-               * `canReanchor` is what authorises this. The Space's role is not
-               * known on this screen and must not be guessed at — passing
-               * `null` says exactly that.
-               */
-              viewerRole={null}
-              open
-              onOpenChange={(v) => !v && setReanchoring(null)}
-              onMoved={() => {
-                setReanchoring(null);
-                reread();
-              }}
-            />
-          );
-        })()}
+            {big && filter !== 'words' && (
+              <div className="flex w-full flex-wrap items-center justify-center gap-2">
+                <label className="relative block w-full sm:w-72">
+                  <Search
+                    aria-hidden
+                    className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint"
+                  />
+                  <input
+                    ref={searchRef}
+                    type="search"
+                    aria-label="Search your Library"
+                    placeholder="Search your Library   /"
+                    value={q}
+                    onChange={(e) => setParam('q', e.target.value || null)}
+                    className="console-focusable h-9 w-full rounded-full border border-white/12 bg-white/[0.05] pl-9 pr-4 text-[13.5px] text-foreground placeholder:text-faint"
+                  />
+                </label>
+                <select
+                  aria-label="Sort"
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as ShelfSort)}
+                  className="console-focusable h-9 rounded-full border border-white/12 bg-white/[0.05] px-3.5 text-[13px] text-quiet"
+                >
+                  {SORTS.map((s) => (
+                    <option key={s.key} value={s.key} className="bg-black text-foreground">
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  aria-pressed={grouped}
+                  onClick={() => setGrouped((g) => !g)}
+                  className={cn(ghostPillSm, grouped && 'bg-white/[0.12] text-foreground')}
+                >
+                  <Layers aria-hidden className="h-3.5 w-3.5" />
+                  Group by Space
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* A new view arrives with a fade; the old one simply gives way, so the two never stack. */}
+          <motion.div
+            key={filter}
+            className="mt-10"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={fade}
+          >
+            {filter === 'words' ? (
+              <YourWords
+                words={words}
+                items={items}
+                orphans={contributions.filter((c) => c.orphaned)}
+                onMoved={reread}
+              />
+            ) : (
+              <>
+                {showContinue && (
+                  <div className="mb-12">
+                    <ContinueCard item={continueItem} />
+                  </div>
+                )}
+                <Shelf items={shown} grouped={big && grouped} />
+                {shown.length === 0 && <NothingHere filter={filter} q={q} />}
+              </>
+            )}
+          </motion.div>
+        </>
+      )}
     </div>,
   );
 }
 
-function LibraryRow({
-  item,
-  onReanchor,
-}: {
-  item: LibraryItem;
-  /** Only offered on an orphan, and only for your own contributions. */
-  onReanchor?: () => void;
-}) {
-  const Icon = KIND_ICON[item.kind];
-  // Notes open here; everything else is a pointer into its Space.
+const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(232px,1fr))] gap-[18px]';
 
+function Shelf({ items, grouped }: { items: ShelfItem[]; grouped: boolean }) {
+  if (!grouped) {
+    return (
+      <section aria-labelledby="your-shelf">
+        <h2 id="your-shelf" className="mb-4 text-[20px] font-medium tracking-[-0.02em]">
+          Your shelf
+        </h2>
+        <EnterList aria-labelledby="your-shelf" className={GRID}>
+          <EnterListItem>
+            <BringInCell />
+          </EnterListItem>
+          {items.map((item) => (
+            <EnterListItem key={item.id}>
+              <Cover item={item} />
+            </EnterListItem>
+          ))}
+        </EnterList>
+      </section>
+    );
+  }
+  const groups = groupBySpace(items, shelfSpaceName);
   return (
-    <article
-      className={cn(
-        'group relative flex items-start gap-4 rounded-2xl border px-5 py-4 transition-colors',
-        item.orphaned
-          ? 'border-warning/25 bg-warning/[0.04]'
-          : 'border-white/[0.08] bg-white/[0.025] hover:bg-white/[0.05]',
-      )}
-    >
-      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-quiet">
-        <Icon aria-hidden className="h-4 w-4" />
-      </span>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-white/[0.06] px-2.5 py-[3px] text-[11.5px] font-medium text-quiet">
-            {KIND_LABEL[item.kind]}
-          </span>
-          {item.endorsed && <EndorsedBadge />}
-          {item.pending && (
-            <span className="rounded-full bg-white/[0.06] px-2.5 py-[3px] text-[11.5px] font-medium text-quiet">
-              Not published yet
-            </span>
-          )}
-        </div>
-
-        <h3 className="mt-2 line-clamp-2 text-[15.5px] font-semibold leading-relaxed text-foreground">
-          {item.title}
-        </h3>
-
-        {/* Context, never a Space card — this names where it lives. */}
-        {/*
-          Built from the parts that exist rather than concatenated blindly. An
-          orphan has no Space to name, and the previous form left its separator
-          behind — a row opening "· 12 Mar", punctuation for a word that is not
-          there.
-        */}
-        <p className="mt-1.5 text-[13.5px] text-quiet">
-          {[item.lessonTitle, item.spaceName].filter(Boolean).join(' · ')}
-          <span className="text-faint">
-            {[item.lessonTitle, item.spaceName].some(Boolean) ? ' · ' : ''}
-            {formatWhen(item.updatedAt)}
-          </span>
-          {item.sizeBytes !== undefined && (
-            <span className="text-faint"> · {formatSize(item.sizeBytes)}</span>
-          )}
-        </p>
-
-        {item.orphaned && (
-          <p className="mt-2 flex items-start gap-2 text-[13px] leading-relaxed text-quiet">
-            <Unlink aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-            {/*
-              Main's wording, kept over mine. I had written it to avoid
-              instructing an action that did not exist — there was no control
-              anywhere that gave an orphan a new home, so "pick a new place for
-              it" failed `deadends.test.tsx`'s rule with no control to point
-              at. That is no longer true: the button directly below this does
-              exactly what the sentence describes, so the sentence can say so.
-            */}
-            The Lesson this was attached to was removed. Your work is safe, and it
-            keeps its likes — but it has nowhere to open until it is given a new
-            home.
-          </p>
-        )}
-
-        {/*
-          `relative z-10`, because the row is covered by an `absolute inset-0`
-          link and anything below it is unclickable. This is the same trap the
-          Studio rows hit from the other side, where a title link would have
-          swallowed the checkbox — an overlay makes every later control a
-          layering question.
-        */}
-        {item.orphaned && onReanchor && (
-          <Pressable
-            type="button"
-            onClick={onReanchor}
-            className="console-focusable relative z-10 mt-3 inline-flex h-9 items-center gap-1.5 rounded-full bg-white/[0.10] px-4 text-[13px] font-semibold text-foreground hover:bg-white/[0.16]"
-          >
-            <FolderInput aria-hidden className="h-3.5 w-3.5" />
-            Find it a new home
-          </Pressable>
-        )}
-      </div>
-
-      {/* Library doubles as your creator record: how the work landed. */}
-      {item.likeCount !== undefined && (
-        <span className="flex shrink-0 items-center gap-1.5 self-center text-[13.5px] font-medium text-quiet tabular-nums">
-          <Heart aria-hidden className="h-3.5 w-3.5" />
-          {item.likeCount}
-        </span>
-      )}
-
-      {/*
-        Notes open in place; everything else opens the object in its Space.
-        This was a full-card target with an aria-label promising
-        "Open … in Database Systems" and no destination of any kind — the
-        `href` its own type comment described did not exist on the type.
-      */}
-      {item.href && (
-        <Link
-          to={item.href}
-          className="console-focusable absolute inset-0 rounded-2xl"
-          aria-label={
-            item.spaceName
-              ? `Open ${KIND_LABEL[item.kind].toLowerCase()} “${item.title}” in ${item.spaceName}`
-              : `Open ${KIND_LABEL[item.kind].toLowerCase()} “${item.title}”`
-          }
-        >
-          <span className="sr-only">Open</span>
-        </Link>
-      )}
-    </article>
+    <div className="space-y-12">
+      {groups.map((g, gi) => (
+        <section key={g.title} aria-label={g.title}>
+          <h2 className="mb-4 text-[20px] font-medium tracking-[-0.02em]">{g.title}</h2>
+          <EnterList aria-label={gi === 0 ? 'Your shelf' : g.title} className={GRID}>
+            {gi === 0 && (
+              <EnterListItem>
+                <BringInCell />
+              </EnterListItem>
+            )}
+            {g.items.map((item) => (
+              <EnterListItem key={item.id}>
+                <Cover item={item} />
+              </EnterListItem>
+            ))}
+          </EnterList>
+        </section>
+      ))}
+    </div>
   );
 }
 
-/**
- * The likely state for a new member for weeks, so it carries an invitation to
- * write a first note — not an error, and not a shrug.
- */
-function EmptyLibrary({ filter, onWriteNote }: { filter: Filter; onWriteNote: () => void }) {
-  const copy: Record<Filter, { title: string; body: string; cta: string }> = {
-    all: {
-      title: 'Nothing here yet',
-      body: 'Anything you write, upload or publish shows up here — gathered from every Space you’re in.',
-      cta: 'Write your first note',
-    },
-    note: {
-      title: 'No notes yet',
-      body: 'Notes are private. Write one while you read and it will be waiting here, next to every other note you’ve made.',
-      cta: 'Write a note',
-    },
-    material: {
-      title: 'Nothing uploaded yet',
-      body: 'Upload material inside a Space and a Lesson builds itself from it. The file stays yours, and it lists here.',
-      cta: 'Go to your Spaces',
-    },
-    contribution: {
-      title: 'Nothing published yet',
-      body: 'Share a summary, a worked example or a set of practice questions with a Space. Whatever you publish lands here, with how it landed.',
-      cta: 'Go to your Spaces',
-    },
-  };
-  const { title, body, cta } = copy[filter];
-
+/** The first cell. Bringing a file in is wired with the drop (One Library Task 4). */
+function BringInCell() {
   return (
-    <div className="mt-6 rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
-      <NotebookPen aria-hidden className="mx-auto mb-4 h-6 w-6 text-quiet" />
-      <p className="mb-2 text-[17px] font-semibold">{title}</p>
-      <p className="mx-auto mb-7 max-w-[48ch] text-[14.5px] leading-relaxed text-quiet">{body}</p>
-      {/* The only control in this state; it used to do nothing. Notes are
-          written here, so that one calls back; the rest send you to Spaces,
-          because you cannot upload or publish from Library. */}
-      {filter === 'note' || filter === 'all' ? (
-        <Pressable
-          type="button"
-          onClick={onWriteNote}
-          className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900"
-        >
-          <Plus aria-hidden className="h-4 w-4" />
-          {cta}
-        </Pressable>
-      ) : (
-        <PressableLink
-          to="/v4/spaces"
-          className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900"
-        >
-          {cta}
-        </PressableLink>
-      )}
+    <div className="flex h-full min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-white/[0.18] p-5 text-center">
+      <button
+        type="button"
+        disabled
+        title="Not open yet in this preview"
+        className="console-focusable flex flex-col items-center gap-1 rounded-xl px-3 py-2 text-[13px] text-quiet"
+      >
+        <Plus aria-hidden className="mb-1 h-5 w-5" />
+        <span className="text-[15px] font-medium text-foreground">Bring something in</span>
+        PDF, PPTX or a photo
+      </button>
+    </div>
+  );
+}
+
+function NothingHere({ filter, q }: { filter: ShelfFilter; q: string }) {
+  const line = q
+    ? `Nothing on your shelf is called “${q}”.`
+    : filter === 'shared'
+      ? 'Nothing shared yet. When a page is ready for others, share it from the page itself.'
+      : 'Nothing left to read. Everything here is read through.';
+  return <p className="mt-8 text-center text-[14px] text-quiet">{line}</p>;
+}
+
+/** An empty Library is one calm invitation (spec §5.1). The drop is wired in Task 4. */
+function EmptyShelf() {
+  return (
+    <div className="mt-12 flex min-h-[44vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/15 bg-white/[0.015] px-6 py-16 text-center">
+      <Upload aria-hidden className="mb-5 h-6 w-6 text-quiet" />
+      <p className="text-[19px] font-medium tracking-[-0.01em]">Bring in your first file</p>
+      <p className="mx-auto mt-2 max-w-[44ch] text-[14.5px] leading-relaxed text-quiet">
+        PDF, PPTX or a photo. It becomes a page you can read, ask and remember.
+      </p>
     </div>
   );
 }

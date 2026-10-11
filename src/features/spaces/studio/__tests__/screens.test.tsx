@@ -27,15 +27,17 @@ describe('Studio home', () => {
   });
 });
 
-describe('Library → Studio door', () => {
-  it('links to Studio from the Studio nav', async () => {
+describe('Library has no Studio door', () => {
+  // One Library (spec §4): Studio is no longer a place, so the shelf has no door to it.
+  it('shows the shelf and no Studio nav', async () => {
     render(
       <MemoryRouter>
         <LibraryScreen />
       </MemoryRouter>,
     );
-    const nav = await screen.findByRole('navigation', { name: 'Studio' }, { timeout: 3000 });
-    expect(within(nav).getByRole('link', { name: 'Studio' })).toHaveAttribute('href', '/v4/library/studio');
+    await screen.findByRole('tablist', { name: 'Filter' }, { timeout: 3000 });
+    expect(screen.queryByRole('navigation', { name: 'Studio' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Studio' })).toBeNull();
   });
 });
 

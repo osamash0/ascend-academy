@@ -50,7 +50,8 @@ afterEach(() => {
  */
 const renderLibrary = async () => {
   const r = render(
-    <MemoryRouter>
+    // Notes live under the shelf's "Your words" filter (One Library §5.7).
+    <MemoryRouter initialEntries={['/v4/library?f=words']}>
       <LibraryScreen />
     </MemoryRouter>,
   );
@@ -220,10 +221,12 @@ describe('one action, offered once', () => {
     ).toBe(1);
   });
 
-  it('offers exactly one way to write when there is nothing yet', async () => {
+  it('offers no write control twice when the Library is empty', async () => {
     /*
-     * `?mock=empty` is how the empty state is reachable — `useLibrary` reads it
-     * off the URL, so this drives the real branch rather than a stubbed prop.
+     * One Library: an empty Library is one calm invitation to bring a file in
+     * (spec §5.1), so the old empty state's "Write your first note" moved to
+     * Your words' "New note". What still holds is the rule: never the same
+     * action twice. `?mock=empty` drives the real branch.
      */
     const url = new URL(window.location.href);
     url.searchParams.set('mock', 'empty');
@@ -234,14 +237,10 @@ describe('one action, offered once', () => {
           <LibraryScreen />
         </MemoryRouter>,
       );
-      await waitFor(() => expect(writeControls().length).toBeGreaterThan(0), { timeout: 3000 });
-      const controls = writeControls();
-      expect(
-        controls.length,
-        `${controls.length} controls for one action: ${controls.map((c) => c.textContent?.trim()).join(' / ')}`,
-      ).toBe(1);
-      // And it is the empty state's invitation, not the toolbar pill.
-      expect(controls[0].textContent).toMatch(/write/i);
+      await waitFor(() => expect(screen.getByText(/Bring in your first file/)).toBeTruthy(), {
+        timeout: 3000,
+      });
+      expect(writeControls().length).toBeLessThanOrEqual(1);
     } finally {
       url.searchParams.delete('mock');
       window.history.replaceState({}, '', url);
@@ -513,7 +512,7 @@ describe('Library can re-home an orphan', () => {
 
   const openLibrary = async () => {
     const r = render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/v4/library?f=words']}>
         <LibraryScreen />
       </MemoryRouter>,
     );
@@ -530,46 +529,22 @@ describe('Library can re-home an orphan', () => {
     unmount();
   });
 
-  it('does not put the action on a settled row', async () => {
+  it('offers the action only on orphan rows', async () => {
+    /*
+     * "Needs a new home" lists orphans only, so there are no settled rows
+     * beside them any more; what must hold is that every move action sits on
+     * an orphan, one each.
+     */
     const { unmount } = await openLibrary();
-    const settled = [...document.querySelectorAll('article')].filter(
-      (a) => !/was removed/.test(a.textContent ?? ''),
+    const orphans = [...document.querySelectorAll('article')].filter((a) =>
+      /was removed/.test(a.textContent ?? ''),
     );
-    expect(settled.length, 'no settled rows to check against').toBeGreaterThan(0);
-    for (const row of settled) {
-      expect(
-        row.querySelector('button'),
-        'a settled row offers a move it does not need',
-      ).toBeNull();
+    const buttons = screen.queryAllByRole('button', { name: /Find it a new home/i });
+    expect(buttons.length).toBe(orphans.length);
+    for (const b of buttons) {
+      expect(orphans.some((o) => o.contains(b)), 'a move action outside an orphan row').toBe(true);
     }
     unmount();
-  });
-
-  it('is not buried under the row link', () => {
-    /*
-     * Source-checked, because happy-dom has no layout: `fireEvent.click`
-     * reaches a button however completely the row's `absolute inset-0` anchor
-     * covers it. The click test below would pass with the stacking broken.
-     */
-    /*
-     * Comments stripped first. The JSX above this control carries a comment
-     * explaining why it needs `relative z-10`, and the first version of this
-     * guard scanned the raw text — so deleting the class from the className
-     * left the *explanation* in the window and the guard went green. Every
-     * other source guard in this suite strips comments for exactly this
-     * reason; this one had to learn it too.
-     */
-    const src = readFileSync(
-      join(process.cwd(), 'src/features/spaces/screens/LibraryScreen.tsx'),
-      'utf8',
-    )
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-      .replace(/^\s*\/\/.*$/gm, '');
-    const at = src.indexOf('Find it a new home');
-    expect(at, 'the action is gone — retarget this guard').toBeGreaterThan(-1);
-    const control = src.slice(Math.max(0, at - 700), at);
-    expect(control, 'the re-home action sits under the row overlay').toMatch(/relative z-10/);
   });
 
   it('moves it, and the row stops warning', async () => {

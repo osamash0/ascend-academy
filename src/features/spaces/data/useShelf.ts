@@ -1,8 +1,9 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import type { LoadState } from '../types';
 import * as shelfStore from '../mocks/shelf';
-import { allNotes } from '../mocks/notes';
-import { STUDIO_CANVAS } from '../mocks/studio-canvas';
+import { allNotes, notesVersion, subscribeNotes } from '../mocks/notes';
+import { STUDIO_CANVAS, canvasById, pagesFor } from '../mocks/studio-canvas';
+import { spaceById } from '../mocks/spaces';
 import { continueItem, yourWords } from '../studio/shelf';
 import type { ShelfItem, WordEntry } from '../studio/shelf';
 import { useScreenState } from './useSpaces';
@@ -26,17 +27,21 @@ function wordsNow(): WordEntry[] {
     title: n.lessonTitle,
     body: n.body,
     at: n.updatedAt,
-    href: `/v4/space/${n.spaceId}/lesson/${n.lessonId}`,
+    // A note written in Library belongs to no Lesson yet: it has nowhere to open.
+    href: n.lessonId && n.spaceId ? `/v4/space/${n.spaceId}/lesson/${n.lessonId}` : '',
   }));
   // Answers asked in a session are not persisted globally yet: the seed canvas only.
+  // An answer or a note of yours sits on the page of the summary before it.
+  let page: number | null = null;
   const canvas: WordEntry[] = STUDIO_CANVAS.blocks.flatMap((b): WordEntry[] => {
+    if (b.origin === 'summary' || b.origin === 'extracted') page = b.source.page;
     if (b.origin !== 'generated' && b.origin !== 'written') return [];
     return [
       {
         kind: b.origin === 'generated' ? 'answer' : 'written',
         id: b.id,
         itemId: MATERIAL_ID,
-        page: null,
+        page,
         title: b.origin === 'generated' ? b.askedAs : 'My note',
         body: b.markdown,
         at: STUDIO_CANVAS.updatedAt,
@@ -55,10 +60,11 @@ export function useShelf(): {
 } {
   const state = useScreenState();
   const all = useSyncExternalStore(shelfStore.subscribe, shelfStore.getItems);
+  const notesV = useSyncExternalStore(subscribeNotes, notesVersion);
   const ready = state === 'ready';
-  // `all` is the cue to re-read: a note or a count changed with the shelf.
+  // `all` and `notesV` are the cues to re-read: a count changed, or a note was written.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const words = useMemo(() => (ready ? wordsNow() : []), [ready, all]);
+  const words = useMemo(() => (ready ? wordsNow() : []), [ready, all, notesV]);
   const items = ready ? all : [];
   return { state, items, continueItem: ready ? continueItem(all) : null, words };
 }
@@ -69,4 +75,34 @@ export function useShelfItem(id: string | undefined): { state: LoadState; item: 
   const item = id ? (all.find((i) => i.id === id) ?? null) : null;
   if (state !== 'ready') return { state, item: null };
   return { state: item ? 'ready' : 'empty', item };
+}
+
+/** The name a cover gives a Space it is shared or drafted in. */
+export const shelfSpaceName = (spaceId: string): string => spaceById(spaceId)?.name ?? 'a Space';
+
+export interface Glance {
+  /** The page image to show: the cover, or the asked-for page. '' when there is none. */
+  image: string;
+  /** The page's summary, first paragraphs first; [] when there is no summary. */
+  lines: string[];
+}
+
+/**
+ * What a page shows at a glance: its image and its summary's first lines.
+ * `page` omitted means the cover's own page. Lessons have no canvas summary.
+ */
+export function useGlance(item: ShelfItem, page?: number, max = 2): Glance {
+  return useMemo(() => {
+    if (item.opens.kind !== 'canvas') return { image: item.cover, lines: [] };
+    const canvas = canvasById(item.opens.canvasId);
+    if (!canvas) return { image: item.cover, lines: [] };
+    const pages = pagesFor(canvas.materialIds);
+    const asked = page !== undefined ? pages.find((p) => p.page === page) : undefined;
+    const target = asked ?? pages.find((p) => p.imageUrl === item.cover);
+    if (!target) return { image: item.cover, lines: [] };
+    const lines = canvas.blocks
+      .flatMap((b) => (b.origin === 'summary' && b.source.page === target.page ? [b.markdown] : []))
+      .slice(0, max);
+    return { image: asked ? asked.imageUrl : item.cover, lines };
+  }, [item.opens, item.cover, page, max]);
 }
