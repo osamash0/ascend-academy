@@ -74,7 +74,7 @@ writing: `profiles`, `achievements`, `student_progress`, `learning_events`,
    miss a table).
 
 Two known exceptions, both intentional (see the module docstring in
-`account_service.py` for full rationale):
+`backend/services/erasure.py` for full rationale):
 - `worksheets` rows where the user is only `uploaded_by` (not the owning
   professor) use `ON DELETE SET NULL`, not CASCADE — a TA/co-uploader
   deleting their account must not delete a professor's live course
@@ -89,7 +89,10 @@ profile, achievements, learning_events, exam_attempts, review_schedule,
 lectures, slides, quiz_questions, and (post-migration-parity)
 `slide_embeddings` are all gone after the `auth.users` delete. Storage/
 service-layer behavior (dedup retention, non-owner worksheet exception) is
-covered by `backend/tests/unit/test_account_service.py`.
+covered by `backend/tests/unit/test_erasure.py`
+(`test_job_runs_after_auth_delete_and_spares_shared_blobs` for dedup retention,
+`test_manifest_lists_every_bucket_for_the_user_only` for worksheets, which are
+listed only through lectures the user owns).
 
 **This session does not invoke erasure against real/production data** —
 per the operating constraint for this task, the endpoint and its tests only

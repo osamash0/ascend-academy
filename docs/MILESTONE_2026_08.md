@@ -182,7 +182,7 @@ this is a real finding, not scanner noise, and no `.dockerignore` change can fix
 it. **Gitleaks passes on PRs and fails nightly**, because PR runs are shallow.
 Rotate the keys, then either scrub history or add a documented allowlist.
 
-**F2 — GDPR erasure ordering.** `auth.py` swallows storage-cleanup failures and
+**F2 — GDPR erasure ordering — resolved by this plan (2026-10-11 GDPR plan); see `docs/superpowers/plans/2026-10-11-gdpr-erasure-and-export.md`.** `auth.py` swallows storage-cleanup failures and
 then deletes `auth.users` anyway, returning `200 "Account deleted."` Because
 `lectures` cascades away and was the only `uid → pdf_hash` map, orphaned blobs
 become unrecoverable. Conversely, embeddings and blobs are deleted *before* the
@@ -191,7 +191,7 @@ auth delete, so a failure there leaves a live account with no PDFs — and
 never touched at all: **`avatars` (public — photos stay fetchable after
 erasure)** and `lecture-pdfs`.
 
-**F3 — GDPR export completeness.** `EXPORT_TABLES` misses 14 user-scoped tables,
+**F3 — GDPR export completeness — resolved by this plan (2026-10-11 GDPR plan); see `docs/superpowers/plans/2026-10-11-gdpr-erasure-and-export.md`.** `EXPORT_TABLES` misses 14 user-scoped tables,
 including `tutor_messages` (AI chat transcripts), `courses`, `assignments`, and
 `llm_calls`. `friend_requests` is exported by `requester_id` only, omitting half
 the social graph. Needs a test asserting coverage or it re-drifts.
