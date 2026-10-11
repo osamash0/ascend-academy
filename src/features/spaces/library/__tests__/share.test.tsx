@@ -106,4 +106,30 @@ describe('the Share sheet', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Share' }));
     expect(await screen.findByRole('dialog', { name: 'Share Design process — my notes.pdf' })).toBeInTheDocument();
   });
+
+  it('from a cover’s menu, Escape returns focus to its “More for” button', async () => {
+    at('/v4/library');
+    const user = userEvent.setup();
+    const more = await screen.findByRole('button', { name: 'More for Design process — my notes.pdf' }, { timeout: 3000 });
+    await user.click(more);
+    await user.click(await screen.findByRole('menuitem', { name: 'Share' }));
+    await screen.findByRole('dialog');
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(more));
+  });
+
+  it('taking it back returns focus to the page’s (now private) Share button', async () => {
+    at('/v4/library/m/m-design-notes');
+    const user = await open();
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('radio', { name: 'Intro to Linear Algebra · Open · you own it' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Share to Intro to Linear Algebra' }));
+    await user.click(await screen.findByRole('button', { name: 'Draft in Intro to Linear Algebra' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Take back to only you' }));
+    await user.click(await screen.findByRole('button', { name: 'Take it back' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const again = await screen.findByRole('button', { name: 'Share' });
+    await waitFor(() => expect(document.activeElement).toBe(again));
+  });
 });

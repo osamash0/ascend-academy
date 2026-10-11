@@ -177,40 +177,42 @@ function StateChip({ item, pulse }: { item: ShelfItem; pulse: boolean }) {
 function CoverMenu({ item, onRemove }: { item: ShelfItem; onRemove?: () => void }) {
   const [sharing, setSharing] = useState(false);
   const { filename } = item;
+  const trigger = useRef<HTMLButtonElement>(null);
   return (
     <>
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={`More for ${filename}`}
-          className="console-focusable flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-foreground backdrop-blur-sm transition-colors hover:bg-black/75"
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <button
+            ref={trigger}
+            type="button"
+            aria-label={`More for ${filename}`}
+            className="console-focusable flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-foreground backdrop-blur-sm transition-colors hover:bg-black/75"
+          >
+            <MoreHorizontal aria-hidden className="h-4 w-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="min-w-[10rem] rounded-xl border-white/10 bg-[#0b0b0b] p-1 text-foreground"
         >
-          <MoreHorizontal aria-hidden className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="min-w-[10rem] rounded-xl border-white/10 bg-[#0b0b0b] p-1 text-foreground"
-      >
-        <DropdownMenuItem
-          disabled={item.stage !== 'ready'}
-          onSelect={() => setSharing(true)}
-          className="gap-2 rounded-lg text-[13px]"
-        >
-          <Share2 aria-hidden className="h-3.5 w-3.5" />
-          Share
-        </DropdownMenuItem>
-        {/* Remove, with its confirm and Undo, lives in Select: one place for the one destructive act. */}
-        {onRemove && (
-          <DropdownMenuItem onSelect={onRemove} className="gap-2 rounded-lg text-[13px]">
-            <Trash2 aria-hidden className="h-3.5 w-3.5" />
-            Remove…
+          <DropdownMenuItem
+            disabled={item.stage !== 'ready'}
+            onSelect={() => setSharing(true)}
+            className="gap-2 rounded-lg text-[13px]"
+          >
+            <Share2 aria-hidden className="h-3.5 w-3.5" />
+            Share
           </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-    <ShareSheet item={item} open={sharing} onOpenChange={setSharing} />
+          {/* Remove, with its confirm and Undo, lives in Select: one place for the one destructive act. */}
+          {onRemove && (
+            <DropdownMenuItem onSelect={onRemove} className="gap-2 rounded-lg text-[13px]">
+              <Trash2 aria-hidden className="h-3.5 w-3.5" />
+              Remove…
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    <ShareSheet item={item} open={sharing} onOpenChange={setSharing} returnFocus={() => trigger.current} />
     </>
   );
 }

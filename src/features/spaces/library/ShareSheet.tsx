@@ -46,6 +46,7 @@ export function ShareSheet({
   open,
   onOpenChange,
   onShared,
+  returnFocus,
 }: {
   item?: ShelfItem;
   items?: ShelfItem[];
@@ -53,14 +54,16 @@ export function ShareSheet({
   onOpenChange: (open: boolean) => void;
   /** After a confirmed share. */
   onShared?: () => void;
+  /** Where focus lands on close. The opener may be gone (a menu item), so name the stable one. */
+  returnFocus?: () => HTMLElement | null;
 }) {
   const all = items ?? (item ? [item] : []);
   const one = !items && item ? item : null;
   const shareable = all.filter((i) => i.share.kind === 'private');
   const skipped = all.length - shareable.length;
-  const { spaces } = useMySpaces();
+  const { spaces, state } = useMySpaces();
   const [chosen, setChosen] = useState<string | null>(null);
-  // Opened without a Radix trigger, so focus comes back to whatever opened it by hand.
+  // Opened without a Radix trigger, so focus comes back by hand: the named target, else whatever had focus.
   const opener = useRef<HTMLElement | null>(null);
   const space = spaces.find((s) => s.id === chosen) ?? null;
   const role = space?.viewerRole ?? null;
@@ -95,7 +98,7 @@ export function ShareSheet({
         }}
         onCloseAutoFocus={(e) => {
           e.preventDefault();
-          opener.current?.focus();
+          (returnFocus?.() ?? opener.current)?.focus();
         }}
       >
         <DialogHeader>
@@ -112,7 +115,9 @@ export function ShareSheet({
               : `${skipped} are already in a Space and stay as they are.`}
           </p>
         )}
-        {spaces.length === 0 ? (
+        {state !== 'ready' ? (
+          <p className="text-[14px] text-quiet">Looking for your Spaces…</p>
+        ) : spaces.length === 0 ? (
           <p className="text-[14px] text-quiet">You aren’t in a Space yet. Join or make one, then share from here.</p>
         ) : (
           <div role="radiogroup" aria-label="Spaces" className="flex flex-col gap-1.5">
@@ -189,9 +194,16 @@ export function ShareButton({ item }: { item: ShelfItem }) {
   const [sheet, setSheet] = useState(false);
   const [takeBack, setTakeBack] = useState(false);
   const s = item.share;
+  // The header button swaps element when the state changes, so find it fresh by its wrapper.
+  const wrap = useRef<HTMLSpanElement>(null);
+  // The dialog outlives the state change by its exit fade, so remember where it was.
+  const was = useRef('its Space');
+  if (s.kind !== 'private') was.current = shelfSpaceName(s.spaceId);
+  const home = () => wrap.current?.querySelector<HTMLElement>('button') ?? null;
 
   return (
     <>
+      <span ref={wrap} className="contents">
       {s.kind === 'private' ? (
         <button type="button" onClick={() => setSheet(true)} className={BUTTON}>
           <ShareLabel item={item} />
@@ -229,13 +241,20 @@ export function ShareButton({ item }: { item: ShelfItem }) {
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-      <ShareSheet item={item} open={sheet} onOpenChange={setSheet} />
+      </span>
+      <ShareSheet item={item} open={sheet} onOpenChange={setSheet} returnFocus={home} />
       <Dialog open={takeBack} onOpenChange={setTakeBack}>
-        <DialogContent className="max-w-sm">
+        <DialogContent
+          className="max-w-sm"
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            home()?.focus();
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Take {item.filename} back to only you?</DialogTitle>
             <DialogDescription>
-              It leaves {s.kind === 'private' ? 'the Space' : shelfSpaceName(s.spaceId)}. Your page and your words stay.
+              It leaves {was.current}. Your page and your words stay.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
