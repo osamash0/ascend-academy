@@ -25,6 +25,8 @@ EXPORT_TABLES: list[tuple[str, str]] = [
     ("achievements", "user_id"),
     ("xp_events", "user_id"),
     ("learning_events", "user_id"),
+    # Raw events are deleted past retention; older history lives only here.
+    ("learning_events_daily_rollup", "user_id"),
     ("student_progress", "user_id"),
     ("concept_mastery", "user_id"),
     ("course_enrollments", "user_id"),
@@ -59,9 +61,6 @@ EXPORT_REDACT: dict[str, set[str]] = {"api_tokens": {"token_hash"}}
 
 # User-linked columns deliberately NOT exported, each with its reason.
 EXPORT_EXCLUSIONS: dict[tuple[str, str], str] = {
-    ("learning_events_daily_rollup", "user_id"): (
-        "derived aggregate of learning_events, which is exported row by row"
-    ),
     ("learning_events_legacy_20260721", "user_id"): (
         "pre-partitioning rollback copy; every row also lives in learning_events"
     ),

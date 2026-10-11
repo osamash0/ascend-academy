@@ -5,6 +5,9 @@ Runs read-only (BEGIN READ ONLY ... ROLLBACK). Exit 1 lists the gaps.
 Run against production before every deploy that adds a table:
 
     python -m backend.scripts.gdpr_coverage_probe "$DATABASE_URL"
+
+Must be run read-only against production before each deploy: tutor_sessions,
+api_tokens and course_access exist only there, not in the migrated test DB.
 """
 from __future__ import annotations
 
