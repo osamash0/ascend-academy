@@ -85,8 +85,19 @@ async def _grounding_embed(texts: List[str]) -> List[List[float]]:
     return await generate_embeddings_batch(list(texts))
 
 
+# Wall-clock bound on one embedding request. The Gemini embed call is a single
+# batched round trip that normally returns in about a second; 20 s tolerates a
+# slow tail yet keeps a hung request from stalling the parse (the SDK has no
+# per-call deadline of its own). On timeout the deck falls back to lexical.
+GROUNDING_EMBED_TIMEOUT_S = 20.0
+
+
 def _requested_scorer() -> str:
-    return "semantic" if getattr(settings, "grounding_scorer", "lexical") == "semantic" else "lexical"
+    raw = getattr(settings, "grounding_scorer", "lexical")
+    value = str(raw).strip().lower()
+    if value and value not in ("lexical", "semantic"):
+        logger.warning("unrecognised GROUNDING_SCORER %r; using lexical", raw)
+    return "semantic" if value == "semantic" else "lexical"
 
 
 # ---------------------------------------------------------------------------
@@ -253,6 +264,7 @@ async def ground_deck_quiz(
     scorer = _requested_scorer()
     threshold = semantic_grounding.SEMANTIC_SUPPORT_THRESHOLD
     fallback = ""
+    question_fallbacks = 0
     embedder: BoundedEmbedder | None = None
     if scorer == "semantic":
         if threshold is None:
@@ -267,9 +279,15 @@ async def ground_deck_quiz(
                     except Exception:  # _one reports this question's own failure
                         pass
             try:
-                await embedder(list(dict.fromkeys(texts)))  # the whole deck in one request
+                await asyncio.wait_for(
+                    embedder(list(dict.fromkeys(texts))),  # the whole deck in one request
+                    GROUNDING_EMBED_TIMEOUT_S,
+                )
             except EmbeddingBudgetExceeded:
                 fallback, embedder = "over_embed_cap", None
+            except asyncio.TimeoutError:
+                logger.warning("semantic grounding timed out, using lexical (non-fatal)")
+                fallback, embedder = "embedding_timeout", None
             except Exception as exc:
                 logger.warning("semantic grounding unavailable, using lexical (non-fatal): %s", exc)
                 fallback, embedder = "embedding_error", None
@@ -277,9 +295,12 @@ async def ground_deck_quiz(
     async def _verdict(q: Dict[str, Any]) -> GroundingVerdict:
         if embedder is None:
             return assess_grounding(q, skeleton)
+        nonlocal question_fallbacks
         try:
-            return await semantic_support(q, skeleton, embedder, threshold)
-        except Exception as exc:
+            return await asyncio.wait_for(
+                semantic_support(q, skeleton, embedder, threshold), GROUNDING_EMBED_TIMEOUT_S)
+        except Exception as exc:  # includes asyncio.TimeoutError
+            question_fallbacks += 1
             logger.warning("semantic grounding failed for one question, using lexical: %s", exc)
             return assess_grounding(q, skeleton)
 
@@ -336,6 +357,7 @@ async def ground_deck_quiz(
         summary["scorer"] = "semantic" if embedder is not None else "lexical"
         if fallback:
             summary["scorer_fallback"] = fallback
+        summary["scorer_question_fallbacks"] = question_fallbacks
     logger.info("deck_quiz_grounding %s", json.dumps(summary, sort_keys=True))
     if stats is not None:
         stats.update(summary)
