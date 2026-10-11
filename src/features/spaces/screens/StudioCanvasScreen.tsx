@@ -10,6 +10,7 @@ import { nextSuggestions } from '../mocks/studio-answers';
 import { useCanvas } from '../data/useSpaces';
 import { shelfActions, shelfSpaceName, useShelfItem } from '../data/useShelf';
 import { Journey } from '../library/Journey';
+import { ShareButton } from '../library/ShareSheet';
 import { CanvasPage } from '../studio/components/CanvasPage';
 import { Composer } from '../studio/components/Composer';
 import type { ComposerNotice } from '../studio/components/Composer';
@@ -37,45 +38,6 @@ const HINT = 'Rest on a paragraph to see the source, press S, or ask below.';
 const HINT_NO_ORIGINAL = 'Use ← → to move between pages, or ask below.';
 /** How long "Back on page N" stands in for the hint. */
 const BACK_ON_MS = 4000;
-
-/**
- * Share, saying where the page stands (One Library spec §5.5): "Share",
- * "Draft in {Space}", or "Shared · ♥ 3". The sheet it opens arrives with the
- * Share flow (One Library Task 6); until then it is the label alone.
- */
-function ShareButton({ item }: { item: ShelfItem }) {
-  const s = item.share;
-  return (
-    <button
-      type="button"
-      // Until the sheet is wired (Task 6) it says where the page stands, and says plainly it can't act yet.
-      aria-disabled="true"
-      title="Sharing from the page is on its way"
-      className="console-focusable flex h-9 max-w-[16rem] items-center gap-1.5 rounded-full border border-[rgb(var(--studio-hairline))] px-3.5 text-[13px] font-medium text-foreground transition-colors hover:bg-[rgb(var(--studio-chip))]"
-    >
-      {s.kind === 'private' && (
-        <>
-          <Share2 aria-hidden className="h-3.5 w-3.5 shrink-0" />
-          Share
-        </>
-      )}
-      {s.kind === 'draft' && <span className="truncate">Draft in {shelfSpaceName(s.spaceId)}</span>}
-      {s.kind === 'shared' && (
-        <span className="truncate">
-          Shared
-          {s.likes > 0 && (
-            <>
-              {' · '}
-              <span aria-hidden>♥ </span>
-              {s.likes}
-              <span className="sr-only">{s.likes === 1 ? ' like' : ' likes'}</span>
-            </>
-          )}
-        </span>
-      )}
-    </button>
-  );
-}
 
 /**
  * The Studio canvas — spec §3.2, §4. The Material owns the screen; Peek lives in the gutter.
@@ -548,13 +510,20 @@ export default function StudioCanvasScreen() {
             <ChevronLeft aria-hidden className="h-5 w-5" />
           </Link>
           <div className="order-3 w-full min-w-0 text-center lg:pointer-events-none lg:absolute lg:inset-x-[18rem] lg:top-1/2 lg:order-2 lg:w-auto lg:-translate-y-1/2">
-            <nav aria-label="Breadcrumb" className="flex min-w-0 items-baseline justify-center gap-2">
-              <span className="shrink-0 text-[14px] text-quiet">Library</span>
-              <span aria-hidden className="shrink-0 text-faint">·</span>
+            <div className="flex min-w-0 items-baseline justify-center gap-2">
+              <nav aria-label="Breadcrumb" className="flex shrink-0 items-baseline gap-2">
+                <Link
+                  to="/v4/library"
+                  className="console-focusable pointer-events-auto rounded text-[14px] text-quiet hover:text-foreground"
+                >
+                  Library
+                </Link>
+                <span aria-hidden className="text-faint">·</span>
+              </nav>
               <h1 className="truncate text-[20px] font-medium leading-tight tracking-[-0.015em] text-foreground sm:text-[22px]">
                 {item.filename}
               </h1>
-            </nav>
+            </div>
             {item.sample && <p className="mt-1 truncate text-[12.5px] text-faint">Sample pages in this preview</p>}
           </div>
           <div className="order-2 ml-auto flex items-center gap-2 lg:order-3">

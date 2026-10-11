@@ -65,7 +65,7 @@ describe('the zoom-through', () => {
     expect(notPrevented).toBe(false);
     expect(screen.getByTestId('zoom-through')).toBeInTheDocument();
     expect(loc()).toBe('/v4/library|');
-    await run(500);
+    await run(600);
     expect(loc()).toBe('/v4/library/m/m-norm|shelf');
   });
 
@@ -73,7 +73,7 @@ describe('the zoom-through', () => {
     at('/v4/library');
     await run(700);
     fireEvent.click(screen.getByRole('link', { name: /Continue reading/ }));
-    await run(500);
+    await run(600);
     expect(loc()).toBe('/v4/library/m/m-norm|shelf');
   });
 
@@ -84,7 +84,7 @@ describe('the zoom-through', () => {
     const cover = within(list).getByRole('link', { name: /^Normalization\.pdf,/ });
     fireEvent.click(cover, { metaKey: true });
     expect(screen.queryByTestId('zoom-through')).toBeNull();
-    await run(500);
+    await run(600);
     expect(loc()).toBe('/v4/library|');
   });
 });
@@ -94,7 +94,8 @@ describe('the page header', () => {
     at('/v4/library/m/m-norm');
     await run(700);
     const crumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
-    expect(crumb).toHaveTextContent('Library·Normalization.pdf');
+    expect(within(crumb).getByRole('link', { name: 'Library' })).toHaveAttribute('href', '/v4/library');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Normalization.pdf');
     expect(screen.getByRole('button', { name: 'Shared · 3 likes' })).toBeInTheDocument();
   });
 

@@ -13,6 +13,7 @@ import { lifeLine, type ShelfItem } from '../studio/shelf';
 import { FLIGHT_EASE } from '../studio/motion';
 import { shelfSpaceName, shelfActions, useGlance } from '../data/useShelf';
 import { useDeveloping } from './BringIn';
+import { ShareSheet } from './ShareSheet';
 import { useZoomThrough } from './ZoomThrough';
 
 /**
@@ -149,8 +150,11 @@ function StateChip({ item, pulse }: { item: ShelfItem; pulse: boolean }) {
   );
 }
 
-function CoverMenu({ filename }: { filename: string }) {
+function CoverMenu({ item }: { item: ShelfItem }) {
+  const [sharing, setSharing] = useState(false);
+  const { filename } = item;
   return (
+    <>
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button
@@ -165,8 +169,12 @@ function CoverMenu({ filename }: { filename: string }) {
         align="end"
         className="min-w-[10rem] rounded-xl border-white/10 bg-[#0b0b0b] p-1 text-foreground"
       >
-        {/* Wired by the Share sheet and Remove-with-undo (One Library Tasks 6 and 7). */}
-        <DropdownMenuItem disabled className="gap-2 rounded-lg text-[13px]">
+        {/* Remove-with-undo arrives in One Library Task 7. */}
+        <DropdownMenuItem
+          disabled={item.stage !== 'ready'}
+          onSelect={() => setSharing(true)}
+          className="gap-2 rounded-lg text-[13px]"
+        >
           <Share2 aria-hidden className="h-3.5 w-3.5" />
           Share
         </DropdownMenuItem>
@@ -176,6 +184,8 @@ function CoverMenu({ filename }: { filename: string }) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    <ShareSheet item={item} open={sharing} onOpenChange={setSharing} />
+    </>
   );
 }
 
@@ -314,7 +324,7 @@ export function Cover({ item }: { item: ShelfItem }) {
       )}
 
       <div className="absolute right-2 top-2 z-10">
-        <CoverMenu filename={item.filename} />
+        <CoverMenu item={item} />
       </div>
     </motion.div>
   );

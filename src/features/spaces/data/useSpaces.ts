@@ -113,6 +113,27 @@ export interface MySpaces {
   archived: Space[];
 }
 
+export interface MySpacesResult {
+  state: LoadState;
+  /** Spaces the viewer can bring a page into (any role, not archived), the newest first. */
+  spaces: Space[];
+}
+
+/** The Spaces the viewer belongs to: where a page can be shared. */
+export function useMySpaces(): MySpacesResult {
+  // The sheet is opened by a person on a page that has already settled: no second wait.
+  const scenario = useScenario();
+  return {
+    state: scenario,
+    spaces:
+      scenario !== 'ready'
+        ? []
+        : [...createdThisSessionSpaces(), ...createdByViewer, ...joinedByViewer].filter(
+            (s) => s.viewerRole !== null && s.state !== 'archived',
+          ),
+  };
+}
+
 export interface SpacesResult {
   state: LoadState;
   mine: MySpaces;

@@ -69,7 +69,7 @@ export function ZoomThrough({ children }: { children: React.ReactNode }) {
       href.current = to;
       setFlight({ src, top: r?.top ?? 0, left: r?.left ?? 0, width: r?.width ?? 0, height: r?.height ?? 0 });
       // Motion's completion is not guaranteed (a hidden tab, a test DOM): the timer is the floor.
-      timer.current = setTimeout(finish, (reduce ? FADE_S : ZOOM_S) * 1000);
+      timer.current = setTimeout(finish, (reduce ? FADE_S : ZOOM_S) * 1000 + 100);
     },
     [finish, reduce],
   );

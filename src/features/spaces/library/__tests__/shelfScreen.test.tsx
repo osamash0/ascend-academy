@@ -69,7 +69,7 @@ describe('the shelf', () => {
     expect(norm).toHaveAttribute('href', '/v4/library/m/m-norm');
   });
 
-  it('gives every cover a separate menu with Share and Remove, not yet wired', async () => {
+  it('gives every cover a separate menu with Share (live) and Remove (not yet wired)', async () => {
     at();
     await settle();
     const more = screen.getByRole('button', { name: 'More for Normalization.pdf' });
@@ -79,7 +79,7 @@ describe('the shelf', () => {
       vi.advanceTimersByTime(50);
     });
     const menu = screen.getByRole('menu');
-    expect(within(menu).getByRole('menuitem', { name: /Share/ })).toHaveAttribute('aria-disabled', 'true');
+    expect(within(menu).getByRole('menuitem', { name: /Share/ })).not.toHaveAttribute('aria-disabled');
     expect(within(menu).getByRole('menuitem', { name: /Remove/ })).toHaveAttribute('aria-disabled', 'true');
   });
 
