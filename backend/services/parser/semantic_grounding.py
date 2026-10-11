@@ -61,6 +61,8 @@ def cosine(a: Sequence[float], b: Sequence[float]) -> float:
         raise EmbeddingShapeError(f"cannot compare vectors of length {len(a)} and {len(b)}")
     na = math.sqrt(sum(x * x for x in a))
     nb = math.sqrt(sum(x * x for x in b))
+    if not (math.isfinite(na) and math.isfinite(nb)):
+        raise EmbeddingShapeError("non-finite vector: cosine similarity is undefined")
     if not na or not nb:
         raise EmbeddingShapeError("zero vector: cosine similarity is undefined")
     return sum(x * y for x, y in zip(a, b)) / (na * nb)

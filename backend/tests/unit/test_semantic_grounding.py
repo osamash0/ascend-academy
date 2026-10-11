@@ -137,3 +137,11 @@ async def test_bounded_embedder_rejects_empty_vectors():
 
     with pytest.raises(EmbeddingShapeError):
         await BoundedEmbedder(broken, 5, 5)(["slide text"])
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_cosine_rejects_non_finite_vectors(bad):
+    with pytest.raises(EmbeddingShapeError):
+        cosine([bad, 1.0], [1.0, 1.0])
+    with pytest.raises(EmbeddingShapeError):
+        cosine([1.0, 1.0], [1.0, bad])
