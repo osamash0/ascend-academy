@@ -116,7 +116,14 @@
     "outfit-scotland": "Scotland · kilt",
     "outfit-japan": "Japan · yukata",
     "outfit-india": "India · kurta",
-    "outfit-westafrica": "West Africa · dashiki"
+    "outfit-westafrica": "West Africa · dashiki",
+    "outfit-cosy": "Cosy",
+    "outfit-reader": "Reader",
+    "outfit-football": "Football",
+    "outfit-basketball": "Basketball",
+    "outfit-gym": "Gym",
+    "outfit-gamer": "Gamer",
+    "outfit-graduation": "Graduation"
   },
   "stage": {
     "alt": "Your Luna",
@@ -158,5 +165,9 @@
       "upload": "Couldn't save your photo. Try again in a moment."
     }
   },
-  "outfitNote": "Your home look is on. This shows when Luna wears her space suit."
+  "outfitNote": "Your home look is on. This shows when Luna wears her space suit.",
+  "outfitGroups": {
+    "home": "Where you're from",
+    "style": "What you're into"
+  }
 }

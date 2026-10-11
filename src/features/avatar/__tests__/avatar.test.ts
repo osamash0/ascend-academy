@@ -28,7 +28,7 @@ describe('catalog', () => {
 });
 
 describe('home looks', () => {
-  const looks = CATALOG.filter((i) => i.slot === 'outfit' && i.id !== 'outfit-none');
+  const looks = CATALOG.filter((i) => i.slot === 'outfit' && i.group === 'home');
 
   it('ships the agreed set', () => {
     expect(looks.map((i) => i.id).sort()).toEqual(
@@ -40,6 +40,16 @@ describe('home looks', () => {
     const rules = new Set(looks.map((i) => JSON.stringify(i.unlock)));
     expect(rules.size).toBe(1);
     expect(new Set(looks.map((i) => i.rarity)).size).toBe(1);
+  });
+
+  it('style looks each open with something that fits them; cosy is free', () => {
+    const style = Object.fromEntries(CATALOG.filter((i) => i.group === 'style').map((i) => [i.id, i.unlock]));
+    expect(Object.keys(style).sort()).toEqual(
+      ['basketball', 'cosy', 'football', 'gamer', 'graduation', 'gym', 'reader'].map((l) => `outfit-${l}`),
+    );
+    expect(style['outfit-cosy']).toEqual({ kind: 'free' });
+    expect(style['outfit-reader']).toEqual({ kind: 'badge', key: 'Bookworm' });
+    expect(style['outfit-graduation']).toEqual({ kind: 'badge', key: 'Course Conqueror' });
   });
 
   it('the space suit stays the free default', () => {

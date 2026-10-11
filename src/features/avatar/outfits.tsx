@@ -6,8 +6,9 @@
  *   body  — replaces the space suit
  *   front — over the top of the face (hats, cords, wreaths)
  *
- * Every look shares ONE unlock rule (catalog.ts): earning a home look must
- * never rank one culture above another. Looks are always chosen by the
+ * Two groups: HOME looks (where you're from) all share ONE unlock, so no
+ * culture is ranked above another; STYLE looks (what you're into) each open
+ * with an achievement that fits them. Looks are always chosen by the
  * person — never inferred from a name, language or university.
  *
  * Patterns take the avatar's uid so fifty avatars on a leaderboard don't
@@ -25,9 +26,18 @@ export type OutfitId =
   | 'scotland'
   | 'japan'
   | 'india'
-  | 'westafrica';
+  | 'westafrica'
+  // style looks — what you're into
+  | 'cosy'
+  | 'reader'
+  | 'football'
+  | 'basketball'
+  | 'gym'
+  | 'gamer'
+  | 'graduation';
 
-export const OUTFITS: readonly OutfitId[] = [
+/** Where you're from. These all share one unlock (see catalog.ts). */
+export const HOME_LOOKS: readonly OutfitId[] = [
   'gulf',
   'levant',
   'turkiye',
@@ -39,6 +49,11 @@ export const OUTFITS: readonly OutfitId[] = [
   'india',
   'westafrica',
 ];
+
+/** What you're into. Each opens with an achievement that fits it. */
+export const STYLE_LOOKS: readonly OutfitId[] = ['cosy', 'reader', 'football', 'basketball', 'gym', 'gamer', 'graduation'];
+
+export const OUTFITS: readonly OutfitId[] = [...HOME_LOOKS, ...STYLE_LOOKS];
 
 const INK = '#4A3F6B';
 /** Luna's hands are moonlight, like her face. */
@@ -381,6 +396,206 @@ const LOOKS: Record<OutfitId, (uid: string) => Look> = {
         {/* kufi: a round cap in matching colours */}
         <path d="M54 44 Q54 22 80 21 Q106 22 106 44 Q80 38 54 44 Z" fill="#14532D" stroke={INK} strokeWidth="1.8" />
         <path d="M58 38 L64 30 L70 38 L76 30 L82 38 L88 30 L94 38 L100 32" stroke="#FDE047" strokeWidth="1.2" fill="none" />
+      </g>
+    ),
+  }),
+
+  // ── Style: cosy — oversized hoodie, hood up behind, mug of tea, slippers ─
+  cosy: () => ({
+    back: (
+      <path d="M46 70 Q42 30 80 26 Q118 30 114 70 Q112 92 100 98 L60 98 Q48 92 46 70 Z" fill="#7C9A82" stroke={INK} strokeWidth="2" strokeLinejoin="round" />
+    ),
+    body: (
+      <g strokeLinejoin="round">
+        <rect x="44" y="102" width="17" height="32" rx="8.5" fill="#7C9A82" stroke={INK} strokeWidth="2" transform="rotate(20 56 106)" />
+        <rect x="99" y="102" width="17" height="32" rx="8.5" fill="#7C9A82" stroke={INK} strokeWidth="2" transform="rotate(-20 104 106)" />
+        {hands(136, 44, 116)}
+        {legs('#9CA3AF', 140, 18)}
+        {/* fluffy slippers */}
+        <ellipse cx="69" cy="162" rx="11" ry="6" fill="#F5E6D3" stroke={INK} strokeWidth="1.4" />
+        <ellipse cx="91" cy="162" rx="11" ry="6" fill="#F5E6D3" stroke={INK} strokeWidth="1.4" />
+        <rect x="54" y="96" width="52" height="50" rx="18" fill="#7C9A82" stroke={INK} strokeWidth="2.4" />
+        {/* drawstrings + kangaroo pocket */}
+        <path d="M74 98 L73 110 M86 98 L87 110" stroke="#F5F5F4" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M64 126 L96 126 L92 140 L68 140 Z" fill="#6B8A71" stroke={INK} strokeWidth="1.4" />
+        {/* the mug, with steam */}
+        <rect x="111" y="129" width="12" height="13" rx="2.5" fill="#F97316" stroke={INK} strokeWidth="1.4" />
+        <path d="M123 132 Q128 134 123 139" stroke={INK} strokeWidth="1.4" fill="none" />
+        <path d="M114 125 Q112 121 115 118 M119 125 Q117 120 120 116" stroke="#E5E7EB" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+      </g>
+    ),
+  }),
+
+  // ── Style: reader — cardigan, round glasses, a book held open ───────────
+  reader: () => ({
+    body: (
+      <g strokeLinejoin="round">
+        {/* arms come in to hold the book at the chest */}
+        <path d="M56 104 Q46 118 62 128" stroke={INK} strokeWidth="13" fill="none" strokeLinecap="round" />
+        <path d="M56 104 Q46 118 62 128" stroke="#C08A2E" strokeWidth="10" fill="none" strokeLinecap="round" />
+        <path d="M104 104 Q114 118 98 128" stroke={INK} strokeWidth="13" fill="none" strokeLinecap="round" />
+        <path d="M104 104 Q114 118 98 128" stroke="#C08A2E" strokeWidth="10" fill="none" strokeLinecap="round" />
+        {legs('#A8A29E', 138, 22)}
+        {shoes('#5B3A1E')}
+        <rect x="56" y="96" width="48" height="46" rx="16" fill="#F5F5F4" stroke={INK} strokeWidth="2.4" />
+        {/* cardigan fronts with buttons */}
+        <path d="M57 104 Q58 98 68 97 L74 142 L58 142 Z" fill="#C08A2E" stroke={INK} strokeWidth="1.6" />
+        <path d="M103 104 Q102 98 92 97 L86 142 L102 142 Z" fill="#C08A2E" stroke={INK} strokeWidth="1.6" />
+        {/* the open book */}
+        <path d="M80 118 Q70 114 61 117 L61 134 Q70 131 80 135 Z" fill="#FFFFFF" stroke={INK} strokeWidth="1.4" />
+        <path d="M80 118 Q90 114 99 117 L99 134 Q90 131 80 135 Z" fill="#FAFAF9" stroke={INK} strokeWidth="1.4" />
+        <path d="M65 121 L76 122 M65 125 L76 126 M84 122 L95 121 M84 126 L95 125" stroke="#A8A29E" strokeWidth="0.9" />
+        <circle cx="62" cy="128" r="5.5" fill={HAND} stroke={INK} strokeWidth="1.4" />
+        <circle cx="98" cy="128" r="5.5" fill={HAND} stroke={INK} strokeWidth="1.4" />
+      </g>
+    ),
+    front: (
+      <g fill="none" stroke="#3B3352" strokeWidth="1.8">
+        {/* round glasses over the eyes */}
+        <circle cx="70" cy="61" r="9" />
+        <circle cx="90" cy="61" r="9" />
+        <path d="M79 60 Q80 58 81 60" />
+        <path d="M61 59 L53 56 M99 59 L107 56" />
+      </g>
+    ),
+  }),
+
+  // ── Style: football — jersey with a 10, shorts, striped socks, the ball ─
+  football: () => ({
+    body: (
+      <g strokeLinejoin="round">
+        {sleeves('#F5F5F4')}
+        {hands()}
+        {/* socks with stripes + studded boots */}
+        <rect x="64" y="142" width="12" height="17" rx="4" fill="#1D4ED8" stroke={INK} strokeWidth="1.6" />
+        <rect x="84" y="142" width="12" height="17" rx="4" fill="#1D4ED8" stroke={INK} strokeWidth="1.6" />
+        <path d="M64 147 L76 147 M84 147 L96 147" stroke="#F5F5F4" strokeWidth="1.6" />
+        {shoes('#111827')}
+        <path d="M62 167 L62 169 M68 167 L68 169 M74 167 L74 169 M86 167 L86 169 M92 167 L92 169 M98 167 L98 169" stroke="#E5E7EB" strokeWidth="1.4" />
+        {/* shorts */}
+        <path d="M58 128 L102 128 L101 144 L82 144 L80 137 L78 144 L59 144 Z" fill="#111827" stroke={INK} strokeWidth="1.8" />
+        {/* jersey with collar and number */}
+        <rect x="56" y="96" width="48" height="36" rx="15" fill="#F5F5F4" stroke={INK} strokeWidth="2.4" />
+        <path d="M70 97 L80 104 L90 97" stroke="#1D4ED8" strokeWidth="2.6" fill="none" strokeLinecap="round" />
+        <text x="80" y="124" textAnchor="middle" fontSize="13" fontWeight="900" fill="#1D4ED8" fontFamily="system-ui, sans-serif">10</text>
+        {/* the ball at her feet */}
+        <circle cx="120" cy="158" r="8" fill="#FFFFFF" stroke={INK} strokeWidth="1.5" />
+        <path d="M120 154 L123.5 156.5 L122 160.5 L118 160.5 L116.5 156.5 Z" fill="#111827" />
+      </g>
+    ),
+  }),
+
+  // ── Style: basketball — tank jersey 23, headband, the ball ──────────────
+  basketball: () => ({
+    body: (
+      <g strokeLinejoin="round">
+        {/* bare arms: moonlight, like her face */}
+        {sleeves(HAND)}
+        {hands()}
+        <rect x="41" y="128" width="8" height="4" rx="2" fill="#DC2626" transform="rotate(22 45 130)" />
+        {/* high socks + sneakers */}
+        <rect x="64" y="146" width="12" height="13" rx="4" fill="#F5F5F4" stroke={INK} strokeWidth="1.6" />
+        <rect x="84" y="146" width="12" height="13" rx="4" fill="#F5F5F4" stroke={INK} strokeWidth="1.6" />
+        {shoes('#DC2626')}
+        {/* long shorts */}
+        <path d="M57 128 L103 128 L102 150 L83 150 L80 140 L77 150 L58 150 Z" fill="#DC2626" stroke={INK} strokeWidth="1.8" />
+        {/* tank jersey */}
+        <path d="M60 96 L68 96 Q80 106 92 96 L100 96 Q104 110 104 132 L56 132 Q56 110 60 96 Z" fill="#DC2626" stroke={INK} strokeWidth="2.4" />
+        <text x="80" y="124" textAnchor="middle" fontSize="13" fontWeight="900" fill="#FFFFFF" fontFamily="system-ui, sans-serif">23</text>
+        {/* the ball */}
+        <circle cx="124" cy="138" r="9" fill="#EA580C" stroke={INK} strokeWidth="1.5" />
+        <path d="M115 138 L133 138 M124 129 L124 147 M117.5 131.5 Q124 138 117.5 144.5 M130.5 131.5 Q124 138 130.5 144.5" stroke="#3B1F0E" strokeWidth="1" fill="none" />
+      </g>
+    ),
+    front: (
+      <g>
+        {/* headband across the forehead */}
+        <path d="M51 48 Q80 38 109 48 L109 53 Q80 43 51 53 Z" fill="#FFFFFF" stroke={INK} strokeWidth="1.4" />
+        <path d="M51 50.5 Q80 40.5 109 50.5" stroke="#DC2626" strokeWidth="1.4" fill="none" />
+      </g>
+    ),
+  }),
+
+  // ── Style: gym — tank top, joggers, towel round the neck, dumbbell ─────
+  gym: () => ({
+    body: (
+      <g strokeLinejoin="round">
+        {sleeves(HAND)}
+        {hands()}
+        {/* joggers + trainers */}
+        <path d="M60 128 Q58 148 62 160 L78 160 L80 140 L82 160 L98 160 Q102 148 100 128 Z" fill="#1F2937" stroke={INK} strokeWidth="2" />
+        <path d="M61 158 L77 158 M83 158 L99 158" stroke="#4B5563" strokeWidth="2" />
+        {shoes('#F5F5F4')}
+        {/* tank top */}
+        <path d="M61 96 L69 96 Q80 104 91 96 L99 96 Q103 110 103 132 L57 132 Q57 110 61 96 Z" fill="#6B7280" stroke={INK} strokeWidth="2.4" />
+        {/* towel round the neck */}
+        <path d="M62 96 Q80 106 98 96 L100 104 Q80 114 60 104 Z" fill="#F5F5F4" stroke={INK} strokeWidth="1.4" />
+        <rect x="62" y="102" width="7" height="22" rx="2" fill="#F5F5F4" stroke={INK} strokeWidth="1.2" />
+        {/* dumbbell in the right hand */}
+        <rect x="111" y="134" width="14" height="4" rx="1" fill="#374151" />
+        <rect x="108" y="128" width="5" height="16" rx="1.5" fill="#111827" stroke={INK} strokeWidth="1" />
+        <rect x="123" y="128" width="5" height="16" rx="1.5" fill="#111827" stroke={INK} strokeWidth="1" />
+      </g>
+    ),
+  }),
+
+  // ── Style: gamer — hoodie, headset, controller in both hands ────────────
+  gamer: () => ({
+    body: (
+      <g strokeLinejoin="round">
+        <path d="M56 104 Q46 118 64 130" stroke={INK} strokeWidth="13" fill="none" strokeLinecap="round" />
+        <path d="M56 104 Q46 118 64 130" stroke="#1F2937" strokeWidth="10" fill="none" strokeLinecap="round" />
+        <path d="M104 104 Q114 118 96 130" stroke={INK} strokeWidth="13" fill="none" strokeLinecap="round" />
+        <path d="M104 104 Q114 118 96 130" stroke="#1F2937" strokeWidth="10" fill="none" strokeLinecap="round" />
+        {legs('#374151', 138, 22)}
+        {shoes('#F5F5F4')}
+        <rect x="55" y="96" width="50" height="46" rx="17" fill="#1F2937" stroke={INK} strokeWidth="2.4" />
+        <path d="M74 98 L73 110 M86 98 L87 110" stroke="#9CA3AF" strokeWidth="1.6" strokeLinecap="round" />
+        {/* controller */}
+        <path d="M66 126 Q66 120 74 121 L86 121 Q94 120 94 126 L96 134 Q96 139 91 137 L86 133 L74 133 L69 137 Q64 139 64 134 Z" fill="#E5E7EB" stroke={INK} strokeWidth="1.4" />
+        <path d="M71 126 L75 126 M73 124 L73 128" stroke="#111827" strokeWidth="1.3" />
+        <circle cx="87" cy="125" r="1.3" fill="#22C55E" />
+        <circle cx="90" cy="128" r="1.3" fill="#EF4444" />
+        <circle cx="65" cy="131" r="5.5" fill={HAND} stroke={INK} strokeWidth="1.4" />
+        <circle cx="95" cy="131" r="5.5" fill={HAND} stroke={INK} strokeWidth="1.4" />
+      </g>
+    ),
+    front: (
+      <g strokeLinejoin="round">
+        {/* headset: band over the top, cups at the sides, a mic */}
+        <path d="M50 62 Q50 26 80 26 Q110 26 110 62" stroke="#111827" strokeWidth="4" fill="none" />
+        <rect x="43" y="54" width="11" height="18" rx="5" fill="#111827" stroke={INK} strokeWidth="1.2" />
+        <rect x="106" y="54" width="11" height="18" rx="5" fill="#111827" stroke={INK} strokeWidth="1.2" />
+        <path d="M49 70 Q52 80 64 80" stroke="#111827" strokeWidth="2" fill="none" />
+        <circle cx="65" cy="80" r="2" fill="#22C55E" />
+      </g>
+    ),
+  }),
+
+  // ── Style: graduation — gown, stole, mortarboard, diploma ───────────────
+  graduation: () => ({
+    body: (
+      <g strokeLinejoin="round">
+        <rect x="44" y="102" width="17" height="32" rx="8.5" fill="#111827" stroke={INK} strokeWidth="2" transform="rotate(20 56 106)" />
+        <rect x="99" y="102" width="17" height="32" rx="8.5" fill="#111827" stroke={INK} strokeWidth="2" transform="rotate(-20 104 106)" />
+        {hands(136, 44, 116)}
+        {shoes('#111827', 160)}
+        {/* gown, full length */}
+        <path d="M58 96 Q53 130 52 162 L108 162 Q107 130 102 96 Z" fill="#111827" stroke={INK} strokeWidth="2.4" />
+        {/* stole */}
+        <path d="M64 97 L68 150 L74 150 L72 100 Z M96 97 L92 150 L86 150 L88 100 Z" fill="#E5C07B" stroke="#8A6D2B" strokeWidth="1" />
+        {/* diploma, ribbon-tied */}
+        <rect x="108" y="130" width="22" height="7" rx="3.5" fill="#FAFAF9" stroke={INK} strokeWidth="1.2" transform="rotate(-20 119 133)" />
+        <path d="M117 136 L115 142 M120 135 L121 141" stroke="#DC2626" strokeWidth="1.4" />
+      </g>
+    ),
+    front: (
+      <g transform="translate(0,-6)">
+        <path d="M80 14 L42 26 L80 38 L118 26 Z" fill="#111827" stroke={INK} strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M58 31 L58 40 Q80 46 102 40 L102 31 L80 38 Z" fill="#0B0F17" />
+        <path d="M80 26 L112 33 L112 45" fill="none" stroke="#E5C07B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M110 45 L114 45 L113.4 52 L110.6 52 Z" fill="#E5C07B" />
+        <circle cx="80" cy="26" r="2.5" fill="#E5C07B" />
       </g>
     ),
   }),

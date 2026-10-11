@@ -116,7 +116,14 @@
     "outfit-scotland": "Schottland · Kilt",
     "outfit-japan": "Japan · Yukata",
     "outfit-india": "Indien · Kurta",
-    "outfit-westafrica": "Westafrika · Dashiki"
+    "outfit-westafrica": "Westafrika · Dashiki",
+    "outfit-cosy": "Gemütlich",
+    "outfit-reader": "Leseratte",
+    "outfit-football": "Fußball",
+    "outfit-basketball": "Basketball",
+    "outfit-gym": "Fitness",
+    "outfit-gamer": "Gamer",
+    "outfit-graduation": "Abschluss"
   },
   "stage": {
     "alt": "Deine Luna",
@@ -158,5 +165,9 @@
       "upload": "Dein Foto konnte nicht gespeichert werden. Versuch es gleich nochmal."
     }
   },
-  "outfitNote": "Dein Heimat-Look ist an. Das hier siehst du, wenn Luna ihren Raumanzug trägt."
+  "outfitNote": "Dein Heimat-Look ist an. Das hier siehst du, wenn Luna ihren Raumanzug trägt.",
+  "outfitGroups": {
+    "home": "Woher du kommst",
+    "style": "Was dich begeistert"
+  }
 }

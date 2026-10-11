@@ -34,6 +34,8 @@ export interface AvatarItem {
    */
   color?: string;
   color2?: string;
+  /** Outfit slot only: where you're from (home) or what you're into (style). */
+  group?: 'home' | 'style';
 }
 
 /** One chosen item id per slot. */

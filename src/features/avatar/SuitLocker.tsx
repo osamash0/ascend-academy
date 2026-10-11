@@ -67,6 +67,17 @@ export function SuitLocker({ progress, initial = DEFAULT_LOADOUT, onSave, saving
   const hint = (item: AvatarItem, st: UnlockStatus) => unlockHint(t, item, st);
   const memory = (item: AvatarItem) => unlockMemory(t, item, i18n.language, badgeDates);
 
+  /** The outfit tab splits into where-you're-from and what-you're-into; every other tab is one grid. */
+  const groupsFor = (slot: Slot) => {
+    const items = itemsForSlot(slot);
+    if (slot !== 'outfit') return [{ key: 'all', title: null as string | null, items }];
+    return [
+      { key: 'base', title: null, items: items.filter((i) => !i.group) },
+      { key: 'home', title: t('outfitGroups.home'), items: items.filter((i) => i.group === 'home') },
+      { key: 'style', title: t('outfitGroups.style'), items: items.filter((i) => i.group === 'style') },
+    ];
+  };
+
   const equip = (item: AvatarItem) => {
     setFocusId(item.id);
     if (isUnlocked(item, progress)) {
@@ -215,38 +226,45 @@ export function SuitLocker({ progress, initial = DEFAULT_LOADOUT, onSave, saving
           <p className="mb-3 rounded-xl border border-white/10 px-3 py-2 text-xs text-white/60">{t('outfitNote')}</p>
         )}
 
-        <motion.div key={slot} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-          {itemsForSlot(slot).map((item) => {
-            const st = unlockStatus(item.unlock, progress);
-            const on = loadout[slot] === item.id;
-            const fullBody = slot === 'outfit' || slot === 'suit' || slot === 'patch' || slot === 'aura';
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => equip(item)}
-                aria-pressed={on}
-                aria-disabled={!st.unlocked}
-                className={cn(
-                  'group relative overflow-hidden rounded-2xl border bg-white/[0.03] text-left transition',
-                  RARITY_RING[item.rarity],
-                  on && 'ring-2 ring-white ring-offset-2 ring-offset-black',
-                  tryOn?.id === item.id && 'ring-2 ring-amber-300 ring-offset-2 ring-offset-black',
-                  st.unlocked ? 'hover:-translate-y-0.5' : 'cursor-help',
-                )}
-              >
-                <div className={cn('aspect-square w-full overflow-hidden', !st.unlocked && 'opacity-35 grayscale')}>
-                  <LunaAvatar loadout={{ ...loadout, [slot]: item.id }} variant={fullBody ? 'full' : 'head'} size={200} animated={on} className="h-full w-full" />
-                </div>
-                {!st.unlocked && (
-                  <span className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 backdrop-blur">
-                    <Lock className="h-3.5 w-3.5 text-white/80" />
-                  </span>
-                )}
-                <p className="truncate px-3 py-2.5 text-sm font-semibold text-white">{name(item.id)}</p>
-              </button>
-            );
-          })}
+        <motion.div key={slot} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+          {groupsFor(slot).map((group) => (
+            <div key={group.key}>
+              {group.title && <p className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">{group.title}</p>}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                {group.items.map((item) => {
+                const st = unlockStatus(item.unlock, progress);
+                const on = loadout[slot] === item.id;
+                const fullBody = slot === 'outfit' || slot === 'suit' || slot === 'patch' || slot === 'aura';
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => equip(item)}
+                    aria-pressed={on}
+                    aria-disabled={!st.unlocked}
+                    className={cn(
+                      'group relative overflow-hidden rounded-2xl border bg-white/[0.03] text-left transition',
+                      RARITY_RING[item.rarity],
+                      on && 'ring-2 ring-white ring-offset-2 ring-offset-black',
+                      tryOn?.id === item.id && 'ring-2 ring-amber-300 ring-offset-2 ring-offset-black',
+                      st.unlocked ? 'hover:-translate-y-0.5' : 'cursor-help',
+                    )}
+                  >
+                    <div className={cn('aspect-square w-full overflow-hidden', !st.unlocked && 'opacity-35 grayscale')}>
+                      <LunaAvatar loadout={{ ...loadout, [slot]: item.id }} variant={fullBody ? 'full' : 'head'} size={200} animated={on} className="h-full w-full" />
+                    </div>
+                    {!st.unlocked && (
+                      <span className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 backdrop-blur">
+                        <Lock className="h-3.5 w-3.5 text-white/80" />
+                      </span>
+                    )}
+                    <p className="truncate px-3 py-2.5 text-sm font-semibold text-white">{name(item.id)}</p>
+                  </button>
+                );
+                })}
+              </div>
+            </div>
+          ))}
         </motion.div>
       </section>
     </div>
