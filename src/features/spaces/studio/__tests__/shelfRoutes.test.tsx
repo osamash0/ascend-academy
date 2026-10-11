@@ -4,6 +4,7 @@ import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom
 import StudioCanvasScreen from '../../screens/StudioCanvasScreen';
 import { CanvasRedirect, To } from '../LibraryRedirects';
 import * as shelf from '../../mocks/shelf';
+import { STUDIO_CANVAS } from '../../mocks/studio-canvas';
 
 const Probe = () => {
   const l = useLocation();
@@ -125,6 +126,7 @@ describe('progress flows back to the shelf', () => {
   });
 
   it('an answer adds one, Remove takes it back, Undo restores it', async () => {
+    shelf.saveCanvas('m-norm', STUDIO_CANVAS); // no answers yet, so one Remove button
     at('/v4/library/m/m-norm');
     await settle();
     const base = item('m-norm').progress.answers;

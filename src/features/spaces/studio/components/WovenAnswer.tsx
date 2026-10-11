@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { Markdown } from './Markdown';
 import { AnswerBlockView } from '../answers/Blocks';
 import {
-  BLOCK_S, BLOCK_STAGGER_S, COLLAPSE_S, FLIGHT_EASE, FLIGHT_S, GROW_S, TEXT_FADE_S, RULE_S, WORD_BUDGET_S, WORD_LIMIT, WORD_S, WORD_STAGGER_S,
+  BLOCK_S, BLOCK_STAGGER_S, COLLAPSE_S, FLASH_FRAMES, FLIGHT_EASE, FLIGHT_S, GROW_S, TEXT_FADE_S, RULE_S, WORD_BUDGET_S, WORD_LIMIT, WORD_S, WORD_STAGGER_S,
 } from '../motion';
 import { firstWords, plainText } from '../text';
 import { useKeepPlace } from '../useKeepPlace';
@@ -19,6 +19,8 @@ interface Props {
   onOpenPeek?(blockId: string): void;
   /** On the page flying back from Source: fade in after the paragraphs land, like their text (spec §4.8). */
   flying?: boolean;
+  /** Arrived at by a link (Your words): it flashes once, like a paragraph does. */
+  flash?: boolean;
 }
 
 /** Per-word start delays: word by word up to WORD_LIMIT, then in groups; never past WORD_BUDGET_S. */
@@ -44,7 +46,7 @@ export function wordDelays(count: number): number[] {
  * terms light up last). Not fresh, or reduced motion: it is simply there.
  * Remove collapses it, then asks the screen to take it out (Undo lives there).
  */
-export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek, flying = false }: Props) {
+export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek, flying = false, flash = false }: Props) {
   const reduce = useReducedMotion();
   const animate = fresh && !reduce;
   const [settled, setSettled] = useState(!animate);
@@ -111,9 +113,17 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek, fly
       data-block-id={block.id}
       data-extracted="false"
       data-woven="true"
+      data-flash={flash ? 'true' : undefined}
       initial={animate ? { height: 0, opacity: 1 } : (reduce && fresh) || fadeBack ? { opacity: 0 } : false}
-      animate={leaving ? { height: 0, opacity: reduce ? 0 : 1 } : { height: 'auto', opacity: 1 }}
+      animate={
+        leaving
+          ? { height: 0, opacity: reduce ? 0 : 1 }
+          : flash
+            ? { height: 'auto', opacity: 1, backgroundColor: FLASH_FRAMES }
+            : { height: 'auto', opacity: 1 }
+      }
       transition={{
+        backgroundColor: { duration: 1.2, times: [0, 0.6, 1] },
         height: { duration: reduce ? 0 : leaving ? COLLAPSE_S : GROW_S, ease: FLIGHT_EASE },
         opacity: fadeBack ? { delay: FLIGHT_S * 0.6, duration: TEXT_FADE_S } : { duration: 0.15 },
       }}

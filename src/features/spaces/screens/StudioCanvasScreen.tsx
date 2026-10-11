@@ -2,15 +2,16 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { flushSync } from 'react-dom';
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
-import { ChevronLeft, Moon, Share2, Sun } from 'lucide-react';
+import { ChevronLeft, Moon, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ListSkeleton, NotFound, SpacesError } from '../components/states';
 import { useAsk } from '../data/useAsk';
 import { nextSuggestions } from '../mocks/studio-answers';
 import { useCanvas } from '../data/useSpaces';
-import { shelfActions, shelfSpaceName, useShelfItem } from '../data/useShelf';
+import { shelfActions, shelfSpaceName, useShelfCanvas, useShelfItem } from '../data/useShelf';
 import { Journey } from '../library/Journey';
 import { ShareButton } from '../library/ShareSheet';
+import { rememberOpened } from '../library/returnFocus';
 import { CanvasPage } from '../studio/components/CanvasPage';
 import { Composer } from '../studio/components/Composer';
 import type { ComposerNotice } from '../studio/components/Composer';
@@ -40,10 +41,14 @@ const HINT_NO_ORIGINAL = 'Use ← → to move between pages, or ask below.';
 const BACK_ON_MS = 4000;
 
 /**
- * The Studio canvas — spec §3.2, §4. The Material owns the screen; Peek lives in the gutter.
+ * A page of your Library — `/v4/library/m/:id` (One Library spec §5.4–5.5;
+ * the canvas rules of the Living Learn spec §3.2, §4). The file owns the
+ * screen; Peek lives in the gutter.
  *
- * The screen owns every piece of cross-cutting state (the view, the anchor
- * page, the open Peek, your edits) so nothing is lost when a panel unmounts.
+ * Your edits (answers asked, removed, sources included) belong to the item and
+ * live in the shelf store, so they outlast this screen and the cover counts
+ * them. The screen owns the rest of the cross-cutting state (the view, the
+ * anchor page, the open Peek) so nothing is lost when a panel unmounts.
  */
 export default function StudioCanvasScreen() {
   const { materialId } = useParams<{ materialId: string }>();
@@ -53,8 +58,16 @@ export default function StudioCanvasScreen() {
   const state = shelfState !== 'ready' ? shelfState : item?.opens.kind === 'lesson' ? 'ready' : canvasState;
   const itemId = item?.id;
   const [theme, toggleTheme] = useStudioTheme();
-  const [edited, setEdited] = useState<CanvasDoc | null>(null);
-  const doc = edited ?? canvas;
+  /* This item's own canvas: what you asked or changed here, kept by the shelf. */
+  const own = useShelfCanvas(itemId);
+  const doc = canvas ? (own ?? canvas) : null;
+  /** Keep an edit on the item: it outlives this screen, and the cover counts its answers. */
+  const save = useCallback(
+    (next: CanvasDoc) => {
+      if (itemId) shelfActions.saveCanvas(itemId, next);
+    },
+    [itemId],
+  );
   /** The doc as of the last render, for code that runs after an await. */
   const docRef = useRef(doc);
   docRef.current = doc;
@@ -136,9 +149,22 @@ export default function StudioCanvasScreen() {
   const restoredFor = useRef<string | null>(null);
   const lastPage = item?.lastPage ?? null;
   const onCanvas = state === 'ready' && !!doc && !!material && item?.opens.kind === 'canvas';
+  const hashBlock = /^#b-(.+)$/.exec(location.hash)?.[1] ?? null;
   useEffect(() => {
     if (!onCanvas || !itemId || restoredFor.current === itemId) return;
     restoredFor.current = itemId;
+    /* A link to one block (Your words): land on it, not on your last page. */
+    const target = hashBlock
+      ? document.querySelector<HTMLElement>(`[data-view="clean"] [data-block-id="${hashBlock.replace(/["\\]/g, '\\$&')}"]`)
+      : null;
+    if (target) {
+      target.scrollIntoView?.({ block: 'center', behavior: 'instant' });
+      if (!target.hasAttribute('tabindex')) target.tabIndex = -1;
+      target.focus({ preventScroll: true });
+      setFlashId(hashBlock);
+      return;
+    }
+    // A block that is gone (an answer you removed) falls back to your place.
     if (lastPage === null || lastPage <= 1) return;
     const section = document.querySelector<HTMLElement>(
       `[data-view="${shownRef.current}"][data-page-anchor="${lastPage}"]`,
@@ -147,17 +173,27 @@ export default function StudioCanvasScreen() {
     // Straight there: a long smooth scroll on arrival reads as the page running away.
     section.scrollIntoView?.({ block: 'start', behavior: 'instant' });
     setBackOn(lastPage);
-  }, [onCanvas, itemId, lastPage]);
+    // Once per item: a later hash or page change is not an arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onCanvas, itemId]);
   useEffect(() => {
     if (backOn === null) return;
     const t = setTimeout(() => setBackOn(null), BACK_ON_MS);
     return () => clearTimeout(t);
   }, [backOn]);
 
-  /* Progress flows back to the shelf: opening, turning to a page, answers. */
+  /*
+   * Progress flows back to the shelf: opening, turning to a page, answers.
+   * A Lesson-backed item only passes through here on its way to the Lesson:
+   * it is not opened, so it never becomes Continue.
+   */
+  const opensCanvas = item?.opens.kind === 'canvas';
   useEffect(() => {
-    if (itemId) shelfActions.touch(itemId);
-  }, [itemId]);
+    if (!itemId || !opensCanvas) return;
+    shelfActions.touch(itemId);
+    // Back on the shelf, focus comes home to this page's cover.
+    rememberOpened(itemId);
+  }, [itemId, opensCanvas]);
   /* Which material the last reported page belongs to: a new one starts over, so its arrival is not a turn. */
   const lastReported = useRef<{ itemId: string; page: number } | null>(null);
   const currentPage = nav.current;
@@ -238,7 +274,6 @@ export default function StudioCanvasScreen() {
     setNotice(n);
     if (n) noticeTimer.current = setTimeout(() => setNotice(null), ms);
   }, []);
-  const askSeq = useRef(0);
   /** The answer whose anchor is glowing: only its settling ends the glow. */
   const glowFor = useRef<string | null>(null);
   const mounted = useRef(true);
@@ -291,7 +326,7 @@ export default function StudioCanvasScreen() {
     if (!id) return;
     focusAfterRestore.current = null;
     document.querySelector<HTMLElement>(`[data-block-id="${id}"] button[aria-label="Remove this answer"]`)?.focus();
-  }, [edited]);
+  }, [doc]);
   /** The composer input, if you asked from it: it is disabled while answering, so focus goes back after. */
   const refocus = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -335,7 +370,7 @@ export default function StudioCanvasScreen() {
         readingLine: blockAtReadingLine(column.current),
       }) ?? fallback;
     if (!anchorId) return;
-    const id = `ans-${++askSeq.current}`;
+    const id = shelfActions.newAnswerId();
     const block: GeneratedBlock = {
       id,
       origin: 'generated',
@@ -350,15 +385,17 @@ export default function StudioCanvasScreen() {
     const anchorBlock = base.blocks.find((b) => b.id === anchorId);
     const next = insertAnswer(base, block);
     docRef.current = next;
-    dropLayoutIds();
-    setEdited(next);
-    if (itemId) shelfActions.bumpAnswers(itemId, 1);
-    // Landed while Source is shown: it is simply there when you come back, no growth to replay.
-    if (shownRef.current === 'clean') {
-      setFreshId(id);
-      glowFor.current = id;
-      setGlowId(anchorId);
-    }
+    // One commit: the answer (from the store) arrives already fresh, with its anchor glowing.
+    flushSync(() => {
+      dropLayoutIds();
+      save(next);
+      // Landed while Source is shown: it is simply there when you come back, no growth to replay.
+      if (shownRef.current === 'clean') {
+        setFreshId(id);
+        glowFor.current = id;
+        setGlowId(anchorId);
+      }
+    });
     say(`Answer added under: ${anchorBlock ? firstWords(anchorBlock.markdown) : 'the end'} (for: ${question})`);
   };
 
@@ -415,15 +452,16 @@ export default function StudioCanvasScreen() {
       const { doc: next, removed } = removeBlock(base, id);
       if (!removed) return;
       docRef.current = next;
-      dropLayoutIds();
-      setEdited(next);
-      if (itemId) shelfActions.bumpAnswers(itemId, -1);
-      setFreshId((f) => (f === id ? null : f));
-      // Removed before it settled: it never will, so its anchor stops glowing here.
-      if (glowFor.current === id) {
-        glowFor.current = null;
-        setGlowId(null);
-      }
+      flushSync(() => {
+        dropLayoutIds();
+        save(next);
+        setFreshId((f) => (f === id ? null : f));
+        // Removed before it settled: it never will, so its anchor stops glowing here.
+        if (glowFor.current === id) {
+          glowFor.current = null;
+          setGlowId(null);
+        }
+      });
       showNotice({
         kind: 'removed',
         onUndo: () => {
@@ -432,15 +470,16 @@ export default function StudioCanvasScreen() {
             const back = restoreBlock(now, removed);
             docRef.current = back;
             focusAfterRestore.current = removed.block.id;
-            dropLayoutIds();
-            setEdited(back);
-            if (itemId) shelfActions.bumpAnswers(itemId, 1);
+            flushSync(() => {
+              dropLayoutIds();
+              save(back);
+            });
           }
           showNotice(null);
         },
       });
     },
-    [showNotice, dropLayoutIds, itemId],
+    [showNotice, dropLayoutIds, save],
   );
   const { open: openPeek } = peek;
   const onOpenPeekSource = useCallback(
@@ -452,10 +491,11 @@ export default function StudioCanvasScreen() {
   );
 
   const include = (page: SourcePage, sourceBlockId: string) => {
-    setEdited((prev) => {
-      const base = prev ?? canvas;
-      return base ? includeSourceBlock(base, page, sourceBlockId) : prev;
-    });
+    const base = docRef.current;
+    if (!base) return;
+    const next = includeSourceBlock(base, page, sourceBlockId);
+    docRef.current = next;
+    save(next);
   };
 
   /*

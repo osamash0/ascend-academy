@@ -6,6 +6,7 @@ import type { ShelfItem } from '../studio/shelf';
 import { FLIGHT_EASE, FLIGHT_S } from '../studio/motion';
 import { useGlance } from '../data/useShelf';
 import { LifeBar, LifeLine, Terms } from './Cover';
+import { rememberOpened } from './returnFocus';
 import { useZoomThrough } from './ZoomThrough';
 
 /**
@@ -28,7 +29,11 @@ export function ContinueCard({ item }: { item: ShelfItem }) {
   return (
     <Link
       to={href}
-      onClick={(e) => zoom?.(e, href, { frame: frameRef.current, src: image })}
+      data-opened-via="continue"
+      onClick={(e) => {
+        rememberOpened(item.id, 'continue');
+        zoom?.(e, href, { frame: frameRef.current, src: image });
+      }}
       aria-label={`Continue reading ${item.filename}${page !== undefined ? `, page ${page} of ${item.pageCount}` : ''}`}
       className="console-focusable group grid items-center gap-[22px] rounded-[22px] border border-white/[0.09] bg-white/[0.025] p-[18px] transition-colors hover:border-white/[0.16] md:grid-cols-[1.15fr_1fr]"
       onMouseEnter={() => setGlancing(true)}

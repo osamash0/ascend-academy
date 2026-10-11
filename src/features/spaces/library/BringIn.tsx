@@ -5,30 +5,31 @@ import { cn } from '@/lib/utils';
 import { importWillFail, shelfActions } from '../data/useShelf';
 import { inDialog, isTyping } from '../studio/keys';
 import { FLIGHT_EASE } from '../studio/motion';
-import type { ShelfItem } from '../studio/shelf';
 
 /**
  * Bring in (One Library spec §5.3): the first cell, a drop anywhere on the
  * screen, and the `U` key. A file becomes a cover that develops in place.
  */
 
-/** In the mock, a brought-in file reads in about three and a half seconds. */
-const WRITING_AT = 1200;
-const READY_AT = 3300;
-
 const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types ?? []).includes('Files');
 
 /**
  * The window-level half: the input to click, the veil, and the keys.
  * `enabled` is false while the shelf is not on screen (loading, error).
+ * `onBrought` hears the ids of what just came in.
  */
-export function useBringIn(enabled: boolean) {
+export function useBringIn(enabled: boolean, onBrought?: (ids: string[]) => void) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [veil, setVeil] = useState(false);
   const depth = useRef(0);
+  const onBroughtRef = useRef(onBrought);
+  onBroughtRef.current = onBrought;
 
+  /* The development itself runs in the store (`mocks/shelf.ts`), not in a cover. */
   const bringFiles = useCallback((files: FileList | File[] | null | undefined) => {
-    Array.from(files ?? []).forEach((f) => shelfActions.bringIn(f.name));
+    const fail = importWillFail();
+    const ids = Array.from(files ?? []).map((f) => shelfActions.bringIn(f.name, undefined, { fail }));
+    if (ids.length) onBroughtRef.current?.(ids);
   }, []);
 
   useEffect(() => {
@@ -159,37 +160,4 @@ export function BringInTile({ inputRef, onFiles, variant }: TileProps) {
       </span>
     </label>
   );
-}
-
-/**
- * A cover's development: "Reading your pages…" at once, "Writing your summary…"
- * at 1.2 s, ready at 3.3 s (or failed, under `?mock=import-error`). Timers live
- * in a ref and die with the cover; a cover that mounts mid-development begins again.
- */
-export function useDeveloping(item: ShelfItem): { phase: 'reading' | 'writing'; pulse: boolean } {
-  const [phase, setPhase] = useState<'reading' | 'writing'>('reading');
-  const [pulse, setPulse] = useState(false);
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const { id, stage, broughtIn } = item;
-
-  useEffect(() => {
-    if (stage !== 'developing' || !broughtIn) return;
-    setPhase('reading');
-    setPulse(false);
-    const t = timers.current;
-    t.push(setTimeout(() => setPhase('writing'), WRITING_AT));
-    t.push(
-      setTimeout(() => {
-        const ok = !importWillFail();
-        shelfActions.settleDeveloping(id, ok);
-        if (ok) setPulse(true);
-      }, READY_AT),
-    );
-    return () => {
-      t.forEach(clearTimeout);
-      t.length = 0;
-    };
-  }, [id, stage, broughtIn]);
-
-  return { phase, pulse };
 }

@@ -255,9 +255,6 @@ export const libraryItems = (): LibraryItem[] => libraryItemsWith(notes);
 export const itemsOfKind = (kind: LibraryItem['kind']) =>
   libraryItems().filter((i) => i.kind === kind);
 
-/** Studio: uploads still processing or sitting as drafts, across every Space. */
-export const pendingUploads = () => libraryItems().filter((i) => i.pending);
-
 /* ── Home ─────────────────────────────────────────────────────────
    Doc 2: "Home is your next action, assembled across every Space." It ranks
    across all Spaces and answers "the one thing"; the Spaces list shows
@@ -389,14 +386,6 @@ export const friends = [lindqvist, ferreira];
  * the three locked rules they broke. The word "badge" now means one thing in
  * this codebase, which is what `components/badges.tsx` already meant by it.
  */
-
-/* ── Library · Studio ─────────────────────────────────────────────
-   Doc 2: "Studio screens hang off Library; Library itself stays Learn. Dense
-   work opens *from* it as its own screen: manage uploads, review your drafts
-   across every Space, see how your contributions landed."
-
-   All three are author-filtered, exactly like Library. The difference is mode,
-   not scope: Library is calm and browsable, these are dense and operational. */
 
 /**
  * Which hero Home shows.

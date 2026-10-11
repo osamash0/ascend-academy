@@ -2,8 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import StudioCanvasScreen from '../../screens/StudioCanvasScreen';
+import * as shelf from '../../mocks/shelf';
+import { STUDIO_CANVAS } from '../../mocks/studio-canvas';
 
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => {
+  vi.useFakeTimers();
+  // Answers belong to the item now: start each test from a page with none asked yet.
+  shelf.__reset();
+  shelf.saveCanvas('m-norm', STUDIO_CANVAS);
+});
 afterEach(() => { vi.useRealTimers(); localStorage.clear(); });
 
 const mount = async () => {

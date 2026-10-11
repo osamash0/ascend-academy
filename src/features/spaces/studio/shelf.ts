@@ -169,10 +169,11 @@ export function groupBySpace(
   return out;
 }
 
+/** The page to pick up: a ready canvas with a page to show. A Lesson opens elsewhere, so it is never one. */
 export function continueItem(items: ShelfItem[]): ShelfItem | null {
   let best: ShelfItem | null = null;
   for (const i of items) {
-    if (i.stage !== 'ready' || !i.lastOpenedAt) continue;
+    if (i.stage !== 'ready' || !i.lastOpenedAt || i.opens.kind !== 'canvas' || !i.cover) continue;
     if (!best || i.lastOpenedAt > best.lastOpenedAt!) best = i;
   }
   return best;

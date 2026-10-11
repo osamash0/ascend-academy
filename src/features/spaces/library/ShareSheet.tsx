@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Share2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -71,12 +71,13 @@ export function ShareSheet({
 
   const confirm = () => {
     if (!space || !role || !outcome) return;
+    // Only what the store really shared is said to be shared.
     if (one) {
-      shelfActions.share(one.id, space.id, role, space.mode);
-      toast(outcome.kind === 'draft' ? `Draft in ${space.name}` : `Shared to ${space.name}`);
+      if (shelfActions.share(one.id, space.id, role, space.mode))
+        toast(outcome.kind === 'draft' ? `Draft in ${space.name}` : `Shared to ${space.name}`);
     } else {
-      for (const i of shareable) shelfActions.share(i.id, space.id, role, space.mode);
-      const did = `${shareable.length} ${outcome.kind === 'draft' ? `drafted in ${space.name}` : 'shared'}`;
+      const done = shareable.filter((i) => shelfActions.share(i.id, space.id, role, space.mode)).length;
+      const did = `${done} ${outcome.kind === 'draft' ? `drafted in ${space.name}` : 'shared'}`;
       toast([did, ...left].join(' · '), ABOVE_SELECT_BAR);
     }
     onOpenChange(false);
@@ -185,59 +186,73 @@ function ShareLabel({ item }: { item: ShelfItem }) {
   );
 }
 
-/** The page's Share button: the sheet when private, a small menu once it is a draft or shared. */
-export function ShareButton({ item }: { item: ShelfItem }) {
+const NOT_READY = 'It can be shared once it’s ready.';
+
+/**
+ * Everything you can do about where a file lives, in one place, for the
+ * page's button and a cover's menu alike: private → Share; a draft → Publish
+ * or Take back; shared → Open in its Space or Take back. Nothing re-shares a
+ * file that is already drafted or shared.
+ *
+ * `home` names where focus returns when a dialog closes: the opener may be a
+ * menu item that is gone by then. `children` lays out the trigger; it gets the
+ * menu items (with the class its menu uses) and a way to open the sheet.
+ */
+export interface ShareApi {
+  menuItems: (itemClassName: string, shareIcon?: ReactNode) => ReactNode;
+  openSheet: () => void;
+}
+
+export function ShareActions({
+  item,
+  home,
+  children,
+}: {
+  item: ShelfItem;
+  home: () => HTMLElement | null;
+  children: (share: ShareApi) => ReactNode;
+}) {
   const [sheet, setSheet] = useState(false);
   const [takeBack, setTakeBack] = useState(false);
   const s = item.share;
-  // The header button swaps element when the state changes, so find it fresh by its wrapper.
-  const wrap = useRef<HTMLSpanElement>(null);
   // The dialog outlives the state change by its exit fade, so remember where it was.
   const was = useRef('its Space');
   if (s.kind !== 'private') was.current = shelfSpaceName(s.spaceId);
-  const home = () => wrap.current?.querySelector<HTMLElement>('button') ?? null;
+  const ready = item.stage === 'ready';
+
+  const menuItems = (itemClassName: string, shareIcon?: ReactNode): ReactNode =>
+    s.kind === 'private' ? (
+      <DropdownMenuItem disabled={!ready} onSelect={() => setSheet(true)} className={itemClassName}>
+        {shareIcon}
+        Share
+      </DropdownMenuItem>
+    ) : (
+      <>
+        {s.kind === 'draft' ? (
+          <DropdownMenuItem
+            disabled={!ready}
+            className={itemClassName}
+            onSelect={() => {
+              shelfActions.publish(item.id);
+              toast(`Shared to ${shelfSpaceName(s.spaceId)}`);
+            }}
+          >
+            Publish to {shelfSpaceName(s.spaceId)}
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem asChild className={itemClassName}>
+            <Link to={`/v4/space/${s.spaceId}`}>Open in {shelfSpaceName(s.spaceId)}</Link>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem className={itemClassName} onSelect={() => setTakeBack(true)}>
+          Take back to only you
+        </DropdownMenuItem>
+      </>
+    );
 
   return (
     <>
-      <span ref={wrap} className="contents">
-      {s.kind === 'private' ? (
-        <button type="button" onClick={() => setSheet(true)} className={BUTTON}>
-          <ShareLabel item={item} />
-        </button>
-      ) : (
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className={BUTTON}>
-              <ShareLabel item={item} />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[14rem] rounded-xl p-1 text-[13px]">
-            <div className="px-2 pb-2 pt-1.5 lg:hidden">
-              <Journey item={item} />
-            </div>
-            <DropdownMenuSeparator className="lg:hidden" />
-            {s.kind === 'draft' ? (
-              <DropdownMenuItem
-                className="rounded-lg"
-                onSelect={() => {
-                  shelfActions.publish(item.id);
-                  toast(`Shared to ${shelfSpaceName(s.spaceId)}`);
-                }}
-              >
-                Publish to {shelfSpaceName(s.spaceId)}
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem asChild className="rounded-lg">
-                <Link to={`/v4/space/${s.spaceId}`}>Open in {shelfSpaceName(s.spaceId)}</Link>
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem className="rounded-lg" onSelect={() => setTakeBack(true)}>
-              Take back to only you
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-      </span>
+      {children({ menuItems, openSheet: () => setSheet(true) })}
       <ShareSheet item={item} open={sheet} onOpenChange={setSheet} returnFocus={home} />
       <Dialog open={takeBack} onOpenChange={setTakeBack}>
         <DialogContent
@@ -249,9 +264,7 @@ export function ShareButton({ item }: { item: ShelfItem }) {
         >
           <DialogHeader>
             <DialogTitle>Take {item.filename} back to only you?</DialogTitle>
-            <DialogDescription>
-              It leaves {was.current}. Your page and your words stay.
-            </DialogDescription>
+            <DialogDescription>It leaves {was.current}. Your page and your words stay.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <button
@@ -276,5 +289,63 @@ export function ShareButton({ item }: { item: ShelfItem }) {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/**
+ * The page's Share button: the sheet when private, a small menu once it is a
+ * draft or shared. A file not read yet cannot be shared, and says so.
+ */
+export function ShareButton({ item }: { item: ShelfItem }) {
+  const s = item.share;
+  // The header button swaps element when the state changes, so find it fresh by its wrapper.
+  const wrap = useRef<HTMLSpanElement>(null);
+  const home = () => wrap.current?.querySelector<HTMLElement>('button') ?? null;
+  const ready = item.stage === 'ready';
+
+  return (
+    <ShareActions item={item} home={home}>
+      {(share) => (
+        <span ref={wrap} className="contents">
+          {s.kind === 'private' ? (
+            ready ? (
+              <button type="button" onClick={share.openSheet} className={BUTTON}>
+                <ShareLabel item={item} />
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled
+                  title={NOT_READY}
+                  aria-describedby={`share-not-ready-${item.id}`}
+                  className={cn(BUTTON, 'cursor-not-allowed opacity-50 hover:bg-transparent')}
+                >
+                  <ShareLabel item={item} />
+                </button>
+                <span id={`share-not-ready-${item.id}`} className="sr-only">
+                  {NOT_READY}
+                </span>
+              </>
+            )
+          ) : (
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className={BUTTON}>
+                  <ShareLabel item={item} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[14rem] rounded-xl p-1 text-[13px]">
+                <div className="px-2 pb-2 pt-1.5 lg:hidden">
+                  <Journey item={item} />
+                </div>
+                <DropdownMenuSeparator className="lg:hidden" />
+                {share.menuItems('rounded-lg')}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </span>
+      )}
+    </ShareActions>
   );
 }

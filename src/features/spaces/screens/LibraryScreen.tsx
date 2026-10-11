@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import { CheckSquare, Layers, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useShelf, shelfSpaceName, shelfTitle } from '../data/useShelf';
+import { shelfActions, useShelf, shelfSpaceName, shelfTitle } from '../data/useShelf';
 import { useLibrary } from '../data/useSpaces';
 import {
   filterItems,
@@ -28,6 +28,7 @@ import { ContinueCard } from '../library/ContinueCard';
 import { YourWords } from '../library/YourWords';
 import { ZoomThrough } from '../library/ZoomThrough';
 import { SelectBar } from '../library/SelectBar';
+import { takeReturnTarget } from '../library/returnFocus';
 
 /**
  * Library — the shelf (One Library spec §5.1).
@@ -83,7 +84,20 @@ export default function LibraryScreen() {
   const selecting = params.get('select') === '1' && filter !== 'words';
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
   const orphans = contributions.filter((c) => c.orphaned);
-  const bring = useBringIn(state === 'ready');
+  /*
+   * What you bring in is always in front of you: if the filter or the search
+   * would hide it, the shelf goes back to Everything (no toast to chase).
+   */
+  const bring = useBringIn(state === 'ready', (ids) => {
+    const brought = shelfActions.getItems().filter((i) => ids.includes(i.id));
+    const hidden = filter === 'words' || filterItems(brought, filter, q, shelfTitle).length < brought.length;
+    if (hidden) setParam({ f: null, q: null });
+  });
+
+  /* Back from a page: focus comes home to the cover (or Continue card) you opened. */
+  useEffect(() => {
+    if (state === 'ready') takeReturnTarget()?.focus();
+  }, [state]);
   const tile = (variant: 'cell' | 'empty') => (
     <BringInTile inputRef={bring.inputRef} onFiles={bring.bringFiles} variant={variant} />
   );

@@ -40,6 +40,9 @@ describe('mutations', () => {
     store.settleDeveloping(id, true);
     store.share(id, 's-dbs', 'member', 'guided');
     expect(store.getItems()[0].share).toMatchObject({ kind: 'shared', as: 'contribution', likes: 0, endorsed: false, cleared: 0 });
+    // Already shared: share() leaves it be (Take back first).
+    expect(store.share(id, 's-linalg', 'owner', 'open')).toBe(false);
+    store.unshare(id);
     store.share(id, 's-linalg', 'owner', 'open');
     expect(store.getItems()[0].share).toMatchObject({ kind: 'draft', as: 'lesson' });
     store.publish(id);
@@ -49,11 +52,14 @@ describe('mutations', () => {
   });
   it('progress mutators', () => {
     store.markRead('m-design-notes', 2);
-    store.bumpAnswers('m-norm', 1);
+    // An answer is counted from the page's own canvas: dropping one leaves one.
+    const own = store.canvasFor('m-norm')!;
+    const first = own.blocks.find((b) => b.origin === 'generated')!;
+    store.saveCanvas('m-norm', { ...own, blocks: own.blocks.filter((b) => b !== first) });
     store.setRecall('m-norm', 10, 31);
     store.touch('m-axioms', '2026-10-11T12:00:00Z');
     const by = (id: string) => store.getItems().find((i) => i.id === id)!;
-    expect(by('m-norm').progress).toMatchObject({ answers: 3, recallKnew: 10 });
+    expect(by('m-norm').progress).toMatchObject({ answers: 1, recallKnew: 10 });
     expect(by('m-axioms').lastOpenedAt).toBe('2026-10-11T12:00:00Z');
     expect(by('m-design-notes').lastPage).toBe(2);
   });
@@ -122,9 +128,9 @@ describe('a change that changes nothing', () => {
     const before = store.getItems();
     store.touch('nope');
     store.markRead('nope', 3);
-    store.bumpAnswers('nope', 1);
+    store.saveCanvas('nope', store.canvasFor('m-norm')!);
     store.markRead('m-norm', 6); // already there: lastPage 6, pagesRead 6
-    store.bumpAnswers('m-norm', 0);
+    store.saveCanvas('m-norm', store.canvasFor('m-norm')!); // the same doc
     store.settleDeveloping('m-norm', true); // not developing
     store.touch('m-norm', '2026-10-11T08:00:00Z'); // already that
     expect(fn).not.toHaveBeenCalled();

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { pickAnchorPage } from './geometry';
-import { inDialog, isTyping } from './keys';
+import { inDialog, isTyping, menuOpen } from './keys';
 import { READING_LINE } from './useReadingLine';
 import type { CanvasView } from './useMorph';
 
@@ -124,7 +124,7 @@ export function usePageNav(pages: number[], view: CanvasView): PageNav {
     const down = (e: KeyboardEvent) => {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      if (isTyping(e.target) || inDialog(e.target)) return;
+      if (isTyping(e.target) || inDialog(e.target) || menuOpen(e.target)) return;
       e.preventDefault();
       stepRef.current(e.key === 'ArrowLeft' ? -1 : 1);
     };

@@ -1,12 +1,15 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import type { LoadState } from '../types';
 import * as shelfStore from '../mocks/shelf';
-import { allNotes, notesVersion, subscribeNotes } from '../mocks/notes';
-import { STUDIO_CANVAS, canvasById, pagesFor } from '../mocks/studio-canvas';
+import { addNote, allNotes, notesVersion, subscribeNotes, updateNote } from '../mocks/notes';
+import { myContributionById } from '../mocks/library';
+import { canvasById, pagesFor } from '../mocks/studio-canvas';
 import { spaceById } from '../mocks/spaces';
 import { locateLesson } from '../mocks/lessons';
 import { continueItem, yourWords } from '../studio/shelf';
 import type { ShelfItem, WordEntry } from '../studio/shelf';
+import type { CanvasDoc } from '../studio/types';
+import type { Contribution } from '../types';
 import { useScreenState } from './useSpaces';
 
 /**
@@ -24,9 +27,11 @@ export const shelfActions = shelfStore;
 export const importWillFail = (): boolean =>
   new URLSearchParams(window.location.search).get('mock') === 'import-error';
 
-const MATERIAL_ID = 'm-norm';
+/** A page's canvas as you left it, or as it came. */
+const docOf = (item: ShelfItem, canvases: ReadonlyMap<string, CanvasDoc>): CanvasDoc | null =>
+  item.opens.kind === 'canvas' ? (canvases.get(item.id) ?? canvasById(item.opens.canvasId) ?? null) : null;
 
-function wordsNow(): WordEntry[] {
+function wordsNow(items: ShelfItem[], canvases: ReadonlyMap<string, CanvasDoc>): WordEntry[] {
   const notes: WordEntry[] = allNotes().map((n) => ({
     kind: 'note',
     id: n.id,
@@ -38,24 +43,29 @@ function wordsNow(): WordEntry[] {
     // A note written in Library belongs to no Lesson yet: it has nowhere to open.
     href: n.lessonId && n.spaceId ? `/v4/space/${n.spaceId}/lesson/${n.lessonId}` : '',
   }));
-  // Answers asked in a session are not persisted globally yet: the seed canvas only.
-  // An answer or a note of yours sits on the page of the summary before it.
-  let page: number | null = null;
-  const canvas: WordEntry[] = STUDIO_CANVAS.blocks.flatMap((b): WordEntry[] => {
-    if (b.origin === 'summary' || b.origin === 'extracted') page = b.source.page;
-    if (b.origin !== 'generated' && b.origin !== 'written') return [];
-    return [
-      {
-        kind: b.origin === 'generated' ? 'answer' : 'written',
-        id: b.id,
-        itemId: MATERIAL_ID,
-        page,
-        title: b.origin === 'generated' ? b.askedAs : 'My note',
-        body: b.markdown,
-        at: STUDIO_CANVAS.updatedAt,
-        href: `/v4/library/m/${MATERIAL_ID}#b-${b.id}`,
-      },
-    ];
+  // Every page's answers, from the same canvas the page shows. A sample's own
+  // written note is part of the sample; the answers you ask there are yours.
+  const canvas: WordEntry[] = items.flatMap((item): WordEntry[] => {
+    const doc = docOf(item, canvases);
+    if (!doc) return [];
+    // An answer or a note of yours sits on the page of the summary before it.
+    let page: number | null = null;
+    return doc.blocks.flatMap((b): WordEntry[] => {
+      if (b.origin === 'summary' || b.origin === 'extracted') page = b.source.page;
+      if (b.origin !== 'generated' && (b.origin !== 'written' || item.sample)) return [];
+      return [
+        {
+          kind: b.origin === 'generated' ? 'answer' : 'written',
+          id: b.id,
+          itemId: item.id,
+          page,
+          title: b.origin === 'generated' ? b.askedAs : 'My note',
+          body: b.markdown,
+          at: doc.updatedAt,
+          href: `/v4/library/m/${item.id}#b-${b.id}`,
+        },
+      ];
+    });
   });
   return yourWords([...notes, ...canvas]);
 }
@@ -68,11 +78,12 @@ export function useShelf(): {
 } {
   const state = useScreenState();
   const all = useSyncExternalStore(shelfStore.subscribe, shelfStore.getItems);
+  const canvases = useSyncExternalStore(shelfStore.subscribe, shelfStore.getCanvases);
   const notesV = useSyncExternalStore(subscribeNotes, notesVersion);
   const ready = state === 'ready';
-  // `all` and `notesV` are the cues to re-read: a count changed, or a note was written.
+  // `notesV` is the cue to re-read the note store: a note was written.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const words = useMemo(() => (ready ? wordsNow() : []), [ready, all, notesV]);
+  const words = useMemo(() => (ready ? wordsNow(all, canvases) : []), [ready, all, canvases, notesV]);
   const items = ready ? all : [];
   return { state, items, continueItem: ready ? continueItem(all) : null, words };
 }
@@ -84,6 +95,36 @@ export function useShelfItem(id: string | undefined): { state: LoadState; item: 
   if (state !== 'ready') return { state, item: null };
   return { state: item ? 'ready' : 'empty', item };
 }
+
+/**
+ * A page's own canvas as you left it (answers asked, removed, sources
+ * included); null while it is still the canvas it came with. Change it only
+ * through `shelfActions.saveCanvas`, so the cover's answer count follows.
+ */
+export function useShelfCanvas(itemId: string | undefined): CanvasDoc | null {
+  return useSyncExternalStore(shelfStore.subscribe, () => (itemId ? shelfStore.canvasFor(itemId) : null));
+}
+
+/** A brought-in file's development, as its cover shows it. */
+export function useDevelopment(id: string): { phase: shelfStore.DevPhase; pulse: boolean } {
+  const phase = useSyncExternalStore(shelfStore.subscribe, () => shelfStore.phaseOf(id));
+  const pulse = useSyncExternalStore(shelfStore.subscribe, () => shelfStore.isPulsing(id));
+  return { phase: phase ?? 'reading', pulse };
+}
+
+/** Your words: a note written in Library, which belongs to no Lesson yet. */
+export const writeNote = (body: string): void => {
+  addNote({ lessonId: '', body });
+};
+
+/** Your words: a note rewritten in place. */
+export const rewriteNote = (id: string, body: string): void => {
+  updateNote(id, body);
+};
+
+/** The contribution behind a Library entry (`lib-con-<id>`), for re-anchoring it. */
+export const contributionForEntry = (entryId: string): Contribution | undefined =>
+  myContributionById(entryId.replace(/^lib-con-/, ''));
 
 /** The name a cover gives a Space it is shared or drafted in. */
 export const shelfSpaceName = (spaceId: string): string => spaceById(spaceId)?.name ?? 'a Space';

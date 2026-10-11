@@ -8,8 +8,8 @@ import { NoteEditor } from '../components/NoteEditor';
 import { Pressable } from '../components/Pressable';
 import { ReanchorDialog } from '../components/ReanchorDialog';
 import { whitePillSm } from '../components/stage';
-import { addNote, updateNote } from '../mocks/notes';
-import { myContributionById } from '../mocks/library';
+import { contributionForEntry, rewriteNote, writeNote } from '../data/useShelf';
+import { SHELF_TONE } from './tone';
 
 /**
  * Your words (spec §3.3, §5.7): every note and every answer, newest first,
@@ -78,7 +78,7 @@ export function YourWords({
             autoOpen
             placeholder="Write it down while it is fresh…"
             onSave={(body) => {
-              addNote({ lessonId: '', body });
+              writeNote(body);
               setComposing(false);
             }}
           />
@@ -98,7 +98,7 @@ export function YourWords({
                 key={`${w.kind}-${w.id}`}
                 className={cn(
                   'border-l-2 py-1 pl-4',
-                  w.kind === 'answer' ? 'border-[rgb(159,211,199)]' : 'border-indigo-400/40',
+                  w.kind === 'answer' ? SHELF_TONE.tealRule : 'border-white/25',
                 )}
               >
                 <p className="text-[12px] text-faint">
@@ -120,7 +120,7 @@ export function YourWords({
                 )}
                 {w.kind === 'note' ? (
                   <div className="mt-1.5">
-                    <NoteEditor value={w.body} onSave={(body) => updateNote(w.id, body)} />
+                    <NoteEditor value={w.body} onSave={(body) => rewriteNote(w.id, body)} />
                   </div>
                 ) : (
                   <p className="mt-1 line-clamp-3 text-[14.5px] leading-relaxed text-quiet">{plain(w.body)}</p>
@@ -170,7 +170,7 @@ export function YourWords({
       */}
       {reanchoring &&
         (() => {
-          const c = myContributionById(reanchoring.id.replace(/^lib-con-/, ''));
+          const c = contributionForEntry(reanchoring.id);
           if (!c) return null;
           return (
             <ReanchorDialog

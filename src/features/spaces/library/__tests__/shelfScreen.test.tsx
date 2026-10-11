@@ -69,7 +69,7 @@ describe('the shelf', () => {
     expect(norm).toHaveAttribute('href', '/v4/library/m/m-norm');
   });
 
-  it('gives every cover a separate menu with Share and Remove…', async () => {
+  it('gives every cover a separate menu with its share actions and Remove…', async () => {
     at();
     await settle();
     const more = screen.getByRole('button', { name: 'More for Normalization.pdf' });
@@ -79,7 +79,9 @@ describe('the shelf', () => {
       vi.advanceTimersByTime(50);
     });
     const menu = screen.getByRole('menu');
-    expect(within(menu).getByRole('menuitem', { name: /Share/ })).not.toHaveAttribute('aria-disabled');
+    // Already shared: it opens in its Space; it is never shared again from here.
+    expect(within(menu).getByRole('menuitem', { name: 'Open in Database Systems' })).toBeInTheDocument();
+    expect(within(menu).queryByRole('menuitem', { name: 'Share' })).toBeNull();
     const remove = within(menu).getByRole('menuitem', { name: /Remove/ });
     expect(remove).not.toHaveAttribute('aria-disabled');
     // Remove goes through Select, so it always has its confirm and its Undo.

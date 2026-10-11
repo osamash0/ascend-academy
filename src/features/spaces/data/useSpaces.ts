@@ -26,7 +26,6 @@ import {
   homeFeed,
   libraryItemsWith,
   nextAction,
-  pendingUploads,
   recentlyViewed,
 } from '../mocks/library';
 import { allNotes } from '../mocks/notes';
@@ -219,8 +218,6 @@ export interface LibraryResult {
   state: LoadState;
   items: LibraryItem[];
   notes: Note[];
-  /** Studio: uploads still processing or sitting as drafts, across Spaces. */
-  pending: LibraryItem[];
 }
 
 /**
@@ -246,7 +243,6 @@ export function useLibrary(kind?: LibraryItem['kind']): LibraryResult {
     state: ready && items.length === 0 ? 'empty' : state,
     items,
     notes: currentNotes,
-    pending: ready ? pendingUploads() : [],
   };
 }
 

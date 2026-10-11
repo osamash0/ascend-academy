@@ -11,9 +11,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { lifeLine, type ShelfItem } from '../studio/shelf';
 import { FLIGHT_EASE } from '../studio/motion';
-import { shelfSpaceName, shelfActions, useCoverTitle, useGlance } from '../data/useShelf';
-import { useDeveloping } from './BringIn';
-import { ShareSheet } from './ShareSheet';
+import { importWillFail, shelfSpaceName, shelfActions, useCoverTitle, useDevelopment, useGlance } from '../data/useShelf';
+import { ShareActions } from './ShareSheet';
+import { rememberOpened } from './returnFocus';
+import { SHELF_TONE } from './tone';
 import { useZoomThrough } from './ZoomThrough';
 
 /**
@@ -21,13 +22,6 @@ import { useZoomThrough } from './ZoomThrough';
  * where it lives, how far you are, and its state, all as one link. The menu is
  * a separate button so the link stays one target.
  */
-
-/** Studio's colours, written out: the shelf stands on the stage, not the canvas surface. */
-const SHELF_TONE = {
-  term: 'text-[rgb(243,231,201)]',
-  teal: 'bg-[rgb(159,211,199)]',
-  amber: 'bg-[rgb(239,159,39)]',
-} as const;
 
 /** What the chip says, and what the cover's name says after the filename. */
 function stateLabel(item: ShelfItem): string {
@@ -175,45 +169,39 @@ function StateChip({ item, pulse }: { item: ShelfItem; pulse: boolean }) {
 }
 
 function CoverMenu({ item, onRemove }: { item: ShelfItem; onRemove?: () => void }) {
-  const [sharing, setSharing] = useState(false);
   const { filename } = item;
   const trigger = useRef<HTMLButtonElement>(null);
+  // The same actions as the page's Share button: a drafted or shared file is published or taken back, never re-shared.
   return (
-    <>
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
-          <button
-            ref={trigger}
-            type="button"
-            aria-label={`More for ${filename}`}
-            className="console-focusable flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-foreground backdrop-blur-sm transition-colors hover:bg-black/75"
+    <ShareActions item={item} home={() => trigger.current}>
+      {(share) => (
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <button
+              ref={trigger}
+              type="button"
+              aria-label={`More for ${filename}`}
+              className="console-focusable flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-foreground backdrop-blur-sm transition-colors hover:bg-black/75"
+            >
+              <MoreHorizontal aria-hidden className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="min-w-[13rem] rounded-xl border-white/10 bg-[#0b0b0b] p-1 text-foreground"
           >
-            <MoreHorizontal aria-hidden className="h-4 w-4" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          className="min-w-[10rem] rounded-xl border-white/10 bg-[#0b0b0b] p-1 text-foreground"
-        >
-          <DropdownMenuItem
-            disabled={item.stage !== 'ready'}
-            onSelect={() => setSharing(true)}
-            className="gap-2 rounded-lg text-[13px]"
-          >
-            <Share2 aria-hidden className="h-3.5 w-3.5" />
-            Share
-          </DropdownMenuItem>
-          {/* Remove, with its confirm and Undo, lives in Select: one place for the one destructive act. */}
-          {onRemove && (
-            <DropdownMenuItem onSelect={onRemove} className="gap-2 rounded-lg text-[13px]">
-              <Trash2 aria-hidden className="h-3.5 w-3.5" />
-              Remove…
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    <ShareSheet item={item} open={sharing} onOpenChange={setSharing} returnFocus={() => trigger.current} />
-    </>
+            {share.menuItems('gap-2 rounded-lg text-[13px]', <Share2 aria-hidden className="h-3.5 w-3.5" />)}
+            {/* Remove, with its confirm and Undo, lives in Select: one place for the one destructive act. */}
+            {onRemove && (
+              <DropdownMenuItem onSelect={onRemove} className="gap-2 rounded-lg text-[13px]">
+                <Trash2 aria-hidden className="h-3.5 w-3.5" />
+                Remove…
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </ShareActions>
   );
 }
 
@@ -237,7 +225,8 @@ export function Cover({
   const developing = item.stage === 'developing';
   /* Only what you brought in this visit develops in front of you; a seeded file is simply still being prepared. */
   const live = developing && !!item.broughtIn;
-  const { phase, pulse } = useDeveloping(item);
+  /* The development runs in the store, wherever this cover is: it only shows the phase. */
+  const { phase, pulse } = useDevelopment(item.id);
   /* A cover that arrives developing comes in with a scale and a fade (a fade alone when motion is reduced). */
   const [enter] = useState(() =>
     live ? (reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96 }) : false,
@@ -360,7 +349,11 @@ export function Cover({
         <Link
           to={href}
           aria-label={coverLabel(item, title)}
-          onClick={(e) => zoom?.(e, href, { frame: frameRef.current, src: item.cover })}
+          data-opened-via="cover"
+          onClick={(e) => {
+            rememberOpened(item.id, 'cover');
+            zoom?.(e, href, { frame: frameRef.current, src: item.cover });
+          }}
           className="console-focusable block flex-1 rounded-2xl"
           onMouseEnter={() => setGlancing(true)}
           onMouseLeave={() => setGlancing(false)}
@@ -394,7 +387,7 @@ export function Cover({
         <div className="px-3.5 pb-3.5">
           <button
             type="button"
-            onClick={() => shelfActions.retryDeveloping(item.id)}
+            onClick={() => shelfActions.retryDeveloping(item.id, { fail: importWillFail() })}
             className="console-focusable h-8 rounded-full border border-white/15 px-3.5 text-[12.5px] font-medium text-foreground transition-colors hover:bg-white/[0.07]"
           >
             Try again

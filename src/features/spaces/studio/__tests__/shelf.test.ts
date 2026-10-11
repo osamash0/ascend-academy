@@ -118,11 +118,12 @@ describe('groupBySpace', () => {
 
 describe('continueItem', () => {
   it('newest ready, ignoring developing/failed', () => {
+    const cover = 'p1.webp';
     const items = [
-      item({ id: 'a', lastOpenedAt: '2026-10-01T00:00:00Z' }),
-      item({ id: 'b', lastOpenedAt: '2026-10-05T00:00:00Z' }),
-      item({ id: 'c', stage: 'developing', lastOpenedAt: '2026-10-09T00:00:00Z' }),
-      item({ id: 'd', stage: 'failed', lastOpenedAt: '2026-10-10T00:00:00Z' }),
+      item({ id: 'a', cover, lastOpenedAt: '2026-10-01T00:00:00Z' }),
+      item({ id: 'b', cover, lastOpenedAt: '2026-10-05T00:00:00Z' }),
+      item({ id: 'c', cover, stage: 'developing', lastOpenedAt: '2026-10-09T00:00:00Z' }),
+      item({ id: 'd', cover, stage: 'failed', lastOpenedAt: '2026-10-10T00:00:00Z' }),
     ];
     expect(continueItem(items)?.id).toBe('b');
     expect(continueItem([])).toBeNull();

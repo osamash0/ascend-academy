@@ -108,6 +108,7 @@ export function CanvasPage(p: Props) {
                           onRemove={p.onRemoveAnswer}
                           onOpenPeek={p.onOpenPeekSource}
                           flying={p.flying && morph}
+                          flash={p.flashBlockId === b.id}
                         />
                       ) : (
                         <CleanBlock
