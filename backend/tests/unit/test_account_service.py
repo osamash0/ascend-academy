@@ -11,6 +11,7 @@ tests in backend/tests/db/test_gdpr_erasure_cascade.py.
 from __future__ import annotations
 
 import pytest
+from postgrest.exceptions import APIError
 
 from backend.services import account_service
 
@@ -62,6 +63,10 @@ class FakeSupabaseAdmin:
                 self._pending_filter = ("in", col, values)
                 return self
 
+            def range(self, start, end):
+                self._range = (start, end)
+                return self
+
             def delete(self):
                 self._pending_delete = True
                 return self
@@ -78,6 +83,8 @@ class FakeSupabaseAdmin:
                     self._outer.deleted.setdefault(self._name, []).extend(rows)
                     remaining = [r for r in self._tables_ref() if r not in rows]
                     self._tables_ref()[:] = remaining
+                if getattr(self, "_range", None):
+                    rows = rows[self._range[0]:self._range[1] + 1]
                 return _Result(list(rows))
 
             def _tables_ref(self):
@@ -124,11 +131,11 @@ async def test_export_user_data_scopes_every_table_to_uid(patch_admin):
 async def test_export_user_data_skips_missing_table_without_raising(patch_admin, monkeypatch):
     patch_admin({})
 
-    # Simulate a table that doesn't exist in this environment by making
-    # .execute() raise, mirroring a real PostgREST 404/undefined-table error.
+    # Simulate a table that doesn't exist in this environment: PostgREST
+    # answers PGRST205 (not in the schema cache). Only that code is skipped.
     class _Boom:
         def table(self, _name):
-            raise RuntimeError("relation does not exist")
+            raise APIError({"code": "PGRST205", "message": "table not found"})
 
     monkeypatch.setattr(account_service, "supabase_admin", _Boom())
 
