@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { ModeBadge } from '../badges';
 import type { Space } from '../../types';
 import { coverFor, initialFor } from '../../mocks/covers';
-import { actionFor, membershipOf } from '../../mocks/hub';
+import { actionFor, membershipOf } from '../../data/hub';
 import { itemVariants, railVariants } from '../Enter';
 import { PRESS_SPRING } from '../Pressable';
 

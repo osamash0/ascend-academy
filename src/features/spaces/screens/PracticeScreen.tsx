@@ -4,13 +4,12 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, Check, CornerDownLeft, RotateCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Pressable } from '../components/Pressable';
-import { spaceById } from '../mocks/spaces';
-import { visibleLesson } from '../mocks/lessons';
 import { gradeAnswer, practiceForLesson, type PracticeQuestion } from '../mocks/practice';
 import { Scene, SURFACES } from '../components/Scene';
 import { ghostPill, stageAccentFor, stageCard } from '../components/stage';
 import { useScreenState } from '../data/useSpaces';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
+import { spaceById, visibleLesson } from '../data/world';
 
 /**
  * Practice for one Lesson.

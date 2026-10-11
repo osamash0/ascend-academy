@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Role, SpaceMode } from '../types';
-import { canDelete, spaceById } from '../mocks/spaces';
+import { canDelete } from '../mocks/spaces';
 import { membersForSpace, orphansForSpace } from '../mocks/contributions';
 import { StudioAction, StudioPill, StudioShell } from '../components/StudioShell';
 import { ListSkeleton, SpacesError } from '../components/states';
@@ -21,6 +21,7 @@ import { JoinCodeBlock } from '../components/SpaceDialogs';
 import { AuthorLine } from '../components/badges';
 import { ReanchorDialog } from '../components/ReanchorDialog';
 import type { Contribution } from '../types';
+import { spaceById } from '../data/world';
 
 /**
  * Manage a Space — the Owner's Studio screen.

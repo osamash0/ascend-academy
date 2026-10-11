@@ -4,7 +4,6 @@ import { ArrowLeft, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { people } from '../mocks/people';
 import { useViewer } from '../data/viewer';
-import { spaceById } from '../mocks/spaces';
 import {
   linalgContributions,
   normalizationContributions,
@@ -23,6 +22,7 @@ import { Avatar } from '../components/Avatar';
 import { EndorsedBadge } from '../components/badges';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { Masthead, Sep, Skylight, StageRow, backLink, ghostPillSm, stageCard, stageCardHover } from '../components/stage';
+import { spaceById } from '../data/world';
 
 /**
  * Someone else's public profile.

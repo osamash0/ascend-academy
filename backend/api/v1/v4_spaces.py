@@ -29,3 +29,14 @@ async def v4_me(request: Request, user: Any = Depends(verify_token)):
     if person is None:
         raise HTTPException(status_code=404, detail="No profile for this account.")
     return person
+
+
+@router.get("/world")
+@limiter.limit("60/minute")
+async def v4_world(request: Request, user: Any = Depends(verify_token)):
+    """Everything the core loop renders, in one round trip: the viewer, every
+    Space they can see (theirs, joined, open to join) and those Spaces' Lessons."""
+    world = await service.get_world(_uid(user))
+    if world["viewer"] is None:
+        raise HTTPException(status_code=404, detail="No profile for this account.")
+    return world

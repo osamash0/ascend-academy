@@ -14,8 +14,8 @@ import {
   worthALook,
   spaceOfTheWeek,
   type SpaceSort,
-} from '../mocks/hub';
-import { archivedForViewer } from '../mocks/hub';
+} from '../data/hub';
+import { archivedForViewer } from '../data/hub';
 import { Archive } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Pressable } from '../components/Pressable';

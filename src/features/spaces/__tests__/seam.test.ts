@@ -15,7 +15,6 @@ import { join } from 'node:path';
  * — that is the progress being locked in).
  */
 const STILL_ON_MOCKS = [
-  'components/AscentMap.tsx',
   'components/ContributionCard.tsx',
   'components/NotificationPanel.tsx',
   'components/ReanchorDialog.tsx',
@@ -44,7 +43,6 @@ const STILL_ON_MOCKS = [
   'screens/SocialScreen.tsx',
   'screens/SpaceManageScreen.tsx',
   'screens/SpaceScreen.tsx',
-  'screens/SpacesHubScreen.tsx',
   'screens/SpacesScreen.tsx',
   'screens/StudioCanvasScreen.tsx',
 ];

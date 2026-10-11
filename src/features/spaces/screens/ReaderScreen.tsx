@@ -3,8 +3,6 @@ import { Link, useParams } from 'react-router-dom';
 import { useReducedMotion } from 'motion/react';
 import { ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { spaceById } from '../mocks/spaces';
-import { adjacentLessons, visibleLesson } from '../mocks/lessons';
 import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
 import { Scene, SURFACES } from '../components/Scene';
 import { LessonPager } from '../components/LessonPager';
@@ -19,6 +17,7 @@ import { SelectionAsk } from '../components/reader/SelectionAsk';
 import { SourceView } from '../components/reader/SourceView';
 import { TutorPanel } from '../components/reader/TutorPanel';
 import type { Turn } from '../components/reader/TutorPanel';
+import { adjacentLessons, spaceById, visibleLesson } from '../data/world';
 
 /**
  * Reading a Lesson.

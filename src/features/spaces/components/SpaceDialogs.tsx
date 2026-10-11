@@ -13,10 +13,11 @@ import {
 import { toast } from 'sonner';
 import type { ContributionType, Space, SpaceMode, Visibility } from '../types';
 import { createSpace, joinCodeFor, spaceByJoinCode } from '../mocks/spaces';
-import { addLesson, publishedLessonsForSpace } from '../mocks/lessons';
+import { addLesson } from '../mocks/lessons';
 import { addContribution } from '../mocks/contributions';
 import { useViewer } from '../data/viewer';
 import { AuthorLine, ClassificationChips, LessonCount } from './badges';
+import { publishedLessonsForSpace } from '../data/world';
 
 /**
  * Creating and joining a Space.

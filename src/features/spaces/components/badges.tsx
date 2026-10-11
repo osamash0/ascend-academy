@@ -192,7 +192,8 @@ export function ClassificationChips({
     ...(levels.length ? [levels[levels.length - 1].value] : []),
     space.classification.domain,
     ...levels.slice(0, -1).map((l) => l.value),
-  ].slice(0, max);
+    // Real courses carry no classification yet; an empty chip says nothing.
+  ].filter(Boolean).slice(0, max);
 
   if (!chips.length) return null;
 

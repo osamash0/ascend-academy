@@ -8,13 +8,13 @@ import {
   discoverSpaces,
   joinedByViewer,
   spaceById,
-} from '../mocks/spaces';
+} from './world';
 import {
   adjacentLessons,
   lessonsForSpace,
   publishedLessonsForSpace,
   visibleLesson,
-} from '../mocks/lessons';
+} from './world';
 import { lessonContent } from '../mocks/content';
 import {
   contributionsForLesson,
@@ -126,7 +126,7 @@ export function useMySpaces(): MySpacesResult {
     spaces:
       scenario !== 'ready'
         ? []
-        : [...createdThisSessionSpaces(), ...createdByViewer, ...joinedByViewer].filter(
+        : [...createdThisSessionSpaces(), ...createdByViewer(), ...joinedByViewer()].filter(
             (s) => s.viewerRole !== null && s.state !== 'archived',
           ),
   };
@@ -148,11 +148,11 @@ export function useSpaces(): SpacesResult {
     state,
     mine: {
       // Anything made this session leads, because you just made it.
-      created: empty ? [] : [...createdThisSessionSpaces(), ...createdByViewer],
-      joined: empty ? [] : joinedByViewer,
-      archived: empty ? [] : archivedSpaces,
+      created: empty ? [] : [...createdThisSessionSpaces(), ...createdByViewer()],
+      joined: empty ? [] : joinedByViewer(),
+      archived: empty ? [] : archivedSpaces(),
     },
-    discover: empty ? [] : discoverSpaces,
+    discover: empty ? [] : discoverSpaces(),
   };
 }
 

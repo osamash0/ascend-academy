@@ -4,6 +4,7 @@
  */
 import type { ExplainAnswer } from '../components/reader/iui/spec';
 import type { Person } from '../types';
+import type { World } from './world';
 
 /** A course, read as the reader's Space: its lectures in order. */
 export interface ReaderCourse {
@@ -140,6 +141,8 @@ export function createLiveRepository(http: V4Transport) {
   return {
     /* The signed-in person (`/v4/me`, FEATURE_V4). */
     me: () => http.get<Person>(`${root}/me`),
+    /* Everything the core loop renders: the viewer, their Spaces and Lessons (`/v4/world`). */
+    world: () => http.get<World>(`${root}/world`),
     /* The reader, on real courses and lectures (`/v4/reader`, FEATURE_V4_READER). */
     readerCourse: (id: string) => http.get<ReaderCourse>(`${root}/reader/courses/${idPath(id)}`),
     readerLecture: (id: string) => http.get<ReaderLecture>(`${root}/reader/lectures/${idPath(id)}`),

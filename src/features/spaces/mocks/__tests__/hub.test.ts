@@ -9,7 +9,7 @@ import {
   newThisWeek,
   popularNow,
   spaceOfTheWeek,
-} from '../hub';
+} from '../../data/hub';
 import { allSpaces } from '../spaces';
 import { coverFor, COVERS, SLATE_COVER } from '../covers';
 import { publishedLessonsForSpace } from '../lessons';

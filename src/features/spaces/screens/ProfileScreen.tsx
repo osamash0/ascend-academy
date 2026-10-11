@@ -6,7 +6,6 @@ import { moments } from '../mocks/moments';
 import { standingFor } from '../mocks/rank';
 import { currentRun } from '../mocks/history';
 import { useViewer } from '../data/viewer';
-import { visibleSpaces } from '../mocks/spaces';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Avatar, RankRing } from '../components/Avatar';
 import { Scene, SURFACES } from '../components/Scene';
@@ -14,6 +13,7 @@ import { useScreenState } from '../data/useSpaces';
 import { ListSkeleton, SpacesError } from '../components/states';
 import { AscentMap, ascentSpaces } from '../components/AscentMap';
 import { Sep, Skylight, StageRow, ghostPillSm, stageCard } from '../components/stage';
+import { visibleSpaces } from '../data/world';
 
 /**
  * Profile — "how far have I come?"

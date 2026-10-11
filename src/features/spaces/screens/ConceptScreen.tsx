@@ -5,8 +5,6 @@ import { cn } from '@/lib/utils';
 import { gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
 import type { ConceptProgress } from '../types';
-import { spaceById } from '../mocks/spaces';
-import { visibleLessonsForSpace } from '../mocks/lessons';
 import { visibleContributions } from '../mocks/engagement';
 import { conceptById, contributionsForConcept } from '../mocks/concepts';
 import { useViewer } from '../data/viewer';
@@ -15,6 +13,7 @@ import { Scene, SURFACES } from '../components/Scene';
 import { useScreenState } from '../data/useSpaces';
 import { ContributionCard } from '../components/ContributionCard';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
+import { spaceById, visibleLessonsForSpace } from '../data/world';
 
 /**
  * One Concept — "a single idea inside a Lesson" (Doc 1). The map's planet.
