@@ -211,11 +211,15 @@ export function SuitLocker({ progress, initial = DEFAULT_LOADOUT, onSave, saving
           ))}
         </div>
 
+        {loadout.outfit !== 'outfit-none' && ['suit', 'visor', 'gear', 'patch'].includes(slot) && (
+          <p className="mb-3 rounded-xl border border-white/10 px-3 py-2 text-xs text-white/60">{t('outfitNote')}</p>
+        )}
+
         <motion.div key={slot} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
           {itemsForSlot(slot).map((item) => {
             const st = unlockStatus(item.unlock, progress);
             const on = loadout[slot] === item.id;
-            const fullBody = slot === 'suit' || slot === 'patch' || slot === 'aura';
+            const fullBody = slot === 'outfit' || slot === 'suit' || slot === 'patch' || slot === 'aura';
             return (
               <button
                 key={item.id}

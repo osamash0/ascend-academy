@@ -8,7 +8,8 @@
     "patch": "Abzeichen",
     "companion": "Begleiter",
     "aura": "Aura",
-    "backdrop": "Szene"
+    "backdrop": "Szene",
+    "outfit": "Heimat-Look"
   },
   "rarity": {
     "common": "Gewöhnlich",
@@ -104,7 +105,18 @@
     "suit-tide": "Gezeiten",
     "visor-amber": "Sternenlicht",
     "visor-mauve": "Malve",
-    "visor-tide": "Gezeiten"
+    "visor-tide": "Gezeiten",
+    "outfit-none": "Raumanzug",
+    "outfit-gulf": "Golf · Thawb & Ghutra",
+    "outfit-levant": "Levante · Kufiya",
+    "outfit-turkiye": "Türkei · Yelek & Şalvar",
+    "outfit-texas": "Texas · Cowboy",
+    "outfit-lederhosen": "Bayern · Lederhose",
+    "outfit-dirndl": "Bayern · Dirndl",
+    "outfit-scotland": "Schottland · Kilt",
+    "outfit-japan": "Japan · Yukata",
+    "outfit-india": "Indien · Kurta",
+    "outfit-westafrica": "Westafrika · Dashiki"
   },
   "stage": {
     "alt": "Deine Luna",
@@ -145,5 +157,6 @@
       "decode": "Das Bild konnte nicht gelesen werden. Versuch JPG oder PNG.",
       "upload": "Dein Foto konnte nicht gespeichert werden. Versuch es gleich nochmal."
     }
-  }
+  },
+  "outfitNote": "Dein Heimat-Look ist an. Das hier siehst du, wenn Luna ihren Raumanzug trägt."
 }

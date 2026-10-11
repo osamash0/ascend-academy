@@ -27,6 +27,29 @@ describe('catalog', () => {
   });
 });
 
+describe('home looks', () => {
+  const looks = CATALOG.filter((i) => i.slot === 'outfit' && i.id !== 'outfit-none');
+
+  it('ships the agreed set', () => {
+    expect(looks.map((i) => i.id).sort()).toEqual(
+      ['dirndl', 'gulf', 'india', 'japan', 'lederhosen', 'levant', 'scotland', 'texas', 'turkiye', 'westafrica'].map((l) => `outfit-${l}`),
+    );
+  });
+
+  it('all unlock together — no culture is ranked above another', () => {
+    const rules = new Set(looks.map((i) => JSON.stringify(i.unlock)));
+    expect(rules.size).toBe(1);
+    expect(new Set(looks.map((i) => i.rarity)).size).toBe(1);
+  });
+
+  it('the space suit stays the free default', () => {
+    expect(DEFAULT_LOADOUT.outfit).toBe('outfit-none');
+    expect(isUnlocked(CATALOG.find((i) => i.id === 'outfit-none')!, p())).toBe(true);
+    expect(isUnlocked(looks[0], p())).toBe(false);
+    expect(isUnlocked(looks[0], p({ badges: new Set(['First Steps']) }))).toBe(true);
+  });
+});
+
 describe('unlock rules', () => {
   it('rank unlocks follow lib/rank thresholds', () => {
     const halo = CATALOG.find((i) => i.id === 'gear-halo')!; // Legend = 13000 XP

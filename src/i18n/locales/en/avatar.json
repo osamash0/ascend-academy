@@ -8,7 +8,8 @@
     "patch": "Patch",
     "companion": "Companion",
     "aura": "Aura",
-    "backdrop": "Scene"
+    "backdrop": "Scene",
+    "outfit": "Home look"
   },
   "rarity": {
     "common": "Common",
@@ -104,7 +105,18 @@
     "suit-tide": "Tidal",
     "visor-amber": "Starlight",
     "visor-mauve": "Mauve",
-    "visor-tide": "Tidal"
+    "visor-tide": "Tidal",
+    "outfit-none": "Space suit",
+    "outfit-gulf": "Gulf · thobe & ghutra",
+    "outfit-levant": "Levant · keffiyeh",
+    "outfit-turkiye": "Türkiye · yelek & şalvar",
+    "outfit-texas": "Texas · cowboy",
+    "outfit-lederhosen": "Bavaria · Lederhosen",
+    "outfit-dirndl": "Bavaria · Dirndl",
+    "outfit-scotland": "Scotland · kilt",
+    "outfit-japan": "Japan · yukata",
+    "outfit-india": "India · kurta",
+    "outfit-westafrica": "West Africa · dashiki"
   },
   "stage": {
     "alt": "Your Luna",
@@ -145,5 +157,6 @@
       "decode": "Couldn't read that image. Try a JPG or PNG.",
       "upload": "Couldn't save your photo. Try again in a moment."
     }
-  }
+  },
+  "outfitNote": "Your home look is on. This shows when Luna wears her space suit."
 }

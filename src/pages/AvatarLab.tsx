@@ -6,6 +6,8 @@
  */
 import { useMemo, useState } from 'react';
 import { SuitLocker } from '@/features/avatar/SuitLocker';
+import { LunaAvatar } from '@/features/avatar/LunaAvatar';
+import { itemsForSlot } from '@/features/avatar/catalog';
 import type { AvatarProgress } from '@/features/avatar/types';
 
 const ALL_BADGES = [
@@ -55,6 +57,19 @@ export default function AvatarLab() {
             })}
           </div>
         </div>
+
+        {/* Every home look at a glance (the locker below lets you try them on). */}
+        <section className="mb-10">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-white/50">Home looks</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {itemsForSlot('outfit').map((item) => (
+              <div key={item.id} className="overflow-hidden rounded-xl border border-white/10" title={item.id}>
+                <LunaAvatar loadout={{ outfit: item.id, backdrop: 'backdrop-lunar' }} size={180} className="h-auto w-full" />
+                <p className="px-2 py-1.5 text-xs text-white/70">{item.id.replace('outfit-', '')}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <SuitLocker progress={progress} showMoodPreview onSave={(l) => console.info('[avatar-lab] save', l)} />
       </div>
