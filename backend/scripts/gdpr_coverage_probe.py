@@ -57,7 +57,9 @@ def main(dsn: str) -> int:
     from backend.services.account_service import uncovered
     from backend.services.erasure import NO_FK_USER_TABLES
 
-    with psycopg.connect(dsn) as conn:
+    # autocommit=True so OUR "BEGIN READ ONLY" opens the transaction: without
+    # it psycopg has already begun a read-write one and the BEGIN is ignored.
+    with psycopg.connect(dsn, autocommit=True) as conn:
         conn.execute("BEGIN READ ONLY")
         try:
             cols = user_linked_columns(conn)
