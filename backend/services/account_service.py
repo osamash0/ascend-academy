@@ -8,13 +8,15 @@ from typing import Any, Iterable
 from fastapi.concurrency import run_in_threadpool
 
 from backend.core.database import supabase_admin
+from backend.services.db_errors import is_tolerable_absence
 
 logger = logging.getLogger(__name__)
 
 # Every user-linked column, by the table it lives in. Rows from several
 # columns of one table (friend_requests) are merged and de-duplicated by id.
 # Production-only tables (tutor_sessions, api_tokens, course_access) are
-# listed too: a missing table is skipped, never fatal.
+# listed too: a table missing here (PGRST205/42P01) is skipped; any other
+# error fails the whole export rather than returning it partial.
 EXPORT_TABLES: list[tuple[str, str]] = [
     ("profiles", "user_id"),
     ("user_roles", "user_id"),
@@ -74,7 +76,7 @@ ALWAYS_COVERED: set[tuple[str, str]] = {
     ("lectures", "professor_id"),
     ("lectures", "student_owner_id"),
     ("worksheets", "uploaded_by"),
-    ("tutor_messages", "user_id"),  # exported through the caller's tutor_sessions
+    ("tutor_messages", "user_id"),  # by user_id and through the caller's tutor_sessions
 }
 
 LECTURE_OWNER_COLUMNS = ["professor_id", "student_owner_id"]
@@ -90,14 +92,37 @@ def uncovered(fk_columns: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
     return sorted(c for c in fk_columns if c not in known)
 
 
+PAGE_SIZE = 1000  # PostgREST's default max-rows; a short page means the end
+IN_CHUNK = 100    # ids per in_() filter, keeps the request URL short
+
+
+def _paged(build) -> list[dict[str, Any]]:
+    """Every row of ``build()``, fetched PAGE_SIZE at a time until a short page."""
+    out: list[dict[str, Any]] = []
+    start = 0
+    while True:
+        page = build().range(start, start + PAGE_SIZE - 1).execute().data or []
+        out.extend(page)
+        if len(page) < PAGE_SIZE:
+            return out
+        start += PAGE_SIZE
+
+
 async def _select_all(table: str, column: str, uid: str) -> list[dict[str, Any]]:
+    """All rows of ``table`` where ``column`` = uid.
+
+    A table absent in this environment (or tutor_messages without user_id,
+    see db_errors.USER_ID_OPTIONAL_TABLES) yields []; every other error
+    propagates, so the export fails loudly instead of coming back partial.
+    """
     def _run() -> list[dict[str, Any]]:
         try:
-            resp = supabase_admin.table(table).select("*").eq(column, uid).execute()
-            return resp.data or []
-        except Exception as e:  # production-only tables may be missing elsewhere
-            logger.warning("gdpr: skipping %s.%s (%s)", table, column, e)
-            return []
+            return _paged(lambda: supabase_admin.table(table).select("*").eq(column, uid))
+        except Exception as e:
+            if is_tolerable_absence(e, table, column):
+                logger.info("gdpr: %s.%s not present here; skipped", table, column)
+                return []
+            raise
 
     return await run_in_threadpool(_run)
 
@@ -107,12 +132,17 @@ async def _select_in(table: str, column: str, values: list[str]) -> list[dict[st
         return []
 
     def _run() -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
         try:
-            resp = supabase_admin.table(table).select("*").in_(column, values).execute()
-            return resp.data or []
+            for i in range(0, len(values), IN_CHUNK):
+                chunk = values[i:i + IN_CHUNK]
+                out.extend(_paged(lambda: supabase_admin.table(table).select("*").in_(column, chunk)))
         except Exception as e:
-            logger.warning("gdpr: skipping %s (%s)", table, e)
-            return []
+            if is_tolerable_absence(e, table, column):
+                logger.info("gdpr: %s not present here; skipped", table)
+                return []
+            raise
+        return out
 
     return await run_in_threadpool(_run)
 
@@ -135,9 +165,14 @@ async def export_user_data(uid: str) -> dict[str, Any]:
             rows = [{k: v for k, v in r.items() if k not in redact} for r in rows]
         result[table] = _merge(result.get(table, []), rows)
 
-    # AI chat transcripts hang off tutor_sessions, not the user.
+    # AI chat transcripts: in production they hang off tutor_sessions
+    # (session_id, no user_id); the migrated schema keys them by user_id
+    # instead. Read both shapes and merge, so neither environment loses any.
     session_ids = [s["id"] for s in result.get("tutor_sessions", []) if s.get("id")]
-    result["tutor_messages"] = await _select_in("tutor_messages", "session_id", session_ids)
+    result["tutor_messages"] = _merge(
+        await _select_in("tutor_messages", "session_id", session_ids),
+        await _select_all("tutor_messages", "user_id", uid),
+    )
 
     owned_lectures: list[dict[str, Any]] = []
     for column in LECTURE_OWNER_COLUMNS:
