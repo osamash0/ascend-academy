@@ -1,5 +1,6 @@
 import { LunaAvatar } from '@/features/avatar/LunaAvatar';
 import type { Loadout } from '@/features/avatar/types';
+import { useViewerLoadout } from '@/features/avatar/viewerLoadout';
 import { cn } from '@/lib/utils';
 import type { Person } from '../types';
 
@@ -65,6 +66,8 @@ export interface AvatarProps {
 }
 
 export function Avatar({ person, size = 'md', loadout, isViewer, className }: AvatarProps) {
+  // The viewer wears their real Luna (filled by App from outside the sealed namespace).
+  const viewerLoadout = useViewerLoadout();
   const s = SIZE[size];
 
   const initials = person.name
@@ -90,7 +93,7 @@ export function Avatar({ person, size = 'md', loadout, isViewer, className }: Av
 
   // 2. Luna — the viewer's own, or the one this person was given.
   if (person.name) {
-    const lo = isViewer ? loadout : lunaFor(person.id);
+    const lo = isViewer ? (loadout ?? viewerLoadout) : lunaFor(person.id);
     return (
       <span
         aria-hidden
