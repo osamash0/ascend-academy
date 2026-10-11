@@ -96,6 +96,8 @@ EXPORT_TABLES: list[tuple[str, str]] = [
     ("student_catalog_courses", "user_id"),
     ("friend_requests", "requester_id"),
     ("user_roles", "user_id"),
+    ("llm_calls", "user_id"),
+    ("internal_account_overrides", "user_id"),
 ]
 
 # Lectures the user owns (professor-authored courses, or private student
