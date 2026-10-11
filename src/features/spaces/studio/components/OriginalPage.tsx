@@ -22,6 +22,8 @@ interface Props {
   materialName: string;
   onRegion(blockId: string): void;
   onInclude(sourceBlockId: string): void;
+  /** Shown inside Learn at the Page depth: the Learn section's divider already names the page. */
+  bare?: boolean;
 }
 
 /** Where blocks without coordinates converge before fading (spec §4.2 rule 10). */
@@ -42,7 +44,7 @@ const flight = (i: number) => ({ layout: { duration: FLIGHT_S, ease: FLIGHT_EASE
  * contain get a dashed outline: Morph shows what got lost, not only where
  * things came from.
  */
-export function OriginalPage({ page, blocks, morph, materialName, onRegion, onInclude }: Props) {
+export function OriginalPage({ page, blocks, morph, materialName, onRegion, onInclude, bare }: Props) {
   const [offer, setOffer] = useState<string | null>(null);
   const mapped = blocks.filter(hasSource);
   const missing = unmappedSourceBlocks(page, blocks);
@@ -65,7 +67,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
       aria-label={`Source page ${page.page}`}
       className="scroll-mt-40 lg:scroll-mt-28"
     >
-      <PageDivider page={page.page} original />
+      {!bare && <PageDivider page={page.page} original />}
       <div
         className={cn('relative overflow-hidden rounded-xl bg-[hsl(var(--studio-paper))]', PAGE_SHADOW)}
         style={{ aspectRatio: `${page.width} / ${page.height}` }}

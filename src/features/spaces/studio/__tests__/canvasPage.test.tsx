@@ -14,6 +14,7 @@ const props = {
   freshId: null, glowId: null,
   onBlockPointerEnter: vi.fn(), onBlockPointerLeave: vi.fn(), onOpenPeek: vi.fn(), onClosePeek: vi.fn(),
   onRegion: vi.fn(), onInclude: vi.fn(), onAnswerSettled: vi.fn(), onRemoveAnswer: vi.fn(), onOpenPeekSource: vi.fn(),
+  depth: {}, onDepth: vi.fn(),
 };
 
 describe('CanvasPage', () => {

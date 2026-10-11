@@ -25,6 +25,9 @@ import { groupByPage, pagesInView, pickAnchorPage, regionForBlock } from '../stu
 import { FLIGHT_EASE, FLIGHT_S, PAGE_ENTER_S } from '../studio/motion';
 import type { ShelfItem } from '../studio/shelf';
 import { useMorph } from '../studio/useMorph';
+import { blocksAtDepth, depthsFor, type Depth } from '../studio/depth';
+import { inDialog, isTyping, menuOpen } from '../studio/keys';
+import type { PageGroup } from '../studio/geometry';
 import { pageProgress, stateOf, termKey, termsIn } from '../studio/recall';
 import { useRecall } from '../studio/useRecall';
 import { usePageNav } from '../studio/usePageNav';
@@ -42,6 +45,7 @@ const HINT_NO_ORIGINAL = 'Use ← → to move between pages, or ask below.';
 const HINT_RECALL = ' · R to recall';
 /** How long "Back on page N" stands in for the hint. */
 const BACK_ON_MS = 4000;
+const NO_DEPTH: Record<number, Depth> = {};
 
 /**
  * A page of your Library — `/v4/library/m/:id` (One Library spec §5.4–5.5;
@@ -75,6 +79,31 @@ export default function StudioCanvasScreen() {
   const docRef = useRef(doc);
   docRef.current = doc;
   const groups = useMemo(() => (doc ? groupByPage(doc.blocks) : []), [doc]);
+
+  /*
+   * ── Depth (Learn deeper §3): how deep each page reads in Learn. Per Material,
+   * this visit only; Source overrides it while shown, and Learn gets it back. ──
+   */
+  const [depthHeld, setDepthHeld] = useState<{ id: string | undefined; map: Record<number, Depth> }>({
+    id: materialId,
+    map: NO_DEPTH,
+  });
+  const depth = depthHeld.id === materialId ? depthHeld.map : NO_DEPTH;
+  const sourceRemoved = !!material?.sourceRemoved;
+  /** What a page offers, and where it stands — the same rule the canvas renders by. */
+  const optionsOf = useCallback(
+    (g: PageGroup) => depthsFor(g, pages).filter((d) => d !== 'page' || !sourceRemoved),
+    [pages, sourceRemoved],
+  );
+  const levelOf = useCallback(
+    (g: PageGroup): Depth => {
+      const wanted = depth[g.page] ?? 'summary';
+      return optionsOf(g).includes(wanted) ? wanted : 'summary';
+    },
+    [depth, optionsOf],
+  );
+  /** The page whose dial moved: its top stays where it is on screen (§3.4). */
+  const depthAnchor = useRef<{ page: number; top: number } | null>(null);
 
   const peek = usePeek();
   const wide = useWide();
@@ -160,8 +189,12 @@ export default function StudioCanvasScreen() {
     [recallOn, recall.state, recall.reveal, recall.markTerm],
   );
   const railProgress = useMemo(
-    () => (recallOn ? new Map(railGroups.map((g) => [g.page, pageProgress(g.blocks, recall.state)])) : null),
-    [recallOn, railGroups, recall.state],
+    // Only what each page shows at its depth counts (§3.5).
+    () =>
+      recallOn
+        ? new Map(railGroups.map((g) => [g.page, pageProgress(blocksAtDepth(g, levelOf(g), pages), recall.state)]))
+        : null,
+    [recallOn, railGroups, recall.state, levelOf, pages],
   );
   const recallToggle = useRef<HTMLButtonElement>(null);
   /** The term Try again lands on, once it is a blank again. */
@@ -301,7 +334,15 @@ export default function StudioCanvasScreen() {
 
   const peekOpen = peek.state.status === 'open';
   const pinned = peek.state.status === 'open' && peek.state.pinned;
-  const region = doc && peek.state.status === 'open' ? regionForBlock(doc.blocks, pages, peek.state.blockId) : null;
+  /* At Full a paragraph of the page's own text has a place on it too. */
+  const region =
+    doc && peek.state.status === 'open'
+      ? regionForBlock(
+          [...doc.blocks, ...groups.flatMap((g) => (levelOf(g) === 'full' ? blocksAtDepth(g, 'full', pages) : []))],
+          pages,
+          peek.state.blockId,
+        )
+      : null;
 
   useReadingLine(pinned && morph.shown === 'clean', column, peek.follow);
   useEffect(() => {
@@ -414,6 +455,52 @@ export default function StudioCanvasScreen() {
    */
   const dropLayoutIds = useCallback(() => {
     if (!shownFlying.current) setMorphPage(null);
+  }, []);
+
+  const onDepth = useCallback(
+    (page: number, d: Depth, all: boolean) => {
+      const el = document.querySelector<HTMLElement>(`[data-view="clean"][data-page-anchor="${page}"]`);
+      depthAnchor.current = el ? { page, top: el.getBoundingClientRect().top } : null;
+      // Computed here, not in an updater: StrictMode runs updaters twice.
+      const next = { ...depth };
+      if (all) {
+        for (const g of groups) if (optionsOf(g).includes(d)) next[g.page] = d;
+      } else next[page] = d;
+      dropLayoutIds();
+      setDepthHeld({ id: materialId, map: next });
+    },
+    [depth, groups, optionsOf, dropLayoutIds, materialId],
+  );
+  useLayoutEffect(() => {
+    const a = depthAnchor.current;
+    if (!a) return;
+    depthAnchor.current = null;
+    const el = document.querySelector<HTMLElement>(`[data-view="clean"][data-page-anchor="${a.page}"]`);
+    if (!el) return;
+    const delta = el.getBoundingClientRect().top - a.top;
+    // Instant: the root scrolls smoothly, and a glide here is the page running away.
+    if (delta !== 0) window.scrollBy({ top: delta, behavior: 'instant' });
+  }, [depth]);
+
+  /* `[` shallower, `]` deeper, on the page you are on (§3.3) — Learn only, with the page's key guards. */
+  const depthKeys = useRef<(e: KeyboardEvent) => void>(() => {});
+  depthKeys.current = (e: KeyboardEvent) => {
+    if (e.key !== '[' && e.key !== ']') return;
+    if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (isTyping(e.target) || inDialog(e.target) || menuOpen(e.target)) return;
+    if (original || nav.current === null) return;
+    const g = groups.find((x) => x.page === nav.current);
+    if (!g) return;
+    const options = optionsOf(g);
+    const next = options[options.indexOf(levelOf(g)) + (e.key === ']' ? 1 : -1)];
+    if (!next) return;
+    e.preventDefault();
+    onDepth(g.page, next, false);
+  };
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => depthKeys.current(e);
+    window.addEventListener('keydown', down);
+    return () => window.removeEventListener('keydown', down);
   }, []);
 
   const onAsk = async (question: string) => {
@@ -723,6 +810,8 @@ export default function StudioCanvasScreen() {
                 onOpenPeekSource={onOpenPeekSource}
                 theme={theme}
                 recall={canvasRecall}
+                depth={depth}
+                onDepth={onDepth}
               />
             </LayoutGroup>
             {recallOn && recallTotal > 0 && (notYet.length > 0 || anyMarked) && (

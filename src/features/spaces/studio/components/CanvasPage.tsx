@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useIsPresent, useReducedMotion, type HTMLMotionProps } from 'motion/react';
 import { CleanBlock } from './CleanBlock';
+import { DepthDial } from './DepthDial';
 import { OriginalPage } from './OriginalPage';
 import { PageDivider } from './PageDivider';
 import { ProgressRing } from './ProgressRing';
@@ -8,9 +9,11 @@ import { WovenAnswer } from './WovenAnswer';
 import { hasSource } from '../edit';
 import { minConfidence } from '../geometry';
 import type { PageGroup } from '../geometry';
+import { blocksAtDepth, depthsFor, type Depth } from '../depth';
+import { DEPTH_ENTER_S, DEPTH_LAYOUT_S, DEPTH_LEAVE_S, DEPTH_STAGGER_S, FLIGHT_EASE } from '../motion';
 import type { CanvasView } from '../useMorph';
 import { pageProgress, recallLabel, stateOf, type RecallState, type TermState } from '../recall';
-import type { SourcePage } from '../types';
+import type { CanvasBlock, SourcePage } from '../types';
 
 interface Props {
   groups: PageGroup[];
@@ -39,6 +42,10 @@ interface Props {
   theme?: 'light' | 'dark';
   /** Recall mode, while it is on: summary terms become blanks, and each page shows its ring. */
   recall?: CanvasRecall | null;
+  /** How deep each page reads in Learn (Learn deeper §3); a page not in it reads at Summary. */
+  depth: Record<number, Depth>;
+  /** The dial on a page's divider; `all` when Shift was held. */
+  onDepth(page: number, d: Depth, all: boolean): void;
 }
 
 export interface CanvasRecall {
@@ -67,14 +74,14 @@ export interface BlockRecall {
  * carries the ids it needs. Every other page crossfades.
  */
 export function CanvasPage(p: Props) {
-  // Once per (blocks, pages), not per block per render.
+  // Once per (blocks, pages, depths), not per block per render. At Full, the page's own text counts too.
   const lowConfidence = useMemo(() => {
     const ids = new Set<string>();
     for (const g of p.groups)
-      for (const b of g.blocks)
+      for (const b of [...g.blocks, ...(p.depth[g.page] === 'full' ? blocksAtDepth(g, 'full', p.pages) : [])])
         if (hasSource(b) && (minConfidence(b.source, p.pages) ?? 1) < 0.8) ids.add(b.id);
     return ids;
-  }, [p.groups, p.pages]);
+  }, [p.groups, p.pages, p.depth]);
   const recall = p.recall ?? null;
   const blockRecall = useMemo<BlockRecall | null>(
     () =>
@@ -89,6 +96,13 @@ export function CanvasPage(p: Props) {
         const page = p.pages.find((x) => x.materialId === g.materialId && x.page === g.page) ?? null;
         const morph = p.morphPage === g.page;
         const showOriginal = p.view === 'original' && page && !p.sourceRemoved;
+        // The dial: what this page offers (no Page without the source), and where it stands.
+        const options = depthsFor(g, p.pages).filter((d) => d !== 'page' || (page && !p.sourceRemoved));
+        const wanted = p.depth[g.page] ?? 'summary';
+        const level: Depth = options.includes(wanted) ? wanted : 'summary';
+        const inlinePage = level === 'page' && page ? page : null;
+        // At Page, your own blocks (answers, notes, handwriting) still follow the page itself.
+        const shown = inlinePage ? g.blocks.filter((b) => isYours(b, inlinePage)) : blocksAtDepth(g, level, p.pages);
         return (
           <div key={`${g.materialId}-${g.page}`} className="relative">
             <AnimatePresence initial={false} mode="popLayout">
@@ -126,17 +140,46 @@ export function CanvasPage(p: Props) {
                     ring={
                       recall
                         ? (() => {
-                            const { knew, total } = pageProgress(g.blocks, recall.state);
+                            // Only what is on screen counts: at Full or Page there are no terms, so no ring.
+                            const { knew, total } = pageProgress(shown, recall.state);
                             return <ProgressRing knew={knew} total={total} label={recallLabel(g.page, knew, total)} />;
                           })()
                         : undefined
                     }
+                    dial={
+                      options.length > 1 ? (
+                        <DepthDial
+                          page={g.page}
+                          value={level}
+                          options={options}
+                          onChange={(d, all) => p.onDepth(g.page, d, all)}
+                        />
+                      ) : undefined
+                    }
                   />
-                  <div className="space-y-2">
-                    {g.blocks.map((b, i) =>
+                  <DepthBlocks
+                    depth={level}
+                    blocks={shown}
+                    page={
+                      inlinePage ? (
+                        <OriginalPage
+                          bare
+                          page={inlinePage}
+                          blocks={g.blocks}
+                          morph={false}
+                          materialName={p.materialName}
+                          onRegion={(id) => {
+                            // "Back to" this paragraph: it is in the summary, so the page opens back up into it.
+                            p.onDepth(g.page, 'summary', false);
+                            p.onRegion(id);
+                          }}
+                          onInclude={(id) => p.onInclude(inlinePage, id)}
+                        />
+                      ) : null
+                    }
+                    render={(b, i) =>
                       b.origin === 'generated' ? (
                         <WovenAnswer
-                          key={b.id}
                           block={b}
                           fresh={p.freshId === b.id}
                           onSettled={p.onAnswerSettled}
@@ -151,7 +194,7 @@ export function CanvasPage(p: Props) {
                           block={b}
                           page={g.page}
                           index={i}
-                          count={g.blocks.length}
+                          count={shown.length}
                           morph={morph}
                           flying={p.flying && morph}
                           lowConfidence={lowConfidence.has(b.id)}
@@ -166,9 +209,9 @@ export function CanvasPage(p: Props) {
                           onOpenPeek={p.onOpenPeek}
                           onClosePeek={p.onClosePeek}
                         />
-                      ),
-                    )}
-                  </div>
+                      )
+                    }
+                  />
                 </motion.section>
               )}
             </AnimatePresence>
@@ -178,3 +221,109 @@ export function CanvasPage(p: Props) {
     </div>
   );
 }
+
+/** Yours, not the page's: an answer, a note you wrote, or your handwriting on it. */
+function isYours(b: CanvasBlock, page: SourcePage): boolean {
+  if (b.origin === 'generated' || b.origin === 'written') return true;
+  return (
+    b.origin === 'extracted' &&
+    page.blocks.some((s) => s.kind === 'handwriting' && b.source.blockIds.includes(s.id))
+  );
+}
+
+const RISE_FROM = { opacity: 0, y: 4, filter: 'blur(3px)' };
+const FADE_FROM = { opacity: 0 };
+const SHOWN = { opacity: 1, y: 0, filter: 'none' };
+/** Leaving at a depth change fades; anything else that leaves (an answer removed) simply goes, as before. */
+const LEAVE = {
+  leave: (shifting: boolean) => ({ opacity: 0, transition: { duration: shifting ? DEPTH_LEAVE_S : 0 } }),
+};
+
+/**
+ * One page's paragraphs at its depth (Learn deeper §3.4). The list's height
+ * settles with Motion `layout`, only when the depth changes
+ * (`layoutDependency`), so answers growing in and other edits never glide.
+ * Paragraphs at both depths stay put; leaving ones fade out of flow
+ * (`popLayout`); arriving ones fade up, staggered. Reduced motion: one fade.
+ */
+function DepthBlocks({
+  depth,
+  blocks,
+  page,
+  render,
+}: {
+  depth: Depth;
+  blocks: CanvasBlock[];
+  /** The page itself, at the Page depth. */
+  page: React.ReactNode | null;
+  render(b: CanvasBlock, i: number): React.ReactNode;
+}) {
+  const reduce = useReducedMotion();
+  const keys = [...(page ? ['page'] : []), ...blocks.map((b) => b.id)];
+  /** What the last commit showed: arrivals are what it did not. */
+  const prev = useRef<string[]>(keys);
+  useEffect(() => {
+    prev.current = keys;
+  });
+  const [shift, setShift] = useState({ depth, on: false, before: new Set<string>() });
+  let now = shift;
+  if (shift.depth !== depth) {
+    now = { depth, on: true, before: new Set(prev.current) };
+    setShift(now);
+  }
+  useEffect(() => {
+    if (!shift.on) return;
+    const t = setTimeout(() => setShift((s) => (s.on ? { ...s, on: false } : s)), (DEPTH_LAYOUT_S + DEPTH_LEAVE_S) * 1000);
+    return () => clearTimeout(t);
+  }, [shift]);
+
+  const arriving = keys.filter((k) => !now.before.has(k));
+  const from = now.on ? (reduce ? FADE_FROM : RISE_FROM) : false;
+  const item = (key: string, node: React.ReactNode) => (
+    <DepthItem
+      key={key}
+      layout={reduce ? false : 'position'}
+      layoutDependency={depth}
+      custom={now.on}
+      variants={LEAVE}
+      initial={from}
+      animate={SHOWN}
+      exit="leave"
+      transition={{
+        duration: reduce ? 0.15 : DEPTH_ENTER_S,
+        delay: reduce ? 0 : Math.max(0, arriving.indexOf(key)) * DEPTH_STAGGER_S,
+        ease: FLIGHT_EASE,
+        layout: { duration: DEPTH_LAYOUT_S, ease: FLIGHT_EASE },
+      }}
+    >
+      {node}
+    </DepthItem>
+  );
+  return (
+    <motion.div
+      layout={reduce ? false : true}
+      layoutDependency={depth}
+      transition={{ layout: { duration: DEPTH_LAYOUT_S, ease: FLIGHT_EASE } }}
+      className="relative space-y-2"
+    >
+      <AnimatePresence mode="popLayout" custom={now.on}>
+        {page && item('page', page)}
+        {blocks.map((b, i) => item(b.id, render(b, i)))}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+/** A paragraph on its way out is already gone for assistive tech and the pointer. */
+const DepthItem = forwardRef<HTMLDivElement, HTMLMotionProps<'div'>>(function DepthItem(props, ref) {
+  const present = useIsPresent();
+  return (
+    <motion.div
+      ref={ref}
+      {...props}
+      data-leaving={present ? undefined : 'true'}
+      aria-hidden={present ? undefined : true}
+      className={present ? undefined : 'pointer-events-none'}
+    />
+  );
+});

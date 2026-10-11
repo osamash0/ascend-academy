@@ -40,3 +40,9 @@ export const ZOOM_S = 0.45;
 export const RECEDE_S = 0.3;
 /** The page taking over from that frame. */
 export const PAGE_ENTER_S = 0.35;
+
+/** Learn deeper §3.4: a page changing depth. Its height settles; what leaves fades, what arrives fades up. */
+export const DEPTH_LAYOUT_S = 0.45;
+export const DEPTH_ENTER_S = 0.3;
+export const DEPTH_STAGGER_S = 0.03;
+export const DEPTH_LEAVE_S = 0.15;
