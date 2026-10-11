@@ -89,4 +89,26 @@ def test_probe_section_states_interpretation_and_advisory_consequence():
     assert "lower bound on paraphrase fidelity" in md
     assert "not that the verifier cannot be fooled" in md
     assert "ENFORCE_SUPPORT_THRESHOLD=False" in md and "flagged, not dropped" in md
-    assert "IMPLIED" in md or "implied" in md
+    assert "Implied tokens saved per slide prompt" in md
+
+
+def _probe_md(pairs):
+    probe = run_grounding_probe(pairs, {"syn": build_deck_skeleton(LONG_DECK)})
+    return render_markdown([score_deck("syn", LONG_DECK)], probe, ["<!-- test -->"])
+
+
+def test_interpretation_follows_a_nonzero_false_keep():
+    md = _probe_md([ProbePair("syn", 4, "What does the bravo slide explain?",
+                              "Quantum tunnelling", "The bravo concept, in enough words", "en")])
+    assert "1 hallucinated answer passed the verifier" in md
+    assert "false-keep rate of zero" not in md
+
+
+def test_interpretation_follows_the_live_enforce_flag(monkeypatch):
+    from backend.services.parser import synthesis
+
+    monkeypatch.setattr(synthesis, "ENFORCE_SUPPORT_THRESHOLD", True)
+    md = _probe_md([ProbePair("syn", 3, "What does the alpha slide explain?",
+                              "The alpha concept", "Quantum entanglement of photons", "en")])
+    assert "repaired once, then dropped" in md
+    assert "flagged, not dropped" not in md and "advisory mode" not in md

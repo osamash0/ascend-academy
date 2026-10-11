@@ -352,6 +352,30 @@ def provenance_lines(deck_dir: Path, names: Sequence[str], threshold: float) -> 
     ]
 
 
+def _interpretation(probe: ProbeResult) -> str:
+    """The reading guide under the probe rates. Both the false-keep sentence and
+    the consequence sentence follow the computed rates and the live flag."""
+    from backend.services.parser import synthesis  # lazy: heavy import, read at render time
+
+    keeps = len(probe.false_keeps)
+    if keeps == 0:
+        keep_sentence = ("A false-keep rate of zero shows only that lexically distant "
+                         "hallucinations are rejected, not that the verifier cannot be fooled.")
+    else:
+        keep_sentence = (f"{keeps} hallucinated answer{'' if keeps == 1 else 's'} passed the "
+                         "verifier, so lexical overlap can be fooled by on-topic wording.")
+    if synthesis.ENFORCE_SUPPORT_THRESHOLD:
+        consequence = ("the verifier is enforced (ENFORCE_SUPPORT_THRESHOLD=True): "
+                       "low-overlap questions are repaired once, then dropped.")
+    else:
+        consequence = ("the verifier now runs in advisory mode by default "
+                       "(ENFORCE_SUPPORT_THRESHOLD=False) — low-overlap questions are flagged, not dropped.")
+    return ("How to read these rates: the paraphrases were written under a strict "
+            "no-three-word-copy rule, so the false-drop rate is a lower bound on paraphrase "
+            f"fidelity for a lexical scorer, not an estimate of production behaviour. {keep_sentence} "
+            f"Consequence: {consequence}")
+
+
 def render_markdown(reports: Sequence[DeckReport], probe: ProbeResult, provenance: Sequence[str]) -> str:
     t = corpus_totals(reports)
     total = f"**Total ({t.decks} deck{'' if t.decks == 1 else 's'})**"
@@ -444,12 +468,7 @@ def render_markdown(reports: Sequence[DeckReport], probe: ProbeResult, provenanc
             out.append(f"- Not scored, deck missing: {', '.join(_label(d) for d in probe.missing_decks)}")
         out += [
             "",
-            "How to read these rates: the paraphrases were written under a strict "
-            "no-three-word-copy rule, so the false-drop rate is a lower bound on paraphrase "
-            "fidelity for a lexical scorer, not an estimate of production behaviour. A false-keep "
-            "rate of zero shows only that lexically distant hallucinations are rejected, not that "
-            "the verifier cannot be fooled. Consequence: the verifier now runs in advisory mode by "
-            "default (ENFORCE_SUPPORT_THRESHOLD=False) — low-overlap questions are flagged, not dropped.",
+            _interpretation(probe),
             "",
             "| Deck | Slide | Kind | Answer | Score | Reason | Kept |",
             "|---|---:|---|---|---:|---|---|",
