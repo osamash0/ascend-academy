@@ -1,7 +1,10 @@
 # backend/tests/unit/test_erasure.py
 """Erasure: an exact manifest first, a durable job, then deletion that is
 retried rather than swallowed."""
+from datetime import datetime, timedelta, timezone
+
 import pytest
+from postgrest.exceptions import APIError
 from supabase_auth.errors import AuthApiError
 
 from backend.services import erasure as er
@@ -44,6 +47,7 @@ class FakeTable:
         return self
 
     def in_(self, c, vs):
+        self.store.in_calls.append((self.name, self.op, len(vs)))
         self.f.append(lambda r: r.get(c) in vs)
         return self
 
@@ -62,6 +66,8 @@ class FakeTable:
     def execute(self):
         if self.name in self.store.fail_tables:
             raise RuntimeError(f"{self.name} unavailable")
+        if self.name in self.store.api_errors:
+            raise APIError({"code": self.store.api_errors[self.name], "message": "x"})
         rows = self.store.tables.setdefault(self.name, [])
         hit = [r for r in rows if all(f(r) for f in self.f)]
         if self.op == "insert":
@@ -131,6 +137,8 @@ class FakeClient:
         self.objects = objects or {}
         self.removed: dict[str, list[str]] = {}
         self.fail_tables: set[str] = set()
+        self.api_errors: dict[str, str] = {}
+        self.in_calls: list[tuple[str, str, int]] = []
         self.fail_list: set[str] = set()
         self.fail_remove: set[str] = set()
         self.fail_auth_delete = False
@@ -382,3 +390,101 @@ async def test_long_inconclusive_awaiting_job_is_stuck_and_untouched():
     out = await er.drain(client=c)
     assert out["stuck"] == 1 and out["finished"] == 0
     assert len(c.tables[er.JOBS]) == 1 and c.removed == {}
+
+
+async def _run_to_end(c, uid=UID):
+    job = await er.create_job(await er.build_erasure_manifest(uid, client=c), client=c)
+    c.tables["lectures"] = [r for r in c.tables["lectures"]
+                            if uid not in (r.get("professor_id"), r.get("student_owner_id"))]
+    c.tables["parse_runs"] = [r for r in c.tables.get("parse_runs", []) if r.get("user_id") != uid]
+    c.auth_users.discard(uid)
+    await er.mark_ready(job, client=c)
+    return job, await er.run_job(job, client=c)
+
+
+@pytest.mark.asyncio
+async def test_manifest_includes_hashes_of_uploads_that_never_became_lectures():
+    c = owner_world()
+    c.tables["parse_runs"] = [{"run_id": "r1", "user_id": UID, "pdf_hash": "h-orphan"},
+                              {"run_id": "r2", "user_id": OTHER, "pdf_hash": "h-theirs"}]
+    m = await er.build_erasure_manifest(UID, client=c)
+    assert sorted(m.pdf_upload_hashes) == ["h-orphan", "h-own", "h-shared"]
+
+
+@pytest.mark.asyncio
+async def test_blob_still_in_another_users_parse_run_is_kept():
+    c = owner_world()
+    c.objects["pdf-uploads"].append("h-orphan.pdf")
+    c.tables["parse_runs"] = [{"run_id": "r1", "user_id": UID, "pdf_hash": "h-own"},
+                              {"run_id": "r2", "user_id": UID, "pdf_hash": "h-orphan"},
+                              {"run_id": "r3", "user_id": OTHER, "pdf_hash": "h-own"}]
+    _, ok = await _run_to_end(c)
+    assert ok is True
+    # h-own: OTHER is uploading the same file right now; h-shared: OTHER's lecture.
+    assert sorted(c.objects["pdf-uploads"]) == ["h-own.pdf", "h-shared.pdf"]
+    assert "h-orphan.pdf" in c.removed["pdf-uploads"]
+
+
+@pytest.mark.asyncio
+async def test_executor_skips_a_table_missing_here():
+    c = owner_world()
+    c.api_errors["api_tokens"] = "PGRST205"
+    c.api_errors["course_access"] = "42P01"
+    _, ok = await _run_to_end(c)
+    assert ok is True
+
+
+@pytest.mark.asyncio
+async def test_executor_tolerates_tutor_messages_without_user_id_only():
+    c = owner_world()
+    c.api_errors["tutor_messages"] = "42703"    # production shape: session_id, no user_id
+    _, ok = await _run_to_end(c)
+    assert ok is True
+
+
+@pytest.mark.asyncio
+async def test_executor_retries_on_a_missing_column_anywhere_else():
+    c = owner_world()
+    c.api_errors["api_tokens"] = "42703"
+    job, ok = await _run_to_end(c)
+    assert ok is False
+    assert "api_tokens" in c.tables[er.JOBS][0]["last_error"]
+
+
+@pytest.mark.asyncio
+async def test_executor_retries_on_any_other_error():
+    c = owner_world()
+    c.api_errors["learning_events_daily_rollup"] = "57014"   # statement timeout
+    _, ok = await _run_to_end(c)
+    assert ok is False
+
+
+@pytest.mark.asyncio
+async def test_lecture_id_filters_are_chunked():
+    c = owner_world()
+    c.tables["lectures"] = [{"id": f"L{i:03d}", "professor_id": UID} for i in range(250)]
+    c.tables["worksheets"] = [{"lecture_id": "L249", "file_url": "w/late.pdf"}]
+    c.tables["slide_embeddings"] = [{"lecture_id": f"L{i:03d}"} for i in range(250)] + [
+        {"lecture_id": "L9"}]
+    m = await er.build_erasure_manifest(UID, client=c)
+    assert m.keys["worksheets"] == ["w/late.pdf"]
+    _, ok = await _run_to_end(c)
+    assert ok is True
+    assert c.tables["slide_embeddings"] == [{"lecture_id": "L9"}]
+    assert c.in_calls and all(n <= 100 for _, _, n in c.in_calls)
+    assert {(t, op) for t, op, _ in c.in_calls} == {("worksheets", "select"), ("slide_embeddings", "delete")}
+
+
+@pytest.mark.asyncio
+async def test_drain_compares_timestamps_not_strings():
+    c = owner_world()
+    # 30 minutes old, written in a -05:00 offset: as a string it sorts before
+    # the UTC cutoff, but it is fresh and must not be cancelled.
+    fresh = (datetime.now(timezone(timedelta(hours=-5))) - timedelta(minutes=30)).isoformat()
+    _awaiting(c, 0, created=fresh)
+    out = await er.drain(client=c)
+    assert out["cancelled"] == 0 and len(c.tables[er.JOBS]) == 1
+    # A stale one with PostgREST's trailing 'Z' is cancelled (account alive).
+    c.tables[er.JOBS][0]["created_at"] = "2000-01-01T00:00:00Z"
+    out = await er.drain(client=c)
+    assert out["cancelled"] == 1 and c.tables[er.JOBS] == []

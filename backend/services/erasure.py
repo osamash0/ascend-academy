@@ -10,8 +10,8 @@ retried by the worker. Nothing is deleted while the account still exists,
 so a failure cannot leave a half-deleted live account.
 
 pdf-uploads is content-addressed and shared across users (`{pdf_hash}.pdf`);
-a blob is removed only if no remaining lecture references its hash,
-checked at execution time, after the person's own lectures have cascaded away.
+a blob is removed only if no remaining lecture or parse_run references its
+hash, checked at execution time, after the person's own rows have cascaded away.
 """
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ from fastapi.concurrency import run_in_threadpool
 from supabase_auth.errors import AuthApiError
 
 from backend.core.database import supabase_admin
+from backend.services.db_errors import is_tolerable_absence
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +69,12 @@ def _client(client):
 
 
 def _rows(c, table: str, column: str, value, *, many: bool = False) -> list[dict[str, Any]]:
-    q = c.table(table).select("*")
-    q = q.in_(column, value) if many else q.eq(column, value)
-    return q.execute().data or []
+    if not many:
+        return c.table(table).select("*").eq(column, value).execute().data or []
+    out: list[dict[str, Any]] = []
+    for i in range(0, len(value), _PAGE):  # keep the in_() URL short
+        out.extend(c.table(table).select("*").in_(column, value[i:i + _PAGE]).execute().data or [])
+    return out
 
 
 def _list_folder(c, bucket: str, folder: str) -> list[str]:
@@ -114,7 +118,11 @@ async def build_erasure_manifest(uid: str, client=None) -> ErasureManifest:
             for row in _rows(c, "lectures", col, uid):
                 lectures[row["id"]] = row
         m.lecture_ids = sorted(lectures)
-        m.pdf_upload_hashes = sorted({r["pdf_hash"] for r in lectures.values() if r.get("pdf_hash")})
+        hashes = {r["pdf_hash"] for r in lectures.values() if r.get("pdf_hash")}
+        # An upload that never became a lecture (failed/in-flight parse) still
+        # left its blob in pdf-uploads; parse_runs is the only record of it.
+        hashes |= {r["pdf_hash"] for r in _rows(c, "parse_runs", "user_id", uid) if r.get("pdf_hash")}
+        m.pdf_upload_hashes = sorted(hashes)
 
         pdf_keys: set[str] = set()
         for lid, row in lectures.items():
@@ -153,6 +161,12 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _ts(value: str) -> datetime:
+    """Parse a stored timestamp; PostgREST may send a trailing 'Z'."""
+    dt = datetime.fromisoformat(value.replace("Z", "+00:00") if value.endswith("Z") else value)
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
 async def create_job(m: ErasureManifest, client=None) -> str:
     c = _client(client)
 
@@ -188,7 +202,12 @@ def _auth_user_exists(c, uid: str) -> bool | None:
 
 
 def _hash_still_referenced(c, pdf_hash: str) -> bool:
-    return bool(c.table("lectures").select("id").eq("pdf_hash", pdf_hash).execute().data)
+    # The subject's own lectures and parse_runs have cascaded away by now, so
+    # any hit is another person's lecture or in-flight upload of the same file.
+    for table in ("lectures", "parse_runs"):
+        if c.table(table).select("pdf_hash").eq("pdf_hash", pdf_hash).limit(1).execute().data:
+            return True
+    return False
 
 
 def _remove(c, bucket: str, keys: list[str]) -> None:
@@ -207,13 +226,15 @@ def _execute(c, m: ErasureManifest) -> None:
         _remove(c, bucket, m.keys.get(bucket, []))
     _remove(c, "pdf-uploads",
             [f"{h}.pdf" for h in m.pdf_upload_hashes if not _hash_still_referenced(c, h)])
-    if m.lecture_ids:
-        c.table("slide_embeddings").delete().in_("lecture_id", m.lecture_ids).execute()
+    for i in range(0, len(m.lecture_ids), _CHUNK):
+        c.table("slide_embeddings").delete().in_("lecture_id", m.lecture_ids[i:i + _CHUNK]).execute()
     for table in NO_FK_USER_TABLES:  # no FK: never cascaded
         try:
             c.table(table).delete().eq("user_id", m.subject_id).execute()
         except Exception as e:
-            if "does not exist" not in str(e):     # absent outside production
+            # Only a table absent here (or tutor_messages without user_id, see
+            # db_errors.USER_ID_OPTIONAL_TABLES) is skipped; anything else retries.
+            if not is_tolerable_absence(e, table, "user_id"):
                 raise ErasureError(f"{table}: {e}") from e
 
 
@@ -255,11 +276,12 @@ async def drain(client=None, limit: int = 20) -> dict[str, int]:
     rows, out["stuck"] = await run_in_threadpool(_load)
     if out["stuck"]:
         logger.error("%s erasure job(s) exceeded %s attempts; need a person", out["stuck"], MAX_ATTEMPTS)
-    cutoff = (datetime.now(timezone.utc) - STALE_AWAITING).isoformat()
+    now = datetime.now(timezone.utc)
     for job in rows:
         if job["status"] == "awaiting_auth_delete":
             exists = await run_in_threadpool(_auth_user_exists, c, job["subject_id"])
-            if exists is True and job["created_at"] < cutoff:
+            created = _ts(job["created_at"])
+            if exists is True and created < now - STALE_AWAITING:
                 # The auth delete never happened: the person still has an account.
                 await run_in_threadpool(lambda j=job: c.table(JOBS).delete().eq("id", j["id"]).execute())
                 out["cancelled"] += 1
@@ -269,8 +291,7 @@ async def drain(client=None, limit: int = 20) -> dict[str, int]:
                 # to the back of the oldest-first queue instead of starving it.
                 await run_in_threadpool(lambda j=job: c.table(JOBS).update(
                     {"updated_at": _now()}).eq("id", j["id"]).execute())
-                if exists is None and job["created_at"] < (
-                        datetime.now(timezone.utc) - INCONCLUSIVE_STUCK).isoformat():
+                if exists is None and created < now - INCONCLUSIVE_STUCK:
                     out["stuck"] += 1
                     logger.error("erasure job %s: auth state inconclusive for over %s; needs a person",
                                  job["id"], INCONCLUSIVE_STUCK)
