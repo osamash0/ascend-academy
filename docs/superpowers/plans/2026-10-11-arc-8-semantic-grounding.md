@@ -1,4 +1,5 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development. Parent plan: docs/superpowers/plans/2026-10-10-ai-backend-deep-session.md (Global Constraints bind). **Controller rulings (2026-10-11):** PR #92 (openai_only mode, OpenAI embeddings path with its own cost logging) edits embeddings.py/orchestrator.py/vision.py/cost.py — so Task 3 keeps ONLY the batch embedding call (no metering, no call_context/llm_calls/receipt changes; embedding metering is #92s); the embedding MODEL id is part of the cache key and recorded next to the calibrated threshold (a threshold is only valid for the model it was fitted on); Task 7 Step 3 runs only after the user approves in chat.
+> **Note (2026-10-11):** Task 5 (production wiring, GROUNDING_SCORER) was implemented and then REVERTED after the pre-registered gate failed — see docs/superpowers/plans/2026-10-11-arc-8-ledger.md.
 
 # Arc 8: Semantic grounding (TDD implementation plan)
 
