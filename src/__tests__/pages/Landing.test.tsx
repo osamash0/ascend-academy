@@ -4,7 +4,7 @@
  * equivalents:
  *   - mount                => brand wordmark + primary CTA render
  *   - loading-equivalent   => no spinner; an h1/h2 is present synchronously
- *   - empty-equivalent     => the "Master Your Studies" hero headline is present
+ *   - empty-equivalent     => the "Learning you can touch." hero headline is present
  *   - first-row-equivalent => Sign In affordance routing to /auth is present
  */
 import { describe, expect, it } from "vitest";
@@ -17,7 +17,7 @@ describe("Landing page (smoke)", () => {
     renderWithProviders(<Landing />, { initialEntries: ["/"] });
     expect(screen.getAllByText(/Learnstation/i).length).toBeGreaterThan(0);
     expect(
-      screen.getAllByRole("button", { name: /get started/i }).length,
+      screen.getAllByRole("button", { name: /start learning/i }).length,
     ).toBeGreaterThan(0);
   });
 
@@ -27,9 +27,9 @@ describe("Landing page (smoke)", () => {
     expect(container.querySelector("h1, h2")).not.toBeNull();
   });
 
-  it("empty equivalent: shows the 'Master Your Studies' hero headline", () => {
+  it("empty equivalent: shows the 'Learning you can touch.' hero headline", () => {
     renderWithProviders(<Landing />, { initialEntries: ["/"] });
-    expect(screen.getAllByText(/master your/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { level: 1, name: /learning you can touch/i })).toBeInTheDocument();
   });
 
   it("first-row equivalent: exposes the Sign In affordance routing to /auth", () => {

@@ -1,0 +1,49 @@
+{
+  "title": "Ask Luna",
+  "subtitle": "Ask anything about your course. Luna answers with things you can try, not walls of text.",
+  "placeholder": "Ask Luna about your course…",
+  "send": "Send",
+  "fallback": "I got a bit tangled there. Could you ask that another way?",
+  "error": "I lost my signal for a moment. Try again?",
+  "empty": {
+    "title": "What are you curious about?",
+    "body": "I'll answer with something you can try. Predicting first is how it sticks."
+  },
+  "suggest": {
+    "join": "How does a LEFT JOIN work?",
+    "key": "What makes a good primary key?",
+    "open": "Why do we normalize tables?"
+  },
+  "react": {
+    "hello": "Hi! Ask me anything about your course.",
+    "idle": "Take your time. I'm right here.",
+    "thinking": "Hmm, let me think…",
+    "correct": "Yes! You've got it!",
+    "hint": "So close. Here's a little nudge.",
+    "revealed": "Let's look at it together. This one's tricky."
+  },
+  "join": {
+    "prompt": "Tap every row you think shows up in a {{type}} JOIN.",
+    "check": "Check my prediction",
+    "checkAgain": "Check again",
+    "tapHint": "Tap rows in both tables.",
+    "hint": {
+      "INNER": "Only rows with a partner on the other side survive an INNER JOIN. Check each key for a match.",
+      "LEFT": "In a LEFT JOIN, every row from the left table stays, even without a partner.",
+      "RIGHT": "In a RIGHT JOIN, every row from the right table stays, even without a partner.",
+      "FULL": "A FULL JOIN keeps everyone, matched or not.",
+      "null": "Careful: NULL never matches anything, not even another NULL."
+    },
+    "solved": "Exactly right. That's {{count}} rows in the result:",
+    "revealed": "Here's how it plays out: {{count}} rows. The highlighted ones are the ones you missed.",
+    "explore": "Now turn the dial:"
+  },
+  "check": {
+    "solved": "Exactly.",
+    "revealed": "The answer:"
+  },
+  "errors": {
+    "budget": "I've done a lot of thinking this month and need to rest. I'll be back with the new month. Your lessons and quizzes still work as always.",
+    "rate": "You're asking faster than I can think! Give me a minute."
+  }
+}

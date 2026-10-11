@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { RankRing } from "@/components/RankRing";
 import { rankForXp, type RankTier } from "@/lib/rank";
-import { avatarGradient, type Role, type SocialUser } from "../data";
+import { UserAvatar } from "@/features/avatar/UserAvatar";
+import { type Role, type SocialUser } from "../data";
 
 /* ------------------------------ Avatar ---------------------------- */
 
@@ -19,7 +20,7 @@ export function Avatar({
   showRank = true,
 }: {
   // `totalXp` (optional) drives the rank border; all SocialUser callers carry it.
-  user: Pick<SocialUser, "id" | "initials" | "online" | "avatarUrl"> & { totalXp?: number };
+  user: Pick<SocialUser, "id" | "initials" | "online" | "avatarUrl"> & { name?: string; totalXp?: number };
   size?: keyof typeof AVATAR_SIZES;
   showDot?: boolean;
   /** Explicit tier override (e.g. when XP isn't on the user object). */
@@ -28,23 +29,20 @@ export function Avatar({
   showRank?: boolean;
 }) {
   const px = AVATAR_SIZES[size];
-  const [from, to] = avatarGradient(user.id);
   const tier = rankTier ?? (user.totalXp != null ? rankForXp(user.totalXp) : undefined);
   const showRing = showRank && tier != null;
 
+  // One avatar system app-wide: photo → their Luna → initials (features/avatar).
   const inner = (
-    <div
-      className="flex h-full w-full items-center justify-center overflow-hidden rounded-[14px] shadow-glow-primary"
-      style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
-    >
-      {user.avatarUrl ? (
-        <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <span className="font-display font-black text-white" style={{ fontSize: px * 0.36 }}>
-          {user.initials}
-        </span>
-      )}
-    </div>
+    <UserAvatar
+      userId={user.id}
+      name={user.name}
+      initials={user.initials}
+      avatarUrl={user.avatarUrl}
+      size={px - (showRing ? 4 : 0)}
+      shape="rounded"
+      className="h-full w-full"
+    />
   );
 
   return (
@@ -57,7 +55,7 @@ export function Avatar({
         inner
       )}
       {showDot && (
-        <span className="absolute -bottom-0.5 -right-0.5 z-10 rounded-full ring-2 ring-[#0E1320]">
+        <span className="absolute -bottom-0.5 -right-0.5 z-10 rounded-full ring-2 ring-black">
           <OnlineDot online={user.online} pulse={user.online} />
         </span>
       )}

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { memo, useCallback } from 'react';
-import { LunaAstronaut } from '../../learnstation-luna';
+import { MyLuna } from '@/features/avatar/MyLuna';
 
 interface BadgeEarnedModalProps {
   isOpen: boolean;
@@ -105,16 +105,7 @@ export const BadgeEarnedModal = memo(function BadgeEarnedModal({
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.1, type: 'spring', damping: 15 }}
                 >
-                  <LunaAstronaut
-                    variant="head"
-                    phase="full"
-                    size="lg"
-                    animated
-                    showShadow={false}
-                    suitColor={lunaSuitColor || undefined}
-                    visorTint={lunaVisorTint || undefined}
-                    patchImage={lunaPatch || undefined}
-                  />
+                  <MyLuna size={120} mood="celebrating" />
                 </motion.div>
 
                 {/* Speech Bubble */}

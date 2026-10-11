@@ -5,8 +5,8 @@ import { AnimatePresence, motion, useInView, useReducedMotion } from 'motion/rea
 import { ArrowRight, Check, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const LunaAstronaut = lazy(() =>
-  import('../../../learnstation-luna').then((m) => ({ default: m.LunaAstronaut })),
+const LunaAvatar = lazy(() =>
+  import('@/features/avatar/LunaAvatar').then((m) => ({ default: m.LunaAvatar })),
 );
 
 /**
@@ -372,7 +372,7 @@ function LivePage() {
             animate={reduce ? undefined : { y: [0, -8, 0] }}
             transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <LunaAstronaut phase="full" size="md" animated={!reduce} />
+            <LunaAvatar size={120} showBackdrop={false} animated={!reduce} />
           </motion.div>
         </Suspense>
       </div>

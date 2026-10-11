@@ -47,6 +47,7 @@ from backend.api.v1.review import router as review_router
 from backend.api.v1.exams import router as exams_router
 from backend.api.v1.search import router as search_router
 from backend.api.v1.materials import router as materials_router
+from backend.api.v1.ask_luna import router as ask_luna_router
 from backend.api.v1.onboarding import router as onboarding_router
 from backend.api.v1.localized_content import router as localized_content_router
 from backend.core.rate_limit import limiter
@@ -266,6 +267,10 @@ if settings.feature_student_uploads:
 if settings.feature_v4_reader:
     from backend.api.v1.v4_reader import router as v4_reader_router
     v1_router.include_router(v4_reader_router)
+
+# Ask Luna (hint-first tutor with curated widgets) — off by default; FEATURE_ASK_LUNA=1 to enable.
+if settings.feature_ask_luna:
+    v1_router.include_router(ask_luna_router)
 
 # Mount parent v1_router onto app
 app.include_router(v1_router)

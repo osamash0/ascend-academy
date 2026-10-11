@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { AlertTriangle, Gem, BadgeCheck } from "lucide-react";
-import { LunaLoader } from "../../learnstation-luna";
+import { LunaLoader } from "@/components/luna-loader";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type SocialUser } from "@/features/social/data";
@@ -82,9 +82,9 @@ export default function Leaderboard() {
   const rest = ranked.slice(3);
 
   return (
-    <div className="relative min-h-[calc(100dvh-64px)] w-full bg-[#070b14] overflow-x-hidden font-sans">
+    <div className="relative min-h-[calc(100dvh-64px)] w-full bg-black overflow-x-hidden font-sans">
       {/* Background glow effect */}
-      <div className="pointer-events-none absolute left-1/2 top-[-20%] h-[600px] w-[1000px] -translate-x-1/2 rounded-full bg-[#1e3a8a]/20 blur-[120px]" />
+      <div className="pointer-events-none absolute left-1/2 top-[-20%] h-[600px] w-[1000px] -translate-x-1/2 rounded-full bg-white/[0.06] blur-[120px]" />
       
       <div className="relative mx-auto w-full max-w-5xl px-4 py-8 lg:px-8 lg:py-10">
         

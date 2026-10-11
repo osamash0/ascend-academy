@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
-import { LunaAstronaut } from '../../../../learnstation-luna';
+import { MyLuna } from '@/features/avatar/MyLuna';
 import type { Profile } from '@/lib/auth';
 
 interface TourStep {
@@ -174,15 +174,7 @@ export function LunaDashboardTour({ profile, onDone }: LunaDashboardTourProps) {
           </button>
 
           <div className="flex items-start gap-3 pr-4">
-            <LunaAstronaut
-              variant="head"
-              phase="crescent"
-              size="sm"
-              animated
-              suitColor={profile?.luna_suit_color || undefined}
-              visorTint={profile?.luna_visor_tint || undefined}
-              patchImage={profile?.luna_patch || undefined}
-            />
+            <MyLuna size={64} />
             <div className="pt-1 space-y-1.5">
               <h3 className="text-base font-black leading-tight">
                 {t(`dashboard:tour.steps.${step.id}.title`)}

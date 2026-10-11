@@ -32,7 +32,7 @@ import { DuplicatePDFDialog, type DuplicateMatch } from '@/components/DuplicateP
 import { ParseCacheDialog } from '@/components/ParseCacheDialog';
 import { PDFPagePreview } from '@/components/PDFPagePreview';
 import { PDFLightbox } from '@/components/PDFLightbox';
-import { NebulaCloud } from '../../learnstation-luna';
+import { MyLuna } from '@/features/avatar/MyLuna';
 import { Document, pdfjs } from 'react-pdf';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -207,7 +207,7 @@ function EmptySlideState({ onAddSlide, onUploadPDF }: { onAddSlide: () => void; 
       className="flex flex-col items-center justify-center h-full min-h-[400px] text-center p-8"
     >
       <div className="mb-4 flex justify-center">
-        <NebulaCloud size="sm" />
+        <MyLuna variant="full" size={80} mood="curious" />
       </div>
       <h3 className="text-xl font-semibold text-foreground mb-2">{t('upload:empty.title')}</h3>
       <p className="text-muted-foreground max-w-sm mb-8">

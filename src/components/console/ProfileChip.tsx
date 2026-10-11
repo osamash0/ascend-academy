@@ -1,11 +1,15 @@
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, Settings, TrendingUp, LogOut, User } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, Settings, TrendingUp, LogOut, User, Shirt, MessageCircleQuestion, IdCard as IdCardIcon } from 'lucide-react';
+import { IdCardDialog } from '@/features/avatar/IdCardDialog';
+import { FEATURES } from '@/lib/featureFlags';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { StudentRoutes } from '@/lib/routes';
 import { RankRing } from '@/components/RankRing';
 import { rankForXp } from '@/lib/rank';
-import { LunaAstronaut } from '../../../learnstation-luna/components/LunaAstronaut';
+import { UserAvatar } from '@/features/avatar/UserAvatar';
 
 import {
   DropdownMenu,
@@ -29,6 +33,8 @@ interface ProfileChipProps {
 export function ProfileChip({ className }: ProfileChipProps) {
   const { profile, role, signOut } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation('avatar');
+  const [idOpen, setIdOpen] = useState(false);
   if (!profile) return null;
 
   const name = profile.display_name || profile.full_name || 'Player';
@@ -42,28 +48,16 @@ export function ProfileChip({ className }: ProfileChipProps) {
   const avatar = (
     <div className="relative h-11 w-11 shrink-0">
       <RankRing tier={tier} size="md">
-        <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[14px] bg-primary shadow-glow-primary">
-          {profile.avatar_url ? (
-            <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <LunaAstronaut
-              variant="head"
-              size="xs"
-              phase="full"
-              showShadow={false}
-              animated={false}
-              suitColor={profile.luna_suit_color || undefined}
-              visorTint={profile.luna_visor_tint || undefined}
-              patchImage={profile.luna_patch || undefined}
-            />
-          )}
+        <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[14px] bg-white/[0.06]">
+          <UserAvatar userId={profile.user_id} name={name} avatarUrl={profile.avatar_url} size={40} shape="rounded" className="h-full w-full" />
         </div>
       </RankRing>
     </div>
   );
 
   return (
-    <DropdownMenu>
+    <>
+      <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
           'group flex min-w-0 items-center gap-3 rounded-[16px] px-1.5 py-1 -mx-1.5 outline-none transition-all',
@@ -109,6 +103,22 @@ export function ProfileChip({ className }: ProfileChipProps) {
           <User className="mr-2 h-4 w-4" />
           Profile
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setIdOpen(true)}>
+          <IdCardIcon className="mr-2 h-4 w-4" />
+          {t('card.mine')}
+        </DropdownMenuItem>
+        {role === 'student' && (
+          <DropdownMenuItem onClick={() => navigate(StudentRoutes.AVATAR)}>
+            <Shirt className="mr-2 h-4 w-4" />
+            {t('menu')}
+          </DropdownMenuItem>
+        )}
+        {role === 'student' && FEATURES.askLuna && (
+          <DropdownMenuItem onClick={() => navigate(StudentRoutes.ASK_LUNA)}>
+            <MessageCircleQuestion className="mr-2 h-4 w-4" />
+            {t('askLuna:title')}
+          </DropdownMenuItem>
+        )}
         {role === 'student' && (
           <DropdownMenuItem onClick={() => navigate(StudentRoutes.ASCENT)}>
             <TrendingUp className="mr-2 h-4 w-4" />
@@ -128,6 +138,9 @@ export function ProfileChip({ className }: ProfileChipProps) {
           Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenu>
+      {/* Mounted outside the menu so it survives the menu closing. */}
+      <IdCardDialog open={idOpen} onOpenChange={setIdOpen} />
+    </>
   );
 }

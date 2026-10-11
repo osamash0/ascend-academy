@@ -221,5 +221,14 @@
     "ML_VL_04_Unsupervised_Learning": "ML_VL_04_Unsupervised_Learning",
     "Introduction_to_Databases_Presentation": "Introduction to Databases Presentation",
     "database_management_slides": "Database Management Slides"
+  },
+  "notFound": {
+    "question": "Where does this page live?",
+    "answer": "It isn’t in the deck.",
+    "turn": "Turn the card",
+    "title": "Nothing on this page.",
+    "lede": "The link may be old, or the page has moved. Everything else is right where you left it.",
+    "home": "Take me home",
+    "back": "Go back"
   }
 }

@@ -6,7 +6,8 @@ import { AlertTriangle, ChevronLeft, ChevronRight, Clock, RefreshCw, Send, Brain
 import { useGenerateExam, useExamAttempt, useSaveExamAnswer, useSubmitExam, getExamErrorMessage } from '@/features/student/hooks/useExamMode';
 import { DepthScene } from '@/components/console';
 import { toast } from 'sonner';
-import { PixelSpark, LunaLoader } from '../../learnstation-luna';
+import { MyLuna } from '@/features/avatar/MyLuna';
+import { LunaLoader } from '@/components/luna-loader';
 import { useAuth } from '@/lib/auth';
 import { StudentRoutes } from '@/lib/routes';
 import { recordOnboardingActivation, recordOnboardingEvent } from '@/services/onboardingService';
@@ -51,7 +52,7 @@ export function MockExamConfig() {
         className="glass-card max-w-md w-full p-8 rounded-[32px] border border-white/10 relative z-10 text-center"
       >
         <div className="mx-auto mb-2 flex justify-center">
-          <PixelSpark size="sm" />
+          <MyLuna variant="full" size={80} mood="focused" />
         </div>
 
         <h1 className="text-3xl font-black tracking-tight text-foreground mb-2">{t('generate.title')}</h1>

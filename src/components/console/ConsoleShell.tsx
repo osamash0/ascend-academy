@@ -13,7 +13,7 @@ interface ConsoleShellProps {
 }
 
 /**
- * Full-bleed console frame: the deep #070b14 base plus the ambient glow.
+ * Full-bleed console frame: the stage-black base plus the ambient glow.
  * Pages compose their content (and an optional top bar) inside it.
  */
 export function ConsoleShell({

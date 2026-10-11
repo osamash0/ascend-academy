@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { UserAvatar } from "@/features/avatar/UserAvatar";
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users,
@@ -367,8 +368,13 @@ export default function AdminDashboard() {
                             {users.map(u => (
                               <tr key={u.user_id} className="hover:bg-white/5">
                                 <td className="p-3">
-                                  <div className="font-medium text-white">{u.display_name || u.full_name || 'Anonymous'}</div>
-                                  <div className="text-xs text-slate-500">{u.email}</div>
+                                  <div className="flex items-center gap-3">
+                                    <UserAvatar userId={u.user_id} name={u.display_name || u.full_name || u.email} avatarUrl={u.avatar_url} size={32} />
+                                    <div className="min-w-0">
+                                      <div className="font-medium text-white">{u.display_name || u.full_name || 'Anonymous'}</div>
+                                      <div className="text-xs text-slate-500">{u.email}</div>
+                                    </div>
+                                  </div>
                                 </td>
                                 <td className="p-3">
                                   <div className="flex gap-1 flex-wrap">

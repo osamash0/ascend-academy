@@ -18,6 +18,8 @@ import enSearch from './locales/en/search.json';
 import enMyMaterials from './locales/en/myMaterials.json';
 import enGamification from './locales/en/gamification.json';
 import enOnboarding from './locales/en/onboarding.json';
+import enAvatar from './locales/en/avatar.json';
+import enAskLuna from './locales/en/askLuna.json';
 
 import deCommon from './locales/de/common.json';
 import deNav from './locales/de/nav.json';
@@ -35,6 +37,8 @@ import deSearch from './locales/de/search.json';
 import deMyMaterials from './locales/de/myMaterials.json';
 import deGamification from './locales/de/gamification.json';
 import deOnboarding from './locales/de/onboarding.json';
+import deAvatar from './locales/de/avatar.json';
+import deAskLuna from './locales/de/askLuna.json';
 
 export const SUPPORTED_LANGUAGES = ['en', 'de'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -59,6 +63,8 @@ const resources = {
     myMaterials: enMyMaterials,
     gamification: enGamification,
     onboarding: enOnboarding,
+    avatar: enAvatar,
+    askLuna: enAskLuna,
   },
   de: {
     common: deCommon,
@@ -77,6 +83,8 @@ const resources = {
     myMaterials: deMyMaterials,
     gamification: deGamification,
     onboarding: deOnboarding,
+    avatar: deAvatar,
+    askLuna: deAskLuna,
   },
 };
 
@@ -89,7 +97,7 @@ i18n
     supportedLngs: SUPPORTED_LANGUAGES as unknown as string[],
     nonExplicitSupportedLngs: true,
     load: 'languageOnly',
-    ns: ['common', 'nav', 'landing', 'auth', 'settings', 'dashboard', 'professor', 'upload', 'lecture', 'legal', 'review', 'exam', 'search', 'myMaterials', 'gamification', 'onboarding'],
+    ns: ['common', 'nav', 'landing', 'auth', 'settings', 'dashboard', 'professor', 'upload', 'lecture', 'legal', 'review', 'exam', 'search', 'myMaterials', 'gamification', 'onboarding', 'avatar', 'askLuna'],
     defaultNS: 'common',
     detection: {
       order: ['localStorage', 'navigator'],

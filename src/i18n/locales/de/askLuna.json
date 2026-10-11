@@ -1,0 +1,49 @@
+{
+  "title": "Frag Luna",
+  "subtitle": "Frag alles zu deinem Kurs. Luna antwortet mit Dingen zum Ausprobieren, nicht mit Textwänden.",
+  "placeholder": "Frag Luna zu deinem Kurs…",
+  "send": "Senden",
+  "fallback": "Da hab ich mich kurz verheddert. Kannst du es anders formulieren?",
+  "error": "Kurz kein Empfang. Nochmal versuchen?",
+  "empty": {
+    "title": "Worauf bist du neugierig?",
+    "body": "Ich antworte mit etwas zum Ausprobieren. Erst vorhersagen, dann bleibt es hängen."
+  },
+  "suggest": {
+    "join": "Wie funktioniert ein LEFT JOIN?",
+    "key": "Was macht einen guten Primärschlüssel aus?",
+    "open": "Warum normalisieren wir Tabellen?"
+  },
+  "react": {
+    "hello": "Hi! Frag mich alles zu deinem Kurs.",
+    "idle": "Lass dir Zeit. Ich bin da.",
+    "thinking": "Hmm, lass mich nachdenken…",
+    "correct": "Ja! Du hast es!",
+    "hint": "Ganz nah dran. Hier ein kleiner Schubs.",
+    "revealed": "Lass es uns zusammen anschauen. Das ist knifflig."
+  },
+  "join": {
+    "prompt": "Tippe jede Zeile an, die in einem {{type}} JOIN vorkommt.",
+    "check": "Vorhersage prüfen",
+    "checkAgain": "Nochmal prüfen",
+    "tapHint": "Tippe Zeilen in beiden Tabellen an.",
+    "hint": {
+      "INNER": "Bei einem INNER JOIN überleben nur Zeilen mit Partner auf der anderen Seite. Prüfe jeden Schlüssel.",
+      "LEFT": "Bei einem LEFT JOIN bleibt jede Zeile der linken Tabelle, auch ohne Partner.",
+      "RIGHT": "Bei einem RIGHT JOIN bleibt jede Zeile der rechten Tabelle, auch ohne Partner.",
+      "FULL": "Ein FULL JOIN behält alle, ob mit Partner oder ohne.",
+      "null": "Vorsicht: NULL passt zu nichts, nicht einmal zu einem anderen NULL."
+    },
+    "solved": "Genau richtig. Das Ergebnis hat {{count}} Zeilen:",
+    "revealed": "So sieht es aus: {{count}} Zeilen. Markiert sind die, die du übersehen hast.",
+    "explore": "Jetzt dreh am Regler:"
+  },
+  "check": {
+    "solved": "Genau.",
+    "revealed": "Die Antwort:"
+  },
+  "errors": {
+    "budget": "Ich habe diesen Monat viel nachgedacht und brauche eine Pause. Mit dem neuen Monat bin ich zurück. Lektionen und Quizze funktionieren wie immer.",
+    "rate": "Du fragst schneller, als ich denken kann! Gib mir eine Minute."
+  }
+}

@@ -134,6 +134,11 @@ class Settings(BaseSettings):
     # 20260711020000_study_guides.sql. Set FEATURE_STUDY_GUIDE=1 to enable.
     feature_study_guide: bool = Field(alias="FEATURE_STUDY_GUIDE", default=False)
 
+    # ─── Ask Luna (hint-first tutor with curated widgets) ───────────────────────
+    # Off by default — gates the /ask-luna router mount. Pair with the frontend
+    # VITE_FEATURE_ASK_LUNA. No migration needed. Set FEATURE_ASK_LUNA=1 to enable.
+    feature_ask_luna: bool = Field(alias="FEATURE_ASK_LUNA", default=False)
+
     # ─── learning_events retention (Roadmap Phase 5.4, "Retention & partitioning") ─
     # Disabled by default (0 = never archive/drop anything). Set to a positive
     # number of days to enable backend/scripts/learning_events_retention.py's

@@ -15,12 +15,12 @@ export const STEP = 268;
 
 /** Cover-art gradients, cycled per item so each tile feels distinct. */
 export const COVER_GRADIENTS = [
-  'from-slate-300/30 via-slate-500/20 to-slate-900',
-  'from-cyan-500/40 via-blue-600/30 to-slate-900',
-  'from-rose-500/40 via-pink-600/30 to-slate-900',
-  'from-amber-500/40 via-orange-600/30 to-slate-900',
-  'from-emerald-500/40 via-teal-600/30 to-slate-900',
-  'from-lime-400/35 via-green-600/25 to-slate-900',
+  'from-slate-300/30 via-slate-500/20 to-black',
+  'from-cyan-500/40 via-blue-600/30 to-black',
+  'from-rose-500/40 via-pink-600/30 to-black',
+  'from-amber-500/40 via-orange-600/30 to-black',
+  'from-emerald-500/40 via-teal-600/30 to-black',
+  'from-lime-400/35 via-green-600/25 to-black',
 ];
 
 /** Ambient page-glow color keyed to a status. */

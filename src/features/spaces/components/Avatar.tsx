@@ -1,4 +1,6 @@
-import { LunaAstronaut } from '../../../../learnstation-luna';
+import { LunaAvatar } from '@/features/avatar/LunaAvatar';
+import type { Loadout } from '@/features/avatar/types';
+import { useViewerLoadout } from '@/features/avatar/viewerLoadout';
 import { cn } from '@/lib/utils';
 import type { Person } from '../types';
 
@@ -10,11 +12,10 @@ import type { Person } from '../types';
  * call sites drawing their own initials is how the same person ends up with
  * two faces.
  *
- * Luna is the product's existing astronaut (`learnstation-luna`), personalised
- * by `profiles.luna_suit_color / luna_visor_tint / luna_patch` — all fields the
- * auth profile already carries. Nothing new is invented here: the old product
- * renders exactly this in its ProfileChip, and this imports it by the same
- * path rather than building a second avatar system.
+ * Luna is drawn by the app-wide avatar renderer (`features/avatar/LunaAvatar`,
+ * pure SVG) from the viewer's loadout — the same face the rest of the product
+ * shows via `UserAvatar`. This namespace is sealed from auth and data, so it
+ * takes the loadout as a prop instead of looking it up.
  *
  * **Everyone gets a Luna** (2026-10-10, Abi: "connect the owner avatar
  * system"). Before, only the viewer had one, so an Owner byline, a member list
@@ -26,9 +27,13 @@ import type { Person } from '../types';
  * `initials` remains only for a nameless edge case; it is never a face.
  */
 
-/** Suits and visors a person can be given before they choose their own. */
-const SUITS = ['#FFF8E7', '#E6E9EE', '#D8F3E6', '#DCEFF7', '#FBE3D2', '#F3E9C9', '#F7DCE3'];
-const VISORS = ['#88B0B5', '#7FA7C9', '#9BB89A', '#C9A27F', '#8E9AAF'];
+/**
+ * Free catalog items a person can be given before they choose their own —
+ * never the purple-leaning ones (lavender, violet, mauve): the brand is
+ * monochrome. Ids from `features/avatar/catalog`.
+ */
+const SUITS = ['suit-moonlight', 'suit-mint', 'suit-blush', 'suit-tide'];
+const VISORS = ['visor-teal', 'visor-rose', 'visor-amber', 'visor-tide'];
 
 const hash = (s: string) => {
   let h = 0;
@@ -37,30 +42,32 @@ const hash = (s: string) => {
 };
 
 /** The Luna a person has until they personalise one. Same id, same astronaut. */
-export function lunaFor(id: string) {
+export function lunaFor(id: string): Partial<Loadout> {
   const h = hash(id);
-  return { suitColor: SUITS[h % SUITS.length], visorTint: VISORS[Math.floor(h / SUITS.length) % VISORS.length] };
+  return { suit: SUITS[h % SUITS.length], visor: VISORS[Math.floor(h / SUITS.length) % VISORS.length] };
 }
 
 const SIZE = {
-  xs: { box: 'h-5 w-5', text: 'text-[9px]', luna: 'xs' as const },
-  sm: { box: 'h-7 w-7', text: 'text-[10px]', luna: 'xs' as const },
-  md: { box: 'h-9 w-9', text: 'text-[12px]', luna: 'xs' as const },
-  lg: { box: 'h-11 w-11', text: 'text-[13px]', luna: 'sm' as const },
-  xl: { box: 'h-20 w-20', text: 'text-[24px]', luna: 'md' as const },
+  xs: { box: 'h-5 w-5', text: 'text-[9px]', px: 20 },
+  sm: { box: 'h-7 w-7', text: 'text-[10px]', px: 28 },
+  md: { box: 'h-9 w-9', text: 'text-[12px]', px: 36 },
+  lg: { box: 'h-11 w-11', text: 'text-[13px]', px: 44 },
+  xl: { box: 'h-20 w-20', text: 'text-[24px]', px: 80 },
 };
 
 export interface AvatarProps {
   person: Person;
   size?: keyof typeof SIZE;
-  /** Luna personalisation, straight off the auth profile. */
-  luna?: { suitColor?: string; visorTint?: string; patch?: string };
-  /** True for the signed-in viewer, whose Luna is their own personalised one. */
+  /** The viewer's Luna loadout; defaults to Luna as she ships. */
+  loadout?: Partial<Loadout>;
+  /** True for the signed-in viewer, whose Luna is their own loadout. */
   isViewer?: boolean;
   className?: string;
 }
 
-export function Avatar({ person, size = 'md', luna, isViewer, className }: AvatarProps) {
+export function Avatar({ person, size = 'md', loadout, isViewer, className }: AvatarProps) {
+  // The viewer wears their real Luna (filled by App from outside the sealed namespace).
+  const viewerLoadout = useViewerLoadout();
   const s = SIZE[size];
 
   const initials = person.name
@@ -86,25 +93,22 @@ export function Avatar({ person, size = 'md', luna, isViewer, className }: Avata
 
   // 2. Luna — the viewer's own, or the one this person was given.
   if (person.name) {
-    const suit = isViewer ? luna : { ...lunaFor(person.id), ...luna };
+    const lo = isViewer ? (loadout ?? viewerLoadout) : lunaFor(person.id);
     return (
       <span
         aria-hidden
         className={cn(
           s.box,
-          'flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/[0.08] ring-1 ring-white/10',
+          'flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/[0.06]',
           className,
         )}
       >
-        <LunaAstronaut
+        <LunaAvatar
           variant="head"
-          size={s.luna}
-          phase="full"
-          showShadow={false}
+          size={s.px}
           animated={false}
-          suitColor={suit?.suitColor}
-          visorTint={suit?.visorTint}
-          patchImage={suit?.patch}
+          loadout={{ ...lo, aura: 'aura-none', companion: 'companion-none' }}
+          className="h-full w-full"
         />
       </span>
     );

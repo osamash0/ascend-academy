@@ -48,7 +48,7 @@ import { getStats as getReviewStats } from '@/services/reviewService';
 import { listMaterials } from '@/services/myMaterialsService';
 import { FEATURES } from '@/lib/featureFlags';
 import { getTimeOfDayPeriod } from '@/lib/greeting';
-import { LunaAstronaut } from '../../learnstation-luna';
+import { MyLuna } from '@/features/avatar/MyLuna';
 
 export default function StudentDashboard() {
   const { user, profile } = useAuth();
@@ -541,14 +541,7 @@ export default function StudentDashboard() {
           {/* Socratic AI Tutor Invite */}
           <div className="ai-tutor-invite p-4 rounded-2xl glass-card border border-primary/20 shadow-glow-primary bg-primary/5">
             <div className="flex items-center gap-4">
-              <LunaAstronaut
-                phase="crescent"
-                size="sm"
-                animated
-                suitColor={profile?.luna_suit_color || undefined}
-                visorTint={profile?.luna_visor_tint || undefined}
-                patchImage={profile?.luna_patch || undefined}
-              />
+              <MyLuna variant="full" size={80} mood="curious" />
               <div>
                 <p className="font-bold text-foreground text-lg">Ready to explore?</p>
                 <p className="text-muted-foreground text-sm">Upload your first lecture PDF</p>
