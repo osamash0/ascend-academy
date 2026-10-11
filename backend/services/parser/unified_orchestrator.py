@@ -49,6 +49,12 @@ from backend.core.config import settings
 from backend.core.database import supabase_admin
 from backend.core.job_locks import acquire_job_lock, parse_lock_key, release_job_lock
 from backend.domain.parse_models import RunStatus
+from backend.services.ai.call_context import (
+    ServedCall,
+    llm_call_scope,
+    pop_llm_call_context,
+    push_llm_call_context,
+)
 from backend.services.parser import repos, persist, poster
 from backend.services.parser.storage import _fetch_pdf_bytes
 
@@ -169,6 +175,17 @@ async def _synthesize_slide(
         return {"title": "", "content": text, "summary": "", "slide_type": "image-only", "vision_routed": True}
 
 
+async def _synthesize_slide_scoped(
+    idx: int, text: str, lecture_context: str, ai_model: str, pdf_bytes: bytes,
+    source_language: str, *, prompt_name: str,
+) -> Dict[str, Any]:
+    """_synthesize_slide inside this slide's LLM call scope (Arc 7). Entered
+    INSIDE the coroutine: asyncio.gather copies the context when it creates
+    each task, so a scope around the gather would tag every slide the same."""
+    with llm_call_scope(slide_indices=(idx,), prompt_name=prompt_name):
+        return await _synthesize_slide(idx, text, lecture_context, ai_model, pdf_bytes, source_language)
+
+
 async def _synthesize_text_slides_individually(
     text_items: List[tuple[int, str]],
     lecture_context: str,
@@ -190,7 +207,8 @@ async def _synthesize_text_slides_individually(
         return f"{lecture_context}\n\nThe professor gave this instruction for this slide — honor it: {instr}"
 
     results = await asyncio.gather(
-        *[_synthesize_slide(idx, text, _ctx(idx), ai_model, pdf_bytes, source_language)
+        *[_synthesize_slide_scoped(idx, text, _ctx(idx), ai_model, pdf_bytes, source_language,
+                                   prompt_name=_ROUTE_PROMPTS["per_slide"])
           for idx, text in text_items],
         return_exceptions=True,
     )
@@ -242,10 +260,14 @@ async def _synthesize_text_slide_batch(
     ]
     blueprint = {"overall_summary": lecture_context[:1500]} if lecture_context else None
     try:
-        raw_results = await batch_analyze_text_slides(
-            slides_input, ai_model=ai_model, blueprint=blueprint,
-            source_language=source_language,
-        )
+        with llm_call_scope(
+            slide_indices=tuple(idx for idx, _ in text_items),
+            prompt_name=_ROUTE_PROMPTS["batch"],
+        ):
+            raw_results = await batch_analyze_text_slides(
+                slides_input, ai_model=ai_model, blueprint=blueprint,
+                source_language=source_language,
+            )
     except Exception as exc:
         logger.warning(
             "Batch synthesis failed for %d slide(s) starting at index %s (%s) — "
@@ -601,6 +623,10 @@ async def parse_pdf_unified(
     created_lecture_id: Optional[UUID] = None
     slide_db_ids: Dict[int, UUID] = {}
     deck_summary = ""
+    # Arc 7: metered LLM calls of THIS attempt (a forced re-parse reuses the
+    # run_id, so the list, not llm_calls, scopes the receipt to one attempt).
+    served_calls: List[ServedCall] = []
+    llm_ctx_token = None
 
     # In-flight dedupe lock (Roadmap P2-3). Prefer the worker's own Arq redis
     # pool (`ctx["redis"]`, queue Redis) so a real job needs no extra
@@ -624,6 +650,7 @@ async def parse_pdf_unified(
             filename=filename,
         )
         run_uuid = run.run_id
+        llm_ctx_token = push_llm_call_context(run_id=str(run_uuid), calls=served_calls)
         existing_lecture_id = run.lecture_id  # set by a prior (partial) attempt
 
         # ── Idempotent replay: a completed run never re-parses ───────────────
@@ -722,10 +749,11 @@ async def parse_pdf_unified(
         if ai_mode:
             from backend.services.parser.synthesis import analyze_lecture_meta
             try:
-                meta = await analyze_lecture_meta(
-                    raw_slides, ai_model, course_context_hint=course_context_hint,
-                    source_language=source_language, skeleton=skeleton,
-                )
+                with llm_call_scope(prompt_name="LECTURE_META_ANALYSIS_PROMPT"):
+                    meta = await analyze_lecture_meta(
+                        raw_slides, ai_model, course_context_hint=course_context_hint,
+                        source_language=source_language, skeleton=skeleton,
+                    )
             except Exception as exc:
                 logger.warning("lecture meta failed (non-fatal): %s", exc)
                 meta = {}
@@ -856,9 +884,9 @@ async def parse_pdf_unified(
                     ))
                 if vision_idxs:
                     vision_results = await asyncio.gather(*[
-                        _synthesize_slide(
+                        _synthesize_slide_scoped(
                             i, raw_slides[i], _ctx_with_instruction(i), ai_model, pdf_bytes,
-                            source_language,
+                            source_language, prompt_name=_ROUTE_PROMPTS["vision"],
                         )
                         for i in vision_idxs
                     ], return_exceptions=True)
@@ -978,12 +1006,13 @@ async def parse_pdf_unified(
             await emit("progress", {"current": total, "total": total, "message": "Generating quiz…"})
             from backend.services.parser.synthesis import generate_quiz_questions, _map_deck_quiz
             try:
-                deck_quiz = _map_deck_quiz(
-                    await generate_quiz_questions(
-                        raw_slides, lecture_title, ai_model, source_language, skeleton=skeleton,
-                        stats=quiz_stats,
+                with llm_call_scope(prompt_name="SYNTHESIS_DECK_QUIZ_PROMPT"):
+                    deck_quiz = _map_deck_quiz(
+                        await generate_quiz_questions(
+                            raw_slides, lecture_title, ai_model, source_language, skeleton=skeleton,
+                            stats=quiz_stats,
+                        )
                     )
-                )
             except Exception as exc:
                 logger.warning("deck quiz failed (non-fatal): %s", exc)
                 deck_quiz = []
@@ -1198,6 +1227,8 @@ async def parse_pdf_unified(
         # — `raise` here re-raises the exact exception object either way.
         raise
     finally:
+        if llm_ctx_token is not None:
+            pop_llm_call_context(llm_ctx_token)
         if got_lock:
             await release_job_lock(lock_redis, lock_key)
         if owns_lock_conn and lock_redis is not None:

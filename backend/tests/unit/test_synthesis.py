@@ -645,3 +645,22 @@ async def test_flag_survives_mapping(llm):
     mapped = synthesis._map_deck_quiz(await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq"))
     assert mapped[0]["grounding_flag"] == "low_support"
     assert "grounding_flag" not in mapped[1]
+
+
+async def test_repair_call_is_scoped_to_its_cited_slide(monkeypatch):
+    from backend.services.ai.call_context import current_llm_call_context, llm_call_scope
+    from backend.services.parser.deck_plan import build_deck_skeleton
+
+    seen = {}
+
+    async def fake(prompt, ai_model=None):
+        c = current_llm_call_context()
+        seen["ctx"] = (c.run_id, c.slide_indices, c.prompt_name)
+        return json.dumps({"question": "q"})
+
+    monkeypatch.setattr(synthesis, "generate_text_bulk", fake)
+    sk = build_deck_skeleton(["alpha slide text", "bravo slide text", "charlie slide text"])
+    with llm_call_scope(run_id="run-1", prompt_name="SYNTHESIS_DECK_QUIZ_PROMPT"):
+        out = await synthesis._repair_question({"concept": "c"}, 3, sk, "Graphs", "groq", "en")
+    assert out["source_slide"] == 3
+    assert seen["ctx"] == ("run-1", (2,), "SYNTHESIS_QUIZ_REPAIR_PROMPT")

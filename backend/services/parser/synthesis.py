@@ -18,6 +18,7 @@ import json
 import logging
 from typing import Any, Dict, List
 
+from backend.services.ai.call_context import llm_call_scope
 from backend.services.ai.orchestrator import (
     generate_text_bulk,
     generate_text,
@@ -184,7 +185,9 @@ async def _repair_question(
         output_language=_output_language(source_language),
     )
     try:
-        raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
+        with llm_call_scope(prompt_name="SYNTHESIS_QUIZ_REPAIR_PROMPT",
+                            slide_indices=(slide_number - 1,)):
+            raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
     except Exception as exc:
         logger.warning("deck quiz repair failed (non-fatal): %s", exc)
         return None

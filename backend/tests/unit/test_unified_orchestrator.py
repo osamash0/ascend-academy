@@ -1490,3 +1490,110 @@ def test_prompt_versions_follow_the_input_contract_policy():
     # Shared with raw-text callers (file_parse_service, slide_synth_service): not
     # bumped; slide_provenance[].input_text says what each slide received.
     assert PROMPT_VERSIONS["BATCH_SLIDE_PROMPT"] == "v3"
+
+
+# ── Arc 7: LLM call context ──────────────────────────────────────────────────
+
+async def test_each_parse_llm_call_runs_inside_its_scope(monkeypatch):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    import backend.services.parser.synthesis as synthesis
+    from backend.services.ai.call_context import current_llm_call_context
+
+    rec, run = _patch_common(monkeypatch, pages=[LONG_A, LONG_B, ""])
+    seen = {}
+
+    def snap(key):
+        c = current_llm_call_context()
+        seen[key] = (c.run_id, c.slide_indices, c.prompt_name, c.calls is not None)
+
+    async def batch(slides_input, ai_model="cerebras", blueprint=None, **_kw):
+        snap("batch")
+        return [{"index": s["index"], "title": "T", "summary": "S", "slide_type": "text"}
+                for s in slides_input]
+
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+        snap(f"slide{idx}")
+        return {"title": "T", "content": text, "summary": "S", "slide_type": "text", "vision_routed": True}
+
+    async def meta(slides, model, course_context_hint="", source_language="en", skeleton=None):
+        snap("meta")
+        return {"title": "L", "summary": "D"}
+
+    async def quiz(slides, title, model, source_language="en", skeleton=None, stats=None):
+        snap("quiz")
+        return []
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", batch)
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    monkeypatch.setattr(synthesis, "analyze_lecture_meta", meta)
+    monkeypatch.setattr(synthesis, "generate_quiz_questions", quiz)
+    await _run("h", OWNER, filename="Deck.pdf")
+
+    rid = str(run.run_id)
+    assert seen["meta"] == (rid, None, "LECTURE_META_ANALYSIS_PROMPT", True)
+    assert seen["batch"] == (rid, (0, 1), "BATCH_SLIDE_PROMPT", True)
+    assert seen["slide2"] == (rid, (2,), "SLIDE_VISION_PROMPT", True)
+    assert seen["quiz"] == (rid, None, "SYNTHESIS_DECK_QUIZ_PROMPT", True)
+    assert current_llm_call_context().run_id is None  # reset after the parse
+
+
+async def test_per_slide_fallback_calls_are_scoped_to_their_own_slide(monkeypatch):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    from backend.services.ai.call_context import current_llm_call_context
+
+    rec, run = _patch_common(monkeypatch, pages=[LONG_A, LONG_B])
+
+    async def failing_batch(*_a, **_k):
+        raise RuntimeError("batch provider down")
+
+    seen = {}
+
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+        await asyncio.sleep(0)  # interleave the gathered tasks
+        c = current_llm_call_context()
+        seen[idx] = (c.slide_indices, c.prompt_name)
+        return {"title": "T", "content": text, "summary": "S", "slide_type": "text"}
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", failing_batch)
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    await _run("h", OWNER, filename="Deck.pdf")
+    assert seen == {0: ((0,), "SLIDE_ANALYSIS_PROMPT"), 1: ((1,), "SLIDE_ANALYSIS_PROMPT")}
+
+
+async def test_call_context_is_reset_when_the_parse_fails(monkeypatch):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    from backend.services.ai.call_context import current_llm_call_context
+
+    rec, run = _patch_common(monkeypatch, pages=_long_pages(40))
+
+    class _StarvedRotator:
+        def remaining_headroom(self, chain):
+            return 3
+
+    monkeypatch.setattr(ai_orchestrator, "get_rotator", lambda: _StarvedRotator())
+    with pytest.raises(uo.InsufficientHeadroomError):
+        await _run("h", OWNER)
+    assert current_llm_call_context() == type(current_llm_call_context())()
+
+
+async def test_each_parse_attempt_and_concurrent_parse_gets_its_own_calls_list(monkeypatch):
+    """A re-parse must not inherit the previous attempt's calls, and two parses
+    running at once must never share a list."""
+    import backend.services.ai.orchestrator as ai_orchestrator
+    from backend.services.ai.call_context import current_llm_call_context
+
+    _patch_common(monkeypatch, pages=[LONG_A, LONG_B])
+    lists = []
+
+    async def batch(slides_input, ai_model="cerebras", blueprint=None, **_kw):
+        await asyncio.sleep(0)  # let the concurrent parse interleave
+        lists.append(current_llm_call_context().calls)
+        return [{"index": s["index"], "title": "T", "summary": "S", "slide_type": "text"}
+                for s in slides_input]
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", batch)
+    await asyncio.gather(_run("h1", OWNER, filename="A.pdf"), _run("h2", OWNER, filename="B.pdf"))
+    await _run("h3", OWNER, filename="C.pdf")
+    assert len(lists) == 3
+    assert all(l is not None for l in lists)
+    assert len({id(l) for l in lists}) == 3
