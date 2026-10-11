@@ -271,6 +271,7 @@ async def _synthesize_text_slide_batch(
             "summary": (item.get("summary") or "").strip(),
             "slide_type": item.get("slide_type") or "text",
             "vision_routed": False,
+            "route": "batch",
         }
     if missing:
         # The batch response omitted individual slides (rare) — per-slide
@@ -309,6 +310,84 @@ def _review_flag_for(
     if not raw_title or not raw_summary:
         return True, "empty_content"
     return False, None
+
+
+# Arc 5 parse receipts: which prompt each synthesis route renders.
+_ROUTE_PROMPTS: Dict[str, str] = {
+    "batch": "BATCH_SLIDE_PROMPT",
+    "per_slide": "SLIDE_ANALYSIS_PROMPT",
+    "vision": "SLIDE_VISION_PROMPT",
+}
+
+
+def _slide_route(*, ai_mode: bool, is_vision: bool, res: Any) -> str:
+    """How one slide was synthesized. Only the batch helper tags its results;
+    a text slide without that tag went through the per-slide fallback."""
+    if not ai_mode:
+        return "heuristic"
+    if is_vision:
+        return "vision"
+    if isinstance(res, dict) and res.get("route") == "batch":
+        return "batch"
+    return "per_slide"
+
+
+def _provenance_entry(
+    index: int,
+    route: str,
+    *,
+    ai_model: str,
+    synthesis_failed: bool,
+    needs_review: bool,
+    review_reason: Optional[str],
+) -> Dict[str, Any]:
+    """One slide's receipt line. ``requested_model`` is the model the parse
+    asked for (head of the provider chain); the provider that actually served
+    the call is not threaded back per slide yet, so it is not recorded."""
+    from backend.services.ai.prompts import get_prompt_version
+
+    prompt = _ROUTE_PROMPTS.get(route)
+    if route == "heuristic":
+        model = None
+    elif route == "vision":
+        model = settings.vision_model
+    else:
+        model = ai_model
+    return {
+        "index": index,
+        "route": route,
+        "prompt": prompt,
+        "prompt_version": get_prompt_version(prompt) if prompt else None,
+        "requested_model": model,
+        "synthesis_failed": synthesis_failed,
+        "needs_review": needs_review,
+        "review_reason": review_reason,
+    }
+
+
+async def _write_parse_receipt(
+    run_id: UUID,
+    lecture_id: UUID,
+    *,
+    skeleton: Any,
+    slide_provenance: List[Dict[str, Any]],
+    quiz_grounding: Optional[Dict[str, Any]],
+) -> None:
+    """Arc 5: persist what this parse saw and decided, for the professor.
+    A receipt is diagnostics, so failing to write one is logged and never
+    fails a parse that otherwise succeeded."""
+    try:
+        from backend.services.parser.deck_plan import skeleton_receipt
+
+        await repos.save_parse_receipt(
+            run_id,
+            lecture_id,
+            deck_skeleton=skeleton_receipt(skeleton) if skeleton is not None else None,
+            slide_provenance=slide_provenance,
+            quiz_grounding=quiz_grounding,
+        )
+    except Exception as exc:
+        logger.warning("parse receipt write failed (non-fatal) run=%s: %s", run_id, exc, exc_info=True)
 
 
 async def _attach_completed_blueprint_material(run_id: UUID, lecture_id: UUID) -> None:
@@ -696,6 +775,7 @@ async def parse_pdf_unified(
         # below, which would otherwise race the writes it is meant to patch.
         embed_tasks: List[asyncio.Task] = []
         previous_narrative = ""
+        slide_provenance: List[Dict[str, Any]] = []
 
         # Roadmap Phase 3 (course brain): collect administrative-slide text
         # during the loop so it can feed one combined syllabus-fact extraction
@@ -714,6 +794,7 @@ async def parse_pdf_unified(
                 "message": (f"Analyzing slides {chunk_start + 1}–{chunk_end}/{total}…"
                             if ai_mode else f"Importing slides {chunk_start + 1}–{chunk_end}/{total}…"),
             })
+            vision_idx_set: set = set()
             if ai_mode:
                 def _ctx_with_instruction(i: int) -> str:
                     instr = carried_instructions.get(i)
@@ -732,6 +813,7 @@ async def parse_pdf_unified(
                     if len((raw_slides[i] or "").strip()) >= _MIN_TEXT_FOR_SYNTH
                 ]
                 vision_idxs = [i for i in chunk_idxs if i not in text_idxs]
+                vision_idx_set = set(vision_idxs)
 
                 results_map: Dict[int, Any] = {}
                 if text_idxs:
@@ -768,6 +850,7 @@ async def parse_pdf_unified(
 
             for rel, res in enumerate(results):
                 i = chunk_start + rel
+                route = _slide_route(ai_mode=ai_mode, is_vision=i in vision_idx_set, res=res)
                 synthesis_failed = isinstance(res, Exception) or not isinstance(res, dict)
                 if synthesis_failed:
                     logger.error("slide %d synthesis failed: %s", i, res)
@@ -786,6 +869,10 @@ async def parse_pdf_unified(
                     if ai_mode
                     else (False, None)
                 )
+                slide_provenance.append(_provenance_entry(
+                    i, route, ai_model=ai_model, synthesis_failed=synthesis_failed,
+                    needs_review=needs_review, review_reason=review_reason,
+                ))
                 ui_slide = {
                     "title": title,
                     "content": res.get("content", raw_slides[i]) or "",
@@ -853,6 +940,7 @@ async def parse_pdf_unified(
 
         # ── 5. Deck-level quiz (AI mode only) ────────────────────────────────
         deck_quiz = []
+        quiz_stats: Dict[str, Any] = {}
         if ai_mode:
             await emit("progress", {"current": total, "total": total, "message": "Generating quiz…"})
             from backend.services.parser.synthesis import generate_quiz_questions, _map_deck_quiz
@@ -860,6 +948,7 @@ async def parse_pdf_unified(
                 deck_quiz = _map_deck_quiz(
                     await generate_quiz_questions(
                         raw_slides, lecture_title, ai_model, source_language, skeleton=skeleton,
+                        stats=quiz_stats,
                     )
                 )
             except Exception as exc:
@@ -892,6 +981,12 @@ async def parse_pdf_unified(
             except Exception as exc:
                 logger.error("deck/finalize persist failed: %s", exc)
                 raise
+            await _write_parse_receipt(
+                run_uuid, created_lecture_id,
+                skeleton=skeleton,
+                slide_provenance=slide_provenance,
+                quiz_grounding=quiz_stats or None,
+            )
             # A reader locale is only published as an atomic snapshot of the
             # canonical source revision — never a partial translation. But a
             # provider-side failure must not throw away a deck that parsed

@@ -19,6 +19,9 @@ from backend.domain.parse_models import RunStatus
 from backend.services.parser import persist, unified_orchestrator as uo
 
 OWNER = "11111111-1111-1111-1111-111111111111"
+QUIZ_STATS = {"proposed": 2, "kept": 1, "repaired": 0, "dropped": 1, "drop_reasons": {"no_source": 1}}
+LONG_A = "Breadth-first search visits every vertex level by level from the source."
+LONG_B = "Depth-first search follows one branch to its end before it backtracks."
 
 
 def test_clean_title_strips_path_and_extension():
@@ -276,6 +279,12 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     async def finalize_lecture(lid, desc, total):
         rec["finalize"].append((desc, total))
 
+    async def save_parse_receipt(run_id, lecture_id, *, deck_skeleton, slide_provenance, quiz_grounding):
+        rec.setdefault("receipts", []).append({
+            "run_id": run_id, "lecture_id": lecture_id, "deck_skeleton": deck_skeleton,
+            "slide_provenance": slide_provenance, "quiz_grounding": quiz_grounding,
+        })
+
     monkeypatch.setattr(uo.repos, "get_or_create_run", get_or_create_run)
     monkeypatch.setattr(uo.repos, "set_status", set_status)
     monkeypatch.setattr(uo.repos, "set_error", set_error)
@@ -296,6 +305,7 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     monkeypatch.setattr(persist, "insert_slide_quizzes", insert_slide_quizzes)
     monkeypatch.setattr(persist, "insert_deck_quizzes", insert_deck_quizzes)
     monkeypatch.setattr(persist, "finalize_lecture", finalize_lecture)
+    monkeypatch.setattr(uo.repos, "save_parse_receipt", save_parse_receipt)
 
     import backend.services.parser.synthesis as synthesis
     import backend.services.file_parse_service as fps
@@ -309,7 +319,9 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     async def meta(slides, model, course_context_hint="", source_language="en", skeleton=None):
         return {"title": "DB Lecture", "summary": "Deck summary.", "keyTopics": ["Gradient Descent", "Loss Functions"]}
 
-    async def quiz(slides, title, model, source_language="en", skeleton=None):
+    async def quiz(slides, title, model, source_language="en", skeleton=None, stats=None):
+        if stats is not None:
+            stats.update(QUIZ_STATS)
         return [{"question": "dq", "options": ["a", "b", "c", "d"], "correctAnswer": "a", "slideId": 1}]
 
     async def localize_lecture(lecture_id, ai_model):
@@ -1289,3 +1301,102 @@ def test_batch_slide_prompt_labels_slide_text_as_data_not_instructions():
     from backend.services.ai.prompts import BATCH_SLIDE_PROMPT
 
     assert "not instructions to you" in BATCH_SLIDE_PROMPT
+
+
+# ── Arc 5: parse receipt ─────────────────────────────────────────────────────
+
+async def test_parse_pdf_unified_writes_a_parse_receipt(monkeypatch):
+    rec, run = _patch_common(monkeypatch)
+    await _run("h", OWNER, filename="My Deck.pdf")
+    (receipt,) = rec["receipts"]
+    assert receipt["run_id"] == run.run_id
+    assert receipt["lecture_id"] == rec["lectures"][0][2]
+    assert [s["index"] for s in receipt["deck_skeleton"]["slides"]] == [0, 1, 2]
+    assert receipt["deck_skeleton"]["slides"][0]["role"] == "title"
+    assert [p["index"] for p in receipt["slide_provenance"]] == [0, 1, 2]
+    assert receipt["quiz_grounding"] == QUIZ_STATS
+
+
+async def test_receipt_provenance_records_batch_and_vision_routes(monkeypatch):
+    from backend.services.ai.prompts import PROMPT_VERSIONS
+    rec, run = _patch_common(monkeypatch, pages=[LONG_A, LONG_B, ""])
+    await _run("h", OWNER, filename="Deck.pdf", ai_model="groq")
+    prov = rec["receipts"][0]["slide_provenance"]
+    assert prov[0] == {
+        "index": 0, "route": "batch", "prompt": "BATCH_SLIDE_PROMPT",
+        "prompt_version": PROMPT_VERSIONS["BATCH_SLIDE_PROMPT"], "requested_model": "groq",
+        "synthesis_failed": False, "needs_review": False, "review_reason": None,
+    }
+    assert prov[1]["route"] == "batch"
+    assert prov[2]["route"] == "vision"
+    assert prov[2]["prompt"] == "SLIDE_VISION_PROMPT"
+    assert prov[2]["requested_model"] == uo.settings.vision_model
+
+
+async def test_receipt_marks_per_slide_fallback_when_batch_fails(monkeypatch):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    rec, run = _patch_common(monkeypatch, pages=[LONG_A, LONG_B])
+
+    async def failing_batch(*_a, **_k):
+        raise RuntimeError("batch provider down")
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", failing_batch)
+    await _run("h", OWNER, filename="Deck.pdf")
+    prov = rec["receipts"][0]["slide_provenance"]
+    assert [p["route"] for p in prov] == ["per_slide", "per_slide"]
+    assert prov[0]["prompt"] == "SLIDE_ANALYSIS_PROMPT"
+
+
+async def test_receipt_flags_a_failed_slide(monkeypatch):
+    rec, run = _patch_common(monkeypatch)
+
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+        if idx == 1:
+            raise RuntimeError("provider exploded")
+        return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text"}
+
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    await _run("h", OWNER, filename="Deck.pdf")
+    prov = rec["receipts"][0]["slide_provenance"]
+    assert prov[1]["synthesis_failed"] is True and prov[1]["needs_review"] is True
+    assert prov[0]["synthesis_failed"] is False
+
+
+async def test_on_demand_receipt_is_heuristic_with_no_quiz_grounding(monkeypatch):
+    rec, run = _patch_common(monkeypatch, pages=["raw text 0", "raw text 1"])
+    await _run("h", OWNER, filename="Deck.pdf", parsing_mode="on_demand")
+    (receipt,) = rec["receipts"]
+    assert [p["route"] for p in receipt["slide_provenance"]] == ["heuristic", "heuristic"]
+    assert receipt["slide_provenance"][0]["prompt"] is None
+    assert receipt["slide_provenance"][0]["prompt_version"] is None
+    assert receipt["slide_provenance"][0]["requested_model"] is None
+    assert receipt["quiz_grounding"] is None
+
+
+async def test_receipt_written_without_skeleton_when_skeleton_fails(monkeypatch):
+    rec, run = _patch_common(monkeypatch)
+
+    def boom(pages):
+        raise RuntimeError("skeleton exploded")
+
+    monkeypatch.setattr("backend.services.parser.deck_plan.build_deck_skeleton", boom)
+    await _run("h", OWNER, filename="Deck.pdf")
+    (receipt,) = rec["receipts"]
+    assert receipt["deck_skeleton"] is None
+    assert len(receipt["slide_provenance"]) == 3
+
+
+async def test_receipt_write_failure_never_fails_the_parse(monkeypatch, caplog):
+    import logging
+    rec, run = _patch_common(monkeypatch)
+
+    async def boom(*_a, **_k):
+        raise RuntimeError("parse_receipts table missing")
+
+    monkeypatch.setattr(uo.repos, "save_parse_receipt", boom)
+    caplog.set_level(logging.WARNING, logger=uo.logger.name)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+    assert events[-1][0] == "complete"
+    assert RunStatus.COMPLETED in rec["status"]
+    assert rec["errors"] == []
+    assert "parse receipt write failed" in caplog.text
