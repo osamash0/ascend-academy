@@ -20,17 +20,16 @@ import { MorphSwitch } from '../studio/components/MorphSwitch';
 import { PageRail } from '../studio/components/PageRail';
 import { PagerPill } from '../studio/components/PagerPill';
 import { PeekSlot } from '../studio/components/Peek';
+import { RecallFooter } from '../studio/components/RecallFooter';
 import { hasSource, includeSourceBlock, insertAnswer, removeBlock, resolveAnchor, restoreBlock } from '../studio/edit';
 import { groupByPage, pagesInView, pickAnchorPage, regionForBlock } from '../studio/geometry';
 import { FLIGHT_EASE, FLIGHT_S, PAGE_ENTER_S } from '../studio/motion';
 import type { ShelfItem } from '../studio/shelf';
 import { useMorph } from '../studio/useMorph';
-import { blocksAtDepth, depthsFor, type Depth } from '../studio/depth';
-import { inDialog, isTyping, menuOpen } from '../studio/keys';
-import type { PageGroup } from '../studio/geometry';
-import { pageProgress, stateOf, termKey, termsIn } from '../studio/recall';
-import { useRecall } from '../studio/useRecall';
-import { usePageNav } from '../studio/usePageNav';
+import { blocksAtDepth, coveringBlock, shownAt } from '../studio/depth';
+import { useCanvasRecall } from '../studio/useCanvasRecall';
+import { useDepth } from '../studio/useDepth';
+import { sectionFor, sectionsIn, usePageNav } from '../studio/usePageNav';
 import { usePeek } from '../studio/usePeek';
 import { blockAtReadingLine, useReadingLine } from '../studio/useReadingLine';
 import { useStudioTheme } from '../studio/useStudioTheme';
@@ -45,7 +44,6 @@ const HINT_NO_ORIGINAL = 'Use ← → to move between pages, or ask below.';
 const HINT_RECALL = ' · R to recall';
 /** How long "Back on page N" stands in for the hint. */
 const BACK_ON_MS = 4000;
-const NO_DEPTH: Record<number, Depth> = {};
 
 /**
  * A page of your Library — `/v4/library/m/:id` (One Library spec §5.4–5.5;
@@ -80,31 +78,6 @@ export default function StudioCanvasScreen() {
   docRef.current = doc;
   const groups = useMemo(() => (doc ? groupByPage(doc.blocks) : []), [doc]);
 
-  /*
-   * ── Depth (Learn deeper §3): how deep each page reads in Learn. Per Material,
-   * this visit only; Source overrides it while shown, and Learn gets it back. ──
-   */
-  const [depthHeld, setDepthHeld] = useState<{ id: string | undefined; map: Record<number, Depth> }>({
-    id: materialId,
-    map: NO_DEPTH,
-  });
-  const depth = depthHeld.id === materialId ? depthHeld.map : NO_DEPTH;
-  const sourceRemoved = !!material?.sourceRemoved;
-  /** What a page offers, and where it stands — the same rule the canvas renders by. */
-  const optionsOf = useCallback(
-    (g: PageGroup) => depthsFor(g, pages).filter((d) => d !== 'page' || !sourceRemoved),
-    [pages, sourceRemoved],
-  );
-  const levelOf = useCallback(
-    (g: PageGroup): Depth => {
-      const wanted = depth[g.page] ?? 'summary';
-      return optionsOf(g).includes(wanted) ? wanted : 'summary';
-    },
-    [depth, optionsOf],
-  );
-  /** The page whose dial moved: its top stays where it is on screen (§3.4). */
-  const depthAnchor = useRef<{ page: number; top: number } | null>(null);
-
   const peek = usePeek();
   const wide = useWide();
   const column = useRef<HTMLElement>(null);
@@ -116,6 +89,13 @@ export default function StudioCanvasScreen() {
   const [flying, setFlying] = useState(false);
   const shownFlying = useRef(false);
   shownFlying.current = flying;
+  /**
+   * The last flight's page keeps its layoutIds (so a flash on it isn't cut short by a remount);
+   * they go in the same commit as an answer arriving or leaving, or its paragraphs would glide.
+   */
+  const dropLayoutIds = useCallback(() => {
+    if (!shownFlying.current) setMorphPage(null);
+  }, []);
   const anchor = useRef<{ page: number; top: number } | null>(null);
   const backTimer = useRef<ReturnType<typeof setTimeout>>();
   /** The view on screen right now, readable from inside the switch. */
@@ -134,10 +114,7 @@ export default function StudioCanvasScreen() {
    */
   const beforeSwitch = useCallback(() => {
     clearTimeout(backTimer.current);
-    const sections = Array.from(
-      document.querySelectorAll<HTMLElement>(`[data-view="${shownRef.current}"][data-page-anchor]`),
-    );
-    const rects = sections.map((el) => {
+    const rects = sectionsIn(shownRef.current).map((el) => {
       const r = el.getBoundingClientRect();
       return { page: Number(el.dataset.pageAnchor), top: r.top, bottom: r.bottom, height: r.height };
     });
@@ -171,64 +148,33 @@ export default function StudioCanvasScreen() {
   const reduceMotionRef = useRef(reduceMotion);
   reduceMotionRef.current = reduceMotion;
 
+  /* ── Depth (Learn deeper §3): how deep each page reads in Learn, per Material, this visit only. ── */
+  const sourceRemoved = !!material?.sourceRemoved;
+  const { levels, onDepth } = useDepth({
+    materialId,
+    groups,
+    pages,
+    sourceRemoved,
+    original,
+    current: nav.current,
+    onChange: dropLayoutIds,
+  });
+
   /* ── Recall (Learn, deeper §2): key terms become blanks; Learn only, kept per Material ── */
-  const recall = useRecall(materialId ?? '', !original);
-  const recallOn = recall.state.on && !original;
-  /** Every summary term on the canvas, in reading order: the one list the counts and Try again share. */
-  const summaryKeys = useMemo(
-    () =>
-      (doc?.blocks ?? []).flatMap((b) => (b.origin === 'summary' ? termsIn(b.markdown).map((_, i) => termKey(b.id, i)) : [])),
-    [doc],
-  );
-  const recallKnew = summaryKeys.filter((k) => stateOf(recall.state, k) === 'knew').length;
-  const recallTotal = summaryKeys.length;
-  const notYet = summaryKeys.filter((k) => stateOf(recall.state, k) === 'notYet');
-  const anyMarked = summaryKeys.some((k) => stateOf(recall.state, k) !== 'blank');
-  const canvasRecall = useMemo(
-    () => (recallOn ? { state: recall.state, onReveal: recall.reveal, onMark: recall.markTerm } : null),
-    [recallOn, recall.state, recall.reveal, recall.markTerm],
-  );
-  const railProgress = useMemo(
-    // Only what each page shows at its depth counts (§3.5).
-    () =>
-      recallOn
-        ? new Map(railGroups.map((g) => [g.page, pageProgress(blocksAtDepth(g, levelOf(g), pages), recall.state)]))
-        : null,
-    [recallOn, railGroups, recall.state, levelOf, pages],
-  );
-  const recallToggle = useRef<HTMLButtonElement>(null);
-  /** The term Try again lands on, once it is a blank again. */
-  const focusTerm = useRef<string | null>(null);
-  const startOver = useRef(false);
-  useEffect(() => {
-    if (startOver.current) {
-      startOver.current = false;
-      recallToggle.current?.focus();
-    }
-    const key = focusTerm.current;
-    if (!key) return;
-    focusTerm.current = null;
-    const cut = key.lastIndexOf(':');
-    const blockId = key.slice(0, cut);
-    const index = Number(key.slice(cut + 1));
-    // Its place among the block's blanks: the terms before it that are blank too.
-    let nth = 0;
-    for (let j = 0; j < index; j++) if (stateOf(recall.state, termKey(blockId, j)) === 'blank') nth += 1;
-    const el = document
-      .querySelector(`[data-view="clean"] [data-block-id="${blockId.replace(/["\\]/g, '\\$&')}"]`)
-      ?.querySelectorAll<HTMLElement>('button[aria-label^="Reveal term"]')[nth];
-    if (!el) return;
-    el.scrollIntoView?.({ block: 'center', behavior: reduceMotionRef.current ? 'auto' : 'smooth' });
-    el.focus({ preventScroll: true });
-  }, [recall.state]);
-  const onTryAgain = () => {
-    focusTerm.current = notYet[0] ?? null;
-    recall.retry();
-  };
-  const onStartOver = () => {
-    startOver.current = true;
-    recall.reset();
-  };
+  const opensCanvas = item?.opens.kind === 'canvas';
+  const recall = useCanvasRecall({
+    materialId,
+    itemId,
+    opensCanvas,
+    doc,
+    groups,
+    railGroups,
+    pages,
+    levels,
+    original,
+    reduceMotion: !!reduceMotion,
+    onDepth,
+  });
   /* The hint stays until you've turned a page or switched faces once. */
   const [engaged, setEngaged] = useState(false);
   useEffect(() => {
@@ -250,7 +196,7 @@ export default function StudioCanvasScreen() {
     restoredFor.current = itemId;
     /* A link to one block (Your words): land on it, not on your last page. */
     const target = hashBlock
-      ? document.querySelector<HTMLElement>(`[data-view="clean"] [data-block-id="${hashBlock.replace(/["\\]/g, '\\$&')}"]`)
+      ? document.querySelector<HTMLElement>(`[data-view="clean"] [data-block-id="${CSS.escape(hashBlock)}"]`)
       : null;
     if (target) {
       target.scrollIntoView?.({ block: 'center', behavior: 'instant' });
@@ -261,9 +207,7 @@ export default function StudioCanvasScreen() {
     }
     // A block that is gone (an answer you removed) falls back to your place.
     if (lastPage === null || lastPage <= 1) return;
-    const section = document.querySelector<HTMLElement>(
-      `[data-view="${shownRef.current}"][data-page-anchor="${lastPage}"]`,
-    );
+    const section = sectionFor(shownRef.current, lastPage);
     if (!section) return;
     // Straight there: a long smooth scroll on arrival reads as the page running away.
     section.scrollIntoView?.({ block: 'start', behavior: 'instant' });
@@ -282,24 +226,12 @@ export default function StudioCanvasScreen() {
    * A Lesson-backed item only passes through here on its way to the Lesson:
    * it is not opened, so it never becomes Continue.
    */
-  const opensCanvas = item?.opens.kind === 'canvas';
   useEffect(() => {
     if (!itemId || !opensCanvas) return;
     shelfActions.touch(itemId);
     // Back on the shelf, focus comes home to this page's cover.
     rememberOpened(itemId);
   }, [itemId, opensCanvas]);
-  /*
-   * Recall flows back to the shelf, so the cover's "Recall k/n" is real. A page
-   * where nothing was ever marked leaves the shelf's count as it was.
-   */
-  const recallFedFor = useRef<string | null>(null);
-  useEffect(() => {
-    if (!itemId || !opensCanvas || recallTotal === 0) return;
-    if (recallFedFor.current !== itemId && !anyMarked) return;
-    recallFedFor.current = itemId;
-    shelfActions.setRecall(itemId, recallKnew, recallTotal);
-  }, [itemId, opensCanvas, recallKnew, recallTotal, anyMarked]);
   /* Which material the last reported page belongs to: a new one starts over, so its arrival is not a turn. */
   const lastReported = useRef<{ itemId: string; page: number } | null>(null);
   const currentPage = nav.current;
@@ -315,8 +247,9 @@ export default function StudioCanvasScreen() {
   useLayoutEffect(() => {
     const a = anchor.current;
     if (!a) return;
-    const el = document.querySelector<HTMLElement>(`[data-view="${morph.shown}"][data-page-anchor="${a.page}"]`);
-    if (el) window.scrollBy(0, el.getBoundingClientRect().top - a.top);
+    const el = sectionFor(morph.shown, a.page);
+    // Instant: the app's root scrolls smoothly, and a glide here is the page running away.
+    if (el) window.scrollBy({ top: el.getBoundingClientRect().top - a.top, behavior: 'instant' });
     anchor.current = null;
   }, [morph.shown]);
 
@@ -338,7 +271,7 @@ export default function StudioCanvasScreen() {
   const region =
     doc && peek.state.status === 'open'
       ? regionForBlock(
-          [...doc.blocks, ...groups.flatMap((g) => (levelOf(g) === 'full' ? blocksAtDepth(g, 'full', pages) : []))],
+          [...doc.blocks, ...groups.flatMap((g) => (levels[g.page] === 'full' ? blocksAtDepth(g, 'full', pages) : []))],
           pages,
           peek.state.blockId,
         )
@@ -360,6 +293,9 @@ export default function StudioCanvasScreen() {
 
   const backToBlock = (blockId: string) => {
     const target = doc?.blocks.find((b) => b.id === blockId);
+    // Its page reads at a depth that hides it (Gist, Full, Page): open it back to Summary first.
+    const g = groups.find((x) => x.blocks.some((b) => b.id === blockId));
+    if (g && !shownAt(g, levels[g.page] ?? 'summary', pages).some((b) => b.id === blockId)) onDepth(g.page, 'summary', false);
     pageHint.current = target && hasSource(target) ? target.source.page : null;
     // During a quick look the committed view is already clean: end the look.
     if (morph.quickLook) morph.pressCancel();
@@ -368,7 +304,9 @@ export default function StudioCanvasScreen() {
     setFlashId(null); // so the same paragraph flashes again
     clearTimeout(backTimer.current);
     backTimer.current = setTimeout(() => {
-      document.querySelector(`[data-block-id="${blockId}"]`)?.scrollIntoView?.({ block: 'center' });
+      document
+        .querySelector(`[data-view="clean"] [data-block-id="${CSS.escape(blockId)}"]`)
+        ?.scrollIntoView?.({ block: 'center', behavior: reduceMotionRef.current ? 'instant' : 'smooth' });
       setFlashId(blockId);
     }, FLIGHT_S * 1000 + 50);
   };
@@ -449,60 +387,6 @@ export default function StudioCanvasScreen() {
     if (el.isConnected && (document.activeElement === document.body || document.activeElement === null)) el.focus();
   }, [answering]);
 
-  /**
-   * The last flight's page keeps its layoutIds (so a flash on it isn't cut short by a remount);
-   * they go in the same commit as an answer arriving or leaving, or its paragraphs would glide.
-   */
-  const dropLayoutIds = useCallback(() => {
-    if (!shownFlying.current) setMorphPage(null);
-  }, []);
-
-  const onDepth = useCallback(
-    (page: number, d: Depth, all: boolean) => {
-      const el = document.querySelector<HTMLElement>(`[data-view="clean"][data-page-anchor="${page}"]`);
-      depthAnchor.current = el ? { page, top: el.getBoundingClientRect().top } : null;
-      // Computed here, not in an updater: StrictMode runs updaters twice.
-      const next = { ...depth };
-      if (all) {
-        for (const g of groups) if (optionsOf(g).includes(d)) next[g.page] = d;
-      } else next[page] = d;
-      dropLayoutIds();
-      setDepthHeld({ id: materialId, map: next });
-    },
-    [depth, groups, optionsOf, dropLayoutIds, materialId],
-  );
-  useLayoutEffect(() => {
-    const a = depthAnchor.current;
-    if (!a) return;
-    depthAnchor.current = null;
-    const el = document.querySelector<HTMLElement>(`[data-view="clean"][data-page-anchor="${a.page}"]`);
-    if (!el) return;
-    const delta = el.getBoundingClientRect().top - a.top;
-    // Instant: the root scrolls smoothly, and a glide here is the page running away.
-    if (delta !== 0) window.scrollBy({ top: delta, behavior: 'instant' });
-  }, [depth]);
-
-  /* `[` shallower, `]` deeper, on the page you are on (§3.3) — Learn only, with the page's key guards. */
-  const depthKeys = useRef<(e: KeyboardEvent) => void>(() => {});
-  depthKeys.current = (e: KeyboardEvent) => {
-    if (e.key !== '[' && e.key !== ']') return;
-    if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (isTyping(e.target) || inDialog(e.target) || menuOpen(e.target)) return;
-    if (original || nav.current === null) return;
-    const g = groups.find((x) => x.page === nav.current);
-    if (!g) return;
-    const options = optionsOf(g);
-    const next = options[options.indexOf(levelOf(g)) + (e.key === ']' ? 1 : -1)];
-    if (!next) return;
-    e.preventDefault();
-    onDepth(g.page, next, false);
-  };
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => depthKeys.current(e);
-    window.addEventListener('keydown', down);
-    return () => window.removeEventListener('keydown', down);
-  }, []);
-
   const onAsk = async (question: string) => {
     if (!docRef.current) return;
     setEngaged(true);
@@ -524,9 +408,10 @@ export default function StudioCanvasScreen() {
     const fallback = [...base.blocks].reverse().find((b) => b.origin !== 'generated')?.id ?? null;
     const anchorId =
       resolveAnchor(base.blocks, {
-        selection: selectionBlock,
+        // A paragraph of the full text (Full depth) stands in for the summary that covers it.
+        selection: coveringBlock(base.blocks, selectionBlock),
         cited: result.answer.anchorId,
-        readingLine: blockAtReadingLine(column.current),
+        readingLine: coveringBlock(base.blocks, blockAtReadingLine(column.current)),
       }) ?? fallback;
     if (!anchorId) return;
     const id = shelfActions.newAnswerId();
@@ -580,7 +465,7 @@ export default function StudioCanvasScreen() {
     showNotice({
       kind: 'below',
       onJump: () => {
-        el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+        el.scrollIntoView({ behavior: reduceMotion ? 'instant' : 'smooth', block: 'center' });
         showNotice(null);
       },
     });
@@ -728,15 +613,15 @@ export default function StudioCanvasScreen() {
           </div>
           <div className="order-2 ml-auto flex items-center gap-2 lg:order-3">
             <button
-              ref={recallToggle}
+              ref={recall.toggleRef}
               type="button"
-              onClick={recall.toggle}
-              aria-pressed={recall.state.on}
+              onClick={recall.stored.toggle}
+              aria-pressed={recall.stored.state.on}
               disabled={original}
               title={original ? 'Recall works in Learn' : undefined}
               className={cn(
                 'console-focusable h-9 rounded-full px-3.5 text-[13px] transition-colors disabled:cursor-not-allowed disabled:opacity-40',
-                recall.state.on
+                recall.stored.state.on
                   ? 'bg-[rgb(var(--studio-chip))] text-foreground'
                   : 'text-faint hover:bg-[rgb(var(--studio-chip))] hover:text-foreground',
               )}
@@ -768,7 +653,7 @@ export default function StudioCanvasScreen() {
 
       {/* The contents, down the left edge — wide screens only. */}
       <div className="fixed bottom-24 left-0 top-[112px] z-20 hidden w-60 overflow-y-auto overflow-x-hidden pl-8 pr-4 min-[1180px]:block">
-        <PageRail groups={railGroups} current={nav.current} onPage={nav.go} progress={railProgress} />
+        <PageRail groups={railGroups} current={nav.current} onPage={nav.go} progress={recall.railProgress} />
       </div>
 
       <div className="min-[1180px]:pl-60">
@@ -809,37 +694,18 @@ export default function StudioCanvasScreen() {
                 onRemoveAnswer={onRemoveAnswer}
                 onOpenPeekSource={onOpenPeekSource}
                 theme={theme}
-                recall={canvasRecall}
-                depth={depth}
+                recall={recall.canvasRecall}
+                levels={levels}
                 onDepth={onDepth}
               />
             </LayoutGroup>
-            {recallOn && recallTotal > 0 && (notYet.length > 0 || anyMarked) && (
-              <div className="mt-12 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-quiet">
-                {notYet.length > 0 && (
-                  <>
-                    <p>
-                      {notYet.length} {notYet.length === 1 ? 'term' : 'terms'} to try again
-                    </p>
-                    <button
-                      type="button"
-                      onClick={onTryAgain}
-                      className="console-focusable min-h-6 rounded-full bg-[rgb(var(--studio-chip))] px-3 py-1 text-foreground"
-                    >
-                      Try again
-                    </button>
-                  </>
-                )}
-                {anyMarked && (
-                  <button
-                    type="button"
-                    onClick={onStartOver}
-                    className="console-focusable min-h-6 rounded-full px-2 py-1 text-faint hover:text-foreground"
-                  >
-                    Start over
-                  </button>
-                )}
-              </div>
+            {recall.on && recall.total > 0 && (
+              <RecallFooter
+                notYet={recall.notYet}
+                anyMarked={recall.anyMarked}
+                onTryAgain={recall.onTryAgain}
+                onStartOver={recall.onStartOver}
+              />
             )}
           </main>
           {gutter && (

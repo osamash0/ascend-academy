@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mark, pageProgress, reset, retry, stateOf, termKey, termsIn, tryAgain, type RecallState } from '../recall';
+import { mark, pageProgress, reset, retry, stateOf, termKey, termsIn, type RecallState } from '../recall';
 import type { CanvasBlock } from '../types';
 
 const empty: RecallState = { on: true, terms: {} };
@@ -26,9 +26,11 @@ describe('recall state', () => {
     s = mark(s, 'e1:0', 'knew');
     expect(pageProgress(blocks, s)).toEqual({ knew: 1, total: 2 });
   });
-  it('tryAgain, retry and reset', () => {
+  it('counts the terms of a summary once per text', () => {
+    expect(termsIn('Again **x** and **y**.')).toBe(termsIn('Again **x** and **y**.'));
+  });
+  it('retry and reset', () => {
     let s = mark(mark(empty, 'a:0', 'notYet'), 'a:1', 'knew');
-    expect(tryAgain(s)).toEqual(['a:0']);
     const r = retry(s);
     expect(stateOf(r, 'a:0')).toBe('blank');
     expect(stateOf(r, 'a:1')).toBe('knew');

@@ -37,7 +37,8 @@ describe('useKeepPlace', () => {
     const rect = setup(true);
     rect.mockReturnValue(box(120, -80)); // old bottom: -80 - 120 = -200 ≤ 0
     fire();
-    expect(scrollBy).toHaveBeenCalledWith(0, 120);
+    // Instant: the app's root scrolls smoothly, and a glide here is the page running away.
+    expect(scrollBy).toHaveBeenCalledWith({ top: 120, behavior: 'instant' });
   });
 
   it('leaves the page alone when the answer is on screen', () => {

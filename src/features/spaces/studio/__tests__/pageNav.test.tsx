@@ -250,3 +250,28 @@ describe('notes above page 1', () => {
     expect(pager()).toHaveTextContent('1 / 2');
   });
 });
+
+describe('a page shown inline at the Page depth', () => {
+  function Inline() {
+    const nav = usePageNav([1, 2], 'original');
+    return (
+      <>
+        {/* Learn's own section of page 2, holding the page itself at the Page depth: not Source's section. */}
+        <section data-view="clean" data-page-anchor={2}>
+          <section data-view="original" data-page-anchor={2} data-inline="true" />
+        </section>
+        <section data-view="original" data-page-anchor={1} />
+        <section data-view="original" data-page-anchor={2} />
+        <button type="button" onClick={() => nav.go(2)}>
+          go
+        </button>
+      </>
+    );
+  }
+  it('is never the section a turn scrolls to', () => {
+    render(<Inline />);
+    fireEvent.click(screen.getByRole('button', { name: 'go' }));
+    expect(lastScrolled()).not.toHaveAttribute('data-inline');
+    expect(lastScrolled()).toHaveAttribute('data-page-anchor', '2');
+  });
+});

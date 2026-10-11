@@ -35,9 +35,11 @@ describe('RecallTerm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reveal term, page 6' }));
     expect(onReveal).toHaveBeenCalledOnce();
   });
-  it('seen shows both marks that call onMark, and they fade after 4s', () => {
+  it('a reveal shows both marks that call onMark, and they fade after 4s', () => {
     vi.useFakeTimers();
-    const { onMark } = setup('seen');
+    const onMark = vi.fn();
+    const { rerender } = render(<RecallTerm text="BCNF" state="blank" page={6} onReveal={() => {}} onMark={onMark} />);
+    rerender(<RecallTerm text="BCNF" state="seen" page={6} onReveal={() => {}} onMark={onMark} />);
     fireEvent.click(screen.getByRole('button', { name: 'Knew it' }));
     fireEvent.click(screen.getByRole('button', { name: 'Not yet' }));
     expect(onMark.mock.calls).toEqual([['knew'], ['notYet']]);
@@ -46,8 +48,25 @@ describe('RecallTerm', () => {
   });
   it('reduced motion means no blur', () => {
     reducedMotion = true;
-    const { container } = render(<RecallTerm text="x" state="seen" page={1} onReveal={() => {}} onMark={() => {}} />);
+    const { container, rerender } = render(<RecallTerm text="x" state="blank" page={1} onReveal={() => {}} onMark={() => {}} />);
+    rerender(<RecallTerm text="x" state="seen" page={1} onReveal={() => {}} onMark={() => {}} />);
     expect(container.innerHTML).not.toContain('blur(');
+  });
+  it('a term already seen (a remount, a reload) is simply there: no pair, no blur', () => {
+    const { container } = render(<RecallTerm text="BCNF" state="seen" page={6} onReveal={() => {}} onMark={() => {}} />);
+    expect(screen.getByText('BCNF')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Knew it' })).toBeNull();
+    expect(container.innerHTML).not.toContain('blur(');
+  });
+  it('after a reveal, both marks are described by the term itself', () => {
+    const { rerender } = render(<RecallTerm text="BCNF" state="blank" page={6} onReveal={() => {}} onMark={() => {}} />);
+    rerender(<RecallTerm text="BCNF" state="seen" page={6} onReveal={() => {}} onMark={() => {}} />);
+    expect(screen.getByRole('button', { name: 'Knew it' })).toHaveAccessibleDescription(/BCNF/);
+    expect(screen.getByRole('button', { name: 'Not yet' })).toHaveAccessibleDescription(/BCNF/);
+  });
+  it('a blank carries its term key, so Try again can find it', () => {
+    render(<RecallTerm text="BCNF" termKey="s-p6-1:0" state="blank" page={6} onReveal={() => {}} onMark={() => {}} />);
+    expect(screen.getByRole('button', { name: 'Reveal term, page 6' })).toHaveAttribute('data-term-key', 's-p6-1:0');
   });
 });
 
@@ -134,10 +153,11 @@ describe('Markdown recall keys', () => {
   });
   it('a term stays mounted when its parent re-renders; the timer is not restarted', () => {
     vi.useFakeTimers();
-    const mk = (get: () => 'seen') => (
+    const mk = (get: () => 'blank' | 'seen') => (
       <Markdown recall={{ blockId: 'id', page: 1, get, onReveal: () => {}, onMark: () => {} }}>{'**t**'}</Markdown>
     );
-    const { rerender } = render(mk(() => 'seen'));
+    const { rerender } = render(mk(() => 'blank'));
+    rerender(mk(() => 'seen'));
     const knew = screen.getByRole('button', { name: 'Knew it' });
     act(() => void vi.advanceTimersByTime(3000));
     rerender(mk(() => 'seen'));
@@ -149,7 +169,8 @@ describe('Markdown recall keys', () => {
 
 describe('RecallTerm focus and motion', () => {
   it('blur is present when motion is allowed', () => {
-    const { container } = render(<RecallTerm text="x" state="seen" page={1} onReveal={() => {}} onMark={() => {}} />);
+    const { container, rerender } = render(<RecallTerm text="x" state="blank" page={1} onReveal={() => {}} onMark={() => {}} />);
+    rerender(<RecallTerm text="x" state="seen" page={1} onReveal={() => {}} onMark={() => {}} />);
     expect(container.innerHTML).toContain('blur(');
   });
   it('focus moves to Knew it on reveal, and back to the term after marking', () => {

@@ -15,7 +15,8 @@ export function useKeepPlace(ref: React.RefObject<HTMLElement>, enabled: boolean
       const r = el.getBoundingClientRect();
       const delta = r.height - last;
       last = r.height;
-      if (delta !== 0 && r.bottom - delta <= 0) window.scrollBy(0, delta);
+      // Instant: the app's root scrolls smoothly, and a glide here is the page running away.
+      if (delta !== 0 && r.bottom - delta <= 0) window.scrollBy({ top: delta, behavior: 'instant' });
     });
     ro.observe(el);
     return () => ro.disconnect();

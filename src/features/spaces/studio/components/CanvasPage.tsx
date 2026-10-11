@@ -9,10 +9,11 @@ import { WovenAnswer } from './WovenAnswer';
 import { hasSource } from '../edit';
 import { minConfidence } from '../geometry';
 import type { PageGroup } from '../geometry';
-import { blocksAtDepth, depthsFor, type Depth } from '../depth';
+import { blocksAtDepth, optionsFor, shownAt, type Depth } from '../depth';
 import { DEPTH_ENTER_S, DEPTH_LAYOUT_S, DEPTH_LEAVE_S, DEPTH_STAGGER_S, FLIGHT_EASE } from '../motion';
 import type { CanvasView } from '../useMorph';
 import { pageProgress, recallLabel, stateOf, type RecallState, type TermState } from '../recall';
+import { TermStateContext } from '../termState';
 import type { CanvasBlock, SourcePage } from '../types';
 
 interface Props {
@@ -42,8 +43,8 @@ interface Props {
   theme?: 'light' | 'dark';
   /** Recall mode, while it is on: summary terms become blanks, and each page shows its ring. */
   recall?: CanvasRecall | null;
-  /** How deep each page reads in Learn (Learn deeper §3); a page not in it reads at Summary. */
-  depth: Record<number, Depth>;
+  /** Where each page reads in Learn (Learn deeper §3, `levelFor`); a page not in it reads at Summary. */
+  levels: Record<number, Depth>;
   /** The dial on a page's divider; `all` when Shift was held. */
   onDepth(page: number, d: Depth, all: boolean): void;
 }
@@ -54,7 +55,7 @@ export interface CanvasRecall {
   onMark(key: string, t: 'knew' | 'notYet'): void;
 }
 
-/** What a summary block needs to render its terms as blanks; a new one whenever any mark changes. */
+/** What a summary block needs to render its terms as blanks. Stable across marks: the terms read state from context. */
 export interface BlockRecall {
   get(key: string): TermState;
   onReveal(key: string): void;
@@ -74,35 +75,47 @@ export interface BlockRecall {
  * carries the ids it needs. Every other page crossfades.
  */
 export function CanvasPage(p: Props) {
-  // Once per (blocks, pages, depths), not per block per render. At Full, the page's own text counts too.
+  const levelOf = (page: number): Depth => p.levels[page] ?? 'summary';
+  // Once per (blocks, pages, levels), not per block per render. At Full, the page's own text counts too.
   const lowConfidence = useMemo(() => {
     const ids = new Set<string>();
     for (const g of p.groups)
-      for (const b of [...g.blocks, ...(p.depth[g.page] === 'full' ? blocksAtDepth(g, 'full', p.pages) : [])])
+      for (const b of [...g.blocks, ...(p.levels[g.page] === 'full' ? blocksAtDepth(g, 'full', p.pages) : [])])
         if (hasSource(b) && (minConfidence(b.source, p.pages) ?? 1) < 0.8) ids.add(b.id);
     return ids;
-  }, [p.groups, p.pages, p.depth]);
+  }, [p.groups, p.pages, p.levels]);
   const recall = p.recall ?? null;
+  const on = !!recall;
+  // The terms read their state from context; a paragraph's recall props stay the same on every mark,
+  // so only the terms re-render, not every paragraph (CleanBlock and Markdown are memoized).
+  const state = useRef(recall?.state);
+  state.current = recall?.state;
+  const onReveal = recall?.onReveal;
+  const onMark = recall?.onMark;
   const blockRecall = useMemo<BlockRecall | null>(
     () =>
-      recall
-        ? { get: (key) => stateOf(recall.state, key), onReveal: recall.onReveal, onMark: recall.onMark }
+      on && onReveal && onMark
+        ? { get: (key) => (state.current ? stateOf(state.current, key) : 'blank'), onReveal, onMark }
         : null,
-    [recall],
+    [on, onReveal, onMark],
   );
-  return (
+  const recallState = recall?.state;
+  const termState = useMemo(
+    () => (recallState ? (key: string) => stateOf(recallState, key) : null),
+    [recallState],
+  );
+  const canvas = (
     <div className="space-y-12">
       {p.groups.map((g) => {
         const page = p.pages.find((x) => x.materialId === g.materialId && x.page === g.page) ?? null;
         const morph = p.morphPage === g.page;
         const showOriginal = p.view === 'original' && page && !p.sourceRemoved;
         // The dial: what this page offers (no Page without the source), and where it stands.
-        const options = depthsFor(g, p.pages).filter((d) => d !== 'page' || (page && !p.sourceRemoved));
-        const wanted = p.depth[g.page] ?? 'summary';
-        const level: Depth = options.includes(wanted) ? wanted : 'summary';
+        const options = optionsFor(g, p.pages, p.sourceRemoved);
+        const level = levelOf(g.page);
         const inlinePage = level === 'page' && page ? page : null;
         // At Page, your own blocks (answers, notes, handwriting) still follow the page itself.
-        const shown = inlinePage ? g.blocks.filter((b) => isYours(b, inlinePage)) : blocksAtDepth(g, level, p.pages);
+        const shown = shownAt(g, level, p.pages);
         return (
           <div key={`${g.materialId}-${g.page}`} className="relative">
             <AnimatePresence initial={false} mode="popLayout">
@@ -168,11 +181,7 @@ export function CanvasPage(p: Props) {
                           blocks={g.blocks}
                           morph={false}
                           materialName={p.materialName}
-                          onRegion={(id) => {
-                            // "Back to" this paragraph: it is in the summary, so the page opens back up into it.
-                            p.onDepth(g.page, 'summary', false);
-                            p.onRegion(id);
-                          }}
+                          onRegion={p.onRegion}
                           onInclude={(id) => p.onInclude(inlinePage, id)}
                         />
                       ) : null
@@ -220,15 +229,8 @@ export function CanvasPage(p: Props) {
       })}
     </div>
   );
-}
-
-/** Yours, not the page's: an answer, a note you wrote, or your handwriting on it. */
-function isYours(b: CanvasBlock, page: SourcePage): boolean {
-  if (b.origin === 'generated' || b.origin === 'written') return true;
-  return (
-    b.origin === 'extracted' &&
-    page.blocks.some((s) => s.kind === 'handwriting' && b.source.blockIds.includes(s.id))
-  );
+  // Always the same tree: turning Recall on or off must not remount the canvas.
+  return <TermStateContext.Provider value={termState}>{canvas}</TermStateContext.Provider>;
 }
 
 const RISE_FROM = { opacity: 0, y: 4, filter: 'blur(3px)' };

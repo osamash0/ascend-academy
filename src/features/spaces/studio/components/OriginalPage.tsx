@@ -64,6 +64,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
       }}
       data-view="original"
       data-page-anchor={page.page}
+      data-inline={bare ? 'true' : undefined}
       aria-label={`Source page ${page.page}`}
       className="scroll-mt-40 lg:scroll-mt-28"
     >

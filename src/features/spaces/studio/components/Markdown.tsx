@@ -3,6 +3,7 @@ import { Streamdown, defaultRehypePlugins } from 'streamdown';
 import { cn } from '@/lib/utils';
 import { RecallTerm } from './RecallTerm';
 import { isPlainTerm, termKey, type TermState } from '../recall';
+import { TermStateContext } from '../termState';
 
 /**
  * Streamdown's defaults include rehype-raw, which parses raw HTML out of the
@@ -71,13 +72,15 @@ const RecallContext = createContext<MarkdownRecall | null>(null);
 
 function RecallStrong(props: { children?: ReactNode; [k: string]: unknown }) {
   const recall = useContext(RecallContext);
+  const live = useContext(TermStateContext);
   const idx = props['data-term-index'];
   if (!recall || typeof idx !== 'number') return <strong>{props.children}</strong>;
   const key = termKey(recall.blockId, idx);
   return (
     <RecallTerm
       text={hastTextOf(props.children)}
-      state={recall.get(key)}
+      termKey={key}
+      state={(live ?? recall.get)(key)}
       page={recall.page}
       onReveal={() => recall.onReveal(key)}
       onMark={(t) => recall.onMark(key, t)}

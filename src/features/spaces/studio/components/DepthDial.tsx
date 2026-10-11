@@ -7,7 +7,7 @@ const LABEL: Record<Depth, string> = { gist: 'Gist', summary: 'Summary', full: '
 /**
  * How deep this page reads (Learn deeper spec §3.3): four dots on a hairline at
  * the end of the page divider, the current one filled. A radiogroup with a
- * roving tab stop; arrows move the choice, Shift+click sets every page.
+ * roving tab stop; arrows move the choice. Shift (click, arrows or Space) sets every page.
  */
 export function DepthDial({
   page,
@@ -24,6 +24,14 @@ export function DepthDial({
   const offered = DEPTHS.filter((d) => options.includes(d));
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    // Shift+Space: this stop, for every page — the keyboard's Shift+click.
+    if (e.key === ' ' && e.shiftKey) {
+      const d = (e.target as HTMLElement).dataset.depth as Depth | undefined;
+      if (!d || !options.includes(d)) return;
+      e.preventDefault();
+      onChange(d, true);
+      return;
+    }
     const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
     if (!step) return;
     e.preventDefault();
@@ -32,7 +40,7 @@ export function DepthDial({
     const i = offered.indexOf(value);
     const next = offered[Math.min(offered.length - 1, Math.max(0, i + step))];
     if (!next || next === value) return;
-    onChange(next, false);
+    onChange(next, e.shiftKey);
     refs.current[next]?.focus();
   };
 
@@ -60,6 +68,7 @@ export function DepthDial({
               refs.current[d] = el;
             }}
             type="button"
+            data-depth={d}
             role="radio"
             aria-checked={on}
             aria-label={LABEL[d]}

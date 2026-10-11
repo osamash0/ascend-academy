@@ -53,6 +53,16 @@ describe('DepthDial', () => {
     expect(onChange).toHaveBeenLastCalledWith('page', true);
   });
 
+  it('Shift+arrow and Shift+Space choose for every page from the keyboard too', () => {
+    const onChange = mount('summary');
+    fireEvent.keyDown(screen.getByRole('radio', { name: 'Summary' }), { key: 'ArrowRight', shiftKey: true });
+    expect(onChange).toHaveBeenLastCalledWith('full', true);
+    onChange.mockClear();
+    const gist = screen.getByRole('radio', { name: 'Gist' });
+    expect(fireEvent.keyDown(gist, { key: ' ', shiftKey: true })).toBe(false);
+    expect(onChange).toHaveBeenLastCalledWith('gist', true);
+  });
+
   it('every stop is at least 24 px to hit', () => {
     mount();
     for (const r of screen.getAllByRole('radio')) expect(r.className).toMatch(/\bh-6\b.*\bw-6\b|\bw-6\b.*\bh-6\b/);

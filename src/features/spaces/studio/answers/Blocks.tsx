@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Check, ChevronLeft, ChevronRight, Plus, RotateCcw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -170,9 +170,8 @@ function FdTable({ block }: { block: Extract<AnswerBlock, { type: 'fdTable' }> }
         </button>
       </div>
 
-      {/* The claim, as it stands. Announced politely when it flips. */}
+      {/* The claim, as it stands. Only the verdict is announced, whole, when it flips. */}
       <div
-        aria-live="polite"
         className="mb-3 flex min-h-11 items-center gap-3 rounded-xl px-3.5 py-2.5"
         style={{
           background: !ready
@@ -183,20 +182,22 @@ function FdTable({ block }: { block: Extract<AnswerBlock, { type: 'fdTable' }> }
         }}
       >
         <span className="font-mono text-[14px] text-foreground">{ready ? fdText(fd) : 'Pick a left and a right side'}</span>
-        {ready && (
-          <motion.span
-            key={bad.length ? 'no' : 'yes'}
-            initial={{ opacity: 0, scale: beats.reduce ? 1 : 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: beats.mark }}
-            data-verdict={bad.length ? 'breaks' : 'holds'}
-            className="ml-auto flex items-center gap-1.5 text-[13px]"
-            style={{ color: bad.length ? MARK : WOVEN }}
-          >
-            {bad.length ? <X aria-hidden className="h-3.5 w-3.5" /> : <Check aria-hidden className="h-3.5 w-3.5" />}
-            {bad.length ? `Broken by rows ${bad[0][0] + 1} and ${bad[0][1] + 1}` : 'Holds on these rows'}
-          </motion.span>
-        )}
+        <span aria-live="polite" aria-atomic="true" className="ml-auto">
+          {ready && (
+            <motion.span
+              key={bad.length ? 'no' : 'yes'}
+              initial={{ opacity: 0, scale: beats.reduce ? 1 : 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: beats.mark }}
+              data-verdict={bad.length ? 'breaks' : 'holds'}
+              className="flex items-center gap-1.5 text-[13px]"
+              style={{ color: bad.length ? MARK : WOVEN }}
+            >
+              {bad.length ? <X aria-hidden className="h-3.5 w-3.5" /> : <Check aria-hidden className="h-3.5 w-3.5" />}
+              {bad.length ? `Broken by rows ${bad[0][0] + 1} and ${bad[0][1] + 1}` : 'Holds on these rows'}
+            </motion.span>
+          )}
+        </span>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-[rgb(var(--studio-hairline))]">
@@ -545,7 +546,20 @@ function Bcnf({ block }: { block: Extract<AnswerBlock, { type: 'bcnf' }> }) {
 function CheckBlock({ block }: { block: Extract<AnswerBlock, { type: 'check' }> }) {
   const beats = useBeats();
   const name = useId();
+  /** The option you lean to: radios only choose (arrow keys move it), nothing is shown yet. */
+  const [choice, setChoice] = useState<number | null>(null);
+  /** What you committed to with Check: the reasons show, and the choice is fixed. */
   const [picked, setPicked] = useState<number | null>(null);
+  const reasons = useRef<(HTMLElement | null)[]>([]);
+  const firstRadio = useRef<HTMLInputElement>(null);
+  /** Where focus goes after this commit renders: the reason you revealed, or the first option again. */
+  const focusNext = useRef<'reason' | 'options' | null>(null);
+  useEffect(() => {
+    const next = focusNext.current;
+    focusNext.current = null;
+    if (next === 'reason' && picked !== null) reasons.current[picked]?.focus();
+    else if (next === 'options') firstRadio.current?.focus();
+  }, [picked]);
   return (
     <Card as="fieldset" label={block.question}>
       <legend className="mb-3 float-left w-full text-[15px] leading-[1.5] text-foreground">
@@ -553,8 +567,8 @@ function CheckBlock({ block }: { block: Extract<AnswerBlock, { type: 'check' }> 
       </legend>
       <div className="clear-both space-y-1.5">
         {block.options.map((o, i) => {
-          const chosen = picked === i;
-          const reveal = picked !== null && (chosen || !!o.correct);
+          const chosen = (picked ?? choice) === i;
+          const reveal = picked !== null && (picked === i || !!o.correct);
           return (
             <div key={o.text}>
               <label
@@ -575,11 +589,12 @@ function CheckBlock({ block }: { block: Extract<AnswerBlock, { type: 'check' }> 
                 }
               >
                 <input
+                  ref={i === 0 ? firstRadio : undefined}
                   type="radio"
                   name={name}
                   checked={chosen}
                   disabled={picked !== null}
-                  onChange={() => setPicked(i)}
+                  onChange={() => setChoice(i)}
                   className="h-4 w-4 shrink-0 accent-[rgb(var(--studio-term))] focus-visible:outline-none"
                 />
                 {reveal &&
@@ -596,11 +611,15 @@ function CheckBlock({ block }: { block: Extract<AnswerBlock, { type: 'check' }> 
                 <AnimatePresence initial={false}>
                   {reveal && (
                     <motion.p
+                      ref={(el) => {
+                        reasons.current[i] = el;
+                      }}
+                      tabIndex={-1}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: beats.mark }}
-                      className="px-3.5 pt-1 text-[13px] leading-[1.5] text-quiet"
+                      className="rounded-md px-3.5 pt-1 text-[13px] leading-[1.5] text-quiet outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <Inline text={o.why} />
                     </motion.p>
@@ -611,8 +630,28 @@ function CheckBlock({ block }: { block: Extract<AnswerBlock, { type: 'check' }> 
           );
         })}
       </div>
-      {picked !== null && (
-        <button type="button" onClick={() => setPicked(null)} className={cn(BTN, 'mt-2 gap-1.5 px-2.5 text-[12.5px]')}>
+      {picked === null ? (
+        <button
+          type="button"
+          disabled={choice === null}
+          onClick={() => {
+            focusNext.current = 'reason';
+            setPicked(choice);
+          }}
+          className={cn(BTN, 'mt-2 px-3 text-[12.5px] text-foreground')}
+        >
+          Check
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            focusNext.current = 'options';
+            setPicked(null);
+            setChoice(null);
+          }}
+          className={cn(BTN, 'mt-2 gap-1.5 px-2.5 text-[12.5px]')}
+        >
           <RotateCcw aria-hidden className="h-3.5 w-3.5" />
           Try again
         </button>

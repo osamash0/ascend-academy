@@ -5,7 +5,7 @@ import { inDialog, isTyping, menuOpen } from './keys';
 import { READING_LINE } from './useReadingLine';
 import type { CanvasView } from './useMorph';
 
-/** After a turn, scroll events are the turn's own; they settle this long after the last one. */
+/** After a turn, scroll events belong to the turn; they settle this long after the last one. */
 export const SETTLE_MS = 150;
 
 export interface PageNav {
@@ -21,8 +21,22 @@ export interface PageNav {
   step(delta: -1 | 1): void;
 }
 
-function sectionFor(view: CanvasView, page: number): HTMLElement | null {
-  return document.querySelector(`[data-view="${view}"][data-page-anchor="${page}"]`);
+/**
+ * The section of a page in a view. A page shown inline in Learn (the Page
+ * depth) is marked `data-inline`: it belongs to the Learn section of that
+ * page, not to Source, so no turn, keep-place or restore ever looks for it.
+ */
+const SECTION = (view: CanvasView) => `[data-view="${view}"][data-page-anchor]:not([data-inline])`;
+
+export function sectionFor(view: CanvasView, page: number): HTMLElement | null {
+  return document.querySelector<HTMLElement>(
+    `[data-view="${view}"][data-page-anchor="${page}"]:not([data-inline])`,
+  );
+}
+
+/** The section of every page in a view, in order. */
+export function sectionsIn(view: CanvasView): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>(SECTION(view)));
 }
 
 /** `page` if it is real here, else the next real one after it, else the last. */
@@ -42,8 +56,8 @@ function nearest(pages: number[], page: number | null): number | null {
  *
  * The page you are on is the one that fills most of the screen (the same
  * rule Morph anchors to), checked once per frame while you scroll. A turn
- * sets it at once and scrolls there; the scroll that follows is the turn's
- * own and is ignored until it settles, so a short page you turned to stays
+ * sets it at once and scrolls there; the scroll that follows belongs to the
+ * turn and is ignored until it settles, so a short page you turned to stays
  * "current" even when its taller neighbour fills more of the screen. When it
  * settles, one check runs — unless the page you turned to still sits at the
  * top, a scroll of your own during the turn is picked up.
@@ -59,9 +73,9 @@ export function usePageNav(pages: number[], view: CanvasView): PageNav {
     let frame = 0;
     const check = () => {
       frame = 0;
-      const rects = Array.from(document.querySelectorAll(`[data-view="${view}"][data-page-anchor]`)).map((el) => {
+      const rects = sectionsIn(view).map((el) => {
         const r = el.getBoundingClientRect();
-        return { page: Number((el as HTMLElement).dataset.pageAnchor), top: r.top, bottom: r.bottom };
+        return { page: Number(el.dataset.pageAnchor), top: r.top, bottom: r.bottom };
       });
       const p = pickAnchorPage(rects, window.innerHeight);
       if (p !== null) setPicked(p);
@@ -104,7 +118,8 @@ export function usePageNav(pages: number[], view: CanvasView): PageNav {
       if (turning.current) clearTimeout(turning.current.timer);
       turning.current = { page: target };
       settleRef.current(4 * SETTLE_MS);
-      sectionFor(view, target)?.scrollIntoView?.({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+      // Reduced motion: instant, not auto — the root of the app scrolls smoothly, so auto would glide.
+      sectionFor(view, target)?.scrollIntoView?.({ block: 'start', behavior: reduce ? 'instant' : 'smooth' });
     },
     [pages, view, reduce],
   );

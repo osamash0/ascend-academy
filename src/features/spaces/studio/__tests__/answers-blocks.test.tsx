@@ -44,7 +44,11 @@ describe('AnswerBlockView', () => {
     expect(within(group).getByText(/Broken by rows 1 and 2/)).toBeTruthy();
     const marked = group.querySelectorAll('tr[data-violates="true"]');
     expect(marked.length).toBe(2);
-    expect(group.querySelector('[aria-live="polite"]')?.textContent).toMatch(/Broken/);
+    const live = group.querySelector('[aria-live="polite"]')!;
+    expect(live.textContent).toMatch(/Broken/);
+    // Only the verdict is live, read whole: not the claim beside it.
+    expect(live).toHaveAttribute('aria-atomic', 'true');
+    expect(live.textContent).not.toMatch(/Name → Weight/);
   });
 
   it('closure steps forward to the final set and back again', async () => {
@@ -81,34 +85,49 @@ describe('AnswerBlockView', () => {
     expect(within(group).getByText('presAddr')).toBeTruthy();
   });
 
-  it('check shows no reason before a choice, then the reason for the choice', () => {
-    const options = [
+  const CHECK: AnswerBlock = {
+    type: 'check',
+    question: 'Which?',
+    options: [
       { text: 'Right one', correct: true, why: 'Because it is right.' },
       { text: 'Wrong one', why: 'Because it is wrong.' },
-    ];
-    view({ type: 'check', question: 'Which?', options });
+    ],
+  };
+
+  it('check: choosing is not committing — no reason shows until you press Check', () => {
+    view(CHECK);
     const group = screen.getByRole('group', { name: 'Which?' });
-    expect(within(group).getByRole('radio', { name: /Right one/ })).toBeTruthy();
+    const check = within(group).getByRole('button', { name: 'Check' });
+    expect(check).toBeDisabled();
+    // Arrow keys on native radios fire change: that is choosing, nothing more.
+    fireEvent.click(within(group).getByRole('radio', { name: /Right one/ }));
+    fireEvent.click(within(group).getByRole('radio', { name: /Wrong one/ }));
+    expect(within(group).getByRole('radio', { name: /Wrong one/ })).toBeChecked();
+    expect(within(group).getByRole('radio', { name: /Right one/ })).not.toBeDisabled();
     expect(screen.queryByText('Because it is right.')).toBeNull();
     expect(screen.queryByText('Because it is wrong.')).toBeNull();
-    fireEvent.click(within(group).getByRole('radio', { name: /Wrong one/ }));
+    fireEvent.click(check);
     expect(screen.getByText('Because it is wrong.')).toBeTruthy();
     expect(screen.getByText('Because it is right.')).toBeTruthy();
     expect(group.querySelector('[data-correct="true"]')?.textContent).toMatch(/Right one/);
+    // Committed: the choice is fixed, and focus lands on what it revealed.
+    expect(within(group).getByRole('radio', { name: /Right one/ })).toBeDisabled();
+    expect(screen.getByText('Because it is wrong.').closest('[tabindex="-1"]')).toHaveFocus();
   });
 
-  it('check marks the correct option when it is chosen', () => {
-    view({
-      type: 'check',
-      question: 'Which?',
-      options: [
-        { text: 'Right one', correct: true, why: 'Because it is right.' },
-        { text: 'Wrong one', why: 'Because it is wrong.' },
-      ],
-    });
+  it('check marks the correct option when it is chosen and checked', () => {
+    view(CHECK);
     fireEvent.click(screen.getByRole('radio', { name: /Right one/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check' }));
     expect(screen.getByText('Because it is right.')).toBeTruthy();
     expect(screen.queryByText('Because it is wrong.')).toBeNull();
+    // Try again opens the question again: nothing chosen, nothing marked, focus back on the options.
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(document.querySelector('[data-correct]')).toBeNull();
+    expect(screen.getByRole('radio', { name: /Right one/ })).not.toBeDisabled();
+    expect(screen.getByRole('radio', { name: /Right one/ })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: /Right one/ })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Check' })).toBeDisabled();
   });
 
   it('steps moves through the labels', () => {
