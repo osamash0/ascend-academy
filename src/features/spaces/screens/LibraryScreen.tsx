@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
-import { Layers, Search } from 'lucide-react';
+import { CheckSquare, Layers, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useShelf, shelfSpaceName } from '../data/useShelf';
+import { useShelf, shelfSpaceName, shelfTitle } from '../data/useShelf';
 import { useLibrary } from '../data/useSpaces';
 import {
   filterItems,
@@ -26,6 +27,7 @@ import { BringInTile, DropVeil, useBringIn } from '../library/BringIn';
 import { ContinueCard } from '../library/ContinueCard';
 import { YourWords } from '../library/YourWords';
 import { ZoomThrough } from '../library/ZoomThrough';
+import { SelectBar } from '../library/SelectBar';
 
 /**
  * Library — the shelf (One Library spec §5.1).
@@ -36,6 +38,7 @@ import { ZoomThrough } from '../library/ZoomThrough';
  *
  * Learn mode: calm and browsable. Search, sort and grouping only appear once
  * the shelf is big enough to need them (9 items), so a new shelf stays quiet.
+ * Select (`?select=1`) is the one dense moment, on purpose (spec §5.8).
  */
 
 const FILTERS: { key: ShelfFilter; label: string }[] = [
@@ -76,6 +79,10 @@ export default function LibraryScreen() {
   const [sort, setSort] = useState<ShelfSort>('recent');
   const [grouped, setGrouped] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  // Your words has no covers, so Select never stands over it.
+  const selecting = params.get('select') === '1' && filter !== 'words';
+  const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
+  const orphans = contributions.filter((c) => c.orphaned);
   const bring = useBringIn(state === 'ready');
   const tile = (variant: 'cell' | 'empty') => (
     <BringInTile inputRef={bring.inputRef} onFiles={bring.bringFiles} variant={variant} />
@@ -90,17 +97,18 @@ export default function LibraryScreen() {
       if (stages.current.get(i.id) === 'developing' && i.stage === 'ready') ready.push(i.filename);
       stages.current.set(i.id, i.stage);
     }
-    if (ready.length)
-      setSaid(ready.map((f) => `${f} is ready`).join('. '));
+    if (ready.length) setSaid(ready.map((f) => `${f} is ready`).join('. '));
   }, [items]);
 
-  /** One URL param, set or cleared, leaving the others (mock, select) alone. */
-  const setParam = (key: string, value: string | null) =>
+  /** URL params, set or cleared together (one navigation), leaving the others (mock, …) alone. */
+  const setParam = (patch: Record<string, string | null>) =>
     setParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
+        for (const [key, value] of Object.entries(patch)) {
+          if (value) next.set(key, value);
+          else next.delete(key);
+        }
         return next;
       },
       { replace: true },
@@ -129,7 +137,59 @@ export default function LibraryScreen() {
     }),
     [items, words],
   );
-  const shown = useMemo(() => sortItems(filterItems(items, filter, q), sort), [items, filter, q, sort]);
+  const shown = useMemo(
+    () => sortItems(filterItems(items, filter, q, shelfTitle), sort, shelfTitle),
+    [items, filter, q, sort],
+  );
+  /* Only what is on the shelf can be selected: a removed cover drops out by itself. */
+  const selected = useMemo(
+    () => (selecting ? items.filter((i) => picked.has(i.id)) : []),
+    [selecting, items, picked],
+  );
+
+  const enterSelect = (first?: string) => {
+    setPicked(new Set(first ? [first] : []));
+    setParam(filter === 'words' ? { f: null, select: '1' } : { select: '1' });
+  };
+  const leaveSelect = () => {
+    setPicked(new Set());
+    setParam({ select: null });
+  };
+  /* Your words has no covers to select, so going there ends Select. */
+  const showFilter = (key: ShelfFilter) => {
+    if (key === 'words') setPicked(new Set());
+    setParam({ f: key === 'all' ? null : key, ...(key === 'words' ? { select: null } : {}) });
+  };
+  const toggle = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const pickFor = (id: string) =>
+    selecting ? { checked: picked.has(id), onToggle: () => toggle(id) } : undefined;
+
+  /* The filters are tabs: one in the tab order, arrows move between them (APG tabs, automatic activation). */
+  const tabRefs = useRef(new Map<ShelfFilter, HTMLButtonElement>());
+  const onTabKey = (e: ReactKeyboardEvent) => {
+    const at = FILTERS.findIndex((f) => f.key === filter);
+    const to =
+      e.key === 'ArrowRight'
+        ? (at + 1) % FILTERS.length
+        : e.key === 'ArrowLeft'
+          ? (at - 1 + FILTERS.length) % FILTERS.length
+          : e.key === 'Home'
+            ? 0
+            : e.key === 'End'
+              ? FILTERS.length - 1
+              : -1;
+    if (to < 0) return;
+    e.preventDefault();
+    const key = FILTERS[to].key;
+    showFilter(key);
+    tabRefs.current.get(key)?.focus();
+  };
 
   // Library stands on the stage. It has no subject of its own, so its light
   // is the brand's — neutral white — never a colour (monochrome brand).
@@ -151,7 +211,9 @@ export default function LibraryScreen() {
   if (state === 'error') return chrome(<SpacesError what="your Library" />);
 
   const fade = { duration: reduce ? 0.15 : 0.24, ease: FLIGHT_EASE };
-  const showContinue = !!continueItem && (filter === 'all' || filter === 'reading') && !q;
+  const showContinue = !!continueItem && (filter === 'all' || filter === 'reading') && !q && !selecting;
+  /* Nothing at all: one calm invitation. Your words alone still keep their tab. */
+  const nothing = items.length === 0 && words.length === 0 && orphans.length === 0;
 
   return chrome(
     <ZoomThrough>
@@ -160,34 +222,50 @@ export default function LibraryScreen() {
           <Masthead title="Library" lede="What you brought in, what you made of it, and what you shared." />
         </header>
 
-        {items.length === 0 ? (
+        {nothing ? (
           tile('empty')
         ) : (
           <>
             <div className="mt-8 flex flex-col items-center gap-4">
-              <div
-                role="tablist"
-                aria-label="Filter"
-                className="flex flex-wrap items-center justify-center gap-1.5"
-              >
-                {FILTERS.map((f) => (
-                  <button
-                    key={f.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={filter === f.key}
-                    onClick={() => setParam('f', f.key === 'all' ? null : f.key)}
-                    className={cn(
-                      'console-focusable h-9 rounded-full px-4 text-[13.5px] font-medium transition-colors',
-                      filter === f.key
-                        ? 'bg-white/[0.10] text-foreground'
-                        : 'text-quiet hover:bg-white/[0.05] hover:text-foreground',
-                    )}
-                  >
-                    {f.label}
-                    <span className="ml-1.5 tabular-nums text-faint">{counts[f.key]}</span>
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+                <div
+                  role="tablist"
+                  aria-label="Filter"
+                  className="flex flex-wrap items-center justify-center gap-1.5"
+                  onKeyDown={onTabKey}
+                >
+                  {FILTERS.map((f) => (
+                    <button
+                      key={f.key}
+                      ref={(el) => {
+                        if (el) tabRefs.current.set(f.key, el);
+                        else tabRefs.current.delete(f.key);
+                      }}
+                      id={`library-tab-${f.key}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={filter === f.key}
+                      aria-controls="library-panel"
+                      tabIndex={filter === f.key ? 0 : -1}
+                      onClick={() => showFilter(f.key)}
+                      className={cn(
+                        'console-focusable h-9 rounded-full px-4 text-[13.5px] font-medium transition-colors',
+                        filter === f.key
+                          ? 'bg-white/[0.10] text-foreground'
+                          : 'text-quiet hover:bg-white/[0.05] hover:text-foreground',
+                      )}
+                    >
+                      {f.label}
+                      <span className="ml-1.5 tabular-nums text-faint">{counts[f.key]}</span>
+                    </button>
+                  ))}
+                </div>
+                {items.length > 0 && !selecting && (
+                  <button type="button" onClick={() => enterSelect()} className={ghostPillSm}>
+                    <CheckSquare aria-hidden className="h-3.5 w-3.5" />
+                    Select…
                   </button>
-                ))}
+                )}
               </div>
 
               {big && filter !== 'words' && (
@@ -203,7 +281,7 @@ export default function LibraryScreen() {
                       aria-label="Search your Library"
                       placeholder="Search your Library   /"
                       value={q}
-                      onChange={(e) => setParam('q', e.target.value || null)}
+                      onChange={(e) => setParam({ q: e.target.value || null })}
                       className="console-focusable h-9 w-full rounded-full border border-white/12 bg-white/[0.05] pl-9 pr-4 text-[13.5px] text-foreground placeholder:text-faint"
                     />
                   </label>
@@ -235,18 +313,16 @@ export default function LibraryScreen() {
             {/* A new view arrives with a fade; the old one simply gives way, so the two never stack. */}
             <motion.div
               key={filter}
+              id="library-panel"
+              role="tabpanel"
+              aria-labelledby={`library-tab-${filter}`}
               className="mt-10"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={fade}
             >
               {filter === 'words' ? (
-                <YourWords
-                  words={words}
-                  items={items}
-                  orphans={contributions.filter((c) => c.orphaned)}
-                  onMoved={reread}
-                />
+                <YourWords words={words} items={items} orphans={orphans} onMoved={reread} />
               ) : (
                 <>
                   {showContinue && (
@@ -254,21 +330,56 @@ export default function LibraryScreen() {
                       <ContinueCard item={continueItem} />
                     </div>
                   )}
-                  <Shelf items={shown} grouped={big && grouped} cell={tile('cell')} />
-                  {shown.length === 0 && <NothingHere filter={filter} q={q} />}
+                  {items.length === 0 ? (
+                    tile('empty')
+                  ) : (
+                    <>
+                      <Shelf
+                        items={shown}
+                        grouped={big && grouped}
+                        cell={tile('cell')}
+                        pick={pickFor}
+                        onRemove={enterSelect}
+                      />
+                      {shown.length === 0 && <NothingHere filter={filter} q={q} />}
+                    </>
+                  )}
                 </>
               )}
             </motion.div>
           </>
         )}
       </div>
+      <SelectBar
+        open={selecting}
+        selected={selected}
+        total={shown.length}
+        onSelectAll={() => setPicked(new Set(shown.map((i) => i.id)))}
+        onClear={() => setPicked(new Set())}
+        onDone={leaveSelect}
+      />
     </ZoomThrough>,
   );
 }
 
 const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(232px,1fr))] gap-[18px]';
 
-function Shelf({ items, grouped, cell }: { items: ShelfItem[]; grouped: boolean; cell: React.ReactNode }) {
+function Shelf({
+  items,
+  grouped,
+  cell,
+  pick,
+  onRemove,
+}: {
+  items: ShelfItem[];
+  grouped: boolean;
+  cell: React.ReactNode;
+  pick: (id: string) => { checked: boolean; onToggle: () => void } | undefined;
+  onRemove: (id: string) => void;
+}) {
+  const cover = (item: ShelfItem) => (
+    <Cover item={item} select={pick(item.id)} onRemove={() => onRemove(item.id)} />
+  );
   if (!grouped) {
     return (
       <section aria-labelledby="your-shelf">
@@ -276,13 +387,9 @@ function Shelf({ items, grouped, cell }: { items: ShelfItem[]; grouped: boolean;
           Your shelf
         </h2>
         <EnterList aria-labelledby="your-shelf" className={GRID}>
-          <EnterListItem>
-            {cell}
-          </EnterListItem>
+          <EnterListItem>{cell}</EnterListItem>
           {items.map((item) => (
-            <EnterListItem key={item.id}>
-              <Cover item={item} />
-            </EnterListItem>
+            <EnterListItem key={item.id}>{cover(item)}</EnterListItem>
           ))}
         </EnterList>
       </section>
@@ -295,15 +402,9 @@ function Shelf({ items, grouped, cell }: { items: ShelfItem[]; grouped: boolean;
         <section key={g.title} aria-label={g.title}>
           <h2 className="mb-4 text-[20px] font-medium tracking-[-0.02em]">{g.title}</h2>
           <EnterList aria-label={gi === 0 ? 'Your shelf' : g.title} className={GRID}>
-            {gi === 0 && (
-              <EnterListItem>
-                {cell}
-              </EnterListItem>
-            )}
+            {gi === 0 && <EnterListItem>{cell}</EnterListItem>}
             {g.items.map((item) => (
-              <EnterListItem key={item.id}>
-                <Cover item={item} />
-              </EnterListItem>
+              <EnterListItem key={item.id}>{cover(item)}</EnterListItem>
             ))}
           </EnterList>
         </section>

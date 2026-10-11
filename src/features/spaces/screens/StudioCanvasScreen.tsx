@@ -158,13 +158,14 @@ export default function StudioCanvasScreen() {
   useEffect(() => {
     if (itemId) shelfActions.touch(itemId);
   }, [itemId]);
-  const lastReported = useRef<number | null>(null);
+  /* Which material the last reported page belongs to: a new one starts over, so its arrival is not a turn. */
+  const lastReported = useRef<{ itemId: string; page: number } | null>(null);
   const currentPage = nav.current;
   useEffect(() => {
     if (!itemId || currentPage === null) return;
     // The page you arrive on is not a turn: the shelf already knows where you were.
-    const first = lastReported.current === null;
-    lastReported.current = currentPage;
+    const first = lastReported.current?.itemId !== itemId;
+    lastReported.current = { itemId, page: currentPage };
     if (!first) shelfActions.markRead(itemId, currentPage);
   }, [itemId, currentPage]);
 

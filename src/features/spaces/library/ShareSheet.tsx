@@ -34,16 +34,30 @@ const ROLE_SAID: Record<Role, string> = {
   member: 'you’re a member',
 };
 
-/** The sheet: "Share {filename}". Controlled, so a cover's menu and the page's button open the same one. */
+/**
+ * The sheet: "Share {filename}". Controlled, so a cover's menu and the page's button open the same one.
+ *
+ * Given `items` (Select on the shelf), it shares every private one to the
+ * chosen Space and leaves the rest as they are, saying so before and after.
+ */
 export function ShareSheet({
   item,
+  items,
   open,
   onOpenChange,
+  onShared,
 }: {
-  item: ShelfItem;
+  item?: ShelfItem;
+  items?: ShelfItem[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** After a confirmed share. */
+  onShared?: () => void;
 }) {
+  const all = items ?? (item ? [item] : []);
+  const one = !items && item ? item : null;
+  const shareable = all.filter((i) => i.share.kind === 'private');
+  const skipped = all.length - shareable.length;
   const { spaces } = useMySpaces();
   const [chosen, setChosen] = useState<string | null>(null);
   // Opened without a Radix trigger, so focus comes back to whatever opened it by hand.
@@ -54,9 +68,16 @@ export function ShareSheet({
 
   const confirm = () => {
     if (!space || !role || !outcome) return;
-    shelfActions.share(item.id, space.id, role, space.mode);
+    if (one) {
+      shelfActions.share(one.id, space.id, role, space.mode);
+      toast(outcome.kind === 'draft' ? `Draft in ${space.name}` : `Shared to ${space.name}`);
+    } else {
+      for (const i of shareable) shelfActions.share(i.id, space.id, role, space.mode);
+      const did = `${shareable.length} ${outcome.kind === 'draft' ? `drafted in ${space.name}` : 'shared'}`;
+      toast(skipped ? `${did} · ${skipped} already shared` : did);
+    }
     onOpenChange(false);
-    toast(outcome.kind === 'draft' ? `Draft in ${space.name}` : `Shared to ${space.name}`);
+    onShared?.();
   };
 
   return (
@@ -78,10 +99,19 @@ export function ShareSheet({
         }}
       >
         <DialogHeader>
-          <DialogTitle>Share {item.filename}</DialogTitle>
+          <DialogTitle>
+            {one ? `Share ${one.filename}` : `Share ${all.length} ${all.length === 1 ? 'file' : 'files'}`}
+          </DialogTitle>
           <DialogDescription>Choose a Space. What happens next is written below before you confirm.</DialogDescription>
         </DialogHeader>
-        <Journey item={item} className="lg:hidden" />
+        {one && <Journey item={one} className="lg:hidden" />}
+        {!one && skipped > 0 && (
+          <p className="text-[13.5px] text-quiet">
+            {skipped === 1
+              ? '1 is already in a Space and stays as it is.'
+              : `${skipped} are already in a Space and stay as they are.`}
+          </p>
+        )}
         {spaces.length === 0 ? (
           <p className="text-[14px] text-quiet">You aren’t in a Space yet. Join or make one, then share from here.</p>
         ) : (
@@ -113,7 +143,7 @@ export function ShareSheet({
         <DialogFooter>
           <button
             type="button"
-            disabled={!space}
+            disabled={!space || (!one && shareable.length === 0)}
             onClick={confirm}
             className="console-focusable h-10 rounded-full bg-foreground px-5 text-[14px] font-medium text-background transition-opacity disabled:opacity-40"
           >

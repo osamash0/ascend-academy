@@ -32,8 +32,7 @@ import {
 import { allNotes } from '../mocks/notes';
 import { currentRun } from '../mocks/history';
 import type { HeroKind, HomeItem, RecentItem } from '../mocks/library';
-import { canvasById, materialById, pagesFor, recentCanvases } from '../mocks/studio-canvas';
-import type { CanvasSummary } from '../mocks/studio-canvas';
+import { canvasById, materialById, pagesFor } from '../mocks/studio-canvas';
 import type { CanvasDoc, SourcePage, StudioMaterial } from '../studio/types';
 
 /**
@@ -326,16 +325,6 @@ export function useCanvas(canvasId: string | undefined): CanvasResult {
     material: materialById(canvas.materialIds[0]) ?? null,
     spaceName: canvas.spaceId ? spaceById(canvas.spaceId)?.name ?? null : null,
   };
-}
-
-export interface StudioHomeResult {
-  state: LoadState;
-  recent: CanvasSummary[];
-}
-
-export function useStudioHome(): StudioHomeResult {
-  const state = useSettled(useScenario());
-  return { state, recent: state === 'ready' ? recentCanvases() : [] };
 }
 
 /* ── One Lesson, and what it is made of ───────────────────────── */

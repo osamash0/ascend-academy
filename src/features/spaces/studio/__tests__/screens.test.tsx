@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import StudioHomeScreen from '../../screens/StudioHomeScreen';
 import LibraryScreen from '../../screens/LibraryScreen';
 import StudioCanvasScreen from '../../screens/StudioCanvasScreen';
 
@@ -9,23 +8,10 @@ const at = (path: string) =>
   render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/v4/library/studio" element={<StudioHomeScreen />} />
         <Route path="/v4/library/m/:materialId" element={<StudioCanvasScreen />} />
       </Routes>
     </MemoryRouter>,
   );
-
-describe('Studio home', () => {
-  it('offers to open a Material and to continue recent work', async () => {
-    at('/v4/library/studio');
-    expect(await screen.findByRole('heading', { name: 'Studio' }, { timeout: 2000 })).toBeInTheDocument();
-    expect(screen.getByLabelText(/open material/i)).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: /Normalization\.pdf/ }, { timeout: 2000 })).toHaveAttribute('href', '/v4/library/studio/c/c-norm');
-    expect(screen.getByRole('main')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Manage uploads' })).toHaveAttribute('href', '/v4/library/uploads');
-    expect(screen.getAllByRole('link', { name: 'Library' }).some((l) => l.getAttribute('href') === '/v4/library')).toBe(true);
-  });
-});
 
 describe('Library has no Studio door', () => {
   // One Library (spec §4): Studio is no longer a place, so the shelf has no door to it.

@@ -105,7 +105,6 @@ const V4Home = lazy(() => import("./features/spaces/screens/HomeScreen"));
 const V4Lesson = lazy(() => import("./features/spaces/screens/LessonScreen"));
 const V4Concept = lazy(() => import("./features/spaces/screens/ConceptScreen"));
 const V4SpaceManage = lazy(() => import("./features/spaces/screens/SpaceManageScreen"));
-const V4LibraryStudio = lazy(() => import("./features/spaces/screens/LibraryStudioScreen"));
 const V4StudioCanvas = lazy(() => import("./features/spaces/screens/StudioCanvasScreen"));
 const V4Social = lazy(() => import("./features/spaces/screens/SocialScreen"));
 const V4Profile = lazy(() => import("./features/spaces/screens/ProfileScreen"));
@@ -303,8 +302,7 @@ function AppRoutes() {
             {/* Tabs are URL segments so every one is shareable and deep-linkable. */}
             <Route path="/v4/space/:spaceId/:tab" element={<SpaceRoute />} />
             <Route path="/v4/library" element={<V4Library />} />
-            {/* Studio screens hang off Library; Library itself stays Learn. */}
-            {/* The Studio canvas (spec 2026-10-10). Declared before :view so "studio" is not read as a list view. */}
+            {/* Your page: the canvas, opened from a cover (One Library spec §4). */}
             <Route path="/v4/library/m/:materialId" element={<V4StudioCanvas />} />
             {/* The old Studio and list-view paths still land somewhere real. */}
             <Route path="/v4/library/studio" element={<LibraryTo to="/v4/library" />} />
@@ -312,7 +310,6 @@ function AppRoutes() {
             <Route path="/v4/library/uploads" element={<LibraryTo to="/v4/library?f=reading&select=1" />} />
             <Route path="/v4/library/drafts" element={<LibraryTo to="/v4/library?f=shared&select=1" />} />
             <Route path="/v4/library/impact" element={<LibraryTo to="/v4/library?f=shared" />} />
-            <Route path="/v4/library/:view" element={<V4LibraryStudio />} />
             <Route path="/v4/home" element={<V4Home />} />
             <Route path="/v4/social" element={<V4Social />} />
             <Route path="/v4/profile" element={<V4Profile />} />

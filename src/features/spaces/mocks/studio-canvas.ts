@@ -1,5 +1,4 @@
 import raw from './studio-normalization.json';
-import { spaceById } from './spaces';
 import { STUDIO_SUMMARY } from './studio-summary';
 import { placeAfterCovering } from '../studio/edit';
 import type { CanvasBlock, CanvasDoc, ExtractedBlock, SourcePage, StudioMaterial } from '../studio/types';
@@ -86,18 +85,3 @@ export const materialById = (id: string): StudioMaterial | undefined =>
 export const pagesFor = (materialIds: string[]): SourcePage[] =>
   materialIds.includes(STUDIO_MATERIAL.id) ? studioPages : [];
 
-export interface CanvasSummary {
-  id: string;
-  title: string;
-  spaceName: string | null;
-  updatedAt: string;
-}
-
-export const recentCanvases = (): CanvasSummary[] => [
-  {
-    id: STUDIO_CANVAS.id,
-    title: STUDIO_MATERIAL.filename,
-    spaceName: spaceById('s-dbs')?.name ?? null,
-    updatedAt: STUDIO_CANVAS.updatedAt,
-  },
-];

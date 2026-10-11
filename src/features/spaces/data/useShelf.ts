@@ -4,6 +4,7 @@ import * as shelfStore from '../mocks/shelf';
 import { allNotes, notesVersion, subscribeNotes } from '../mocks/notes';
 import { STUDIO_CANVAS, canvasById, pagesFor } from '../mocks/studio-canvas';
 import { spaceById } from '../mocks/spaces';
+import { locateLesson } from '../mocks/lessons';
 import { continueItem, yourWords } from '../studio/shelf';
 import type { ShelfItem, WordEntry } from '../studio/shelf';
 import { useScreenState } from './useSpaces';
@@ -112,4 +113,29 @@ export function useGlance(item: ShelfItem, page?: number, max = 2): Glance {
       .slice(0, max);
     return { image: asked ? asked.imageUrl : item.cover, lines };
   }, [item.opens, item.cover, page, max]);
+}
+
+/** A name that tells you nothing — `lesson-3.pdf`, `scan.jpg` — gives way to the Lesson's own title. */
+const GENERIC_NAME = /^(lesson|file|untitled|scan|upload)[-_ ]?\d*\.[a-z0-9]+$/i;
+
+const lessonTitleOf = (item: ShelfItem): string | null =>
+  item.opens.kind === 'lesson' ? (locateLesson(item.opens.lessonId)?.lesson.title ?? null) : null;
+
+/** The name a cover shows: its filename, unless that is generic and a Lesson's title says more. */
+export const shelfTitle = (item: ShelfItem): string => {
+  const lesson = lessonTitleOf(item);
+  return lesson && GENERIC_NAME.test(item.filename.trim()) ? lesson : item.filename;
+};
+
+/**
+ * A cover's names. A file brought in through a Space is often called
+ * `lesson-3.pdf`; its Lesson's title is what tells two of them apart.
+ */
+export function useCoverTitle(item: ShelfItem): { title: string; lessonTitle: string | null } {
+  return useMemo(
+    () => ({ title: shelfTitle(item), lessonTitle: lessonTitleOf(item) }),
+    // The names depend on these two only, not on progress.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [item.filename, item.opens],
+  );
 }

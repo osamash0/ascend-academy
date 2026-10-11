@@ -87,11 +87,17 @@ export function lifeLine(item: ShelfItem): string[] {
 
 export type ShelfFilter = 'all' | 'reading' | 'shared' | 'words';
 
-export function filterItems(items: ShelfItem[], f: ShelfFilter, q: string): ShelfItem[] {
+/** `title` is the name a cover shows; search finds it or the filename. */
+export function filterItems(
+  items: ShelfItem[],
+  f: ShelfFilter,
+  q: string,
+  title: (i: ShelfItem) => string = (i) => i.filename,
+): ShelfItem[] {
   if (f === 'words') return [];
   const needle = q.trim().toLowerCase();
   return items.filter((i) => {
-    if (needle && !i.filename.toLowerCase().includes(needle)) return false;
+    if (needle && !`${title(i)}\n${i.filename}`.toLowerCase().includes(needle)) return false;
     if (f === 'reading') {
       return i.share.kind !== 'shared' || i.progress.pagesRead < i.pageCount;
     }
@@ -104,9 +110,14 @@ export type ShelfSort = 'recent' | 'added' | 'az';
 
 const byDesc = (a: string, b: string) => (a < b ? 1 : a > b ? -1 : 0);
 
-export function sortItems(items: ShelfItem[], s: ShelfSort): ShelfItem[] {
+/** A–Z goes by `title`, the name a cover shows. */
+export function sortItems(
+  items: ShelfItem[],
+  s: ShelfSort,
+  title: (i: ShelfItem) => string = (i) => i.filename,
+): ShelfItem[] {
   const out = [...items];
-  if (s === 'az') return out.sort((a, b) => a.filename.localeCompare(b.filename));
+  if (s === 'az') return out.sort((a, b) => title(a).localeCompare(title(b)));
   if (s === 'added') return out.sort((a, b) => byDesc(a.addedAt, b.addedAt));
   return out.sort((a, b) => {
     // A file still being read (or that failed) leads, newest first: what you just brought in is where you look.

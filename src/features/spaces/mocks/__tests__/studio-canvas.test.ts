@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  STUDIO_CANVAS, STUDIO_MATERIAL, canvasById, materialById, pagesFor, recentCanvases, studioPages,
+  STUDIO_CANVAS, STUDIO_MATERIAL, canvasById, materialById, pagesFor, studioPages,
 } from '../studio-canvas';
 import { hasSource } from '../../studio/edit';
 
@@ -101,6 +101,5 @@ describe('studio fixture', () => {
     expect(materialById('m-norm')).toBe(STUDIO_MATERIAL);
     expect(pagesFor(['m-norm'])).toBe(studioPages);
     expect(pagesFor(['other'])).toEqual([]);
-    expect(recentCanvases()[0]).toMatchObject({ id: 'c-norm', title: 'Normalization.pdf', spaceName: 'Database Systems' });
   });
 });

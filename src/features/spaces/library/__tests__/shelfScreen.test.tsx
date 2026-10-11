@@ -69,7 +69,7 @@ describe('the shelf', () => {
     expect(norm).toHaveAttribute('href', '/v4/library/m/m-norm');
   });
 
-  it('gives every cover a separate menu with Share (live) and Remove (not yet wired)', async () => {
+  it('gives every cover a separate menu with Share and Remove…', async () => {
     at();
     await settle();
     const more = screen.getByRole('button', { name: 'More for Normalization.pdf' });
@@ -80,7 +80,35 @@ describe('the shelf', () => {
     });
     const menu = screen.getByRole('menu');
     expect(within(menu).getByRole('menuitem', { name: /Share/ })).not.toHaveAttribute('aria-disabled');
-    expect(within(menu).getByRole('menuitem', { name: /Remove/ })).toHaveAttribute('aria-disabled', 'true');
+    const remove = within(menu).getByRole('menuitem', { name: /Remove/ });
+    expect(remove).not.toHaveAttribute('aria-disabled');
+    // Remove goes through Select, so it always has its confirm and its Undo.
+    fireEvent.click(remove);
+    await settle();
+    expect(loc()).toContain('select=1');
+    expect(screen.getByRole('checkbox', { name: /^Normalization\.pdf,/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('toolbar', { name: 'Selection' })).toHaveTextContent('1 selected');
+  });
+
+  it('tells Lesson-backed text tiles apart: their Lesson’s title, initials and Space', async () => {
+    at();
+    await settle();
+    const lessons = shelf.getItems().filter((i) => i.opens.kind === 'lesson');
+    expect(lessons.length, 'no Lesson-backed covers, so this proves nothing').toBeGreaterThan(1);
+    const tiles = lessons.map((i) => {
+      const frame = shelfList().querySelector(`a[href="/v4/library/m/${i.id}"] .aspect-\\[4\\/3\\]`)!;
+      // A quiet white tint by Space — monochrome, never a hue.
+      expect((frame as HTMLElement).style.backgroundColor).toMatch(/^rgba\(255, ?255, ?255, ?0\.0\d\)$/);
+      return frame.textContent ?? '';
+    });
+    // Two letters each, and no two tiles show the same ones.
+    for (const t of tiles) expect(t).toMatch(/^[A-Z][A-Za-z]$/);
+    expect(new Set(tiles).size).toBe(tiles.length);
+    expect(tiles).toContain('CB');
+    // A generic `lesson-N.pdf` gives way to the Lesson's own title.
+    expect(within(shelfList()).queryByText('lesson-3.pdf')).toBeNull();
+    expect(within(shelfList()).getByText('Determinants')).toBeInTheDocument();
+    expect(coverNames().some((n) => n.startsWith('Change of Basis, Draft in'))).toBe(true);
   });
 
   it('leaves the first cell for bringing something in', async () => {
@@ -150,6 +178,33 @@ describe('filters', () => {
     await settle();
     expect(screen.getByRole('tab', { name: /Your words/ })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByRole('list', { name: 'Your shelf' })).toBeNull();
+  });
+
+  it('is one tab stop: arrows, Home and End move between the filters', async () => {
+    at();
+    await settle();
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.filter((t) => t.tabIndex === 0)).toHaveLength(1);
+    const panel = screen.getByRole('tabpanel');
+    expect(tabs[0]).toHaveAttribute('aria-controls', panel.id);
+    expect(panel).toHaveAttribute('aria-labelledby', tabs[0].id);
+
+    fireEvent.keyDown(tabs[0], { key: 'ArrowRight' });
+    await settle();
+    expect(loc()).toContain('f=reading');
+    expect(screen.getByRole('tab', { name: /Reading/ })).toHaveFocus();
+    expect(screen.getByRole('tab', { name: /Reading/ }).tabIndex).toBe(0);
+
+    fireEvent.keyDown(document.activeElement!, { key: 'End' });
+    await settle();
+    expect(loc()).toContain('f=words');
+    fireEvent.keyDown(document.activeElement!, { key: 'Home' });
+    await settle();
+    expect(loc()).not.toContain('f=');
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' });
+    await settle();
+    expect(loc()).toContain('f=words');
+    expect(screen.getByRole('tab', { name: /Your words/ })).toHaveFocus();
   });
 
   it('counts each filter', async () => {
@@ -233,5 +288,20 @@ describe('states', () => {
       url.searchParams.delete('mock');
       window.history.replaceState({}, '', url);
     }
+  });
+
+  it('keeps Your words reachable when every cover is gone', async () => {
+    for (const i of [...shelf.getItems()]) shelf.remove(i.id);
+    at();
+    await settle();
+    // The shelf itself is the invitation again…
+    expect(screen.getByText(/Bring in your first file/)).toBeInTheDocument();
+    // …but what you wrote is still one tab away.
+    const words = screen.getByRole('tab', { name: /Your words/ });
+    expect(Number(words.textContent?.match(/\d+/)?.[0])).toBeGreaterThan(0);
+    fireEvent.click(words);
+    await settle();
+    expect(screen.getByRole('button', { name: /New note/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Select…' })).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import StudioCanvasScreen from '../../screens/StudioCanvasScreen';
 import { CanvasRedirect, To } from '../LibraryRedirects';
 import * as shelf from '../../mocks/shelf';
@@ -23,6 +23,7 @@ const at = (path: string) =>
         <Route path="/v4/library/impact" element={<To to="/v4/library?f=shared" />} />
       </Routes>
       <Probe />
+      <Link to="/v4/library/m/m-design-notes">to design notes</Link>
     </MemoryRouter>,
   );
 
@@ -49,6 +50,18 @@ describe('redirects', () => {
     at(from);
     await settle();
     expect(screen.getAllByTestId('loc').at(-1)).toHaveTextContent(to);
+  });
+
+  it('sends an old canvas link with no page behind it to the shelf', async () => {
+    at('/v4/library/studio/c/nope');
+    await settle();
+    expect(screen.getAllByTestId('loc').at(-1)).toHaveTextContent(/^\/v4\/library$/);
+  });
+
+  it('opens a cover backed by a Lesson as that Lesson', async () => {
+    at('/v4/library/m/lib-mat-l-s-linalg-3');
+    await settle();
+    expect(screen.getAllByTestId('loc').at(-1)).toHaveTextContent('/v4/space/s-linalg/lesson/l-s-linalg-3');
   });
 });
 
@@ -96,6 +109,21 @@ describe('progress flows back to the shelf', () => {
     expect(item('m-norm').progress.pagesRead).toBe(7);
     expect(spy).toHaveBeenCalled();
   });
+  it('moving to another page of yours does not count the arrival as a turn', async () => {
+    at('/v4/library/m/m-norm');
+    await settle();
+    const pager = screen.getAllByRole('button', { name: /next page/i })[0];
+    fireEvent.click(pager);
+    await act(async () => { vi.advanceTimersByTime(300); });
+    // A turn was reported, so the screen holds a "last reported" page.
+    expect(item('m-norm').lastPage).not.toBe(6);
+    // Same screen, new material: where you land there is not a page you turned to.
+    fireEvent.click(screen.getByRole('link', { name: 'to design notes' }));
+    await settle();
+    expect(screen.getByRole('heading', { name: 'Design process — my notes.pdf' })).toBeInTheDocument();
+    expect(item('m-design-notes').lastPage).toBeNull();
+  });
+
   it('an answer adds one, Remove takes it back, Undo restores it', async () => {
     at('/v4/library/m/m-norm');
     await settle();

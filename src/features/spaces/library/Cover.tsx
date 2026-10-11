@@ -1,7 +1,7 @@
 import { Fragment, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { MoreHorizontal, Share2, Trash2 } from 'lucide-react';
+import { Check, MoreHorizontal, Share2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { lifeLine, type ShelfItem } from '../studio/shelf';
 import { FLIGHT_EASE } from '../studio/motion';
-import { shelfSpaceName, shelfActions, useGlance } from '../data/useShelf';
+import { shelfSpaceName, shelfActions, useCoverTitle, useGlance } from '../data/useShelf';
 import { useDeveloping } from './BringIn';
 import { ShareSheet } from './ShareSheet';
 import { useZoomThrough } from './ZoomThrough';
@@ -39,8 +39,28 @@ function stateLabel(item: ShelfItem): string {
   return 'Only you';
 }
 
-const coverLabel = (item: ShelfItem): string =>
-  [item.filename, stateLabel(item), ...lifeLine(item)].join(', ');
+const coverLabel = (item: ShelfItem, title: string): string =>
+  [title, stateLabel(item), ...lifeLine(item)].join(', ');
+
+const SMALL_WORDS = new Set(['a', 'an', 'and', 'for', 'in', 'of', 'on', 'the', 'to']);
+
+/** Two letters for a text tile: "Change of Basis" → "CB", "Determinants" → "De". */
+const titleInitials = (title: string): string => {
+  const words = title.split(/\s+/).filter((w) => w && !SMALL_WORDS.has(w.toLowerCase()));
+  if (words.length === 0) return title.trim().charAt(0).toUpperCase();
+  if (words.length === 1) return words[0].charAt(0).toUpperCase() + words[0].charAt(1).toLowerCase();
+  return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
+};
+
+/**
+ * A quiet tint for a text tile, the same for every tile of one Space: white at
+ * one of four low strengths, so the monochrome brand holds and no hue appears.
+ */
+const spaceTint = (spaceId: string): number => {
+  let h = 0;
+  for (const ch of spaceId) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return [0.03, 0.05, 0.07, 0.09][h % 4];
+};
 
 const pagesLabel = (n: number) => `${n} ${n === 1 ? 'page' : 'pages'}`;
 
@@ -74,16 +94,20 @@ export function LifeBar({
 }) {
   const reduce = useReducedMotion();
   const pct = total > 0 ? Math.min(100, Math.round((read / total) * 100)) : 0;
+  const width = developing ? '100%' : `${pct}%`;
   return (
     <div aria-hidden className="h-[3px] overflow-hidden rounded-full bg-white/[0.08]">
+      {/* Reduced motion: the bar is simply where it belongs, and fades in — its width never runs. */}
       <motion.div
         className="h-full rounded-full bg-gradient-to-r from-[rgb(159,211,199)] to-[rgb(159,211,199,0.4)]"
-        initial={{ width: 0 }}
-        animate={{ width: developing ? '100%' : `${pct}%` }}
+        initial={reduce ? { width, opacity: 0 } : { width: 0 }}
+        animate={{ width, opacity: 1 }}
         transition={
-          developing
-            ? { duration: reduce ? 0.15 : 3.3, ease: 'linear' }
-            : { duration: reduce ? 0.15 : 0.6, ease: FLIGHT_EASE }
+          reduce
+            ? { width: { duration: 0 }, opacity: { duration: 0.15 } }
+            : developing
+              ? { duration: 3.3, ease: 'linear' }
+              : { duration: 0.6, ease: FLIGHT_EASE }
         }
       />
     </div>
@@ -150,7 +174,7 @@ function StateChip({ item, pulse }: { item: ShelfItem; pulse: boolean }) {
   );
 }
 
-function CoverMenu({ item }: { item: ShelfItem }) {
+function CoverMenu({ item, onRemove }: { item: ShelfItem; onRemove?: () => void }) {
   const [sharing, setSharing] = useState(false);
   const { filename } = item;
   return (
@@ -169,7 +193,6 @@ function CoverMenu({ item }: { item: ShelfItem }) {
         align="end"
         className="min-w-[10rem] rounded-xl border-white/10 bg-[#0b0b0b] p-1 text-foreground"
       >
-        {/* Remove-with-undo arrives in One Library Task 7. */}
         <DropdownMenuItem
           disabled={item.stage !== 'ready'}
           onSelect={() => setSharing(true)}
@@ -178,10 +201,13 @@ function CoverMenu({ item }: { item: ShelfItem }) {
           <Share2 aria-hidden className="h-3.5 w-3.5" />
           Share
         </DropdownMenuItem>
-        <DropdownMenuItem disabled className="gap-2 rounded-lg text-[13px]">
-          <Trash2 aria-hidden className="h-3.5 w-3.5" />
-          Remove
-        </DropdownMenuItem>
+        {/* Remove, with its confirm and Undo, lives in Select: one place for the one destructive act. */}
+        {onRemove && (
+          <DropdownMenuItem onSelect={onRemove} className="gap-2 rounded-lg text-[13px]">
+            <Trash2 aria-hidden className="h-3.5 w-3.5" />
+            Remove…
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
     <ShareSheet item={item} open={sharing} onOpenChange={setSharing} />
@@ -189,8 +215,19 @@ function CoverMenu({ item }: { item: ShelfItem }) {
   );
 }
 
-export function Cover({ item }: { item: ShelfItem }) {
+export function Cover({
+  item,
+  select,
+  onRemove,
+}: {
+  item: ShelfItem;
+  /** Select (spec §5.8): the cover is a checkable tile and its link is inert. */
+  select?: { checked: boolean; onToggle: () => void };
+  /** "Remove…" from the menu: into Select, with this cover checked. */
+  onRemove?: () => void;
+}) {
   const reduce = useReducedMotion();
+  const { title, lessonTitle } = useCoverTitle(item);
   const { lines } = useGlance(item);
   const [glancing, setGlancing] = useState(false);
   const fade = { duration: reduce ? 0.15 : 0.6, ease: FLIGHT_EASE };
@@ -213,105 +250,144 @@ export function Cover({ item }: { item: ShelfItem }) {
   const zoom = useZoomThrough();
   const frameRef = useRef<HTMLDivElement>(null);
   const href = `/v4/library/m/${item.id}`;
+  const tint = item.opens.kind === 'lesson' ? spaceTint(item.opens.spaceId) : null;
+
+  const body = (
+    <>
+      <div
+        ref={frameRef}
+        className={cn(
+          'relative aspect-[4/3] overflow-hidden',
+          item.cover ? 'bg-[#f7f6f2]' : !tint && 'bg-white/[0.04]',
+        )}
+        style={!item.cover && tint ? { backgroundColor: `rgba(255,255,255,${tint})` } : undefined}
+      >
+        {item.cover ? (
+          <motion.img
+            src={item.cover}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover object-left-top"
+            initial={false}
+            animate={
+              developing
+                ? devLook
+                : showLines
+                  ? { opacity: 0, filter: reduce ? 'blur(0px) grayscale(0)' : 'blur(5px) grayscale(0)' }
+                  : { opacity: 1, filter: 'blur(0px) grayscale(0)' }
+            }
+            transition={live || pulse ? imgFade : fade}
+          />
+        ) : (
+          /*
+            No page yet: a quiet tile. A Lesson's gives its title's initials,
+            on its Space's tint, so two of them never look the same.
+          */
+          <div
+            aria-hidden
+            className="flex h-full w-full items-center justify-center text-[64px] font-medium leading-none tracking-[-0.04em] text-quiet"
+          >
+            {lessonTitle ? titleInitials(lessonTitle) : item.filename.trim().charAt(0).toUpperCase()}
+          </div>
+        )}
+        {live && (
+          <p
+            aria-hidden
+            className="absolute inset-x-0 bottom-2.5 text-center text-[12px] font-semibold tracking-[0.01em] text-[#222]"
+          >
+            {phase === 'writing' ? 'Writing your summary…' : 'Reading your pages…'}
+          </p>
+        )}
+        <AnimatePresence>
+          {showLines && (
+            <motion.div
+              key="lines"
+              data-testid="glance"
+              className="absolute inset-0 space-y-2 overflow-hidden bg-[#0b0b0b] px-4 py-3.5 text-[12.5px] leading-relaxed text-quiet"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={fade}
+            >
+              {lines.map((l, i) => (
+                <p key={i}>
+                  <Terms text={l} />
+                </p>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div className="px-3.5 pb-3.5 pt-3">
+        <p className="truncate text-[14.5px] font-medium text-foreground">{title}</p>
+        {/*
+          Where it lives is the chip's to say ("Only you", "Shared in …"); the
+          meta line carries the rest, so no fact is printed twice on a cover.
+        */}
+        <p className="mt-0.5 text-[12.5px] text-faint">
+          {pagesLabel(item.pageCount)}
+          {item.sample && <span className="ml-2 rounded-full bg-white/[0.07] px-2 py-px text-[11px]">Sample pages</span>}
+        </p>
+        <div className="mt-2.5">
+          <LifeBar read={item.progress.pagesRead} total={item.pageCount} developing={live} />
+        </div>
+        <LifeLine item={item} className="mt-2" />
+        <StateChip item={item} pulse={pulse} />
+      </div>
+    </>
+  );
 
   return (
     <motion.div
-      className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.09] bg-white/[0.03] transition-colors hover:border-white/20"
+      className={cn(
+        'group relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white/[0.03] transition-colors',
+        select?.checked ? 'border-white/60' : 'border-white/[0.09] hover:border-white/20',
+      )}
       initial={enter}
       animate={{ opacity: 1, scale: 1 }}
-      whileHover={reduce ? undefined : { y: -3 }}
+      whileHover={reduce || select ? undefined : { y: -3 }}
       transition={{ duration: 0.35, ease: FLIGHT_EASE }}
     >
-      <Link
-        to={href}
-        aria-label={coverLabel(item)}
-        onClick={(e) => zoom?.(e, href, { frame: frameRef.current, src: item.cover })}
-        className="console-focusable block flex-1 rounded-2xl"
-        onMouseEnter={() => setGlancing(true)}
-        onMouseLeave={() => setGlancing(false)}
-        onFocus={() => setGlancing(true)}
-        onBlur={() => setGlancing(false)}
-      >
-        <div
-          ref={frameRef}
+      {select ? (
+        /* Selecting: the link is gone, so a click anywhere on the tile checks it; the checkbox is the control. */
+        <div className="block flex-1 cursor-pointer rounded-2xl" onClick={select.onToggle}>
+          {body}
+        </div>
+      ) : (
+        <Link
+          to={href}
+          aria-label={coverLabel(item, title)}
+          onClick={(e) => zoom?.(e, href, { frame: frameRef.current, src: item.cover })}
+          className="console-focusable block flex-1 rounded-2xl"
+          onMouseEnter={() => setGlancing(true)}
+          onMouseLeave={() => setGlancing(false)}
+          onFocus={() => setGlancing(true)}
+          onBlur={() => setGlancing(false)}
+        >
+          {body}
+        </Link>
+      )}
+
+      {select && (
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={select.checked}
+          aria-label={coverLabel(item, title)}
+          onClick={select.onToggle}
           className={cn(
-            'relative aspect-[4/3] overflow-hidden',
-            item.cover ? 'bg-[#f7f6f2]' : 'bg-white/[0.04]',
+            'console-focusable absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg border transition-colors',
+            select.checked
+              ? 'border-white bg-white text-black'
+              : 'border-white/50 bg-black/55 text-transparent backdrop-blur-sm hover:border-white',
           )}
         >
-          {item.cover ? (
-            <motion.img
-              src={item.cover}
-              alt=""
-              loading="lazy"
-              className="h-full w-full object-cover object-left-top"
-              initial={false}
-              animate={
-                developing
-                  ? devLook
-                  : showLines
-                    ? { opacity: 0, filter: reduce ? 'blur(0px) grayscale(0)' : 'blur(5px) grayscale(0)' }
-                    : { opacity: 1, filter: 'blur(0px) grayscale(0)' }
-              }
-              transition={live || pulse ? imgFade : fade}
-            />
-          ) : (
-            /* No page yet: a quiet tile with the file's initial. */
-            <div
-              aria-hidden
-              className="flex h-full w-full items-center justify-center text-[64px] font-medium leading-none tracking-[-0.04em] text-quiet"
-            >
-              {item.filename.trim().charAt(0).toUpperCase()}
-            </div>
-          )}
-          {live && (
-            <p
-              aria-hidden
-              className="absolute inset-x-0 bottom-2.5 text-center text-[12px] font-semibold tracking-[0.01em] text-[#222]"
-            >
-              {phase === 'writing' ? 'Writing your summary…' : 'Reading your pages…'}
-            </p>
-          )}
-          <AnimatePresence>
-            {showLines && (
-              <motion.div
-                key="lines"
-                data-testid="glance"
-                className="absolute inset-0 space-y-2 overflow-hidden bg-[#0b0b0b] px-4 py-3.5 text-[12.5px] leading-relaxed text-quiet"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={fade}
-              >
-                {lines.map((l) => (
-                  <p key={l}>
-                    <Terms text={l} />
-                  </p>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+          <Check aria-hidden className="h-4 w-4" />
+        </button>
+      )}
 
-        <div className="px-3.5 pb-3.5 pt-3">
-          <p className="truncate text-[14.5px] font-medium text-foreground">{item.filename}</p>
-          {/*
-            Where it lives is the chip's to say ("Only you", "Shared in …"); the
-            meta line carries the rest, so no fact is printed twice on a cover.
-          */}
-          <p className="mt-0.5 text-[12.5px] text-faint">
-            {pagesLabel(item.pageCount)}
-            {item.sample && <span className="ml-2 rounded-full bg-white/[0.07] px-2 py-px text-[11px]">Sample pages</span>}
-          </p>
-          <div className="mt-2.5">
-            <LifeBar read={item.progress.pagesRead} total={item.pageCount} developing={live} />
-          </div>
-          <LifeLine item={item} className="mt-2" />
-          <StateChip item={item} pulse={pulse} />
-        </div>
-      </Link>
-
-      {item.stage === 'failed' && (
+      {!select && item.stage === 'failed' && (
         <div className="px-3.5 pb-3.5">
           <button
             type="button"
@@ -323,9 +399,11 @@ export function Cover({ item }: { item: ShelfItem }) {
         </div>
       )}
 
-      <div className="absolute right-2 top-2 z-10">
-        <CoverMenu item={item} />
-      </div>
+      {!select && (
+        <div className="absolute right-2 top-2 z-10">
+          <CoverMenu item={item} onRemove={onRemove} />
+        </div>
+      )}
     </motion.div>
   );
 }
