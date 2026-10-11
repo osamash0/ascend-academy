@@ -15,8 +15,8 @@ import { cn } from '@/lib/utils';
 import { Avatar } from './Avatar';
 import { useViewer } from '../data/viewer';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { AppNotification, NotificationKind } from '../mocks/notifications';
-import { groupedByDay, markAllRead, unreadCount } from '../mocks/notifications';
+import type { AppNotification, NotificationKind } from '../data/notifications';
+import { groupedByDay, markAllRead, unreadCount } from '../data/notifications';
 
 /**
  * Notifications.

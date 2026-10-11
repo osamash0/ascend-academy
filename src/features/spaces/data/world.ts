@@ -1,6 +1,7 @@
 import * as fixtureSpaces from '../mocks/spaces';
 import * as fixtureLessons from '../mocks/lessons';
 import type { Lesson, Person, Space } from '../types';
+import type { AppNotification } from '../mocks/notifications';
 
 /**
  * The viewer's world: every Space they can see and those Spaces' Lessons.
@@ -22,6 +23,10 @@ export interface World {
   activity: { lessonId: string; at: string }[];
   /** Consecutive study days, as the streak engine counts them. */
   streakDays: number;
+  /** The viewer's XP total, from the XP ledger. */
+  xp: number;
+  /** The viewer's latest notifications, newest first. */
+  notifications: AppNotification[];
 }
 
 let live: World | null = null;

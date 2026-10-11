@@ -41,6 +41,13 @@ async def v4_join_space(space_id: UUID, request: Request, user: Any = Depends(ve
     return {"joined": True}
 
 
+@router.post("/notifications/read-all")
+@limiter.limit("30/minute")
+async def v4_notifications_read_all(request: Request, user: Any = Depends(verify_token)):
+    """The panel's one bulk action."""
+    return {"marked": await service.mark_notifications_read(_uid(user))}
+
+
 @router.get("/world")
 @limiter.limit("60/minute")
 async def v4_world(request: Request, user: Any = Depends(verify_token)):

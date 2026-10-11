@@ -2,7 +2,7 @@ import { ArrowLeft, BookOpen, Check, Heart, Sparkles, Star, TrendingUp } from 'l
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useViewer } from '../data/viewer';
-import { viewerStanding } from '../mocks/library';
+import { standingNow } from '../data/standing';
 import {
   standingFor,
   xpBySource,
@@ -85,7 +85,7 @@ const formatWhen = (iso: string) =>
 export default function RankScreen() {
   const viewer = useViewer();
   const screenState = useScreenState();
-  const { xp } = viewerStanding();
+  const { xp } = standingNow();
   const { rank, into, span, toNext, pct } = standingFor(xp);
   const bySource = xpBySource();
   /** Newest first: what you did most recently is what you are asking about. */

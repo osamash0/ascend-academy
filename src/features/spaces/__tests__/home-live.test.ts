@@ -19,6 +19,8 @@ const world = (over: Partial<World>): World => ({
   lessons: [lesson('dbs', 1), lesson('dbs', 2), lesson('dbs', 3)],
   activity: [],
   streakDays: 3,
+  xp: 0,
+  notifications: [],
   ...over,
 });
 

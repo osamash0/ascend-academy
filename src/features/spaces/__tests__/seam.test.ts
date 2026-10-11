@@ -16,11 +16,9 @@ import { join } from 'node:path';
  */
 const STILL_ON_MOCKS = [
   'components/ContributionCard.tsx',
-  'components/NotificationPanel.tsx',
   'components/ReanchorDialog.tsx',
   'components/SearchPalette.tsx',
   'components/SpaceDialogs.tsx',
-  'components/SpacesTopBar.tsx',
   'components/badges.tsx',
   'components/hub/HeroCover.tsx',
   'components/hub/Rails.tsx',
@@ -38,7 +36,6 @@ const STILL_ON_MOCKS = [
   'screens/ProfileScreen.tsx',
   'screens/RankScreen.tsx',
   'screens/ReaderScreen.tsx',
-  'screens/SettingsScreen.tsx',
   'screens/SocialScreen.tsx',
   'screens/SpaceManageScreen.tsx',
   'screens/SpaceScreen.tsx',

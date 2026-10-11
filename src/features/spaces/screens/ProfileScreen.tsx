@@ -1,7 +1,8 @@
 import { Flame, Heart, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { libraryItems, viewerStanding } from '../mocks/library';
+import { libraryItems } from '../mocks/library';
+import { standingNow } from '../data/standing';
 import { moments } from '../mocks/moments';
 import { standingFor } from '../mocks/rank';
 import { currentRun } from '../mocks/history';
@@ -43,7 +44,7 @@ export default function ProfileScreen() {
    * rank independently, and the local `XP_IN_RANK = 250` drove a progress bar
    * on a fourth curve that matched none of them.
    */
-  const { xp } = viewerStanding();
+  const { xp } = standingNow();
   const { rank, toNext, pct } = standingFor(xp);
   const streak = currentRun();
 

@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Download, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useViewer } from '../data/viewer';
-import { viewerStanding } from '../mocks/library';
+import { standingNow } from '../data/standing';
 import { StudioShell } from '../components/StudioShell';
 import { ListSkeleton, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
@@ -122,7 +122,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function SettingsScreen() {
   const viewer = useViewer();
   const screenState = useScreenState();
-  const standing = viewerStanding();
+  const standing = standingNow();
   const [notifyMentions, setNotifyMentions] = useState(true);
   const [notifyEndorsed, setNotifyEndorsed] = useState(true);
   const [notifyNewLessons, setNotifyNewLessons] = useState(false);

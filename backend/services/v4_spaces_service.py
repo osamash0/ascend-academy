@@ -193,11 +193,16 @@ async def get_world(user_id: str) -> Dict[str, Any]:
             list(author_ids),
         )
         viewer_row = await conn.fetchrow(
-            "SELECT user_id, display_name, full_name, email, avatar_url, current_streak "
+            "SELECT user_id, display_name, full_name, email, avatar_url, current_streak, total_xp "
             "FROM public.profiles WHERE user_id = $1::uuid",
             user_id,
         )
         activity = await conn.fetch(_ACTIVITY_SQL, user_id, lecture_ids)
+        notes = await conn.fetch(
+            "SELECT id, title, message, type, read, created_at FROM notifications "
+            "WHERE user_id = $1::uuid ORDER BY created_at DESC LIMIT 30",
+            user_id,
+        )
 
     people = {r["user_id"]: _person(r) for r in people_rows}
     unknown = {"id": "unknown", "name": "Former member", "avatarUrl": None}
@@ -293,4 +298,34 @@ async def get_world(user_id: str) -> Dict[str, Any]:
         # What Home ranks: the lessons the viewer last touched, newest first.
         "activity": [{"lessonId": str(r["lecture_id"]), "at": r["at"].isoformat()} for r in activity],
         "streakDays": (viewer_row["current_streak"] or 0) if viewer_row else 0,
+        # The XP ledger's running total (grant_xp keeps profiles.total_xp).
+        "xp": (viewer_row["total_xp"] or 0) if viewer_row else 0,
+        "notifications": [_notification(r) for r in notes],
     }
+
+
+# The kinds the v4 panel draws. The engine's level_up is an achievement there.
+_KINDS = {"endorsed", "promoted", "liked", "new_lessons", "friend_request", "achievement", "streak"}
+
+
+def _notification(r: Any) -> Dict[str, Any]:
+    kind = r["type"] if r["type"] in _KINDS else "achievement"
+    return {
+        "id": str(r["id"]),
+        "title": r["title"] or "",
+        "message": r["message"] or "",
+        "type": kind,
+        "read": bool(r["read"]),
+        "created_at": r["created_at"].isoformat(),
+        # Achievements, level-ups and streaks are about you: they open Profile.
+        "target": {"kind": "profile"},
+    }
+
+
+async def mark_notifications_read(user_id: str) -> int:
+    conn_cm = await get_db_connection()
+    async with conn_cm as conn:
+        result = await conn.execute(
+            "UPDATE notifications SET read = true WHERE user_id = $1::uuid AND NOT read", user_id,
+        )
+    return int(result.split()[-1]) if result else 0
