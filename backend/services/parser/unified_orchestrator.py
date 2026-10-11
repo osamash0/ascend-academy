@@ -50,6 +50,7 @@ from backend.core.database import supabase_admin
 from backend.core.job_locks import acquire_job_lock, parse_lock_key, release_job_lock
 from backend.domain.parse_models import RunStatus
 from backend.services.ai.call_context import (
+    CallLog,
     ServedCall,
     llm_call_scope,
     pop_llm_call_context,
@@ -360,8 +361,13 @@ def _input_text_kind(route: str, raw: str, sent: Optional[str]) -> Optional[str]
     extracted; vision always gets raw), or None when no LLM call was made."""
     if route == "heuristic":
         return None
-    if route in ("batch", "per_slide") and sent is not None and sent != raw:
-        return "stripped"
+    if route in ("batch", "per_slide") and sent is not None:
+        from backend.services.parser.deck_plan import normalize_page
+        # strip_boilerplate also drops blank lines, so "differs from raw" is not
+        # "a boilerplate line was removed": compare against the page normalised
+        # the same way. sent == raw is synthesis_text's raw fallback.
+        if sent != raw and sent != normalize_page(raw):
+            return "stripped"
     return "raw"
 
 
@@ -413,11 +419,15 @@ def _llm_usage_receipt(
     the call covered) and ``cost_usd`` (the slide's even share of those calls).
     Run-level calls (meta, quiz, facts, ...) have no slide and count only in
     the totals. Vision, embeddings and the admin-slide classifier are not
-    metered; ``unmetered`` names them so the totals are not read as complete."""
+    metered; ``unmetered`` names them so the totals are not read as complete.
+    ``dropped_calls`` counts calls the in-memory cap refused (0 normally).
+    Per-slide cost shares need not sum to llm_usage.cost_usd (rounding;
+    run-level calls; out-of-range indices) -- the totals are authoritative."""
     provenance = [{**entry, "served_by": [], "cost_usd": 0.0} for entry in slide_provenance]
     by_index = {entry["index"]: entry for entry in provenance}
     totals: Dict[str, Any] = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0,
-                              "cost_usd": 0.0, "by_prompt": {}, "by_provider": {}}
+                              "cost_usd": 0.0, "by_prompt": {}, "by_provider": {},
+                              "dropped_calls": getattr(calls, "dropped", 0)}
     for call in calls:
         totals["calls"] += 1
         totals["prompt_tokens"] += call.prompt_tokens
@@ -434,6 +444,7 @@ def _llm_usage_receipt(
                 continue
             entry["served_by"].append({
                 "provider": call.provider, "model": call.model, "prompt": call.prompt_name,
+                "prompt_version": call.prompt_version,
                 "prompt_tokens": call.prompt_tokens, "completion_tokens": call.completion_tokens,
                 "cost_usd": round(call.cost_usd, 6), "shared_by": shared_by,
             })
@@ -683,7 +694,7 @@ async def parse_pdf_unified(
     deck_summary = ""
     # Arc 7: metered LLM calls of THIS attempt (a forced re-parse reuses the
     # run_id, so the list, not llm_calls, scopes the receipt to one attempt).
-    served_calls: List[ServedCall] = []
+    served_calls: List[ServedCall] = CallLog()
     llm_ctx_token = None
 
     # In-flight dedupe lock (Roadmap P2-3). Prefer the worker's own Arq redis
@@ -1108,7 +1119,7 @@ async def parse_pdf_unified(
                 skeleton=skeleton,
                 slide_provenance=slide_provenance,
                 quiz_grounding=quiz_stats or None,
-                served_calls=list(served_calls),
+                served_calls=served_calls,
             )
             # A reader locale is only published as an atomic snapshot of the
             # canonical source revision — never a partial translation. But a

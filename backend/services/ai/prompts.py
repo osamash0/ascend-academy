@@ -14,8 +14,10 @@ constant, and the version lives in a *parallel* lookup dict keyed by the
 constant's name. This is strictly additive — no existing call site changes
 behavior.
 
-``llm_calls.prompt_name`` (Arc 7) is usually a ``PROMPT_VERSIONS`` key (join it for the
-version), but some legacy call sites pass free-form names that will not join.
+``llm_calls.prompt_name`` (Arc 7) is usually a ``PROMPT_VERSIONS`` key; the
+version in force is recorded at call time in ``llm_calls.prompt_version`` (NULL
+for a free-form name that is not a registered prompt), so a later bump never
+rewrites history.
 """
 
 from typing import Dict
@@ -54,7 +56,7 @@ PROMPT_VERSIONS: Dict[str, str] = {
     # rule so generated content stays in the deck's own source language
     # instead of drifting to English (source_language plumbing).
     "LECTURE_META_ANALYSIS_PROMPT": "v3",       # was parser/synthesis.py:analyze_lecture_meta — v3 (Arc 7, retroactive for Arc 2): input is skeleton-selected, boilerplate-stripped slides across the whole deck, not slides[:15] raw
-    "SLIDE_ANALYSIS_PROMPT": "v3",              # was parser/synthesis.py:analyze_slide — v3 (Arc 7): the parse path sends boilerplate-stripped {text} (raw fallback under 25 chars); api/v1/upload.py enhance-slide still sends RAW text (no skeleton there), so its outputs are tagged v3 but used raw input
+    "SLIDE_ANALYSIS_PROMPT": "v3",              # was parser/synthesis.py:analyze_slide — v3 (Arc 7): the parse path sends boilerplate-stripped {text} (raw fallback under 25 chars); api/v1/upload.py enhance-slide still sends RAW text (no skeleton there), it runs with no call context (prompt_name NULL in llm_calls), so its outputs are not attributed to this version
     # v3 (Arc 4 grounded quiz): slideId -> source_slide (the [Slide N] label the
     # key is stated on) plus grounding rules; verified by parser/quiz_grounding.py.
     "SYNTHESIS_DECK_QUIZ_PROMPT": "v3",         # was parser/synthesis.py:generate_quiz_questions

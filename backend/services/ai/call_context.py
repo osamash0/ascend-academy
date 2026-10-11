@@ -44,6 +44,14 @@ class ServedCall:
     cost_usd: float
     prompt_name: Optional[str]
     slide_indices: Optional[Tuple[int, ...]]
+    prompt_version: Optional[str] = None
+
+
+class CallLog(list):
+    """The per-parse call list. ``dropped`` counts calls refused once
+    MAX_RECORDED_CALLS is reached, so a truncated receipt says so."""
+
+    dropped: int = 0
 
 
 @dataclass(frozen=True)
@@ -82,7 +90,11 @@ def record_served_call(call: ServedCall) -> None:
     """Append to the current parse's call list, if any. Never raises."""
     try:
         sink = _CURRENT.get().calls
-        if sink is not None and len(sink) < MAX_RECORDED_CALLS:
+        if sink is None:
+            return
+        if len(sink) < MAX_RECORDED_CALLS:
             sink.append(call)
+        elif isinstance(sink, CallLog):
+            sink.dropped += 1
     except Exception as exc:
         logger.warning("could not record served LLM call (non-fatal): %s", exc)

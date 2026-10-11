@@ -1471,6 +1471,20 @@ def test_input_text_kind():
     assert uo._input_text_kind("vision", "raw page", "stripped page") == "raw"
 
 
+def test_input_text_kind_is_raw_when_only_blank_lines_were_dropped():
+    # strip_boilerplate always joins non-blank lines, so a page with a trailing
+    # newline or blank line differs from its "stripped" text even when no
+    # boilerplate line was removed. That is "raw", not "stripped".
+    from backend.services.parser.deck_plan import strip_boilerplate
+    bp = frozenset({"footer #"})
+    plain = "Depth-first search\n\nfollows one branch\n"
+    footed = "Depth-first search\nfollows one branch\nFooter 3\n"
+    assert uo._input_text_kind("batch", plain, strip_boilerplate(plain, bp)) == "raw"
+    assert uo._input_text_kind("per_slide", footed, strip_boilerplate(footed, bp)) == "stripped"
+    # synthesis_text's raw fallback hands the raw page back unchanged
+    assert uo._input_text_kind("batch", footed, footed) == "raw"
+
+
 async def test_receipt_records_what_text_each_slide_prompt_received(monkeypatch):
     rec, run = _patch_common(monkeypatch, pages=ARC7_DECK)
     await _run("h", OWNER, filename="Deck.pdf")
@@ -1603,16 +1617,17 @@ async def test_each_parse_attempt_and_concurrent_parse_gets_its_own_calls_list(m
 
 # ── Arc 7: serving provider/cost in the receipt ─────────────────────────────
 
-def _served(provider, model, pt, ct, cost, prompt, slides):
+def _served(provider, model, pt, ct, cost, prompt, slides, version=None):
     from backend.services.ai.call_context import ServedCall
     return ServedCall(provider=provider, model=model, prompt_tokens=pt, completion_tokens=ct,
-                      cost_usd=cost, prompt_name=prompt, slide_indices=slides)
+                      cost_usd=cost, prompt_name=prompt, slide_indices=slides,
+                      prompt_version=version)
 
 
 def test_llm_usage_receipt_splits_a_batch_call_and_totals_the_run():
     prov = [{"index": 0, "route": "batch"}, {"index": 1, "route": "batch"}, {"index": 2, "route": "vision"}]
     calls = [
-        _served("openai", "gpt-4o-mini", 2000, 1000, 0.0009, "BATCH_SLIDE_PROMPT", (0, 1)),
+        _served("openai", "gpt-4o-mini", 2000, 1000, 0.0009, "BATCH_SLIDE_PROMPT", (0, 1), "v3"),
         _served("groq", "gpt-oss-120b", 500, 100, 0.0, "LECTURE_META_ANALYSIS_PROMPT", None),
         _served("groq", "gpt-oss-20b", 300, 50, 0.0, None, (7,)),  # slide not in receipt
     ]
@@ -1620,6 +1635,7 @@ def test_llm_usage_receipt_splits_a_batch_call_and_totals_the_run():
     assert "served_by" not in prov[0]  # input not mutated
     assert out[0]["served_by"] == [{
         "provider": "openai", "model": "gpt-4o-mini", "prompt": "BATCH_SLIDE_PROMPT",
+        "prompt_version": "v3",
         "prompt_tokens": 2000, "completion_tokens": 1000, "cost_usd": 0.0009, "shared_by": 2,
     }]
     assert out[0]["cost_usd"] == pytest.approx(0.00045)
@@ -1632,6 +1648,15 @@ def test_llm_usage_receipt_splits_a_batch_call_and_totals_the_run():
     assert usage["by_provider"]["openai"] == {"calls": 1, "cost_usd": 0.0009}
     assert usage["vision_metered"] is False
     assert usage["unmetered"] == ["vision", "embeddings", "admin_slide_classifier"]
+    assert usage["dropped_calls"] == 0
+
+
+def test_llm_usage_receipt_surfaces_dropped_calls():
+    from backend.services.ai.call_context import CallLog
+    log = CallLog([_served("groq", "m", 1, 1, 0.0, "P", (0,))])
+    log.dropped = 4
+    _, usage = uo._llm_usage_receipt([{"index": 0}], log)
+    assert usage["dropped_calls"] == 4
 
 
 def test_run_level_calls_count_in_totals_but_never_in_a_slide():

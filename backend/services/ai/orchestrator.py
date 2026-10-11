@@ -1308,6 +1308,10 @@ async def _account_for_call(
         await _rotator.flush_openai_cost_to_redis(cost)
     call_ctx = current_llm_call_context()
     name = prompt_name or call_ctx.prompt_name
+    from backend.services.ai.prompts import PROMPT_VERSIONS, get_prompt_version
+    # Recorded at call time so a later prompt bump never rewrites history;
+    # None for a free-form name that is not a registered prompt.
+    version = get_prompt_version(name) if name in PROMPT_VERSIONS else None
     record_served_call(ServedCall(
         provider=provider_id,
         model=model,
@@ -1316,11 +1320,13 @@ async def _account_for_call(
         cost_usd=cost,
         prompt_name=name,
         slide_indices=call_ctx.slide_indices,
+        prompt_version=version,
     ))
     await log_llm_call(
         user_id=user_id, course_id=course_id, feature=feature,
         provider_id=provider_id, model=model, usage=usage, cost_usd=cost,
         run_id=call_ctx.run_id, slide_indices=call_ctx.slide_indices, prompt_name=name,
+        prompt_version=version,
     )
     if user_id and cost > 0:
         await record_user_llm_spend(user_id, cost)

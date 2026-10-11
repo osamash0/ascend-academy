@@ -157,8 +157,8 @@ _RUN_CONTEXT_INSERT = """
     INSERT INTO public.llm_calls
         (user_id, course_id, feature, provider, model,
          prompt_tokens, completion_tokens, est_cost_usd,
-         run_id, slide_indices, prompt_name)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         run_id, slide_indices, prompt_name, prompt_version)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 """
 
 # Sticky per process: once the database has reported the run-context columns
@@ -178,6 +178,7 @@ async def log_llm_call(
     run_id: Optional[str] = None,
     slide_indices: Optional[Sequence[int]] = None,
     prompt_name: Optional[str] = None,
+    prompt_version: Optional[str] = None,
 ) -> None:
     """Best-effort INSERT into public.llm_calls. Never raises — a logging
     failure must not surface as an LLM-call failure to the caller.
@@ -194,7 +195,8 @@ async def log_llm_call(
     completion_tokens = usage.completion_tokens if usage else 0
     base = (user_id, course_id, feature, provider_id, model,
             prompt_tokens, completion_tokens, cost_usd)
-    has_context = run_id is not None or slide_indices is not None or prompt_name is not None
+    has_context = (run_id is not None or slide_indices is not None
+                   or prompt_name is not None or prompt_version is not None)
     try:
         conn_cm = await get_db_connection()
         async with conn_cm as conn:
@@ -205,7 +207,7 @@ async def log_llm_call(
                 await conn.execute(
                     _RUN_CONTEXT_INSERT, *base, run_id,
                     list(slide_indices) if slide_indices is not None else None,
-                    prompt_name,
+                    prompt_name, prompt_version,
                 )
             except asyncpg.exceptions.UndefinedColumnError:
                 _run_context_columns_missing = True

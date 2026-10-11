@@ -293,3 +293,26 @@ def test_llm_usage_is_nullable_jsonb(db_conn, make_user, make_lecture):
             (str(run2), str(lecture)),
         )
         assert cur.fetchone()[0] is None
+
+
+def test_reapplying_the_migration_adds_llm_usage_to_an_older_table(db_conn):
+    # An earlier version of the file (PR head 8673a94) created parse_receipts
+    # without llm_usage; CREATE TABLE IF NOT EXISTS then skips the column.
+    from backend.tests.db.conftest import MIGRATIONS_DIR
+
+    sql = (MIGRATIONS_DIR / "20261012000000_parse_receipts.sql").read_text()
+
+    def has_column(cur) -> bool:
+        cur.execute(
+            "SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' "
+            "AND table_name = 'parse_receipts' AND column_name = 'llm_usage'"
+        )
+        return cur.fetchone()[0] == 1
+
+    with db_conn.cursor() as cur:
+        cur.execute("ALTER TABLE public.parse_receipts DROP COLUMN llm_usage")
+        assert not has_column(cur)  # the table now looks like the old file's
+        cur.execute(sql)
+        assert has_column(cur)
+        cur.execute(sql)  # and re-application stays idempotent
+        assert has_column(cur)

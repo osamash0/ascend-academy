@@ -47,6 +47,13 @@ def find_boilerplate(pages: list[str], min_share: float = 0.6, min_pages: int = 
     return frozenset(line for line, c in counts.items() if line and c >= threshold)
 
 
+def normalize_page(page: str) -> str:
+    """The page with blank lines dropped: what strip_boilerplate returns when
+    no line is boilerplate. Lets a caller tell "a boilerplate line was removed"
+    from "only blank lines were dropped"."""
+    return "\n".join(_lines(page))
+
+
 def strip_boilerplate(page: str, boilerplate: frozenset[str]) -> str:
     return "\n".join(ln for ln in _lines(page) if normalize_line(ln) not in boilerplate)
 

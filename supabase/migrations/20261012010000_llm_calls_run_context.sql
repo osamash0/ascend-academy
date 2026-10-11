@@ -15,6 +15,9 @@
 --                 one batch call covers up to 8 slides. NULL for deck-level
 --                 calls (lecture meta, deck quiz, localization, ...).
 --   prompt_name   backend/services/ai/prompts.py PROMPT_VERSIONS key.
+--   prompt_version the version of that prompt in force when the call was made
+--                 (recorded at call time, so a later bump never rewrites
+--                 history). NULL for a free-form name that is not registered.
 -- A forced re-parse reuses its run_id, so rows of several attempts can share
 -- one run_id; the parse receipt is built per attempt in memory instead.
 --
@@ -28,7 +31,8 @@
 ALTER TABLE public.llm_calls
     ADD COLUMN IF NOT EXISTS run_id        UUID,
     ADD COLUMN IF NOT EXISTS slide_indices INTEGER[],
-    ADD COLUMN IF NOT EXISTS prompt_name   TEXT;
+    ADD COLUMN IF NOT EXISTS prompt_name   TEXT,
+    ADD COLUMN IF NOT EXISTS prompt_version TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_llm_calls_run_id
     ON public.llm_calls (run_id)

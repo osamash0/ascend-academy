@@ -15,8 +15,11 @@
 --                      calls are not metered (ai/vision.py reports no usage).
 --   llm_usage        — run totals over the metered calls made before the
 --                      receipt was written (calls, tokens, cost, by prompt,
---                      by provider). Later calls of the run (localization)
---                      are in public.llm_calls by run_id.
+--                      by provider, dropped_calls). Later calls of the run
+--                      (localization) are in public.llm_calls by run_id.
+--                      Per-slide cost shares need not sum to
+--                      llm_usage.cost_usd (rounding; run-level calls;
+--                      out-of-range indices) -- the totals are authoritative.
 --   quiz_grounding   — synthesis.ground_deck_quiz's summary
 --                      (proposed/kept/repaired/dropped/drop_reasons/flagged/
 --                      flag_reasons).
@@ -47,6 +50,10 @@ CREATE TABLE IF NOT EXISTS public.parse_receipts (
     llm_usage        JSONB,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- An earlier version of this file (PR head 8673a94) created the table without
+-- llm_usage; CREATE TABLE IF NOT EXISTS would skip it, so add it idempotently.
+ALTER TABLE public.parse_receipts ADD COLUMN IF NOT EXISTS llm_usage JSONB;
 
 CREATE INDEX IF NOT EXISTS idx_parse_receipts_lecture_created
     ON public.parse_receipts (lecture_id, created_at DESC);

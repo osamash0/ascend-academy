@@ -25,7 +25,7 @@ def test_llm_calls_has_expected_columns(db_conn):
     assert columns == {
         "id", "created_at", "user_id", "course_id", "feature", "provider",
         "model", "prompt_tokens", "completion_tokens", "est_cost_usd",
-        "run_id", "slide_indices", "prompt_name",
+        "run_id", "slide_indices", "prompt_name", "prompt_version",
     }
 
 

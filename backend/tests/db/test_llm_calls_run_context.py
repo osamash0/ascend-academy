@@ -39,12 +39,13 @@ def test_run_context_columns_are_nullable_with_expected_types(db_conn):
             "SELECT column_name, data_type, udt_name, is_nullable "
             "FROM information_schema.columns "
             "WHERE table_schema = 'public' AND table_name = 'llm_calls' "
-            "AND column_name IN ('run_id', 'slide_indices', 'prompt_name') "
+            "AND column_name IN ('run_id', 'slide_indices', 'prompt_name', 'prompt_version') "
             "ORDER BY column_name"
         )
         rows = cur.fetchall()
     assert rows == [
         ("prompt_name", "text", "text", "YES"),
+        ("prompt_version", "text", "text", "YES"),
         ("run_id", "uuid", "uuid", "YES"),
         ("slide_indices", "ARRAY", "_int4", "YES"),
     ]
@@ -166,11 +167,13 @@ async def test_log_llm_call_round_trips_run_context_through_asyncpg(wired_pool, 
         provider_id="groq", model="gpt-oss-20b",
         usage=LLMUsage(prompt_tokens=900, completion_tokens=120), cost_usd=0.0,
         run_id=str(run_id), slide_indices=(0, 1, 2), prompt_name="BATCH_SLIDE_PROMPT",
+        prompt_version="v3",
     )
     with db_conn.cursor() as cur:
         cur.execute(
-            "SELECT provider, model, prompt_tokens, completion_tokens, slide_indices, prompt_name "
+            "SELECT provider, model, prompt_tokens, completion_tokens, slide_indices, prompt_name, "
+            "prompt_version "
             "FROM public.llm_calls WHERE run_id = %s",
             (str(run_id),),
         )
-        assert cur.fetchall() == [("groq", "gpt-oss-20b", 900, 120, [0, 1, 2], "BATCH_SLIDE_PROMPT")]
+        assert cur.fetchall() == [("groq", "gpt-oss-20b", 900, 120, [0, 1, 2], "BATCH_SLIDE_PROMPT", "v3")]

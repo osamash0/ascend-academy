@@ -102,6 +102,15 @@ def test_record_is_bounded(monkeypatch):
     assert len(sink) == 3
 
 
+def test_dropped_calls_are_counted_when_the_cap_is_hit(monkeypatch):
+    monkeypatch.setattr(cc, "MAX_RECORDED_CALLS", 3)
+    sink = cc.CallLog()
+    with llm_call_scope(calls=sink):
+        for i in range(5):
+            record_served_call(_call(i))
+    assert len(sink) == 3 and sink.dropped == 2
+
+
 def test_record_never_raises():
     class Broken(list):
         def append(self, item):
@@ -152,6 +161,22 @@ async def test_account_for_call_tags_the_row_and_records_the_serving_call(logged
         "openai", "gpt-4o-mini", 1000, 1000)
     assert call.cost_usd == pytest.approx(0.00075)  # 1K x 0.00015 + 1K x 0.0006
     assert (call.prompt_name, call.slide_indices) == ("BATCH_SLIDE_PROMPT", (0, 1))
+    assert call.prompt_version == "v3"  # BATCH_SLIDE_PROMPT version at call time
+    assert row["prompt_version"] == "v3"
+
+
+async def test_prompt_version_is_none_without_a_prompt_name_and_unversioned_names(logged):
+    from backend.services.ai import orchestrator
+
+    sink: list = []
+    with llm_call_scope(calls=sink):
+        await orchestrator._account_for_call(
+            "groq", "m", None, user_id=None, course_id=None, feature="f", duration_seconds=0.0)
+        await orchestrator._account_for_call(
+            "groq", "m", None, user_id=None, course_id=None, feature="f",
+            duration_seconds=0.0, prompt_name="free_form_name")
+    assert logged[0]["prompt_version"] is None and sink[0].prompt_version is None
+    assert logged[1]["prompt_version"] is None and sink[1].prompt_version is None
 
 
 async def test_explicit_prompt_name_wins_over_the_scope(logged):
@@ -227,10 +252,11 @@ async def test_log_without_context_uses_the_legacy_insert(conn_factory):
 async def test_log_with_context_writes_the_run_columns(conn_factory):
     from backend.services.ai.cost import log_llm_call
     conn = conn_factory()
-    await log_llm_call(**_log_kwargs(run_id="run-1", slide_indices=(0, 1), prompt_name="BATCH_SLIDE_PROMPT"))
+    await log_llm_call(**_log_kwargs(run_id="run-1", slide_indices=(0, 1), prompt_name="BATCH_SLIDE_PROMPT",
+                                   prompt_version="v3"))
     ((query, args),) = conn.executed
-    assert "run_id, slide_indices, prompt_name" in query
-    assert args[8:] == ("run-1", [0, 1], "BATCH_SLIDE_PROMPT")
+    assert "run_id, slide_indices, prompt_name, prompt_version" in query
+    assert args[8:] == ("run-1", [0, 1], "BATCH_SLIDE_PROMPT", "v3")
 
 
 async def test_log_falls_back_to_legacy_insert_before_the_migration(conn_factory):
