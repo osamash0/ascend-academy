@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import StudioCanvasScreen from '../../screens/StudioCanvasScreen';
 
@@ -147,7 +147,7 @@ describe('asking on the canvas', () => {
     };
     try {
       const { container } = await mount();
-      await ask('What does pseudotransitivity give me?');
+      await ask('Can I split the left-hand side too?');
       fireEvent.click(screen.getByRole('button', { name: 'Added below ↓' }));
       expect(scrolled).toContain(container.querySelector('[data-woven]'));
       await act(async () => { vi.advanceTimersByTime(500); });
@@ -241,4 +241,25 @@ describe('asking on the canvas', () => {
     const answer = container.querySelector('[data-woven]')!;
     expect(document.activeElement).toBe(answer.querySelector('button[aria-label="Remove this answer"]'));
   });
+
+  it('a table answer is playable: breaking a cell flips the verdict', async () => {
+    await mount();
+    await ask('What is a functional dependency?');
+    await act(async () => { vi.advanceTimersByTime(3000); });
+    const card = screen.getByRole('group', { name: 'Does Name → Weight hold?' });
+    expect(card).toBeInTheDocument();
+    const cell = within(card).getAllByRole('textbox', { name: /Weight/ })[2];
+    expect(card.querySelector('[data-violates="true"]')).toBeNull();
+    fireEvent.change(cell, { target: { value: '8.5' } });
+    expect(card.querySelector('[data-violates="true"]')).not.toBeNull();
+  });
+
+  it('keeps suggesting after a question, moving on to ones not asked yet', async () => {
+    await mount();
+    await ask('Why does repeated data cause problems?');
+    const names = screen.getAllByRole('button').map((b) => b.textContent);
+    expect(names).toContain('Can I split the left-hand side too?');
+    expect(names).not.toContain('Why does repeated data cause problems?');
+  });
 });
+

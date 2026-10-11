@@ -16,6 +16,9 @@ export const WORD_STAGGER_S = 0.055;
 export const WORD_BUDGET_S = 1.6;
 /** After this many words, the rest settle sentence by sentence. */
 export const WORD_LIMIT = 40;
+/** Each part of a shaped answer arrives this long after the one before. */
+export const BLOCK_STAGGER_S = 0.28;
+export const BLOCK_S = 0.4;
 export const COLLAPSE_S = 0.4;
 export const GLOW_FADE_S = 0.8;
 /** Teal in rgba because Motion cannot interpolate `var()`. Matches --studio-woven (dark). */

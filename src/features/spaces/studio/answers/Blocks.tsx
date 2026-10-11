@@ -100,7 +100,7 @@ function KeyBlock({ md }: { md: string }) {
 
 function Compare({ block }: { block: Extract<AnswerBlock, { type: 'compare' }> }) {
   return (
-    <div>
+    <div role="group" aria-label={block.columns.map((c) => c.title).join(' · ')}>
       <div className={cn('grid gap-3', block.columns.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
         {block.columns.map((c) => (
           <div

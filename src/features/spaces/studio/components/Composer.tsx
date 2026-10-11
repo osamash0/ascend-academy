@@ -58,7 +58,7 @@ export function Composer({ answering, suggestions, showSuggestions, notice, hint
     onAsk(question);
     if (fromInput) setValue('');
   };
-  const chips = (showSuggestions || notice?.kind === 'unknown') && !answering;
+  const chips = (showSuggestions || notice?.kind === 'unknown') && !answering && value.trim() === '' && suggestions.length > 0;
   /* A notice or the suggestions sit over the page: give them a soft ground so no words show through. */
   const backed = !!notice || chips;
 

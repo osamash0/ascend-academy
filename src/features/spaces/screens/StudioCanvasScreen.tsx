@@ -6,6 +6,7 @@ import { ChevronLeft, Moon, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ListSkeleton, NotFound, SpacesError } from '../components/states';
 import { useAsk } from '../data/useAsk';
+import { nextSuggestions } from '../mocks/studio-answers';
 import { useCanvas } from '../data/useSpaces';
 import { CanvasPage } from '../studio/components/CanvasPage';
 import { Composer } from '../studio/components/Composer';
@@ -170,8 +171,9 @@ export default function StudioCanvasScreen() {
     }, FLIGHT_S * 1000 + 50);
   };
   /* ── Living Learn: asking on the canvas (spec §4) ── */
-  const { ask, answering, suggestions } = useAsk();
-  const [asked, setAsked] = useState(false);
+  const { ask, answering } = useAsk();
+  const [asked, setAsked] = useState<string[]>([]);
+  const suggestions = nextSuggestions(asked);
   const [freshId, setFreshId] = useState<string | null>(null);
   const [glowId, setGlowId] = useState<string | null>(null);
   const [notice, setNotice] = useState<ComposerNotice | null>(null);
@@ -256,7 +258,7 @@ export default function StudioCanvasScreen() {
 
   const onAsk = async (question: string) => {
     if (!docRef.current) return;
-    setAsked(true);
+    setAsked((a) => [...a, question]);
     setEngaged(true);
     showNotice(null);
     const active = document.activeElement;
@@ -289,6 +291,8 @@ export default function StudioCanvasScreen() {
       citations: result.answer.citations,
       askedAs: question,
       anchorId,
+      ...(result.answer.blocks && { blocks: result.answer.blocks }),
+      ...(result.answer.format && { format: result.answer.format }),
     };
     const anchorBlock = base.blocks.find((b) => b.id === anchorId);
     const next = insertAnswer(base, block);
@@ -545,7 +549,7 @@ export default function StudioCanvasScreen() {
         <Composer
           answering={answering}
           suggestions={suggestions}
-          showSuggestions={!asked}
+          showSuggestions
           notice={notice}
           hint={engaged ? null : material.sourceRemoved ? HINT_NO_ORIGINAL : HINT}
           onAsk={onAsk}

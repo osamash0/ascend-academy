@@ -10,6 +10,8 @@
  * blocks have neither.
  */
 
+import type { AnswerBlock } from './answers/spec';
+
 /** Normalised to the page: 0..1, origin top-left. */
 export type Box = [x0: number, y0: number, x1: number, y1: number];
 
@@ -97,6 +99,10 @@ export interface GeneratedBlock {
   markdown: string;
   citations: Citation[];
   askedAs: string;
+  /** Typed parts the answer is composed of; `markdown` stays the plain-text version for screen readers and Morph. */
+  blocks?: AnswerBlock[];
+  /** A quiet label for the shape of the answer ("A table to try"). */
+  format?: string;
   /** The block it grew under (Living Learn spec §4.2). */
   anchorId: string;
 }

@@ -3,8 +3,9 @@ import { motion, useReducedMotion } from 'motion/react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Markdown } from './Markdown';
+import { AnswerBlockView } from '../answers/Blocks';
 import {
-  COLLAPSE_S, FLIGHT_EASE, FLIGHT_S, GROW_S, TEXT_FADE_S, RULE_S, WORD_BUDGET_S, WORD_LIMIT, WORD_S, WORD_STAGGER_S,
+  BLOCK_S, BLOCK_STAGGER_S, COLLAPSE_S, FLIGHT_EASE, FLIGHT_S, GROW_S, TEXT_FADE_S, RULE_S, WORD_BUDGET_S, WORD_LIMIT, WORD_S, WORD_STAGGER_S,
 } from '../motion';
 import { firstWords, plainText } from '../text';
 import { useKeepPlace } from '../useKeepPlace';
@@ -59,9 +60,19 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek, fly
   const onRemoveRef = useRef(onRemove);
   onRemoveRef.current = onRemove;
 
-  const words = useMemo(() => plainText(block.markdown).split(' '), [block.markdown]);
+  const shaped = block.blocks && block.blocks.length > 0 ? block.blocks : null;
+  /** The first prose part settles word by word; the rest of the answer arrives part by part. */
+  const firstText = shaped ? shaped.findIndex((b) => b.type === 'text') : -1;
+  const settleMd = shaped && firstText >= 0 && shaped[firstText].type === 'text'
+    ? (shaped[firstText] as { md: string }).md
+    : block.markdown;
+  const words = useMemo(() => plainText(settleMd).split(' '), [settleMd]);
   const delays = useMemo(() => wordDelays(words.length), [words.length]);
-  const total = GROW_S * 0.2 + (delays[delays.length - 1] ?? 0) + WORD_S;
+  const blockDelay = (i: number) => GROW_S * 0.2 + i * BLOCK_STAGGER_S;
+  const wordsTotal = GROW_S * 0.2 + (delays[delays.length - 1] ?? 0) + WORD_S;
+  const total = shaped
+    ? Math.max(firstText >= 0 ? wordsTotal : 0, blockDelay(shaped.length - 1) + BLOCK_S)
+    : wordsTotal;
 
   useEffect(() => {
     if (!animate) {
@@ -125,29 +136,71 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek, fly
           className="mb-1 text-[12px] text-[rgb(var(--studio-woven))]"
         >
           From your question
+          {block.format && <span className="text-quiet"> · {block.format}</span>}
         </motion.p>
         <p className="mb-1.5 text-[13px] text-quiet">{block.askedAs}</p>
 
-        {settled ? (
-          <motion.div initial={animate ? { opacity: 0.6 } : false} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
-            <Markdown className="studio-woven-text">{block.markdown}</Markdown>
-          </motion.div>
+        {shaped ? (
+          <>
+            <p className="sr-only">{block.markdown}</p>
+            {shaped.map((b, i) => (
+              <motion.div
+                key={i}
+                data-block-delay={animate ? blockDelay(i) : undefined}
+                initial={animate ? { opacity: 0, y: 6, filter: 'blur(4px)' } : false}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                transition={{ duration: BLOCK_S, delay: blockDelay(i) }}
+                className={i > 0 ? 'mt-3' : undefined}
+              >
+                {i === firstText && !settled ? (
+                  <p className="studio-prose studio-woven-text" aria-hidden="true">
+                    <span data-woven-words>
+                      {words.map((w, wi) => (
+                        <motion.span
+                          key={wi}
+                          initial={{ opacity: 0, filter: 'blur(6px)' }}
+                          animate={{ opacity: 1, filter: 'blur(0px)' }}
+                          transition={{ duration: WORD_S, delay: GROW_S * 0.2 + delays[wi] }}
+                        >
+                          {w}{' '}
+                        </motion.span>
+                      ))}
+                    </span>
+                  </p>
+                ) : i === firstText ? (
+                  <div aria-hidden="true">
+                    <AnswerBlockView block={b} />
+                  </div>
+                ) : (
+                  <AnswerBlockView block={b} />
+                )}
+              </motion.div>
+            ))}
+          </>
         ) : (
-          <p className="studio-prose studio-woven-text">
-            <span className="sr-only">{words.join(' ')}</span>
-            <span data-woven-words aria-hidden="true">
-              {words.map((w, i) => (
-                <motion.span
-                  key={i}
-                  initial={{ opacity: 0, filter: 'blur(6px)' }}
-                  animate={{ opacity: 1, filter: 'blur(0px)' }}
-                  transition={{ duration: WORD_S, delay: GROW_S * 0.2 + delays[i] }}
-                >
-                  {w}{' '}
-                </motion.span>
-              ))}
-            </span>
-          </p>
+          <>
+        {settled ? (
+            <motion.div initial={animate ? { opacity: 0.6 } : false} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
+              <Markdown className="studio-woven-text">{block.markdown}</Markdown>
+            </motion.div>
+          ) : (
+            <p className="studio-prose studio-woven-text">
+              <span className="sr-only">{words.join(' ')}</span>
+              <span data-woven-words aria-hidden="true">
+                {words.map((w, i) => (
+                  <motion.span
+                    key={i}
+                    initial={{ opacity: 0, filter: 'blur(6px)' }}
+                    animate={{ opacity: 1, filter: 'blur(0px)' }}
+                    transition={{ duration: WORD_S, delay: GROW_S * 0.2 + delays[i] }}
+                  >
+                    {w}{' '}
+                  </motion.span>
+                ))}
+              </span>
+            </p>
+          )}
+          </>
         )}
 
         {block.citations.length > 0 && (

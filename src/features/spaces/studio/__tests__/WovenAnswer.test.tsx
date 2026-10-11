@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { WovenAnswer, wordDelays } from '../components/WovenAnswer';
-import { WORD_BUDGET_S, WORD_LIMIT, WORD_STAGGER_S } from '../motion';
+import { BLOCK_S, BLOCK_STAGGER_S, GROW_S, WORD_BUDGET_S, WORD_LIMIT, WORD_STAGGER_S } from '../motion';
 import type { GeneratedBlock } from '../types';
 
 const block: GeneratedBlock = {
@@ -117,3 +117,49 @@ describe('WovenAnswer', () => {
     expect(root).toHaveClass('overflow-hidden');
   });
 });
+
+describe('WovenAnswer, shaped', () => {
+  const shaped: GeneratedBlock = {
+    ...block,
+    format: 'A table to try',
+    markdown: 'Plain words.',
+    blocks: [
+      { type: 'text', md: 'Plain words.' },
+      { type: 'compare', columns: [{ title: 'One', points: ['a'] }, { title: 'Two', points: ['b'] }] },
+      { type: 'check', question: 'Which?', options: [{ text: 'A', correct: true, why: 'Because.' }, { text: 'B', why: 'No.' }] },
+    ],
+  };
+  const delays = (c: HTMLElement) =>
+    Array.from(c.querySelectorAll('[data-block-delay]')).map((e) => Number(e.getAttribute('data-block-delay')));
+
+  it('renders its cards, named, and its format label', () => {
+    render(<WovenAnswer block={shaped} fresh={false} onSettled={vi.fn()} onRemove={vi.fn()} />);
+    expect(screen.getByRole('group', { name: 'One · Two' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Which?' })).toBeInTheDocument();
+    expect(screen.getByText(/A table to try/)).toBeInTheDocument();
+  });
+  it('carries increasing animation delays when fresh, none when not', () => {
+    const { container, unmount } = render(<WovenAnswer block={shaped} fresh onSettled={vi.fn()} onRemove={vi.fn()} />);
+    const d = delays(container);
+    expect(d).toHaveLength(3);
+    expect(d[1]).toBeGreaterThan(d[0]);
+    expect(d[2]).toBeGreaterThan(d[1]);
+    unmount();
+    const again = render(<WovenAnswer block={shaped} fresh={false} onSettled={vi.fn()} onRemove={vi.fn()} />);
+    expect(delays(again.container)).toEqual([]);
+  });
+  it('settles after the last block has arrived', async () => {
+    const onSettled = vi.fn();
+    render(<WovenAnswer block={shaped} fresh onSettled={onSettled} onRemove={vi.fn()} />);
+    const total = (GROW_S * 0.2 + 2 * BLOCK_STAGGER_S + BLOCK_S) * 1000;
+    await act(async () => { vi.advanceTimersByTime(total - 50); });
+    expect(onSettled).not.toHaveBeenCalled();
+    await act(async () => { vi.advanceTimersByTime(1200); });
+    expect(onSettled).toHaveBeenCalledTimes(1);
+  });
+  it('keeps the plain-text answer for screen readers', () => {
+    render(<WovenAnswer block={shaped} fresh={false} onSettled={vi.fn()} onRemove={vi.fn()} />);
+    expect(document.querySelector('.sr-only')).toHaveTextContent('Plain words.');
+  });
+});
+
