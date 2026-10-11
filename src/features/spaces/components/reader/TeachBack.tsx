@@ -122,7 +122,7 @@ export function TeachBack({ idea, read, onPage, onResult, onClose }: Props) {
             {(phase === 'write' || phase === 'reading' || phase === 'failed') && (
               <>
                 <label htmlFor="teach-back-text" className="block text-[15px] leading-[1.5] text-quiet">
-                  Explain it in your own words, as if to a friend who missed the lecture.
+                  Explain it in your own words, as if to a friend who missed this Lesson.
                 </label>
                 <textarea
                   id="teach-back-text"

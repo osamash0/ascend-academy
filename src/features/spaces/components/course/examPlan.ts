@@ -135,11 +135,11 @@ export function planExam({ lectures, trail, marks, weak, exam, today, now = Date
       kind = 'eve';
       steps.push(...missed.slice(0, 2));
       if (!steps.length) {
-        steps.push({ kind: 'rehearse', title: 'A short last look', why: 'Five questions across the course — then rest', lectureId: all[0], page: 1, minutes: 10, lectureIds: all });
+        steps.push({ kind: 'rehearse', title: 'A short last look', why: 'Five questions across the Space — then rest', lectureId: all[0], page: 1, minutes: 10, lectureIds: all });
       }
     } else if (full) {
       kind = 'rehearse';
-      steps.push({ kind: 'rehearse', title: 'Full rehearsal', why: `Every lecture, the way the exam will ask`, lectureId: all[0], page: 1, minutes: 25, lectureIds: all });
+      steps.push({ kind: 'rehearse', title: 'Full rehearsal', why: `Every Lesson, the way the exam will ask`, lectureId: all[0], page: 1, minutes: 25, lectureIds: all });
     } else {
       /* Read: this day's share of the pages, possibly across two lectures. */
       let budget = d < readingDays ? pagesPerDay : 0;
@@ -168,7 +168,7 @@ export function planExam({ lectures, trail, marks, weak, exam, today, now = Date
         steps.push({
           kind: 'rehearse',
           title: `Rehearse ${listOf(part.map((l) => l.title))}`,
-          why: 'Five questions from these lectures',
+          why: 'Five questions from these Lessons',
           lectureId: part[0].id,
           page: 1,
           minutes: 12,
@@ -178,7 +178,7 @@ export function planExam({ lectures, trail, marks, weak, exam, today, now = Date
       /* A week of reading ends in a short rehearsal of what was read. */
       if (kind === 'read' && (d + 1) % 7 === 0 && readThisWeek.size) {
         const ids = [...readThisWeek];
-        steps.push({ kind: 'rehearse', title: 'This week, rehearsed', why: `${ids.length === 1 ? byId.get(ids[0])!.title : `${ids.length} lectures`} · five questions`, lectureId: ids[0], page: 1, minutes: 12, lectureIds: ids });
+        steps.push({ kind: 'rehearse', title: 'This week, rehearsed', why: `${ids.length === 1 ? byId.get(ids[0])!.title : `${ids.length} Lessons`} · five questions`, lectureId: ids[0], page: 1, minutes: 12, lectureIds: ids });
         readThisWeek = new Set();
       }
     }

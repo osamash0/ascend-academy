@@ -230,7 +230,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
               <p className="mt-1 text-[13.5px] text-quiet">Every idea starts dark. A rehearsal lights the ones you get right.</p>
             )}
           </div>
-          <div role="tablist" aria-label="How to see the course" className="flex rounded-full bg-white/[0.06] p-1">
+          <div role="tablist" aria-label="How to see this Space" className="flex rounded-full bg-white/[0.06] p-1">
             {(['journey', 'map'] as const).map((v) => (
               <button
                 key={v}

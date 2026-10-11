@@ -84,7 +84,7 @@ export function CourseMap({ lectures, marks, links, linksState, readHref }: Prop
         <svg
           viewBox={`0 0 ${W} ${H + LABEL_H}`}
           role="group"
-          aria-label="Map of the course's ideas and what builds on what"
+          aria-label="Map of this Space's ideas and what builds on what"
           className="block w-full min-w-[720px]"
           onMouseLeave={() => setFocus(null)}
         >
@@ -212,7 +212,7 @@ export function CourseMap({ lectures, marks, links, linksState, readHref }: Prop
                   {direct[0]?.why && <span className="text-faint"> — {direct[0].why}</span>}
                 </p>
               ) : (
-                <p className="mt-2 text-[13.5px] text-quiet">A starting point: it needs nothing earlier in the course.</p>
+                <p className="mt-2 text-[13.5px] text-quiet">A starting point: it needs nothing earlier in this Space.</p>
               )}
               {begin && (
                 <button
