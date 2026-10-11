@@ -340,5 +340,45 @@ async def test_drain_skips_fresh_awaiting_and_unreachable_auth():
     assert await er.drain(client=c) == {"finished": 0, "retrying": 0, "cancelled": 0, "stuck": 0}
     c.tables[er.JOBS][0]["created_at"] = "2000-01-01T00:00:00+00:00"                 # stale, but auth down
     c.auth.admin.get_user_by_id = lambda uid: (_ for _ in ()).throw(Exception("timeout"))
-    assert await er.drain(client=c) == {"finished": 0, "retrying": 0, "cancelled": 0, "stuck": 0}
+    assert await er.drain(client=c) == {"finished": 0, "retrying": 0, "cancelled": 0, "stuck": 1}  # created in 2000: long-inconclusive
+    assert len(c.tables[er.JOBS]) == 1 and c.removed == {}
+
+
+def _awaiting(c, i, created="2026-10-11T00:00:00+00:00"):
+    c.tables.setdefault(er.JOBS, []).append(
+        {"id": f"a{i}", "subject_id": UID, "status": "awaiting_auth_delete", "attempts": 0,
+         "manifest": er.ErasureManifest(subject_id=UID).to_json(),
+         "created_at": created, "updated_at": f"2000-01-0{i + 1}T00:00:00+00:00"})
+
+
+@pytest.mark.asyncio
+async def test_inconclusive_awaiting_jobs_rotate_and_do_not_starve_pending():
+    c = owner_world()
+    real = c.auth.admin.get_user_by_id
+
+    def flaky(uid):
+        if uid == UID:
+            raise Exception("timeout")
+        return real(uid)
+
+    c.auth.admin.get_user_by_id = flaky
+    for i in range(3):
+        _awaiting(c, i)
+    c.auth_users.discard(OTHER)
+    _fresh_pending(c)
+    # The pending job is newest by updated_at; limit 3 sees only awaiting jobs first.
+    out1 = await er.drain(client=c, limit=3)
+    assert out1["finished"] == 0
+    assert all(r["updated_at"] > "2026" for r in c.tables[er.JOBS] if r["id"].startswith("a"))
+    out2 = await er.drain(client=c, limit=3)
+    assert out2["finished"] == 1
+
+
+@pytest.mark.asyncio
+async def test_long_inconclusive_awaiting_job_is_stuck_and_untouched():
+    c = owner_world()
+    c.auth.admin.get_user_by_id = lambda uid: (_ for _ in ()).throw(Exception("timeout"))
+    _awaiting(c, 0, created="2000-01-01T00:00:00+00:00")
+    out = await er.drain(client=c)
+    assert out["stuck"] == 1 and out["finished"] == 0
     assert len(c.tables[er.JOBS]) == 1 and c.removed == {}

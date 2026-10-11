@@ -141,6 +141,7 @@ async def build_erasure_manifest(uid: str, client=None) -> ErasureManifest:
 JOBS = "account_erasure_jobs"
 MAX_ATTEMPTS = 12
 STALE_AWAITING = timedelta(hours=1)
+INCONCLUSIVE_STUCK = timedelta(days=7)
 _CHUNK = 100
 # user_id columns with NO foreign key to auth.users: the account delete never
 # cascades them, so the executor deletes them explicitly. api_tokens and
@@ -264,7 +265,16 @@ async def drain(client=None, limit: int = 20) -> dict[str, int]:
                 out["cancelled"] += 1
                 continue
             if exists is not False:
-                continue                              # too fresh, or auth unreachable
+                # Too fresh, or auth unreachable: touch updated_at so it rotates
+                # to the back of the oldest-first queue instead of starving it.
+                await run_in_threadpool(lambda j=job: c.table(JOBS).update(
+                    {"updated_at": _now()}).eq("id", j["id"]).execute())
+                if exists is None and job["created_at"] < (
+                        datetime.now(timezone.utc) - INCONCLUSIVE_STUCK).isoformat():
+                    out["stuck"] += 1
+                    logger.error("erasure job %s: auth state inconclusive for over %s; needs a person",
+                                 job["id"], INCONCLUSIVE_STUCK)
+                continue
             await mark_ready(job["id"], client=c)
         out["finished" if await run_job(job["id"], client=c) else "retrying"] += 1
     return out
