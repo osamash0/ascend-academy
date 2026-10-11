@@ -261,3 +261,26 @@ async def test_cache_is_saved_before_calibration_so_a_later_failure_loses_nothin
         await sge.run_semantic_grounding(deck_dir, cache, allow_api=True)
     assert len(live.calls) == 1 and cache.exists()
     assert EmbeddingCache.load(cache, "fake@2", sge.EMBEDDING_DIMS).vectors
+
+
+async def test_each_completed_batch_is_on_disk_before_the_next_is_requested(tmp_path):
+    path = tmp_path / "emb.json"
+    cache = EmbeddingCache(path, "m@2", 2)
+    calls = []
+
+    async def fetch(texts):
+        calls.append(list(texts))
+        if len(calls) == 2:
+            raise RuntimeError("batch 2 failed")
+        return [[1.0, 0.0] for _ in texts]
+
+    with pytest.raises(RuntimeError, match="batch 2"):
+        await cache.embedder(fetch, batch_size=2)(["a", "b", "c", "d"])
+    assert EmbeddingCache.load(path, "m@2", 2).missing(["a", "b", "c", "d"]) == ["c", "d"]
+
+
+def test_decide_default_count_resolves_at_call_time(monkeypatch):
+    monkeypatch.setattr(sge, "EXPECTED_PROBE_ANSWERS", 4)
+    cal = sge.Calibration(0.5, (0.9,), (0.1,))
+    probe = sge.SemanticProbeResult(0.5, _probe_with_lexical(0, 0, n=2).outcomes, ())
+    assert not any("incomplete" in f for f in sge.decide(cal, probe).failures)

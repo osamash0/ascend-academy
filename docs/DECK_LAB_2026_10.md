@@ -1,8 +1,8 @@
 # Deck Lab — old vs new slide selection (no LLM calls)
 
 <!--
-  generated : 2026-10-11 09:03:10Z
-  commit    : c15fdb0-dirty
+  generated : 2026-10-11 11:01:39Z
+  commit    : 6cf08f3-dirty
   deck dir  : ~/Downloads (25 decks)
   threshold : SUPPORT_THRESHOLD = 0.5
   LLM calls : 0
@@ -199,3 +199,8 @@ How to read these rates: the paraphrases were written under a strict no-three-wo
 | `05__SR_Speicherverwaltung_v02_06.05.2026.pdf` | 21 | hallucinated | Weil jede Stufe einen eigenen Prozessorkern bedient | 0.223 | low_support | no |
 | `05__SR_Speicherverwaltung_v02_06.05.2026.pdf` | 29 | paraphrased | Ob die Seite gerade im Hauptspeicher liegt; fehlt sie, folgt eine Seitenfehler-Unterbrechung | 0.134 | low_support | no |
 | `05__SR_Speicherverwaltung_v02_06.05.2026.pdf` | 29 | hallucinated | Ob die Seite seit dem letzten Zugriff verändert wurde | 0.000 | low_support | no |
+
+## Semantic grounding
+
+Not run. `--grounding-semantic` scores the probe with embeddings (opt-in: it reads the
+embedding cache, or with DECK_LAB_ALLOW_EMBEDDING_API=1 sends slide text to Google's embedding API).

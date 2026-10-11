@@ -442,7 +442,9 @@ def _semantic_interpretation(run: "SemanticRun") -> str:
         gate += ("PASSED — the data allow re-enabling enforcement with GROUNDING_SCORER=semantic "
                  "(a separate, user-approved change; this report changes no flag).")
     else:
-        gate += (f"FAILED ({'; '.join(run.decision.failures)}) — the verifier stays advisory; "
+        stance = ("the verifier stays advisory" if not synthesis.ENFORCE_SUPPORT_THRESHOLD else
+                  "enforce mode is on with the lexical/uncalibrated scorer")
+        gate += (f"FAILED ({'; '.join(run.decision.failures)}) — {stance}; "
                  "these numbers are recorded, not tuned.")
     lex, comb = run.probe.rates("lexical"), run.probe.rates("combined")
     shift = (f"Combined vs lexical on the probe: false drops {lex.false_drops} -> {comb.false_drops}, "

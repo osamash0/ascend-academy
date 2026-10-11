@@ -213,7 +213,8 @@ async def run_semantic_probe(items: Sequence[tuple], embed: Embedder, threshold:
 
 
 def decide(cal: Calibration, probe: SemanticProbeResult,
-           expected_answers: int = EXPECTED_PROBE_ANSWERS) -> Decision:
+           expected_answers: int | None = None) -> Decision:
+    expected_answers = EXPECTED_PROBE_ANSWERS if expected_answers is None else expected_answers
     failures: list[str] = []
     if len(probe.outcomes) != expected_answers:
         failures.append(f"probe incomplete: {len(probe.outcomes)}/{expected_answers} answers scored")
@@ -266,7 +267,7 @@ async def run_semantic_grounding(deck_dir: Path, cache_path: Path, allow_api: bo
         return SemanticRun(None, None, None, missing_cal, 0, 0, cache_path, EMBEDDING_MODEL_ID)
     missing_probe = tuple(sorted({p.deck for p in PROBE_PAIRS} - set(skeletons)))
     cache = EmbeddingCache.load(cache_path, EMBEDDING_MODEL_ID, EMBEDDING_DIMS)
-    embed = cache.embedder(_live_fetch if allow_api else None)
+    embed = cache.embedder(_live_fetch if allow_api else None, batch_size=EMBED_BATCH_MAX)
     cal_items = calibration_items(skeletons)
     pr_items = probe_items(PROBE_PAIRS, skeletons)
     texts = [t for _, q, sk in cal_items for t in semantic_texts(q, sk)]

@@ -53,7 +53,7 @@ class EmbeddingCache:
     def missing(self, texts: Sequence[str]) -> List[str]:
         return [t for t in dict.fromkeys(texts) if text_key(t, self.model) not in self.vectors]
 
-    def embedder(self, fetch: Optional[Embedder] = None) -> Embedder:
+    def embedder(self, fetch: Optional[Embedder] = None, batch_size: Optional[int] = None) -> Embedder:
         async def embed(texts: Sequence[str]) -> List[List[float]]:
             miss = self.missing(texts)
             if miss:
@@ -61,12 +61,16 @@ class EmbeddingCache:
                     raise EmbeddingCacheMiss(
                         f"{len(miss)} text(s) are not in {self.path}. Fetching them sends slide text to "
                         f"Google's embedding API; set {ALLOW_API_ENV}=1 to allow it.")
-                vectors = list(await fetch(miss))
-                if len(vectors) != len(miss) or any(not v for v in vectors):
-                    raise EmbeddingShapeError(f"fetch returned {len(vectors)} usable vectors for {len(miss)} texts")
-                for text, vec in zip(miss, vectors):
-                    self.vectors[text_key(text, self.model)] = [float(x) for x in vec]
-                self.fetched += len(miss)
+                step = batch_size or len(miss)
+                for i in range(0, len(miss), step):
+                    chunk = miss[i:i + step]
+                    vectors = list(await fetch(chunk))
+                    if len(vectors) != len(chunk) or any(not v for v in vectors):
+                        raise EmbeddingShapeError(f"fetch returned {len(vectors)} usable vectors for {len(chunk)} texts")
+                    for text, vec in zip(chunk, vectors):
+                        self.vectors[text_key(text, self.model)] = [float(x) for x in vec]
+                    self.fetched += len(chunk)
+                    self.save()  # each completed batch is on disk before the next is requested
             return [self.vectors[text_key(t, self.model)] for t in texts]
 
         return embed

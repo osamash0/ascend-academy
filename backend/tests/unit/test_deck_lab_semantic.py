@@ -49,6 +49,16 @@ def test_interpretation_follows_a_failed_gate():
     assert "false drops 1 -> 0, false keeps 0 -> 0" in md
 
 
+@pytest.mark.parametrize("enforce,phrase", [(False, "stays advisory"),
+                                           (True, "enforce mode is on with the lexical/uncalibrated scorer")])
+def test_failed_gate_sentence_follows_the_live_enforce_flag(monkeypatch, enforce, phrase):
+    from backend.services.parser import synthesis
+
+    monkeypatch.setattr(synthesis, "ENFORCE_SUPPORT_THRESHOLD", enforce)
+    md = _md(FAILED)
+    assert phrase in md and (("stays advisory" in md) == (not enforce))
+
+
 def test_interpretation_follows_a_passed_gate_and_the_live_flags(monkeypatch):
     from backend.core.config import settings
     from backend.services.parser import synthesis
