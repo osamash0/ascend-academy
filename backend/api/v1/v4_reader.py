@@ -197,6 +197,17 @@ async def reader_teach_back(request: Request, body: TeachBody, lecture_id: UUID,
     )
 
 
+@router.get("/courses/{course_id}/links")
+@limiter.limit("10/minute")
+async def reader_course_links(request: Request, course_id: UUID, user: Any = Depends(verify_token)):
+    from backend.services.v4_links_service import course_links
+
+    uid = _uid(user)
+    if not await service.can_view_course(course_id, uid):
+        raise HTTPException(status_code=404, detail="Course not found.")
+    return await course_links(course_id, user_id=uid)
+
+
 class _Result(BaseModel):
     model_config = ConfigDict(extra="forbid")
     lecture_id: UUID

@@ -49,6 +49,13 @@ export type RehearsalQuestion =
   | (RehearsalBase & { kind: 'closure'; attrs: string[]; fds: RFD[]; start: string[] })
   | (RehearsalBase & { kind: 'bcnf'; relation: string; attrs: string[]; fds: RFD[] });
 
+/** One idea of the course building on an earlier one; ends are (lecture, first page). */
+export interface ReaderLink {
+  from: { lecture_id: string; first_page: number };
+  to: { lecture_id: string; first_page: number };
+  why: string;
+}
+
 /** One or two questions on a single idea, asked as the reader finishes it. */
 export interface Checkpoint {
   idea: string;
@@ -171,6 +178,8 @@ export function createLiveRepository(http: V4Transport) {
       http.post<Checkpoint>(`${root}/reader/lectures/${idPath(lectureId)}/checkpoint`, body),
     teachBack: (lectureId: string, body: { first: number; last: number; idea: string; explanation: string }) =>
       http.post<TeachBack>(`${root}/reader/lectures/${idPath(lectureId)}/teach-back`, body),
+    courseLinks: (courseId: string) =>
+      http.get<{ links: ReaderLink[]; cached: boolean; complete: boolean }>(`${root}/reader/courses/${idPath(courseId)}/links`),
     rehearsalHistory: (courseId: string) => http.get<RehearsalHistory>(`${root}/reader/courses/${idPath(courseId)}/rehearsals`),
     askPage: (id: string, page: number, question: string, thread: { question: string; title: string }[]) =>
       http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/ask`, {
