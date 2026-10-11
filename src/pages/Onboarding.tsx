@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence, MotionConfig, useReducedMotion } from 'framer-motion';
 import {
@@ -23,7 +23,8 @@ import { OnboardingJourneyMap } from '@/features/onboarding/pixi/OnboardingJourn
 import type {
   University, Faculty, DegreeProgram, SuggestedCourse, StudentCatalogStatus,
 } from '@/types/academic';
-import { LunaAstronaut } from '../../learnstation-luna';
+import { LunaAvatar } from '@/features/avatar/LunaAvatar';
+import { loadoutFromLegacy } from '@/features/avatar/loadout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UniversityEmailLink } from '@/components/UniversityEmailLink';
@@ -31,15 +32,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-
-const PRESET_AVATARS = [
-  { url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Felix&backgroundColor=b6e3f4', label: 'Robot' },
-  { url: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Max&backgroundColor=ffdfbf', label: 'Adventurer' },
-  { url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Joy&backgroundColor=c0aede', label: 'Joy' },
-  { url: 'https://api.dicebear.com/7.x/micah/svg?seed=Alex&backgroundColor=ffdfbf', label: 'Micah' },
-  { url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sam&backgroundColor=b6e3f4', label: 'Sam' },
-  { url: 'https://api.dicebear.com/7.x/personas/svg?seed=Riley&backgroundColor=ffdfbf', label: 'Riley' },
-];
 
 /** Luna's palette is intentionally paired so every selection feels on-brand. */
 const LUNA_THEMES = [
@@ -169,18 +161,19 @@ function OnboardingInner() {
   const [step, setStep] = useState(1);
   const [dir, setDir] = useState(1); // 1 forward, -1 back (transition direction)
   const [fullName, setFullName] = useState(profile?.full_name || '');
-  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || PRESET_AVATARS[0].url);
   const [loading, setLoading] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [revealData, setRevealData] = useState<RevealData>({ classmates: 0, recommendations: 0, courses: 0 });
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Step 2 — Luna always selected, customization only
-  const LUNA_AVATAR_KEY = '__luna__';
   const [lunaSuit, setLunaSuit] = useState(profile?.luna_suit_color || '#FFF8E7');
   const [lunaVisor, setLunaVisor] = useState(profile?.luna_visor_tint || '#88B0B5');
   // Preserved to prevent overwriting legacy insignia data on save
   const [lunaPatch] = useState(profile?.luna_patch || '');
+  // Every theme maps to a free Suit Locker item, so the Luna designed here is
+  // exactly the one the rest of the app draws. The mortarboard on the study
+  // steps is decoration only — it's still earned for real later.
+  const lunaLoadout = loadoutFromLegacy(lunaSuit, lunaVisor);
+  const studyLoadout = { ...lunaLoadout, gear: 'gear-mortarboard' };
 
   // Step 5 — platform content courses (existing behaviour)
   const [courses, setCourses] = useState<Course[]>([]);
@@ -251,9 +244,8 @@ function OnboardingInner() {
   };
 
   useEffect(() => {
-    if (profile?.full_name && profile?.avatar_url && step === 1) {
+    if (profile?.full_name && step === 1) {
       setFullName(profile.full_name);
-      setAvatarUrl(profile.avatar_url);
     }
   }, [profile, step]);
 
@@ -268,7 +260,6 @@ function OnboardingInner() {
       const draft = JSON.parse(raw) as Partial<{
         step: number;
         fullName: string;
-        avatarUrl: string;
         lunaSuit: string;
         lunaVisor: string;
         uniId: string;
@@ -280,7 +271,6 @@ function OnboardingInner() {
         statusMap: Record<string, StudentCatalogStatus>;
       }>;
       if (typeof draft.fullName === 'string' && draft.fullName) setFullName(draft.fullName);
-      if (typeof draft.avatarUrl === 'string' && draft.avatarUrl) setAvatarUrl(draft.avatarUrl);
       if (typeof draft.lunaSuit === 'string' && draft.lunaSuit) setLunaSuit(draft.lunaSuit);
       if (typeof draft.lunaVisor === 'string' && draft.lunaVisor) setLunaVisor(draft.lunaVisor);
       if (typeof draft.uniId === 'string') setUniId(draft.uniId);
@@ -310,7 +300,6 @@ function OnboardingInner() {
         JSON.stringify({
           step,
           fullName,
-          avatarUrl,
           lunaSuit,
           lunaVisor,
           uniId,
@@ -326,7 +315,7 @@ function OnboardingInner() {
       // Best-effort safety net only (e.g. storage disabled/full) — never
       // block onboarding on this.
     }
-  }, [stage, step, fullName, avatarUrl, lunaSuit, lunaVisor, uniId, facId, progId, semester, freeInstitution, selectedCourses, statusMap]);
+  }, [stage, step, fullName, lunaSuit, lunaVisor, uniId, facId, progId, semester, freeInstitution, selectedCourses, statusMap]);
 
   // Load platform courses (step 5) + universities (step 3) up-front.
   useEffect(() => {
@@ -470,44 +459,6 @@ function OnboardingInner() {
   const setSuggestedStatus = (id: string, status: StudentCatalogStatus) =>
     setStatusMap((prev) => ({ ...prev, [id]: status }));
 
-  const selectAvatar = (url: string) => {
-    play('avatar');
-    setAvatarUrl(url);
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files?.length || !user) return;
-    const file = event.target.files[0];
-    if (!file.type.startsWith('image/')) {
-      toast({ title: t('toasts.invalidFileTitle'), description: t('toasts.invalidFileDescription'), variant: 'destructive' });
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ title: t('toasts.fileTooLargeTitle'), description: t('toasts.fileTooLargeDescription'), variant: 'destructive' });
-      return;
-    }
-    setIsUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file);
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      setAvatarUrl(publicUrl);
-      play('avatar');
-      toast({ title: t('toasts.avatarUploadedTitle'), description: t('toasts.avatarUploadedDescription') });
-    } catch (error: unknown) {
-      toast({
-        title: t('toasts.uploadErrorTitle'),
-        description: error instanceof Error ? error.message : t('toasts.uploadErrorFallback'),
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
   const handleFinish = async () => {
     if (!user) return;
     setLoading(true);
@@ -520,7 +471,10 @@ function OnboardingInner() {
         .update({
           full_name: fullName.trim() || null,
           display_name: fullName.trim() || null,
-          avatar_url: avatarUrl,
+          // avatar_url is deliberately not written: onboarding has no photo
+          // picker, and it used to save a DiceBear preset here, which hid every
+          // new student's Luna behind a robot they never chose. Photos are
+          // chosen in the Suit Locker (/avatar).
           luna_suit_color: lunaSuit,
           luna_visor_tint: lunaVisor,
           luna_patch: lunaPatch || null,
@@ -630,7 +584,7 @@ function OnboardingInner() {
             transition={{ type: 'spring', stiffness: 200, damping: 16, delay: 0.2 }}
             className="w-64 h-64 md:w-80 md:h-80 lg:w-[400px] lg:h-[400px] flex items-center justify-center shrink-0"
           >
-            <LunaAstronaut variant="head" phase="full" size="xxl" animated showShadow={false} />
+            <LunaAvatar variant="head" size={320} showBackdrop={false} />
           </motion.div>
 
           {/* Right Side: Text & Button */}
@@ -694,7 +648,7 @@ function OnboardingInner() {
             transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
             className="mx-auto mb-6 flex justify-center"
           >
-            <LunaAstronaut phase="full" size="xl" animated />
+            <LunaAvatar size={200} showBackdrop={false} />
           </motion.div>
 
           <motion.h2
@@ -793,16 +747,11 @@ function OnboardingInner() {
           animate={{ opacity: 1, x: 0 }}
           className="hidden lg:flex w-[400px] h-[400px] shrink-0 items-center justify-center"
         >
-          <LunaAstronaut 
-            variant={step >= 2 ? "full" : "head"} 
-            costume={step >= 3 ? "university" : "default"}
-            phase="full" 
-            size="xxl" 
-            animated 
-            showShadow={step >= 2} 
-            suitColor={lunaSuit}
-            visorTint={lunaVisor}
-            patchImage={lunaPatch || undefined}
+          <LunaAvatar
+            variant={step >= 2 ? 'full' : 'head'}
+            loadout={step >= 3 ? studyLoadout : lunaLoadout}
+            size={320}
+            showBackdrop={false}
           />
         </motion.div>
 
@@ -819,7 +768,7 @@ function OnboardingInner() {
               <motion.div key="step1" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col">
                 <div className="mb-10 max-w-lg mx-auto w-full">
                   <div className="mx-auto mb-6 flex justify-center lg:hidden">
-                    <LunaAstronaut variant="head" phase="full" size="sm" animated showShadow={false} />
+                    <LunaAvatar variant="head" size={80} showBackdrop={false} />
                   </div>
                   <div className="glass-panel p-6 md:p-8 rounded-[2rem] rounded-tl-sm border-white/10 shadow-xl relative text-left">
                     <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{t('steps.name.title')}</h1>
@@ -874,7 +823,7 @@ function OnboardingInner() {
                       animate={{ scale: 1 }}
                       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                     >
-                      <LunaAstronaut size="lg" phase="full" animated suitColor={lunaSuit} visorTint={lunaVisor} patchImage={lunaPatch || undefined} />
+                      <LunaAvatar size={160} loadout={lunaLoadout} showBackdrop={false} />
                     </motion.div>
 
                     {/* Name & description */}
@@ -953,7 +902,7 @@ function OnboardingInner() {
               <motion.div key="step3" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col">
                 <div className="mb-8 max-w-lg mx-auto w-full">
                   <div className="mx-auto mb-6 flex justify-center lg:hidden">
-                    <LunaAstronaut variant="full" costume="university" phase="full" size="sm" animated showShadow={false} suitColor={lunaSuit} visorTint={lunaVisor} patchImage={lunaPatch || undefined} />
+                    <LunaAvatar variant="full" size={80} loadout={studyLoadout} showBackdrop={false} />
                   </div>
                   <div className="glass-panel p-6 md:p-8 rounded-[2rem] rounded-tl-sm border-white/10 shadow-xl relative text-left">
                     <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{t('steps.university.title')}</h1>
@@ -1139,7 +1088,7 @@ function OnboardingInner() {
                 <div className="w-full md:w-[35%] flex flex-col shrink-0 relative z-10">
                   <div className="md:sticky md:top-0 space-y-6">
                     <div className="mx-auto flex justify-center lg:hidden mb-4">
-                      <LunaAstronaut variant="full" costume="university" phase="full" size="sm" animated showShadow={false} suitColor={lunaSuit} visorTint={lunaVisor} patchImage={lunaPatch || undefined} />
+                      <LunaAvatar variant="full" size={80} loadout={studyLoadout} showBackdrop={false} />
                     </div>
                     <div className="text-left">
                       <h1 className="text-4xl md:text-5xl font-extrabold text-foreground mb-3 leading-tight tracking-tight">{t('steps.confirmCourses.title', { semester })}</h1>
@@ -1263,7 +1212,7 @@ function OnboardingInner() {
                 <div className="w-full md:w-[35%] flex flex-col shrink-0 relative z-10">
                   <div className="md:sticky md:top-0 space-y-6">
                     <div className="mx-auto flex justify-center lg:hidden mb-4">
-                      <LunaAstronaut variant="full" costume="university" phase="full" size="sm" animated showShadow={false} suitColor={lunaSuit} visorTint={lunaVisor} patchImage={lunaPatch || undefined} />
+                      <LunaAvatar variant="full" size={80} loadout={studyLoadout} showBackdrop={false} />
                     </div>
                     <div className="text-left">
                       <h1 className="text-4xl md:text-5xl font-extrabold text-foreground mb-3 leading-tight tracking-tight">{t('steps.extraTopics.title')}</h1>

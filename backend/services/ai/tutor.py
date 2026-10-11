@@ -44,9 +44,18 @@ _MAX_HISTORY_CHAR_PER_MSG = 1_000
 # these — we just neutralize the formatting so the model treats them as
 # literal student text rather than instructions.
 _INJECTION_PATTERNS = [
-    re.compile(r"(?i)ignore\s+(all|previous|prior|above)\s+instructions?"),
-    re.compile(r"(?i)disregard\s+(all|previous|prior|above)\s+instructions?"),
-    re.compile(r"(?i)forget\s+(all|previous|prior|above)\s+instructions?"),
+    # "ignore previous instructions", but also the far more common
+    # "ignore ALL previous instructions", "disregard all of the above rules",
+    # "forget your prior instructions". At least one real qualifier
+    # (all/any/previous/prior/above/earlier) is required, so ordinary student
+    # text like "I always forget the instructions for the lab" isn't flagged.
+    re.compile(
+        r"(?i)\b(?:ignore|disregard|forget)\s+"
+        r"(?:(?:the|my|your)\s+)?"
+        r"(?:all|any|every|previous|prior|above|earlier)"
+        r"(?:\s+(?:of\s+)?(?:the|your|my|these|those|all|previous|prior|above|earlier|system))*"
+        r"\s+(?:instructions?|rules?|directions?|prompts?)\b"
+    ),
     re.compile(r"(?i)you\s+are\s+now\s+a"),
     re.compile(r"(?i)system\s*:\s*"),
     re.compile(r"(?i)assistant\s*:\s*"),

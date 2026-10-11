@@ -1,3 +1,4 @@
+import { UserAvatar } from '@/features/avatar/UserAvatar';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Shield, Clock, TrendingUp, DollarSign, AlertTriangle } from 'lucide-react';
@@ -98,17 +99,12 @@ export function UserDetailDrawer({ userId, onClose, onRoleChanged }: UserDetailD
               <>
                 <div className="p-6 border-b border-white/10 flex justify-between items-start bg-white/5">
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-[2px]">
-                      <div className="w-full h-full rounded-full bg-black flex items-center justify-center overflow-hidden">
-                        {detail.profile.avatar_url ? (
-                          <img src={detail.profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-xl font-bold text-white">
-                            {detail.profile.display_name?.charAt(0) || detail.profile.email.charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    <UserAvatar
+                      userId={userId}
+                      name={detail.profile.display_name || detail.profile.email}
+                      avatarUrl={detail.profile.avatar_url}
+                      size={64}
+                    />
                     <div>
                       <h2 className="text-xl font-bold text-white">{detail.profile.display_name || detail.profile.full_name || 'Anonymous'}</h2>
                       <p className="text-sm text-slate-400">{detail.profile.email}</p>

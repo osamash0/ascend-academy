@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { UserAvatar } from "@/features/avatar/UserAvatar";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, CheckCircle, Activity } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -68,15 +69,17 @@ export function LiveActivityFeed() {
                 exit={{ opacity: 0, height: 0 }}
                 className="px-4 py-3 border-b border-white/5 flex items-center gap-3 bg-white/[0.02]"
               >
-                {ev.eventType === "badge" ? (
-                  <div className="h-8 w-8 rounded-full bg-amber-400/20 flex items-center justify-center flex-shrink-0">
-                    <Trophy className="h-4 w-4 text-amber-400" />
-                  </div>
-                ) : (
-                  <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                    <CheckCircle className="h-4 w-4 text-primary" />
-                  </div>
-                )}
+                {/* The friend's face first; what they did rides on it as a small badge. */}
+                <div className="relative flex-shrink-0">
+                  <UserAvatar userId={ev.userId} name={ev.displayName} avatarUrl={ev.avatarUrl} size={32} />
+                  <span className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-black ring-1 ring-white/15">
+                    {ev.eventType === "badge" ? (
+                      <Trophy className="h-2.5 w-2.5 text-amber-400" aria-hidden />
+                    ) : (
+                      <CheckCircle className="h-2.5 w-2.5 text-white/80" aria-hidden />
+                    )}
+                  </span>
+                </div>
                 <div className="text-sm">
                   <span className="font-bold text-foreground">{ev.displayName}</span>{" "}
                   <span className="text-muted-foreground">

@@ -90,6 +90,9 @@ const ALLOWED = [
   /^@\/types\/domain$/,
   // Luna is the product's astronaut illustration. Pure SVG.
   /learnstation-luna$/,
+  // The app-wide Luna renderer and its types: pure SVG, no data, no network.
+  /^@\/features\/avatar\/LunaAvatar$/,
+  /^@\/features\/avatar\/types$/,
   // Anything inside this namespace.
   /^\.{1,2}\//,
 ];
