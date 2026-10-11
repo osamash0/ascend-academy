@@ -26,3 +26,8 @@ export const GLOW_ON_LIGHT = 'rgba(47,125,109,0.10)';
 export const GLOW_OFF_LIGHT = 'rgba(47,125,109,0)';
 export const glowColors = (theme: 'light' | 'dark') =>
   theme === 'light' ? { on: GLOW_ON_LIGHT, off: GLOW_OFF_LIGHT } : { on: GLOW_ON, off: GLOW_OFF };
+
+/** Answer cards: a chip pulse or a card settling into place. */
+export const CARD_SETTLE_S = 0.3;
+/** Answer cards: a verdict or a reason fading in. */
+export const MARK_FADE_S = 0.2;
