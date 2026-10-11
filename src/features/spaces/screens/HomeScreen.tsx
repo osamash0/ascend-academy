@@ -1,8 +1,7 @@
 import { Flame, PartyPopper, Play, Plus, RotateCw, Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useReducedMotion } from 'motion/react';
-import { LunaAstronaut } from '../../../../learnstation-luna';
+import { LunaHero } from '@/features/avatar/LunaHero';
 import { cn } from '@/lib/utils';
 import { Pressable, PressableLink } from '../components/Pressable';
 import { topicIcon } from '@/lib/topicIcon';
@@ -94,8 +93,6 @@ const greeting = () => {
 
 export default function HomeScreen() {
   const navigate = useNavigate();
-  /* SMIL ignores MotionConfig, so Luna's breathing is switched at the prop. */
-  const reduceMotion = useReducedMotion();
   const { state, kind, next, feed, recent, streakDays } = useHome();
   const [newOpen, setNewOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -119,6 +116,17 @@ export default function HomeScreen() {
    * marker at all until an Owner switches it on.
    */
   const [asked, setAsked] = useState<string | null>(null);
+  /* What Luna watches: the ask bar's focus, each keystroke, each send. */
+  const [asking, setAsking] = useState(false);
+  const [keys, setKeys] = useState(0);
+  const [sent, setSent] = useState(0);
+  /* Big, but never crowding a phone. */
+  const [sizeLuna, setSizeLuna] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 640 ? 230 : 340));
+  useEffect(() => {
+    const on = () => setSizeLuna(window.innerWidth < 640 ? 230 : 340);
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
 
   /* Home is lit by the one thing it points at: the next Lesson's colour. */
   const accent = next ? stageAccentFor(next.lessonOrder) : null;
@@ -216,32 +224,21 @@ export default function HomeScreen() {
 
   return chrome(
     <div className="relative mx-auto max-w-5xl px-6 pb-24 pt-10 lg:px-8">
-      {/*
-        Luna asks, then gets out of the way.
-
-        The greeting used to be a bare `h1`. It is now spoken by the character
-        the product already ships — `LunaAstronaut` from `learnstation-luna`,
-        the same component `Avatar` renders at `xs`, so the face in the top-left
-        corner and the face here are one implementation rather than two drawings
-        that can drift.
-
-        Luna breathes on a 2–4s cycle, which is the brand kit's motion rule and
-        what the component already does. But it animates with **SMIL** —
-        `<animate>` and `<animateTransform>` inside the SVG — and SMIL is
-        governed by neither `MotionConfig reducedMotion="user"` (which only
-        reaches Motion) nor CSS.
-
-        The first attempt here was a `motion-reduce:` class setting
-        `animation-play-state: paused`. Tailwind emitted the rule correctly and
-        it does nothing at all: `animation-play-state` controls CSS animations,
-        and there are none — the seven SMIL elements ignore it. A comment on
-        this very line claimed it closed the gap.
-
-        The only real lever is not rendering the animation, so the prop carries
-        `useReducedMotion()`, which is the idiom `SpaceScreen` already uses.
-      */}
       <section aria-labelledby="home-greeting" className="flex flex-col items-center text-center">
-        <LunaAstronaut size="xl" phase="full" animated={!reduceMotion} />
+        {/*
+          Luna, alive (Abi, 2026-10-11): only her head, big, in the space above
+          the greeting. Her halo is the next Lesson's light; she follows the
+          pointer, looks down at the ask bar when you write, nods as you type,
+          cheers when you send, and droops a little when it is very late.
+        */}
+        <LunaHero
+          size={sizeLuna}
+          accent={accent}
+          attention={asking ? 'listening' : 'idle'}
+          nudge={keys}
+          cheer={sent}
+          sleepy={new Date().getHours() < 5}
+        />
         {/*
           No plates any more. They existed because the browse ground glowed
           and drifted behind the text; on the stage the ground is black, so
@@ -274,12 +271,22 @@ export default function HomeScreen() {
         reply — see `mocks/assistant.ts`. Wiring later means replacing that one
         call, not rebuilding this.
       */}
-      <div className="mt-10">
+      <div
+        className="mt-10"
+        onFocusCapture={() => setAsking(true)}
+        onBlurCapture={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setAsking(false);
+        }}
+        onKeyDownCapture={() => setKeys((k) => k + 1)}
+      >
         <AskBar
           placeholder="Ask about your Spaces, Lessons or practice…"
           suggestions={askSuggestions}
           model={askModel}
-          onSubmit={(q) => setAsked(q)}
+          onSubmit={(q) => {
+            setAsked(q);
+            setSent((n) => n + 1);
+          }}
         />
         {asked && (
           <p
