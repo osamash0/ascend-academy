@@ -112,18 +112,23 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-black px-4">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-24 left-1/2 h-[520px] w-screen -translate-x-1/2"
+        style={{ background: 'radial-gradient(50% 65% at 50% 0%, rgba(255,255,255,0.08), transparent 72%)' }}
+      />
       <div className="absolute top-4 right-4">
         <LanguageToggle />
       </div>
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md depth-card p-8 space-y-6"
+        className="relative w-full max-w-md rounded-[28px] border border-white/[0.08] bg-white/[0.03] p-8 space-y-6"
       >
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-            <Lock className="w-5 h-5 text-white" />
+          <div className="w-11 h-11 rounded-2xl bg-white flex items-center justify-center">
+            <Lock className="w-5 h-5 text-black" />
           </div>
           <h1 className="text-xl font-bold">
             {t('resetPassword.title', { defaultValue: 'Set a new password' })}

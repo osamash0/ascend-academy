@@ -221,5 +221,14 @@
     "ML_VL_04_Unsupervised_Learning": "ML_VL_04_Unsupervised_Learning",
     "Introduction_to_Databases_Presentation": "Introduction_to_Databases_Presentation",
     "database_management_slides": "database_management_slides"
+  },
+  "notFound": {
+    "question": "Wo steht diese Seite?",
+    "answer": "Sie ist nicht im Stapel.",
+    "turn": "Karte umdrehen",
+    "title": "Diese Seite gibt es nicht.",
+    "lede": "Der Link ist vielleicht alt oder die Seite ist umgezogen. Alles andere ist da, wo du es gelassen hast.",
+    "home": "Zur Startseite",
+    "back": "Zurück"
   }
 }
