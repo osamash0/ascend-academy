@@ -18,8 +18,9 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Mapping, Sequence
 
+from backend.eval.data.grounding_probe import DE_OFF_TOPIC, EN_OFF_TOPIC, ProbePair
 from backend.services.parser.deck_plan import (
     QUIZ_ROLES,
     DeckSkeleton,
@@ -28,6 +29,7 @@ from backend.services.parser.deck_plan import (
     select_meta_slides,
     select_slides,
 )
+from backend.services.parser.quiz_grounding import SUPPORT_THRESHOLD, assess_grounding
 
 QUIZ_BUDGET = 10
 META_BUDGET = 15
@@ -227,3 +229,81 @@ def corpus_totals(reports: Sequence[DeckReport]) -> CorpusTotals:
         boilerplate_removed=sum(r.boilerplate_removed for r in reports),
         roles=tuple((role.value, roles.get(role.value, 0)) for role in SlideRole),
     )
+
+
+# ── grounding verifier drop-risk probe ───────────────────────────────────
+
+PARAPHRASED = "paraphrased"
+HALLUCINATED = "hallucinated"
+
+
+def probe_question(pair: ProbePair, answer: str) -> dict:
+    """The question exactly as the calibration builds it: the answer TEXT as
+    key (an int key would be folded 1-based -> 0-based), off-topic distractors."""
+    distractors = EN_OFF_TOPIC if pair.language == "en" else DE_OFF_TOPIC
+    return {
+        "question": pair.stem,
+        "options": [answer, *distractors],
+        "correctAnswer": answer,
+        "source_slide": pair.slide,
+    }
+
+
+@dataclass(frozen=True)
+class ProbeOutcome:
+    pair: ProbePair
+    kind: str  # PARAPHRASED | HALLUCINATED
+    answer: str
+    score: float
+    reason: str
+    accepted: bool
+
+
+@dataclass(frozen=True)
+class ProbeResult:
+    threshold: float
+    outcomes: tuple[ProbeOutcome, ...]
+    missing_decks: tuple[str, ...]
+
+    @property
+    def paraphrased(self) -> int:
+        return sum(1 for o in self.outcomes if o.kind == PARAPHRASED)
+
+    @property
+    def hallucinated(self) -> int:
+        return sum(1 for o in self.outcomes if o.kind == HALLUCINATED)
+
+    @property
+    def false_drops(self) -> tuple[ProbeOutcome, ...]:
+        return tuple(o for o in self.outcomes if o.kind == PARAPHRASED and not o.accepted)
+
+    @property
+    def false_keeps(self) -> tuple[ProbeOutcome, ...]:
+        return tuple(o for o in self.outcomes if o.kind == HALLUCINATED and o.accepted)
+
+    @property
+    def false_drop_rate(self) -> float | None:
+        return len(self.false_drops) / self.paraphrased if self.paraphrased else None
+
+    @property
+    def false_keep_rate(self) -> float | None:
+        return len(self.false_keeps) / self.hallucinated if self.hallucinated else None
+
+
+def run_grounding_probe(
+    pairs: Sequence[ProbePair],
+    skeletons: Mapping[str, DeckSkeleton],
+    threshold: float = SUPPORT_THRESHOLD,
+) -> ProbeResult:
+    """Score every pair's paraphrased and hallucinated answer on its cited
+    slide. Pairs whose deck is absent are reported, never silently dropped."""
+    outcomes: list[ProbeOutcome] = []
+    for pair in pairs:
+        sk = skeletons.get(pair.deck)
+        if sk is None:
+            continue
+        for kind, answer in ((PARAPHRASED, pair.paraphrased), (HALLUCINATED, pair.hallucinated)):
+            v = assess_grounding(probe_question(pair, answer), sk, threshold)
+            outcomes.append(ProbeOutcome(pair, kind, answer, v.score, v.reason, v.ok))
+    missing = tuple(sorted({p.deck for p in pairs} - set(skeletons)))
+    return ProbeResult(threshold, tuple(outcomes), missing)
