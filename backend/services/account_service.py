@@ -1,70 +1,9 @@
-"""
-Account-level GDPR operations: data export (Art. 20 portability) and
-account-erasure support (Art. 17 right to be forgotten).
-
-Design notes (read before touching this file):
-
-- Deleting the ``auth.users`` row (service-role only, done in
-  ``backend/api/v1/auth.py::delete_account_endpoint``) is what actually
-  removes almost all of a user's data: every PII-bearing table in
-  ``supabase/migrations/`` has ``user_id UUID REFERENCES auth.users(id)
-  ON DELETE CASCADE`` (or cascades transitively through ``lectures``, which
-  itself cascades from ``professor_id``/``student_owner_id``). That part of
-  erasure is a Postgres guarantee, not something this module re-implements.
-
-- Two things a DB-level FK cascade cannot do, which this module *does*
-  handle explicitly, and which MUST run before the ``auth.users`` row is
-  deleted (they read rows a subsequent cascade would otherwise remove
-  first):
-
-    1. **Supabase Storage objects.** ``pdf-uploads`` and ``worksheets`` are
-       storage buckets, not tables — a DB cascade never touches them. They
-       are deleted via the Storage API.
-
-    2. **`slide_embeddings` / `lecture_blueprints`.** These tables lived only
-       in the un-versioned ``backend/scripts/slide_embeddings.sql`` until
-       migration ``20260721000000_slide_embeddings_migration_parity.sql``
-       gave them a real, cascading migration (P0-3 / S-2 finding — see that
-       migration's header comment). A database that predates that migration
-       (or a Supabase project where the legacy script was applied instead of
-       the migration) has no guaranteed cascade path for ``slide_embeddings``
-       at all, so we delete the user's rows explicitly here too. Once every
-       environment is on the new migration this becomes redundant-but-
-       harmless belt-and-suspenders, not a hidden gap.
-
-- ``pdf-uploads`` is a **content-addressed** bucket: the parse pipeline keys
-  files as ``{pdf_hash}.pdf`` and reuses the blob across any user who
-  uploads byte-identical content (dedup — see
-  ``backend/services/upload_service.py``). A naive "delete every pdf_hash
-  this user's lectures reference" would delete another student's still-live
-  file out from under them. Before deleting a blob we check whether any
-  *other* lecture (owned by a different user) still references the same
-  ``pdf_hash`` and skip the delete if so.
-
-- What is intentionally NOT deleted by this module:
-    * ``worksheets`` rows where the caller is merely ``uploaded_by`` (not the
-      owning professor) use ``ON DELETE SET NULL`` (see
-      ``20260503000013_worksheets.sql``) — the worksheet is teaching
-      material attached to a *lecture*; a TA/co-uploader deleting their own
-      account should not silently delete a professor's course material out
-      from under enrolled students. We only remove the storage object when
-      the worksheet row itself is being removed, i.e. the caller owns the
-      parent lecture.
-    * Any future financial/audit-retention table (none currently exist in
-      this schema — verified via grep across ``supabase/migrations/`` for
-      "invoice"/"payment"/"receipt"/"audit_log" prior to writing this
-      module). If one is added later it must be excluded from erasure and
-      flagged here, not silently swept up.
-
-Both entry points below are read-only with respect to ``auth.users`` — this
-module never deletes the auth identity itself; that stays in
-``backend/api/v1/auth.py`` where the rate limit and cache invalidation live.
-"""
+"""Account data export (GDPR Art. 20). Erasure lives in backend/services/erasure.py."""
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Iterable
 
 from fastapi.concurrency import run_in_threadpool
 
@@ -72,35 +11,77 @@ from backend.core.database import supabase_admin
 
 logger = logging.getLogger(__name__)
 
-# Tables containing PII or data derived from PII, keyed by the column that
-# scopes rows to a single user. Used for export; erasure itself relies on FK
-# CASCADE for all of these (see module docstring for the two exceptions).
+# Every user-linked column, by the table it lives in. Rows from several
+# columns of one table (friend_requests) are merged and de-duplicated by id.
+# Production-only tables (tutor_sessions, api_tokens, course_access) are
+# listed too: a missing table is skipped, never fatal.
 EXPORT_TABLES: list[tuple[str, str]] = [
     ("profiles", "user_id"),
-    ("achievements", "user_id"),
-    ("student_progress", "user_id"),
-    ("learning_events", "user_id"),
-    ("xp_events", "user_id"),
+    ("user_roles", "user_id"),
+    ("onboarding_progress", "user_id"),
+    ("notification_preferences", "user_id"),
     ("notifications", "user_id"),
     ("user_feedback", "user_id"),
+    ("achievements", "user_id"),
+    ("xp_events", "user_id"),
+    ("learning_events", "user_id"),
+    ("student_progress", "user_id"),
+    ("concept_mastery", "user_id"),
     ("course_enrollments", "user_id"),
     ("course_visits", "user_id"),
     ("lecture_visits", "user_id"),
+    ("student_catalog_courses", "user_id"),
     ("nudge_dismissals", "user_id"),
     ("schedule_item_completions", "user_id"),
-    ("upload_quotas", "user_id"),
     ("review_schedule", "user_id"),
     ("review_log", "user_id"),
     ("exam_attempts", "user_id"),
     ("practice_attempts", "student_id"),
-    ("student_catalog_courses", "user_id"),
+    ("practice_sheets", "created_by"),
+    ("v4_rehearsal_attempts", "user_id"),
+    ("assignment_enrollments", "user_id"),
+    ("assignments", "professor_id"),
+    ("courses", "professor_id"),
+    ("course_blueprints", "owner_id"),
+    ("material_sources", "owner_id"),
+    ("parse_runs", "user_id"),
+    ("upload_quotas", "user_id"),
+    ("llm_calls", "user_id"),
     ("friend_requests", "requester_id"),
-    ("user_roles", "user_id"),
+    ("friend_requests", "addressee_id"),
+    ("tutor_sessions", "user_id"),
+    ("api_tokens", "user_id"),
+    ("course_access", "user_id"),
 ]
 
-# Lectures the user owns (professor-authored courses, or private student
-# uploads). Exported/scanned by ownership column, not a flat user_id.
+# Columns never exported even though the row is: secrets, not personal data.
+EXPORT_REDACT: dict[str, set[str]] = {"api_tokens": {"token_hash"}}
+
+# User-linked columns deliberately NOT exported, each with its reason.
+EXPORT_EXCLUSIONS: dict[tuple[str, str], str] = {
+    ("account_erasure_jobs", "subject_id"): (
+        "erasure bookkeeping; exists only while an account is being deleted"
+    ),
+}
+
+# Exported by dedicated code below rather than through EXPORT_TABLES.
+ALWAYS_COVERED: set[tuple[str, str]] = {
+    ("lectures", "professor_id"),
+    ("lectures", "student_owner_id"),
+    ("worksheets", "uploaded_by"),
+}
+
 LECTURE_OWNER_COLUMNS = ["professor_id", "student_owner_id"]
+
+
+def covered_columns() -> set[tuple[str, str]]:
+    return set(EXPORT_TABLES) | ALWAYS_COVERED | set(EXPORT_EXCLUSIONS)
+
+
+def uncovered(fk_columns: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
+    """User-linked (table, column) pairs the export neither covers nor excludes."""
+    known = covered_columns()
+    return sorted(c for c in fk_columns if c not in known)
 
 
 async def _select_all(table: str, column: str, uid: str) -> list[dict[str, Any]]:
@@ -108,35 +89,55 @@ async def _select_all(table: str, column: str, uid: str) -> list[dict[str, Any]]
         try:
             resp = supabase_admin.table(table).select("*").eq(column, uid).execute()
             return resp.data or []
-        except Exception as e:  # table may not exist in every environment
+        except Exception as e:  # production-only tables may be missing elsewhere
+            logger.warning("gdpr: skipping %s.%s (%s)", table, column, e)
+            return []
+
+    return await run_in_threadpool(_run)
+
+
+async def _select_in(table: str, column: str, values: list[str]) -> list[dict[str, Any]]:
+    if not values:
+        return []
+
+    def _run() -> list[dict[str, Any]]:
+        try:
+            resp = supabase_admin.table(table).select("*").in_(column, values).execute()
+            return resp.data or []
+        except Exception as e:
             logger.warning("gdpr: skipping %s (%s)", table, e)
             return []
 
     return await run_in_threadpool(_run)
 
 
-async def export_user_data(uid: str) -> dict[str, Any]:
-    """Gather every PII / derived-from-PII row belonging to ``uid``.
+def _merge(existing: list[dict[str, Any]], new: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen = {r.get("id") for r in existing if r.get("id") is not None}
+    return existing + [r for r in new if r.get("id") is None or r.get("id") not in seen]
 
-    Returns a plain JSON-able dict — one key per source table plus a
-    top-level ``exported_at`` timestamp (GDPR Art. 20 data portability).
-    """
+
+async def export_user_data(uid: str) -> dict[str, Any]:
+    """Every row holding the caller's data (GDPR Art. 20), one key per table."""
     result: dict[str, Any] = {
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "user_id": uid,
     }
-
     for table, column in EXPORT_TABLES:
-        result[table] = await _select_all(table, column, uid)
+        rows = await _select_all(table, column, uid)
+        redact = EXPORT_REDACT.get(table, set())
+        if redact:
+            rows = [{k: v for k, v in r.items() if k not in redact} for r in rows]
+        result[table] = _merge(result.get(table, []), rows)
+
+    # AI chat transcripts hang off tutor_sessions, not the user.
+    session_ids = [s["id"] for s in result.get("tutor_sessions", []) if s.get("id")]
+    result["tutor_messages"] = await _select_in("tutor_messages", "session_id", session_ids)
 
     owned_lectures: list[dict[str, Any]] = []
     for column in LECTURE_OWNER_COLUMNS:
-        owned_lectures.extend(await _select_all("lectures", column, uid))
+        owned_lectures = _merge(owned_lectures, await _select_all("lectures", column, uid))
     result["lectures"] = owned_lectures
-
-    # Worksheets uploaded by this user (attribution only — see docstring).
     result["worksheets_uploaded"] = await _select_all("worksheets", "uploaded_by", uid)
-
     return result
 
 
