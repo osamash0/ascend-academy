@@ -1,8 +1,10 @@
 import datetime
 import logging
 import asyncio
-from typing import List
-from .orchestrator import gemini_client
+import os
+import time
+from typing import Any, List, Optional, Tuple
+from .orchestrator import gemini_client, openai_client, OPENAI_ONLY
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +13,14 @@ logger = logging.getLogger(__name__)
 # supports configurable output dimensions; we request 768 dims to match the
 # existing `slide_embeddings.embedding vector(768)` column shape so we don't
 # need a schema migration.
-EMBEDDING_MODEL = "gemini-embedding-001"
+# In AI_PROVIDER_MODE=openai_only the same 768-dim columns are filled by
+# OpenAI's text-embedding-3-small, which takes a `dimensions` parameter, so no
+# schema change is needed. The two models' vectors are NOT comparable: after
+# switching modes every stored vector must be re-embedded
+# (backend/scripts/backfill_slide_embeddings.py --force).
+GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
+OPENAI_EMBEDDING_MODEL = os.environ.get("OPENAI_EMBED_MODEL") or "text-embedding-3-small"
+EMBEDDING_MODEL = OPENAI_EMBEDDING_MODEL if OPENAI_ONLY else GEMINI_EMBEDDING_MODEL
 # Same freshness rule as orchestrator.ProviderConfig.verified_on
 # (tests/unit/test_provider_pin_freshness.py).
 EMBEDDING_MODEL_VERIFIED_ON = datetime.date(2026, 10, 10)
@@ -39,6 +48,31 @@ class EmbeddingUnavailableError(RuntimeError):
     """
 
 
+def _sync_openai_embedding(text: str) -> Tuple[List[float], Any]:
+    """OpenAI embedding at EMBEDDING_DIMS; returns ``(values, usage)``."""
+    from .cost import LLMUsage
+    if not openai_client:
+        raise EmbeddingUnavailableError(
+            "OPENAI_API_KEY is not configured, so no embedding can be produced."
+        )
+    res = openai_client.embeddings.create(
+        model=OPENAI_EMBEDDING_MODEL, input=text, dimensions=EMBEDDING_DIMS,
+    )
+    if not res or not res.data:
+        raise RuntimeError(
+            f"generate_embeddings: OpenAI returned an empty embeddings response "
+            f"for model {OPENAI_EMBEDDING_MODEL!r}."
+        )
+    values = list(res.data[0].embedding)
+    if values and all(v == 0.0 for v in values):
+        raise RuntimeError(
+            f"generate_embeddings: received an all-zero vector from {OPENAI_EMBEDDING_MODEL!r}."
+        )
+    u = getattr(res, "usage", None)
+    usage = LLMUsage(prompt_tokens=getattr(u, "prompt_tokens", 0) or 0, completion_tokens=0) if u else None
+    return values, usage
+
+
 def _sync_generate_embeddings(text: str) -> List[float]:
     """Synchronous implementation of Gemini embedding generation.
 
@@ -62,7 +96,7 @@ def _sync_generate_embeddings(text: str) -> List[float]:
     try:
         from google.genai import types as _gtypes
         res = gemini_client.models.embed_content(
-            model=EMBEDDING_MODEL,
+            model=GEMINI_EMBEDDING_MODEL,
             contents=text,
             config=_gtypes.EmbedContentConfig(output_dimensionality=EMBEDDING_DIMS),
         )
@@ -72,7 +106,7 @@ def _sync_generate_embeddings(text: str) -> List[float]:
             sdk_compat,
         )
         res = gemini_client.models.embed_content(
-            model=EMBEDDING_MODEL,
+            model=GEMINI_EMBEDDING_MODEL,
             contents=text,
         )
     # Note: any *other* exception (RuntimeError, RPC error, 4xx/5xx)
@@ -81,7 +115,7 @@ def _sync_generate_embeddings(text: str) -> List[float]:
     if not res or not res.embeddings:
         raise RuntimeError(
             f"generate_embeddings: Gemini returned an empty embeddings response "
-            f"for model {EMBEDDING_MODEL!r}. Check API key, quota, and model availability."
+            f"for model {GEMINI_EMBEDDING_MODEL!r}. Check API key, quota, and model availability."
         )
 
     values = list(res.embeddings[0].values)
@@ -91,7 +125,7 @@ def _sync_generate_embeddings(text: str) -> List[float]:
     # caller knows to retry rather than persist a useless zero vector.
     if values and all(v == 0.0 for v in values):
         raise RuntimeError(
-            f"generate_embeddings: received an all-zero vector from {EMBEDDING_MODEL!r}. "
+            f"generate_embeddings: received an all-zero vector from {GEMINI_EMBEDDING_MODEL!r}. "
             "This usually means the API returned an empty embedding. Retrying may help."
         )
 
@@ -116,6 +150,16 @@ async def generate_embeddings(text: str) -> List[float]:
             "Refusing to embed blank text: the result would be a zero vector, "
             "which survives pgvector's similarity filter instead of being ignored."
         )
+    if OPENAI_ONLY:
+        started = time.perf_counter()
+        values, usage = await asyncio.to_thread(_sync_openai_embedding, text)
+        from .orchestrator import _account_for_call
+        await _account_for_call(
+            "openai", OPENAI_EMBEDDING_MODEL, usage,
+            user_id=None, course_id=None, feature="embedding",
+            duration_seconds=time.perf_counter() - started,
+        )
+        return values
     return await asyncio.to_thread(_sync_generate_embeddings, text)
 
 

@@ -74,6 +74,8 @@ _cron_jobs = (
 async def startup(ctx: dict) -> None:
     """Initialise the asyncpg pool and anything the job functions need."""
     from backend.core.database import init_db_pool
+    from backend.services.ai.orchestrator import assert_provider_mode
+    assert_provider_mode()
     await init_db_pool()
     # The cache Redis (not the arq queue's) carries the fleet-wide LLM
     # provider limit/cost counters. Best-effort: without it the worker still

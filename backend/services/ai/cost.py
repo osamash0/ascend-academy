@@ -55,6 +55,10 @@ _OPENAI_PRICING_PER_1K = {
     "gpt-4o":      (0.0025,  0.01),
     "gpt-4.1":     (0.002,   0.008),
     "gpt-4.1-mini": (0.0004, 0.0016),
+    "gpt-4.1-nano": (0.0001, 0.0004),
+    # Embeddings bill input tokens only.
+    "text-embedding-3-small": (0.00002, 0.0),
+    "text-embedding-3-large": (0.00013, 0.0),
 }
 # Conservative fallback for an OPENAI_MODEL not in the table above (or a
 # self-hosted OpenAI-compatible endpoint via OPENAI_BASE_URL) — better to

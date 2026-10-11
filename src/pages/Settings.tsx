@@ -11,7 +11,7 @@ import { useAuth, Profile } from '@/lib/auth';
 import { UserAvatar } from '@/features/avatar/UserAvatar';
 import { StudentRoutes } from '@/lib/routes';
 import { useLanguagePreference } from '@/hooks/useLanguagePreference';
-import { useAiModel } from '@/hooks/use-ai-model';
+import { AI_MODEL_PICKER_ENABLED, useAiModel } from '@/hooks/use-ai-model';
 import { supabase } from '@/integrations/supabase/client';
 import { apiClient } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
@@ -444,6 +444,7 @@ function PreferencesSettings({ user }: { user: { id: string } | null }) {
                 </div>
             </div>
 
+            {AI_MODEL_PICKER_ENABLED && (
             <div className="pt-8 border-t border-border">
                 <h2 className="text-xl font-medium text-foreground">{t('settings:ai.preferences')}</h2>
                 <p className="text-sm text-muted-foreground mt-1 mb-6">{t('settings:ai.preferencesDescription')}</p>
@@ -476,6 +477,7 @@ function PreferencesSettings({ user }: { user: { id: string } | null }) {
                     </div>
                 )}
             </div>
+            )}
 
             <section className="pt-8 border-t border-border" aria-labelledby="lifecycle-notifications-heading">
                 <div className="flex items-start gap-3">

@@ -68,7 +68,9 @@ async def lifespan(app: FastAPI):
     from backend.core.database import init_db_pool, close_db_pool
     from backend.core.redis import init_redis, close_redis
     from backend.core.auth_middleware import get_auth_http_client, close_auth_http_client
-    
+    from backend.services.ai.orchestrator import assert_provider_mode
+
+    assert_provider_mode()
     await init_db_pool()
     await init_redis()
     get_auth_http_client()
