@@ -277,3 +277,30 @@ async def test_meta_sees_slides_beyond_fifteen(llm):
     llm["reply"] = "{}"
     await synthesis.analyze_lecture_meta(slides, "groq")
     assert "Part 50" in llm["text_prompts"][0]
+
+
+# ── grounded deck quiz prompts (Arc 4) ───────────────────────────────────────
+
+def test_deck_quiz_prompt_asks_for_source_slide_and_is_versioned():
+    from backend.services.ai.prompts import PROMPT_VERSIONS, SYNTHESIS_DECK_QUIZ_PROMPT
+    assert "source_slide" in SYNTHESIS_DECK_QUIZ_PROMPT
+    assert "slideId" not in SYNTHESIS_DECK_QUIZ_PROMPT
+    assert "Which is NOT" in SYNTHESIS_DECK_QUIZ_PROMPT  # negated questions are forbidden
+    assert PROMPT_VERSIONS["SYNTHESIS_DECK_QUIZ_PROMPT"] == "v3"
+
+
+def test_repair_prompt_formats_with_one_slide_and_is_versioned():
+    from backend.services.ai.prompts import PROMPT_VERSIONS, SYNTHESIS_QUIZ_REPAIR_PROMPT
+    out = SYNTHESIS_QUIZ_REPAIR_PROMPT.format(
+        lecture_title="T", concept="C", slide_number=7, slide_text="body", output_language="German",
+    )
+    assert "[Slide 7]:\nbody" in out and "must be 7" in out and "German" in out
+    assert out.count("[Slide ") == 1
+    assert PROMPT_VERSIONS["SYNTHESIS_QUIZ_REPAIR_PROMPT"] == "v1"
+
+
+async def test_rendered_deck_quiz_prompt_requests_source_slide(llm):
+    llm["reply"] = "[]"
+    rich = "Graphs consist of vertices and edges that model pairwise relations."
+    await synthesis.generate_quiz_questions(["Graphs", rich], "T", "groq")
+    assert "source_slide" in llm["bulk_prompts"][0]
