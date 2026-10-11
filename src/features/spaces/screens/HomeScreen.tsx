@@ -9,7 +9,8 @@ import { topicIcon } from '@/lib/topicIcon';
 import { AskBar } from '../components/AskBar';
 import { LessonTile } from '../components/LessonTile';
 import type { HomeItem } from '../mocks/library';
-import { askAcknowledgement, askModel, askSuggestionsNow } from '../data/assistant';
+import { askAcknowledgement, askModel, askNow, askSuggestionsNow, type AskAnswer } from '../data/assistant';
+import { liveWorld } from '../data/world';
 import { useHome } from '../data/useSpaces';
 import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -118,6 +119,11 @@ export default function HomeScreen() {
    * marker at all until an Owner switches it on.
    */
   const [asked, setAsked] = useState<string | null>(null);
+  /* Live: what the tutor said. Demo keeps the honest acknowledgement. */
+  const [answer, setAnswer] = useState<
+    { state: 'thinking' } | { state: 'done'; a: AskAnswer } | { state: 'failed' } | null
+  >(null);
+  const live = liveWorld() !== null;
   /* What Luna watches: the ask bar's focus, each keystroke, each send. */
   const [asking, setAsking] = useState(false);
   const [keys, setKeys] = useState(0);
@@ -290,15 +296,51 @@ export default function HomeScreen() {
           onSubmit={(q) => {
             setAsked(q);
             setSent((n) => n + 1);
+            if (!live) return;
+            setAnswer({ state: 'thinking' });
+            askNow(q)
+              .then((a) => setAnswer({ state: 'done', a }))
+              .catch(() => setAnswer({ state: 'failed' }));
           }}
         />
-        {asked && (
+        {asked && !live && (
           <p
             role="status"
             className="mx-auto mt-3 max-w-2xl rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-[13px] leading-6 text-quiet"
           >
             {askAcknowledgement(asked)}
           </p>
+        )}
+        {asked && live && answer && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mx-auto mt-3 max-w-2xl rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-4 text-[14px] leading-6"
+          >
+            {answer.state === 'thinking' && <p className="text-quiet">Reading your material…</p>}
+            {answer.state === 'failed' && (
+              <p className="text-quiet">Couldn’t reach the tutor just now. Ask again in a moment.</p>
+            )}
+            {answer.state === 'done' && (
+              <>
+                {answer.a.spaceName && <p className="mb-1.5 text-[12px] text-quiet">From {answer.a.spaceName}</p>}
+                <p className="whitespace-pre-line text-foreground">{answer.a.reply}</p>
+                {answer.a.citations.length > 0 && answer.a.spaceId && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {answer.a.citations.map((c) => (
+                      <Link
+                        key={`${c.lessonId}-${c.page}`}
+                        to={`/v4/space/${answer.a.spaceId}/lesson/${c.lessonId}/faces?page=${c.page}`}
+                        className="console-focusable rounded-full bg-white/[0.06] px-3 py-1 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.1] hover:text-foreground"
+                      >
+                        {c.lessonTitle ?? 'Lesson'} · page {c.page}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
 

@@ -322,6 +322,56 @@ def _notification(r: Any) -> Dict[str, Any]:
     }
 
 
+async def ask(user_id: str, question: str, space_id: Optional[str]) -> Dict[str, Any]:
+    """Home's ask bar: the grounded course tutor, in the Space you are working in.
+
+    The Space is the one asked about if you are in it, else the one you last
+    read in, else any Space you are in. The tutor answers only from that
+    course's slides and says so when they do not cover the question; its
+    `[Source N]` citations come back as Lesson pages to open.
+    """
+    from backend.services.search_service import ask_course
+
+    conn_cm = await get_db_connection()
+    async with conn_cm as conn:
+        mine = await conn.fetch(
+            """
+            SELECT c.id::text AS id, c.title,
+                   (SELECT max(v.visited_at) FROM lecture_visits v
+                     WHERE v.user_id = $1::uuid AND v.course_id = c.id) AS last_read
+            FROM courses c
+            WHERE NOT COALESCE(c.is_archived, false)
+              AND (c.professor_id = $1::uuid OR EXISTS (
+                   SELECT 1 FROM course_enrollments e WHERE e.course_id = c.id AND e.user_id = $1::uuid))
+            ORDER BY last_read DESC NULLS LAST, c.title
+            """,
+            user_id,
+        )
+    if not mine:
+        return {"reply": "Join a Space first — I answer from the material in the Spaces you are in.",
+                "grounded": False, "citations": [], "spaceId": None, "spaceName": None}
+    chosen = next((m for m in mine if m["id"] == space_id), mine[0])
+
+    result = await ask_course(user_id, False, chosen["id"], question, ai_model="auto")
+    citations = [
+        {
+            "lessonId": str(c["lecture_id"]),
+            "lessonTitle": c.get("lecture_title"),
+            "page": int(c["slide_index"]) + 1,
+        }
+        for c in result.get("citations", [])
+        if c.get("lecture_id") is not None and c.get("slide_index") is not None
+    ]
+    return {
+        "reply": result.get("reply", ""),
+        "grounded": bool(result.get("grounded")),
+        "citations": citations,
+        "spaceId": chosen["id"],
+        "spaceName": chosen["title"],
+        "budgetExceeded": bool(result.get("budget_exceeded")),
+    }
+
+
 async def mark_notifications_read(user_id: str) -> int:
     conn_cm = await get_db_connection()
     async with conn_cm as conn:

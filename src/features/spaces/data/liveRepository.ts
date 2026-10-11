@@ -6,6 +6,7 @@ import type { ExplainAnswer } from '../components/reader/iui/spec';
 import type { Person } from '../types';
 import type { PracticeQuestion } from '../mocks/practice';
 import type { World } from './world';
+import type { AskAnswer } from './assistant';
 
 /** A course, read as the reader's Space: its lectures in order. */
 export interface ReaderCourse {
@@ -144,6 +145,8 @@ export function createLiveRepository(http: V4Transport) {
     me: () => http.get<Person>(`${root}/me`),
     /* Everything the core loop renders: the viewer, their Spaces and Lessons (`/v4/world`). */
     world: () => http.get<World>(`${root}/world`),
+    /* Home's ask bar: the grounded course tutor. */
+    ask: (question: string) => http.post<AskAnswer>(`${root}/ask`, { question }),
     /* Mark every notification read. */
     markNotificationsRead: () => http.post<{ marked: number }>(`${root}/notifications/read-all`, {}),
     /* Join an open Space (enrol in its course). Idempotent. */

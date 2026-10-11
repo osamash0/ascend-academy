@@ -3,10 +3,11 @@
 Mounted under ``/api/v1/v4`` when ``FEATURE_V4`` is on. Every response is a
 shape from src/features/spaces/types.ts (see v4_spaces_service).
 """
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.auth_middleware import _user_id, verify_token
 from backend.core.rate_limit import limiter
@@ -39,6 +40,19 @@ async def v4_join_space(space_id: UUID, request: Request, user: Any = Depends(ve
     if not await service.join_space(str(space_id), _uid(user)):
         raise HTTPException(status_code=404, detail="Space not found.")
     return {"joined": True}
+
+
+class _Ask(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    question: str = Field(min_length=2, max_length=600)
+    space_id: Optional[UUID] = None
+
+
+@router.post("/ask")
+@limiter.limit("20/minute")
+async def v4_ask(request: Request, body: _Ask, user: Any = Depends(verify_token)):
+    """Home's ask bar: the grounded course tutor in the Space you are working in."""
+    return await service.ask(_uid(user), body.question.strip(), str(body.space_id) if body.space_id else None)
 
 
 @router.post("/notifications/read-all")

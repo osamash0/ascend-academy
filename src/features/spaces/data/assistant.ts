@@ -4,6 +4,21 @@ import { liveWorld } from './world';
 
 export { askAcknowledgement, askModel } from '../mocks/assistant';
 
+export interface AskAnswer {
+  reply: string;
+  /** False when the course's slides did not cover it — the reply says so. */
+  grounded: boolean;
+  citations: { lessonId: string; lessonTitle: string | null; page: number }[];
+  spaceId: string | null;
+  spaceName: string | null;
+}
+
+/** Live only: the grounded course tutor, in the Space you are working in. */
+export async function askNow(question: string): Promise<AskAnswer> {
+  const { loadLiveRepository } = await import('./liveRepository');
+  return (await loadLiveRepository()).ask(question);
+}
+
 /**
  * What the ask bar offers to ask.
  *
