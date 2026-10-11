@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { AlertTriangle, Gem, BadgeCheck } from "lucide-react";
-import { LunaLoader } from "../../learnstation-luna";
+import { LunaLoader } from "@/components/luna-loader";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type SocialUser } from "@/features/social/data";

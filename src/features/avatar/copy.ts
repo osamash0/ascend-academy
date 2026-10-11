@@ -12,6 +12,11 @@ function humanize(id: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/** A badge's display name in the current language (common:achievements.badgeDefs), English key as fallback. */
+export function badgeName(t: TFunction, key: string): string {
+  return t(`common:achievements.badgeDefs.${key}.name`, { defaultValue: key });
+}
+
 export function itemName(t: TFunction, id: string): string {
   return t(`avatar:items.${id}`, { defaultValue: humanize(id) });
 }
@@ -26,7 +31,7 @@ export function unlockHint(t: TFunction, item: AvatarItem, st: UnlockStatus): st
     case 'streak':
       return t('avatar:hint.streak', { days: u.days });
     case 'badge':
-      return t('avatar:hint.badge', { badge: u.key });
+      return t('avatar:hint.badge', { badge: badgeName(t, u.key) });
     default:
       return '';
   }
@@ -46,7 +51,7 @@ export function unlockMemory(t: TFunction, item: AvatarItem, lang: string, badge
     case 'badge': {
       const at = badgeDates[u.key];
       const date = at ? new Date(at).toLocaleDateString(lang, { day: 'numeric', month: 'short', year: 'numeric' }) : null;
-      return date ? t('avatar:memory.badgeOn', { badge: u.key, date }) : t('avatar:memory.badge', { badge: u.key });
+      return date ? t('avatar:memory.badgeOn', { badge: badgeName(t, u.key), date }) : t('avatar:memory.badge', { badge: badgeName(t, u.key) });
     }
   }
 }

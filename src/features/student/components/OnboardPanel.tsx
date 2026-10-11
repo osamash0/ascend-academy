@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { BookOpenCheck, CircleHelp, Flame, Sparkles } from 'lucide-react';
 import { SectionHeader } from '@/components/console';
-import { StellaCommander } from '../../../../learnstation-luna';
+import { MyLuna } from '@/features/avatar/MyLuna';
 
 /**
  * The brand-new-student ("onboard") below-the-fold: a focused "Start here +
@@ -35,7 +35,7 @@ export function OnboardPanel() {
 
         <div className="depth-card p-6 lg:p-8 flex items-start gap-4">
           <div className="shrink-0 -my-2 -ml-2">
-            <StellaCommander size="sm" />
+            <MyLuna variant="full" size={80} mood="bright" />
           </div>
           <p className="text-sm lg:text-base text-white/70 leading-relaxed pt-1.5">
             {t('dashboard:onboard.subtitle')}

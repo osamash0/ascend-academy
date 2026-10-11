@@ -10,7 +10,6 @@ import { ConsoleLayout } from "@/components/console";
 import { useLanguagePreference } from "@/hooks/useLanguagePreference";
 
 import { lazy, Suspense, Component, useRef, type ReactNode } from "react";
-import { useLunaPhase } from "../learnstation-luna";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 
@@ -717,7 +716,6 @@ function AppRoutes() {
 }
 
 const App = () => {
-  useLunaPhase('full');
 
   return (
   <AppErrorBoundary>

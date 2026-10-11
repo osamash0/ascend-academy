@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ByteCompanion } from '../../learnstation-luna';
+import { MyLuna } from '@/features/avatar/MyLuna';
 
 interface LevelUpModalProps {
   isOpen: boolean;
@@ -111,7 +111,7 @@ export const LevelUpModal = memo(function LevelUpModal({ isOpen, onClose, newLev
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ delay: 0.2, type: 'spring', damping: 12 }}
                 >
-                  <ByteCompanion size="sm" showShadow={false} />
+                  <MyLuna variant="full" size={118} mood="celebrating" />
                   <motion.div 
                     className="absolute -top-4 -right-4 bg-xp rounded-full p-2 border-4 border-background shadow-lg"
                     initial={{ scale: 0 }}
