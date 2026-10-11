@@ -1,12 +1,12 @@
 /**
- * The Learnstation ID — your card in the app.
+ * The Learnstation ID: your card in the app.
  *
  * Two faces, one card:
  *  - with Luna, a *Crew ID* from the Space Academy (starfield, Luna's portrait);
- *  - with your own photo, a *Learner Licence* laid out like a driving licence:
- *    numbered fields, a ghost image, a hologram that moves as you tilt it, a
- *    signature line — except the "licence class" is your rank and the
- *    "endorsements" are your badges.
+ *  - with your own photo, a *Learner Licence*: an engraved off-white document
+ *    with one clear lead (your surname), a faint ghost portrait, and a small
+ *    holographic seal that shifts colour as you tilt it. Your rank is the
+ *    licence class, your newest badges ride along as endorsements.
  *
  * Privacy by construction: no birth date, no address, no real id. The card
  * number is a one-way hash of the account id, so a screenshot gives nothing
@@ -49,7 +49,7 @@ export function cardNumber(userId: string): string {
 
 export function splitName(name: string): { surname: string; given: string } {
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length <= 1) return { surname: parts[0] ?? '—', given: '—' };
+  if (parts.length <= 1) return { surname: parts[0] ?? '-', given: '-' };
   return { surname: parts[parts.length - 1], given: parts.slice(0, -1).join(' ') };
 }
 
@@ -93,7 +93,7 @@ export function IdCard({ data, className }: { data: IdCardData; className?: stri
   const { ref, reduce, rotateX, rotateY, sheen, onMove, onLeave } = useTilt();
   const licence = !!data.photoUrl;
   const { surname, given } = splitName(data.name);
-  const fmt = (d: Date | null) => (d ? d.toLocaleDateString(i18n.language, { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
+  const fmt = (d: Date | null) => (d ? d.toLocaleDateString(i18n.language, { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-');
   const no = cardNumber(data.userId);
   const where = data.institution ?? 'Learnstation';
 
@@ -106,85 +106,89 @@ export function IdCard({ data, className }: { data: IdCardData; className?: stri
         style={reduce ? undefined : { rotateX, rotateY, transformStyle: 'preserve-3d' }}
         className={cn(
           'relative aspect-[1.586] w-full select-none overflow-hidden rounded-[18px] shadow-2xl ring-1',
-          licence ? 'bg-[#EEF1EC] text-[#1B2430] ring-black/10' : 'bg-black text-white ring-white/15',
+          licence ? 'bg-gradient-to-br from-zinc-50 to-zinc-200 text-zinc-900 ring-zinc-900/10' : 'bg-black text-white ring-white/15',
         )}
         role="img"
         aria-label={licence ? t('card.licence') : t('card.crew')}
       >
         {licence ? (
           <>
-            {/* guilloche: fine security waves, like a real licence */}
-            <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.35]" viewBox="0 0 320 202" preserveAspectRatio="none" aria-hidden>
-              {Array.from({ length: 18 }, (_, i) => (
-                <path key={i} d={`M0 ${20 + i * 10} C80 ${4 + i * 10} 160 ${36 + i * 10} 320 ${16 + i * 10}`} stroke="#7BA7A0" strokeWidth="0.5" fill="none" />
-              ))}
-              <circle cx="250" cy="120" r="70" fill="none" stroke="#C9B37E" strokeWidth="0.6" strokeDasharray="1 2" />
-              <circle cx="250" cy="120" r="55" fill="none" stroke="#C9B37E" strokeWidth="0.6" strokeDasharray="1 2" />
-            </svg>
-
-            {/* header */}
-            <div className="relative flex items-center gap-2 px-4 pt-3">
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-[#1E3A8A] text-[10px] font-black text-white ring-2 ring-[#E5C07B]">LS</span>
-              <div className="leading-none">
-                <p className="text-[8px] font-bold uppercase tracking-[0.25em] opacity-60">Learnstation</p>
-                <p className="text-[13px] font-black uppercase tracking-wide">{t('card.licence')}</p>
-              </div>
-            </div>
-
-            {/* ghost image: a faded copy of the photo, as on a real licence */}
-            <img src={data.photoUrl!} alt="" aria-hidden className="absolute right-4 top-3 h-[20%] rounded-sm object-cover opacity-25 grayscale" />
-
-            <div className="relative mt-2 flex gap-3 px-4">
-              {/* photo, passport-style, with the signature (field 7) beneath it */}
-              <div className="w-[30%] shrink-0">
-                <img src={data.photoUrl!} alt="" className="aspect-[4/5] w-full rounded-md object-cover ring-1 ring-black/15 [filter:saturate(0.85)_contrast(1.05)]" />
-                <p className="mt-1 text-[6px] font-semibold uppercase tracking-wider opacity-60">7.</p>
-                <p className="-mt-1 truncate text-[13px] leading-tight text-[#1E3A8A]" style={{ fontFamily: '"Segoe Script", "Brush Script MT", "Snell Roundhand", cursive' }}>
-                  {data.name}
-                </p>
-                <div className="h-px bg-black/25" />
-              </div>
-              <div className="grid min-w-0 flex-1 grid-cols-2 content-start gap-x-3 gap-y-1.5">
-                <Field n="1" label={t('card.surname')} value={surname.toUpperCase()} className="col-span-2" />
-                <Field n="2" label={t('card.given')} value={given} className="col-span-2" />
-                <Field n="4a" label={t('card.issued')} value={fmt(data.memberSince)} />
-                <Field n="4b" label={t('card.valid')} value={t('card.forever')} />
-                <Field
-                  n="4c"
-                  label={t('card.institution')}
-                  value={
-                    <span className="inline-flex items-center gap-1">
-                      {where}
-                      {data.verified && <BadgeCheck className="h-3 w-3 text-emerald-600" aria-label={t('card.verified')} />}
-                    </span>
-                  }
-                  className="col-span-2"
-                />
-                <Field n="5" label={t('card.number')} value={<span className="font-mono tracking-wider">{no}</span>} />
-                <Field
-                  n="9"
-                  label={t('card.class')}
-                  value={
-                    <span>
-                      {data.rank} <span className="font-semibold opacity-60">· Lv {data.level}</span>
-                    </span>
-                  }
-                />
-                <Field n="12" label={t('card.endorsements')} value={data.badges.slice(0, 3).join(' · ') || '—'} className="col-span-2" />
-              </div>
-            </div>
-
-            {/* hologram that follows the tilt */}
-            <motion.div
+            {/* engraved texture: a fine diagonal hatch, like intaglio printing */}
+            <div
               aria-hidden
-              className="pointer-events-none absolute inset-0 mix-blend-color-dodge"
-              style={{
-                backgroundImage: 'radial-gradient(circle at var(--x,50%) var(--y,50%), rgba(255,255,255,0.0) 0%, rgba(167,243,208,0.35) 18%, rgba(191,219,254,0.35) 32%, rgba(253,230,138,0.3) 46%, rgba(255,255,255,0) 60%)',
-                backgroundSize: '220% 220%',
-                backgroundPosition: reduce ? '50% 50%' : sheen,
-                opacity: 0.55,
-              }}
+              className="pointer-events-none absolute inset-0 opacity-[0.05]"
+              style={{ backgroundImage: 'repeating-linear-gradient(135deg, #0a0a0a 0 1px, transparent 1px 5px)' }}
             />
+            {/* ghost portrait: large, faint, behind the data, a real security feature */}
+            <img
+              src={data.photoUrl!}
+              alt=""
+              aria-hidden
+              className="pointer-events-none absolute -right-6 top-6 h-[78%] object-cover opacity-[0.07] grayscale [mask-image:linear-gradient(to_left,black,transparent)]"
+            />
+
+            <div className="relative flex h-full flex-col p-[6%]">
+              {/* masthead */}
+              <div className="flex items-baseline justify-between">
+                <p className="text-[13px] font-black tracking-tight">Learnstation</p>
+                <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{t('card.licence')}</p>
+              </div>
+
+              <div className="mt-[5%] flex min-h-0 flex-1 gap-[5%]">
+                <img
+                  src={data.photoUrl!}
+                  alt=""
+                  className="aspect-[4/5] h-full shrink-0 rounded-[10px] object-cover shadow-[0_6px_18px_-8px_rgba(9,9,11,0.45)] ring-1 ring-zinc-900/10 [filter:saturate(0.9)]"
+                />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <p className="shrink-0 truncate text-[12px] font-medium leading-tight text-zinc-500">{given !== '-' ? given : '\u00a0'}</p>
+                  <p className="shrink-0 truncate text-[22px] font-black uppercase leading-[1.1] tracking-tight">{surname}</p>
+                  <p className="mt-1 inline-flex min-w-0 shrink-0 items-center gap-1 text-[11px] font-medium leading-tight text-zinc-600">
+                    <span className="truncate">{where}</span>
+                    {data.verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-label={t('card.verified')} />}
+                  </p>
+
+                  <div className="mt-auto grid shrink-0 grid-cols-2 gap-x-4">
+                    <div>
+                      <p className="text-[8px] font-semibold uppercase tracking-[0.16em] text-zinc-500">{t('card.class')}</p>
+                      <p className="text-[15px] font-black leading-tight">{data.rank}</p>
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-semibold uppercase tracking-[0.16em] text-zinc-500">{t('card.level')}</p>
+                      <p className="text-[15px] font-black leading-tight tabular-nums">{data.level}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* footer: card number and issue date on one engraved line */}
+              <div className="mt-[4%] flex items-end justify-between border-t border-zinc-900/10 pt-2">
+                <div>
+                  <p className="text-[8px] font-semibold uppercase tracking-[0.16em] text-zinc-500">{t('card.number')}</p>
+                  <p className="font-mono text-[11px] font-semibold tracking-[0.12em]">{no}</p>
+                </div>
+              {/* holographic seal: one small foil disc that shifts colour as the card tilts */}
+              <motion.div
+                aria-hidden
+                className="pointer-events-none grid h-9 w-9 shrink-0 place-items-center rounded-full ring-1 ring-white/60"
+                style={{
+                  backgroundImage:
+                    'conic-gradient(from 0deg, #a7f3d0, #bfdbfe, #fbcfe8, #fde68a, #a7f3d0)',
+                  backgroundSize: '260% 260%',
+                  backgroundPosition: reduce ? '50% 50%' : sheen,
+                  opacity: 0.85,
+                  boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.8), 0 1px 3px rgba(9,9,11,0.15)',
+                }}
+              >
+                <span className="h-5 w-5 rounded-full bg-white/70 [mask-image:radial-gradient(circle_at_70%_35%,transparent_42%,black_44%)]" />
+              </motion.div>
+                <div className="text-right">
+                  <p className="text-[8px] font-semibold uppercase tracking-[0.16em] text-zinc-500">{t('card.issued')}</p>
+                  <p className="text-[11px] font-semibold tabular-nums">{fmt(data.memberSince)}</p>
+                </div>
+              </div>
+            </div>
+
           </>
         ) : (
           <>

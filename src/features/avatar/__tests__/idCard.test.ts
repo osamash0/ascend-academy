@@ -24,7 +24,7 @@ describe('splitName', () => {
   it.each([
     ['Mira Al-Hassan', { surname: 'Al-Hassan', given: 'Mira' }],
     ['Ana Maria de Souza', { surname: 'Souza', given: 'Ana Maria de' }],
-    ['Ada', { surname: 'Ada', given: '—' }],
-    ['  ', { surname: '—', given: '—' }],
+    ['Ada', { surname: 'Ada', given: '-' }],
+    ['  ', { surname: '-', given: '-' }],
   ])('%s', (name, out) => expect(splitName(name)).toEqual(out));
 });
