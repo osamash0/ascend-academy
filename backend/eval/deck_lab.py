@@ -431,7 +431,6 @@ def _yes(flag: bool) -> str:
 def _semantic_interpretation(run: "SemanticRun") -> str:
     """Reading guide under the semantic rates; every clause follows the run's
     numbers, the pre-registered gate and the live flags."""
-    from backend.core.config import settings
     from backend.eval import semantic_grounding_eval as sge
     from backend.services.parser import semantic_grounding, synthesis
 
@@ -439,7 +438,7 @@ def _semantic_interpretation(run: "SemanticRun") -> str:
     gate = (f"Pre-registered gate ({sge.DECISION_COLUMN} false drop <= {sge.MAX_FALSE_DROPS}/{half}, "
             f"false keep <= {sge.MAX_FALSE_KEEPS}/{half}, calibration errors <= {sge.MAX_CALIBRATION_ERRORS}): ")
     if run.decision.eligible:
-        gate += ("PASSED — the data allow re-enabling enforcement with GROUNDING_SCORER=semantic "
+        gate += ("PASSED — the data would allow wiring semantic grounding into production "
                  "(a separate, user-approved change; this report changes no flag).")
     else:
         stance = ("the verifier stays advisory" if not synthesis.ENFORCE_SUPPORT_THRESHOLD else
@@ -450,8 +449,8 @@ def _semantic_interpretation(run: "SemanticRun") -> str:
     shift = (f"Combined vs lexical on the probe: false drops {lex.false_drops} -> {comb.false_drops}, "
              f"false keeps {lex.false_keeps} -> {comb.false_keeps}.")
     live = (f"Live configuration: ENFORCE_SUPPORT_THRESHOLD={synthesis.ENFORCE_SUPPORT_THRESHOLD}, "
-            f"GROUNDING_SCORER={settings.grounding_scorer}, "
-            f"SEMANTIC_SUPPORT_THRESHOLD={semantic_grounding.SEMANTIC_SUPPORT_THRESHOLD}.")
+            f"SEMANTIC_SUPPORT_THRESHOLD={semantic_grounding.SEMANTIC_SUPPORT_THRESHOLD}; "
+            "semantic grounding is eval-only (no production scorer setting).")
     return f"{gate} {shift} {live}"
 
 
@@ -473,6 +472,8 @@ def render_semantic_section(run: "SemanticRun | None") -> list[str]:
         "Combined = lexical ok OR cosine >= threshold; ambiguous = a distractor closer than the key",
         "that clears the threshold itself.",
         f"Embeddings: `{run.model}`, {run.fetched} text(s) fetched live, {run.cached} from `{run.cache_path.name}`.",
+        "Reproducing this needs the local vector cache and the local PDFs (neither is committed); "
+        "the fetched-live / from-cache counts are specific to the run that produced this file.",
         "",
         f"- Threshold: {cal.threshold:.3f} (cosine of stem + key vs. cited slide)",
         f"- Calibration: {cal.errors}/{cal.scored} misclassified; grounded min {min(cal.grounded):.3f}, "
@@ -484,6 +485,8 @@ def render_semantic_section(run: "SemanticRun | None") -> list[str]:
     for column in COLUMNS:
         r = probe.rates(column)
         out.append(f"| {column} | {_rate(r.false_drops, r.paraphrased)} | {_rate(r.false_keeps, r.hallucinated)} |")
+    if all(o.combined_ok == o.semantic_ok for o in probe.outcomes):
+        out.append("\nCombined equals semantic on this probe: every lexically-kept answer was also kept semantically.")
     if probe.missing_decks:
         out.append(f"\nNot scored, deck missing: {', '.join(_label(d) for d in probe.missing_decks)}")
     out += [

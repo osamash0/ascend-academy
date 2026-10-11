@@ -77,3 +77,6 @@ supabase/.temp/
 # Cached pip-audit venv built by scripts/audit-deps.sh — a tool install,
 # not project state. Rebuilt on demand if deleted.
 .cache/
+
+# Arc 8: local embedding vector cache (partly invertible; never commit)
+backend/eval/data/grounding_embeddings.json

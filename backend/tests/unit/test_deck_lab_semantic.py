@@ -60,14 +60,12 @@ def test_failed_gate_sentence_follows_the_live_enforce_flag(monkeypatch, enforce
 
 
 def test_interpretation_follows_a_passed_gate_and_the_live_flags(monkeypatch):
-    from backend.core.config import settings
     from backend.services.parser import synthesis
 
     monkeypatch.setattr(synthesis, "ENFORCE_SUPPORT_THRESHOLD", True)
-    monkeypatch.setattr(settings, "grounding_scorer", "semantic", raising=False)
     md = _md(sge.Decision(True, ()))
     assert "PASSED" in md and "FAILED" not in md
-    assert "ENFORCE_SUPPORT_THRESHOLD=True, GROUNDING_SCORER=semantic" in md
+    assert "ENFORCE_SUPPORT_THRESHOLD=True" in md and "GROUNDING_SCORER" not in md
 
 
 def test_section_says_not_run_without_the_flag():

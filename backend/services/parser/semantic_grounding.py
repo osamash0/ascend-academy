@@ -43,8 +43,8 @@ DETERMINISTIC_REASONS = STRUCTURAL_REASONS | {"number_not_on_slide"}
 SLIDE_CHARS = 2000
 
 # Set from the Arc 8 held-out calibration (backend/eval/semantic_grounding_eval.py)
-# only if the pre-registered gate passes. While None, GROUNDING_SCORER=semantic
-# falls back to the lexical verifier ("uncalibrated").
+# only if the pre-registered gate passes. The gate FAILED, so it stays None;
+# semantic grounding is eval-only and is not wired into production.
 SEMANTIC_SUPPORT_THRESHOLD: float | None = None
 
 

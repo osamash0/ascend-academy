@@ -239,7 +239,7 @@ probe once at it (`backend/eval/semantic_grounding_eval.py`). Vectors come
 from `backend/eval/data/grounding_embeddings.json` (keyed by sha256, no text).
 A cache miss exits 2 unless `DECK_LAB_ALLOW_EMBEDDING_API=1`. That sends slide
 text to Google's embedding API with your GEMINI_API_KEY (unmetered; no llm_calls rows).
-Fetched vectors are saved before calibration runs. A complete probe whose lexical
+Fetched vectors are saved before calibration runs. The cache is gitignored (public repo; embeddings are partly invertible), so reproducing the scorecard needs the local vector cache and the local PDFs, and the "fetched live / from cache" counts are run-specific. A complete probe whose lexical
 column does not reproduce Arc 6 (false-drop 14/16, false-keep 0/16) raises
 `LexicalBaselineMismatch` instead of producing a decision.
 Tests: `pytest backend/tests/unit/test_semantic_grounding_eval.py backend/tests/unit/test_deck_lab_semantic.py`

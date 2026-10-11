@@ -89,4 +89,12 @@ def test_sync_embed_reports_no_tokens_when_statistics_absent(monkeypatch):
 
 
 def test_model_id_names_model_and_dims():
-    assert emb_mod.EMBEDDING_MODEL_ID == f"{emb_mod.EMBEDDING_MODEL}@{emb_mod.EMBEDDING_DIMS}"
+    assert emb_mod.EMBEDDING_MODEL_ID == f"{emb_mod.GEMINI_EMBEDDING_MODEL}@{emb_mod.EMBEDDING_DIMS}"
+
+
+def test_model_id_is_pinned_to_the_cached_gemini_value(monkeypatch):
+    # The eval cache and threshold are Gemini-specific; redefining
+    # EMBEDDING_MODEL (PR #92) must not change the id.
+    assert emb_mod.EMBEDDING_MODEL_ID == "gemini-embedding-001@768"
+    monkeypatch.setattr(emb_mod, "EMBEDDING_MODEL", "other")
+    assert emb_mod.EMBEDDING_MODEL_ID == "gemini-embedding-001@768"

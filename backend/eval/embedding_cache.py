@@ -1,4 +1,3 @@
-
 """Offline embedding cache for the Deck Lab semantic grounding run (Arc 8).
 
 Vectors live in one JSON file keyed by sha256(model id + text), so the file holds no

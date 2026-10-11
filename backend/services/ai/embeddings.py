@@ -11,14 +11,18 @@ logger = logging.getLogger(__name__)
 # supports configurable output dimensions; we request 768 dims to match the
 # existing `slide_embeddings.embedding vector(768)` column shape so we don't
 # need a schema migration.
-EMBEDDING_MODEL = "gemini-embedding-001"
+GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
+EMBEDDING_MODEL = GEMINI_EMBEDDING_MODEL
 # Same freshness rule as orchestrator.ProviderConfig.verified_on
 # (tests/unit/test_provider_pin_freshness.py).
 EMBEDDING_MODEL_VERIFIED_ON = datetime.date(2026, 10, 10)
 EMBEDDING_DIMS = 768
 # Cache-key / threshold-provenance component: a similarity threshold, and any
 # cached vector, is only valid for the model + dimensionality that made it.
-EMBEDDING_MODEL_ID = f"{EMBEDDING_MODEL}@{EMBEDDING_DIMS}"
+# PR #92 may redefine EMBEDDING_MODEL for openai_only; the eval cache and the
+# calibrated threshold are Gemini-specific, so the batch path and this id stay
+# pinned to GEMINI_EMBEDDING_MODEL.
+EMBEDDING_MODEL_ID = f"{GEMINI_EMBEDDING_MODEL}@{EMBEDDING_DIMS}"
 # Gemini's batchEmbedContents accepts at most 100 texts per request.
 EMBED_BATCH_MAX = 100
 
@@ -77,7 +81,7 @@ def _sync_embed(contents: Union[str, List[str]]) -> Tuple[List[List[float]], Opt
     try:
         from google.genai import types as _gtypes
         res = gemini_client.models.embed_content(
-            model=EMBEDDING_MODEL,
+            model=GEMINI_EMBEDDING_MODEL,
             contents=contents,
             config=_gtypes.EmbedContentConfig(output_dimensionality=EMBEDDING_DIMS),
         )
@@ -87,7 +91,7 @@ def _sync_embed(contents: Union[str, List[str]]) -> Tuple[List[List[float]], Opt
             sdk_compat,
         )
         res = gemini_client.models.embed_content(
-            model=EMBEDDING_MODEL,
+            model=GEMINI_EMBEDDING_MODEL,
             contents=contents,
         )
     # Note: any *other* exception (RuntimeError, RPC error, 4xx/5xx)
@@ -96,7 +100,7 @@ def _sync_embed(contents: Union[str, List[str]]) -> Tuple[List[List[float]], Opt
     if not res or not res.embeddings:
         raise RuntimeError(
             f"generate_embeddings: Gemini returned an empty embeddings response "
-            f"for model {EMBEDDING_MODEL!r}. Check API key, quota, and model availability."
+            f"for model {GEMINI_EMBEDDING_MODEL!r}. Check API key, quota, and model availability."
         )
     expected = 1 if isinstance(contents, str) else len(contents)
     if len(res.embeddings) != expected:
@@ -114,7 +118,7 @@ def _sync_embed(contents: Union[str, List[str]]) -> Tuple[List[List[float]], Opt
         # caller knows to retry rather than persist a useless zero vector.
         if values and all(v == 0.0 for v in values):
             raise RuntimeError(
-                f"generate_embeddings: received an all-zero vector from {EMBEDDING_MODEL!r}. "
+                f"generate_embeddings: received an all-zero vector from {GEMINI_EMBEDDING_MODEL!r}. "
                 "This usually means the API returned an empty embedding. Retrying may help."
             )
         vectors.append(_fit_dims(values))
