@@ -2,7 +2,7 @@ import { useState, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-const LunaAstronaut = lazy(() => import('../../learnstation-luna').then(m => ({ default: m.LunaAstronaut })));
+const LunaAvatar = lazy(() => import('@/features/avatar/LunaAvatar').then(m => ({ default: m.LunaAvatar })));
 import { BookOpen, User, Mail, Lock, ArrowRight, ArrowLeft, Sparkles, Eye, EyeOff, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -236,7 +236,7 @@ export default function Auth() {
         
         <div className="relative z-10 flex flex-col items-center">
           <Suspense fallback={<div className="w-64 h-64 animate-pulse rounded-full bg-white/5" />}>
-            <LunaAstronaut phase="full" size="xl" animated={true} />
+            <LunaAvatar size={200} showBackdrop={false} />
           </Suspense>
           <motion.div 
             initial={{ opacity: 0, y: 20 }}

@@ -3,6 +3,8 @@
  * Photo → Learner Licence; no photo → Crew ID (see IdCard.tsx).
  */
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+import { badgeName } from './copy';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { rankForXp } from '@/lib/rank';
@@ -14,6 +16,7 @@ import { useLoadout } from './useAvatar';
 export function MyIdCard({ className }: { className?: string }) {
   const { user, profile } = useAuth();
   const { loadout, badges } = useLoadout();
+  const { t } = useTranslation();
 
   const { data: extra } = useQuery({
     queryKey: ['id-card-extra', user?.id],
@@ -33,7 +36,7 @@ export function MyIdCard({ className }: { className?: string }) {
   });
 
   if (!user || !profile) return null;
-  const newestFirst = [...badges].sort((a, b) => (b.earnedAt ?? '').localeCompare(a.earnedAt ?? '')).map((b) => b.key);
+  const newestFirst = [...badges].sort((a, b) => (b.earnedAt ?? '').localeCompare(a.earnedAt ?? '')).map((b) => badgeName(t, b.key));
 
   return (
     <IdCard

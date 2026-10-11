@@ -8,6 +8,8 @@ import { useMemo, useState } from 'react';
 import { SuitLocker } from '@/features/avatar/SuitLocker';
 import { LunaAvatar } from '@/features/avatar/LunaAvatar';
 import { itemsForSlot } from '@/features/avatar/catalog';
+import { LunaSpinner } from '@/features/avatar/LunaSpinner';
+import { LevelUpModal } from '@/components/LevelUpModal';
 import { IdCard, type IdCardData } from '@/features/avatar/IdCard';
 
 // A neutral drawn silhouette standing in for an uploaded photo (no real person).
@@ -40,6 +42,7 @@ export default function AvatarLab() {
   const [xp, setXp] = useState(1240);
   const [streak, setStreak] = useState(4);
   const [badges, setBadges] = useState<string[]>(['First Steps', 'First Quiz Completed', 'On Fire']);
+  const [levelUp, setLevelUp] = useState(false);
 
   const progress: AvatarProgress = useMemo(
     () => ({ xp, level: Math.floor(xp / 100) + 1, streak, bestStreak: streak, badges: new Set(badges) }),
@@ -78,6 +81,20 @@ export default function AvatarLab() {
             })}
           </div>
         </div>
+
+        {/* Moments: the loader and the level-up popup, both drawn with your Luna. */}
+        <section className="mb-10">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-white/50">Moments</h2>
+          <div className="flex flex-wrap items-center gap-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+            <LunaSpinner size={32} />
+            <LunaSpinner size={64} />
+            <LunaSpinner size={96} />
+            <button type="button" onClick={() => setLevelUp(true)} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black">
+              Show level-up
+            </button>
+          </div>
+          <LevelUpModal isOpen={levelUp} onClose={() => setLevelUp(false)} newLevel={14} />
+        </section>
 
         {/* The ID card, both faces. */}
         <section className="mb-10">

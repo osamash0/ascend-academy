@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Search, Sparkles, BookOpen, Layers, FileText, Lightbulb, Loader2, ArrowLeft, Send, X } from 'lucide-react';
 import { Dialog, DialogPortal, DialogOverlay } from '@/components/ui/dialog';
-import { OrbitExplorer, LunaLoader } from '../../learnstation-luna';
+import { MyLuna } from '@/features/avatar/MyLuna';
+import { LunaLoader } from '@/components/luna-loader';
 import { cn } from '@/lib/utils';
 import {
   globalSearch,
@@ -327,7 +328,7 @@ function RecentSearches({ recent, onPick, label, empty }: { recent: string[]; on
   if (recent.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 px-3 py-6 text-center text-sm text-muted-foreground">
-        <OrbitExplorer size="sm" />
+        <MyLuna size={72} mood="thinking" />
         {empty}
       </div>
     );
