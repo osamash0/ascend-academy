@@ -169,5 +169,27 @@
   "outfitGroups": {
     "home": "Where you're from",
     "style": "What you're into"
+  },
+  "card": {
+    "licence": "Learner Licence",
+    "crew": "Crew ID",
+    "academy": "Space Academy",
+    "surname": "Surname",
+    "given": "Given names",
+    "issued": "Issued",
+    "valid": "Valid until",
+    "forever": "∞ curiosity",
+    "institution": "Issued by",
+    "number": "Card no.",
+    "class": "Class",
+    "endorsements": "Endorsements",
+    "name": "Name",
+    "rank": "Rank",
+    "level": "Level",
+    "station": "Home station",
+    "since": "Crew since",
+    "verified": "Verified university",
+    "title": "Your ID",
+    "hint": "Choose your photo below and your Crew ID becomes a Learner Licence."
   }
 }
