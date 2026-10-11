@@ -48,25 +48,25 @@
 @layer base {
   :root {
     /* ── Core Background ── */
-    --background: 222 35% 9%;
-    /* #0E1320 — Deeper, richer dark */
-    --foreground: 220 25% 96%;
+    --background: 0 0% 3%;
+    /* #080808 — the stage's black (2026-10-11: navy retired, monochrome) */
+    --foreground: 0 0% 96%;
     /* #F1F5F9 — Crisper white for reading */
 
     /* ── Surface Hierarchy (Enhanced Contrast) ── */
-    --surface-1: 222 30% 14%;
-    /* #181F33 — Cards: distinct but soft */
-    --surface-2: 222 28% 18%;
-    /* #1F2840 — Hover: clear elevation */
-    --surface-3: 222 25% 24%;
-    /* #2A3654 — Active: tactile press */
+    --surface-1: 0 0% 8%;
+    /* #141414 — Cards: distinct but soft */
+    --surface-2: 0 0% 11%;
+    /* #1C1C1C — Hover: clear elevation */
+    --surface-3: 0 0% 16%;
+    /* #292929 — Active: tactile press */
 
     /* ── Overlays: Popovers & Cards (match surface palette) ── */
-    --popover: 222 30% 14%;
-    /* #181F33 — Opaque so dropdowns don't bleed through */
-    --popover-foreground: 220 25% 96%;
-    --card: 222 30% 14%;
-    --card-foreground: 220 25% 96%;
+    --popover: 0 0% 8%;
+    /* #141414 — Opaque so dropdowns don't bleed through */
+    --popover-foreground: 0 0% 96%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 96%;
 
     /* ── Primary: Monochrome (2026-10-10, Abi: no purple brand) ──
        The brand is white on black. Colour belongs to the content — a deck's
@@ -87,7 +87,7 @@
     /* ── Accent: Achievement Cyan ── */
     --accent: 188 85% 55%;
     /* #22D3EE — Gaming energy, educational calm */
-    --accent-foreground: 222 35% 9%;
+    --accent-foreground: 0 0% 4%;
 
     /* ── Semantic Colors (Calibrated for Accessibility) ── */
     --success: 158 65% 48%;
@@ -95,7 +95,7 @@
     --success-foreground: 0 0% 100%;
     --warning: 42 90% 55%;
     /* #FBBF24 — Solar amber, highly visible */
-    --warning-foreground: 222 35% 9%;
+    --warning-foreground: 0 0% 4%;
     --destructive: 0 70% 55%;
     /* #EF4444 — Alert red, softened */
     --destructive-foreground: 0 0% 100%;
@@ -103,7 +103,7 @@
     /* ── XP & Level System (Gaming Core — Keep Vibrant) ── */
     --xp: 45 95% 55%;
     /* #FCD34D — Gold plasma */
-    --xp-foreground: 222 35% 9%;
+    --xp-foreground: 0 0% 4%;
     --level: 0 0% 85%;
     /* Silver — rank is the brand's white, not a colour of its own */
     --level-foreground: 0 0% 100%;
@@ -112,28 +112,28 @@
     --streak-foreground: 0 0% 100%;
 
     /* ── Muted System (Critical for Educational Text) ── */
-    --muted: 220 18% 22%;
-    /* #2A3045 */
-    --muted-foreground: 220 12% 68%;
-    /* #94A3B8 — Optimized for body text */
+    --muted: 0 0% 14%;
+    /* #242424 */
+    --muted-foreground: 0 0% 66%;
+    /* #A8A8A8 — body text, AA on every surface above */
 
     /* ── Border & Input ── */
-    --border: 222 22% 20%;
-    /* #232B3F — Visible but unobtrusive */
-    --input: 222 22% 20%;
+    --border: 0 0% 15%;
+    /* #262626 — Visible but unobtrusive */
+    --input: 0 0% 15%;
     --ring: 0 0% 90%;
 
     --radius: 0.875rem;
     /* Slightly tighter for UI density */
 
     /* ── Sidebar ── */
-    --sidebar-background: 222 30% 12%;
-    --sidebar-foreground: 220 25% 96%;
+    --sidebar-background: 0 0% 5%;
+    --sidebar-foreground: 0 0% 96%;
     --sidebar-primary: 0 0% 96%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 28% 18%;
+    --sidebar-accent: 0 0% 11%;
     --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 222 22% 20%;
+    --sidebar-border: 0 0% 15%;
     --sidebar-ring: 0 0% 90%;
 
     /* ── Learning State Colors (NEW) ── */
@@ -152,8 +152,8 @@
         hsl(0 0% 78%) 100%);
 
     --gradient-surface: linear-gradient(180deg,
-        hsl(222 30% 14%) 0%,
-        hsl(222 35% 9%) 100%);
+        hsl(0 0% 8%) 0%,
+        hsl(0 0% 3%) 100%);
 
     --gradient-glow: radial-gradient(circle at 50% 50%,
         hsl(0 0% 100% / 0.06) 0%,
@@ -165,13 +165,13 @@
         hsl(188 85% 55% / 0.08) 100%);
 
     /* ── Premium Shadows (Deeper for Gaming Depth) ── */
-    --shadow-sm: 0 1px 2px 0 hsl(222 35% 5% / 0.4);
-    --shadow-md: 0 4px 12px -2px hsl(222 35% 5% / 0.5),
-      0 2px 6px -2px hsl(222 35% 5% / 0.3);
-    --shadow-lg: 0 12px 24px -8px hsl(222 35% 5% / 0.6),
-      0 4px 8px -4px hsl(222 35% 5% / 0.4);
-    --shadow-xl: 0 24px 48px -12px hsl(222 35% 5% / 0.7),
-      0 8px 16px -8px hsl(222 35% 5% / 0.5);
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.4);
+    --shadow-md: 0 4px 12px -2px hsl(0 0% 0% / 0.5),
+      0 2px 6px -2px hsl(0 0% 0% / 0.3);
+    --shadow-lg: 0 12px 24px -8px hsl(0 0% 0% / 0.6),
+      0 4px 8px -4px hsl(0 0% 0% / 0.4);
+    --shadow-xl: 0 24px 48px -12px hsl(0 0% 0% / 0.7),
+      0 8px 16px -8px hsl(0 0% 0% / 0.5);
 
     /* Glow effects (Reduced for comfort) */
     --shadow-glow-primary: 0 0 30px hsl(0 0% 100% / 0.10);
@@ -180,7 +180,7 @@
     --shadow-glow-accent: 0 0 30px hsl(188 85% 55% / 0.2);
 
     /* ── Glassmorphism (More Opaque for Readability) ── */
-    --glass-bg: hsl(222 30% 14% / 0.75);
+    --glass-bg: hsl(0 0% 8% / 0.75);
     --glass-border: hsl(220 25% 96% / 0.06);
     --glass-highlight: hsl(220 25% 96% / 0.04);
 
@@ -188,10 +188,10 @@
     --hud-cyan: 188 100% 50%;
     --hud-amber: 45 100% 50%;
     --hud-red: 0 85% 60%;
-    --hud-bg: 222 35% 9%;
+    --hud-bg: 0 0% 3%;
 
     /* ── Console layer (dark-first, theme-independent) ── */
-    --console-bg: #070b14;
+    --console-bg: #000000; /* the stage's black; the Spaces hub paints its own navy on purpose */
     --glow-done: 34 197 94;      /* emerald */
     --glow-progress: 200 200 210; /* white light */
     --glow-new: 150 150 160;      /* silver */
@@ -226,6 +226,8 @@
        Measured, not guessed. Every step below clears WCAG AA (4.5:1) against
        BOTH surfaces text can land on here: the console background (#070b14)
        and a depth-card (white 6% over it, so lighter and the harder case).
+       Since 2026-10-11 the console ground is #000 — darker, so every ratio
+       below only rises there; the card column stays the binding one.
 
          quiet  0.72  10.24 / 9.03   secondary text, descriptions
          label  0.58   6.89 / 6.35   uppercase eyebrows, meta, counts
@@ -622,7 +624,7 @@
 
   /* ── Intelligence Center Command Palette ── */
   .intelligence-hub {
-    background: linear-gradient(145deg, hsl(222 47% 4%) 0%, hsl(222 47% 10%) 100%);
+    background: linear-gradient(145deg, hsl(0 0% 3%) 0%, hsl(0 0% 9%) 100%);
     border: 1px solid hsl(var(--primary) / 0.3);
     box-shadow: 
       0 24px 60px -12px hsl(0 0% 0% / 0.6),
@@ -682,8 +684,8 @@
 
   /* ── Focus Mode (Distraction-free Learning) ── */
   .focus-mode {
-    --glass-bg: hsl(222 35% 9% / 0.95);
-    --background: 222 35% 7%;
+    --glass-bg: hsl(0 0% 3% / 0.95);
+    --background: 0 0% 2%;
   }
 
   .light .focus-mode {
@@ -704,7 +706,7 @@
   .console-focusable:focus-visible {
     outline: none;
     box-shadow:
-      0 0 0 3px #070b14,
+      0 0 0 3px #000000,
       0 0 0 5px rgba(255, 255, 255, 0.85),
       0 0 24px rgba(255, 255, 255, 0.25);
   }

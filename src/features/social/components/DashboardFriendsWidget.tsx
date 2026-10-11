@@ -42,7 +42,7 @@ export function DashboardFriendsWidget() {
       {hasAny && stack.length > 0 ? (
         <div className="flex -space-x-2">
           {stack.map((f) => (
-            <div key={f.id} className="rounded-[12px] ring-2 ring-[#0E1320]">
+            <div key={f.id} className="rounded-[12px] ring-2 ring-black">
               <Avatar user={f} size="sm" />
             </div>
           ))}
@@ -50,7 +50,7 @@ export function DashboardFriendsWidget() {
       ) : showSuggest ? (
         <div className="flex -space-x-2">
           {suggestStack.map((s) => (
-            <div key={s.id} className="rounded-[12px] ring-2 ring-[#0E1320]">
+            <div key={s.id} className="rounded-[12px] ring-2 ring-black">
               <Avatar user={s} size="sm" />
             </div>
           ))}

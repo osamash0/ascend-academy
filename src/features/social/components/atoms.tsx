@@ -55,7 +55,7 @@ export function Avatar({
         inner
       )}
       {showDot && (
-        <span className="absolute -bottom-0.5 -right-0.5 z-10 rounded-full ring-2 ring-[#0E1320]">
+        <span className="absolute -bottom-0.5 -right-0.5 z-10 rounded-full ring-2 ring-black">
           <OnlineDot online={user.online} pulse={user.online} />
         </span>
       )}
