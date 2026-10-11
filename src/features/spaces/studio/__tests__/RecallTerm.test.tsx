@@ -58,6 +58,22 @@ describe('RecallTerm', () => {
     expect(screen.queryByRole('button', { name: 'Knew it' })).toBeNull();
     expect(container.innerHTML).not.toContain('blur(');
   });
+  it('a seen term you never marked can be asked again: tap it, the marks return, no blur', () => {
+    vi.useFakeTimers();
+    const { onMark } = setup('seen');
+    expect(screen.queryByRole('button', { name: 'Knew it' })).toBeNull();
+    const term = screen.getByRole('button', { name: /BCNF, revealed — mark whether you knew it/ });
+    fireEvent.click(term);
+    fireEvent.click(screen.getByRole('button', { name: 'Not yet' }));
+    expect(onMark).toHaveBeenCalledWith('notYet');
+    expect(document.querySelector('[style*="blur"]')).toBeNull();
+    act(() => { vi.advanceTimersByTime(4000); });
+    expect(screen.queryByRole('button', { name: 'Knew it' })).toBeNull();
+  });
+  it('a marked term is not a button', () => {
+    setup('knew');
+    expect(screen.queryByRole('button')).toBeNull();
+  });
   it('after a reveal, both marks are described by the term itself', () => {
     const { rerender } = render(<RecallTerm text="BCNF" state="blank" page={6} onReveal={() => {}} onMark={() => {}} />);
     rerender(<RecallTerm text="BCNF" state="seen" page={6} onReveal={() => {}} onMark={() => {}} />);
@@ -179,13 +195,13 @@ describe('RecallTerm focus and motion', () => {
     rerender(<RecallTerm text="BCNF" state="seen" page={1} onReveal={() => {}} onMark={onMark} />);
     expect(screen.getByRole('button', { name: 'Knew it' })).toHaveFocus();
     fireEvent.click(screen.getByRole('button', { name: 'Not yet' }));
-    expect(screen.getByLabelText('BCNF, revealed')).toHaveFocus();
+    expect(screen.getByLabelText(/^BCNF, revealed/)).toHaveFocus();
   });
   it('focus returns to the term when the pair times out', () => {
     vi.useFakeTimers();
     const { rerender } = render(<RecallTerm text="BCNF" state="blank" page={1} onReveal={() => {}} onMark={() => {}} />);
     rerender(<RecallTerm text="BCNF" state="seen" page={1} onReveal={() => {}} onMark={() => {}} />);
     act(() => void vi.advanceTimersByTime(4100));
-    expect(screen.getByLabelText('BCNF, revealed')).toHaveFocus();
+    expect(screen.getByLabelText(/^BCNF, revealed/)).toHaveFocus();
   });
 });

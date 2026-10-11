@@ -39,20 +39,25 @@ export function RecallTerm({
     fresh = seen.state === 'blank' && state === 'seen';
     setSeen({ state, fresh });
   }
+  // A seen term you never marked can be asked again: tap it and the pair comes back (no replayed blur).
+  const [reopened, setReopened] = useState(false);
+  if (reopened && state !== 'seen') setReopened(false);
+  const asking = state === 'seen' && (fresh || reopened);
   const termRef = useRef<HTMLSpanElement>(null);
   const pairRef = useRef<HTMLSpanElement>(null);
   const knewRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (!fresh) return;
+    if (!asking) return;
     // Focus follows the reveal: the term's button is gone, so go to the first mark.
     knewRef.current?.focus();
     const t = setTimeout(() => {
       // Only pull focus back when it was in the pair that is about to vanish.
       if (pairRef.current?.contains(document.activeElement)) termRef.current?.focus();
       setSeen((s) => (s.fresh ? { ...s, fresh: false } : s));
+      setReopened(false);
     }, PAIR_MS);
     return () => clearTimeout(t);
-  }, [fresh]);
+  }, [asking]);
   const mark = (t: 'knew' | 'notYet') => {
     termRef.current?.focus();
     onMark(t);
@@ -84,9 +89,21 @@ export function RecallTerm({
       <motion.span
         ref={termRef}
         id={id}
-        tabIndex={-1}
-        aria-label={`${text}, revealed`}
-        className={cn(underline, 'rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1')}
+        tabIndex={state === 'seen' && !asking ? 0 : -1}
+        role={state === 'seen' && !asking ? 'button' : undefined}
+        aria-label={state === 'seen' && !asking ? `${text}, revealed — mark whether you knew it` : `${text}, revealed`}
+        onClick={state === 'seen' && !asking ? () => setReopened(true) : undefined}
+        onKeyDown={
+          state === 'seen' && !asking
+            ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setReopened(true);
+                }
+              }
+            : undefined
+        }
+        className={cn(underline, state === 'seen' && !asking && 'cursor-pointer', 'rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1')}
         style={{ color: 'rgb(var(--studio-term))' }}
         initial={reveal ? { filter: 'blur(6px)', opacity: 0.4 } : false}
         animate={reveal ? { filter: 'blur(0px)', opacity: 1 } : undefined}
@@ -94,7 +111,7 @@ export function RecallTerm({
       >
         {text}
       </motion.span>
-      {state === 'seen' && fresh && (
+      {asking && (
         <span ref={pairRef} className="ml-1 inline-flex gap-0.5 align-baseline">
           {/* Described by the term: a screen reader hears what it is asked about. */}
           <button ref={knewRef} type="button" aria-describedby={id} className={pad} onClick={() => mark('knew')}>
