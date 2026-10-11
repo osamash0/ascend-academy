@@ -4,6 +4,7 @@ import {
   FolderInput,
   Heart,
   NotebookPen,
+  PenLine,
   Plus,
   Sparkles,
   Unlink,
@@ -180,6 +181,10 @@ export default function LibraryScreen() {
         that is left; a dot marks the one with something waiting.
       */}
       <nav aria-label="Studio" className="mt-8 flex flex-wrap items-center justify-center gap-2">
+        <Link to="/v4/library/studio" className={ghostPillSm}>
+          <PenLine aria-hidden className="h-3.5 w-3.5" />
+          Studio
+        </Link>
         <Link to="/v4/library/uploads" className={ghostPillSm}>
           <Upload aria-hidden className="h-3.5 w-3.5" />
           Uploads

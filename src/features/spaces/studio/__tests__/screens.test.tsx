@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import StudioHomeScreen from '../../screens/StudioHomeScreen';
+import LibraryScreen from '../../screens/LibraryScreen';
 import StudioCanvasScreen from '../../screens/StudioCanvasScreen';
 
 const at = (path: string) =>
@@ -22,6 +23,19 @@ describe('Studio home', () => {
     expect(await screen.findByRole('link', { name: /Normalization\.pdf/ }, { timeout: 2000 })).toHaveAttribute('href', '/v4/library/studio/c/c-norm');
     expect(screen.getByRole('main')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Manage uploads' })).toHaveAttribute('href', '/v4/library/uploads');
+    expect(screen.getAllByRole('link', { name: 'Library' }).some((l) => l.getAttribute('href') === '/v4/library')).toBe(true);
+  });
+});
+
+describe('Library → Studio door', () => {
+  it('links to Studio from the Studio nav', async () => {
+    render(
+      <MemoryRouter>
+        <LibraryScreen />
+      </MemoryRouter>,
+    );
+    const nav = await screen.findByRole('navigation', { name: 'Studio' }, { timeout: 3000 });
+    expect(within(nav).getByRole('link', { name: 'Studio' })).toHaveAttribute('href', '/v4/library/studio');
   });
 });
 

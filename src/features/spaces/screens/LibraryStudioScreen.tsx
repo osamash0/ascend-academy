@@ -18,6 +18,7 @@ import { draftsAcrossSpaces, impactRows, uploadRows } from '../mocks/library';
 import { StudioAction, StudioPill, StudioShell } from '../components/StudioShell';
 import { ListSkeleton, NotFound, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
+import { STUDIO_CANVAS, STUDIO_MATERIAL } from '../mocks/studio-canvas';
 
 /**
  * Library's Studio screens.
@@ -306,6 +307,14 @@ export default function LibraryStudioScreen() {
                     {u.spaceName}
                   </p>
                 </div>
+                {u.title === STUDIO_MATERIAL.filename && (
+                  <Link
+                    to={`/v4/library/studio/c/${STUDIO_CANVAS.id}`}
+                    className="console-focusable shrink-0 rounded text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
+                  >
+                    Open in Studio
+                  </Link>
+                )}
                 <span className="hidden w-20 shrink-0 text-right text-xs text-muted-foreground tabular-nums sm:block">
                   {formatSize(u.sizeBytes)}
                 </span>

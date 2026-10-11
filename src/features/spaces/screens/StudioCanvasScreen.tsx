@@ -439,7 +439,7 @@ export default function StudioCanvasScreen() {
           </Link>
           <div className="order-3 w-full min-w-0 text-center lg:pointer-events-none lg:absolute lg:inset-x-[18rem] lg:top-1/2 lg:order-2 lg:w-auto lg:-translate-y-1/2">
             <p className="mb-1 truncate text-[12.5px] text-quiet">
-              Studio
+              Library · Studio
               {spaceName && (
                 <>
                   <span aria-hidden className="mx-2 text-faint">·</span>

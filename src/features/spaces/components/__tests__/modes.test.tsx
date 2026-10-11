@@ -89,8 +89,9 @@ const MODE: Record<string, Mode> = {
   // A router shim: picks a tab and renders SpaceScreen. It has no UI of its
   // own, so the chrome rules have nothing to say about it.
   'SpaceRoute.tsx': 'shim',
-  // Studio: its own ground (studio-surface.css) — the reader's black by default, light as a toggle.
-  'StudioHomeScreen.tsx': 'own-ground',
+  // Studio's front door stands on Library's stage (Scene + top bar): a calm, browsable page.
+  'StudioHomeScreen.tsx': 'learn',
+  // The canvas: its own ground (studio-surface.css) — the reader's black by default, light as a toggle.
   'StudioCanvasScreen.tsx': 'own-ground',
 };
 
