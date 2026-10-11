@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
@@ -6,6 +6,7 @@ import type { ShelfItem } from '../studio/shelf';
 import { FLIGHT_EASE, FLIGHT_S } from '../studio/motion';
 import { useGlance } from '../data/useShelf';
 import { LifeBar, LifeLine, Terms } from './Cover';
+import { useZoomThrough } from './ZoomThrough';
 
 /**
  * Continue (spec §5.1): the most recently opened page, where you left it.
@@ -19,10 +20,15 @@ export function ContinueCard({ item }: { item: ShelfItem }) {
   const [glancing, setGlancing] = useState(false);
   const fade = { duration: reduce ? 0.15 : FLIGHT_S, ease: FLIGHT_EASE };
   const showLines = glancing && lines.length > 0;
+  /* Open: the page you left grows to the window, then the page takes over (spec §5.4). */
+  const zoom = useZoomThrough();
+  const frameRef = useRef<HTMLDivElement>(null);
+  const href = `/v4/library/m/${item.id}`;
 
   return (
     <Link
-      to={`/v4/library/m/${item.id}`}
+      to={href}
+      onClick={(e) => zoom?.(e, href, { frame: frameRef.current, src: image })}
       aria-label={`Continue reading ${item.filename}${page !== undefined ? `, page ${page} of ${item.pageCount}` : ''}`}
       className="console-focusable group grid items-center gap-[22px] rounded-[22px] border border-white/[0.09] bg-white/[0.025] p-[18px] transition-colors hover:border-white/[0.16] md:grid-cols-[1.15fr_1fr]"
       onMouseEnter={() => setGlancing(true)}
@@ -30,7 +36,7 @@ export function ContinueCard({ item }: { item: ShelfItem }) {
       onFocus={() => setGlancing(true)}
       onBlur={() => setGlancing(false)}
     >
-      <div className="relative aspect-[4/3] overflow-hidden rounded-[14px] bg-[#f7f6f2]">
+      <div ref={frameRef} className="relative aspect-[4/3] overflow-hidden rounded-[14px] bg-[#f7f6f2]">
         {image && (
           <motion.img
             src={image}

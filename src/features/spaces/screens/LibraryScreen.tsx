@@ -25,6 +25,7 @@ import { Cover } from '../library/Cover';
 import { BringInTile, DropVeil, useBringIn } from '../library/BringIn';
 import { ContinueCard } from '../library/ContinueCard';
 import { YourWords } from '../library/YourWords';
+import { ZoomThrough } from '../library/ZoomThrough';
 
 /**
  * Library — the shelf (One Library spec §5.1).
@@ -153,113 +154,115 @@ export default function LibraryScreen() {
   const showContinue = !!continueItem && (filter === 'all' || filter === 'reading') && !q;
 
   return chrome(
-    <div className="relative mx-auto max-w-[1120px] px-4 pb-24 pt-10 sm:px-6 lg:px-8">
-      <header>
-        <Masthead title="Library" lede="What you brought in, what you made of it, and what you shared." />
-      </header>
+    <ZoomThrough>
+      <div className="relative mx-auto max-w-[1120px] px-4 pb-24 pt-10 sm:px-6 lg:px-8">
+        <header>
+          <Masthead title="Library" lede="What you brought in, what you made of it, and what you shared." />
+        </header>
 
-      {items.length === 0 ? (
-        tile('empty')
-      ) : (
-        <>
-          <div className="mt-8 flex flex-col items-center gap-4">
-            <div
-              role="tablist"
-              aria-label="Filter"
-              className="flex flex-wrap items-center justify-center gap-1.5"
-            >
-              {FILTERS.map((f) => (
-                <button
-                  key={f.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={filter === f.key}
-                  onClick={() => setParam('f', f.key === 'all' ? null : f.key)}
-                  className={cn(
-                    'console-focusable h-9 rounded-full px-4 text-[13.5px] font-medium transition-colors',
-                    filter === f.key
-                      ? 'bg-white/[0.10] text-foreground'
-                      : 'text-quiet hover:bg-white/[0.05] hover:text-foreground',
-                  )}
-                >
-                  {f.label}
-                  <span className="ml-1.5 tabular-nums text-faint">{counts[f.key]}</span>
-                </button>
-              ))}
+        {items.length === 0 ? (
+          tile('empty')
+        ) : (
+          <>
+            <div className="mt-8 flex flex-col items-center gap-4">
+              <div
+                role="tablist"
+                aria-label="Filter"
+                className="flex flex-wrap items-center justify-center gap-1.5"
+              >
+                {FILTERS.map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={filter === f.key}
+                    onClick={() => setParam('f', f.key === 'all' ? null : f.key)}
+                    className={cn(
+                      'console-focusable h-9 rounded-full px-4 text-[13.5px] font-medium transition-colors',
+                      filter === f.key
+                        ? 'bg-white/[0.10] text-foreground'
+                        : 'text-quiet hover:bg-white/[0.05] hover:text-foreground',
+                    )}
+                  >
+                    {f.label}
+                    <span className="ml-1.5 tabular-nums text-faint">{counts[f.key]}</span>
+                  </button>
+                ))}
+              </div>
+
+              {big && filter !== 'words' && (
+                <div className="flex w-full flex-wrap items-center justify-center gap-2">
+                  <label className="relative block w-full sm:w-72">
+                    <Search
+                      aria-hidden
+                      className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint"
+                    />
+                    <input
+                      ref={searchRef}
+                      type="search"
+                      aria-label="Search your Library"
+                      placeholder="Search your Library   /"
+                      value={q}
+                      onChange={(e) => setParam('q', e.target.value || null)}
+                      className="console-focusable h-9 w-full rounded-full border border-white/12 bg-white/[0.05] pl-9 pr-4 text-[13.5px] text-foreground placeholder:text-faint"
+                    />
+                  </label>
+                  <select
+                    aria-label="Sort"
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value as ShelfSort)}
+                    className="console-focusable h-9 rounded-full border border-white/12 bg-white/[0.05] px-3.5 text-[13px] text-quiet"
+                  >
+                    {SORTS.map((s) => (
+                      <option key={s.key} value={s.key} className="bg-black text-foreground">
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    aria-pressed={grouped}
+                    onClick={() => setGrouped((g) => !g)}
+                    className={cn(ghostPillSm, grouped && 'bg-white/[0.12] text-foreground')}
+                  >
+                    <Layers aria-hidden className="h-3.5 w-3.5" />
+                    Group by Space
+                  </button>
+                </div>
+              )}
             </div>
 
-            {big && filter !== 'words' && (
-              <div className="flex w-full flex-wrap items-center justify-center gap-2">
-                <label className="relative block w-full sm:w-72">
-                  <Search
-                    aria-hidden
-                    className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint"
-                  />
-                  <input
-                    ref={searchRef}
-                    type="search"
-                    aria-label="Search your Library"
-                    placeholder="Search your Library   /"
-                    value={q}
-                    onChange={(e) => setParam('q', e.target.value || null)}
-                    className="console-focusable h-9 w-full rounded-full border border-white/12 bg-white/[0.05] pl-9 pr-4 text-[13.5px] text-foreground placeholder:text-faint"
-                  />
-                </label>
-                <select
-                  aria-label="Sort"
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as ShelfSort)}
-                  className="console-focusable h-9 rounded-full border border-white/12 bg-white/[0.05] px-3.5 text-[13px] text-quiet"
-                >
-                  {SORTS.map((s) => (
-                    <option key={s.key} value={s.key} className="bg-black text-foreground">
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  aria-pressed={grouped}
-                  onClick={() => setGrouped((g) => !g)}
-                  className={cn(ghostPillSm, grouped && 'bg-white/[0.12] text-foreground')}
-                >
-                  <Layers aria-hidden className="h-3.5 w-3.5" />
-                  Group by Space
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* A new view arrives with a fade; the old one simply gives way, so the two never stack. */}
-          <motion.div
-            key={filter}
-            className="mt-10"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={fade}
-          >
-            {filter === 'words' ? (
-              <YourWords
-                words={words}
-                items={items}
-                orphans={contributions.filter((c) => c.orphaned)}
-                onMoved={reread}
-              />
-            ) : (
-              <>
-                {showContinue && (
-                  <div className="mb-12">
-                    <ContinueCard item={continueItem} />
-                  </div>
-                )}
-                <Shelf items={shown} grouped={big && grouped} cell={tile('cell')} />
-                {shown.length === 0 && <NothingHere filter={filter} q={q} />}
-              </>
-            )}
-          </motion.div>
-        </>
-      )}
-    </div>,
+            {/* A new view arrives with a fade; the old one simply gives way, so the two never stack. */}
+            <motion.div
+              key={filter}
+              className="mt-10"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={fade}
+            >
+              {filter === 'words' ? (
+                <YourWords
+                  words={words}
+                  items={items}
+                  orphans={contributions.filter((c) => c.orphaned)}
+                  onMoved={reread}
+                />
+              ) : (
+                <>
+                  {showContinue && (
+                    <div className="mb-12">
+                      <ContinueCard item={continueItem} />
+                    </div>
+                  )}
+                  <Shelf items={shown} grouped={big && grouped} cell={tile('cell')} />
+                  {shown.length === 0 && <NothingHere filter={filter} q={q} />}
+                </>
+              )}
+            </motion.div>
+          </>
+        )}
+      </div>
+    </ZoomThrough>,
   );
 }
 

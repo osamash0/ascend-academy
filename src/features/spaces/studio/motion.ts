@@ -34,3 +34,9 @@ export const glowColors = (theme: 'light' | 'dark') =>
 export const CARD_SETTLE_S = 0.3;
 /** Answer cards: a verdict or a reason fading in. */
 export const MARK_FADE_S = 0.2;
+
+/** One Library §5.4: a cover grows to the window, and the shelf steps back behind it. */
+export const ZOOM_S = 0.45;
+export const RECEDE_S = 0.3;
+/** The page taking over from that frame. */
+export const PAGE_ENTER_S = 0.35;

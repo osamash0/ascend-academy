@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { MoreHorizontal, Share2, Trash2 } from 'lucide-react';
@@ -13,6 +13,7 @@ import { lifeLine, type ShelfItem } from '../studio/shelf';
 import { FLIGHT_EASE } from '../studio/motion';
 import { shelfSpaceName, shelfActions, useGlance } from '../data/useShelf';
 import { useDeveloping } from './BringIn';
+import { useZoomThrough } from './ZoomThrough';
 
 /**
  * A cover on the shelf (One Library spec §5.2): the real first page, its name,
@@ -196,6 +197,10 @@ export function Cover({ item }: { item: ShelfItem }) {
       ? { opacity: 0.8, filter: 'blur(5px) grayscale(0.4)' }
       : { opacity: 0.5, filter: 'blur(14px) grayscale(1)' };
   const imgFade = { duration: reduce ? 0.15 : developing || pulse ? 1.4 : 0.6, ease: FLIGHT_EASE };
+  /* Open: the page frame grows to the window, then the page takes over (spec §5.4). */
+  const zoom = useZoomThrough();
+  const frameRef = useRef<HTMLDivElement>(null);
+  const href = `/v4/library/m/${item.id}`;
 
   return (
     <motion.div
@@ -206,8 +211,9 @@ export function Cover({ item }: { item: ShelfItem }) {
       transition={{ duration: 0.35, ease: FLIGHT_EASE }}
     >
       <Link
-        to={`/v4/library/m/${item.id}`}
+        to={href}
         aria-label={coverLabel(item)}
+        onClick={(e) => zoom?.(e, href, { frame: frameRef.current, src: item.cover })}
         className="console-focusable block flex-1 rounded-2xl"
         onMouseEnter={() => setGlancing(true)}
         onMouseLeave={() => setGlancing(false)}
@@ -215,6 +221,7 @@ export function Cover({ item }: { item: ShelfItem }) {
         onBlur={() => setGlancing(false)}
       >
         <div
+          ref={frameRef}
           className={cn(
             'relative aspect-[4/3] overflow-hidden',
             item.cover ? 'bg-[#f7f6f2]' : 'bg-white/[0.04]',

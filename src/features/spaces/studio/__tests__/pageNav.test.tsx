@@ -36,6 +36,8 @@ const mount = async () => {
     </MemoryRouter>,
   );
   await act(async () => { vi.advanceTimersByTime(700); });
+  // m-norm opens where you left it (page 6): that arrival is not a turn.
+  scrolled = [];
   return utils;
 };
 const pager = () => screen.getByRole('group', { name: 'Page' });

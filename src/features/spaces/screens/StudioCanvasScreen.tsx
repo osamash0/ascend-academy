@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { Link, Navigate, useParams } from 'react-router-dom';
-import { LayoutGroup, useReducedMotion } from 'motion/react';
-import { ChevronLeft, Moon, Sun } from 'lucide-react';
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
+import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
+import { ChevronLeft, Moon, Share2, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ListSkeleton, NotFound, SpacesError } from '../components/states';
 import { useAsk } from '../data/useAsk';
 import { nextSuggestions } from '../mocks/studio-answers';
 import { useCanvas } from '../data/useSpaces';
-import { shelfActions, useShelfItem } from '../data/useShelf';
+import { shelfActions, shelfSpaceName, useShelfItem } from '../data/useShelf';
+import { Journey } from '../library/Journey';
 import { CanvasPage } from '../studio/components/CanvasPage';
 import { Composer } from '../studio/components/Composer';
 import type { ComposerNotice } from '../studio/components/Composer';
@@ -19,7 +20,8 @@ import { PagerPill } from '../studio/components/PagerPill';
 import { PeekSlot } from '../studio/components/Peek';
 import { hasSource, includeSourceBlock, insertAnswer, removeBlock, resolveAnchor, restoreBlock } from '../studio/edit';
 import { groupByPage, pagesInView, pickAnchorPage, regionForBlock } from '../studio/geometry';
-import { FLIGHT_S } from '../studio/motion';
+import { FLIGHT_EASE, FLIGHT_S, PAGE_ENTER_S } from '../studio/motion';
+import type { ShelfItem } from '../studio/shelf';
 import { useMorph } from '../studio/useMorph';
 import { usePageNav } from '../studio/usePageNav';
 import { usePeek } from '../studio/usePeek';
@@ -33,6 +35,47 @@ import '../studio/studio-surface.css';
 
 const HINT = 'Rest on a paragraph to see the source, press S, or ask below.';
 const HINT_NO_ORIGINAL = 'Use ← → to move between pages, or ask below.';
+/** How long "Back on page N" stands in for the hint. */
+const BACK_ON_MS = 4000;
+
+/**
+ * Share, saying where the page stands (One Library spec §5.5): "Share",
+ * "Draft in {Space}", or "Shared · ♥ 3". The sheet it opens arrives with the
+ * Share flow (One Library Task 6); until then it is the label alone.
+ */
+function ShareButton({ item }: { item: ShelfItem }) {
+  const s = item.share;
+  return (
+    <button
+      type="button"
+      // Until the sheet is wired (Task 6) it says where the page stands, and says plainly it can't act yet.
+      aria-disabled="true"
+      title="Sharing from the page is on its way"
+      className="console-focusable flex h-9 max-w-[16rem] items-center gap-1.5 rounded-full border border-[rgb(var(--studio-hairline))] px-3.5 text-[13px] font-medium text-foreground transition-colors hover:bg-[rgb(var(--studio-chip))]"
+    >
+      {s.kind === 'private' && (
+        <>
+          <Share2 aria-hidden className="h-3.5 w-3.5 shrink-0" />
+          Share
+        </>
+      )}
+      {s.kind === 'draft' && <span className="truncate">Draft in {shelfSpaceName(s.spaceId)}</span>}
+      {s.kind === 'shared' && (
+        <span className="truncate">
+          Shared
+          {s.likes > 0 && (
+            <>
+              {' · '}
+              <span aria-hidden>♥ </span>
+              {s.likes}
+              <span className="sr-only">{s.likes === 1 ? ' like' : ' likes'}</span>
+            </>
+          )}
+        </span>
+      )}
+    </button>
+  );
+}
 
 /**
  * The Studio canvas — spec §3.2, §4. The Material owns the screen; Peek lives in the gutter.
@@ -44,7 +87,7 @@ export default function StudioCanvasScreen() {
   const { materialId } = useParams<{ materialId: string }>();
   const { state: shelfState, item } = useShelfItem(materialId);
   const canvasId = item?.opens.kind === 'canvas' ? item.opens.canvasId : undefined;
-  const { state: canvasState, canvas, pages, material, spaceName } = useCanvas(canvasId);
+  const { state: canvasState, canvas, pages, material } = useCanvas(canvasId);
   const state = shelfState !== 'ready' ? shelfState : item?.opens.kind === 'lesson' ? 'ready' : canvasState;
   const itemId = item?.id;
   const [theme, toggleTheme] = useStudioTheme();
@@ -121,6 +164,33 @@ export default function StudioCanvasScreen() {
   useEffect(() => {
     if (nav.index > 0 || original) setEngaged(true);
   }, [nav.index, original]);
+
+  /* Opened from the shelf: the page takes over from the cover's frame, fading up from black (spec §5.4). */
+  const location = useLocation();
+  const [fromShelf] = useState(() => (location.state as { from?: string } | null)?.from === 'shelf');
+
+  /* Your place: open where you last were, and say so for a moment instead of the hint. */
+  const [backOn, setBackOn] = useState<number | null>(null);
+  const restoredFor = useRef<string | null>(null);
+  const lastPage = item?.lastPage ?? null;
+  const onCanvas = state === 'ready' && !!doc && !!material && item?.opens.kind === 'canvas';
+  useEffect(() => {
+    if (!onCanvas || !itemId || restoredFor.current === itemId) return;
+    restoredFor.current = itemId;
+    if (lastPage === null || lastPage <= 1) return;
+    const section = document.querySelector<HTMLElement>(
+      `[data-view="${shownRef.current}"][data-page-anchor="${lastPage}"]`,
+    );
+    if (!section) return;
+    // Straight there: a long smooth scroll on arrival reads as the page running away.
+    section.scrollIntoView?.({ block: 'start', behavior: 'instant' });
+    setBackOn(lastPage);
+  }, [onCanvas, itemId, lastPage]);
+  useEffect(() => {
+    if (backOn === null) return;
+    const t = setTimeout(() => setBackOn(null), BACK_ON_MS);
+    return () => clearTimeout(t);
+  }, [backOn]);
 
   /* Progress flows back to the shelf: opening, turning to a page, answers. */
   useEffect(() => {
@@ -425,11 +495,22 @@ export default function StudioCanvasScreen() {
     });
   };
 
-  const frame = (children: React.ReactNode) => (
-    <div className="studio-surface min-h-screen" data-theme={theme}>
-      <div className="mx-auto max-w-3xl p-8">{children}</div>
-    </div>
+  /*
+   * One root for every state (same element type, so loading → ready keeps it):
+   * from the shelf it fades up once, on mount; a deep link simply renders.
+   */
+  const root = (children: React.ReactNode) => (
+    <motion.div
+      className="studio-surface min-h-screen"
+      data-theme={theme}
+      initial={fromShelf ? { opacity: 0 } : false}
+      animate={{ opacity: 1 }}
+      transition={{ duration: reduceMotion ? 0.15 : PAGE_ENTER_S, ease: FLIGHT_EASE }}
+    >
+      {children}
+    </motion.div>
   );
+  const frame = (children: React.ReactNode) => root(<div className="mx-auto max-w-3xl p-8">{children}</div>);
   if (state === 'loading') return frame(<ListSkeleton />);
   if (state === 'error') return frame(<SpacesError what="this Material" />);
   if (item?.opens.kind === 'lesson')
@@ -454,8 +535,8 @@ export default function StudioCanvasScreen() {
     />
   );
 
-  return (
-    <div className="studio-surface min-h-screen" data-theme={theme}>
+  return root(
+    <>
       {/* The reader's masthead: the way out, where you are, and which face you're reading. */}
       <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-md">
         <div className="relative flex min-h-[88px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-5">
@@ -467,18 +548,13 @@ export default function StudioCanvasScreen() {
             <ChevronLeft aria-hidden className="h-5 w-5" />
           </Link>
           <div className="order-3 w-full min-w-0 text-center lg:pointer-events-none lg:absolute lg:inset-x-[18rem] lg:top-1/2 lg:order-2 lg:w-auto lg:-translate-y-1/2">
-            <p className="mb-1 truncate text-[12.5px] text-quiet">
-              Library
-              {spaceName && (
-                <>
-                  <span aria-hidden className="mx-2 text-faint">·</span>
-                  {spaceName}
-                </>
-              )}
-            </p>
-            <h1 className="truncate text-[20px] font-medium leading-tight tracking-[-0.015em] text-foreground sm:text-[22px]">
-              {item.filename}
-            </h1>
+            <nav aria-label="Breadcrumb" className="flex min-w-0 items-baseline justify-center gap-2">
+              <span className="shrink-0 text-[14px] text-quiet">Library</span>
+              <span aria-hidden className="shrink-0 text-faint">·</span>
+              <h1 className="truncate text-[20px] font-medium leading-tight tracking-[-0.015em] text-foreground sm:text-[22px]">
+                {item.filename}
+              </h1>
+            </nav>
             {item.sample && <p className="mt-1 truncate text-[12.5px] text-faint">Sample pages in this preview</p>}
           </div>
           <div className="order-2 ml-auto flex items-center gap-2 lg:order-3">
@@ -500,6 +576,7 @@ export default function StudioCanvasScreen() {
                 onToggle={() => morph.setView(morph.view === 'clean' ? 'original' : 'clean')}
               />
             )}
+            <ShareButton item={item} />
           </div>
         </div>
       </header>
@@ -510,6 +587,10 @@ export default function StudioCanvasScreen() {
       </div>
 
       <div className="min-[1180px]:pl-60">
+        {/* Where this page stands: wide screens only; on phones it folds into Share's menu. */}
+        <div className="hidden px-4 pt-5 md:px-6 lg:block">
+          <Journey item={item} className="mx-auto max-w-[44rem]" />
+        </div>
         <div className={cn('grid gap-6 px-4 md:px-6', gutter && 'grid-cols-[minmax(0,1fr)_minmax(22rem,28rem)]')}>
           <main
             ref={column}
@@ -577,7 +658,15 @@ export default function StudioCanvasScreen() {
           suggestions={suggestions}
           showSuggestions
           notice={notice}
-          hint={engaged ? null : material.sourceRemoved ? HINT_NO_ORIGINAL : HINT}
+          hint={
+            backOn !== null
+              ? `Back on page ${backOn}`
+              : engaged
+                ? null
+                : material.sourceRemoved
+                  ? HINT_NO_ORIGINAL
+                  : HINT
+          }
           onAsk={onAsk}
           pager={
             <PagerPill
@@ -606,6 +695,6 @@ export default function StudioCanvasScreen() {
           theme={theme}
         />
       )}
-    </div>
+    </>,
   );
 }
