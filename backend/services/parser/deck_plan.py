@@ -5,6 +5,10 @@ first 10 for the quiz (constants inherited from v4 and never chosen). This
 module computes structure for the WHOLE deck instead: boilerplate lines
 repeated by the export template, a role for each slide, and section
 boundaries. It is pure: no I/O, no network, deterministic for a given input.
+
+By design, lines repeated on >=60% of pages are stripped as boilerplate, and
+the stripped text now feeds the meta and quiz prompts, so a genuinely repeated
+content line (e.g. a recurring "Step 1" heading) is invisible to them.
 """
 from __future__ import annotations
 

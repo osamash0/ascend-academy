@@ -495,7 +495,9 @@ async def save_parse_receipt(
     Known limitation: receipts are keyed by run_id alone, and parse_runs
     dedupes per (pdf_hash, pipeline_version, user_id), so one owner's two
     lectures built from the same PDF share a single run and therefore a single
-    receipt (the later write wins, and lecture_id follows it).
+    receipt (the later write wins, and lecture_id follows it). A failed or
+    cancelled force-reparse leaves the previous run's receipt in place, still
+    describing the earlier parse.
 
     Raises on DB error; non-fatality is the caller's job."""
     pool = await _pool()

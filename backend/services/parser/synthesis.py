@@ -130,8 +130,11 @@ async def generate_quiz_questions(
     every section of the deck, labelled with their real slide numbers.
 
     Every question must cite the slide its answer is stated on
-    (`source_slide`); `ground_deck_quiz` keeps only questions that slide
-    supports, after at most one repair each.
+    (`source_slide`). `ground_deck_quiz` runs in advisory mode by default:
+    structurally failing questions are dropped, while low-overlap questions
+    are kept and flagged (`grounding_flag` plus `support_score`). Only when
+    ENFORCE_SUPPORT_THRESHOLD is True does it repair each unsupported
+    question once and then drop it.
 
     ``stats`` (Arc 5 parse receipts), when given, receives the grounding
     summary; it stays empty when no quiz was attempted."""

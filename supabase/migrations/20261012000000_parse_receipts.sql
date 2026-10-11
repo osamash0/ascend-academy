@@ -11,7 +11,8 @@
 --                      Serving provider and cost are NOT attributable per
 --                      slide yet (llm_calls has no run_id); not stored.
 --   quiz_grounding   — synthesis.ground_deck_quiz's summary
---                      (proposed/kept/repaired/dropped/drop_reasons).
+--                      (proposed/kept/repaired/dropped/drop_reasons/flagged/
+--                      flag_reasons).
 --
 -- Keyed by run_id: a forced re-parse reuses its parse_runs row, so the
 -- worker upserts and the newest receipt replaces the old one.

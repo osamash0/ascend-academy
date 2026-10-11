@@ -648,8 +648,11 @@ async def parse_pdf_unified(
         from backend.services.parser.deck_plan import build_deck_skeleton
         try:
             skeleton = build_deck_skeleton(raw_slides)
-        except Exception as exc:  # non-fatal: callees build their own
-            logger.warning("deck skeleton failed (non-fatal): %s", exc, exc_info=True)
+        except Exception as exc:  # non-fatal: meta/quiz retry the build and fail non-fatally on their own
+            logger.warning(
+                "deck skeleton failed (non-fatal; meta/quiz will retry the build and fail non-fatally on their own): %s",
+                exc, exc_info=True,
+            )
             skeleton = None
         await emit("progress", {"current": total, "total": total, "message": f"Extracted {total} slides"})
 
