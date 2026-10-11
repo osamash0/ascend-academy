@@ -17,9 +17,12 @@ Postgres and falling back to testcontainers/Docker. Gated behind the same
 from __future__ import annotations
 
 import uuid
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator
 
 import pytest
+
+if TYPE_CHECKING:
+    import psycopg
 
 pytestmark = pytest.mark.db
 

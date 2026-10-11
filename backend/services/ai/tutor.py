@@ -173,9 +173,8 @@ async def chat_with_lecture(
             logger.warning("Retrieval failed (degrading to slide_text): %s", e)
             retrieved = []
 
-    # Step 2: Ensure we don't hard-refuse if the question is conceptual.
-    # We now pass everything to the LLM so it can provide supplementary knowledge.
-    has_scope = bool(lecture_id or pdf_hash)
+    # Step 2 (former hard-refuse when out of scope) is intentionally gone: we
+    # pass everything to the LLM so it can provide supplementary knowledge.
 
     # Step 3: build the grounded prompt.
     context_block = _build_context_block(retrieved, slide_text)

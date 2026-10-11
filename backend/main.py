@@ -263,6 +263,10 @@ if settings.feature_global_search:
 if settings.feature_student_uploads:
     v1_router.include_router(materials_router)
 
+if settings.feature_v4_reader:
+    from backend.api.v1.v4_reader import router as v4_reader_router
+    v1_router.include_router(v4_reader_router)
+
 # Mount parent v1_router onto app
 app.include_router(v1_router)
 

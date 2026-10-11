@@ -179,8 +179,8 @@ function AIActionButton({
       className={cn(
         "relative overflow-hidden group flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 disabled:opacity-50",
         variant === 'default'
-          ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40"
-          : "bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 dark:bg-violet-950/30 dark:text-violet-300 dark:border-violet-800"
+          ? "bg-gradient-to-r from-neutral-600 to-neutral-600 text-white shadow-lg shadow-neutral-500/25 hover:shadow-neutral-500/40"
+          : "bg-neutral-50 text-neutral-700 border border-neutral-200 hover:bg-neutral-100 dark:bg-neutral-950/30 dark:text-neutral-300 dark:border-neutral-800"
       )}
     >
       <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -278,14 +278,14 @@ function QuizBuilder({
                 "flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200",
                 isCorrect
                   ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-600"
-                  : "border-border hover:border-violet-300 hover:bg-violet-50/50 dark:hover:bg-violet-950/10"
+                  : "border-border hover:border-neutral-300 hover:bg-neutral-50/50 dark:hover:bg-neutral-950/10"
               )}
             >
               <div className={cn(
                 "w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300",
                 isCorrect
                   ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30"
-                  : "bg-muted text-muted-foreground group-hover:bg-violet-100 group-hover:text-violet-700 dark:group-hover:bg-violet-900/30"
+                  : "bg-muted text-muted-foreground group-hover:bg-neutral-100 group-hover:text-neutral-700 dark:group-hover:bg-neutral-900/30"
               )}>
                 {isCorrect ? <CheckCircle2 className="w-4 h-4" /> : optionLabels[oIndex]}
               </div>
@@ -1001,7 +1001,7 @@ export default function LectureUpload() {
               >
                 <ChevronLeft className="w-5 h-5" />
               </Button>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neutral-500 to-neutral-600 flex items-center justify-center shadow-lg shadow-neutral-500/20">
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -1110,7 +1110,7 @@ export default function LectureUpload() {
                   className={cn(
                     'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                     parsingMode === 'ai'
-                      ? 'bg-violet-500 text-white shadow-sm'
+                      ? 'bg-neutral-500 text-white shadow-sm'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -1125,7 +1125,7 @@ export default function LectureUpload() {
                   className={cn(
                     'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                     parsingMode === 'on_demand'
-                      ? 'bg-violet-500 text-white shadow-sm'
+                      ? 'bg-neutral-500 text-white shadow-sm'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -1250,7 +1250,7 @@ export default function LectureUpload() {
             >
               <ChevronLeft className="w-5 h-5" />
             </Button>
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-md shadow-violet-500/20 shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-neutral-500 to-neutral-600 flex items-center justify-center shadow-md shadow-neutral-500/20 shrink-0">
               <BookOpen className="w-4 h-4 text-white" />
             </div>
             <div className="flex-1 min-w-0 max-w-md">
@@ -1312,7 +1312,7 @@ export default function LectureUpload() {
               variant="outline"
               size="sm"
               onClick={() => setShowFullPreview(true)}
-              className="gap-2 border-violet-200 text-violet-700 hover:bg-violet-50"
+              className="gap-2 border-neutral-200 text-neutral-700 hover:bg-neutral-50"
             >
               <BookOpen className="w-4 h-4" />
               {t('upload:actions.preview')}
@@ -1321,7 +1321,7 @@ export default function LectureUpload() {
               size="sm"
               onClick={handleSubmit}
               disabled={loading}
-              className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-lg shadow-violet-500/25"
+              className="gap-2 bg-gradient-to-r from-neutral-600 to-neutral-600 hover:from-neutral-700 hover:to-neutral-700 text-white shadow-lg shadow-neutral-500/25"
             >
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -1453,7 +1453,7 @@ export default function LectureUpload() {
                       className={cn(
                         "group relative flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
                         isActive
-                          ? "bg-card shadow-md border border-violet-200 dark:border-violet-800/50 ring-1 ring-violet-500/20"
+                          ? "bg-card shadow-md border border-neutral-200 dark:border-neutral-800/50 ring-1 ring-neutral-500/20"
                           : "hover:bg-card/80 border border-transparent"
                       )}
                     >
@@ -1461,7 +1461,7 @@ export default function LectureUpload() {
                       <div className={cn(
                         "relative w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 mt-0.5",
                         isActive
-                          ? "bg-violet-500 text-white shadow-md shadow-violet-500/30"
+                          ? "bg-neutral-500 text-white shadow-md shadow-neutral-500/30"
                           : "bg-muted text-muted-foreground"
                       )}>
                         {index + 1}
@@ -1542,7 +1542,7 @@ export default function LectureUpload() {
                 <TabsTrigger value="quizzes" className="data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 py-1.5 text-xs font-semibold rounded-md flex items-center gap-2 transition-all">
                   Quiz Suggestions
                   {pendingSuggestionsCount > 0 && (
-                    <span className="text-[10px] bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300 px-1.5 py-0.5 rounded-full font-bold animate-pulse">
+                    <span className="text-[10px] bg-neutral-100 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300 px-1.5 py-0.5 rounded-full font-bold animate-pulse">
                       {pendingSuggestionsCount}
                     </span>
                   )}
@@ -1578,8 +1578,8 @@ export default function LectureUpload() {
                 {/* Slide Header */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/10 to-indigo-500/10 flex items-center justify-center">
-                      <span className="text-sm font-bold text-violet-600 dark:text-violet-400">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neutral-500/10 to-neutral-500/10 flex items-center justify-center">
+                      <span className="text-sm font-bold text-neutral-600 dark:text-neutral-400">
                         {activeSlideIndex + 1}
                       </span>
                     </div>
@@ -1706,8 +1706,8 @@ export default function LectureUpload() {
                 </div>
 
                 {/* AI Actions Bar */}
-                <div className="flex flex-wrap gap-3 p-4 rounded-xl bg-gradient-to-r from-violet-50/80 to-indigo-50/80 dark:from-violet-950/20 dark:to-indigo-950/20 border border-violet-100 dark:border-violet-800/30">
-                  <div className="flex items-center gap-2 text-sm text-violet-800 dark:text-violet-300 font-medium">
+                <div className="flex flex-wrap gap-3 p-4 rounded-xl bg-gradient-to-r from-neutral-50/80 to-neutral-50/80 dark:from-neutral-950/20 dark:to-neutral-950/20 border border-neutral-100 dark:border-neutral-800/30">
+                  <div className="flex items-center gap-2 text-sm text-neutral-800 dark:text-neutral-300 font-medium">
                     <Zap className="w-4 h-4" />
                     {t('upload:chrome.aiAssistant')}
                   </div>
@@ -1812,10 +1812,10 @@ export default function LectureUpload() {
             <TabsContent value="quizzes" className="flex-1 overflow-y-auto m-0 focus-visible:ring-0">
               <div className="max-w-3xl mx-auto p-6 lg:p-8 space-y-6">
                 {/* Header Banner */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-violet-50/50 to-indigo-50/50 dark:from-violet-950/10 dark:to-indigo-950/10 border border-violet-100/50 dark:border-violet-900/20">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-neutral-50/50 to-neutral-50/50 dark:from-neutral-950/10 dark:to-neutral-950/10 border border-neutral-100/50 dark:border-neutral-900/20">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/10 to-indigo-500/10 flex items-center justify-center shrink-0">
-                      <ListChecks className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neutral-500/10 to-neutral-500/10 flex items-center justify-center shrink-0">
+                      <ListChecks className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
                     </div>
                     <div>
                       <h2 className="text-base font-bold text-foreground">Quiz Recommendations</h2>
@@ -1839,7 +1839,7 @@ export default function LectureUpload() {
                       <Button
                         onClick={() => handleGenerateAllQuizzes()}
                         disabled={isBulkGenerating}
-                        className="shrink-0 gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/20 hover:from-violet-700 hover:to-indigo-700 h-9 rounded-xl text-xs font-semibold"
+                        className="shrink-0 gap-1.5 bg-gradient-to-r from-neutral-600 to-neutral-600 text-white shadow-md shadow-neutral-500/20 hover:from-neutral-700 hover:to-neutral-700 h-9 rounded-xl text-xs font-semibold"
                       >
                         {isBulkGenerating ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1868,7 +1868,7 @@ export default function LectureUpload() {
                         {/* Slide card header */}
                         <div className="flex items-center justify-between mb-4 pb-3 border-b border-border/50">
                           <div className="flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-md bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300 text-xs font-bold flex items-center justify-center">
+                            <span className="w-6 h-6 rounded-md bg-neutral-100 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300 text-xs font-bold flex items-center justify-center">
                               {sIndex + 1}
                             </span>
                             <span className="font-semibold text-sm truncate max-w-[200px] sm:max-w-md">
@@ -1883,7 +1883,7 @@ export default function LectureUpload() {
                               setActiveSlideIndex(sIndex);
                               setCurrentTab('editor');
                             }}
-                            className="h-7 px-2.5 text-xs text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30 gap-1 font-semibold"
+                            className="h-7 px-2.5 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-950/30 gap-1 font-semibold"
                           >
                             Edit Slide <ArrowRight className="w-3.5 h-3.5" />
                           </Button>
@@ -1892,7 +1892,7 @@ export default function LectureUpload() {
                         {/* Quiz Editor inside Card */}
                         {(isLoading || singleGenLoading[sIndex]) ? (
                           <div className="flex flex-col items-center justify-center py-8 text-center bg-muted/5 rounded-xl border border-dashed border-border">
-                            <Loader2 className="w-6 h-6 animate-spin text-violet-500 mb-2" />
+                            <Loader2 className="w-6 h-6 animate-spin text-neutral-500 mb-2" />
                             <p className="text-xs text-muted-foreground">AI is crafting a recommended quiz question...</p>
                           </div>
                         ) : !sug ? (
@@ -1957,19 +1957,19 @@ export default function LectureUpload() {
 
                                 {/* AI Context (Concept & Explanation) */}
                                 {(sug.concept || sug.explanation) && (
-                                  <div className="mt-4 p-3 bg-violet-50/50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900/30 rounded-lg">
+                                  <div className="mt-4 p-3 bg-neutral-50/50 dark:bg-neutral-950/20 border border-neutral-100 dark:border-neutral-900/30 rounded-lg">
                                     {sug.concept && (
                                       <div className="mb-1.5 flex items-start gap-1.5">
-                                        <Lightbulb className="w-3.5 h-3.5 text-violet-500 mt-0.5 shrink-0" />
-                                        <p className="text-xs font-semibold text-violet-800 dark:text-violet-300">
-                                          Concept: <span className="font-medium text-violet-700 dark:text-violet-400">{sug.concept}</span>
+                                        <Lightbulb className="w-3.5 h-3.5 text-neutral-500 mt-0.5 shrink-0" />
+                                        <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-300">
+                                          Concept: <span className="font-medium text-neutral-700 dark:text-neutral-400">{sug.concept}</span>
                                         </p>
                                       </div>
                                     )}
                                     {sug.explanation && (
                                       <div className="flex items-start gap-1.5">
-                                        <Info className="w-3.5 h-3.5 text-violet-500/70 mt-0.5 shrink-0" />
-                                        <p className="text-[11px] text-violet-700/80 dark:text-violet-300/80 leading-relaxed">
+                                        <Info className="w-3.5 h-3.5 text-neutral-500/70 mt-0.5 shrink-0" />
+                                        <p className="text-[11px] text-neutral-700/80 dark:text-neutral-300/80 leading-relaxed">
                                           {sug.explanation}
                                         </p>
                                       </div>
@@ -2235,7 +2235,7 @@ export default function LectureUpload() {
             {/* Preview Header */}
             <header className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
               <div className="flex items-center gap-4">
-                <div className="px-3 py-1 bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-[10px] font-black uppercase tracking-widest rounded-full">
+                <div className="px-3 py-1 bg-neutral-100 dark:bg-neutral-900/40 text-neutral-700 dark:text-neutral-300 text-[10px] font-black uppercase tracking-widest rounded-full">
                   {t('upload:chrome.studentViewPreview')}
                 </div>
                 <h3 className="font-bold text-sm truncate max-w-md">
@@ -2267,7 +2267,7 @@ export default function LectureUpload() {
                       onClick={() => setActiveSlideIndex(i)}
                       className={cn(
                         "p-3 rounded-lg cursor-pointer text-xs transition-colors",
-                        i === activeSlideIndex ? "bg-violet-500 text-white font-bold" : "hover:bg-muted"
+                        i === activeSlideIndex ? "bg-neutral-500 text-white font-bold" : "hover:bg-muted"
                       )}
                     >
                       <div className="flex items-center gap-2">

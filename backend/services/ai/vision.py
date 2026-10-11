@@ -87,12 +87,16 @@ def _sync_analyze_vision(
     if blueprint_context:
         prompt += f"\n\nCONTEXT FROM MASTER PLAN:\n{blueprint_context}"
 
-    # Build available vision providers in priority order
+    # Build available vision providers in priority order.
+    # Gemini leads: Groq's catalogue is text-only as of Sep 2026, so a Groq
+    # vision leg exists only if GROQ_VISION_MODEL is explicitly configured
+    # (see orchestrator.py). Offering it unconditionally, as this did before,
+    # meant every slide of every deck opened with a guaranteed 404.
     providers = []
-    if groq_client:
-        providers.append("groq_vision")
     if gemini_client:
         providers.append("gemini_vision")
+    if groq_client and GROQ_VISION_MODEL:
+        providers.append("groq_vision")
     if openai_client:
         providers.append("openai_vision")
 
@@ -109,6 +113,21 @@ def _sync_analyze_vision(
     if preferred and preferred in providers:
         providers = [preferred] + [p for p in providers if p != preferred]
 
+    # Drop providers already known-dead this process (see the 404/402 branches
+    # below). Without this a retired vision model re-fires a doomed request on
+    # every slide of every deck — 50 wasted round-trips for a 50-slide upload.
+    # Note this deliberately does NOT fall back to the unfiltered list when it
+    # empties: a disabled provider is one that cannot succeed, so re-admitting
+    # it to avoid an empty list just trades a fast, honest fallback result for
+    # a slow one preceded by guaranteed failures.
+    providers = [p for p in providers if not _rotator.is_disabled(p)]
+    if not providers:
+        logger.error(
+            "No vision provider available: all are unconfigured or disabled "
+            "(dead model / billing). Returning the neutral fallback result."
+        )
+        return dict(_FALLBACK_RESULT)
+
     last_exc = None
     for provider in providers:
         try:
@@ -123,8 +142,31 @@ def _sync_analyze_vision(
             return result
         except Exception as exc:
             msg = str(exc).lower()
-            is_rate_limit = any(k in msg for k in ("429", "rate limit", "quota", "too many requests"))
-            if is_rate_limit:
+            # Mirror the text-chain classification in `_generate_with_rotation`:
+            # a 404 (model retired) or 402 (billing) is permanent, so disable
+            # the provider instead of re-trying it on every subsequent slide.
+            # Checked before the rate-limit sniff — a 402 body can contain the
+            # word "quota" without being a throttle.
+            is_permanent = (
+                getattr(exc, "status_code", None) in (402, 404)
+                or "error code: 404" in msg
+                or "error code: 402" in msg
+                or "model_not_found" in msg
+                or "payment_required" in msg
+            )
+            is_rate_limit = not is_permanent and any(
+                k in msg for k in ("429", "rate limit", "quota", "too many requests")
+            )
+            if is_permanent:
+                _rotator.record_unavailable(
+                    provider, "402/404 from provider (model gone or billing)"
+                )
+                logger.error(
+                    "❌ Vision provider '%s' permanently unavailable — skipping "
+                    "for the rest of this process: %s",
+                    provider, exc,
+                )
+            elif is_rate_limit:
                 _rotator.record_rate_limit(provider)
                 logger.warning("⚠️  Vision provider '%s' rate-limited, trying next", provider)
             else:

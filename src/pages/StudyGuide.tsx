@@ -107,7 +107,7 @@ export default function StudyGuide() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse 80% 50% at 50% -10%, hsl(258 40% 20% / 0.55), transparent)',
+            'radial-gradient(ellipse 80% 50% at 50% -10%, hsl(0 0% 20% / 0.45), transparent)',
         }}
       />
 

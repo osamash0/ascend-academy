@@ -160,7 +160,7 @@ export const LevelUpModal = memo(function LevelUpModal({ isOpen, onClose, newLev
 
                   <Button 
                     size="lg" 
-                    className="w-full bg-primary hover:bg-primary/90 text-white font-bold rounded-2xl shadow-glow-primary text-lg border-none transition-all active:scale-95 h-16" 
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-2xl shadow-glow-primary text-lg border-none transition-all active:scale-95 h-16" 
                     onClick={handleClose}
                   >
                     {t('levelUp.cta')}

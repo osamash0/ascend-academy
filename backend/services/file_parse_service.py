@@ -31,13 +31,13 @@ import time
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
-from backend.services.ai_service import (
+from backend.services.ai.orchestrator import (
     batch_analyze_text_slides,
-    analyze_slide_vision,
     generate_deck_summary,
     generate_deck_quiz,
     safe_truncate_text,
 )
+from backend.services.ai.vision import analyze_slide_vision
 from backend.services.cache import (
     get_cached_blueprint,
     get_cached_slide_results,
@@ -880,7 +880,7 @@ async def _stage_planning(
 
     # Honor the caller-selected provider as preferred head of the failover
     # chain. The orchestrator already handles provider rotation
-    # (cerebras → openrouter → cloudflare → groq → …) when the preferred
+    # (see QUALITY_CHAIN / BULK_CHAIN) when the preferred
     # provider is unavailable or rate-limited.
     plan_model = ai_model
 
@@ -934,7 +934,7 @@ async def _stage_finalize_deck(
     yield {"type": "phase", "phase": "finalize"}
     try:
         # Use the caller's selected provider; orchestrator failover handles
-        # cerebras → openrouter → cloudflare → groq → … if it's unavailable.
+        # through the chain if it's unavailable.
         final_model = ai_model
 
         if blueprint and blueprint.get("overall_summary"):
@@ -1072,7 +1072,7 @@ async def import_pdf_lazy(
     """
     from dataclasses import asdict
     from backend.services.ai.embeddings import batch_generate_embeddings, EMBEDDING_DIMS
-    from backend.services.ai_service import generate_deck_summary
+    from backend.services.ai.orchestrator import generate_deck_summary
     from backend.services.cache import store_cached_parse
     from backend.services.slide_synth_service import (
         PIPELINE_VERSION as LAZY_VERSION,

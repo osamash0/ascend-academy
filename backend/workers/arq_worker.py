@@ -47,6 +47,16 @@ WORKER_HEARTBEAT_INTERVAL_SECONDS = 30
 # unified_orchestrator's except clause — is never mistaken for abandoned.
 STALLED_RUN_THRESHOLD_MINUTES = 25
 
+# Same idea for the *waiting* states ('queued', legacy 'pending'): enqueued,
+# but nothing proves a worker ever picked the job up — the shape left behind
+# when the worker was down at upload time and the Arq job died with Redis.
+# Far longer than the extracting threshold on purpose: a queued row is not
+# evidence of a problem the way a stuck 'extracting' row is, it can simply be
+# waiting behind a real backlog, and the cost of being wrong is failing a run
+# that would have processed fine. 6h is well past any plausible legitimate
+# queue wait while still clearing the row the same day.
+STALLED_QUEUED_THRESHOLD_MINUTES = 360
+
 # How often the reconciliation sweep runs. Coarser than the heartbeat: this
 # is a second line of defense for a worker that died outright (no chance to
 # run its own except/finally cleanup), not the common path.
@@ -153,7 +163,9 @@ async def worker_heartbeat(ctx: dict) -> None:
 
 async def reconcile_stalled_parse_runs(ctx: dict) -> None:
     """R51/R52 second line of defense: recover (or fail-honestly) any
-    parse_runs row stuck in 'extracting' past STALLED_RUN_THRESHOLD_MINUTES.
+    parse_runs row stuck in 'extracting' past STALLED_RUN_THRESHOLD_MINUTES,
+    and fail-honestly any row still in a waiting state ('queued', legacy
+    'pending') past the much longer STALLED_QUEUED_THRESHOLD_MINUTES.
 
     The common case (an ordinary exception, or Arq cancelling a job for
     exceeding job_timeout) already self-heals inside parse_pdf_unified's own
@@ -162,6 +174,13 @@ async def reconcile_stalled_parse_runs(ctx: dict) -> None:
     outright (OOM-kill, container restart) mid-job, with no chance to run any
     exception handler at all, leaving the row frozen in 'extracting' with
     error=NULL forever.
+
+    The waiting-state pass covers the other shape: a job enqueued while no
+    worker was alive to take it, whose Arq job then died with Redis, leaving a
+    'queued' row nothing would ever touch again. Those are failed, never
+    "recovered" — a waiting row's lecture_id can still point at a previous
+    attempt's slides, and completing from those would report another attempt's
+    work as this one's (see reconcile.reconcile_stalled_run's allow_recovery).
 
     Never destructive: reconcile_stalled_run only ever (a) finishes the
     terminal transition for a run whose lecture already has real slides
@@ -173,9 +192,11 @@ async def reconcile_stalled_parse_runs(ctx: dict) -> None:
 
     from backend.services.parser.reconcile import reconcile_all_stalled
 
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=STALLED_RUN_THRESHOLD_MINUTES)
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(minutes=STALLED_RUN_THRESHOLD_MINUTES)
+    queued_cutoff = now - timedelta(minutes=STALLED_QUEUED_THRESHOLD_MINUTES)
     try:
-        results = await reconcile_all_stalled(cutoff)
+        results = await reconcile_all_stalled(cutoff, queued_cutoff=queued_cutoff)
         if results:
             logger.info("reconcile_stalled_parse_runs: %s", results)
     except Exception:

@@ -11,7 +11,7 @@ emits, so the existing UI and downstream consumers work unchanged.
 import logging
 from typing import Any, Dict, List, Optional
 
-from backend.services.ai_service import batch_analyze_text_slides, safe_truncate_text
+from backend.services.ai.orchestrator import batch_analyze_text_slides, safe_truncate_text
 from backend.services.cache import (
     get_cached_parse,
     get_cached_slide_results,

@@ -333,7 +333,6 @@ async def generate_auto_sheet(
             sheet_id = ins.data[0]["id"]
 
         # Build questions from quiz_questions
-        slide_by_id = {s["id"]: s for s in slide_rows}
         questions_to_insert = []
         for i, qq in enumerate(qq_rows):
             options = qq.get("options") or []
@@ -347,7 +346,6 @@ async def generate_auto_sheet(
             correct_idx = raw_correct if isinstance(raw_correct, int) else None
             correct_text = choices[correct_idx] if correct_idx is not None and 0 <= correct_idx < len(choices) else None
 
-            slide = slide_by_id.get(qq["slide_id"], {})
             prompt = qq.get("question_text") or ""
 
             metadata = qq.get("metadata") or {}

@@ -169,9 +169,14 @@ async def test_budget_then_spend_end_to_end(monkeypatch):
 @pytest.mark.asyncio
 async def test_provider_rotator_shares_daily_count_across_two_processes(monkeypatch):
     from backend.services.ai.orchestrator import ProviderRotator
+    from backend.services.ai import orchestrator as orch
 
     shared_redis = FakeRedis()
     monkeypatch.setattr(cost_module, "get_redis_or_none", lambda: shared_redis)
+    # A keyless provider is a hard exclusion in available(), never relaxed, so
+    # the sanity check below needs cerebras to have a client. This used to pass
+    # only where a real CEREBRAS_API_KEY leaked in from a developer's .env.
+    monkeypatch.setitem(orch._clients, "cerebras", object())
 
     process_a = ProviderRotator()
     process_b = ProviderRotator()

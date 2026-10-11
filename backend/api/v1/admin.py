@@ -514,7 +514,7 @@ async def restore_backup(backup_id: str, body: RestoreBackupRequest, request: Re
             if not val:
                 raise HTTPException(status_code=404, detail="Backup not found.")
         
-        res = supabase_admin.rpc("restore_analytics", {"p_backup_id": backup_id}).execute()
+        supabase_admin.rpc("restore_analytics", {"p_backup_id": backup_id}).execute()
         return {"success": True, "message": f"Backup {backup_id} successfully restored."}
     except Exception as e:
         logger.error("Restore backup RPC failed: %s", e, exc_info=True)

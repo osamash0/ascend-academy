@@ -107,9 +107,10 @@ describe('Home never says the same thing at two altitudes', () => {
 
   it('uses the hero map at the hero, not the row map', () => {
     // The defect was the call site, not the strings: one map read twice.
-    expect(/label=\{heroLabel\(next\.reason\)\}/.test(home)).toBe(true);
+    // Since 2026-10-10 the hero is the `UpNext` card, whose kicker carries it.
+    expect(/heroLabel\(next\.reason\)/.test(home)).toBe(true);
     expect(
-      /label=\{REASON_LABEL\[next\.reason\]\}/.test(home),
+      /REASON_LABEL\[next\.reason\]/.test(home),
       'the hero is reading the row labels again',
     ).toBe(false);
   });

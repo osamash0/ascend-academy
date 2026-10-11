@@ -43,7 +43,7 @@ export function InsightsViewTabs({
             onClick={() => onChange(id)}
             className={`flex items-center gap-2 px-4 h-10 rounded-xl text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
               active
-                ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary/30'
+                ? 'bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-glow-primary/30'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >

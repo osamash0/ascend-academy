@@ -21,6 +21,7 @@ import { useScreenState } from '../data/useSpaces';
 import { Avatar } from '../components/Avatar';
 import { EndorsedBadge } from '../components/badges';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
+import { Masthead, Sep, Skylight, StageRow, backLink, ghostPillSm, stageCard, stageCardHover } from '../components/stage';
 
 /**
  * Someone else's public profile.
@@ -94,10 +95,15 @@ export default function PersonScreen() {
     [personId],
   );
 
+  // A person is not a subject, so their page is lit by the brand's neutral
+  // white, like Social around it — never a colour (monochrome brand).
   const chrome = (body: React.ReactNode) => (
-    <Scene surface={SURFACES.social} status="progress" motionKey={`person-${personId}`}>
+    <Scene surface={SURFACES.social} status="progress" motionKey={`person-${personId}`} accent={null}>
       <SpacesTopBar active="social" viewer={viewer} />
-      {body}
+      <div className="relative">
+        <Skylight accent={null} />
+        {body}
+      </div>
     </Scene>
   );
 
@@ -122,53 +128,63 @@ export default function PersonScreen() {
   if (person.id === viewer.id) return <Navigate to="/v4/profile" replace />;
 
   return chrome(
-    <div className="mx-auto max-w-3xl px-6 pb-24 pt-6 lg:px-8">
-      <Link
-        to="/v4/social"
-        className="console-focusable mb-8 -ml-2 inline-flex h-9 items-center gap-2 rounded-full px-2 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.05] hover:text-foreground"
-      >
+    <div className="relative mx-auto max-w-3xl px-6 pb-24 pt-6 lg:px-8">
+      <Link to="/v4/social" className={backLink}>
         <ArrowLeft aria-hidden className="h-4 w-4" />
         Social
       </Link>
 
-      <header className="flex flex-wrap items-center gap-5">
+      {/* The face sits centred above the masthead, the way Profile's does. */}
+      <header className="mt-6 flex flex-col items-center">
         <Avatar person={person} size="lg" className="h-16 w-16" />
-        <div className="min-w-0">
-          <h1 className="text-[26px] font-bold tracking-[-0.02em]">{person.name}</h1>
-          <p className="mt-1 text-[14px] text-quiet tabular-nums">
-            {standing ? `${standing.rank} · ${standing.xp.toLocaleString()} XP` : 'No rank yet'}
-            {isFriend(person.id) && <span className="text-faint"> · Friends</span>}
-          </p>
-        </div>
+        <Masthead
+          className="mt-6"
+          eyebrow={
+            <>
+              {standing ? (
+                <>
+                  {standing.rank}
+                  <Sep />
+                  {standing.xp.toLocaleString()} XP
+                </>
+              ) : (
+                'No rank yet'
+              )}
+              {isFriend(person.id) && (
+                <>
+                  <Sep />
+                  Friends
+                </>
+              )}
+            </>
+          }
+          title={person.name}
+        />
       </header>
 
       {/* Named, not tiled — Social shows people, never Space cards. */}
       {shared.length > 0 && (
-        <section className="mt-9">
-          <h2 className="mb-3 text-[14px] font-medium text-quiet">Spaces you are both in</h2>
+        <StageRow id="person-shared" title="Spaces you are both in" count={shared.length}>
           <ul className="flex flex-wrap gap-2">
             {shared.map((s) => (
               <li key={s.id}>
                 <Link
                   to={`/v4/space/${s.id}`}
-                  className="console-focusable inline-flex h-9 items-center rounded-full border border-white/12 bg-white/[0.04] px-4 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
+                  className={ghostPillSm}
                 >
                   {s.name}
                 </Link>
               </li>
             ))}
           </ul>
-        </section>
+        </StageRow>
       )}
 
-      <section className="mt-9">
-        <h2 className="mb-3 text-[14px] font-medium text-quiet">
-          What they have published
-          {published.length > 0 && (
-            <span className="ml-2 text-faint tabular-nums">{published.length}</span>
-          )}
-        </h2>
-
+      <StageRow
+        id="person-published"
+        title="What they have published"
+        count={published.length > 0 ? published.length : undefined}
+      >
         {published.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-white/12 px-5 py-9 text-center text-[14px] text-quiet">
             {person.name} hasn’t published anything in a Space you share.
@@ -215,12 +231,11 @@ export default function PersonScreen() {
                   </span>
                 </>
               );
-              const cls =
-                'flex w-full items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-5 py-4 text-left transition-colors';
+              const cls = cn(stageCard, 'flex w-full items-center gap-3 px-5 py-4 text-left');
               return (
                 <li key={c.id}>
                   {href ? (
-                    <Link to={href} className={`console-focusable ${cls} hover:bg-white/[0.05]`}>
+                    <Link to={href} className={cn('console-focusable', cls, stageCardHover)}>
                       {row}
                     </Link>
                   ) : (
@@ -249,7 +264,7 @@ export default function PersonScreen() {
             })}
           </ul>
         )}
-      </section>
+      </StageRow>
     </div>,
   );
 }

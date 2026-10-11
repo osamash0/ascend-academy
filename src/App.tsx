@@ -116,6 +116,7 @@ const V4Practice = lazy(() => import("./features/spaces/screens/PracticeScreen")
 const V4Settings = lazy(() => import("./features/spaces/screens/SettingsScreen"));
 const V4Person = lazy(() => import("./features/spaces/screens/PersonScreen"));
 const V4Reader = lazy(() => import("./features/spaces/screens/ReaderScreen"));
+const V4LessonFaces = lazy(() => import("./features/spaces/screens/LessonFacesScreen"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const FriendsHub = lazy(() => import("./features/social/pages/FriendsHub"));
 const SocialProfile = lazy(() => import("./features/social/pages/SocialProfile"));
@@ -127,7 +128,7 @@ const FindFriends = lazy(() => import("./features/social/pages/FindFriends"));
 const PageLoader = () => {
   const { t } = useTranslation(['common']);
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-black gap-4">
       <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-glow-primary" />
       <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary animate-pulse">{t('common:loader.syncing')}</p>
     </div>
@@ -324,6 +325,8 @@ function AppRoutes() {
             <Route path="/v4/space/:spaceId/lesson/:lessonId/practice" element={<V4Practice />} />
             {/* The reader — a focus surface, like practice. */}
             <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<V4Reader />} />
+            {/* The same Lesson with two faces — beside the reader so the two can be compared. */}
+            <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<V4LessonFaces />} />
             <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<V4Lesson />} />
             <Route path="/v4/space/:spaceId/concept/:conceptId" element={<V4Concept />} />
           </Route>

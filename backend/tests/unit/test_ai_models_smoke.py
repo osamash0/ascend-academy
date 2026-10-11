@@ -121,9 +121,49 @@ def test_generate_embeddings_raises_when_client_absent(monkeypatch):
 # ── Vision (Groq + Gemini) ────────────────────────────────────────────────────
 
 
-def test_groq_vision_uses_current_model(monkeypatch):
-    """`llama-3.2-11b-vision-preview` was decommissioned. The new default is
-    `meta-llama/llama-4-scout-17b-16e-instruct`."""
+def test_groq_vision_disabled_by_default(monkeypatch):
+    """Groq serves no vision model at all as of Sep 2026.
+
+    `llama-3.2-11b-vision-preview` was decommissioned (Apr 2026) and its
+    replacement `meta-llama/llama-4-scout-17b-16e-instruct` now 404s as well;
+    Groq's catalogue is text-only and the remaining models reject a multi-part
+    `content` array with a 400. So the Groq vision leg must not be offered
+    unless someone explicitly configures GROQ_VISION_MODEL — otherwise every
+    slide of every deck opens with a guaranteed failure.
+    """
+    from backend.services.ai import orchestrator as orch
+    from backend.services.ai import vision as vision_mod
+
+    assert orch.GROQ_VISION_MODEL is None, (
+        "a Groq vision model is hard-coded again — verify it actually serves "
+        "vision requests before re-enabling this leg"
+    )
+
+    called: list[str] = []
+    monkeypatch.setattr(vision_mod, "groq_client", object())
+    monkeypatch.setattr(vision_mod, "gemini_client", object())
+    monkeypatch.setattr(vision_mod, "openai_client", None)
+    monkeypatch.setattr(vision_mod, "GROQ_VISION_MODEL", orch.GROQ_VISION_MODEL)
+    monkeypatch.setattr(
+        vision_mod, "_call_groq_vision",
+        lambda *a, **k: called.append("groq") or {},
+    )
+    monkeypatch.setattr(
+        vision_mod, "_call_gemini_vision",
+        lambda *a, **k: called.append("gemini") or {"slide_type": "content_slide"},
+    )
+
+    b64 = base64.b64encode(b"\x00" * 32).decode()
+    # Even when the caller explicitly asks for groq, there is no groq leg.
+    vision_mod._sync_analyze_vision(b64, raw_text="x", ai_model="groq")
+    assert called == ["gemini"]
+
+
+def test_groq_vision_uses_configured_model_when_enabled(monkeypatch):
+    """If GROQ_VISION_MODEL is set, that exact slug must reach the SDK.
+
+    Keeps the escape hatch honest for the day Groq ships vision again.
+    """
     from backend.services.ai import vision as vision_mod
 
     captured: dict = {}
@@ -146,14 +186,13 @@ def test_groq_vision_uses_current_model(monkeypatch):
     fake_groq = SimpleNamespace(chat=SimpleNamespace(completions=_Completions()))
     monkeypatch.setattr(vision_mod, "groq_client", fake_groq)
     monkeypatch.setattr(vision_mod, "gemini_client", None)
-    # Use the current GROQ_VISION_MODEL the orchestrator exports.
-    from backend.services.ai import orchestrator as orch
-    monkeypatch.setattr(vision_mod, "GROQ_VISION_MODEL", orch.GROQ_VISION_MODEL)
+    monkeypatch.setattr(vision_mod, "openai_client", None)
+    monkeypatch.setattr(vision_mod, "GROQ_VISION_MODEL", "some/configured-vision-model")
 
     b64 = base64.b64encode(b"\x00" * 32).decode()
     res = vision_mod._sync_analyze_vision(b64, raw_text="some text", ai_model="groq")
 
-    assert captured["model"] == "meta-llama/llama-4-scout-17b-16e-instruct"
+    assert captured["model"] == "some/configured-vision-model"
     assert "llama-3.2-11b-vision-preview" not in captured["model"]
     # Sanity: parse_json_response returned the structured shape.
     assert res["slide_type"] == "content_slide"
@@ -365,16 +404,33 @@ def test_disabled_provider_survives_utc_midnight_reset(monkeypatch):
 
 
 def test_disabled_provider_excluded_from_last_ditch_fallback(monkeypatch):
-    """`available()` falls back to the whole chain when everything looks
-    exhausted. That fallback must still skip a provider that can only 404."""
+    """`available()` relaxes its soft gates (daily limit, backoff) when
+    everything looks exhausted. That fallback must still skip a provider that
+    can only 404."""
+    from backend.services.ai import orchestrator as orch
+
+    rot = _fresh_rotator(monkeypatch)
+    # groq_fast has a client and so is a genuine fallback candidate; openrouter
+    # is disabled and must not come back no matter how exhausted the chain is.
+    monkeypatch.setattr(orch, "_clients", {"openrouter": None, "groq_fast": object()})
+    rot.record_unavailable("openrouter", "404")
+    # Push groq_fast past its daily limit: a SOFT gate, so the fallback may
+    # still offer it — which is exactly what makes openrouter's absence the
+    # thing under test rather than an artefact of an empty result.
+    rot._counts["groq_fast"] = orch.PROVIDER_REGISTRY["groq_fast"].daily_limit
+
+    assert rot.available(["openrouter", "groq_fast"]) == ["groq_fast"]
+
+
+def test_keyless_provider_excluded_from_fallback(monkeypatch):
+    """A provider with no client cannot succeed — `_call_provider` raises
+    immediately — so the fallback must not offer it either. Otherwise
+    'nothing available' turns into a run of guaranteed exceptions."""
     from backend.services.ai import orchestrator as orch
 
     rot = _fresh_rotator(monkeypatch)
     monkeypatch.setattr(orch, "_clients", {"openrouter": None, "groq_fast": None})
-    rot.record_unavailable("openrouter", "404")
-
-    # Neither has a client, so `ok` is empty and the fallback path is taken.
-    assert rot.available(["openrouter", "groq_fast"]) == ["groq_fast"]
+    assert rot.available(["openrouter", "groq_fast"]) == []
 
 
 def test_rate_limit_still_uses_timed_backoff_not_permanent_disable(monkeypatch):

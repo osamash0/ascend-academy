@@ -1543,7 +1543,7 @@ export default function LectureView() {
                               m.role === 'user' ? (
                                 <div key={m.id} className="flex flex-col items-end text-right w-full">
                                   <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">You</span>
-                                  <div className="text-sm text-indigo-200/80 max-w-[85%] leading-relaxed whitespace-pre-wrap">
+                                  <div className="text-sm text-neutral-200/80 max-w-[85%] leading-relaxed whitespace-pre-wrap">
                                     {m.content}
                                   </div>
                                 </div>
@@ -1628,7 +1628,7 @@ export default function LectureView() {
                     <button
                       type="submit"
                       disabled={!chatInput.trim() || chatLoading}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary transition-opacity hover:opacity-90 disabled:opacity-30 disabled:shadow-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-glow-primary transition-opacity hover:opacity-90 disabled:opacity-30 disabled:shadow-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
                       aria-label="Send"
                     >
                       {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

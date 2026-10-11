@@ -54,7 +54,7 @@ export function MultiFileDropzone({ onFilesSelected, maxFiles, currentCount, hid
         data-testid="multi-file-dropzone"
         className={cn(
           'rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition-colors',
-          isDragOver ? 'border-violet-500 bg-violet-500/5' : 'border-border hover:border-violet-400/60',
+          isDragOver ? 'border-neutral-500 bg-neutral-500/5' : 'border-border hover:border-neutral-400/60',
         )}
       >
         <UploadCloud className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
@@ -69,7 +69,7 @@ export function MultiFileDropzone({ onFilesSelected, maxFiles, currentCount, hid
               e.stopPropagation();
               folderInputRef.current?.click();
             }}
-            className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-violet-600 hover:text-violet-700"
+            className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-neutral-600 hover:text-neutral-700"
           >
             <FolderOpen className="w-3.5 h-3.5" />
             Or select a folder

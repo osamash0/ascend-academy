@@ -26,7 +26,7 @@ from backend.core.auth_middleware import require_professor
 from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter
 from backend.services import analytics_cache
-from backend.services.ai_service import (
+from backend.services.ai.orchestrator import (
     enhance_slide_content,
     generate_deck_quiz,
     generate_deck_summary,

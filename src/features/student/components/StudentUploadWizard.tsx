@@ -288,8 +288,8 @@ export default function StudentUploadWizard() {
         
         {/* Header & Progress */}
         <div className="mb-10 text-center">
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-indigo-400 mb-4 flex items-center justify-center gap-2">
-            <Wand2 className="w-8 h-8 text-violet-500" />
+          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-neutral-400 to-neutral-400 mb-4 flex items-center justify-center gap-2">
+            <Wand2 className="w-8 h-8 text-neutral-500" />
             AI Course Kitchen
           </h1>
           <div className="flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground">
@@ -337,7 +337,7 @@ export default function StudentUploadWizard() {
                   <div className="mt-6 flex justify-end">
                     <Button
                       size="lg"
-                      className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-lg shadow-violet-500/25"
+                      className="bg-gradient-to-r from-neutral-600 to-neutral-600 hover:from-neutral-700 hover:to-neutral-700 text-white shadow-lg shadow-neutral-500/25"
                       onClick={async () => {
                         const res = await batchUpload.submitBatch();
                         if (res?.batchId) {
@@ -365,7 +365,7 @@ export default function StudentUploadWizard() {
         {/* STEP 2: PROCESSING */}
         {step === 2 && (
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-violet-500/20 animate-pulse">
+            <div className="w-20 h-20 bg-gradient-to-br from-neutral-500 to-neutral-600 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-neutral-500/20 animate-pulse">
               <Loader2 className="w-10 h-10 text-white animate-spin" />
             </div>
             <h2 className="text-2xl font-bold mb-2">Luna is reading your materials...</h2>
@@ -577,7 +577,7 @@ export default function StudentUploadWizard() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-6 px-2 text-xs text-violet-500 hover:text-violet-600 hover:bg-violet-500/10"
+                    className="h-6 px-2 text-xs text-neutral-500 hover:text-neutral-600 hover:bg-neutral-500/10"
                     onClick={() => handleGenerateTitle()}
                     disabled={isGeneratingTitle}
                   >
@@ -618,7 +618,7 @@ export default function StudentUploadWizard() {
                   size="lg" 
                   onClick={handleFinalSave}
                   disabled={isSaving || !courseTitle.trim() || !blueprint?.items.some((item) => item.include_in_course && item.lecture_id)}
-                  className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white"
+                  className="bg-gradient-to-r from-neutral-600 to-neutral-600 hover:from-neutral-700 hover:to-neutral-700 text-white"
                 >
                   {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                   {isAddingToExistingCourse ? 'Add material to course' : 'Create my course'} <ChevronRight className="w-4 h-4 ml-2" />

@@ -52,7 +52,7 @@ export function ConsoleTile({
   const activeClass =
     selection === 'scale'
       ? 'border-white/10 shadow-[0_24px_70px_-20px_rgba(0,0,0,0.85)]'
-      : 'border-white/40 shadow-[0_0_50px_-5px_rgba(99,102,241,0.55)] ring-2 ring-white/30';
+      : 'border-white/40 shadow-[0_0_50px_-5px_rgba(255,255,255,0.28)] ring-2 ring-white/30';
 
   return (
     <div

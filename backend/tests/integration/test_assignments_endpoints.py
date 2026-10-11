@@ -188,7 +188,7 @@ class TestListAssignments:
         self, app, patch_supabase, professor_user, student_user
     ):
         # Two lecture assignment, student completed one with passing score.
-        a_id = self._make(
+        self._make(
             patch_supabase, professor_user, ["L1", "L2"], min_score=50,
             enroll=[student_user.id],
         )

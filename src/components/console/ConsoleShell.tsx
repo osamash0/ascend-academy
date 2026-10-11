@@ -5,7 +5,7 @@ import { GLOW_BY_STATUS } from './constants';
 
 interface ConsoleShellProps {
   children: ReactNode;
-  /** rgba glow color; defaults to the "progress" indigo. */
+  /** rgba glow color; defaults to the neutral "progress" glow. */
   glow?: string;
   /** Optional top-bar slot rendered above content (z-20). */
   topBar?: ReactNode;

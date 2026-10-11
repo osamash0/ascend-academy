@@ -302,8 +302,8 @@ export function SlideViewer({
       <div className="bg-surface-1/50 px-6 py-5 border-b border-white/5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-primary">
-              <BookOpen className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-glow-primary">
+              <BookOpen className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
               <h2 className="font-bold text-lg text-foreground tracking-tight leading-tight">{title}</h2>
@@ -405,7 +405,7 @@ export function SlideViewer({
                         onPdfRetry();
                       }}
                       data-testid="pdf-retry-button"
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:opacity-90"
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:opacity-90"
                     >
                       {t('common:actions.retry')}
                     </button>
@@ -713,7 +713,7 @@ export function SlideViewer({
               className={`rounded-xl px-8 h-12 font-bold transition-all group focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a12] ${
                 isLast 
                   ? 'bg-success text-white shadow-glow-success border-none' 
-                  : 'bg-primary text-white shadow-glow-primary border-none hover:opacity-90'
+                  : 'bg-primary text-primary-foreground shadow-glow-primary border-none hover:opacity-90'
               }`}
             >
               {isLast ? 'Finish Course' : 'Continue'}

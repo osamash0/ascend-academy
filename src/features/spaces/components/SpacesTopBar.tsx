@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
@@ -18,6 +19,7 @@ import { Avatar } from './Avatar';
 import { NotificationPanel } from './NotificationPanel';
 import { SearchPalette, useSearchPalette } from './SearchPalette';
 import { MobileNav } from './MobileNav';
+import { useGround } from './ground';
 import { viewerStanding } from '../mocks/library';
 import type { Person } from '../types';
 
@@ -86,6 +88,21 @@ export function SpacesTopBar({
    * silently work everywhere except there.
    */
   const { open: searchOpen, setOpen: setSearchOpen } = useSearchPalette();
+  /*
+   * On a stage the bar stands on the page's own black — no navy wash above a
+   * black room. Once the page scrolls under it, it turns into a pane of that
+   * black with one hairline in the lecture's colour, so the edge is drawn by
+   * the content's light rather than by a second ground.
+   */
+  const stage = useGround() === 'stage';
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    if (!stage) return;
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [stage]);
   /** The five destinations, as routes. Deep-linkable, per Doc 2. */
   const go = (key: NavKey) => {
     if (onNavigate) return onNavigate(key);
@@ -95,10 +112,25 @@ export function SpacesTopBar({
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 flex items-center justify-between gap-4 px-5 py-3 lg:px-10',
-        'bg-gradient-to-b from-[#070b14]/80 via-[#070b14]/30 to-transparent backdrop-blur-[2px]',
+        'sticky top-0 z-40 flex items-center justify-between gap-4 px-5 py-3 transition-colors lg:px-10',
+        !stage && 'bg-gradient-to-b from-[#070b14]/80 via-[#070b14]/30 to-transparent backdrop-blur-[2px]',
+        stage && (scrolled ? 'bg-black/75 backdrop-blur-xl' : 'bg-transparent'),
       )}
     >
+      {stage && (
+        <motion.span
+          aria-hidden
+          data-testid="stage-hairline"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-px"
+          style={{
+            background:
+              'linear-gradient(90deg, transparent, color-mix(in srgb, var(--stage-accent, hsl(var(--secondary))) 70%, transparent) 50%, transparent)',
+          }}
+          initial={false}
+          animate={{ opacity: scrolled ? 1 : 0 }}
+          transition={{ duration: 0.3 }}
+        />
+      )}
       {/* Left: rocket + identity. shrink-0 so a long name can never compress
           this group into the tabs — the bug the old bar had to fix twice. */}
       <div className="flex shrink-0 items-center gap-4">
@@ -106,9 +138,9 @@ export function SpacesTopBar({
           type="button"
           onClick={() => go('home')}
           aria-label="Home"
-          className="console-focusable flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br from-primary to-secondary shadow-glow-primary"
+          className="console-focusable flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-primary shadow-glow-primary"
         >
-          <Rocket aria-hidden className="h-6 w-6 text-white" />
+          <Rocket aria-hidden className="h-6 w-6 text-primary-foreground" />
         </Pressable>
 
         <button

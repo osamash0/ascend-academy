@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Check, FileWarning, Loader2, Lock, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { topicIcon } from '@/lib/topicIcon';
 import type { Lesson, Space } from '../types';
 import { AuthorLine, GroundingMarker, OriginBadge } from './badges';
 
@@ -23,8 +22,9 @@ interface Props {
   isNext?: boolean;
 }
 
+const NEXT = 'var(--stage-accent, hsl(var(--primary)))';
+
 export function LessonRow({ lesson, space, isNext }: Props) {
-  const Icon = topicIcon(lesson.title, lesson.id);
   const done = lesson.progress === 'done';
   const unpublished = lesson.state !== 'published';
   const processing = lesson.state === 'processing';
@@ -33,10 +33,18 @@ export function LessonRow({ lesson, space, isNext }: Props) {
     <article
       className={cn(
         'group relative flex items-start gap-4 rounded-2xl border px-5 py-5 transition-colors sm:px-6',
-        isNext
-          ? 'border-primary/35 bg-primary/[0.07]'
-          : 'border-white/[0.08] bg-white/[0.025] hover:bg-white/[0.05]',
+        !isNext && 'border-white/[0.08] bg-white/[0.03] hover:border-white/[0.16] hover:bg-white/[0.05]',
       )}
+      /* The next Lesson is lit in the room's own colour, not a fixed brand
+         colour — on a stage the only colour is the subject's. */
+      style={
+        isNext
+          ? {
+              borderColor: `color-mix(in srgb, ${NEXT} 40%, transparent)`,
+              background: `color-mix(in srgb, ${NEXT} 8%, transparent)`,
+            }
+          : undefined
+      }
     >
       {/* Order is the identity here — two Lessons in this Space share a title. */}
       <div className="flex shrink-0 flex-col items-center gap-2 pt-0.5">
@@ -46,9 +54,10 @@ export function LessonRow({ lesson, space, isNext }: Props) {
             done
               ? 'bg-success/15 text-success'
               : isNext
-                ? 'bg-primary/20 text-primary'
+                ? ''
                 : 'bg-white/[0.06] text-quiet',
           )}
+          style={isNext && !done ? { background: `color-mix(in srgb, ${NEXT} 22%, transparent)`, color: NEXT } : undefined}
         >
           {done ? <Check aria-hidden className="h-4 w-4" /> : lesson.order}
         </span>
@@ -56,11 +65,6 @@ export function LessonRow({ lesson, space, isNext }: Props) {
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          {isNext && (
-            <span className="rounded-full bg-primary px-2.5 py-[3px] text-[11.5px] font-medium text-primary-foreground">
-              Next
-            </span>
-          )}
           {/*
             Always. `badges.tsx` states the rule — "never optional where
             content appears — separation is the whole point, and a badge that
@@ -90,18 +94,14 @@ export function LessonRow({ lesson, space, isNext }: Props) {
           {lesson.title}
         </h3>
 
+        {/*
+          Less at one look (Abi, 2026-10-10). The byline shows only when it
+          says something: a Lesson by someone other than the Owner. In a
+          Guided Space ten rows of the Owner's name were ten copies of the
+          masthead. Practice and contribution counts live on the Lesson.
+        */}
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          <AuthorLine person={lesson.author} />
-          {lesson.practiceCount > 0 && (
-            <span className="text-[12.5px] text-faint tabular-nums">
-              {lesson.practiceCount} practice questions
-            </span>
-          )}
-          {lesson.contributionCount > 0 && (
-            <span className="text-[12.5px] text-faint tabular-nums">
-              {lesson.contributionCount} contributions
-            </span>
-          )}
+          {lesson.author.id !== space.owner.id && <AuthorLine person={lesson.author} />}
           {/* Deleting a Material never breaks its Lesson (Doc 1, Objects 4). */}
           {lesson.material === null && lesson.state === 'published' && (
             <span className="inline-flex items-center gap-1.5 text-[12.5px] text-faint">
@@ -143,7 +143,6 @@ export function LessonRow({ lesson, space, isNext }: Props) {
         <span className="sr-only">Open</span>
       </Link>
 
-      <Icon aria-hidden className="pointer-events-none absolute right-16 top-1/2 hidden h-14 w-14 -translate-y-1/2 text-decor lg:block" />
     </article>
   );
 }

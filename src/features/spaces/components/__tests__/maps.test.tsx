@@ -35,13 +35,13 @@ describe('both maps mean the same thing by the same colour', () => {
      * It now asserts the opposite: neither map may carry a raw map hex.
      */
     expect(MAP_PALETTE.goldCore).toBe('#ffcf7a');
-    expect(MAP_PALETTE.violetCore).toBe('#6c5ce7');
+    expect(MAP_PALETTE.hereCore).toBe('#8e99a8');
     for (const [name, body] of [
       ['SpaceMap', spaceMap.slice(spaceMap.indexOf('export function'))],
       ['AscentMap', ascent],
     ] as const) {
       expect(body, `${name} restates a palette colour`).not.toMatch(
-        /#(ffcf7a|ffe9b8|6c5ce7|8d7bff|a898ff|5b4a2e|12151f)/i,
+        /#(ffcf7a|ffe9b8|8e99a8|e8edf3|5b4a2e|12151f)/i,
       );
       expect(body, `${name} does not use the shared palette`).toContain('MAP_PALETTE');
     }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { NAV_TABS, navHref, type NavKey } from './SpacesTopBar';
+import { useGround } from './ground';
 
 /**
  * The five destinations, on a phone.
@@ -41,12 +42,15 @@ import { NAV_TABS, navHref, type NavKey } from './SpacesTopBar';
  */
 
 export function MobileNav({ active }: { active: NavKey }) {
+  /* Context crosses the portal, so the bar still knows the screen's ground. */
+  const stage = useGround() === 'stage';
   return createPortal(
     <nav
       aria-label="Main"
       className={cn(
         'fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around md:hidden',
-        'border-t border-white/[0.08] bg-[#070b14]/95 backdrop-blur-xl',
+        'border-t border-white/[0.08] backdrop-blur-xl',
+        stage ? 'bg-black/90' : 'bg-[#070b14]/95',
         'pb-[env(safe-area-inset-bottom)]',
       )}
     >

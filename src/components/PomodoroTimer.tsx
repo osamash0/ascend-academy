@@ -137,7 +137,7 @@ export function PomodoroTimer() {
       label: 'Long Break',
       durationMinutes: durations.longBreak,
       color: 'hsl(210 90% 50%)',
-      gradient: 'from-blue-400 to-indigo-500',
+      gradient: 'from-blue-400 to-neutral-500',
       icon: Coffee,
     },
   };

@@ -66,7 +66,7 @@ async def generate_blueprint(
 
     try:
         # Honor caller's selected provider; orchestrator failover handles
-        # cerebras → openrouter → cloudflare → groq → … failover transparently.
+        # the QUALITY_CHAIN failover transparently.
         raw_json = await generate_text(prompt, ai_model)
         blueprint = parse_json_response(raw_json)
         

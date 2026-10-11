@@ -64,6 +64,18 @@ openai>=1.50.0,<2.0
 sentry-sdk>=2.0.0,<3.0
 python-json-logger>=3.0  # required by backend/core/logging_config.py
 
+# Added 2026-10-10. All four were in requirements.txt only, so CI tested with
+# them while the image shipped without them, and each import sits behind a
+# try/except that only logs. backend/tests/unit/test_requirements_parity.py now
+# fails on any undocumented difference between the two files.
+markitdown[pptx]>=0.1.6,<0.2  # PPTX import (markitdown_service.py, via upload_service.py)
+resend>=2.0,<3.0              # feedback e-mail (api/v1/feedback.py)
+lxml>=6.1.0,<7.0              # Marburg catalog scraper (services/academic/marburg_cs.py)
+# Imported directly (core/redis.py, workers/dlq.py, upload_service.py, ...).
+# Previously present only as arq's transitive dependency; same range arq 0.26
+# itself declares, so this pins nothing new — it just stops relying on it.
+redis[hiredis]>=4.2.0,<6
+
 # --- Reproducible builds (recommended follow-up) ---------------------------
 # These ranges still float within a major. For a deterministic image:
 #   docker build -t learnstation-api .

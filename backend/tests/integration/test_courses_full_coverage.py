@@ -387,14 +387,12 @@ def test_unassign_500_on_db_error(app_client, table_raises):
 # guard is only reachable by injecting a no-id user via the dependency override.
 
 def test_enroll_handler_uid_guard(app):
-    from backend.core.auth_middleware import require_student
     app.dependency_overrides[require_student] = lambda: _no_id_user("student")
     r = TestClient(app).post(f"/api/v1/courses/{_cid()}/enroll")
     assert r.status_code == 401
 
 
 def test_unenroll_handler_uid_guard(app):
-    from backend.core.auth_middleware import require_student
     app.dependency_overrides[require_student] = lambda: _no_id_user("student")
     r = TestClient(app).delete(f"/api/v1/courses/{_cid()}/enroll")
     assert r.status_code == 401

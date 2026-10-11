@@ -57,7 +57,7 @@ export function ProfessorAskBar({ chat, variant }: { chat: ProfessorChat; varian
         <button
           type="submit"
           disabled={!input.trim() || loading}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-white shadow transition-opacity disabled:opacity-30"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow transition-opacity disabled:opacity-30"
           aria-label="Send"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}

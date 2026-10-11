@@ -386,7 +386,7 @@ export default function ProfessorCourseDetail() {
         <div className="flex items-center gap-4">
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center"
-            style={{ background: course.color || '#6366f1' }}
+            style={{ background: course.color || '#64748b' }}
           >
             <BookOpen className="w-8 h-8 text-white" />
           </div>

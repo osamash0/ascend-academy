@@ -25,7 +25,7 @@ import { splitLectureTitle } from '@/lib/utils';
 
 /* ── Swatches matching ProfessorCourses ── */
 const COLOR_SWATCHES = [
-  '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e',
+  '#64748b', '#84cc16', '#ec4899', '#f43f5e',
   '#f59e0b', '#10b981', '#06b6d4', '#3b82f6',
 ];
 
@@ -179,7 +179,7 @@ export default function ProfessorArchive() {
         <div
           className="absolute top-[10%] left-[20%] w-[40%] h-[40%] rounded-full"
           style={{
-            background: 'radial-gradient(circle, hsl(263 70% 50% / 0.04) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, hsl(0 0% 100% / 0.03) 0%, transparent 70%)',
             filter: 'blur(100px)',
           }}
         />
