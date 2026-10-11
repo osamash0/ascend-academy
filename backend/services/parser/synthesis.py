@@ -44,6 +44,11 @@ from backend.services.parser.quiz_grounding import GroundingVerdict, assess_grou
 
 logger = logging.getLogger(__name__)
 
+# The deck-quiz prompt asks for 5-8 questions; the model's list length is
+# untrusted, so it bounds how many repair LLM calls a parse can trigger.
+MAX_DECK_QUIZ_QUESTIONS = 12
+MAX_CONCURRENT_REPAIRS = 3
+
 
 # ---------------------------------------------------------------------------
 # LLM helpers
@@ -187,6 +192,18 @@ async def ground_deck_quiz(
     nothing to repair against. Logs one ``deck_quiz_grounding {json}`` line
     (proposed/kept/repaired/dropped + drop reasons) for Arc 5 receipts."""
     # (question | None, was_repaired, drop_reason)
+    proposed = len(questions)
+    over_cap = max(0, proposed - MAX_DECK_QUIZ_QUESTIONS)
+    questions = questions[:MAX_DECK_QUIZ_QUESTIONS]
+    repair_slots = asyncio.Semaphore(MAX_CONCURRENT_REPAIRS)
+
+    async def _checked(q: Any) -> tuple[Dict[str, Any] | None, bool, str]:
+        try:
+            return await _one(q)
+        except Exception:
+            logger.warning("deck quiz grounding errored; dropping question", exc_info=True)
+            return None, False, "grounding_error"
+
     async def _one(q: Any) -> tuple[Dict[str, Any] | None, bool, str]:
         if not isinstance(q, dict):
             return None, False, "not_an_object"
@@ -195,9 +212,10 @@ async def ground_deck_quiz(
             return _grounded(q, verdict), False, ""
         if verdict.source_slide is None:
             return None, False, verdict.reason
-        repaired = await _repair_question(
-            q, verdict.source_slide, skeleton, lecture_title, ai_model, source_language,
-        )
+        async with repair_slots:
+            repaired = await _repair_question(
+                q, verdict.source_slide, skeleton, lecture_title, ai_model, source_language,
+            )
         if repaired is None:
             return None, False, "repair_failed"
         second = assess_grounding(repaired, skeleton)
@@ -205,17 +223,19 @@ async def ground_deck_quiz(
             return _grounded(repaired, second), True, ""
         return None, False, f"repair_{second.reason}"
 
-    results = await asyncio.gather(*(_one(q) for q in questions))
+    results = await asyncio.gather(*(_checked(q) for q in questions))
     kept = [r for r, _, _ in results if r is not None]
     reasons: Dict[str, int] = {}
     for r, _, reason in results:
         if r is None:
             reasons[reason] = reasons.get(reason, 0) + 1
+    if over_cap:
+        reasons["over_cap"] = over_cap
     logger.info("deck_quiz_grounding %s", json.dumps({
-        "proposed": len(questions),
+        "proposed": proposed,
         "kept": len(kept),
         "repaired": sum(1 for _, was_repaired, _ in results if was_repaired),
-        "dropped": len(questions) - len(kept),
+        "dropped": proposed - len(kept),
         "drop_reasons": reasons,
     }, sort_keys=True))
     return kept

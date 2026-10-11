@@ -424,3 +424,53 @@ async def test_one_structured_summary_line_per_generation(llm, caplog):
     assert payload["proposed"] == 5 and payload["kept"] == 2 and payload["repaired"] == 1
     assert payload["dropped"] == 3
     assert payload["drop_reasons"] == {"no_source": 1, "source_out_of_range": 1, "repair_failed": 1}
+
+
+async def test_model_array_is_capped_and_repairs_are_bounded(llm, caplog):
+    import logging
+    llm["reply"] = _router(json.dumps([OTHER_SLIDE] * 30))
+    with caplog.at_level(logging.INFO, logger=synthesis.logger.name):
+        out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert out == []
+    assert len(_repair_prompts(llm)) <= synthesis.MAX_DECK_QUIZ_QUESTIONS == 12
+    line = next(r.getMessage() for r in caplog.records if r.getMessage().startswith("deck_quiz_grounding "))
+    payload = json.loads(line.split(" ", 1)[1])
+    assert payload["proposed"] == 30 and payload["dropped"] == 30
+    assert payload["drop_reasons"]["over_cap"] == 18
+
+
+async def test_repair_concurrency_is_bounded(monkeypatch):
+    import asyncio
+    state = {"now": 0, "peak": 0}
+
+    async def fake(prompt, ai_model=None):
+        if _REPAIR_MARK not in prompt:
+            return json.dumps([OTHER_SLIDE] * 10)
+        state["now"] += 1
+        state["peak"] = max(state["peak"], state["now"])
+        for _ in range(5):
+            await asyncio.sleep(0)
+        state["now"] -= 1
+        return "{}"
+
+    monkeypatch.setattr(synthesis, "generate_text_bulk", fake)
+    await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert 1 < state["peak"] <= synthesis.MAX_CONCURRENT_REPAIRS == 3
+
+
+async def test_unexpected_error_drops_only_that_question(llm, monkeypatch, caplog):
+    import logging
+    real = synthesis.assess_grounding
+
+    def flaky(q, skeleton, *a, **k):
+        if q.get("concept") == "MST":
+            raise RuntimeError("boom")
+        return real(q, skeleton, *a, **k)
+
+    monkeypatch.setattr(synthesis, "assess_grounding", flaky)
+    llm["reply"] = _router(json.dumps([GOOD, OTHER_SLIDE, GOOD]))
+    with caplog.at_level(logging.INFO, logger=synthesis.logger.name):
+        out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert [q["question"] for q in out] == [GOOD["question"]] * 2
+    line = next(r.getMessage() for r in caplog.records if r.getMessage().startswith("deck_quiz_grounding "))
+    assert json.loads(line.split(" ", 1)[1])["drop_reasons"] == {"grounding_error": 1}
