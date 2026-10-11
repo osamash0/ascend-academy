@@ -116,13 +116,17 @@ async def generate_quiz_questions(
     ai_model: str,
     source_language: str = "en",
     skeleton: DeckSkeleton | None = None,
+    stats: Dict[str, Any] | None = None,
 ) -> List[Dict[str, Any]]:
     """Generate 5–8 deck-level MCQs from content-rich slides spread across
     every section of the deck, labelled with their real slide numbers.
 
     Every question must cite the slide its answer is stated on
     (`source_slide`); `ground_deck_quiz` keeps only questions that slide
-    supports, after at most one repair each."""
+    supports, after at most one repair each.
+
+    ``stats`` (Arc 5 parse receipts), when given, receives the grounding
+    summary; it stays empty when no quiz was attempted."""
     skeleton = skeleton or build_deck_skeleton(slides)
     picked = select_slides(skeleton, 10)
     if not picked:
@@ -140,7 +144,7 @@ async def generate_quiz_questions(
     res = parse_json_response(raw)
     if not isinstance(res, list):
         return []
-    return await ground_deck_quiz(res, skeleton, lecture_title, ai_model, source_language)
+    return await ground_deck_quiz(res, skeleton, lecture_title, ai_model, source_language, stats=stats)
 
 
 def _grounded(q: Dict[str, Any], verdict: GroundingVerdict) -> Dict[str, Any]:
@@ -183,6 +187,7 @@ async def ground_deck_quiz(
     lecture_title: str,
     ai_model: str,
     source_language: str = "en",
+    stats: Dict[str, Any] | None = None,
 ) -> List[Dict[str, Any]]:
     """Keep only questions whose cited slide supports the key.
 
@@ -190,7 +195,8 @@ async def ground_deck_quiz(
     cited slide, then is dropped. A question with no usable slide (missing,
     garbage, out of range, empty) is dropped without a repair: there is
     nothing to repair against. Logs one ``deck_quiz_grounding {json}`` line
-    (proposed/kept/repaired/dropped + drop reasons) for Arc 5 receipts."""
+    (proposed/kept/repaired/dropped + drop reasons) and, when ``stats`` is
+    given, merges the same summary into it for the parse receipt."""
     # (question | None, was_repaired, drop_reason)
     proposed = len(questions)
     over_cap = max(0, proposed - MAX_DECK_QUIZ_QUESTIONS)
@@ -231,13 +237,16 @@ async def ground_deck_quiz(
             reasons[reason] = reasons.get(reason, 0) + 1
     if over_cap:
         reasons["over_cap"] = over_cap
-    logger.info("deck_quiz_grounding %s", json.dumps({
+    summary = {
         "proposed": proposed,
         "kept": len(kept),
         "repaired": sum(1 for _, was_repaired, _ in results if was_repaired),
         "dropped": proposed - len(kept),
         "drop_reasons": reasons,
-    }, sort_keys=True))
+    }
+    logger.info("deck_quiz_grounding %s", json.dumps(summary, sort_keys=True))
+    if stats is not None:
+        stats.update(summary)
     return kept
 
 

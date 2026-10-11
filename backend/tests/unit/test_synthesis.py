@@ -481,3 +481,37 @@ async def test_grounded_question_maps_to_its_zero_based_source_slide(llm):
     mapped = synthesis._map_deck_quiz(await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq"))
     assert mapped[0]["linked_slides"] == [2]
     assert mapped[0]["support_score"] >= SUPPORT_THRESHOLD
+
+
+
+# ── Arc 5: grounding summary returned, not only logged ───────────────────────
+
+async def test_grounding_summary_is_returned_through_stats(llm):
+    fixed = _mcq("Which algorithm requires non-negative edge weights?",
+                 ["Dijkstra", "Kruskal", "Prim", "Floyd"], "Dijkstra", 3)
+    llm["reply"] = _router(json.dumps([GOOD, OTHER_SLIDE, BAD_NUMBER, NO_SOURCE, OUT_OF_RANGE]),
+                           {3: json.dumps(fixed)})
+    stats: dict = {}
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq", stats=stats)
+    assert isinstance(out, list) and len(out) == 2
+    assert stats == {
+        "proposed": 5, "kept": 2, "repaired": 1, "dropped": 3,
+        "drop_reasons": {"no_source": 1, "source_out_of_range": 1, "repair_failed": 1},
+    }
+
+
+async def test_stats_equals_the_logged_summary_line(llm, caplog):
+    import logging
+    llm["reply"] = _router(json.dumps([OTHER_SLIDE] * 30))
+    stats: dict = {}
+    with caplog.at_level(logging.INFO, logger=synthesis.logger.name):
+        await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq", stats=stats)
+    line = next(r.getMessage() for r in caplog.records if r.getMessage().startswith("deck_quiz_grounding "))
+    assert json.loads(line.split(" ", 1)[1]) == stats
+    assert stats["drop_reasons"]["over_cap"] == 18
+
+
+async def test_stats_untouched_when_no_quiz_is_attempted(llm):
+    stats: dict = {}
+    out = await synthesis.generate_quiz_questions(["short", "also short"], "T", "cerebras", stats=stats)
+    assert out == [] and stats == {}
