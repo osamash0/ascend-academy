@@ -64,12 +64,14 @@ class FakeBucket:
     def __init__(self, store, name):
         self.store, self.name = store, name
 
-    def list(self, path):
+    def list(self, path, options=None):
         if self.name in self.store.fail_list:
             raise RuntimeError("list failed")
+        opts = {"limit": 100, "offset": 0, **(options or {})}
         prefix = path.rstrip("/") + "/"
-        return [{"name": k[len(prefix):]} for k in self.store.objects.get(self.name, [])
-                if k.startswith(prefix) and "/" not in k[len(prefix):]]
+        names = [{"name": k[len(prefix):]} for k in self.store.objects.get(self.name, [])
+                 if k.startswith(prefix) and "/" not in k[len(prefix):]]
+        return names[opts["offset"]:opts["offset"] + min(opts["limit"], 100)]
 
     def remove(self, keys):
         if self.name in self.store.fail_remove:
@@ -165,3 +167,32 @@ async def test_manifest_is_all_or_nothing():
 async def test_manifest_round_trips_through_json():
     m = await er.build_erasure_manifest(UID, client=owner_world())
     assert er.ErasureManifest.from_json(m.to_json()) == m
+
+
+@pytest.mark.asyncio
+async def test_manifest_pages_past_the_100_entry_listing_cap():
+    c = owner_world()
+    many = [f"{UID}/a-{i:03d}.png" for i in range(250)]
+    c.objects["avatars"] = many + [f"{OTHER}/x.png"]
+    m = await er.build_erasure_manifest(UID, client=c)
+    assert sorted(m.keys["avatars"]) == sorted(many)
+
+
+@pytest.mark.asyncio
+async def test_legacy_pdf_url_strips_query_and_fragment():
+    c = owner_world()
+    c.tables["lectures"][1]["pdf_url"] = (
+        "https://x/storage/v1/object/public/lecture-pdfs/lectures/L2/b.pdf?token=abc#p1")
+    c.objects["lecture-pdfs"] = []
+    m = await er.build_erasure_manifest(UID, client=c)
+    assert "lectures/L2/b.pdf" in m.keys["lecture-pdfs"]
+
+
+@pytest.mark.asyncio
+async def test_pdf_url_outside_the_lectures_folder_is_skipped():
+    c = owner_world()
+    c.tables["lectures"][0]["pdf_url"] = "lectures/L9/c.pdf"
+    c.tables["lectures"][1]["pdf_url"] = None
+    c.objects["lecture-pdfs"] = []
+    m = await er.build_erasure_manifest(UID, client=c)
+    assert m.keys["lecture-pdfs"] == []

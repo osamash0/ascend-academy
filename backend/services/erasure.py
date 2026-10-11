@@ -18,7 +18,6 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi.concurrency import run_in_threadpool
@@ -29,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 BUCKETS = ("avatars", "lecture-pdfs", "lecture-posters", "worksheets")
 LECTURE_OWNER_COLUMNS = ("professor_id", "student_owner_id")
+_PAGE = 100
 _PUBLIC_URL = re.compile(r"lecture-pdfs/(.+)$")
 
 
@@ -72,8 +72,29 @@ def _rows(c, table: str, column: str, value, *, many: bool = False) -> list[dict
 
 
 def _list_folder(c, bucket: str, folder: str) -> list[str]:
-    entries = c.storage.from_(bucket).list(folder) or []
-    return [f"{folder}/{e['name']}" for e in entries if e.get("name")]
+    """All object keys directly in ``folder``, paging past storage's 100 cap."""
+    out: list[str] = []
+    offset = 0
+    while True:
+        page = c.storage.from_(bucket).list(
+            folder, {"limit": _PAGE, "offset": offset, "sortBy": {"column": "name", "order": "asc"}}
+        ) or []
+        out.extend(f"{folder}/{e['name']}" for e in page if e.get("name"))
+        if len(page) < _PAGE:
+            return out
+        offset += _PAGE
+
+
+def _legacy_pdf_key(raw: str, lid: str) -> str | None:
+    """Storage key from a stored pdf_url, only if inside this lecture's folder."""
+    if not raw:
+        return None
+    match = _PUBLIC_URL.search(raw)
+    key = (match.group(1) if match else raw).split("?", 1)[0].split("#", 1)[0]
+    if key.startswith(f"lectures/{lid}/"):
+        return key
+    logger.warning("erasure: skipping pdf_url outside lecture folder (lecture %s)", lid)
+    return None
 
 
 async def build_erasure_manifest(uid: str, client=None) -> ErasureManifest:
@@ -96,10 +117,9 @@ async def build_erasure_manifest(uid: str, client=None) -> ErasureManifest:
         pdf_keys: set[str] = set()
         for lid, row in lectures.items():
             pdf_keys.update(_list_folder(c, "lecture-pdfs", f"lectures/{lid}"))
-            raw = row.get("pdf_url") or ""
-            match = _PUBLIC_URL.search(raw)
-            if match or raw.startswith("lectures/"):
-                pdf_keys.add(match.group(1) if match else raw)
+            legacy = _legacy_pdf_key(row.get("pdf_url") or "", lid)
+            if legacy:
+                pdf_keys.add(legacy)
         m.keys["lecture-pdfs"] = sorted(pdf_keys)
         m.keys["lecture-posters"] = [f"lectures/{lid}/poster.webp" for lid in m.lecture_ids]
         if m.lecture_ids:
