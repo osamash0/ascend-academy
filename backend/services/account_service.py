@@ -59,6 +59,12 @@ EXPORT_REDACT: dict[str, set[str]] = {"api_tokens": {"token_hash"}}
 
 # User-linked columns deliberately NOT exported, each with its reason.
 EXPORT_EXCLUSIONS: dict[tuple[str, str], str] = {
+    ("learning_events_daily_rollup", "user_id"): (
+        "derived aggregate of learning_events, which is exported row by row"
+    ),
+    ("learning_events_legacy_20260721", "user_id"): (
+        "pre-partitioning rollback copy; every row also lives in learning_events"
+    ),
     ("account_erasure_jobs", "subject_id"): (
         "erasure bookkeeping; exists only while an account is being deleted"
     ),
@@ -69,6 +75,7 @@ ALWAYS_COVERED: set[tuple[str, str]] = {
     ("lectures", "professor_id"),
     ("lectures", "student_owner_id"),
     ("worksheets", "uploaded_by"),
+    ("tutor_messages", "user_id"),  # exported through the caller's tutor_sessions
 }
 
 LECTURE_OWNER_COLUMNS = ["professor_id", "student_owner_id"]
