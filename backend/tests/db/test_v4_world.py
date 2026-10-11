@@ -79,6 +79,20 @@ async def test_world_reads_courses_as_spaces_and_lectures_as_lessons(
     assert (sql["progress"], sql["practiceCount"]) == ("not-started", 1)
     assert intro["material"]["filename"] == "00 DBS Introduction.pdf"
 
+    # Joining: an open Space once (idempotent); a draft never, nor a made-up id.
+    assert await svc.join_space(str(open_course), str(stranger)) is True
+    assert await svc.join_space(str(open_course), str(stranger)) is True
+    assert await svc.join_space(str(hidden), str(stranger)) is False
+    assert await svc.join_space(str(uuid.uuid4()), str(stranger)) is False
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM course_enrollments WHERE user_id = %s", (str(stranger),))
+        assert cur.fetchone() == (1,)
+    joined_world = await svc.get_world(str(stranger))
+    assert {s["id"]: s["viewerRole"] for s in joined_world["spaces"]}[str(open_course)] == "member"
+    # Undo, so the stranger below still holds no role anywhere.
+    with db_conn.cursor() as cur:
+        cur.execute("DELETE FROM course_enrollments WHERE user_id = %s", (str(stranger),))
+
     assert world["viewer"]["id"] == str(student)
     # A stranger sees the open courses but holds no role in them.
     other = await svc.get_world(str(stranger))

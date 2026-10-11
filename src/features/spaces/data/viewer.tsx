@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  Fragment,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
 import { viewer as demoViewer } from '../mocks/people';
 import type { Person } from '../types';
 import { SpacesError } from '../components/states';
@@ -20,25 +28,43 @@ import { setLiveWorld } from './world';
  */
 const ViewerContext = createContext<Person>(demoViewer);
 
+/**
+ * Reload the world after something changed it on the server (joining a
+ * Space). The v4 tree is remounted on the new world: screens read it
+ * synchronously, so a fresh mount is the one way every one of them sees it.
+ * A no-op in demo mode.
+ */
+const RefreshContext = createContext<() => Promise<void>>(async () => {});
+
 export function useViewer(): Person {
   return useContext(ViewerContext);
+}
+
+export function useRefreshWorld(): () => Promise<void> {
+  return useContext(RefreshContext);
 }
 
 export function LiveGate({ children }: { children: ReactNode }) {
   const live = dataMode(import.meta.env.VITE_V4_DATA_MODE) === 'live';
   const [person, setPerson] = useState<Person | null>(null);
   const [failed, setFailed] = useState(false);
+  const [version, setVersion] = useState(0);
+
+  const fetchWorld = useCallback(async () => {
+    const world = await (await loadLiveRepository()).world();
+    setLiveWorld(world);
+    setPerson(world.viewer);
+  }, []);
 
   const load = useCallback(() => {
     setFailed(false);
-    loadLiveRepository()
-      .then((repo) => repo.world())
-      .then((world) => {
-        setLiveWorld(world);
-        setPerson(world.viewer);
-      })
-      .catch(() => setFailed(true));
-  }, []);
+    fetchWorld().catch(() => setFailed(true));
+  }, [fetchWorld]);
+
+  const refresh = useCallback(async () => {
+    await fetchWorld();
+    setVersion((v) => v + 1);
+  }, [fetchWorld]);
 
   useEffect(() => {
     if (!live) return;
@@ -51,5 +77,11 @@ export function LiveGate({ children }: { children: ReactNode }) {
   if (failed) return <SpacesError what="your Spaces" onRetry={load} />;
   // A blank stage for the one round-trip: the screens' own skeletons follow.
   if (!person) return null;
-  return <ViewerContext.Provider value={person}>{children}</ViewerContext.Provider>;
+  return (
+    <ViewerContext.Provider value={person}>
+      <RefreshContext.Provider value={refresh}>
+        <Fragment key={version}>{children}</Fragment>
+      </RefreshContext.Provider>
+    </ViewerContext.Provider>
+  );
 }

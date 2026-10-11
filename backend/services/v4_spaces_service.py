@@ -30,6 +30,38 @@ async def get_person(user_id: str) -> Optional[Dict[str, Any]]:
     return _person(row) if row else None
 
 
+async def join_space(course_id: str, user_id: str) -> bool:
+    """Enrol the viewer in an open Space. Idempotent.
+
+    Open means exactly what /world offers as joinable: published, not
+    archived, with at least one lecture to read. Anything else — a draft, an
+    archived course, a course that does not exist — answers False, and the
+    caller says "not found" rather than revealing which.
+    """
+    conn_cm = await get_db_connection()
+    async with conn_cm as conn:
+        joinable = await conn.fetchval(
+            """
+            SELECT EXISTS (
+              SELECT 1 FROM courses c
+              WHERE c.id = $1::uuid AND c.status = 'published'
+                AND NOT COALESCE(c.is_archived, false)
+                AND EXISTS (SELECT 1 FROM lectures l WHERE l.course_id = c.id
+                            AND NOT COALESCE(l.is_archived, false)
+                            AND COALESCE(l.visibility, 'course') = 'course'))
+            """,
+            course_id,
+        )
+        if not joinable:
+            return False
+        await conn.execute(
+            "INSERT INTO course_enrollments (user_id, course_id) VALUES ($1::uuid, $2::uuid) "
+            "ON CONFLICT (user_id, course_id) DO NOTHING",
+            user_id, course_id,
+        )
+    return True
+
+
 # ── The viewer's world: Spaces and their Lessons ─────────────────────────────
 #
 # A course is a Space, a lecture is a Lesson (the reader already reads them

@@ -4,6 +4,7 @@ Mounted under ``/api/v1/v4`` when ``FEATURE_V4`` is on. Every response is a
 shape from src/features/spaces/types.ts (see v4_spaces_service).
 """
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -29,6 +30,15 @@ async def v4_me(request: Request, user: Any = Depends(verify_token)):
     if person is None:
         raise HTTPException(status_code=404, detail="No profile for this account.")
     return person
+
+
+@router.post("/spaces/{space_id}/join")
+@limiter.limit("30/minute")
+async def v4_join_space(space_id: UUID, request: Request, user: Any = Depends(verify_token)):
+    """Join an open Space (enrol in the course). Idempotent."""
+    if not await service.join_space(str(space_id), _uid(user)):
+        raise HTTPException(status_code=404, detail="Space not found.")
+    return {"joined": True}
 
 
 @router.get("/world")
