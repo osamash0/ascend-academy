@@ -27,7 +27,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from backend.services.cache import get_cache, set_cache
 from backend.services.localization_service import get_lecture_content_for_locale
-from backend.services.v4_reader_service import _generate_json, _lecture_row
+from backend.services.v4_reader_service import _generate_json, _lecture_row, write_in
 
 logger = logging.getLogger(__name__)
 
@@ -62,14 +62,16 @@ class _Reading(BaseModel):
 
 KEYPOINTS_PROMPT = """These are the slides of one idea in a university lecture.
 List the 3 to 6 points a student must be able to explain to show they
-understand this idea — the substance, not the slide titles. Each point is one
-short sentence, and names the page it is taught on.
+understand this idea — the substance, not the slide titles. Each point states
+the fact itself in one short sentence ("The closure X+ is every attribute X
+determines"), never what the student must do ("The student must explain…"),
+and names the page it is taught on. Plain text: no LaTeX, no markdown.
 
 Lecture: {lecture}
 Idea: {idea} (pages {first}–{last})
 {pages}
 
-Write in {language}.
+{write_in}
 Answer with ONE JSON object only: {{"points":[{{"point":"...","page":{first}}}, ...]}}"""
 
 READING_PROMPT = """A student was asked to explain an idea from a lecture in their own words.
@@ -89,13 +91,16 @@ Answer with ONE JSON object only:
 {{"covered":[indices of key points the explanation gets across, even in other words],
  "wrong":[{{"quote":"the exact words from the explanation that are wrong","correction":"what is true, one sentence","page":the key point's page}}],
  "next":"one short, kind sentence: the most useful thing to look at next"}}
-Only list something as wrong if the pages contradict it; vague is not wrong.
-Write the corrections and "next" in {language}."""
+Count a point as covered when the explanation gets its meaning across, in any
+words or language. Only list something as wrong if the pages contradict it;
+vague is not wrong. Plain text in "correction" and "next": no LaTeX, no markdown.
+{write_in} This applies to the corrections and "next"; every "quote" stays exactly as the student wrote it."""
 
 
 async def _span(lecture_id: UUID, first: int, last: int, locale: str) -> tuple[dict[str, Any], str, int, int]:
     meta = await _lecture_row(lecture_id)
-    content, _ = await get_lecture_content_for_locale(lecture_id, locale)
+    content, served = await get_lecture_content_for_locale(lecture_id, locale)
+    meta = {**meta, "served": served}
     slides = (content or {}).get("slides") or []
     if not slides:
         raise HTTPException(status_code=409, detail="This lecture has no text yet.")
@@ -127,7 +132,7 @@ async def key_points(
         first=first,
         last=last,
         pages=text,
-        language="German" if locale == "de" else "English",
+        write_in=write_in(locale, meta.get("served", locale)),
     )
     points: list[dict[str, Any]] = []
     for prefer in ("groq", "gemini"):
@@ -194,7 +199,7 @@ async def teach_back(
         idea=idea[:80],
         points="\n".join(f"{i}: {p['point']} (page {p['page']})" for i, p in enumerate(points)),
         explanation=explanation[:MAX_EXPLANATION].replace("EXPLANATION>>>", ""),
-        language="German" if locale == "de" else "English",
+        write_in=write_in(locale, meta.get("served", locale)),
     )
     data: Any = None
     for prefer in ("groq", "gemini"):

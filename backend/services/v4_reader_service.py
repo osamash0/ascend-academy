@@ -76,6 +76,33 @@ async def can_view_course(course_id: UUID, user_id: str) -> bool:
         )
 
 
+LANGUAGE_NAMES = {"de": "German", "en": "English"}
+
+
+def write_in(locale: str, served: str) -> str:
+    """How a reader prompt is told which language to answer in.
+
+    The answer follows the *reader's* language, not the slides'. Most decks
+    have no translation, so a German reader is usually served English slides
+    — and was answered in English, cached under the German key. When the two
+    differ, the slides' technical terms are kept (the exam asks in the deck's
+    language), with the original in brackets the first time a term is
+    translated, and anything quoted from the slide stays exactly as written:
+    the reader lights those words on the page and must find them there.
+    """
+    want = LANGUAGE_NAMES.get(locale, "English")
+    have = LANGUAGE_NAMES.get(served, want)
+    if want == have:
+        return f"Write in {want}."
+    return (
+        f"Write everything in {want} — titles, steps, questions, options, explanations — even "
+        f"though the slides are in {have}. Two exceptions only: the first time you use a technical "
+        f"term of the subject, add the slides' {have} term in brackets (e.g. a German "
+        f"\"Attributhülle (attribute closure)\"), never for everyday words; and any \"spot\" is "
+        f"copied word for word from the slide, in {have}, because the reader finds it there."
+    )
+
+
 async def preferred_language(user_id: str) -> str:
     from backend.api.v1.localized_content import _preferred_language
 
@@ -579,7 +606,7 @@ Slide text:
 \"\"\"
 Neighbouring slide titles: {neighbours}
 
-Write in {language}. Be correct; never invent facts the slide does not support.
+{write_in} Be correct; never invent facts the slide does not support.
 
 Block library (use the exact field names):
 - {{"type":"text","md":"markdown, 1-3 short paragraphs"}}
@@ -637,7 +664,7 @@ async def explain_page(lecture_id: UUID, page: int, *, user_id: str, locale: str
         title=(slide.get("title") or "").strip(),
         text=((slide.get("content_text") or slide.get("summary") or "").strip())[:3500],
         neighbours=neighbours or "none",
-        language="German" if served == "de" else "English",
+        write_in=write_in(locale, served),
     )
 
     answer = None
@@ -680,7 +707,7 @@ Earlier in this conversation (newest last): {thread}
 
 The student asks: "{question}"
 
-Write in {language}. Be correct; say so plainly if the slide or lecture does
+{write_in} Be correct; say so plainly if the slide or lecture does
 not cover something.
 
 Block library (exact field names):
@@ -746,7 +773,7 @@ async def ask_page(
         text=((slide.get("content_text") or slide.get("summary") or "").strip())[:3500],
         thread="; ".join(f'Q: "{t["q"]}" → answered: "{t["a"]}"' for t in thread) or "nothing yet",
         question=question.strip()[:400].replace('"', "'"),
-        language="German" if served == "de" else "English",
+        write_in=write_in(locale, served),
     )
 
     # One attempt: the chain already fails over between providers, and a
