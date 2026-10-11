@@ -21,6 +21,7 @@ from backend.core.rate_limit import limiter
 from backend.services.account_service import export_user_data
 from backend.services.erasure import (
     ErasureError,
+    _auth_user_exists as erasure_auth_user_exists,
     build_erasure_manifest,
     create_job as create_erasure_job,
     mark_ready as mark_erasure_job_ready,
@@ -151,13 +152,18 @@ async def delete_account_endpoint(
     try:
         await run_in_threadpool(supabase_admin.auth.admin.delete_user, uid)
     except Exception as e:
-        # The job stays 'awaiting_auth_delete'. The worker drain cancels it if
-        # the account really survived, or finishes it if the delete did land.
-        logger.error("Account deletion failed for %s: %s", uid, e)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Could not delete the account. Please contact support.",
-        )
+        # The call can fail after the delete landed (timeout on the reply).
+        # Only the auth API's structured "user not found" lets us carry on;
+        # otherwise the job stays 'awaiting_auth_delete' and the worker drain
+        # cancels it if the account survived, or finishes it if it did not.
+        gone = await run_in_threadpool(erasure_auth_user_exists, supabase_admin, uid) is False
+        if not gone:
+            logger.error("Account deletion failed for %s: %s", uid, e)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Could not delete the account. Please contact support.",
+            )
+        logger.warning("Auth delete for %s raised (%s) but the account is gone; continuing", uid, e)
 
     # 4. The files. A failure is retried by the worker, never swallowed.
     # The account is already gone, so nothing here may turn into an error

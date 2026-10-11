@@ -36,7 +36,7 @@ class _RecordingAdmin:
         return _Auth()
 
 
-def _wire(monkeypatch, calls, *, manifest_fails=False, job_fails=False, auth_fails=False, run_ok=True, ready_raises=False, run_raises=False):
+def _wire(monkeypatch, calls, *, manifest_fails=False, job_fails=False, auth_fails=False, run_ok=True, ready_raises=False, run_raises=False, exists_after=True):
     from backend.services import erasure as er
 
     async def manifest(uid, client=None):
@@ -76,6 +76,9 @@ def _wire(monkeypatch, calls, *, manifest_fails=False, job_fails=False, auth_fai
     monkeypatch.setattr(auth_api, "mark_erasure_job_ready", ready)
     monkeypatch.setattr(auth_api, "run_erasure_job", run)
     monkeypatch.setattr(auth_api, "supabase_admin", _Admin)
+    # What auth says after a raising delete: True / None = maybe alive, False = gone.
+    monkeypatch.setattr(auth_api, "erasure_auth_user_exists",
+                        lambda c, uid: calls.append("exists?") or exists_after)
 
 
 def test_delete_account_returns_502_when_admin_delete_fails(app, professor_user, monkeypatch):
@@ -194,3 +197,20 @@ def test_a_raising_run_still_answers_200_finishing(app, professor_user, monkeypa
     resp = _post(app, professor_user)
     assert resp.status_code == 200
     assert resp.json()["files"] == "finishing"
+
+
+def test_auth_delete_raising_after_it_landed_still_finishes(app, professor_user, monkeypatch):
+    calls = []
+    _wire(monkeypatch, calls, auth_fails=True, exists_after=False, run_ok=False)
+    resp = _post(app, professor_user)
+    assert resp.status_code == 200
+    assert resp.json() == {"message": "Account deleted.", "files": "finishing"}
+    assert calls[-3:] == ["exists?", "ready", "run"]
+
+
+def test_auth_delete_raising_with_auth_unreachable_is_still_502(app, professor_user, monkeypatch):
+    calls = []
+    _wire(monkeypatch, calls, auth_fails=True, exists_after=None)
+    resp = _post(app, professor_user)
+    assert resp.status_code == 502
+    assert "ready" not in calls and "run" not in calls
