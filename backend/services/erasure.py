@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi.concurrency import run_in_threadpool
@@ -134,3 +135,124 @@ async def build_erasure_manifest(uid: str, client=None) -> ErasureManifest:
         return await run_in_threadpool(_build)
     except Exception as e:
         raise ErasureError(f"could not build erasure manifest: {e}") from e
+
+
+JOBS = "account_erasure_jobs"
+MAX_ATTEMPTS = 12
+STALE_AWAITING = timedelta(hours=1)
+_CHUNK = 100
+# user_id columns with NO foreign key to auth.users: the account delete never
+# cascades them, so the executor deletes them explicitly. api_tokens and
+# course_access exist only in production; a table absent there is skipped.
+NO_FK_USER_TABLES = ("api_tokens", "course_access", "learning_events_daily_rollup", "tutor_messages")
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+async def create_job(m: ErasureManifest, client=None) -> str:
+    c = _client(client)
+
+    def _ins() -> str:
+        row = {"subject_id": m.subject_id, "manifest": m.to_json(),
+               "status": "awaiting_auth_delete", "created_at": _now(), "updated_at": _now()}
+        return c.table(JOBS).insert(row).execute().data[0]["id"]
+
+    try:
+        return await run_in_threadpool(_ins)
+    except Exception as e:
+        raise ErasureError(f"could not record erasure job: {e}") from e
+
+
+async def mark_ready(job_id: str, client=None) -> None:
+    c = _client(client)
+    await run_in_threadpool(
+        lambda: c.table(JOBS).update({"status": "pending", "updated_at": _now()}).eq("id", job_id).execute()
+    )
+
+
+def _auth_user_exists(c, uid: str) -> bool | None:
+    """True / False, or None when auth cannot answer."""
+    try:
+        c.auth.admin.get_user_by_id(uid)
+        return True
+    except Exception as e:
+        return False if ("404" in str(e) or "not found" in str(e).lower()) else None
+
+
+def _hash_still_referenced(c, pdf_hash: str) -> bool:
+    return bool(c.table("lectures").select("id").eq("pdf_hash", pdf_hash).execute().data)
+
+
+def _remove(c, bucket: str, keys: list[str]) -> None:
+    for i in range(0, len(keys), _CHUNK):
+        try:
+            c.storage.from_(bucket).remove(keys[i:i + _CHUNK])
+        except Exception as e:
+            raise ErasureError(f"{bucket}: {e}") from e
+
+
+def _execute(c, m: ErasureManifest) -> None:
+    """Delete everything in the manifest. Raises on the first failure."""
+    if _auth_user_exists(c, m.subject_id) is not False:
+        raise ErasureError("account still exists (or auth unreachable); refusing to delete files")
+    for bucket in BUCKETS:
+        _remove(c, bucket, m.keys.get(bucket, []))
+    _remove(c, "pdf-uploads",
+            [f"{h}.pdf" for h in m.pdf_upload_hashes if not _hash_still_referenced(c, h)])
+    if m.lecture_ids:
+        c.table("slide_embeddings").delete().in_("lecture_id", m.lecture_ids).execute()
+    for table in NO_FK_USER_TABLES:  # no FK: never cascaded
+        try:
+            c.table(table).delete().eq("user_id", m.subject_id).execute()
+        except Exception as e:
+            if "does not exist" not in str(e):     # absent outside production
+                raise ErasureError(f"{table}: {e}") from e
+
+
+async def run_job(job_id: str, client=None) -> bool:
+    c = _client(client)
+
+    def _run() -> bool:
+        rows = c.table(JOBS).select("*").eq("id", job_id).execute().data
+        if not rows:
+            return True
+        job = rows[0]
+        try:
+            _execute(c, ErasureManifest.from_json(job["manifest"]))
+        except Exception as e:
+            c.table(JOBS).update({
+                "attempts": int(job.get("attempts") or 0) + 1,
+                "last_error": str(e)[:500], "updated_at": _now(),
+            }).eq("id", job_id).execute()
+            logger.error("erasure job %s not finished: %s", job_id, e)
+            return False
+        c.table(JOBS).delete().eq("id", job_id).execute()
+        return True
+
+    return await run_in_threadpool(_run)
+
+
+async def drain(client=None, limit: int = 20) -> dict[str, int]:
+    """Finish what an endpoint call could not. Called by the worker cron."""
+    c = _client(client)
+    out = {"finished": 0, "retrying": 0, "cancelled": 0}
+    rows = await run_in_threadpool(lambda: c.table(JOBS).select("*").execute().data or [])
+    cutoff = (datetime.now(timezone.utc) - STALE_AWAITING).isoformat()
+    for job in rows[:limit]:
+        if job["status"] == "awaiting_auth_delete":
+            exists = await run_in_threadpool(_auth_user_exists, c, job["subject_id"])
+            if exists is True and job["created_at"] < cutoff:
+                # The auth delete never happened: the person still has an account.
+                await run_in_threadpool(lambda j=job: c.table(JOBS).delete().eq("id", j["id"]).execute())
+                out["cancelled"] += 1
+                continue
+            if exists is not False:
+                continue                              # too fresh, or auth unreachable
+            await mark_ready(job["id"], client=c)
+        if int(job.get("attempts") or 0) >= MAX_ATTEMPTS:
+            logger.error("erasure job %s exceeded %s attempts; needs a person", job["id"], MAX_ATTEMPTS)
+            continue
+        out["finished" if await run_job(job["id"], client=c) else "retrying"] += 1
+    return out

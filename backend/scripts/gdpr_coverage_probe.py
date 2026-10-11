@@ -55,17 +55,25 @@ def main(dsn: str) -> int:
     import psycopg
 
     from backend.services.account_service import uncovered
+    from backend.services.erasure import NO_FK_USER_TABLES
 
     with psycopg.connect(dsn) as conn:
         conn.execute("BEGIN READ ONLY")
         try:
-            gaps = uncovered(user_linked_columns(conn))
+            cols = user_linked_columns(conn)
+            gaps = uncovered(cols)
+            with conn.cursor() as cur:
+                cur.execute(NO_FK_USER_COLUMNS_SQL)
+                unerased = sorted({t for t, c in cur.fetchall() if c == "user_id"} - set(NO_FK_USER_TABLES))
         finally:
             conn.execute("ROLLBACK")
     for t, c in gaps:
         print(f"NOT EXPORTED: {t}.{c}")
-    print("ok" if not gaps else f"{len(gaps)} gap(s)")
-    return 1 if gaps else 0
+    for t in unerased:
+        print(f"NOT ERASED: {t}.user_id has no FK and is not in erasure.NO_FK_USER_TABLES")
+    bad = len(gaps) + len(unerased)
+    print("ok" if not bad else f"{bad} gap(s)")
+    return 1 if bad else 0
 
 
 if __name__ == "__main__":

@@ -196,3 +196,71 @@ async def test_pdf_url_outside_the_lectures_folder_is_skipped():
     c.objects["lecture-pdfs"] = []
     m = await er.build_erasure_manifest(UID, client=c)
     assert m.keys["lecture-pdfs"] == []
+
+
+@pytest.mark.asyncio
+async def test_job_runs_after_auth_delete_and_spares_shared_blobs():
+    c = owner_world()
+    m = await er.build_erasure_manifest(UID, client=c)
+    job = await er.create_job(m, client=c)
+    # Simulate the auth cascade: the person's lectures are gone, OTHER's stays.
+    c.tables["lectures"] = [r for r in c.tables["lectures"] if r["id"] == "L9"]
+    c.auth_users.discard(UID)
+    await er.mark_ready(job, client=c)
+    assert await er.run_job(job, client=c) is True
+    assert c.objects["pdf-uploads"] == ["h-shared.pdf"]          # shared: kept
+    assert c.objects["lecture-pdfs"] == ["lectures/L9/c.pdf"]    # other's: kept
+    assert c.objects["avatars"] == [f"{OTHER}/avatar-2.png"]
+    assert c.tables[er.JOBS] == []                                # done: row gone
+
+
+@pytest.mark.asyncio
+async def test_failed_delete_leaves_job_pending_with_error():
+    c = owner_world()
+    job = await er.create_job(await er.build_erasure_manifest(UID, client=c), client=c)
+    c.auth_users.discard(UID)
+    await er.mark_ready(job, client=c)
+    c.fail_remove.add("avatars")
+    assert await er.run_job(job, client=c) is False
+    row = c.tables[er.JOBS][0]
+    assert row["status"] == "pending" and row["attempts"] == 1
+    assert "avatars" in row["last_error"]
+    c.fail_remove.clear()
+    assert await er.run_job(job, client=c) is True                # a retry finishes it
+
+
+@pytest.mark.asyncio
+async def test_run_job_refuses_while_account_still_exists():
+    c = owner_world()
+    job = await er.create_job(await er.build_erasure_manifest(UID, client=c), client=c)
+    await er.mark_ready(job, client=c)                            # wrongly marked
+    assert await er.run_job(job, client=c) is False
+    assert "still exists" in c.tables[er.JOBS][0]["last_error"]
+    assert c.removed == {}                                        # nothing deleted
+
+
+@pytest.mark.asyncio
+async def test_drain_resolves_awaiting_jobs_by_auth_state():
+    c = owner_world()
+    await er.create_job(await er.build_erasure_manifest(UID, client=c), client=c)
+    await er.create_job(er.ErasureManifest(subject_id=OTHER), client=c)
+    c.tables[er.JOBS][1]["created_at"] = "2000-01-01T00:00:00+00:00"   # auth delete never landed
+    c.auth_users.discard(UID)
+    c.tables["lectures"] = [r for r in c.tables["lectures"] if r["id"] == "L9"]
+    out = await er.drain(client=c)
+    assert out == {"finished": 1, "retrying": 0, "cancelled": 1}
+    assert c.tables[er.JOBS] == []
+
+
+@pytest.mark.asyncio
+async def test_executor_deletes_rows_of_every_no_fk_user_table():
+    assert set(er.NO_FK_USER_TABLES) >= {"api_tokens", "course_access", "learning_events_daily_rollup"}
+    c = owner_world()
+    for t in er.NO_FK_USER_TABLES:
+        c.tables[t] = [{"user_id": UID}, {"user_id": OTHER}]
+    job = await er.create_job(await er.build_erasure_manifest(UID, client=c), client=c)
+    c.auth_users.discard(UID)
+    await er.mark_ready(job, client=c)
+    assert await er.run_job(job, client=c) is True
+    for t in er.NO_FK_USER_TABLES:
+        assert c.tables[t] == [{"user_id": OTHER}], t
