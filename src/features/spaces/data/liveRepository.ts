@@ -4,6 +4,7 @@
  */
 import type { ExplainAnswer } from '../components/reader/iui/spec';
 import type { Person } from '../types';
+import type { PracticeQuestion } from '../mocks/practice';
 import type { World } from './world';
 
 /** A course, read as the reader's Space: its lectures in order. */
@@ -154,6 +155,14 @@ export function createLiveRepository(http: V4Transport) {
         page,
         seconds,
       }),
+    /** The lecture's real quiz questions, as PracticeQuestions. */
+    practice: (id: string) => http.get<{ questions: PracticeQuestion[] }>(`${root}/reader/lectures/${idPath(id)}/practice`),
+    /** Graded on the server; logs a quiz_attempt and grants XP once per question. */
+    answerPractice: (id: string, questionId: string, answer: string) =>
+      http.post<{ correct: boolean; correctAnswer: string; explanation: string; xp: number }>(
+        `${root}/reader/lectures/${idPath(id)}/practice/answer`,
+        { question_id: questionId, answer },
+      ),
     readerIdeas: (id: string) => http.get<{ concepts: ReaderConcept[] }>(`${root}/reader/lectures/${idPath(id)}/ideas`),
     explainPage: (id: string, page: number) =>
       http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/explain`, {}),

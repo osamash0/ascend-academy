@@ -26,7 +26,6 @@ const STILL_ON_MOCKS = [
   'components/hub/Rails.tsx',
   'components/hub/SpaceChipRow.tsx',
   'components/lesson/ToolShelf.tsx',
-  'components/reader/PracticePlane.tsx',
   'components/reader/TutorPanel.tsx',
   'screens/ConceptScreen.tsx',
   'screens/HistoryScreen.tsx',

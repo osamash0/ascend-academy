@@ -89,6 +89,37 @@ async def reader_progress(
     return await record_reading(lecture_id, uid, body.page, body.seconds)
 
 
+@router.get("/lectures/{lecture_id}/practice")
+@limiter.limit("60/minute")
+async def reader_practice(request: Request, lecture_id: UUID, user: Any = Depends(verify_token)):
+    """The lecture's real quiz questions, as v4 PracticeQuestions."""
+    from backend.services.v4_practice_service import questions_for
+
+    await _lecture_access(lecture_id, user)
+    return {"questions": await questions_for(lecture_id)}
+
+
+class _Answer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    question_id: UUID
+    answer: str = Field(min_length=1, max_length=2000)
+
+
+@router.post("/lectures/{lecture_id}/practice/answer")
+@limiter.limit("120/minute")
+async def reader_practice_answer(
+    request: Request,
+    lecture_id: UUID,
+    body: _Answer,
+    user: Any = Depends(verify_token),
+):
+    """Grade on the server, log a quiz_attempt, and grant XP once per question."""
+    from backend.services.v4_practice_service import answer
+
+    uid = await _lecture_access(lecture_id, user)
+    return await answer(lecture_id, uid, body.question_id, body.answer)
+
+
 class _Turn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     question: str = Field(min_length=1, max_length=400)

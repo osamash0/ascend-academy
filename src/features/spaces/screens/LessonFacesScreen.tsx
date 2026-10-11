@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, ListChecks, Moon, PanelLeftClose, PanelLeftO
 import { cn } from '@/lib/utils';
 import { PdfPager, sampleAccent } from '@/components/pdf';
 import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
-import { practiceForLesson } from '../mocks/practice';
+import { submitAnswer, usePracticeQuestions } from '../data/practice';
 import { Scene, SURFACES } from '../components/Scene';
 import { LessonPager } from '../components/LessonPager';
 import { NoteEditor } from '../components/NoteEditor';
@@ -158,8 +158,11 @@ export default function LessonFacesScreen() {
   const pdfRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
+  const liveReader = !!spaceId && isLive(spaceId);
   /* Count the reading: progress, visits and the streak, page by page. */
-  useReadingProgress(lessonId, pdfPage, !!spaceId && isLive(spaceId) && numPages > 0);
+  useReadingProgress(lessonId, pdfPage, liveReader && numPages > 0);
+  /* The practice bench: the lecture's real questions when live. */
+  const practice = usePracticeQuestions(lessonId, liveReader);
 
   /* Leave a mark where you are, so the course can offer to pick up here. */
   useEffect(() => {
@@ -1193,8 +1196,9 @@ export default function LessonFacesScreen() {
       <PracticePlane
         open={bench === 'practice'}
         lessonTitle={lesson.title}
-        questions={practiceForLesson(lesson.id)}
+        questions={practice.questions}
         onClose={closeBench}
+        onAnswer={liveReader ? (q, a) => submitAnswer(lesson.id, q.id, a) : undefined}
       />
 
       {pagerShowing && <LessonPager spaceId={space.id} prev={prev} next={next} keys={false} />}
