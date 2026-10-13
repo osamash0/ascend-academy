@@ -17,7 +17,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
-from backend.core.auth_middleware import _user_id, require_student
+from backend.core.auth_middleware import _user_id, require_student, verify_token
 from backend.core.rate_limit import limiter
 from backend.services import materials_service
 
@@ -74,3 +74,23 @@ async def delete_material(request: Request, lecture_id: str, user: Any = Depends
     if not deleted:
         raise HTTPException(status_code=404, detail="Material not found or not owned by you.")
     return {"lecture_id": lecture_id, "deleted": True}
+
+
+@router.get("/{lecture_id}/pages")
+@limiter.limit("60/minute")
+async def material_pages(request: Request, lecture_id: str, user: Any = Depends(verify_token)):
+    """Studio pages: pictures, block geometry, calm summaries (real-pages spec §6).
+    Any signed-in reader of the lecture may open it, not only its uploader."""
+    from backend.services import studio_pages_service as svc
+
+    uid = _user_id(user)
+    if not uid:
+        raise HTTPException(status_code=401, detail="Sign in to open this.")
+    try:
+        return await svc.get_pages(lecture_id, uid)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Not found.")
+    except svc.NotVisible:
+        raise HTTPException(status_code=404, detail="Not found.")
+    except svc.StillDeveloping:
+        raise HTTPException(status_code=409, detail="Still reading your pages.")

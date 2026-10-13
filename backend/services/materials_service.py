@@ -35,6 +35,7 @@ from backend.services import upload_service
 from backend.services.cache import compute_pdf_hash
 from backend.services.parser import repos as parser_repos
 from backend.services.parser.unified_orchestrator import PIPELINE_VERSION_UNIFIED
+from backend.services.studio_pages_service import stage_of
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +163,7 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
     lecture_ids = [r["lecture_id"] for r in run_rows if r["lecture_id"]]
     lectures: Dict[Any, Any] = {}
     counts: Dict[Any, Any] = {}
+    ready: Dict[Any, int] = {}
     if lecture_ids:
         # These two queries don't depend on each other, so run them on separate
         # pooled connections concurrently instead of serially — each is a
@@ -170,7 +172,7 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
             async with await get_db_connection() as c:
                 return await c.fetch(
                     """
-                    SELECT id, title, description, total_slides, created_at FROM lectures
+                    SELECT id, title, description, total_slides, poster_url, created_at FROM lectures
                     WHERE id = ANY($1::uuid[]) AND student_owner_id = $2
                     """,
                     lecture_ids, UUID(user_id),
@@ -190,9 +192,18 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
                     lecture_ids,
                 )
 
-        lecture_rows, agg_rows = await asyncio.gather(_fetch_lectures(), _fetch_counts())
+        async def _fetch_pages_ready():
+            async with await get_db_connection() as c:
+                return await c.fetch(
+                    "SELECT lecture_id, count(*) AS n FROM lecture_pages WHERE lecture_id = ANY($1::uuid[]) GROUP BY lecture_id",
+                    lecture_ids,
+                )
+
+        lecture_rows, agg_rows, ready_rows = await asyncio.gather(
+            _fetch_lectures(), _fetch_counts(), _fetch_pages_ready())
         lectures = {r["id"]: r for r in lecture_rows}
         counts = {r["lecture_id"]: dict(r) for r in agg_rows}
+        ready = {r["lecture_id"]: r["n"] for r in ready_rows}
 
     out = []
     for r in run_rows:
@@ -217,6 +228,10 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
             "title": (lec["title"] if lec else None) or r["filename"],
             "total_slides": (lec["total_slides"] if lec else 0) or 0,
             "quiz_count": c.get("quiz_count", 0),
+            "stage": stage_of(r["status"]),
+            "page_count": (lec["total_slides"] if lec else 0) or 0,
+            "pages_ready": ready.get(r["lecture_id"], 0),
+            "poster_url": lec["poster_url"] if lec else None,
             "created_at": (lec["created_at"] if lec else r["started_at"]).isoformat(),
         })
     return out
