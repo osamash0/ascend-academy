@@ -199,3 +199,129 @@ async def test_budget_refusal_releases_the_lock_and_leaves_the_run_terminal(monk
     # set_error is what flips the run to FAILED; nothing may move it on after.
     assert rec["errors"] == [uo.PARSE_BUDGET_ERROR_MESSAGE]
     assert RunStatus.EXTRACTING not in rec["status"] and RunStatus.COMPLETED not in rec["status"]
+
+
+# ── Task 5: mid-parse stop ──────────────────────────────────────────────────
+
+def _vision_recorder(monkeypatch):
+    import backend.services.ai.vision as vision
+    seen: list = []
+
+    async def fake_vision(b64, text, model, ctx):
+        seen.append(ctx)
+        return {"content_extraction": {"main_topic": "V", "summary": "v"}}
+
+    monkeypatch.setattr(vision, "analyze_slide_vision", fake_vision)
+    monkeypatch.setattr(uo, "_render_page_jpeg", lambda pdf, idx: b"jpeg")
+    monkeypatch.setattr(uo, "_synthesize_slide", REAL_SYNTH)
+    return seen
+
+
+async def test_crossing_the_cap_mid_parse_stops_further_calls_and_fails_the_run(monkeypatch, spend):
+    monkeypatch.setattr(settings, "llm_monthly_user_cost_cap_usd", 1.5 * COST)
+    rec, _run = _patch_common(monkeypatch, pages=_long_pages(4))
+    _use_real_batch(monkeypatch)
+    per_slide: list = []
+
+    async def synth(idx, *_a, **_k):
+        per_slide.append(idx)
+        return {"title": "X", "content": "", "summary": "Y", "slide_type": "text"}
+
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    _result, events = await _parse("h", OWNER, **STUDENT)
+
+    assert len(spend.provider_calls) == 2           # slides 0 and 1; slide 2 refused pre-provider
+    assert per_slide == []                           # no per-slide fallback after a refusal
+    assert [s[0] for s in rec["slides"]] == [0, 1]
+    assert rec["finalize"] == [("Deck summary.", 2)]  # partial lecture still finalized
+    assert rec["deck_quiz"] == []
+    assert rec["errors"] == [uo.PARSE_BUDGET_ERROR_MESSAGE]
+    assert RunStatus.COMPLETED not in rec["status"]
+    assert _budget_error(events)["code"] == uo.PARSE_BUDGET_ERROR_CODE
+
+
+async def test_a_swallowed_vision_refusal_stops_the_next_chunk(monkeypatch, spend):
+    monkeypatch.setattr(settings, "llm_monthly_user_cost_cap_usd", 0.5 * COST)
+    rec, _run = _patch_common(monkeypatch, pages=[*_long_pages(1), "", ""])
+    _use_real_batch(monkeypatch)
+    vision_calls = _vision_recorder(monkeypatch)
+    _result, _events = await _parse("h", OWNER, **STUDENT)
+    assert len(spend.provider_calls) == 1
+    assert vision_calls == []                        # vision gated before render + call
+    assert [s[0] for s in rec["slides"]] == [0, 1]   # chunk 2 never started
+    assert rec["errors"] == [uo.PARSE_BUDGET_ERROR_MESSAGE]
+
+
+async def test_a_refusal_in_the_last_chunk_stops_before_finalize(monkeypatch, spend):
+    monkeypatch.setattr(settings, "llm_monthly_user_cost_cap_usd", 1.5 * COST)
+    rec, _run = _patch_common(monkeypatch, pages=[*_long_pages(2), ""])
+    _use_real_batch(monkeypatch)
+    vision_calls = _vision_recorder(monkeypatch)
+    _result, events = await _parse("h", OWNER, **STUDENT)
+    assert len(spend.provider_calls) == 2 and vision_calls == []
+    assert [s[0] for s in rec["slides"]] == [0, 1, 2]
+    assert rec["deck_quiz"] == []                    # finalize step never ran
+    assert rec["finalize"] == [("Deck summary.", 3)]
+    assert rec["errors"] == [uo.PARSE_BUDGET_ERROR_MESSAGE]
+    assert "complete" not in [t for t, _ in events]
+
+
+async def test_a_refused_meta_call_stops_before_the_lecture_row(monkeypatch, spend):
+    import backend.services.parser.synthesis as synthesis
+    rec, _run = _patch_common(monkeypatch, pages=_long_pages(2))
+    _use_real_batch(monkeypatch)
+
+    async def meta(slides, model, course_context_hint="", source_language="en", skeleton=None):
+        _over_cap(spend)  # a concurrent upload by the same student spent the rest
+        await ai_orchestrator.generate_text("meta prompt")
+        return {"title": "never", "summary": "never"}
+
+    monkeypatch.setattr(synthesis, "analyze_lecture_meta", meta)
+    _result, _events = await _parse("h", OWNER, **STUDENT)
+    assert spend.provider_calls == []
+    assert rec["lectures"] == []
+    assert rec["errors"] == [uo.PARSE_BUDGET_ERROR_MESSAGE]
+
+
+# ── Task 5 controller addition: explicit user == the parse's user ───────────
+
+def _enforced_ctx(user=OWNER, enforce=True, exceeded=False):
+    from backend.services.ai.call_context import ParseBudget, push_llm_call_context
+    budget = ParseBudget(enforce=enforce, exceeded=exceeded)
+    push_llm_call_context(run_id="r", calls=[], user_id=user, course_id=None, budget=budget)
+    return budget
+
+
+async def test_explicit_parse_user_refusal_latches_the_budget(spend):
+    from backend.services.llm_client import LLMBudgetExceededError
+    budget = _enforced_ctx()
+    _over_cap(spend)
+    with pytest.raises(LLMBudgetExceededError):
+        await ai_orchestrator.enforce_llm_budget(OWNER)
+    assert budget.exceeded is True
+
+
+async def test_latched_budget_refuses_an_explicit_parse_user_without_a_redis_read(monkeypatch, spend):
+    from backend.services.llm_client import LLMBudgetExceededError
+    _enforced_ctx(exceeded=True)
+
+    async def boom(_user):
+        raise AssertionError("must not read Redis once latched")
+
+    monkeypatch.setattr(cost_module, "check_user_llm_budget", boom)
+    with pytest.raises(LLMBudgetExceededError):
+        await ai_orchestrator.enforce_llm_budget(OWNER)
+
+
+async def test_explicit_other_user_or_unenforced_context_is_unchanged(spend):
+    from backend.services.llm_client import LLMBudgetExceededError
+    budget = _enforced_ctx(exceeded=True)
+    await ai_orchestrator.enforce_llm_budget(OTHER)          # other user: real check, under cap
+    _over_cap(spend, OTHER)
+    with pytest.raises(LLMBudgetExceededError):
+        await ai_orchestrator.enforce_llm_budget(OTHER)
+    budget2 = _enforced_ctx(enforce=False)
+    _over_cap(spend)
+    with pytest.raises(LLMBudgetExceededError):
+        await ai_orchestrator.enforce_llm_budget(OWNER)
+    assert budget2.exceeded is False                         # off-mode never latches

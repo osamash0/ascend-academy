@@ -1367,11 +1367,11 @@ async def enforce_llm_budget(user_id: Optional[str] = None) -> None:
     from backend.services.ai.cost import check_user_llm_budget
     from backend.services.llm_client import LLMBudgetExceededError
 
-    if user_id:
-        await check_user_llm_budget(user_id)
-        return
     ctx = current_llm_call_context()
     budget = ctx.budget
+    if user_id and not (budget is not None and budget.enforce and user_id == ctx.user_id):
+        await check_user_llm_budget(user_id)
+        return
     if budget is None or not budget.enforce or not ctx.user_id:
         return
     if budget.exceeded:

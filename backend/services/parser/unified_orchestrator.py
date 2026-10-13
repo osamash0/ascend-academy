@@ -112,6 +112,15 @@ def _parse_budget_enforced(visibility: str) -> bool:
     return False
 
 
+def _raise_if_parse_budget_exceeded() -> None:
+    """Stop this parse once any of its LLM calls was refused for budget
+    (Arc 9). Synthesis, vision, meta and quiz steps deliberately swallow their
+    own LLM errors; the latched ParseBudget flag survives that."""
+    budget = current_llm_call_context().budget
+    if budget is not None and budget.exceeded:
+        raise LLMBudgetExceededError("Monthly LLM spend cap reached during this parse.")
+
+
 def _clean_title(filename: str) -> str:
     base = os.path.basename(filename or "")
     if base.lower().endswith(".pdf"):
@@ -176,7 +185,12 @@ async def _synthesize_slide(
     # Image-only slide → render + vision.
     try:
         import base64
+        from backend.services.ai.orchestrator import enforce_llm_budget
         from backend.services.ai.vision import analyze_slide_vision, format_slide_content
+        # Arc 9: vision bypasses the metered text path, so the parse's spend
+        # gate runs here. A refusal lands in the except below (this function
+        # never raises); the latched budget flag stops the parse.
+        await enforce_llm_budget()
         img = await asyncio.to_thread(_render_page_jpeg, pdf_bytes, idx)
         vres = await analyze_slide_vision(
             base64.b64encode(img).decode(), text, settings.vision_model, lecture_context
@@ -293,6 +307,10 @@ async def _synthesize_text_slide_batch(
                 source_language=source_language,
             )
     except Exception as exc:
+        # Arc 9: a budget refusal is final for the whole parse; a per-slide
+        # fallback would only be refused N more times.
+        if isinstance(exc, LLMBudgetExceededError):
+            raise
         logger.warning(
             "Batch synthesis failed for %d slide(s) starting at index %s (%s) — "
             "falling back to per-slide synthesis for this batch only",
@@ -869,6 +887,7 @@ async def parse_pdf_unified(
                 meta = {}
         else:
             meta = {}
+        _raise_if_parse_budget_exceeded()  # Arc 9: before any lecture row exists
         lecture_title = (meta.get("title") or "").strip() or _clean_title(filename)
         deck_summary = (meta.get("summary") or "").strip()
         lecture_context = f"{lecture_title}: {deck_summary}"
@@ -941,6 +960,7 @@ async def parse_pdf_unified(
         admin_slide_texts: List[str] = []
 
         for chunk_start in range(0, total, chunk_size):
+            _raise_if_parse_budget_exceeded()  # Arc 9: a refusal in the last chunk ends the parse
             chunk_end = min(chunk_start + chunk_size, total)
             ctx_for_chunk = lecture_context
             if previous_narrative:
@@ -1144,6 +1164,10 @@ async def parse_pdf_unified(
                     deck_quiz += _map_cross_lecture_quiz(cross_raw)
                 except Exception as exc:
                     logger.warning("cross-lecture quiz generation failed (non-fatal): %s", exc)
+
+        # Arc 9: a refusal anywhere above (vision, syllabus facts, deck quiz,
+        # quiz repair, all non-fatal by design) fails the run before finalize.
+        _raise_if_parse_budget_exceeded()
 
         # ── 6. Finalize + persist deck quiz ──────────────────────────────────
         await emit("phase", {"phase": "finalize"})
