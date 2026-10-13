@@ -123,3 +123,54 @@ def extract_blocks(page: Any, page_no: int) -> PageBlocks:
 def is_image_only(pb: PageBlocks) -> bool:
     """Too little text to summarise from: the page goes to vision (spec §5.3)."""
     return pb["text_chars"] < IMAGE_ONLY_CHARS
+
+
+VISION_KINDS = {"heading", "paragraph", "list", "table", "code", "math", "figure", "handwriting"}
+MAX_OVERLAP = 0.5
+MIN_COVERAGE = 0.15
+
+
+def vision_blocks_to_source(items: Any, page_no: int) -> List[Dict[str, Any]]:
+    """Vision boxes ([ymin, xmin, ymax, xmax] on 0..1000) → SourceBlocks."""
+    out: List[Dict[str, Any]] = []
+    for it in items if isinstance(items, list) else []:
+        if not isinstance(it, dict):
+            continue
+        box = it.get("box_2d")
+        text = it.get("text") if isinstance(it.get("text"), str) else ""
+        kind = it.get("kind") if it.get("kind") in VISION_KINDS else "paragraph"
+        if not (isinstance(box, list) and len(box) == 4 and all(isinstance(v, (int, float)) for v in box)):
+            continue
+        if kind != "figure" and not text.strip():
+            continue
+        ymin, xmin, ymax, xmax = (round(min(1.0, max(0.0, v / 1000)), 4) for v in box)
+        block: Dict[str, Any] = {"id": f"p{page_no}-b{len(out)}", "page": page_no,
+                                 "bbox": [xmin, ymin, xmax, ymax], "kind": kind,
+                                 "text": text.strip() if kind != "figure" else ""}
+        conf = it.get("confidence")
+        if isinstance(conf, (int, float)):
+            block["confidence"] = round(min(1.0, max(0.0, float(conf))), 2)
+        block["readingOrder"] = len(out)
+        out.append(block)
+    return out
+
+
+def _area(b: List[float]) -> float:
+    return max(0.0, b[2] - b[0]) * max(0.0, b[3] - b[1])
+
+
+def validate_vision_boxes(blocks: List[Dict[str, Any]]) -> bool:
+    """Spec §5.3: inside the page with area, no pair overlapping more than half
+    of the smaller box, and together at least 15% of the page."""
+    if not blocks:
+        return False
+    boxes = [b["bbox"] for b in blocks]
+    if any(_area(b) <= 0 for b in boxes):
+        return False
+    for i in range(len(boxes)):
+        for j in range(i + 1, len(boxes)):
+            a, c = boxes[i], boxes[j]
+            inter = _area([max(a[0], c[0]), max(a[1], c[1]), min(a[2], c[2]), min(a[3], c[3])])
+            if inter > MAX_OVERLAP * min(_area(a), _area(c)):
+                return False
+    return sum(_area(b) for b in boxes) >= MIN_COVERAGE
