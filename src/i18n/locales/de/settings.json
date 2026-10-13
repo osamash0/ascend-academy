@@ -152,6 +152,7 @@
     "deleteConfirm": "Bist du absolut sicher? Dies löscht dein Konto und alle deine Daten dauerhaft. Tippe DELETE zur Bestätigung.",
     "deleteSuccess": "Konto gelöscht",
     "deleteSuccessDescription": "Dein Konto und alle Daten wurden entfernt.",
+    "deleteSuccessFilesFinishing": "Deine Dateien werden noch entfernt; das ist gleich abgeschlossen.",
     "deleteError": "Dein Konto konnte nicht gelöscht werden",
     "deleteErrorDescription": "Bitte kontaktiere den Support."
   },

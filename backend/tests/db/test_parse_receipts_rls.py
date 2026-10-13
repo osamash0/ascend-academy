@@ -1,0 +1,318 @@
+"""RLS boundary for public.parse_receipts (Arc 5).
+
+A parse receipt is a professor-facing QA artifact (deck skeleton, per-slide
+route/prompt provenance, deck-quiz grounding summary). Only the lecture's
+owner -- the course professor, or the student owner of a private upload --
+may read it. Enrolled students get nothing (they already see the slides
+themselves), anon gets a hard permission error (Supabase's default
+privileges grant anon SELECT on every new public table directly, so the
+migration must REVOKE from anon explicitly), and writes are service-role
+only (the parse worker).
+"""
+from __future__ import annotations
+
+import json
+import uuid
+
+import psycopg
+import pytest
+
+pytestmark = pytest.mark.db
+
+
+def _as_user(cur, uid: uuid.UUID) -> None:
+    cur.execute("SET ROLE authenticated")
+    cur.execute("SELECT set_config('request.jwt.claim.sub', %s, false)", (str(uid),))
+    cur.execute("SELECT set_config('request.jwt.claim.role', %s, false)", ("authenticated",))
+
+
+def _reset(cur) -> None:
+    cur.execute("RESET ROLE")
+    cur.execute("SELECT set_config('request.jwt.claim.sub', '', false)")
+    cur.execute("SELECT set_config('request.jwt.claim.role', '', false)")
+
+
+def _make_run(cur, lecture_id: uuid.UUID) -> uuid.UUID:
+    run_id = uuid.uuid4()
+    cur.execute(
+        "INSERT INTO public.parse_runs (run_id, pdf_hash, lecture_id, pipeline_version, status) "
+        "VALUES (%s, %s, %s, '5', 'completed')",
+        (str(run_id), f"hash-{run_id.hex}", str(lecture_id)),
+    )
+    return run_id
+
+
+def _receipt_values(run_id: uuid.UUID, lecture_id: uuid.UUID) -> tuple:
+    return (
+        str(run_id),
+        str(lecture_id),
+        json.dumps({"boilerplate": [], "sections": [],
+                    "slides": [{"index": 0, "role": "title", "section": 0, "chars": 5}]}),
+        json.dumps([{"index": 0, "route": "batch"}]),
+        json.dumps({"proposed": 1, "kept": 1, "repaired": 0, "dropped": 0, "drop_reasons": {}}),
+    )
+
+
+_INSERT = (
+    "INSERT INTO public.parse_receipts "
+    "(run_id, lecture_id, deck_skeleton, slide_provenance, quiz_grounding) "
+    "VALUES (%s, %s, %s::jsonb, %s::jsonb, %s::jsonb)"
+)
+
+
+def _make_receipt(db_conn, lecture_id: uuid.UUID) -> uuid.UUID:
+    with db_conn.cursor() as cur:
+        run_id = _make_run(cur, lecture_id)
+        cur.execute(_INSERT, _receipt_values(run_id, lecture_id))
+    return run_id
+
+
+def _visible_runs(cur) -> set[str]:
+    cur.execute("SELECT run_id FROM public.parse_receipts")
+    return {str(r[0]) for r in cur.fetchall()}
+
+
+def _make_private_lecture(db_conn, student_id: uuid.UUID) -> uuid.UUID:
+    lid = uuid.uuid4()
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO public.lectures (id, title, professor_id, total_slides, visibility, student_owner_id) "
+            "VALUES (%s, 'Private', NULL, 1, 'private_student', %s)",
+            (str(lid), str(student_id)),
+        )
+    return lid
+
+
+def _enroll_via_assignment(db_conn, professor_id, student_id, lecture_id) -> None:
+    aid = uuid.uuid4()
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO public.assignments (id, professor_id, title, due_at) "
+            "VALUES (%s, %s, 'A', now() + interval '7 days')",
+            (str(aid), str(professor_id)),
+        )
+        cur.execute(
+            "INSERT INTO public.assignment_lectures (assignment_id, lecture_id) VALUES (%s, %s)",
+            (str(aid), str(lecture_id)),
+        )
+        cur.execute(
+            "INSERT INTO public.assignment_enrollments (assignment_id, user_id) VALUES (%s, %s)",
+            (str(aid), str(student_id)),
+        )
+
+
+def test_table_has_rls_enabled(db_conn):
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT relrowsecurity FROM pg_class WHERE oid = 'public.parse_receipts'::regclass")
+        assert cur.fetchone()[0] is True
+
+
+def test_owner_professor_reads_own_receipt(db_conn, make_user, make_lecture):
+    prof = make_user(role="professor")
+    run_id = _make_receipt(db_conn, make_lecture(prof))
+    with db_conn.cursor() as cur:
+        _as_user(cur, prof)
+        try:
+            visible = _visible_runs(cur)
+        finally:
+            _reset(cur)
+    assert str(run_id) in visible
+
+
+def _lecture_visible(cur, lecture_id) -> bool:
+    cur.execute("SELECT 1 FROM public.lectures WHERE id = %s", (str(lecture_id),))
+    return cur.fetchone() is not None
+
+
+def test_non_owner_who_can_see_the_lecture_cannot_read_receipt(
+    db_conn, make_user, make_lecture, make_course, make_course_enrollment
+):
+    # `other` must be able to SEE the lecture (via course enrollment), so the
+    # lectures RLS inside the policy's EXISTS cannot hide the receipt for us;
+    # only the explicit owner clause can.
+    owner = make_user(role="professor")
+    other = make_user(role="professor")
+    lecture = make_lecture(owner)
+    course = make_course(owner)
+    with db_conn.cursor() as cur:
+        cur.execute("UPDATE public.lectures SET course_id = %s WHERE id = %s",
+                    (str(course), str(lecture)))
+    make_course_enrollment(other, course)
+    run_id = _make_receipt(db_conn, lecture)
+    with db_conn.cursor() as cur:
+        _as_user(cur, other)
+        try:
+            assert _lecture_visible(cur, lecture), "fixture broken: non-owner must see the lecture"
+            visible = _visible_runs(cur)
+        finally:
+            _reset(cur)
+    assert str(run_id) not in visible
+
+
+def test_admin_who_can_see_the_lecture_cannot_read_receipt(db_conn, make_user, make_lecture):
+    # Signup downgrades a self-declared admin, so grant the role directly.
+    admin = make_user(role="student")
+    with db_conn.cursor() as cur:
+        cur.execute("DELETE FROM public.user_roles WHERE user_id = %s", (str(admin),))
+        cur.execute("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'admin')", (str(admin),))
+    lecture = make_lecture(make_user(role="professor"))
+    run_id = _make_receipt(db_conn, lecture)
+    with db_conn.cursor() as cur:
+        _as_user(cur, admin)
+        try:
+            assert _lecture_visible(cur, lecture), "fixture broken: admin must see the lecture"
+            visible = _visible_runs(cur)
+        finally:
+            _reset(cur)
+    assert str(run_id) not in visible
+
+
+def test_privilege_catalog_is_locked_down(db_conn):
+    # RLS WITH CHECK failures and missing grants share SQLSTATE 42501, and
+    # UPDATE/DELETE without a policy silently touch 0 rows, so assert the
+    # grants themselves.
+    write_privs = ["INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"]
+    with db_conn.cursor() as cur:
+        def has(role, priv):
+            cur.execute("SELECT has_table_privilege(%s, 'public.parse_receipts', %s)", (role, priv))
+            return cur.fetchone()[0]
+        assert {p: has("authenticated", p) for p in write_privs} == dict.fromkeys(write_privs, False)
+        assert {p: has("anon", p) for p in write_privs + ["SELECT"]} == dict.fromkeys(write_privs + ["SELECT"], False)
+        assert has("authenticated", "SELECT") is True
+
+
+def test_enrolled_student_sees_lecture_but_not_its_receipt(db_conn, make_user, make_lecture):
+    prof = make_user(role="professor")
+    student = make_user(role="student")
+    lecture = make_lecture(prof)
+    _enroll_via_assignment(db_conn, prof, student, lecture)
+    run_id = _make_receipt(db_conn, lecture)
+    with db_conn.cursor() as cur:
+        _as_user(cur, student)
+        try:
+            cur.execute("SELECT id FROM public.lectures WHERE id = %s", (str(lecture),))
+            assert cur.fetchone() is not None, "fixture broken: enrolled student must see the lecture"
+            visible = _visible_runs(cur)
+        finally:
+            _reset(cur)
+    assert str(run_id) not in visible
+
+
+def test_private_upload_owner_reads_own_receipt(db_conn, make_user):
+    student = make_user(role="student")
+    run_id = _make_receipt(db_conn, _make_private_lecture(db_conn, student))
+    with db_conn.cursor() as cur:
+        _as_user(cur, student)
+        try:
+            visible = _visible_runs(cur)
+        finally:
+            _reset(cur)
+    assert str(run_id) in visible
+
+
+def test_anon_cannot_select_receipts(db_conn, make_user, make_lecture):
+    _make_receipt(db_conn, make_lecture(make_user(role="professor")))
+    with db_conn.cursor() as cur:
+        cur.execute("SET ROLE anon")
+        try:
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                cur.execute("SELECT run_id FROM public.parse_receipts")
+        finally:
+            cur.execute("RESET ROLE")
+
+
+def test_owner_cannot_write_receipts_directly(db_conn, make_user, make_lecture):
+    prof = make_user(role="professor")
+    lecture = make_lecture(prof)
+    with db_conn.cursor() as cur:
+        run_id = _make_run(cur, lecture)
+        _as_user(cur, prof)
+        try:
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                cur.execute(_INSERT, _receipt_values(run_id, lecture))
+        finally:
+            _reset(cur)
+
+
+def test_service_role_writes_receipts(db_conn, make_user, make_lecture):
+    lecture = make_lecture(make_user(role="professor"))
+    with db_conn.cursor() as cur:
+        run_id = _make_run(cur, lecture)
+        cur.execute("SET ROLE service_role")
+        try:
+            cur.execute(_INSERT, _receipt_values(run_id, lecture))
+            cur.execute("SELECT slide_provenance FROM public.parse_receipts WHERE run_id = %s", (str(run_id),))
+            assert cur.fetchone()[0] == [{"index": 0, "route": "batch"}]
+        finally:
+            cur.execute("RESET ROLE")
+
+
+def test_slide_provenance_defaults_to_empty_array(db_conn, make_user, make_lecture):
+    lecture = make_lecture(make_user(role="professor"))
+    with db_conn.cursor() as cur:
+        run_id = _make_run(cur, lecture)
+        cur.execute(
+            "INSERT INTO public.parse_receipts (run_id, lecture_id) VALUES (%s, %s) "
+            "RETURNING slide_provenance, deck_skeleton, quiz_grounding",
+            (str(run_id), str(lecture)),
+        )
+        assert cur.fetchone() == ([], None, None)
+
+
+def test_deleting_lecture_cascades_its_receipt(db_conn, make_user, make_lecture):
+    lecture = make_lecture(make_user(role="professor"))
+    run_id = _make_receipt(db_conn, lecture)
+    with db_conn.cursor() as cur:
+        cur.execute("DELETE FROM public.lectures WHERE id = %s", (str(lecture),))
+        cur.execute("SELECT count(*) FROM public.parse_receipts WHERE run_id = %s", (str(run_id),))
+        assert cur.fetchone()[0] == 0
+
+
+def test_deleting_parse_run_cascades_its_receipt(db_conn, make_user, make_lecture):
+    lecture = make_lecture(make_user(role="professor"))
+    run_id = _make_receipt(db_conn, lecture)
+    with db_conn.cursor() as cur:
+        cur.execute("DELETE FROM public.parse_runs WHERE run_id = %s", (str(run_id),))
+        cur.execute("SELECT count(*) FROM public.parse_receipts WHERE run_id = %s", (str(run_id),))
+        assert cur.fetchone()[0] == 0
+
+
+def test_llm_usage_is_nullable_jsonb(db_conn, make_user, make_lecture):
+    lecture = make_lecture(make_user(role="professor"))
+    with db_conn.cursor() as cur:
+        run_id = _make_run(cur, lecture)
+        cur.execute(
+            "INSERT INTO public.parse_receipts (run_id, lecture_id, llm_usage) "
+            "VALUES (%s, %s, %s::jsonb) RETURNING llm_usage",
+            (str(run_id), str(lecture), json.dumps({"calls": 2, "cost_usd": 0.0009})),
+        )
+        assert cur.fetchone()[0] == {"calls": 2, "cost_usd": 0.0009}
+        run2 = _make_run(cur, lecture)
+        cur.execute(
+            "INSERT INTO public.parse_receipts (run_id, lecture_id) VALUES (%s, %s) RETURNING llm_usage",
+            (str(run2), str(lecture)),
+        )
+        assert cur.fetchone()[0] is None
+
+
+def test_reapplying_the_migration_adds_llm_usage_to_an_older_table(db_conn):
+    # An earlier version of the file (PR head 8673a94) created parse_receipts
+    # without llm_usage; CREATE TABLE IF NOT EXISTS then skips the column.
+    from backend.tests.db.conftest import MIGRATIONS_DIR
+
+    sql = (MIGRATIONS_DIR / "20261012000000_parse_receipts.sql").read_text()
+
+    def has_column(cur) -> bool:
+        cur.execute(
+            "SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' "
+            "AND table_name = 'parse_receipts' AND column_name = 'llm_usage'"
+        )
+        return cur.fetchone()[0] == 1
+
+    with db_conn.cursor() as cur:
+        cur.execute("ALTER TABLE public.parse_receipts DROP COLUMN llm_usage")
+        assert not has_column(cur)  # the table now looks like the old file's
+        cur.execute(sql)
+        assert has_column(cur)
+        cur.execute(sql)  # and re-application stays idempotent
+        assert has_column(cur)

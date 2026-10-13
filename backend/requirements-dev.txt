@@ -17,6 +17,9 @@ freezegun>=1.5
 faker>=24.0
 httpx>=0.27
 
+# ── Property-based testing (deck cartographer, chaos lab) ────────────────────
+hypothesis>=6.100
+
 # ── DB / RLS tests (gated behind `pytest -m db`) ─────────────────────────────
 # psycopg drives the throwaway Postgres container;
 # testcontainers boots and tears it down per session.

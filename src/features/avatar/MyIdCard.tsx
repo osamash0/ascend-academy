@@ -4,6 +4,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 import { badgeName } from './copy';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -18,7 +19,7 @@ export function MyIdCard({ className }: { className?: string }) {
   const { loadout, badges } = useLoadout();
   const { t } = useTranslation();
 
-  const { data: extra } = useQuery({
+  const { data: extra, isPending } = useQuery({
     queryKey: ['id-card-extra', user?.id],
     enabled: !!user?.id,
     staleTime: 10 * 60_000,
@@ -36,6 +37,11 @@ export function MyIdCard({ className }: { className?: string }) {
   });
 
   if (!user || !profile) return null;
+  // Wait for the university + member-since lookup: showing the card early
+  // briefly claimed "Learnstation" as the institution, which is not true.
+  if (isPending) {
+    return <div aria-hidden className={cn('aspect-[1.586] w-full max-w-[420px] animate-pulse rounded-[18px] bg-white/[0.06]', className)} />;
+  }
   const newestFirst = [...badges].sort((a, b) => (b.earnedAt ?? '').localeCompare(a.earnedAt ?? '')).map((b) => badgeName(t, b.key));
 
   return (

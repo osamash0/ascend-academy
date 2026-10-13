@@ -5,7 +5,7 @@ import os
 from typing import Dict, Any
 from .orchestrator import (
     groq_client, gemini_client, openai_client, GROQ_VISION_MODEL, GEMINI_MODEL,
-    _rotator, parse_json_response
+    _rotator, parse_json_response, _http_status
 )
 
 logger = logging.getLogger(__name__)
@@ -149,7 +149,7 @@ def _sync_analyze_vision(
             # Checked before the rate-limit sniff — a 402 body can contain the
             # word "quota" without being a throttle.
             is_permanent = (
-                getattr(exc, "status_code", None) in (402, 404)
+                _http_status(exc) in (402, 404)
                 or "error code: 404" in msg
                 or "error code: 402" in msg
                 or "model_not_found" in msg

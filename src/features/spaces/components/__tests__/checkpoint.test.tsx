@@ -39,8 +39,8 @@ describe('a checkpoint at the end of an idea', () => {
         />
       </MemoryRouter>,
     );
-    expect(screen.getByText('One question, while it is fresh?')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Check myself/ }));
+    expect(screen.getByText('Check it while it is fresh.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /One question/ }));
     await waitFor(() => expect(screen.getByRole('dialog', { name: 'Checkpoint: Closure' })).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: /^B\s*No$/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Check' }));

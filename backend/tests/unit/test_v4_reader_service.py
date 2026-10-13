@@ -93,3 +93,17 @@ def test_a_longer_deck_is_split_into_more_ideas_named_by_what_they_teach():
     prompt = ideas_prompt("Normalization", 82, "1. Title")
     assert "about 9 consecutive ideas (between 7 and 11)" in prompt
     assert "Never a vague name" in prompt
+
+
+def test_the_answer_follows_the_reader_and_keeps_the_slides_words():
+    from backend.services.v4_reader_service import write_in
+
+    assert write_in("en", "en") == "Write in English."
+    # German always carries the product's register: du, never Sie.
+    assert write_in("de", "de").startswith("Write in German.") and "never Sie" in write_in("de", "de")
+    assert "never Sie" not in write_in("en", "de")
+    mixed = write_in("de", "en")
+    # A German reader on an English deck: German answers, English terms and spots.
+    # A German reader on an English deck: all German, but the terms named once and the spots verbatim.
+    assert mixed.startswith("Write everything in German")
+    assert "options" in mixed and "never for everyday words" in mixed and "word for word from the slide, in English" in mixed

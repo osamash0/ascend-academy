@@ -22,6 +22,8 @@ import {
 
 interface ProfileChipProps {
   className?: string;
+  /** Avatar only below md (phones), so the chip fits the top bar there. */
+  compact?: boolean;
 }
 
 /**
@@ -30,7 +32,7 @@ interface ProfileChipProps {
  * identity isn't a dead end. Reads the authenticated profile; renders nothing
  * if unavailable.
  */
-export function ProfileChip({ className }: ProfileChipProps) {
+export function ProfileChip({ className, compact = false }: ProfileChipProps) {
   const { profile, role, signOut } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation('avatar');
@@ -77,7 +79,7 @@ export function ProfileChip({ className }: ProfileChipProps) {
             real, bounded natural size; ConsoleTopBar's `shrink-0` on the
             left group means the header now respects that size instead of
             compressing it toward zero. */}
-        <div className="min-w-0 leading-tight text-left">
+        <div className={cn('min-w-0 leading-tight text-left', compact && 'hidden md:block')}>
           <p className="flex items-center gap-1 text-sm font-black text-foreground">
             <span className="max-w-[140px] truncate">{name}</span>
             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-foreground group-data-[state=open]:rotate-180" />

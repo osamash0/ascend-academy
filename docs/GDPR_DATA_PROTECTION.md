@@ -41,17 +41,35 @@ business step, out of scope for an engineering PR).
 
 ## 2. Data inventory (what PII lives where)
 
-Enumerated in `backend/services/account_service.py::EXPORT_TABLES` /
-`LECTURE_OWNER_COLUMNS` — that list is the single source of truth (both
-export and this doc read from it, so they cannot drift silently). As of this
-writing: `profiles`, `achievements`, `student_progress`, `learning_events`,
-`xp_events`, `notifications`, `user_feedback`, `course_enrollments`,
-`course_visits`, `lecture_visits`, `nudge_dismissals`,
-`schedule_item_completions`, `upload_quotas`, `review_schedule`,
-`review_log`, `exam_attempts`, `practice_attempts`,
-`student_catalog_courses`, `friend_requests`, `user_roles`, plus
-`lectures` (professor- or student-owned) and derived `slides`/
-`quiz_questions`/`slide_embeddings`/`worksheets` reachable through them.
+Enumerated in `backend/services/account_service.py::EXPORT_TABLES` (plus
+the dedicated owned-lecture / worksheet / tutor-transcript reads in
+`export_user_data`) — that code is the source of truth; this list is a copy
+and must be updated with it. A db test (`backend/tests/db/test_gdpr_coverage.py`)
+and the read-only probe (`backend/scripts/gdpr_coverage_probe.py`) fail when a
+user-linked column is neither exported nor explicitly excluded. As of this
+writing the export contains, one key per table:
+
+- Account and settings: `profiles`, `user_roles`, `onboarding_progress`,
+  `notification_preferences`, `notifications`, `user_feedback`.
+- Progress and activity: `achievements`, `xp_events`, `learning_events`,
+  `learning_events_daily_rollup`, `student_progress`, `concept_mastery`,
+  `course_enrollments`, `course_visits`, `lecture_visits`,
+  `student_catalog_courses`, `nudge_dismissals`, `schedule_item_completions`.
+- Study and assessment: `review_schedule`, `review_log`, `exam_attempts`,
+  `practice_attempts`, `practice_sheets`, `v4_rehearsal_attempts`,
+  `assignment_enrollments`.
+- Teaching and uploads: `assignments`, `courses`, `course_blueprints`,
+  `material_sources`, `parse_runs`, `upload_quotas`, `llm_calls`,
+  `lectures` (professor- or student-owned), `worksheets_uploaded`.
+- Social: `friend_requests` (both sides).
+- AI tutor: `tutor_sessions` and their `tutor_messages`.
+- Production-only, when present: `api_tokens` (without `token_hash`),
+  `course_access`.
+
+Not exported: derived lecture content (slides, quiz questions, embeddings) is
+not a per-person row and is not in the export; `learning_events_legacy_20260721`
+(a rollback copy duplicated in `learning_events`) and `account_erasure_jobs`
+(erasure bookkeeping) are excluded on purpose (`EXPORT_EXCLUSIONS`).
 
 ## 3. Right to erasure (Art. 17)
 
@@ -59,10 +77,12 @@ writing: `profiles`, `achievements`, `student_progress`, `learning_events`,
 
 1. Invalidates the caller's cached bearer token immediately (no replay
    within the 45s token-cache TTL).
-2. Calls `account_service.erase_user_storage_and_derived_data(uid)` —
-   deletes Storage-bucket objects (`pdf-uploads`, `worksheets`) and any
-   `slide_embeddings` rows for lectures the user owns. This step is
-   idempotent and safe to retry; it does not touch `auth.users`.
+2. Builds an erasure manifest (every file the user owns in `avatars`,
+   `lecture-pdfs`, `lecture-posters`, `pdf-uploads`, `worksheets`) and
+   durably records it as a job (`backend/services/erasure.py`) BEFORE
+   anything is deleted; if either fails the endpoint returns 502 and the
+   account is untouched. After the account is gone the job is run to remove
+   the files, and retried by the worker drain if that fails.
 3. Deletes the `auth.users` row via the service-role admin API. Every table
    in §2 references `auth.users(id) ON DELETE CASCADE` (directly, or
    transitively via `lectures.professor_id`/`lectures.student_owner_id`), so
@@ -72,13 +92,14 @@ writing: `profiles`, `achievements`, `student_progress`, `learning_events`,
    miss a table).
 
 Two known exceptions, both intentional (see the module docstring in
-`account_service.py` for full rationale):
+`backend/services/erasure.py` for full rationale):
 - `worksheets` rows where the user is only `uploaded_by` (not the owning
   professor) use `ON DELETE SET NULL`, not CASCADE — a TA/co-uploader
   deleting their account must not delete a professor's live course
   material out from under enrolled students.
 - Content-addressed `pdf-uploads` blobs are only removed when no other
-  user's lecture still references the same `pdf_hash` (dedup safety).
+  user's lecture still references the same `pdf_hash` (dedup safety; see
+  `backend/services/erasure.py`).
 
 Regression coverage: `backend/tests/db/test_account_erasure_cascade.py`
 (real local Postgres, not mocked) proves the FK-cascade path end-to-end —
@@ -86,7 +107,10 @@ profile, achievements, learning_events, exam_attempts, review_schedule,
 lectures, slides, quiz_questions, and (post-migration-parity)
 `slide_embeddings` are all gone after the `auth.users` delete. Storage/
 service-layer behavior (dedup retention, non-owner worksheet exception) is
-covered by `backend/tests/unit/test_account_service.py`.
+covered by `backend/tests/unit/test_erasure.py`
+(`test_job_runs_after_auth_delete_and_spares_shared_blobs` for dedup retention,
+`test_manifest_lists_every_bucket_for_the_user_only` for worksheets, which are
+listed only through lectures the user owns).
 
 **This session does not invoke erasure against real/production data** —
 per the operating constraint for this task, the endpoint and its tests only
