@@ -109,12 +109,13 @@ def extract_blocks(page: Any, page_no: int) -> PageBlocks:
             continue
         kind, md = _kind_and_markdown(lines, _max_size(b), heading_size)
         text = "\n".join(lines)
-        text_chars += len(text)
         blocks.append({"id": bid, "page": page_no, "bbox": box, "kind": kind,
                        "text": text, "readingOrder": i})
         markdown[bid] = md
         if box[1] >= FOOTER_TOP:
-            footers.append(bid)
+            footers.append(bid)  # running footers are never summarised, so they don't count as page text
+        else:
+            text_chars += len(text)
     return {"width": w, "height": h, "blocks": blocks, "markdown": markdown,
             "footers": footers, "text_chars": text_chars}
 

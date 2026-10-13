@@ -71,3 +71,17 @@ def test_a_picture_only_page_is_image_only():
 
 def test_a_text_page_is_not_image_only(doc):
     assert not is_image_only(extract_blocks(doc[1], 2))
+
+
+def test_a_footer_does_not_count_as_page_text():
+    d = fitz.open()
+    page = d.new_page(width=720, height=405)
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 50, 50), False)
+    pix.clear_with(200)
+    page.insert_image(fitz.Rect(144, 40, 576, 283), pixmap=pix)  # about 40% of the page
+    page.insert_text((40, 395), "Datenbanksysteme · Vorlesung 3 · Universität", fontsize=10)
+    pb = extract_blocks(page, 1)
+    assert len(pb["footers"]) == 1
+    assert pb["footers"][0] in {b["id"] for b in pb["blocks"]}
+    assert is_image_only(pb)
+    d.close()
