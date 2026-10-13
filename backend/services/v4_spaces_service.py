@@ -359,6 +359,36 @@ async def uploads_for(user_id: str) -> List[Dict[str, Any]]:
             "stage": "failed" if failed else ("ready" if ready else "developing"),
             "addedAt": r["created_at"],
         })
+
+    # Uploads older than run tagging have a lecture but no run of this
+    # pipeline version: without these, the shelf was empty while the Space held
+    # them. Each is ready, named by its lecture, keyed by its lecture id.
+    seen = {u["lessonId"] for u in out if u["lessonId"]}
+    conn_cm = await get_db_connection()
+    async with conn_cm as conn:
+        orphans = await conn.fetch(
+            """
+            SELECT l.id, l.title, COALESCE(l.total_slides, 0) AS total, l.created_at
+            FROM lectures l
+            WHERE l.student_owner_id = $1::uuid AND l.course_id IS NULL
+              AND l.visibility = 'private_student' AND NOT COALESCE(l.is_archived, false)
+            """,
+            user_id,
+        )
+    for r in orphans:
+        if str(r["id"]) in seen:
+            continue
+        out.append({
+            "id": str(r["id"]),
+            "lessonId": str(r["id"]),
+            # The lecture's own name: its stored file is keyed by content hash.
+            "filename": r["title"] or "Upload.pdf",
+            "title": r["title"],
+            "pageCount": r["total"],
+            "stage": "ready",
+            "addedAt": r["created_at"].isoformat(),
+        })
+    out.sort(key=lambda u: u["addedAt"], reverse=True)
     return out
 
 

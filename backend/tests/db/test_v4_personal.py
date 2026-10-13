@@ -98,6 +98,22 @@ async def _none():
     return []
 
 
+async def test_an_upload_older_than_its_run_still_reaches_the_shelf(
+    services, db_conn, make_user, make_lecture, monkeypatch,
+):
+    """Prod has private lectures with no run of the current pipeline version."""
+    spaces, _ = services
+    student = make_user(email=f"old-{uuid.uuid4().hex[:6]}@gmail.com")
+    old = make_lecture(student, title="Versionsmanagement")
+    _make_private(db_conn, old, student)
+    monkeypatch.setattr(spaces.materials_service, "list_my_materials", lambda uid: _none())
+
+    shelf = await spaces.uploads_for(str(student))
+    assert [(u["id"], u["lessonId"], u["filename"], u["stage"]) for u in shelf] == [
+        (str(old), str(old), "Versionsmanagement", "ready"),
+    ]
+
+
 async def test_no_uploads_no_personal_space(services, make_user, monkeypatch):
     spaces, _ = services
     viewer = make_user(email=f"new-{uuid.uuid4().hex[:6]}@gmail.com")
