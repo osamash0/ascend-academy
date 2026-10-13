@@ -29,7 +29,7 @@ from __future__ import annotations
 import datetime
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence
 
 from backend.core.config import settings
 from backend.services.llm_client import LLMBudgetExceededError
@@ -149,6 +149,27 @@ async def record_user_llm_spend(user_id: str, cost_usd: float) -> None:
         logger.warning("Failed to record LLM spend for user %s: %s", user_id, exc)
 
 
+_LEGACY_INSERT = """
+    INSERT INTO public.llm_calls
+        (user_id, course_id, feature, provider, model,
+         prompt_tokens, completion_tokens, est_cost_usd)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+"""
+
+# Arc 7 (migration 20261012010000): run context for calls made inside a parse.
+_RUN_CONTEXT_INSERT = """
+    INSERT INTO public.llm_calls
+        (user_id, course_id, feature, provider, model,
+         prompt_tokens, completion_tokens, est_cost_usd,
+         run_id, slide_indices, prompt_name, prompt_version)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+"""
+
+# Sticky per process: once the database has reported the run-context columns
+# missing, skip the doomed INSERT (and its warning) for every later call.
+_run_context_columns_missing = False
+
+
 async def log_llm_call(
     *,
     user_id: Optional[str],
@@ -158,29 +179,48 @@ async def log_llm_call(
     model: str,
     usage: Optional[LLMUsage],
     cost_usd: float,
+    run_id: Optional[str] = None,
+    slide_indices: Optional[Sequence[int]] = None,
+    prompt_name: Optional[str] = None,
+    prompt_version: Optional[str] = None,
 ) -> None:
     """Best-effort INSERT into public.llm_calls. Never raises — a logging
-    failure must not surface as an LLM-call failure to the caller."""
+    failure must not surface as an LLM-call failure to the caller.
+
+    Rows with run context (Arc 7) use the extended INSERT; if the database
+    predates migration 20261012010000 (UndefinedColumnError), the row is
+    written without it, so a deploy-before-migrate never loses a cost row."""
+    import asyncpg
+
+    global _run_context_columns_missing
     from backend.core.database import get_db_connection
 
     prompt_tokens = usage.prompt_tokens if usage else 0
     completion_tokens = usage.completion_tokens if usage else 0
+    base = (user_id, course_id, feature, provider_id, model,
+            prompt_tokens, completion_tokens, cost_usd)
+    has_context = (run_id is not None or slide_indices is not None
+                   or prompt_name is not None or prompt_version is not None)
     try:
         conn_cm = await get_db_connection()
         async with conn_cm as conn:
-            await conn.execute(
-                """
-                INSERT INTO public.llm_calls
-                    (user_id, course_id, feature, provider, model,
-                     prompt_tokens, completion_tokens, est_cost_usd)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                """,
-                user_id, course_id, feature, provider_id, model,
-                prompt_tokens, completion_tokens, cost_usd,
-            )
+            if not has_context or _run_context_columns_missing:
+                await conn.execute(_LEGACY_INSERT, *base)
+                return
+            try:
+                await conn.execute(
+                    _RUN_CONTEXT_INSERT, *base, run_id,
+                    list(slide_indices) if slide_indices is not None else None,
+                    prompt_name, prompt_version,
+                )
+            except asyncpg.exceptions.UndefinedColumnError:
+                _run_context_columns_missing = True
+                logger.warning("llm_calls has no run-context columns yet (migration "
+                               "20261012010000 not applied); logging without them (once per process)")
+                await conn.execute(_LEGACY_INSERT, *base)
     except Exception as exc:
         logger.warning("Failed to log llm_calls row (feature=%s provider=%s): %s",
-                        feature, provider_id, exc)
+                       feature, provider_id, exc)
 
 
 async def get_user_monthly_spend_from_db(user_id: str) -> float:

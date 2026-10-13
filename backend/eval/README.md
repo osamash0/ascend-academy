@@ -209,3 +209,24 @@ Every metric is a pure function and is tested without a database, API keys,
 or model calls. `test_local_gate_agrees_with_the_production_gate` asserts the
 harness's threshold check has not drifted from `tutor.is_grounded`, which is
 the real gate; it skips when backend deps are absent.
+
+---
+
+## Deck Lab — offline slide-selection scorecard (no LLM, no DB)
+
+```bash
+python -m backend.eval.deck_lab                                  # every deck in ~/Downloads, markdown to stdout
+python -m backend.eval.deck_lab --out docs/DECK_LAB_2026_10.md   # the committed run
+python -m backend.eval.deck_lab --dir /path/to/pdfs --decks "07 DBS Transactions.pdf"
+```
+
+Reads the real PDFs (`backend/eval/decks.py`; `$DECK_LAB_DIR` overrides
+`~/Downloads`; `-2`/`Kopie` copies are skipped), builds the deck skeleton, and
+compares the pre-f34a787 selectors (`legacy_quiz_selection`,
+`legacy_meta_selection`, re-implemented in `deck_lab.py`) with the live ones
+(`select_slides`, `select_meta_slides`). It also runs the grounding
+drop-risk probe (`backend/eval/data/grounding_probe.py`) at the unchanged
+`SUPPORT_THRESHOLD`. The generated markdown is committed as-is; never edit
+its numbers by hand. Rerun the tool instead.
+
+Tests: `pytest backend/tests/unit/test_deck_lab_metrics.py backend/tests/unit/test_deck_lab_probe.py backend/tests/unit/test_deck_lab_cli.py backend/tests/unit/test_grounding_probe_set.py`

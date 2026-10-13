@@ -27,6 +27,7 @@ async def init_redis() -> None:
             logger.info("Redis connection established.")
         except Exception as e:
             logger.error(f"Failed to connect to Redis at {settings.redis_url}: {e}")
+            redis_client = None  # don't leave a dead client for get_redis_or_none()
             raise
 
 async def close_redis() -> None:
