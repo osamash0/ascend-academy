@@ -179,7 +179,9 @@ class Settings(BaseSettings):
     # Arc 9: which parses the per-user monthly cap above can REFUSE. Every
     # parse's LLM calls are attributed to its uploader (llm_calls.user_id and
     # the Redis running total) whatever this says; it only decides gating.
-    #   "students" (default) - private "My Materials" uploads only
+    #   "students" (default) - private "My Materials" uploads and any upload
+    #                          by a user whose user_roles role is student
+    #                          (role lookup failure enforces: fail safe)
     #   "all"                - every parse, professors included
     #   "off"                - attribute, never refuse
     llm_parse_budget_enforce: Literal["students", "all", "off"] = Field(

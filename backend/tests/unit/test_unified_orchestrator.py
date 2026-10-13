@@ -194,6 +194,15 @@ def test_review_flag_healthy_slide_not_flagged():
 
 # ── orchestrator: end-to-end with mocked synthesis + DB ──────────────────────
 
+@pytest.fixture(autouse=True)
+def _uploader_is_a_professor(monkeypatch):
+    """Arc 9: parse_pdf_unified looks the uploader's role up (user_roles) to
+    decide the "students" spend cap; never reach the real DB from these tests."""
+    monkeypatch.setattr(
+        "backend.core.auth_middleware._lookup_role_from_db", lambda uid: {"professor"}
+    )
+
+
 def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pages=None):
     rec = {"status": [], "errors": [], "lectures": [], "slides": [], "deck_quiz": [],
            "finalize": [], "run_lecture": [], "cleared": [], "titled": [], "pdf": [],

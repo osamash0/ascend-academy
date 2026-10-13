@@ -41,7 +41,7 @@ def spend(monkeypatch):
     async def noop(*_a, **_k):
         return None
 
-    def fake_rotation(prompt, chain, preferred=None, json_mode=False, prompt_name=None):
+    def fake_rotation(prompt, chain, preferred=None, json_mode=False, prompt_name=None, **_kw):
         provider_calls.append(prompt_name)
         return ('[{"title": "T", "summary": "S", "slide_type": "text", "questions": []}]',
                 "openai", "gpt-4o-mini", USAGE)
@@ -54,7 +54,16 @@ def spend(monkeypatch):
     monkeypatch.setattr(ai_orchestrator, "_generate_with_rotation", fake_rotation)
     monkeypatch.setattr(settings, "llm_monthly_user_cost_cap_usd", 1.0)
     monkeypatch.setattr(settings, "llm_parse_budget_enforce", "students")
-    return types.SimpleNamespace(redis=redis, rows=rows, provider_calls=provider_calls)
+    roles: dict = {"value": {"professor"}, "lookups": []}
+
+    def fake_role_lookup(uid):
+        roles["lookups"].append(uid)
+        if isinstance(roles["value"], Exception):
+            raise roles["value"]
+        return roles["value"]
+
+    monkeypatch.setattr("backend.core.auth_middleware._lookup_role_from_db", fake_role_lookup)
+    return types.SimpleNamespace(redis=redis, rows=rows, provider_calls=provider_calls, roles=roles)
 
 
 def _use_real_batch(monkeypatch, batch_size=1):
@@ -134,6 +143,43 @@ async def test_professor_over_budget_still_parses_in_students_mode(monkeypatch, 
     assert len(spend.provider_calls) == 2
     assert rec["errors"] == []
     assert [r["user_id"] for r in spend.rows] == [OWNER, OWNER]
+
+
+async def test_student_role_is_capped_in_students_mode_even_in_a_course(monkeypatch, spend):
+    """A student uploading into a course (visibility "course") is still a
+    student: the role comes from user_roles, not from visibility or the JWT."""
+    spend.roles["value"] = {"student"}
+    rec, _run = _patch_common(monkeypatch, pages=_long_pages(3))
+    meta_calls = _count_meta(monkeypatch)
+    _over_cap(spend)
+    _result, events = await _parse("h", OWNER, course_id=COURSE_A)
+    assert spend.provider_calls == [] and meta_calls == []
+    assert rec["errors"] == [uo.PARSE_BUDGET_ERROR_MESSAGE]
+    assert _budget_error(events)["code"] == uo.PARSE_BUDGET_ERROR_CODE
+    assert spend.roles["lookups"] == [OWNER]          # exactly one lookup
+
+
+async def test_role_lookup_failure_enforces_the_cap(monkeypatch, spend):
+    """Fail safe for spend: an unknown role is treated as capped."""
+    spend.roles["value"] = None                        # _lookup_role_from_db's error value
+    rec, _run = _patch_common(monkeypatch, pages=_long_pages(2))
+    _over_cap(spend)
+    _result, events = await _parse("h", OWNER)
+    assert rec["errors"] == [uo.PARSE_BUDGET_ERROR_MESSAGE]
+    spend.roles["value"] = RuntimeError("db down")     # a raising lookup too
+    rec2, _run2 = _patch_common(monkeypatch, pages=_long_pages(2))
+    _result, events2 = await _parse("h2", OWNER)
+    assert rec2["errors"] == [uo.PARSE_BUDGET_ERROR_MESSAGE]
+
+
+async def test_private_visibility_and_other_modes_skip_the_role_lookup(monkeypatch, spend):
+    _patch_common(monkeypatch, pages=_long_pages(2))
+    await _parse("h", OWNER, **STUDENT)
+    monkeypatch.setattr(settings, "llm_parse_budget_enforce", "all")
+    await _parse("h2", OWNER)
+    monkeypatch.setattr(settings, "llm_parse_budget_enforce", "off")
+    await _parse("h3", OWNER)
+    assert spend.roles["lookups"] == []
 
 
 async def test_all_mode_gates_professor_parses(monkeypatch, spend):
@@ -236,9 +282,12 @@ async def test_crossing_the_cap_mid_parse_stops_further_calls_and_fails_the_run(
     assert [s[0] for s in rec["slides"]] == [0, 1]
     assert rec["finalize"] == [("Deck summary.", 2)]  # partial lecture still finalized
     assert rec["deck_quiz"] == []
-    assert rec["errors"] == [uo.PARSE_BUDGET_ERROR_MESSAGE]
+    assert rec["errors"] == [uo.PARSE_BUDGET_STOPPED_MESSAGE]
     assert RunStatus.COMPLETED not in rec["status"]
-    assert _budget_error(events)["code"] == uo.PARSE_BUDGET_ERROR_CODE
+    assert _budget_error(events) == {"message": uo.PARSE_BUDGET_STOPPED_MESSAGE,
+                                     "code": uo.PARSE_BUDGET_ERROR_CODE}
+    assert uo.PARSE_BUDGET_STOPPED_MESSAGE != uo.PARSE_BUDGET_ERROR_MESSAGE
+    assert "saved" in uo.PARSE_BUDGET_STOPPED_MESSAGE
 
 
 async def test_a_swallowed_vision_refusal_stops_the_next_chunk(monkeypatch, spend):
@@ -250,7 +299,7 @@ async def test_a_swallowed_vision_refusal_stops_the_next_chunk(monkeypatch, spen
     assert len(spend.provider_calls) == 1
     assert vision_calls == []                        # vision gated before render + call
     assert [s[0] for s in rec["slides"]] == [0, 1]   # chunk 2 never started
-    assert rec["errors"] == [uo.PARSE_BUDGET_ERROR_MESSAGE]
+    assert rec["errors"] == [uo.PARSE_BUDGET_STOPPED_MESSAGE]
 
 
 async def test_a_refusal_in_the_last_chunk_stops_before_finalize(monkeypatch, spend):
@@ -263,7 +312,7 @@ async def test_a_refusal_in_the_last_chunk_stops_before_finalize(monkeypatch, sp
     assert [s[0] for s in rec["slides"]] == [0, 1, 2]
     assert rec["deck_quiz"] == []                    # finalize step never ran
     assert rec["finalize"] == [("Deck summary.", 3)]
-    assert rec["errors"] == [uo.PARSE_BUDGET_ERROR_MESSAGE]
+    assert rec["errors"] == [uo.PARSE_BUDGET_STOPPED_MESSAGE]
     assert "complete" not in [t for t, _ in events]
 
 
@@ -282,6 +331,61 @@ async def test_a_refused_meta_call_stops_before_the_lecture_row(monkeypatch, spe
     assert spend.provider_calls == []
     assert rec["lectures"] == []
     assert rec["errors"] == [uo.PARSE_BUDGET_ERROR_MESSAGE]
+
+
+async def test_a_latched_budget_does_not_queue_a_localization_retry(monkeypatch, spend):
+    """Localization that fails because the parse budget ran out must not be
+    re-queued: the retry job would just be refused again."""
+    from backend.services import localization_service
+    from backend.services.ai.call_context import current_llm_call_context
+    rec, _run = _patch_common(monkeypatch, pages=_long_pages(1))
+    _use_real_batch(monkeypatch)
+
+    async def localize(lecture_id, ai_model):
+        current_llm_call_context().budget.exceeded = True
+        raise RuntimeError("translation refused")
+
+    monkeypatch.setattr(localization_service, "localize_lecture", localize)
+    enqueued: list = []
+
+    class Pool(FakeRedis):
+        async def enqueue_job(self, name, **kw):
+            if name.startswith("localize"):
+                enqueued.append(name)
+
+    events: list = []
+
+    async def emit(t, d):
+        events.append((t, d))
+
+    await uo.parse_pdf_unified({"redis": Pool()}, pdf_hash="h", user_id=OWNER,
+                               emit_fn=emit, **STUDENT)
+    assert enqueued == []
+    assert ("localization", {"status": "failed"}) in events
+
+
+async def test_an_ordinary_localization_failure_still_queues_the_retry(monkeypatch, spend):
+    from backend.services import localization_service
+    rec, _run = _patch_common(monkeypatch, pages=_long_pages(1))
+    _use_real_batch(monkeypatch)
+
+    async def localize(lecture_id, ai_model):
+        raise RuntimeError("provider blip")
+
+    monkeypatch.setattr(localization_service, "localize_lecture", localize)
+    enqueued: list = []
+
+    class Pool(FakeRedis):
+        async def enqueue_job(self, name, **kw):
+            if name.startswith("localize"):
+                enqueued.append(name)
+
+    async def emit(t, d):
+        pass
+
+    await uo.parse_pdf_unified({"redis": Pool()}, pdf_hash="h", user_id=OWNER,
+                               emit_fn=emit, **STUDENT)
+    assert enqueued == ["localize_lecture_job"]
 
 
 # ── Task 5 controller addition: explicit user == the parse's user ───────────

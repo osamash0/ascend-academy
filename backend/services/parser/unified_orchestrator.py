@@ -100,16 +100,43 @@ PARSE_BUDGET_ERROR_MESSAGE = (
     "Your monthly AI processing limit has been reached, so this file was not "
     "processed. The limit resets at the start of next month."
 )
+# Same code, but for a parse that ran out of budget AFTER work was saved (a
+# lecture row exists): the pre-flight wording would be false there.
+PARSE_BUDGET_STOPPED_MESSAGE = (
+    "Your monthly AI budget ran out while this file was being processed. The "
+    "part already processed was saved; you can process the rest next month."
+)
 
 
-def _parse_budget_enforced(visibility: str) -> bool:
-    """Arc 9: does settings.llm_parse_budget_enforce let this parse be refused?"""
+async def _parse_budget_enforced(visibility: str, user_id: Optional[str]) -> bool:
+    """Arc 9: does settings.llm_parse_budget_enforce let this parse be refused?
+
+    "students" caps a private "My Materials" upload AND any upload by a user
+    whose role is student (a student can also upload into a course). The role
+    is read from user_roles -- never from a JWT claim, which the worker does
+    not have -- once per parse and only when it can matter. Fail safe for
+    spend: if the lookup fails we cannot rule out a student, so the cap is
+    enforced (logged)."""
     mode = settings.llm_parse_budget_enforce
     if mode == "all":
         return True
-    if mode == "students":
-        return visibility == "private_student"
-    return False
+    if mode != "students":
+        return False
+    if visibility == "private_student":
+        return True
+    if not user_id:
+        return False
+    try:
+        from starlette.concurrency import run_in_threadpool
+        from backend.core.auth_middleware import _lookup_role_from_db
+        roles = await run_in_threadpool(_lookup_role_from_db, str(user_id))
+    except Exception as exc:
+        logger.warning("parse budget: role lookup raised for %s, enforcing: %s", user_id, exc)
+        return True
+    if roles is None:
+        logger.warning("parse budget: role lookup failed for %s, enforcing the cap", user_id)
+        return True
+    return "student" in roles
 
 
 def _raise_if_parse_budget_exceeded() -> None:
@@ -279,7 +306,9 @@ async def _synthesize_text_slide_batch(
 
     Returns a dict keyed by slide index; values may be ``Exception``
     instances (never raised here) so the caller's existing per-slide error
-    handling keeps working unchanged.
+    handling keeps working unchanged. The one exception is
+    ``LLMBudgetExceededError`` (Arc 9): it is re-raised, not captured, and
+    ends the whole parse.
     """
     if not text_items:
         return {}
@@ -768,7 +797,7 @@ async def parse_pdf_unified(
         llm_ctx_token = push_llm_call_context(
             run_id=str(run_uuid), calls=served_calls,
             user_id=billed_user or None, course_id=course_id or None,
-            budget=ParseBudget(enforce=_parse_budget_enforced(visibility)),
+            budget=ParseBudget(enforce=await _parse_budget_enforced(visibility, user_id)),
         )
         existing_lecture_id = run.lecture_id  # set by a prior (partial) attempt
 
@@ -1199,23 +1228,29 @@ async def parse_pdf_unified(
                     await localize_course(course_uuid, ai_model)
                 await emit("localization", {"status": "ready", "locales": ["en", "de"]})
             except Exception as exc:
-                logger.error("lecture localization failed, queueing retry: %s", exc)
-                try:
-                    redis_pool = ctx.get("redis")
-                    if redis_pool:
-                        await redis_pool.enqueue_job(
-                            "localize_lecture_job", lecture_id=str(created_lecture_id), ai_model=ai_model,
-                        )
-                    else:
-                        from backend.services.upload_service import get_arq_pool
-                        pool = await get_arq_pool()
-                        await pool.enqueue_job(
-                            "localize_lecture_job", lecture_id=str(created_lecture_id), ai_model=ai_model,
-                        )
-                    await emit("localization", {"status": "retrying"})
-                except Exception as enqueue_exc:
-                    logger.warning("localization retry enqueue failed: %s", enqueue_exc)
+                budget = current_llm_call_context().budget
+                if budget is not None and budget.exceeded:
+                    # Arc 9: a retry job would be refused by the same cap.
+                    logger.warning("lecture localization stopped, parse budget spent: %s", exc)
                     await emit("localization", {"status": "failed"})
+                else:
+                    logger.error("lecture localization failed, queueing retry: %s", exc)
+                    try:
+                        redis_pool = ctx.get("redis")
+                        if redis_pool:
+                            await redis_pool.enqueue_job(
+                                "localize_lecture_job", lecture_id=str(created_lecture_id), ai_model=ai_model,
+                            )
+                        else:
+                            from backend.services.upload_service import get_arq_pool
+                            pool = await get_arq_pool()
+                            await pool.enqueue_job(
+                                "localize_lecture_job", lecture_id=str(created_lecture_id), ai_model=ai_model,
+                            )
+                        await emit("localization", {"status": "retrying"})
+                    except Exception as enqueue_exc:
+                        logger.warning("localization retry enqueue failed: %s", enqueue_exc)
+                        await emit("localization", {"status": "failed"})
             # Roadmap Phase 1.1 (review engine): generate spaced-repetition
             # cards from this lecture's quiz questions. Best-effort — never
             # blocks parse completion. Off by default (FEATURE_REVIEW_ENGINE).
@@ -1355,7 +1390,11 @@ async def parse_pdf_unified(
                 "support if this keeps happening."
             )
         elif is_budget:
-            user_facing_error = PARSE_BUDGET_ERROR_MESSAGE
+            user_facing_error = (
+                PARSE_BUDGET_STOPPED_MESSAGE
+                if created_lecture_id is not None and slide_db_ids
+                else PARSE_BUDGET_ERROR_MESSAGE
+            )
         else:
             user_facing_error = "PDF parsing failed. Please try again or contact support if this keeps happening."
         try:

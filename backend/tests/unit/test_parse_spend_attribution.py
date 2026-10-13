@@ -135,7 +135,7 @@ async def test_calls_outside_a_parse_stay_unattributed(metered):
 # ── Task 3: per-call gate ───────────────────────────────────────────────────
 
 def _fake_rotation(calls):
-    def fake(prompt, chain, preferred=None, json_mode=False, prompt_name=None):
+    def fake(prompt, chain, preferred=None, json_mode=False, prompt_name=None, **_kw):
         calls.append(prompt_name)
         return '{"ok": true}', "openai", "gpt-4o-mini", USAGE
     return fake
