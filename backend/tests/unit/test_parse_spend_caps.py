@@ -19,8 +19,8 @@ from backend.services.parser import unified_orchestrator as uo
 from backend.tests.fake_redis import FakeRedis
 from backend.tests.unit.test_unified_orchestrator import OWNER, _long_pages, _patch_common
 
-REAL_BATCH = ai_orchestrator.batch_analyze_text_slides
 REAL_SYNTH = uo._synthesize_slide
+REAL_BATCH = ai_orchestrator.batch_analyze_text_slides
 OTHER = "22222222-2222-2222-2222-222222222222"
 COURSE_A = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 COURSE_B = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
@@ -157,15 +157,16 @@ async def test_off_mode_never_refuses_but_still_attributes(monkeypatch, spend):
     assert events[-1][0] == "complete"
     assert len(spend.provider_calls) == 2
     assert [r["user_id"] for r in spend.rows] == [OWNER, OWNER]
-    assert _spent(spend, OWNER) == pytest.approx(settings.llm_monthly_user_cost_cap_usd + 2 * COST)
+    # Unenforced parses are attributed but never consume the interactive cap.
+    assert _spent(spend, OWNER) == settings.llm_monthly_user_cost_cap_usd
 
 
-async def test_private_upload_is_billed_to_the_student_owner(monkeypatch, spend):
+async def test_private_upload_is_billed_to_the_uploader_who_owns_the_lecture(monkeypatch, spend):
     _patch_common(monkeypatch, pages=_long_pages(1))
     _use_real_batch(monkeypatch)
-    await _parse("h", OTHER, visibility="private_student", student_owner_id=OWNER)
+    await _parse("h", OWNER, **STUDENT)
     assert [r["user_id"] for r in spend.rows] == [OWNER]
-    assert _spent(spend, OTHER) == 0.0
+    assert _spent(spend, OWNER) == pytest.approx(COST)
 
 
 async def test_concurrent_parses_bill_their_own_uploader_and_course(monkeypatch, spend):
@@ -177,8 +178,8 @@ async def test_concurrent_parses_bill_their_own_uploader_and_course(monkeypatch,
     )
     pairs = sorted((r["user_id"], r["course_id"]) for r in spend.rows)
     assert pairs == sorted([(OWNER, COURSE_A)] * 3 + [(OTHER, COURSE_B)] * 3)
-    assert _spent(spend, OWNER) == pytest.approx(3 * COST)
-    assert _spent(spend, OTHER) == pytest.approx(3 * COST)
+    # Both are professors (course visibility) in "students" mode: unenforced.
+    assert _spent(spend, OWNER) == 0.0 and _spent(spend, OTHER) == 0.0
 
 
 async def test_budget_refusal_releases_the_lock_and_leaves_the_run_terminal(monkeypatch, spend):
@@ -325,3 +326,36 @@ async def test_explicit_other_user_or_unenforced_context_is_unchanged(spend):
     with pytest.raises(LLMBudgetExceededError):
         await ai_orchestrator.enforce_llm_budget(OWNER)
     assert budget2.exceeded is False                         # off-mode never latches
+
+
+async def test_professor_parse_is_attributed_but_leaves_the_interactive_counter_alone(monkeypatch, spend):
+    gets: list = []
+    real_get = spend.redis.get
+
+    async def counting_get(key):
+        gets.append(key)
+        return await real_get(key)
+
+    monkeypatch.setattr(spend.redis, "get", counting_get)
+    spend.redis.store[cost_module._user_monthly_cost_key(OWNER)] = 0.25
+    _patch_common(monkeypatch, pages=_long_pages(2))
+    _use_real_batch(monkeypatch)
+    await _parse("h", OWNER)
+    assert [r["user_id"] for r in spend.rows] == [OWNER, OWNER]
+    assert _spent(spend, OWNER) == 0.25
+    assert [k for k in gets if "llm" in k and "cost" in k] == []  # zero budget GETs
+
+
+async def test_student_parse_in_students_mode_consumes_the_cap(monkeypatch, spend):
+    _patch_common(monkeypatch, pages=_long_pages(2))
+    _use_real_batch(monkeypatch)
+    await _parse("h", OWNER, **STUDENT)
+    assert _spent(spend, OWNER) == pytest.approx(2 * COST)
+
+
+async def test_interactive_call_with_explicit_user_still_records_spend(monkeypatch, spend):
+    await ai_orchestrator._account_for_call(
+        "openai", "gpt-4o-mini", USAGE, user_id=OWNER, course_id=None,
+        feature="ask_professor", duration_seconds=0.1,
+    )
+    assert _spent(spend, OWNER) == pytest.approx(COST)

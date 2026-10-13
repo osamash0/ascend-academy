@@ -1343,7 +1343,14 @@ async def _account_for_call(
         run_id=call_ctx.run_id, slide_indices=call_ctx.slide_indices, prompt_name=name,
         prompt_version=version,
     )
-    if user_id and cost > 0:
+    # An UNENFORCED parse is attributed (the row above) but must not feed the
+    # same Redis counter that interactive features check with an explicit
+    # user_id, or a heavy ingest could lock a professor out of them.
+    parse_budget = call_ctx.budget
+    unenforced_parse_spend = (
+        parse_budget is not None and not parse_budget.enforce and user_id == call_ctx.user_id
+    )
+    if user_id and cost > 0 and not unenforced_parse_spend:
         await record_user_llm_spend(user_id, cost)
 
     labels = {"provider": provider_id, "model": model, "feature": feature}

@@ -200,7 +200,7 @@ async def test_unenforced_parse_context_is_attributed_but_never_refused(provider
         assert await orchestrator.generate_text_bulk("p") == '{"ok": true}'
     assert len(provider) == 1
     assert metered.rows[0]["user_id"] == "prof-1"
-    assert _spent(metered.redis, "prof-1") == pytest.approx(1.0 + COST)
+    assert _spent(metered.redis, "prof-1") == pytest.approx(1.0)  # unenforced: not counted
 
 
 async def test_explicit_user_gate_is_unchanged_outside_a_parse(provider, metered):

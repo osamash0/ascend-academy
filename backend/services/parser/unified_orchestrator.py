@@ -763,9 +763,8 @@ async def parse_pdf_unified(
         # Arc 9: bill every LLM call of this parse to its uploader and course
         # (_account_for_call reads them from the context), and decide once
         # whether this parse's calls may be refused for budget.
-        billed_user = (
-            student_owner_id if visibility == "private_student" and student_owner_id else user_id
-        )
+        # The billed user is the lecture owner (``owner`` below is UUID(user_id)).
+        billed_user = user_id
         llm_ctx_token = push_llm_call_context(
             run_id=str(run_uuid), calls=served_calls,
             user_id=billed_user or None, course_id=course_id or None,
