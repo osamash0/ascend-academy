@@ -11,7 +11,7 @@ import {
   spaceOfTheWeek,
 } from '../../data/hub';
 import { allSpaces } from '../spaces';
-import { coverFor, COVERS, SLATE_COVER } from '../covers';
+import { coverFor, COVERS, SLATE_COVER } from '../../components/hub/covers';
 import { publishedLessonsForSpace } from '../lessons';
 
 /**

@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { ModeBadge } from '../badges';
 import type { Space } from '../../types';
-import { coverFor, initialFor } from '../../mocks/covers';
+import { coverFor, initialFor } from './covers';
 import { actionFor, membershipOf } from '../../data/hub';
 import { itemVariants, railVariants } from '../Enter';
 import { PRESS_SPRING } from '../Pressable';

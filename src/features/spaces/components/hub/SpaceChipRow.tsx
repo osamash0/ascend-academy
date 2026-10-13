@@ -3,7 +3,7 @@ import { Compass, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import type { Space } from '../../types';
-import { coverFor } from '../../mocks/covers';
+import { coverFor } from './covers';
 import { PRESS_SPRING } from '../Pressable';
 
 /**

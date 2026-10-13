@@ -1,4 +1,6 @@
 import type { HeroKind, HomeItem, RecentItem } from '../mocks/library';
+
+export type { HeroKind, HomeItem, RecentItem };
 import type { Lesson } from '../types';
 import type { World } from './world';
 

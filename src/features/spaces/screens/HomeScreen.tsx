@@ -8,7 +8,7 @@ import { Pressable, PressableLink } from '../components/Pressable';
 import { topicIcon } from '@/lib/topicIcon';
 import { AskBar } from '../components/AskBar';
 import { LessonTile } from '../components/LessonTile';
-import type { HomeItem } from '../mocks/library';
+import type { HomeItem } from '../data/home';
 import { askAcknowledgement, askModel, askNow, askSuggestionsNow, type AskAnswer } from '../data/assistant';
 import { liveWorld } from '../data/world';
 import { useHome } from '../data/useSpaces';
@@ -275,11 +275,10 @@ export default function HomeScreen() {
       </section>
 
       {/*
-        The prompt, and an honest non-answer.
-
-        `askAcknowledgement` names the question back rather than inventing a
-        reply — see `mocks/assistant.ts`. Wiring later means replacing that one
-        call, not rebuilding this.
+        The prompt. Live, the grounded course tutor answers from the material
+        in the Space you are working in, with its sources as Lesson pages
+        (data/assistant.ts → POST /v4/ask). In demo there is no tutor, so
+        `askAcknowledgement` names the question back rather than invent a reply.
       */}
       <div
         className="mt-10"
