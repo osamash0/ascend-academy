@@ -249,7 +249,9 @@ export function useLibrary(kind?: LibraryItem['kind']): LibraryResult {
    * the one surface Doc 2 says notes are *written* in.
    */
   const currentNotes = ready ? allNotes() : [];
-  const all = ready ? libraryItemsWith(currentNotes) : [];
+  // Live, only your notes are real: contributions and Materials are fixtures.
+  const composed = ready ? libraryItemsWith(currentNotes) : [];
+  const all = liveWorld() ? composed.filter((i) => i.kind === 'note') : composed;
   const items = kind ? all.filter((i) => i.kind === kind) : all;
   return {
     state: ready && items.length === 0 ? 'empty' : state,
@@ -328,7 +330,8 @@ export interface CanvasResult {
 /** One Studio canvas and the source pages behind it. Unknown id → `empty`, like `useSpace`. */
 export function useCanvas(canvasId: string | undefined): CanvasResult {
   const state = useSettled(useScenario());
-  const canvas = canvasId ? canvasById(canvasId) ?? null : null;
+  // Canvases are fixtures; a real account has none yet (see `useShelf`).
+  const canvas = canvasId && !liveWorld() ? canvasById(canvasId) ?? null : null;
   if (state !== 'ready' || !canvas) {
     return {
       state: !canvas && state === 'ready' ? 'empty' : state,
