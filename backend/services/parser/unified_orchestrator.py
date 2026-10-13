@@ -1054,6 +1054,19 @@ async def parse_pdf_unified(
             last = results[-1] if results else None
             previous_narrative = last.get("summary", "") if isinstance(last, dict) else ""
 
+        # ── 4a. Studio pages (real-pages spec) ───────────────────────────────
+        # Pictures, block geometry and calm summaries for Studio, in their own
+        # pass so the reader's synthesis above is untouched. A failure here
+        # fails the parse: a Studio material without its pages cannot open.
+        if settings.feature_studio_pages and ai_mode and created_lecture_id is not None:
+            from backend.services.parser.studio_pages import build_studio_pages
+            await emit("progress", {"current": total, "total": total, "message": "Writing your summary…"})
+            await build_studio_pages(
+                created_lecture_id, pdf_bytes,
+                lecture_title=lecture_title, ai_model=ai_model,
+                source_language=source_language, emit=emit,
+            )
+
         # ── 4b. Course-context extraction from administrative slides ─────────
         # A parallel side-channel — does NOT change what gets synthesized or
         # quizzed above; it only feeds course_context. Best-effort, non-fatal.
