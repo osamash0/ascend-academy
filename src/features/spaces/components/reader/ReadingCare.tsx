@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Coffee, Target, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Care for a long session.
@@ -86,6 +87,7 @@ export function useReadingCare(page: number, enabled: boolean): ReadingCare {
 }
 
 export function BreakNudge({ care, checkHref }: { care: ReadingCare; checkHref?: string }) {
+  const { t } = useTranslation('v4Reader');
   const reduce = useReducedMotion();
   return (
     <AnimatePresence>
@@ -102,16 +104,16 @@ export function BreakNudge({ care, checkHref }: { care: ReadingCare; checkHref?:
           <button
             type="button"
             onClick={care.snooze}
-            aria-label="Not now"
+            aria-label={t('care.notNow')}
             className="console-focusable absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
           >
             <X aria-hidden className="h-4 w-4" />
           </button>
           <p className="text-[13px] tabular-nums text-quiet">
-            {care.minutes} {care.minutes === 1 ? 'minute' : 'minutes'} · {care.pages} {care.pages === 1 ? 'page' : 'pages'}
+            {t('care.minutes', { count: care.minutes })} · {t('care.pages', { count: care.pages })}
           </p>
           <p className="mt-1.5 pr-6 text-[15px] leading-[1.45] text-foreground">
-            A short break now helps what you read settle.
+            {t('care.nudge')}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
@@ -120,7 +122,7 @@ export function BreakNudge({ care, checkHref }: { care: ReadingCare; checkHref?:
               className="console-focusable inline-flex h-9 items-center gap-2 rounded-full bg-white px-4 text-[13px] font-medium text-background transition-colors"
             >
               <Coffee aria-hidden className="h-3.5 w-3.5" />
-              Take 5 minutes
+              {t('care.takeBreak')}
             </button>
             {checkHref && (
               <Link
@@ -128,7 +130,7 @@ export function BreakNudge({ care, checkHref }: { care: ReadingCare; checkHref?:
                 className="console-focusable inline-flex h-9 items-center gap-2 rounded-full bg-white/[0.07] px-4 text-[13px] text-foreground transition-colors hover:bg-white/[0.12]"
               >
                 <Target aria-hidden className="h-3.5 w-3.5" />
-                Check what stuck
+                {t('care.checkWhatStuck')}
               </Link>
             )}
           </div>
@@ -140,6 +142,7 @@ export function BreakNudge({ care, checkHref }: { care: ReadingCare; checkHref?:
 
 /** The break itself: the screen goes still, and a circle breathes slowly. */
 export function BreakRoom({ care, page }: { care: ReadingCare; page: number }) {
+  const { t } = useTranslation('v4Reader');
   const reduce = useReducedMotion();
   const [left, setLeft] = useState(BREAK_LENGTH_S);
   const backRef = useRef<HTMLButtonElement>(null);
@@ -171,7 +174,7 @@ export function BreakRoom({ care, page }: { care: ReadingCare; page: number }) {
         <motion.div
           role="dialog"
           aria-modal="true"
-          aria-label="Break"
+          aria-label={t('care.break')}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -193,16 +196,16 @@ export function BreakRoom({ care, page }: { care: ReadingCare; page: number }) {
             </span>
           </div>
           <p className="max-w-sm text-[17px] leading-[1.5] text-foreground">
-            {left > 0 ? 'Look away from the screen — at something far away.' : 'Ready when you are.'}
+            {left > 0 ? t('care.lookAway') : t('care.ready')}
           </p>
-          {!reduce && left > 0 && <p className="mt-2 text-[13.5px] text-quiet">Breathe in as the light grows, out as it fades.</p>}
+          {!reduce && left > 0 && <p className="mt-2 text-[13.5px] text-quiet">{t('care.breathe')}</p>}
           <button
             ref={backRef}
             type="button"
             onClick={back}
             className="console-focusable mt-10 h-11 rounded-full bg-white/[0.08] px-6 text-[14px] text-foreground transition-colors hover:bg-white/[0.14]"
           >
-            Back to page {page}
+            {t('care.backToPage', { page })}
           </button>
         </motion.div>
       )}

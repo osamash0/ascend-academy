@@ -4,5 +4,288 @@
     "page": "Page",
     "explain": "Explain",
     "text": "Text"
+  },
+  "screen": {
+    "empty": {
+      "title": "Nothing to read yet",
+      "body": "{{lesson}} has its ideas and its practice, but no Material and no text yet."
+    },
+    "backToLesson": "Back to the Lesson",
+    "explainSelection": "Explain this from the page: “{{words}}”",
+    "notes": {
+      "title": "Notes · {{lesson}}",
+      "placeholder": "Private to you, and gathered in your Library.",
+      "empty": "Nothing yet. Notes are private, and only you ever see them."
+    },
+    "practiseIdea": "Practise this idea",
+    "practiseRead": "Practise what you just read",
+    "select": {
+      "read": "Read this",
+      "showPage": "Show page",
+      "explain": "Explain this"
+    },
+    "toc": {
+      "hide": "Hide the contents",
+      "keep": "Keep the contents open"
+    },
+    "paper": {
+      "light": "Light paper",
+      "night": "Night paper",
+      "nightHint": "Night paper — dark pages for long sessions"
+    },
+    "turnPhone": "Turn your phone sideways for a bigger page",
+    "gotIt": "Got it",
+    "hint": {
+      "plain": "← → turns the page. Select words to ask about them.",
+      "withPoints": "← → turns the page, scrolling steps through its points. Select words to ask about them."
+    },
+    "prevPage": "Previous page",
+    "nextPage": "Next page",
+    "saved": {
+      "checkpoint": "Checkpoint · {{idea}}",
+      "teach": "Teach-back · {{idea}}"
+    },
+    "relatedAt": "{{lesson}} · p{{page}}",
+    "thisFormula": "This formula",
+    "points": {
+      "all": "All",
+      "label": "Points on this page"
+    }
+  },
+  "chapters": {
+    "label": "Ideas in this Lesson",
+    "position": "Idea {{n}} of {{total}}",
+    "lastPage": "Last page of this idea",
+    "pagesLeft_one": "{{count}} page left in this idea",
+    "pagesLeft_other": "{{count}} pages left in this idea",
+    "elsewhere": "Pages {{first}}–{{last}} · click to go there",
+    "light": {
+      "lit": "Tested right",
+      "fading": "Fading",
+      "weak": "To revisit",
+      "dark": "Not tested yet"
+    },
+    "fadingNote": "Fading — due for a look",
+    "segment": "{{name}}, pages {{first}} to {{last}}",
+    "segmentWithLight": "{{name}}, pages {{first}} to {{last}}, {{light}}",
+    "lightSpoken": {
+      "lit": "tested right",
+      "fading": "fading",
+      "weak": "to revisit"
+    }
+  },
+  "checkpoint": {
+    "offer": {
+      "dismiss": "Not now",
+      "finished": "Idea finished",
+      "prompt": "Check it while it is fresh.",
+      "failed": "Couldn't write a question just now.",
+      "loading": "Writing it from the pages…",
+      "retry": "Try again",
+      "start": "One question",
+      "teach": "Explain it back"
+    },
+    "panel": {
+      "label": "Checkpoint: {{name}}",
+      "heading": "Checkpoint · pages {{first}}–{{last}}",
+      "progress": "{{n}} of {{total}}",
+      "close": "Back to reading",
+      "next": "Next question",
+      "finish": "Finish"
+    },
+    "done": {
+      "lit": "{{name}} is lit.",
+      "revisit": "{{name}}, marked to revisit.",
+      "litNote": "It shows on the strip and on the Space’s map.",
+      "revisitNote": "The Space’s map will bring it back before the exam.",
+      "keepReading": "Keep reading"
+    }
+  },
+  "teach": {
+    "label": "Teach it back: {{name}}",
+    "heading": "Teach it back · pages {{first}}–{{last}}",
+    "close": "Back to reading",
+    "prompt": "Explain it in your own words, as if to a friend who missed this Lesson.",
+    "placeholder": "It's about…",
+    "reading": "Reading it against pages {{first}}–{{last}}…",
+    "submit": "Check my explanation",
+    "hint": "A few sentences is enough.",
+    "failed": "Couldn't read it just now — try again.",
+    "verdict": {
+      "solid": "You can teach this.",
+      "partial": "Nearly there.",
+      "off": "Not yet — but now you know where."
+    },
+    "correctionPage": "page {{page}}",
+    "pointPage": "Page {{page}}",
+    "points": "What the pages teach · {{covered}} of {{total}} in your words",
+    "retry": "Try again",
+    "keepReading": "Keep reading"
+  },
+  "care": {
+    "notNow": "Not now",
+    "minutes_one": "{{count}} minute",
+    "minutes_other": "{{count}} minutes",
+    "pages_one": "{{count}} page",
+    "pages_other": "{{count}} pages",
+    "nudge": "A short break now helps what you read settle.",
+    "takeBreak": "Take 5 minutes",
+    "checkWhatStuck": "Check what stuck",
+    "break": "Break",
+    "lookAway": "Look away from the screen — at something far away.",
+    "ready": "Ready when you are.",
+    "breathe": "Breathe in as the light grows, out as it fades.",
+    "backToPage": "Back to page {{page}}"
+  },
+  "spine": {
+    "label": "Concepts in this Lesson"
+  },
+  "toc": {
+    "label": "Contents of this Lesson",
+    "page": "Page {{page}}"
+  },
+  "studio": {
+    "name": "Studio",
+    "page": "Page {{page}}",
+    "close": "Close the studio",
+    "closeNamed": "Close {{name}}"
+  },
+  "companion": {
+    "close": "Close"
+  },
+  "select": {
+    "label": "What to do with the selected sentence",
+    "ask": "Ask the tutor",
+    "saveNote": "Save as note",
+    "saved": "Saved to your notes."
+  },
+  "tutor": {
+    "grounded": "Grounded — answers draw on this Space’s Lessons and name where they came from.",
+    "empty": "Ask about anything in this Lesson — or select a sentence in the text and start from there.",
+    "quote": "“{{quote}}”",
+    "youAsked": "You asked: ",
+    "answer": "Answer: ",
+    "thinking": "Thinking…",
+    "failed": "That answer did not come back.",
+    "retry": "Try again",
+    "dropQuote": "Drop the selected sentence",
+    "quick": {
+      "simpler": "Explain more simply",
+      "example": "Concrete example",
+      "why": "Why does this matter?"
+    },
+    "composer": "Ask about this Lesson",
+    "send": "Send"
+  },
+  "exit": {
+    "leave": "Leave the reader",
+    "where": "{{space}} · Lesson {{order}}",
+    "viewLabel": "Reader view",
+    "view": {
+      "read": "Read",
+      "source": "Source"
+    },
+    "rail": {
+      "tutor": "Tutor",
+      "notes": "Notes"
+    },
+    "cleared_one": "{{cleared}} of {{count}} idea cleared",
+    "cleared_other": "{{cleared}} of {{count}} ideas cleared"
+  },
+  "practice": {
+    "label": "Practice",
+    "heading": "Practise · {{title}}",
+    "back": "Back to reading",
+    "empty": "There is no practice for this Lesson yet.",
+    "right": "Right. ",
+    "notQuite": "Not quite. ",
+    "check": "Check",
+    "next": "Next question"
+  },
+  "text": {
+    "label": "The text",
+    "notesFor": "Notes for {{name}}",
+    "openPage": "Page {{page}} of the Material"
+  },
+  "explain": {
+    "page": "Page {{page}}",
+    "composing": "Composing an answer for this page…",
+    "fallback": "Explain couldn’t reach the model just now, so this is built from the page’s own text.",
+    "related": {
+      "label": "Also taught in this Space",
+      "heading": "<idea>{{idea}}</idea> also appears elsewhere in the Space"
+    },
+    "thinking": "Choosing how to show this…",
+    "failed": "That one didn’t come through.",
+    "retry": "Try again",
+    "ask": {
+      "placeholder": "Ask about this page — or ask for a tool…",
+      "placeholderTutor": "Ask the tutor about this page…",
+      "label": "Ask about this page",
+      "send": "Ask"
+    },
+    "starters": {
+      "how": "Show me how this works",
+      "example": "Give me an example to try",
+      "mistakes": "What do people get wrong here?"
+    },
+    "composed": {
+      "onPage": "On this page",
+      "points_one": "{{count}} point. Pick it to find it on the page.",
+      "points_other": "{{count}} points. Pick one to find it on the page.",
+      "picture": "This page is mostly a picture — there is no text on it to explain.",
+      "parts": "Parts to explore",
+      "plain": "Just text"
+    }
+  },
+  "blocks": {
+    "explore": {
+      "all": "All"
+    },
+    "fd": {
+      "reset": "Reset",
+      "pickSides": "Pick a left and a right side",
+      "broken": "Broken by rows {{a}} and {{b}}",
+      "holds": "Holds on these rows",
+      "role": {
+        "left": "{{column}}: left side",
+        "right": "{{column}}: right side",
+        "none": "{{column}}: not in the dependency"
+      },
+      "left": "left",
+      "right": "right",
+      "cell": "Row {{row}}, {{column}}",
+      "addRow": "Row"
+    },
+    "stepper": {
+      "previous": "Previous step",
+      "next": "Next step",
+      "position": "Step {{at}} of {{count}}"
+    },
+    "closure": {
+      "startWith": "Start with",
+      "begin": "Begin with the start set itself.",
+      "pickStart": "Pick at least one attribute to start from.",
+      "fires": "{{lhs}} is inside the set, so {{fd}} fires and adds {{added}}.",
+      "done": "Nothing else fires — done.",
+      "superkey": "{{set}} is a superkey.",
+      "notKey": "Not a key: it never reaches {{missing}}."
+    },
+    "bcnf": {
+      "done_one": "Every relation is in BCNF. {{count}} split, nothing lost — each split keeps the violating FD’s left side in both halves, so the join is lossless.",
+      "done_other": "Every relation is in BCNF. {{count}} splits, nothing lost — each split keeps the violating FD’s left side in both halves, so the join is lossless.",
+      "split": "In {{relation}}, <fd>{{fd}}</fd> has a left side that is not a key. Split it: everything {{lhs}} decides goes to one relation, the rest stays with {{lhs}}."
+    },
+    "check": {
+      "title": "Check yourself",
+      "retry": "Try again"
+    },
+    "sandbox": {
+      "restart": "Restart",
+      "error": "The app stopped with an error: {{error}}",
+      "note": "Written for this question · runs isolated, offline",
+      "viewCode": "View code",
+      "hideCode": "Hide code"
+    }
   }
 }
