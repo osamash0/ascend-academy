@@ -212,8 +212,6 @@
     }
   },
   "lesson": {
-    "backToSpace": "Zurück zu {{name}}",
-    "backToSpaces": "Zurück zu den Spaces",
     "number": "Lektion {{order}}",
     "pages_one": "{{count}} Seite",
     "pages_other": "{{count}} Seiten",
@@ -402,6 +400,149 @@
       "like_one": "Liken. {{count}} Like.",
       "like_other": "Liken. {{count}} Likes.",
       "likeOwnTitle": "Deinen eigenen Beitrag kannst du nicht liken."
+    }
+  },
+  "manage": {
+    "title": "Verwalten",
+    "titleSpace": "Space verwalten",
+    "loading": "Wird geladen …",
+    "failed": "Da ist etwas schiefgelaufen",
+    "notFound": "Space nicht gefunden",
+    "notFoundHint": "Diesen Space gibt es nicht, oder du hast keinen Zugriff darauf.",
+    "notYours": "Das ist nicht dein Space",
+    "notYoursHint": "{{space}} gehört {{owner}}. Nur Inhaber:innen können die Einstellungen und Mitglieder ändern.",
+    "back": "Zurück zum Space",
+    "save": "Änderungen speichern",
+    "saved": "Änderungen gespeichert",
+    "roles": {
+      "owner": "Inhaber:in",
+      "editor": "Bearbeiter:in",
+      "member": "Mitglied"
+    },
+    "details": {
+      "title": "Details",
+      "name": "Name",
+      "description": "Beschreibung"
+    },
+    "mode": {
+      "title": "Wer veröffentlichen darf",
+      "blurb": "Umstellen kostet nichts. Es ändert nur, wer ab jetzt veröffentlichen darf. Jede Lektion behält ihren Platz, ihre Urheberschaft und den Fortschritt aller.",
+      "now": "Jetzt: {{mode}}",
+      "guidedHint": "Ab jetzt veröffentlichen nur du und deine Bearbeiter:innen Lektionen.",
+      "openHint": "Ab jetzt kann jedes Mitglied Lektionen veröffentlichen."
+    },
+    "grounding": {
+      "title": "Maßgebliche Quelle",
+      "blurb": "Standardmäßig aus. Eingeschaltet gelten veröffentlichte Lektionen als Referenz. Alles andere im Space zeigt dann, ob es sich darauf zurückführen lässt. Es blockiert nichts, es kennzeichnet nur.",
+      "show": "Quellenbezug zeigen",
+      "showHint": "Markiert, was sich auf das Material dieses Spaces zurückführen lässt.",
+      "strict": "Nur Inhalte mit Quelle",
+      "strictHint": "Im Pfad bleibt nur Material, das sich zurückführen lässt. Dafür muss der Quellenbezug an sein."
+    },
+    "orphans": {
+      "title": "Braucht einen neuen Platz",
+      "blurb": "Die Lektion, an der diese Beiträge hingen, wurde gelöscht. Sie sind noch da und zählen weiter. Gib jedem eine Lektion, oder lass sie, dann können ihre Autor:innen das tun.",
+      "rehome": "Platz finden"
+    },
+    "members": {
+      "title": "Mitglieder",
+      "blurb": "Bearbeiter:innen können Inhalte hinzufügen und bearbeiten. Mitglieder lernen und können immer beitragen.",
+      "roleFor": "Rolle von {{name}}",
+      "roleChanged": "{{name}} ist jetzt {{role}}",
+      "remove": "{{name}} entfernen",
+      "removed": "{{name}} entfernt",
+      "removedHint": "Beiträge und Nennungen bleiben im Space.",
+      "undo": "Rückgängig",
+      "restored": "Wiederhergestellt",
+      "alone": "Bisher nur du. Teil den Code unten, um Leute dazuzuholen."
+    },
+    "invite": {
+      "title": "Mit Code einladen",
+      "blurb": "Wer diesen Code hat, tritt direkt bei. Es gibt keine Freigabe."
+    },
+    "archive": {
+      "title": "Archivieren",
+      "blurb": "Archiviert heißt schreibgeschützt. Der Fortschritt bleibt und nichts geht verloren, aber es gibt keine XP mehr, und der Space rutscht in deinen Spaces nach unten.",
+      "action": "Diesen Space archivieren",
+      "done": "Space archiviert",
+      "doneHint": "{{space}} ist jetzt schreibgeschützt."
+    },
+    "delete": {
+      "title": "Diesen Space löschen",
+      "blurb": "Alle Lektionen, alle Beiträge und der Fortschritt aller gehen mit. Das lässt sich nicht rückgängig machen. Gib zur Bestätigung <name>{{space}}</name> ein.",
+      "confirmLabel": "Gib den Namen des Space ein, um das Löschen zu bestätigen",
+      "action": "Endgültig löschen",
+      "done": "{{space}} gelöscht"
+    }
+  },
+  "concept": {
+    "state": {
+      "cleared": {
+        "label": "Geschafft",
+        "blurb": "Du hast Übungen dazu richtig beantwortet."
+      },
+      "discovered": {
+        "label": "Gelesen",
+        "blurb": "Du kennst diese Idee, hast sie aber noch nicht geprüft."
+      },
+      "untouched": {
+        "label": "Noch nicht",
+        "blurb": "Bis zu dieser Idee bist du noch nicht gekommen."
+      }
+    },
+    "ideaIn": "Idee in {{space}}",
+    "appearsIn": "Kommt vor in",
+    "practice": {
+      "title": "Üben",
+      "cta": "Diese Idee üben",
+      "summary_one": "{{count}} Frage in {{lessons}}",
+      "summary_other": "{{count}} Fragen in {{lessons}}",
+      "lessons_one": "ihrer Lektion",
+      "lessons_other": "{{count}} Lektionen"
+    },
+    "community": {
+      "title": "Aus der Community",
+      "lede": "Was Mitglieder zu genau dieser Idee gemacht haben. Sortiert danach, was anderen am meisten geholfen hat.",
+      "emptyTitle": "Hier ist noch nichts",
+      "emptyBody": "Ein durchgerechnetes Beispiel oder eine Eselsbrücke zu dieser Idee hilft allen, die ihr als Nächstes begegnen."
+    }
+  },
+  "practiceScreen": {
+    "empty": {
+      "title": "Hier gibt es noch keine Übungen",
+      "body": "Für {{lesson}} wurde bisher nichts geschrieben."
+    },
+    "backToLesson": "Zurück zur Lektion",
+    "verdict": {
+      "allHeld": {
+        "title": "Alles hat gehalten.",
+        "lede": "Nichts, wozu du zurückmusst. Die Erklärungen bleiben da, wann immer du sie brauchst."
+      },
+      "heldSecond": {
+        "title": "Gehalten, beim zweiten Blick.",
+        "lede": "Was du verpasst hattest, kam zurück und hat gehalten. Beim zweiten Versuch bleibt am meisten hängen."
+      },
+      "nearly": {
+        "title": "Fast geschafft.",
+        "lede": "Diese sitzen noch nicht. Lies noch einmal, warum. Dann versuch es erneut, solange es frisch ist."
+      }
+    },
+    "again": "Noch mal",
+    "leave": "Übung verlassen",
+    "secondLook": "Zweiter Blick",
+    "correctAnswer": "Richtige Antwort",
+    "wrongAnswer": "Deine Antwort, falsch",
+    "feedback": {
+      "right": "Richtig",
+      "rightHeld": "Richtig – es hat gehalten",
+      "notYet": "Noch nicht",
+      "comesBack": "Nicht ganz – diese Frage kommt wieder"
+    },
+    "seeHow": "Sieh dir an, wie es lief",
+    "next": "Nächste Frage",
+    "progress": {
+      "label": "Fortschritt in dieser Übung",
+      "value": "{{held}} von {{total}} gehalten"
     }
   }
 }

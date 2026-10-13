@@ -119,9 +119,9 @@ describe('a Lesson overview, in German', () => {
     expect(rawKeys()).toEqual([]);
   });
 
-  /* The not-found sentence itself is states.tsx's, still English until slice 3; the way back is this screen's. */
-  it('a missing Lesson offers the way back in German', async () => {
+  it('a missing Lesson says so in German, with the way back', async () => {
     await renderLesson('/v4/space/s-dbs/lesson/nope');
+    expect(await screen.findByText('Diese Lektion gibt es hier nicht', {}, { timeout: 4000 })).toBeInTheDocument();
     expect(await screen.findByText(/Zurück zu/, {}, { timeout: 4000 })).toBeInTheDocument();
     expect(leftover()).toEqual([]);
     expect(rawKeys()).toEqual([]);

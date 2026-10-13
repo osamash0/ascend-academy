@@ -73,8 +73,8 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
   );
 
   if (state === 'loading') return chrome(<DetailSkeleton />);
-  if (state === 'error') return chrome(<SpacesError what="this Space" />);
-  if (!course) return chrome(<NotFound what="Space" backTo="/v4/spaces" backLabel="Back to Spaces" />);
+  if (state === 'error') return chrome(<SpacesError what="space" />);
+  if (!course) return chrome(<NotFound what="space" back={{ to: '/v4/spaces', place: 'spaces' }} />);
 
   const pageHref = (lectureId: string, page: number) => `/v4/space/${course.id}/lesson/${lectureId}/faces?page=${page}&view=explain`;
 

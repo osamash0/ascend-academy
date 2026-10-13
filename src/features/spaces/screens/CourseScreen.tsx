@@ -71,8 +71,8 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
   );
 
   if (state === 'loading') return chrome(<DetailSkeleton />);
-  if (state === 'error') return chrome(<SpacesError what="this Space" />);
-  if (!course) return chrome(<NotFound what="Space" backTo="/v4/spaces" backLabel="Back to Spaces" />);
+  if (state === 'error') return chrome(<SpacesError what="space" />);
+  if (!course) return chrome(<NotFound what="space" back={{ to: '/v4/spaces', place: 'spaces' }} />);
 
   const pages = course.lectures.reduce((n, l) => n + l.total_slides, 0);
   const lessonHref = (id: string) => `/v4/space/${course.id}/lesson/${id}`;

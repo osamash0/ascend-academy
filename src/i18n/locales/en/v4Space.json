@@ -212,8 +212,6 @@
     }
   },
   "lesson": {
-    "backToSpace": "Back to {{name}}",
-    "backToSpaces": "Back to Spaces",
     "number": "Lesson {{order}}",
     "pages_one": "{{count}} page",
     "pages_other": "{{count}} pages",
@@ -402,6 +400,149 @@
       "like_one": "Like this. {{count}} likes.",
       "like_other": "Like this. {{count}} likes.",
       "likeOwnTitle": "You can’t like your own contribution."
+    }
+  },
+  "manage": {
+    "title": "Manage",
+    "titleSpace": "Manage Space",
+    "loading": "Loading…",
+    "failed": "Something went wrong",
+    "notFound": "Space not found",
+    "notFoundHint": "That Space does not exist, or you cannot reach it.",
+    "notYours": "This isn’t your Space",
+    "notYoursHint": "{{owner}} owns {{space}}. Only the Owner can change its settings or its Members.",
+    "back": "Back to the Space",
+    "save": "Save changes",
+    "saved": "Changes saved",
+    "roles": {
+      "owner": "Owner",
+      "editor": "Editor",
+      "member": "Member"
+    },
+    "details": {
+      "title": "Details",
+      "name": "Name",
+      "description": "Description"
+    },
+    "mode": {
+      "title": "Who can publish",
+      "blurb": "Switching is lossless: it changes only who may publish from now on. Every Lesson keeps its place, its author and everyone's progress.",
+      "now": "Now {{mode}}",
+      "guidedHint": "Only you and your Editors publish Lessons from now on.",
+      "openHint": "Every Member can publish Lessons from now on."
+    },
+    "grounding": {
+      "title": "Source of truth",
+      "blurb": "Off by default. Turning it on nominates published Lessons as the reference, and everything else in the Space then shows whether it traces back to them. It never blocks anything — it labels.",
+      "show": "Show grounding",
+      "showHint": "Mark what traces back to this Space’s material.",
+      "strict": "Grounded content only",
+      "strictHint": "Keep the path to material that traces back. Needs grounding on."
+    },
+    "orphans": {
+      "title": "Needs a new home",
+      "blurb": "The Lesson these were attached to was deleted. They are still here and still count — give each one a Lesson, or leave them and their authors can.",
+      "rehome": "Find it a home"
+    },
+    "members": {
+      "title": "Members",
+      "blurb": "Editors can add and edit content. Members learn, and can always contribute.",
+      "roleFor": "Role for {{name}}",
+      "roleChanged": "{{name}} is now {{role}}",
+      "remove": "Remove {{name}}",
+      "removed": "Removed {{name}}",
+      "removedHint": "Their contributions and credit stay in the Space.",
+      "undo": "Undo",
+      "restored": "Restored",
+      "alone": "Only you so far. Share the code below to bring people in."
+    },
+    "invite": {
+      "title": "Invite with a code",
+      "blurb": "Anyone with this joins directly. There is no approval step."
+    },
+    "archive": {
+      "title": "Archive",
+      "blurb": "Archived is read-only. Progress is kept and nothing is lost, but it earns no XP and drops to the bottom of your Spaces.",
+      "action": "Archive this Space",
+      "done": "Space archived",
+      "doneHint": "{{space}} is now read-only."
+    },
+    "delete": {
+      "title": "Delete this Space",
+      "blurb": "Every Lesson, every contribution and everyone’s progress goes with it. This cannot be undone. Type <name>{{space}}</name> to confirm.",
+      "confirmLabel": "Type the Space name to confirm deletion",
+      "action": "Delete permanently",
+      "done": "Deleted {{space}}"
+    }
+  },
+  "concept": {
+    "state": {
+      "cleared": {
+        "label": "Cleared",
+        "blurb": "You have answered practice on this correctly."
+      },
+      "discovered": {
+        "label": "Read",
+        "blurb": "You have met this idea but not yet proved it."
+      },
+      "untouched": {
+        "label": "Not yet",
+        "blurb": "You have not reached this idea."
+      }
+    },
+    "ideaIn": "Idea in {{space}}",
+    "appearsIn": "Appears in",
+    "practice": {
+      "title": "Practice",
+      "cta": "Practise this idea",
+      "summary_one": "{{count}} question across {{lessons}}",
+      "summary_other": "{{count}} questions across {{lessons}}",
+      "lessons_one": "its Lesson",
+      "lessons_other": "{{count}} Lessons"
+    },
+    "community": {
+      "title": "From the community",
+      "lede": "What members made for this one idea. Sorted by what people found most useful.",
+      "emptyTitle": "Nothing here yet",
+      "emptyBody": "A worked example or a mnemonic for this idea would help whoever meets it next."
+    }
+  },
+  "practiceScreen": {
+    "empty": {
+      "title": "No practice here yet",
+      "body": "Nothing has been written for {{lesson}} so far."
+    },
+    "backToLesson": "Back to the Lesson",
+    "verdict": {
+      "allHeld": {
+        "title": "Every one held.",
+        "lede": "Nothing to go back to. The explanations are still there whenever you want them."
+      },
+      "heldSecond": {
+        "title": "Held, on a second look.",
+        "lede": "What you missed came back and held. That second try is where most of it sticks."
+      },
+      "nearly": {
+        "title": "Nearly there.",
+        "lede": "These still slip. Read why once more — then try again, while it is fresh."
+      }
+    },
+    "again": "Again",
+    "leave": "Leave practice",
+    "secondLook": "Second look",
+    "correctAnswer": "Correct answer",
+    "wrongAnswer": "Your answer, incorrect",
+    "feedback": {
+      "right": "Right",
+      "rightHeld": "Right — it held",
+      "notYet": "Not yet",
+      "comesBack": "Not quite — this one comes back"
+    },
+    "seeHow": "See how it went",
+    "next": "Next question",
+    "progress": {
+      "label": "Progress through this practice",
+      "value": "{{held}} of {{total}} held"
     }
   }
 }

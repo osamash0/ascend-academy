@@ -16,6 +16,26 @@
 | people (who maintain a Space) | **Leute, die den Space pflegen** | Dozent (without :in), Professor |
 | student | **Studierende** (pl.), **Studierende:r** (sg.) | Student, Studenten |
 
+## The rooms (top bar, mobile nav)
+
+| English | German |
+|---|---|
+| Home | **Start** |
+| Spaces | **Spaces** |
+| Library | **Bibliothek** |
+| Social | **Leute** |
+| Profile | **Profil** |
+| Settings | Einstellungen |
+| Ask anything | Frag, was du willst |
+
+## Roles in a Space
+
+| English | German |
+|---|---|
+| Owner | **Inhaber:in** |
+| Editor | **Bearbeiter:in** |
+| Member | **Mitglied** |
+
 ## The learning moves
 
 | English | German |

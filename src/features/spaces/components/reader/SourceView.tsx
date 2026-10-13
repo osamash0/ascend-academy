@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Concept, MaterialPage } from '../../types';
@@ -61,6 +62,7 @@ interface Props {
 }
 
 export function SourceView({ pages, concepts, page, onPageChange, onJumpToPassage, sheet }: Props) {
+  const { t } = useTranslation('v4Reader');
   /*
    * Clamped rather than trusted. The page number arrives from a citation, a
    * pager and a Lesson change, and the first two can outlive the third — a
@@ -92,14 +94,14 @@ export function SourceView({ pages, concepts, page, onPageChange, onJumpToPassag
           ))}
         </ul>
         {/* The number printed on the page itself, where a page number goes. */}
-        <p className="mt-auto pt-10 text-[11px] text-slate-400">Page {current.page}</p>
+        <p className="mt-auto pt-10 text-[11px] text-slate-400">{t('read.source.pageNumber', { page: current.page })}</p>
       </div>
       )}
 
       <div className="mt-6 flex items-center justify-center gap-5">
         <button
           type="button"
-          aria-label="Previous page"
+          aria-label={t('screen.prevPage')}
           disabled={i === 0}
           onClick={() => onPageChange(pages[i - 1].page)}
           className="console-focusable flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.10] bg-white/[0.04] text-foreground transition-colors hover:bg-white/[0.08] disabled:cursor-default disabled:border-white/[0.05] disabled:text-quiet disabled:hover:bg-white/[0.04]"
@@ -116,7 +118,7 @@ export function SourceView({ pages, concepts, page, onPageChange, onJumpToPassag
         </span>
         <button
           type="button"
-          aria-label="Next page"
+          aria-label={t('screen.nextPage')}
           disabled={i === pages.length - 1}
           onClick={() => onPageChange(pages[i + 1].page)}
           className="console-focusable flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.10] bg-white/[0.04] text-foreground transition-colors hover:bg-white/[0.08] disabled:cursor-default disabled:border-white/[0.05] disabled:text-quiet disabled:hover:bg-white/[0.04]"
@@ -137,18 +139,22 @@ export function SourceView({ pages, concepts, page, onPageChange, onJumpToPassag
       */}
       {concept && (
         <p className="mt-4 text-center text-[12.5px] text-faint">
-          This page belongs to{' '}
-          {onJumpToPassage ? (
-            <button
-              type="button"
-              onClick={() => onJumpToPassage(concept.id)}
-              className="console-focusable rounded px-1 py-0.5 font-medium text-secondary underline-offset-2 hover:underline"
-            >
-              {concept.name}
-            </button>
-          ) : (
-            <span className="font-medium text-quiet">{concept.name}</span>
-          )}
+          <Trans
+            t={t}
+            i18nKey="read.source.belongsTo"
+            values={{ name: concept.name }}
+            components={{
+              idea: onJumpToPassage ? (
+                <button
+                  type="button"
+                  onClick={() => onJumpToPassage(concept.id)}
+                  className="console-focusable rounded px-1 py-0.5 font-medium text-secondary underline-offset-2 hover:underline"
+                />
+              ) : (
+                <span className="font-medium text-quiet" />
+              ),
+            }}
+          />
         </p>
       )}
     </>

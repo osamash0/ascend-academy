@@ -117,15 +117,13 @@ export default function LessonScreen() {
   // All four states, on every screen. `?mock=loading|error` used to be a
   // no-op here, so these two had never been seen.
   if (reader.state === 'loading') return chrome(<DetailSkeleton />);
-  if (reader.state === 'error') return chrome(<SpacesError what="this Lesson" />);
+  if (reader.state === 'error') return chrome(<SpacesError what="lesson" />);
 
   if (!space || !lesson)
     return chrome(
       <NotFound
-        /* `what` is woven into states.tsx's English sentence until slice 3 translates the states. */
-        what="Lesson"
-        backTo={space ? `/v4/space/${space.id}` : '/v4/spaces'}
-        backLabel={space ? t('lesson.backToSpace', { name: space.name }) : t('lesson.backToSpaces')}
+        what="lesson"
+        back={space ? { to: `/v4/space/${space.id}`, space: space.name } : { to: '/v4/spaces', place: 'spaces' }}
       />,
     );
 

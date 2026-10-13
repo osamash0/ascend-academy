@@ -220,7 +220,7 @@ export default function LibraryStudioScreen() {
           .map((v) => v.title)
           .join(' · ')}
       >
-        <NotFound what="screen" backTo="/v4/library" backLabel="Back to Library" />
+        <NotFound what="screen" back={{ to: '/v4/library', place: 'library' }} />
       </StudioShell>
     );
   }
@@ -235,7 +235,7 @@ export default function LibraryStudioScreen() {
         title={VIEWS[view].title}
         subtitle={screenState === 'error' ? 'Something went wrong' : 'Loading…'}
       >
-        {screenState === 'error' ? <SpacesError what="your work" /> : <ListSkeleton />}
+        {screenState === 'error' ? <SpacesError what="work" /> : <ListSkeleton />}
       </StudioShell>
     );
   }

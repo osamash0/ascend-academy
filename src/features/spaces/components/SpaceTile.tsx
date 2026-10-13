@@ -1,5 +1,7 @@
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { Archive, Check, Loader2 } from 'lucide-react';
+import { formatNumber } from '../i18n/format';
 import { cn } from '@/lib/utils';
 import { topicIcon } from '@/lib/topicIcon';
 import { ClassificationChips } from './badges';
@@ -46,12 +48,6 @@ interface Props {
   onOpen: () => void;
 }
 
-/** "1 member", not "1 members". Small, but it is the copy people actually read. */
-const plural = (n: number, one: string, many = `${one}s`) =>
-  // Grouped: a Discover card showed "1204 members", and four unbroken digits
-  // read as an id rather than a count.
-  `${n.toLocaleString()} ${n === 1 ? one : many}`;
-
 export function SpaceTile({
   space,
   index,
@@ -61,6 +57,14 @@ export function SpaceTile({
   onFocus,
   onOpen,
 }: Props) {
+  const { t } = useTranslation('v4Spaces');
+  /*
+   * "1 member", not "1 members" — i18next plurals. Grouped: a Discover card
+   * showed "1204 members", and four unbroken digits read as an id rather
+   * than a count.
+   */
+  const counted = (key: 'drafts' | 'members' | 'stars', n: number) =>
+    t(`tiles.${key}`, { count: n, n: formatNumber(n) });
   const Icon = topicIcon(space.name, space.id);
   const owned = space.viewerRole === 'owner';
   const archived = space.state === 'archived';
@@ -74,13 +78,17 @@ export function SpaceTile({
       data-active={isActive}
       onClick={onFocus}
       onDoubleClick={onOpen}
-      aria-label={
-        `${space.name}. ` +
-        (owned ? 'You own this Space. ' : '') +
-        (archived ? 'Archived. ' : '') +
-        (processing ? 'Still processing. ' : `${space.viewerProgress}% complete. `) +
-        `${space.memberCount} members.`
-      }
+      aria-label={[
+        `${space.name}.`,
+        owned && t('tiles.label.owned'),
+        archived && t('tiles.label.archived'),
+        processing
+          ? t('tiles.label.processing')
+          : t('tiles.label.complete', { percent: space.viewerProgress }),
+        t('tiles.label.members', { count: space.memberCount, n: formatNumber(space.memberCount) }),
+      ]
+        .filter(Boolean)
+        .join(' ')}
       className="console-focusable shrink-0 rounded-2xl outline-none"
       style={{ width: SIZE }}
     >
@@ -148,17 +156,17 @@ export function SpaceTile({
         {archived ? (
           <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-black/65 px-2 py-[3px] text-[11px] font-medium text-white">
             <Archive aria-hidden className="h-3 w-3" />
-            Archived
+            {t('tiles.archived')}
           </span>
         ) : complete ? (
           <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-success/90 px-2 py-[3px] text-[11px] font-medium text-white">
             <Check aria-hidden className="h-3 w-3" />
-            Done
+            {t('tiles.done')}
           </span>
         ) : space.newSinceLastVisit > 0 ? (
           /* Labelled, never a bare number — "2 new" says what is new. */
           <span className="absolute right-3 top-3 rounded-full bg-primary px-2 py-[3px] text-[11px] font-medium text-primary-foreground tabular-nums">
-            {space.newSinceLastVisit} new
+            {t('tiles.new', { count: space.newSinceLastVisit })}
           </span>
         ) : null}
 
@@ -169,10 +177,10 @@ export function SpaceTile({
           </h3>
           <p className="mt-0.5 truncate text-[12.5px] text-quiet">
             {owned
-              ? `${plural(space.draftsPending ?? 0, 'draft')} · ${plural(space.memberCount, 'member')}`
+              ? `${counted('drafts', space.draftsPending ?? 0)} · ${counted('members', space.memberCount)}`
               : showClassification
-                ? `${plural(space.memberCount, 'member')} · ${plural(space.starCount, 'star')}`
-                : `${space.viewerProgress}% · ${plural(space.memberCount, 'member')}`}
+                ? `${counted('members', space.memberCount)} · ${counted('stars', space.starCount)}`
+                : `${t('tiles.percent', { percent: space.viewerProgress })} · ${counted('members', space.memberCount)}`}
           </p>
           {/* Capped at two, most specific first — the cap lives in the
               component's default, not here. */}

@@ -585,15 +585,14 @@ export default function LessonFacesScreen() {
     return chrome(
       <>
         <ReaderExit to={exitTo} />
-        <SpacesError what="this Lesson" />
+        <SpacesError what="lesson" />
       </>,
     );
   if (!space || !lesson)
     return chrome(
       <NotFound
-        what="Lesson"
-        backTo={space ? `/v4/space/${space.id}` : '/v4/spaces'}
-        backLabel={space ? `Back to ${space.name}` : 'Back to Spaces'}
+        what="lesson"
+        back={space ? { to: `/v4/space/${space.id}`, space: space.name } : { to: '/v4/spaces', place: 'spaces' }}
       />,
     );
 
