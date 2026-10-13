@@ -93,6 +93,10 @@ OPENAI_ONLY = AI_PROVIDER_MODE == "openai_only"
 OPENAI_QUALITY_MODEL = os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
 OPENAI_BULK_MODEL = os.environ.get("OPENAI_BULK_MODEL") or OPENAI_QUALITY_MODEL
 OPENAI_VISION_MODEL = os.environ.get("OPENAI_VISION_MODEL") or OPENAI_QUALITY_MODEL
+# When the bulk and vision tier models were last confirmed live (one real
+# call each — gpt-4.1-nano text, gpt-4.1-mini with an image). Same 45-day rule
+# as every registry pin (test_provider_pin_freshness): re-probe, never re-date.
+OPENAI_TIER_MODELS_VERIFIED_ON = datetime.date(2026, 10, 11)
 
 # Keys whose presence in openai_only mode means some leg could still reach a
 # provider other than OpenAI.

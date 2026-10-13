@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 # (backend/scripts/backfill_slide_embeddings.py --force).
 GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
 OPENAI_EMBEDDING_MODEL = os.environ.get("OPENAI_EMBED_MODEL") or "text-embedding-3-small"
+# Confirmed live (768-dim response) — the freshness test holds it to 45 days.
+OPENAI_EMBEDDING_MODEL_VERIFIED_ON = datetime.date(2026, 10, 11)
 EMBEDDING_MODEL = OPENAI_EMBEDDING_MODEL if OPENAI_ONLY else GEMINI_EMBEDDING_MODEL
 # Same freshness rule as orchestrator.ProviderConfig.verified_on
 # (tests/unit/test_provider_pin_freshness.py).
@@ -151,6 +153,14 @@ async def generate_embeddings(text: str) -> List[float]:
             "which survives pgvector's similarity filter instead of being ignored."
         )
     if OPENAI_ONLY:
+        from .orchestrator import _rotator
+        # The fleet's daily OpenAI ceiling binds embeddings too; over it, the
+        # caller's usual "no embedding" path (queue for retry) applies.
+        await _rotator.refresh_from_redis(["openai"])
+        if not _rotator.available(["openai"]):
+            raise EmbeddingUnavailableError(
+                "The daily OpenAI cost ceiling is reached; embedding deferred."
+            )
         started = time.perf_counter()
         values, usage = await asyncio.to_thread(_sync_openai_embedding, text)
         from .orchestrator import _account_for_call

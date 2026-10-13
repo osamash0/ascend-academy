@@ -172,3 +172,42 @@ def test_new_models_are_priced_not_charged_the_fallback_rate():
     assert nano == pytest.approx(0.0005)
     embed = estimate_cost("openai", "text-embedding-3-small", LLMUsage(1000, 0))
     assert embed == pytest.approx(0.00002)
+
+
+# ── the daily ceiling binds vision and embeddings too ────────────────────────
+
+@pytest.fixture
+def over_ceiling(monkeypatch):
+    """The fleet has spent past the daily OpenAI ceiling."""
+    from backend.core.config import settings
+
+    async def no_refresh(chain):
+        return None
+
+    monkeypatch.setattr(settings, "llm_openai_daily_cost_ceiling_usd", 1.0)
+    monkeypatch.setattr(orch._rotator, "refresh_from_redis", no_refresh)
+    monkeypatch.setitem(orch._clients, "openai", object())
+    monkeypatch.setattr(orch._rotator, "_openai_daily_cost_usd", 5.0)
+
+
+async def test_vision_stops_at_the_daily_ceiling(monkeypatch, over_ceiling, accounted):
+    monkeypatch.setattr(vision_mod, "OPENAI_ONLY", True)
+    monkeypatch.setattr(vision_mod, "openai_client", object())
+    monkeypatch.setattr(
+        vision_mod, "_call_openai_vision",
+        lambda *a: pytest.fail("vision billed OpenAI past the daily ceiling"),
+    )
+    res = await vision_mod.analyze_slide_vision("b64", "text", "openai")
+    assert res == vision_mod._FALLBACK_RESULT
+    assert accounted == []
+
+
+async def test_embeddings_stop_at_the_daily_ceiling(monkeypatch, over_ceiling, accounted):
+    def create(**_kw):
+        pytest.fail("embeddings billed OpenAI past the daily ceiling")
+
+    monkeypatch.setattr(emb, "OPENAI_ONLY", True)
+    monkeypatch.setattr(emb, "openai_client", SimpleNamespace(embeddings=SimpleNamespace(create=create)))
+    with pytest.raises(emb.EmbeddingUnavailableError):
+        await emb.generate_embeddings("normal forms")
+    assert accounted == []

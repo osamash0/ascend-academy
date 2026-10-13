@@ -140,6 +140,11 @@ def _sync_analyze_vision_with_usage(
     # it to avoid an empty list just trades a fast, honest fallback result for
     # a slow one preceded by guaranteed failures.
     providers = [p for p in providers if not _rotator.is_disabled(p)]
+    # The fleet's daily OpenAI ceiling binds vision too. available() is where
+    # that gate lives (with the 402/404 and no-key gates); it used to guard
+    # only the text chains, so vision kept billing past the cap.
+    if "openai_vision" in providers and not _rotator.available(["openai"]):
+        providers = [p for p in providers if p != "openai_vision"]
     if not providers:
         logger.error(
             "No vision provider available: all are unconfigured or disabled "
@@ -206,6 +211,8 @@ async def analyze_slide_vision(
     ai_model: str = "groq",
     blueprint_context: str = "",
 ) -> Dict[str, Any]:
+    # Pull the fleet's spend so the ceiling check below sees every process's.
+    await _rotator.refresh_from_redis(["openai"])
     started = time.perf_counter()
     result, provider, usage = await asyncio.to_thread(
         _sync_analyze_vision_with_usage, b64_image, raw_text, ai_model, blueprint_context,
