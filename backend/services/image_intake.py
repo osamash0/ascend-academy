@@ -10,6 +10,7 @@ from typing import Tuple
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".heic")
 MAX_IMAGE_SIDE = 4096
+MAX_IMAGE_PIXELS = 40_000_000
 
 
 def is_image(filename: str) -> bool:
@@ -27,18 +28,28 @@ def image_to_pdf(content: bytes, filename: str) -> Tuple[bytes, str]:
         pass
     try:
         img = Image.open(io.BytesIO(content))
+        if img.width * img.height > MAX_IMAGE_PIXELS:
+            raise ValueError("This image is too large.")
+        img.draft("RGB", (MAX_IMAGE_SIDE, MAX_IMAGE_SIDE))  # JPEG decodes smaller; no-op otherwise
         img = ImageOps.exif_transpose(img).convert("RGB")
+    except Image.DecompressionBombError as exc:
+        raise ValueError("This image is too large.") from exc
     except (UnidentifiedImageError, OSError) as exc:
         raise ValueError("This image could not be read.") from exc
     img.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE))
 
-    import fitz
+    try:
+        import fitz
 
-    jpeg = io.BytesIO()
-    img.save(jpeg, format="JPEG", quality=88)
-    doc = fitz.open()
-    page = doc.new_page(width=img.width * 0.75, height=img.height * 0.75)  # 96 dpi → points
-    page.insert_image(page.rect, stream=jpeg.getvalue())
-    pdf = doc.tobytes()
-    doc.close()
+        jpeg = io.BytesIO()
+        img.save(jpeg, format="JPEG", quality=88)
+        doc = fitz.open()
+        try:
+            page = doc.new_page(width=img.width * 0.75, height=img.height * 0.75)  # 96 dpi → points
+            page.insert_image(page.rect, stream=jpeg.getvalue())
+            pdf = doc.tobytes()
+        finally:
+            doc.close()
+    except Exception as exc:
+        raise ValueError("This image could not be read.") from exc
     return pdf, os.path.splitext(filename)[0] + ".pdf"

@@ -28,7 +28,7 @@ FROM python:3.11-slim
 # grep-verified no code path in the Docker requirement set uses them —
 # they were leftovers from the retired PaddleOCR/Docling-in-image era.)
 # LibreOffice turns .pptx into PDF (real-pages spec §3). ~400 MB, so it is opt-in:
-# build with --build-arg INSTALL_OFFICE=1 for the image the parse worker runs.
+# build with --build-arg INSTALL_OFFICE=1 for the api and worker image (conversion runs in the API).
 ARG INSTALL_OFFICE=0
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \

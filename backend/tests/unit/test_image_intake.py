@@ -34,7 +34,7 @@ def test_a_photo_becomes_a_one_page_pdf_with_its_aspect():
 
 
 def test_huge_photos_are_scaled_down():
-    pdf, _ = image_to_pdf(_png(8000, 6000), "big.png")
+    pdf, _ = image_to_pdf(_png(6500, 6000), "big.png")
     with fitz.open(stream=pdf, filetype="pdf") as d:
         img = d[0].get_images()[0]
         w, h = d.extract_image(img[0])["width"], d.extract_image(img[0])["height"]
@@ -92,3 +92,18 @@ async def test_flag_on_hands_validation_a_pdf(monkeypatch):
             await materials_service.create_upload("user-1", SimpleNamespace(filename="notes.png"))
     assert seen["name"].endswith(".pdf")
     assert seen["content"].startswith(b"%PDF")
+
+
+def test_oversized_dimensions_are_rejected_cheaply(monkeypatch):
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", None)  # only our own cap applies
+    with pytest.raises(ValueError, match="too large"):
+        image_to_pdf(_png(9000, 9000), "big.png")
+
+
+def test_decompression_bomb_becomes_value_error(monkeypatch):
+    def boom(*a, **k):
+        raise Image.DecompressionBombError("bomb")
+
+    monkeypatch.setattr(Image, "open", boom)
+    with pytest.raises(ValueError):
+        image_to_pdf(_png(), "x.png")
