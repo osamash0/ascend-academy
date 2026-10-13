@@ -1,3 +1,39 @@
 {
-  "_about": "v4 shared chrome: top bar, states, badges, dialogs, shared words"
+  "_about": "v4 shared chrome: top bar, states, badges, dialogs, shared words",
+  "badges": {
+    "official": "Official",
+    "community": "Community",
+    "grounded": "Grounded",
+    "notGrounded": "Not grounded",
+    "groundedHint": "Traces back to this Space’s source material.",
+    "notGroundedHint": "No supporting passage found. Not a judgement of correctness.",
+    "guided": "Guided",
+    "open": "Open",
+    "guidedHint": "Only the Owner and Editors publish into the path.",
+    "openHint": "Every Member can publish Lessons into the path.",
+    "visibility": {
+      "private": "Private",
+      "invite": "Invite",
+      "public": "Public"
+    },
+    "endorsed": "Endorsed",
+    "endorsedHint": "Endorsed by the Owner. Still community-authored.",
+    "star": {
+      "own_one": "{{count}} stars. You can’t star your own Space.",
+      "own_other": "{{count}} stars. You can’t star your own Space.",
+      "starred_one": "Starred. {{count}} stars. Tap to remove.",
+      "starred_other": "Starred. {{count}} stars. Tap to remove.",
+      "star_one": "Star this Space. {{count}} stars.",
+      "star_other": "Star this Space. {{count}} stars.",
+      "ownHint": "You can’t star your own Space."
+    },
+    "lessons_one": "{{count}} Lesson",
+    "lessons_other": "{{count}} Lessons"
+  },
+  "pager": {
+    "prev": "Previous Lesson: {{order}}. {{title}}",
+    "next": "Next Lesson: {{order}}. {{title}}",
+    "lesson": "Lesson {{order}}",
+    "label": "Lesson pager"
+  }
 }

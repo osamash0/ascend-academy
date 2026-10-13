@@ -1,9 +1,12 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import type { ExamPlan, PlanDay } from './examPlan';
 import type { TodayStep } from './today';
+import { say } from './phrase';
+import { formatDate } from '../../i18n/format';
 
 /**
  * The days to the exam, as a runway.
@@ -23,8 +26,6 @@ const MARK: Record<TodayStep['kind'], string> = {
   rehearse: 'border border-white/[0.85] bg-transparent',
 };
 
-const fmt = (d: string, opts: Intl.DateTimeFormatOptions) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { ...opts, timeZone: 'UTC' });
-
 interface Props {
   plan: ExamPlan;
   examDate: string;
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export function ExamRunway({ plan, examDate, hrefFor }: Props) {
+  const { t } = useTranslation('v4Space');
   const reduce = useReducedMotion();
   const [open, setOpen] = useState<number | null>(null);
   const most = Math.max(30, ...plan.days.map((d) => d.minutes));
@@ -39,14 +41,17 @@ export function ExamRunway({ plan, examDate, hrefFor }: Props) {
 
   return (
     <div className="mt-5">
-      <ol aria-label="Days until the exam" className="flex h-24 items-end gap-[3px]">
+      <ol aria-label={t('runway.label')} className="flex h-24 items-end gap-[3px]">
         {plan.days.map((d, i) => (
           <li key={d.date} className="flex h-full min-w-[4px] flex-1 flex-col justify-end">
             <button
               type="button"
               onClick={() => setOpen(open === i ? null : i)}
               aria-pressed={open === i}
-              aria-label={`${i === 0 ? 'Today' : fmt(d.date, { weekday: 'long', day: 'numeric', month: 'long' })}: ${d.steps.map((s) => s.title).join(', ') || 'rest'}`}
+              aria-label={t('runway.day', {
+                day: i === 0 ? t('runway.today') : formatDate(d.date, 'long'),
+                steps: d.steps.map((s) => say(t, s.title)).join(', ') || t('runway.rest'),
+              })}
               className={cn(
                 'console-focusable group flex h-full w-full flex-col justify-end rounded-sm transition-colors',
                 open === i ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]',
@@ -72,14 +77,14 @@ export function ExamRunway({ plan, examDate, hrefFor }: Props) {
         ))}
         {/* The exam itself, at the end of the runway. */}
         <li aria-hidden className="flex h-full flex-col items-center justify-end pl-1.5">
-          <span className="mb-1 text-[11px] text-quiet">Exam</span>
+          <span className="mb-1 text-[11px] text-quiet">{t('runway.exam')}</span>
           <span className="block h-16 w-[2px] rounded-full bg-white" />
           <span className="mt-1.5 block h-[3px] w-2 rounded-full bg-white" />
         </li>
       </ol>
       <div className="mt-2 flex justify-between text-[12px] tabular-nums text-faint">
-        <span>Today</span>
-        <span>{fmt(examDate, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+        <span>{t('runway.today')}</span>
+        <span>{formatDate(examDate, 'short')}</span>
       </div>
 
       <AnimatePresence initial={false}>
@@ -93,11 +98,11 @@ export function ExamRunway({ plan, examDate, hrefFor }: Props) {
             className="mt-4 rounded-2xl border border-white/[0.08] bg-[#0b0b0c] p-4"
           >
             <p className="text-[13px] text-quiet">
-              {day.offset === 0 ? 'Today' : day.offset === 1 ? 'Tomorrow' : fmt(day.date, { weekday: 'long', day: 'numeric', month: 'long' })}
-              {day.minutes > 0 && <span className="text-faint"> · about {day.minutes} min</span>}
+              {day.offset === 0 ? t('runway.today') : day.offset === 1 ? t('runway.tomorrow') : formatDate(day.date, 'long')}
+              {day.minutes > 0 && <span className="text-faint"> · {t('runway.about', { count: day.minutes })}</span>}
             </p>
             {day.steps.length === 0 ? (
-              <p className="mt-2 text-[14px] text-foreground">Nothing planned — a free day.</p>
+              <p className="mt-2 text-[14px] text-foreground">{t('runway.free')}</p>
             ) : (
               <ul className="mt-2 space-y-1.5">
                 {day.steps.map((s, k) => (
@@ -107,8 +112,8 @@ export function ExamRunway({ plan, examDate, hrefFor }: Props) {
                       className="console-focusable group flex items-baseline gap-3 rounded-lg py-1 text-[14px] transition-colors"
                     >
                       <span aria-hidden className={cn('h-2 w-2 shrink-0 translate-y-[-1px] rounded-full', MARK[s.kind])} />
-                      <span className="text-foreground group-hover:underline group-hover:decoration-white/30 group-hover:underline-offset-4">{s.title}</span>
-                      <span className="min-w-0 truncate text-[13px] text-quiet">{s.why}</span>
+                      <span className="text-foreground group-hover:underline group-hover:decoration-white/30 group-hover:underline-offset-4">{say(t, s.title)}</span>
+                      <span className="min-w-0 truncate text-[13px] text-quiet">{say(t, s.why)}</span>
                     </Link>
                   </li>
                 ))}

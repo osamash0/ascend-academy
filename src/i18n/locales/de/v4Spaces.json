@@ -1,3 +1,39 @@
 {
-  "_about": "v4: gemeinsame Oberfläche – Kopfleiste, Zustände, Abzeichen, Dialoge, gemeinsame Wörter"
+  "_about": "v4: gemeinsame Oberfläche – Kopfleiste, Zustände, Abzeichen, Dialoge, gemeinsame Wörter",
+  "badges": {
+    "official": "Offiziell",
+    "community": "Community",
+    "grounded": "Mit Quelle",
+    "notGrounded": "Ohne Quelle",
+    "groundedHint": "Lässt sich auf das Quellmaterial dieses Spaces zurückführen.",
+    "notGroundedHint": "Keine passende Stelle gefunden. Das sagt nichts darüber, ob es stimmt.",
+    "guided": "Geführt",
+    "open": "Offen",
+    "guidedHint": "Nur Inhaber:in und Bearbeiter:innen veröffentlichen in den Pfad.",
+    "openHint": "Jedes Mitglied kann Lektionen in den Pfad veröffentlichen.",
+    "visibility": {
+      "private": "Privat",
+      "invite": "Mit Einladung",
+      "public": "Öffentlich"
+    },
+    "endorsed": "Empfohlen",
+    "endorsedHint": "Von der Inhaberin oder dem Inhaber empfohlen. Bleibt ein Beitrag der Community.",
+    "star": {
+      "own_one": "{{count}} Stern. Deinen eigenen Space kannst du nicht markieren.",
+      "own_other": "{{count}} Sterne. Deinen eigenen Space kannst du nicht markieren.",
+      "starred_one": "Markiert. {{count}} Stern. Tippen zum Entfernen.",
+      "starred_other": "Markiert. {{count}} Sterne. Tippen zum Entfernen.",
+      "star_one": "Diesen Space mit einem Stern markieren. {{count}} Stern.",
+      "star_other": "Diesen Space mit einem Stern markieren. {{count}} Sterne.",
+      "ownHint": "Deinen eigenen Space kannst du nicht markieren."
+    },
+    "lessons_one": "{{count}} Lektion",
+    "lessons_other": "{{count}} Lektionen"
+  },
+  "pager": {
+    "prev": "Vorherige Lektion: {{order}}. {{title}}",
+    "next": "Nächste Lektion: {{order}}. {{title}}",
+    "lesson": "Lektion {{order}}",
+    "label": "Zwischen Lektionen wechseln"
+  }
 }

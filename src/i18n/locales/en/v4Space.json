@@ -1,3 +1,407 @@
 {
-  "_about": "v4 Space page, Lesson page, rehearsal, plan, map"
+  "_about": "v4 Space page, Lesson page, rehearsal, plan, map",
+  "plan": {
+    "page": "page {{page}}",
+    "pages": "pages {{first}}–{{last}}",
+    "today": {
+      "resume_one": "From page {{page}} · {{count}} page left",
+      "resume_other": "From page {{page}} · {{count}} pages left",
+      "fresh_one": "From the beginning · {{count}} page",
+      "fresh_other": "From the beginning · {{count}} pages",
+      "missed": "You missed it last time · {{lesson}}, pages {{first}}–{{last}}",
+      "fading_one": "Proven {{count}} day ago — the light is fading · {{lesson}}",
+      "fading_other": "Proven {{count}} days ago — the light is fading · {{lesson}}"
+    },
+    "exam": {
+      "missed": "Missed last time · {{lesson}}, {{pages}}",
+      "fading": "Fading · {{lesson}}, {{pages}}",
+      "lastLook": {
+        "title": "A short last look",
+        "why": "Five questions across the Space — then rest"
+      },
+      "full": {
+        "title": "Full rehearsal",
+        "why": "Every Lesson, the way the exam will ask"
+      },
+      "read": {
+        "toEnd": "Pages {{first}}–{{last}} · to the end",
+        "range": "Pages {{first}}–{{last}}"
+      },
+      "chunk": {
+        "title": "Rehearse {{lessons}}",
+        "why": "Five questions from these Lessons"
+      },
+      "week": {
+        "title": "This week, rehearsed",
+        "one": "{{lesson}} · five questions",
+        "many_one": "{{count}} Lesson · five questions",
+        "many_other": "{{count}} Lessons · five questions"
+      }
+    }
+  },
+  "light": {
+    "lit": "Tested right",
+    "fading": "Fading",
+    "weak": "To revisit",
+    "dark": "Not tested yet",
+    "spoken": {
+      "lit": "tested right",
+      "fading": "fading",
+      "weak": "to revisit",
+      "dark": "not tested yet"
+    }
+  },
+  "course": {
+    "kind": "Space",
+    "lessons_one": "{{count}} Lesson",
+    "lessons_other": "{{count}} Lessons",
+    "pages_one": "{{count}} page",
+    "pages_other": "{{count}} pages",
+    "rehearse": "Rehearse for the exam",
+    "today": "Today",
+    "find": {
+      "label": "Find where a topic is taught",
+      "placeholder": "Where was … taught?",
+      "looking": "Looking…",
+      "results": "Where it is taught",
+      "none": "Nothing in this Space mentions that.",
+      "page": "page {{page}}",
+      "pageTitle": "Page {{page}}"
+    },
+    "journey": {
+      "title": "The Space, lit by what you know",
+      "dark": "Every idea starts dark. A rehearsal lights the ones you get right.",
+      "lessons": "Lessons",
+      "goOnReading": "Go on reading {{lesson}}",
+      "read": "Read {{lesson}}",
+      "goOn": "Go on",
+      "readShort": "Read",
+      "idea": "{{idea}}, page {{page}}",
+      "ideaLit": "{{idea}}, page {{page}}, {{light}}",
+      "readPercent": ", {{percent}}% read"
+    },
+    "views": {
+      "label": "How to see this Space",
+      "journey": "Journey",
+      "map": "Map"
+    },
+    "legend": "Legend",
+    "step": {
+      "read": "Read on",
+      "revisit": "Revisit",
+      "refresh": "Refresh",
+      "rehearse": "Rehearse"
+    },
+    "exam": {
+      "on": "Exam on",
+      "ask": "When is your exam?",
+      "change": "Change the exam date",
+      "in_one": "Exam in {{count}} day",
+      "in_other": "Exam in {{count}} days",
+      "today": "Exam today",
+      "passed": "Exam passed",
+      "clear": "Clear the exam date"
+    },
+    "minutes_one": "~{{count}} min",
+    "minutes_other": "~{{count}} min",
+    "moreToRevisit_one": "and {{count}} more marked to revisit — it shows red on the map below",
+    "moreToRevisit_other": "and {{count}} more marked to revisit — they show red on the map below",
+    "open": "Open"
+  },
+  "map": {
+    "label": "Map of this Space's ideas and what builds on what",
+    "star": "{{idea}}, {{lesson}}, {{light}}",
+    "buildsOn": "Builds on {{ideas}}",
+    "start": "A starting point: it needs nothing earlier in this Space.",
+    "beginWeak": "Start with {{idea}} — it's red",
+    "beginDark": "Start with {{idea}} — it's not tested yet",
+    "loading": "Working out which ideas build on which…",
+    "failed": "The connections between ideas could not be mapped just now — the stars still open their pages.",
+    "hint": "Point at an idea to see what it builds on. Press it to read it."
+  },
+  "runway": {
+    "label": "Days until the exam",
+    "day": "{{day}}: {{steps}}",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "rest": "rest",
+    "exam": "Exam",
+    "about_one": "about {{count}} min",
+    "about_other": "about {{count}} min",
+    "free": "Nothing planned — a free day."
+  },
+  "rehearse": {
+    "leave": "Leave the rehearsal",
+    "setup": {
+      "title": "Rehearse for the exam",
+      "lede": "A short test from your own pages. Every answer points back to the page that teaches it.",
+      "lessons": "Lessons",
+      "clear": "Clear",
+      "all": "All",
+      "length": "Length",
+      "lengthLabel": "Number of questions",
+      "questions_one": "{{count}} question",
+      "questions_other": "{{count}} questions",
+      "start": "Write my rehearsal"
+    },
+    "failed": {
+      "weak": "Couldn’t write the rehearsal on your weak spots just now. The model may be busy.",
+      "any": "Couldn’t write a rehearsal just now. The model may be busy.",
+      "retry": "Try again"
+    },
+    "composing": {
+      "title": "Writing your rehearsal",
+      "reading": "Reading",
+      "wait": "Usually about half a minute."
+    },
+    "run": {
+      "progress": "Question {{n}} of {{total}}",
+      "next": "Next question",
+      "finish": "See how it went"
+    },
+    "debrief": {
+      "saving": "Saving to your history…",
+      "saved": "Saved to your history",
+      "saveFailed": "Couldn’t save this one to your history",
+      "verdict": {
+        "flawless": "Flawless.",
+        "strong": "Strong — a couple of ideas to tighten.",
+        "close": "Getting there.",
+        "again": "Worth another pass."
+      },
+      "byLesson": "By Lesson",
+      "readAgain": "Read again",
+      "where": "{{lesson}} · page {{page}}",
+      "weakSpots": "Rehearse my weak spots",
+      "new": "New rehearsal",
+      "back": "Back to {{title}}"
+    },
+    "history": {
+      "label": "Your rehearsals",
+      "summary_one": "{{count}} so far · last {{score}}/{{total}}, {{when}}",
+      "summary_other": "{{count}} so far · last {{score}}/{{total}}, {{when}}",
+      "missedLast": "Ideas you missed last time",
+      "page": "Page {{page}}",
+      "missedTimes_one": "missed {{count}}×",
+      "missedTimes_other": "missed {{count}}×",
+      "rehearseWeak_one": "Rehearse this one",
+      "rehearseWeak_other": "Rehearse these",
+      "noWeak": "No weak spots: everything you were asked last time, you got right.",
+      "fading": "Fading — right more than a week ago",
+      "fadingTitle": "{{lesson}}, page {{page}}",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "refresh": "Refresh these"
+    }
+  },
+  "question": {
+    "moveUp": "Move “{{item}}” up",
+    "moveDown": "Move “{{item}}” down",
+    "fdHoldsHint": "Tick every dependency that holds on these rows.",
+    "closureHint": "Collect the closure of {{set}}: press every attribute it determines.",
+    "bcnfHint": "Flag every dependency that violates BCNF in {{relation}}.",
+    "check": "Check",
+    "right": "Right",
+    "notQuite": "Not quite",
+    "page": "{{lesson}}, page {{page}}",
+    "expected": {
+      "holds": "Holds: {{fds}}",
+      "holdsNone": "None of them holds",
+      "violating": "Violating: {{fds}}",
+      "violatingNone": "None violates BCNF"
+    }
+  },
+  "lesson": {
+    "backToSpace": "Back to {{name}}",
+    "backToSpaces": "Back to Spaces",
+    "number": "Lesson {{order}}",
+    "pages_one": "{{count}} page",
+    "pages_other": "{{count}} pages",
+    "completed": "Completed",
+    "start": {
+      "continueAt": "Continue at page {{page}}",
+      "review": "Review",
+      "continue": "Continue",
+      "begin": "Start reading"
+    },
+    "openDeck": "{{action}}: {{title}}",
+    "practice": "Practice · {{count}}",
+    "rehearse": "Rehearse this Lesson",
+    "cleared_one": "{{cleared}} of {{count}} ideas cleared",
+    "cleared_other": "{{cleared}} of {{count}} ideas cleared",
+    "materialRemoved": "The original file was removed. This Lesson still works.",
+    "teachBackTitle": "Teach-back · {{idea}}",
+    "community": {
+      "title": "From the community",
+      "emptyTitle": "Nothing here yet",
+      "emptyBody": "If something in this Lesson finally clicked for you, that explanation will help the next person."
+    },
+    "notes": {
+      "title": "Your notes",
+      "placeholder": "Private to you, and gathered in your Library.",
+      "empty": "Nothing yet. Notes are private, and only you ever see them."
+    }
+  },
+  "ideas": {
+    "title": "The ideas",
+    "grouping": "Grouping the Lesson into the ideas it teaches…",
+    "lede": {
+      "live": "In the order the Lesson teaches them. Each lights up once a checkpoint or a rehearsal proves it.",
+      "demo": "In the order the Lesson teaches them. Each lights up on the Space’s map as you clear it."
+    },
+    "inLesson": "Ideas in this Lesson",
+    "progress": {
+      "cleared": "Cleared",
+      "discovered": "Read",
+      "untouched": "Not yet"
+    },
+    "pageRange": "Pages {{first}}–{{last}}",
+    "readFrom": "Read from page {{page}}",
+    "teachBack": "Teach it back",
+    "about": "About this idea"
+  },
+  "deck": {},
+  "tools": {
+    "title": "Try it, don’t just read it",
+    "lede": "Some pages answer with a tool. Each opens in the reader at its page, with Explain beside it.",
+    "at": "{{verb}} · page {{page}}",
+    "verb": {
+      "fdTable": "Break a dependency",
+      "closure": "Compute a closure",
+      "bcnf": "Decompose a relation",
+      "steps": "Walk a proof",
+      "explore": "Explore the parts",
+      "compare": "Compare side by side"
+    }
+  },
+  "demo": {
+    "header": {
+      "owner": "Owner",
+      "manage": "Manage",
+      "archived": "Archived",
+      "archivedNotice": "This Space is read-only. Your progress is kept, and nothing here earns XP."
+    },
+    "upNext": {
+      "kicker": "Up next",
+      "percentRead": "{{percent}}% read",
+      "continue": "Continue",
+      "start": "Start"
+    },
+    "glance": {
+      "segment": "Lesson {{order}}, {{title}}",
+      "segmentDone": "Lesson {{order}}, {{title}}, done",
+      "done": "{{done}} of {{total}} done",
+      "community_one": "{{count}} from the community",
+      "community_other": "{{count}} from the community"
+    },
+    "tabs": {
+      "label": "Space",
+      "overview": "overview",
+      "map": "map",
+      "members": "members"
+    },
+    "path": {
+      "title": "The path",
+      "lede": "In the order the Owner set. Clear them one by one.",
+      "add": "Add Lesson",
+      "emptyTitle": "No Lessons yet",
+      "emptyOpen": "This Space is Open — anyone here can add the first one. Upload material and the Lesson builds itself.",
+      "emptyOwned": "Upload your material and the first Lesson builds itself.",
+      "emptyOther": "The Owner hasn’t published anything here yet.",
+      "addFirst": "Add the first Lesson",
+      "showMore_one": "Show {{count}} more Lesson",
+      "showMore_other": "Show {{count}} more Lessons",
+      "showLess": "Show less"
+    },
+    "community": {
+      "title": "From the community",
+      "lede": "Made by members of this Space. Sorted by what people found most useful.",
+      "contribute": "Contribute",
+      "emptyTitle": "Nothing from the community yet",
+      "emptyBody": "Summaries, worked examples, mnemonics — anything that helped you will help the next person."
+    },
+    "members": {
+      "title": "Members",
+      "locked": "Who is in this Space is visible to its members. Join to see them.",
+      "alone": "Nobody else is here yet.",
+      "showing": "Showing {{shown}} of {{total}}."
+    },
+    "roles": {
+      "owner": "Owner",
+      "editor": "Editor",
+      "member": "Member"
+    },
+    "lessonRow": {
+      "processing": "Processing",
+      "draft": "Draft",
+      "needsReview": "Needs review",
+      "sourceRemoved": "Source file removed",
+      "label": "Lesson {{order}}. {{title}}. By {{author}}. {{percent}}% complete.",
+      "open": "Open"
+    },
+    "map": {
+      "empty": "Nothing to light yet — the map fills in as Lessons are published.",
+      "lessonsCleared_one": "Lessons cleared",
+      "lessonsCleared_other": "Lessons cleared",
+      "ideas_one": "ideas",
+      "ideas_other": "ideas",
+      "folded_one": "{{count}} further folded",
+      "folded_other": "{{count}} further folded",
+      "label": "Progress map for {{space}}: {{done}} of {{total}} Lessons cleared, {{cleared}} of {{ideas}} ideas.",
+      "body": "{{title}}. Lesson {{order}}. {{cleared}} of {{total}} ideas cleared.",
+      "bodyTitle": "{{title}} — {{cleared}} of {{total}} ideas cleared",
+      "idea": {
+        "cleared": "{{name}} — cleared",
+        "read": "{{name}} — read",
+        "notStarted": "{{name}} — not started"
+      },
+      "communityBody": "Community — published by a Member",
+      "metaCleared": "{{cleared}} / {{total}} CLEARED",
+      "metaHere": "{{cleared}} / {{total}} · YOU ARE HERE",
+      "legend": {
+        "cleared": "Cleared",
+        "here": "You are here",
+        "notYet": "Not yet",
+        "contributions": "Contributions"
+      }
+    },
+    "contribution": {
+      "type": {
+        "text": "Write-up",
+        "pdf": "PDF",
+        "image": "Image",
+        "link": "Link",
+        "practiceSet": "Practice set"
+      },
+      "orphanedOwn": "The Lesson this was attached to was removed. Your work is safe and still here — it just isn’t attached to a Lesson any more.",
+      "orphanedOther": "The Lesson this was attached to was removed. Nothing of {{author}}’s is lost — it just isn’t attached to a Lesson any more.",
+      "rehome": "Find it a new home",
+      "endorse": "Endorse",
+      "endorsed": "Endorsed",
+      "endorseOwn": "You can’t endorse your own work.",
+      "hide": "Hide",
+      "unhide": "Unhide",
+      "hiddenToast": "Hidden",
+      "hiddenToastBody": "Still visible to its author and to you. Nothing was deleted.",
+      "visibleToast": "Visible again",
+      "visibleToastBody": "Everyone in this Space can see it again.",
+      "promote": "Promote",
+      "promotedAlready": "Already in the path.",
+      "promotedToast": "Promoted into the path",
+      "promotedToastBody": "It is a Lesson now, credited to {{author}}.",
+      "openIt": "Open it",
+      "report": "Report",
+      "reported": "Reported",
+      "reportedAlready": "You have reported this.",
+      "reportedToastBody": "Whoever runs this Space will be able to see it flagged.",
+      "hiddenByOwner": "Hidden by the Owner",
+      "likeOwn_one": "{{count}} likes. You can’t like your own contribution.",
+      "likeOwn_other": "{{count}} likes. You can’t like your own contribution.",
+      "liked_one": "Liked. {{count}} likes. Tap to remove.",
+      "liked_other": "Liked. {{count}} likes. Tap to remove.",
+      "like_one": "Like this. {{count}} likes.",
+      "like_other": "Like this. {{count}} likes.",
+      "likeOwnTitle": "You can’t like your own contribution."
+    }
+  }
 }

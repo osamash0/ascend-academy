@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -63,6 +64,7 @@ function PagerCard({
   spaceId: string;
   side: 'prev' | 'next';
 }) {
+  const { t } = useTranslation('v4Spaces');
   const navigate = useNavigate();
   const Icon = topicIcon(lesson.title, lesson.id);
   const isPrev = side === 'prev';
@@ -71,7 +73,7 @@ function PagerCard({
     <motion.button
       type="button"
       onClick={() => navigate(`/v4/space/${spaceId}/lesson/${lesson.id}`)}
-      aria-label={`${isPrev ? 'Previous' : 'Next'} Lesson: ${lesson.order}. ${lesson.title}`}
+      aria-label={t(isPrev ? 'pager.prev' : 'pager.next', { order: lesson.order, title: lesson.title })}
       // Rest half off-screen; hover pulls it in. Tap presses it.
       initial={false}
       animate={{ x: 0 }}
@@ -96,7 +98,7 @@ function PagerCard({
         <span className="flex items-center gap-1 text-[12px] text-faint">
           {isPrev && <ChevronLeft aria-hidden className="h-3 w-3" />}
           <span className={cn('flex-1', !isPrev && 'text-right')}>
-            Lesson {lesson.order}
+            {t('pager.lesson', { order: lesson.order })}
           </span>
           {!isPrev && <ChevronRight aria-hidden className="h-3 w-3" />}
         </span>
@@ -109,6 +111,7 @@ function PagerCard({
 }
 
 export function LessonPager({ spaceId, prev, next, companionOpen = false, keys = true }: Props) {
+  const { t } = useTranslation('v4Spaces');
   const navigate = useNavigate();
 
   /**
@@ -175,7 +178,7 @@ export function LessonPager({ spaceId, prev, next, companionOpen = false, keys =
         */
         companionOpen && 'sm:right-96',
       )}
-      aria-label="Lesson pager"
+      aria-label={t('pager.label')}
     >
       {/* Half off-screen at rest, so each card reads as the path continuing
           past the edge rather than a button parked on the content. */}

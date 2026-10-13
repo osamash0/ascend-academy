@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import { ArrowRight, BookOpen, CalendarDays, RotateCcw, Search, Sparkles, Target, X } from 'lucide-react';
@@ -15,6 +16,8 @@ import { daysBetween, localToday, planExam } from '../components/course/examPlan
 import { ExamRunway } from '../components/course/ExamRunway';
 import { examDateFor, setExamDate } from '../data/examDate';
 import { viewer } from '../mocks/people';
+import { say } from '../components/course/phrase';
+import { formatDate } from '../i18n/format';
 
 /**
  * A real course, as one journey.
@@ -36,9 +39,11 @@ import { viewer } from '../mocks/people';
  * on it — right lights it, wrong marks it to revisit, untested stays dark.
  */
 
+/* Search terms in the deck's own language: the search reads the pages as they are written. */
 const SUGGESTIONS = ['functional dependency', 'two phase locking', 'B+ tree', 'join'];
 
 export default function CourseScreen({ courseId }: { courseId: string }) {
+  const { t } = useTranslation('v4Space');
   const { state, course } = useCourse(courseId);
   const [query, setQuery] = useState('');
   const found = useFind(courseId, query);
@@ -103,11 +108,11 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
         {/* The masthead. */}
         <div className="text-center">
           <p className="text-[13px] tabular-nums text-quiet">
-            Space
+            {t('course.kind')}
             <span aria-hidden className="mx-2 text-faint">·</span>
-            {course.lectures.length} {course.lectures.length === 1 ? 'Lesson' : 'Lessons'}
+            {t('course.lessons', { count: course.lectures.length })}
             <span aria-hidden className="mx-2 text-faint">·</span>
-            {pages} pages
+            {t('course.pages', { count: pages })}
           </p>
           <h1 className="mt-3 text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[64px]">{course.title}</h1>
           {course.author && <p className="mt-4 text-[14px] text-quiet">{course.author}</p>}
@@ -116,21 +121,21 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             className="console-focusable mt-8 inline-flex h-12 items-center gap-2 rounded-full bg-white px-6 text-[15px] font-medium text-background"
           >
             <Target aria-hidden className="h-4 w-4" />
-            Rehearse for the exam
+            {t('course.rehearse')}
           </Link>
         </div>
 
         {/* Today: read on, revisit a miss, refresh what is fading. */}
         {(today.length > 0 || plan) && (
           <motion.section
-            aria-label="Today"
+            aria-label={t('course.today')}
             initial={reduce ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, delay: 0.1 }}
             className="mx-auto mt-12 max-w-3xl"
           >
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3 px-1">
-              <h2 className="text-[17px] font-medium text-foreground">Today</h2>
+              <h2 className="text-[17px] font-medium text-foreground">{t('course.today')}</h2>
               <ExamControl exam={exam} onChange={chooseExam} />
             </div>
             <ol
@@ -163,15 +168,15 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
         <div className="relative mx-auto mt-12 max-w-2xl">
           <label className="flex h-14 items-center gap-3 rounded-full border border-white/[0.1] bg-white/[0.04] px-5 focus-within:border-white/[0.24]">
             <Search aria-hidden className="h-[18px] w-[18px] shrink-0 text-quiet" />
-            <span className="sr-only">Find where a topic is taught</span>
+            <span className="sr-only">{t('course.find.label')}</span>
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Where was … taught?"
+              placeholder={t('course.find.placeholder')}
               maxLength={120}
               className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-faint"
             />
-            {found.busy && <span className="text-[12px] text-faint">Looking…</span>}
+            {found.busy && <span className="text-[12px] text-faint">{t('course.find.looking')}</span>}
           </label>
           {query.trim().length < 2 ? (
             <div className="mt-3 flex flex-wrap justify-center gap-2">
@@ -191,11 +196,11 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2 }}
-              aria-label="Where it is taught"
+              aria-label={t('course.find.results')}
               className="mt-3 overflow-hidden rounded-3xl border border-white/[0.08] bg-[#0b0b0c]"
             >
               {found.results.length === 0 && !found.busy && (
-                <li className="px-5 py-4 text-[14px] text-quiet">Nothing in this Space mentions that.</li>
+                <li className="px-5 py-4 text-[14px] text-quiet">{t('course.find.none')}</li>
               )}
               {found.results.map((r) => (
                 <li key={`${r.lecture_id}-${r.page}`} className="border-b border-white/[0.05] last:border-0">
@@ -205,7 +210,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
                   >
                     <span className="mt-0.5 w-24 shrink-0 text-[12.5px] leading-[1.4] text-quiet">
                       {r.lecture_title}
-                      <span className="block tabular-nums text-faint">page {r.page}</span>
+                      <span className="block tabular-nums text-faint">{t('course.find.page', { page: r.page })}</span>
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[14.5px] font-medium text-foreground">{r.title}</span>
@@ -224,13 +229,13 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
         {/* The journey. */}
         <div className="mt-20 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           <div>
-            <h2 className="text-[26px] font-medium tracking-[-0.02em]">The Space, lit by what you know</h2>
+            <h2 className="text-[26px] font-medium tracking-[-0.02em]">{t('course.journey.title')}</h2>
             {/* The map shows what is lit; a count of it would only say it again. */}
             {marks.length === 0 && (
-              <p className="mt-1 text-[13.5px] text-quiet">Every idea starts dark. A rehearsal lights the ones you get right.</p>
+              <p className="mt-1 text-[13.5px] text-quiet">{t('course.journey.dark')}</p>
             )}
           </div>
-          <div role="tablist" aria-label="How to see this Space" className="flex rounded-full bg-white/[0.06] p-1">
+          <div role="tablist" aria-label={t('course.views.label')} className="flex rounded-full bg-white/[0.06] p-1">
             {(['journey', 'map'] as const).map((v) => (
               <button
                 key={v}
@@ -243,15 +248,17 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
                   view === v ? 'bg-white text-background' : 'text-quiet hover:text-foreground',
                 )}
               >
-                {v === 'journey' ? 'Journey' : 'Map'}
+                {t(`course.views.${v}`)}
               </button>
             ))}
           </div>
-          <ul aria-label="Legend" className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-quiet">
-            <li className="flex items-center gap-1.5"><IdeaDot light="lit" />Tested, right</li>
-            <li className="flex items-center gap-1.5"><IdeaDot light="fading" />Fading</li>
-            <li className="flex items-center gap-1.5"><IdeaDot light="weak" />To revisit</li>
-            <li className="flex items-center gap-1.5"><IdeaDot light="dark" />Not tested yet</li>
+          <ul aria-label={t('course.legend')} className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-quiet">
+            {(['lit', 'fading', 'weak', 'dark'] as const).map((light) => (
+              <li key={light} className="flex items-center gap-1.5">
+                <IdeaDot light={light} />
+                {t(`light.${light}`)}
+              </li>
+            ))}
           </ul>
         </div>
         {view === 'map' ? (
@@ -259,7 +266,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             <CourseMap lectures={course.lectures} marks={marks} links={links.links} linksState={links.state} readHref={readHref} />
           </div>
         ) : (
-        <ol aria-label="Lessons" className="relative mt-10">
+        <ol aria-label={t('course.journey.lessons')} className="relative mt-10">
           <span aria-hidden className="absolute bottom-6 left-[19px] top-6 w-px bg-gradient-to-b from-white/[0.18] via-white/[0.08] to-transparent" />
           {course.lectures.map((l, i) => (
             <motion.li
@@ -275,7 +282,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
                 {/* The deck itself is the way in: it opens where you stopped, or at the start. */}
                 <Link
                   to={readHref(l.id, trail[l.id]?.page ?? 1)}
-                  aria-label={trail[l.id] ? `Go on reading ${l.title}` : `Read ${l.title}`}
+                  aria-label={trail[l.id] ? t('course.journey.goOnReading', { lesson: l.title }) : t('course.journey.read', { lesson: l.title })}
                   className="console-focusable group relative block self-start overflow-hidden rounded-xl bg-white/[0.04] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_20px_40px_-16px_rgba(0,0,0,0.8)]"
                 >
                   {l.poster ? (
@@ -289,7 +296,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
                   >
                     <span className="flex h-11 items-center gap-2 rounded-full bg-white/0 px-4 text-[13.5px] font-medium text-transparent transition-colors group-hover:bg-white group-hover:text-background group-focus-visible:bg-white group-focus-visible:text-background">
                       <BookOpen aria-hidden className="h-4 w-4" />
-                      {trail[l.id] ? 'Go on' : 'Read'}
+                      {trail[l.id] ? t('course.journey.goOn') : t('course.journey.readShort')}
                     </span>
                   </span>
                 </Link>
@@ -299,7 +306,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
                       {l.title}
                     </Link>
                   </h2>
-                  <p className="mt-1 text-[13px] tabular-nums text-quiet">{l.total_slides} pages</p>
+                  <p className="mt-1 text-[13px] tabular-nums text-quiet">{t('course.pages', { count: l.total_slides })}</p>
                   <div className="mt-3.5 flex flex-wrap gap-1.5">
                     {l.ideas === null
                       ? [64, 92, 76].map((w) => (
@@ -319,8 +326,12 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
                           <Link
                             key={`${idea.first_page}-${idea.name}`}
                             to={readHref(l.id, idea.first_page)}
-                            title={`Page ${idea.first_page}`}
-                            aria-label={`${idea.name}, page ${idea.first_page}${light === 'lit' ? ', tested right' : light === 'fading' ? ', fading' : light === 'weak' ? ', to revisit' : ''}`}
+                            title={t('course.find.pageTitle', { page: idea.first_page })}
+                            aria-label={
+                              light === 'dark'
+                                ? t('course.journey.idea', { idea: idea.name, page: idea.first_page })
+                                : t('course.journey.ideaLit', { idea: idea.name, page: idea.first_page, light: t(`light.spoken.${light}`) })
+                            }
                             className={cn(
                               'console-focusable inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-[12.5px] transition-colors',
                               light === 'lit' && 'bg-success/[0.1] text-foreground hover:bg-success/[0.16]',
@@ -346,22 +357,24 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
   );
 }
 
-const STEP_LOOK: Record<TodayStep['kind'], { icon: typeof BookOpen; tint: string; label: string }> = {
-  read: { icon: BookOpen, tint: 'bg-white text-background', label: 'Read on' },
-  revisit: { icon: RotateCcw, tint: 'bg-destructive/[0.16] text-destructive', label: 'Revisit' },
-  refresh: { icon: Sparkles, tint: 'bg-success/[0.14] text-success', label: 'Refresh' },
-  rehearse: { icon: Target, tint: 'bg-white/[0.1] text-foreground', label: 'Rehearse' },
+/* Labels live in v4Space as `course.step.<kind>`. */
+const STEP_LOOK: Record<TodayStep['kind'], { icon: typeof BookOpen; tint: string }> = {
+  read: { icon: BookOpen, tint: 'bg-white text-background' },
+  revisit: { icon: RotateCcw, tint: 'bg-destructive/[0.16] text-destructive' },
+  refresh: { icon: Sparkles, tint: 'bg-success/[0.14] text-success' },
+  rehearse: { icon: Target, tint: 'bg-white/[0.1] text-foreground' },
 };
 
 /** When the exam is — set once, and the plan follows from it. */
 function ExamControl({ exam, onChange }: { exam: string | null; onChange: (date: string | null) => void }) {
+  const { t } = useTranslation('v4Space');
   const [editing, setEditing] = useState(false);
   const today = localToday();
   if (editing || !exam) {
     return (
       <label className="flex h-9 items-center gap-2 rounded-full bg-white/[0.06] pl-3.5 pr-2 text-[13px] text-quiet focus-within:bg-white/[0.1]">
         <CalendarDays aria-hidden className="h-3.5 w-3.5" />
-        <span>{exam ? 'Exam on' : 'When is your exam?'}</span>
+        <span>{exam ? t('course.exam.on') : t('course.exam.ask')}</span>
         <input
           type="date"
           min={today}
@@ -378,23 +391,23 @@ function ExamControl({ exam, onChange }: { exam: string | null; onChange: (date:
     );
   }
   const left = daysBetween(today, exam);
-  const date = new Date(`${exam}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const date = formatDate(exam, 'short');
   return (
     <span className="flex items-center gap-1">
       <button
         type="button"
         onClick={() => setEditing(true)}
-        title="Change the exam date"
+        title={t('course.exam.change')}
         className="console-focusable flex h-9 items-center gap-2 rounded-full bg-white/[0.06] px-3.5 text-[13px] text-foreground transition-colors hover:bg-white/[0.1]"
       >
         <CalendarDays aria-hidden className="h-3.5 w-3.5 text-quiet" />
-        {left > 0 ? `Exam in ${left} ${left === 1 ? 'day' : 'days'}` : left === 0 ? 'Exam today' : 'Exam passed'}
+        {left > 0 ? t('course.exam.in', { count: left }) : left === 0 ? t('course.exam.today') : t('course.exam.passed')}
         <span className="text-quiet">· {date}</span>
       </button>
       <button
         type="button"
         onClick={() => onChange(null)}
-        aria-label="Clear the exam date"
+        aria-label={t('course.exam.clear')}
         className="console-focusable flex h-9 w-9 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
       >
         <X aria-hidden className="h-3.5 w-3.5" />
@@ -422,6 +435,7 @@ function TodayCard({
   idea?: string;
   reduce: boolean;
 }) {
+  const { t } = useTranslation('v4Space');
   const look = STEP_LOOK[step.kind];
   return (
     <Link
@@ -438,19 +452,17 @@ function TodayCard({
         <span className="flex items-center justify-between gap-3">
           <span className={cn('inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium', look.tint)}>
             <look.icon aria-hidden className="h-3 w-3" />
-            {look.label}
+            {t(`course.step.${step.kind}`)}
           </span>
-          <span className="text-[12.5px] tabular-nums text-faint">~{step.minutes} min</span>
+          <span className="text-[12.5px] tabular-nums text-faint">{t('course.minutes', { count: step.minutes })}</span>
         </span>
-        <span className="mt-3 block text-[15.5px] font-medium leading-snug text-foreground">{step.title}</span>
+        <span className="mt-3 block text-[15.5px] font-medium leading-snug text-foreground">{say(t, step.title)}</span>
         <span className="mt-1 block text-[13px] leading-[1.45] text-quiet">
-          {step.why}
+          {say(t, step.why)}
           {idea && <> · {idea}</>}
         </span>
         {more > 0 && (
-          <span className="mt-1.5 block text-[12.5px] text-faint">
-            and {more} more marked to revisit — they show red on the map below
-          </span>
+          <span className="mt-1.5 block text-[12.5px] text-faint">{t('course.moreToRevisit', { count: more })}</span>
         )}
         {progress !== null && (
           <span aria-hidden className="mt-3.5 block h-[3px] overflow-hidden rounded-full bg-white/[0.08]">
@@ -463,7 +475,7 @@ function TodayCard({
           </span>
         )}
         <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] text-quiet transition-colors group-hover:text-foreground">
-          Open
+          {t('course.open')}
           <ArrowRight aria-hidden className="h-3.5 w-3.5" />
         </span>
       </span>
@@ -489,6 +501,7 @@ function IdeaDot({ light }: { light: Light }) {
 
 /** A lecture's marker on the line, ringed by how far you have read it. */
 function ReadRing({ order, read, reduce }: { order: number; read: number; reduce: boolean }) {
+  const { t } = useTranslation('v4Space');
   const R = 18;
   return (
     <span className="relative z-[1] flex h-10 w-10 items-center justify-center rounded-full bg-black text-[13px] tabular-nums text-foreground">
@@ -511,7 +524,7 @@ function ReadRing({ order, read, reduce }: { order: number; read: number; reduce
         )}
       </svg>
       {order}
-      {read > 0 && <span className="sr-only">, {Math.round(read * 100)}% read</span>}
+      {read > 0 && <span className="sr-only">{t('course.journey.readPercent', { percent: Math.round(read * 100) })}</span>}
     </span>
   );
 }

@@ -1,5 +1,6 @@
 import { proofs, FADE_AFTER_DAYS, daysSince, type Mark } from './light';
 import type { TodayStep } from './today';
+import { pagesPhrase, phrase } from './phrase';
 
 /**
  * The days until the exam, planned from what the student has actually done.
@@ -16,7 +17,7 @@ import type { TodayStep } from './today';
  *     lectures read that week.
  *
  * Dates are calendar dates (YYYY-MM-DD) counted in UTC, so a time zone can
- * never move a day. Pure: no DOM, no React.
+ * never move a day. Pure: no DOM, no React, no language (`./phrase`).
  */
 
 export interface PlanLecture {
@@ -62,10 +63,6 @@ export const addDays = (d: string, n: number) => new Date(utc(d) + n * DAY).toIS
 export const localToday = (now = new Date()) =>
   `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-/** "pages 31–39", or "page 67" when an idea is a single page. */
-const pagesOf = (first: number, last: number) => (first === last ? `page ${first}` : `pages ${first}–${last}`);
-/** "A", "A & B", "A, B & C". */
-const listOf = (names: string[]) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} & ${names.at(-1)}`);
 
 const reviewMinutes = (pages: number) => Math.max(3, Math.min(10, Math.round(pages * 0.7)));
 
@@ -97,7 +94,7 @@ export function planExam({ lectures, trail, marks, weak, exam, today, now = Date
     /* Without the lecture's ideas yet, the miss is still a miss: its own page. */
     const r = ideaRange(lec, w.page) ?? { name: w.idea, first: w.page, last: w.page };
     if (review.some((s) => s.lectureId === lec.id && s.page === r.first)) continue;
-    review.push({ kind: 'revisit', title: r.name, why: `Missed last time · ${lec.title}, ${pagesOf(r.first, r.last)}`, lectureId: lec.id, page: r.first, minutes: reviewMinutes(r.last - r.first + 1) });
+    review.push({ kind: 'revisit', title: r.name, why: phrase('plan.exam.missed', { lesson: lec.title, pages: pagesPhrase(r.first, r.last) }), lectureId: lec.id, page: r.first, minutes: reviewMinutes(r.last - r.first + 1) });
   }
   const faded: { step: TodayStep; t: number }[] = [];
   for (const lec of lectures) {
@@ -105,7 +102,7 @@ export function planExam({ lectures, trail, marks, weak, exam, today, now = Date
     proofs(lec.id, ideas, marks).forEach((p, i) => {
       if (p.weak || p.lastRight === null || !Number.isFinite(p.lastRight) || daysSince(p.lastRight, now) <= FADE_AFTER_DAYS) return;
       const r = ideaRange(lec, ideas[i].first_page)!;
-      faded.push({ t: p.lastRight, step: { kind: 'refresh', title: r.name, why: `Fading · ${lec.title}, ${pagesOf(r.first, r.last)}`, lectureId: lec.id, page: r.first, minutes: reviewMinutes(r.last - r.first + 1) } });
+      faded.push({ t: p.lastRight, step: { kind: 'refresh', title: r.name, why: phrase('plan.exam.fading', { lesson: lec.title, pages: pagesPhrase(r.first, r.last) }), lectureId: lec.id, page: r.first, minutes: reviewMinutes(r.last - r.first + 1) } });
     });
   }
   review.push(...faded.sort((a, b) => a.t - b.t).map((f) => f.step));
@@ -135,11 +132,11 @@ export function planExam({ lectures, trail, marks, weak, exam, today, now = Date
       kind = 'eve';
       steps.push(...missed.slice(0, 2));
       if (!steps.length) {
-        steps.push({ kind: 'rehearse', title: 'A short last look', why: 'Five questions across the Space — then rest', lectureId: all[0], page: 1, minutes: 10, lectureIds: all });
+        steps.push({ kind: 'rehearse', title: phrase('plan.exam.lastLook.title'), why: phrase('plan.exam.lastLook.why'), lectureId: all[0], page: 1, minutes: 10, lectureIds: all });
       }
     } else if (full) {
       kind = 'rehearse';
-      steps.push({ kind: 'rehearse', title: 'Full rehearsal', why: `Every Lesson, the way the exam will ask`, lectureId: all[0], page: 1, minutes: 25, lectureIds: all });
+      steps.push({ kind: 'rehearse', title: phrase('plan.exam.full.title'), why: phrase('plan.exam.full.why'), lectureId: all[0], page: 1, minutes: 25, lectureIds: all });
     } else {
       /* Read: this day's share of the pages, possibly across two lectures. */
       let budget = d < readingDays ? pagesPerDay : 0;
@@ -149,7 +146,10 @@ export function planExam({ lectures, trail, marks, weak, exam, today, now = Date
         steps.push({
           kind: 'read',
           title: q.lec.title,
-          why: take === q.to - q.from + 1 && q.to === q.lec.total_slides ? `Pages ${q.from}–${q.to} · to the end` : `Pages ${q.from}–${q.from + take - 1}`,
+          why:
+            take === q.to - q.from + 1 && q.to === q.lec.total_slides
+              ? phrase('plan.exam.read.toEnd', { first: q.from, last: q.to })
+              : phrase('plan.exam.read.range', { first: q.from, last: q.from + take - 1 }),
           lectureId: q.lec.id,
           page: q.from,
           minutes: take,
@@ -167,8 +167,8 @@ export function planExam({ lectures, trail, marks, weak, exam, today, now = Date
         const part = chunks.shift()!;
         steps.push({
           kind: 'rehearse',
-          title: `Rehearse ${listOf(part.map((l) => l.title))}`,
-          why: 'Five questions from these Lessons',
+          title: phrase('plan.exam.chunk.title', { lessons: part.map((l) => l.title) }),
+          why: phrase('plan.exam.chunk.why'),
           lectureId: part[0].id,
           page: 1,
           minutes: 12,
@@ -178,7 +178,18 @@ export function planExam({ lectures, trail, marks, weak, exam, today, now = Date
       /* A week of reading ends in a short rehearsal of what was read. */
       if (kind === 'read' && (d + 1) % 7 === 0 && readThisWeek.size) {
         const ids = [...readThisWeek];
-        steps.push({ kind: 'rehearse', title: 'This week, rehearsed', why: `${ids.length === 1 ? byId.get(ids[0])!.title : `${ids.length} Lessons`} · five questions`, lectureId: ids[0], page: 1, minutes: 12, lectureIds: ids });
+        steps.push({
+          kind: 'rehearse',
+          title: phrase('plan.exam.week.title'),
+          why:
+            ids.length === 1
+              ? phrase('plan.exam.week.one', { lesson: byId.get(ids[0])!.title })
+              : phrase('plan.exam.week.many', { count: ids.length }),
+          lectureId: ids[0],
+          page: 1,
+          minutes: 12,
+          lectureIds: ids,
+        });
         readThisWeek = new Set();
       }
     }
