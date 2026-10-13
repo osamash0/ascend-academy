@@ -8,7 +8,9 @@ reader's batch synthesis, whose prompt and output stay untouched.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
 from typing import Any, Dict, List, Tuple
 
 from backend.services.ai.orchestrator import generate_text_bulk, parse_json_response
@@ -19,12 +21,16 @@ logger = logging.getLogger(__name__)
 STUDIO_BATCH = 8
 MAX_PARAGRAPHS = 3
 MAX_BLOCK_CHARS = 600
+MAX_BOLD_PER_PAGE = 5
+STUDIO_CONCURRENCY = 3
+_BOLD = re.compile(r"\*\*(.+?)\*\*")
 
 STUDIO_SUMMARY_PROMPT = """You write the calm summary a learner reads first, page by page, for "{title}".
 
 For EACH page below write 1 to 3 short paragraphs, 2 to 4 sentences each, in {language}.
 Quiet, plain prose. Mark the key terms of the page in **bold** (2 to 5 per page).
 Never add facts that are not on the page. A page that is only a title gets one sentence.
+Write about the subject itself. Never describe the page, slide or document (no "This page outlines…", "The slide shows…").
 Every paragraph lists in "covers" the ids of the blocks it condenses (ids are in square brackets).
 
 Return ONLY JSON: {{"pages": [{{"page": <number>, "paragraphs": [{{"markdown": "...", "covers": ["p1-b2"]}}]}}]}}
@@ -45,10 +51,28 @@ def _page_section(page_no: int, pb: PageBlocks) -> Tuple[str, set]:
     return "\n".join(lines), allowed
 
 
+def _cap_bold(md: str, kept: set) -> str:
+    """Keep at most MAX_BOLD_PER_PAGE distinct bold terms (case-insensitive)
+    across one page; later ones lose their ** but keep their text."""
+    def repl(m: "re.Match[str]") -> str:
+        term = m.group(1).strip().lower()
+        if term in kept:
+            return m.group(0)
+        if len(kept) < MAX_BOLD_PER_PAGE:
+            kept.add(term)
+            return m.group(0)
+        return m.group(1)
+
+    return _BOLD.sub(repl, md)
+
+
 def clean_paragraphs(raw: Any, allowed: set) -> List[Dict[str, Any]]:
+    """One page's paragraphs: known covers only, at most MAX_PARAGRAPHS, and
+    at most MAX_BOLD_PER_PAGE bold terms across them."""
     if not isinstance(raw, list):
         return []
     out: List[Dict[str, Any]] = []
+    bold: set = set()
     for p in raw:
         if not isinstance(p, dict):
             continue
@@ -59,7 +83,7 @@ def clean_paragraphs(raw: Any, allowed: set) -> List[Dict[str, Any]]:
         for c in p.get("covers") or []:
             if isinstance(c, str) and c in allowed and c not in covers:
                 covers.append(c)
-        out.append({"markdown": md, "covers": covers})
+        out.append({"markdown": _cap_bold(md, bold), "covers": covers})
         if len(out) == MAX_PARAGRAPHS:
             break
     return out
@@ -98,7 +122,15 @@ async def summarize_text_pages(
     pages: List[Tuple[int, PageBlocks]], *, lecture_title: str, ai_model: str, source_language: str,
 ) -> Dict[int, List[dict]]:
     language = "German" if source_language == "de" else "English"
+    gate = asyncio.Semaphore(STUDIO_CONCURRENCY)
+
+    async def one(chunk: List[Tuple[int, PageBlocks]]) -> Dict[int, List[dict]]:
+        async with gate:
+            return await _batch(chunk, lecture_title, ai_model, language)  # never raises
+
+    results = await asyncio.gather(*(
+        one(pages[start:start + STUDIO_BATCH]) for start in range(0, len(pages), STUDIO_BATCH)))
     out: Dict[int, List[dict]] = {}
-    for start in range(0, len(pages), STUDIO_BATCH):
-        out.update(await _batch(pages[start:start + STUDIO_BATCH], lecture_title, ai_model, language))
+    for part in results:
+        out.update(part)
     return out

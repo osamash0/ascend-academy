@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import threading
 from typing import Any
 from uuid import UUID
 
@@ -22,6 +23,10 @@ PAGE_CACHE_CONTROL = "31536000"
 
 
 MAX_PIXEL_HEIGHT = 16383  # WebP's hard limit
+
+# PyMuPDF is not thread-safe: every worker thread that touches one open
+# document (render, vision JPEG, close) holds this lock.
+FITZ_LOCK = threading.Lock()
 
 
 def render_page_webp(page: Any, *, width: int = PAGE_WIDTH) -> bytes:

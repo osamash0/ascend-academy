@@ -91,3 +91,59 @@ def test_string_page_numbers_are_coerced(monkeypatch):
     monkeypatch.setattr(ss, "generate_text_bulk", fake)
     out = asyncio.run(ss._batch([(2, _pb(2, ["Hello"]))], "T", "m", "English"))
     assert list(out) == [2]
+
+
+def test_summary_batches_overlap(monkeypatch):
+    """A 100+ page deck must not pay one provider round-trip per batch in
+    series (the 900 s job timeout): batches run concurrently, at most 3."""
+    import time
+
+    live, peak = [0], [0]
+
+    async def slow(prompt, ai_model, **kw):
+        live[0] += 1
+        peak[0] = max(peak[0], live[0])
+        await asyncio.sleep(0.2)
+        live[0] -= 1
+        nums = [int(line.split()[1]) for line in prompt.splitlines() if line.startswith("PAGE ")]
+        return json.dumps({"pages": [{"page": n, "paragraphs": [{"markdown": f"S{n}.", "covers": []}]} for n in nums]})
+
+    monkeypatch.setattr(ss, "generate_text_bulk", slow)
+    pages = [(n, _pb(n, [f"Text of page {n}."])) for n in range(1, 49)]  # 6 batches
+    t0 = time.perf_counter()
+    out = asyncio.run(ss.summarize_text_pages(pages, lecture_title="T", ai_model="openai", source_language="en"))
+    elapsed = time.perf_counter() - t0
+    assert sorted(out) == list(range(1, 49))
+    assert elapsed < 0.2 * 6 * 0.6, f"serial would be 1.2 s, took {elapsed:.2f} s"
+    assert peak[0] == ss.STUDIO_CONCURRENCY == 3
+
+
+def test_bold_terms_are_capped_at_five_per_page():
+    terms = [f"term{i}" for i in range(12)]
+    raw = [
+        {"markdown": " ".join(f"**{t}**" for t in terms[:6]) + " and **TERM0** again.", "covers": []},
+        {"markdown": " ".join(f"**{t}**" for t in terms[6:]) + ".", "covers": []},
+    ]
+    out = ss.clean_paragraphs(raw, set())
+    md = " ".join(p["markdown"] for p in out)
+    import re
+
+    bold = re.findall(r"\*\*(.+?)\*\*", md)
+    assert len({b.lower() for b in bold}) == ss.MAX_BOLD_PER_PAGE == 5
+    assert {b.lower() for b in bold} == {"term0", "term1", "term2", "term3", "term4"}
+    assert "**TERM0**" in md, "a repeat of an already-bold term stays bold and is not counted again"
+    for t in terms:
+        assert t in md, "unbolded terms keep their text"
+    assert "**term5**" not in md and "term5" in md
+
+
+def test_prompts_ask_about_the_subject_not_the_page():
+    from backend.services.parser.vision_blocks import VISION_BLOCKS_PROMPT
+
+    sentence = ('Write about the subject itself. Never describe the page, slide or document '
+                '(no "This page outlines…", "The slide shows…").')
+    assert sentence in ss.STUDIO_SUMMARY_PROMPT
+    assert sentence in VISION_BLOCKS_PROMPT
+    # Both prompts are still valid format strings.
+    ss.STUDIO_SUMMARY_PROMPT.format(title="T", language="English", pages="PAGE 1")
+    VISION_BLOCKS_PROMPT.format(title="T", language="English", page=1)
