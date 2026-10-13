@@ -21,11 +21,14 @@ PAGE_QUALITY = 80
 PAGE_CACHE_CONTROL = "31536000"
 
 
+MAX_PIXEL_HEIGHT = 16383  # WebP's hard limit
+
+
 def render_page_webp(page: Any, *, width: int = PAGE_WIDTH) -> bytes:
     import fitz  # PyMuPDF
     from PIL import Image
 
-    zoom = width / (page.rect.width or float(width))
+    zoom = min(width / (page.rect.width or float(width)), MAX_PIXEL_HEIGHT / (page.rect.height or float(MAX_PIXEL_HEIGHT)))
     pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
     image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
     buf = io.BytesIO()

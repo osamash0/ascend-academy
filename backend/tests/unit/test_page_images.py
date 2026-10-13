@@ -63,3 +63,12 @@ def test_store_gives_up_after_attempts(monkeypatch):
     with pytest.raises(RuntimeError):
         asyncio.run(page_images.store_page_image("lid", 1, b"x", attempts=3))
     assert calls["n"] == 3
+
+
+def test_tall_page_output_height_is_capped():
+    from PIL import Image
+    import io
+    doc = fitz.open()
+    p = doc.new_page(width=100, height=5000)
+    webp = render_page_webp(p)
+    assert Image.open(io.BytesIO(webp)).size[1] <= 16383

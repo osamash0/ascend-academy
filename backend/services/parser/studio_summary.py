@@ -24,7 +24,7 @@ STUDIO_SUMMARY_PROMPT = """You write the calm summary a learner reads first, pag
 
 For EACH page below write 1 to 3 short paragraphs, 2 to 4 sentences each, in {language}.
 Quiet, plain prose. Mark the key terms of the page in **bold** (2 to 5 per page).
-Never add facts that are not on the page. Skip pages that are only a title: one sentence is enough.
+Never add facts that are not on the page. A page that is only a title gets one sentence.
 Every paragraph lists in "covers" the ids of the blocks it condenses (ids are in square brackets).
 
 Return ONLY JSON: {{"pages": [{{"page": <number>, "paragraphs": [{{"markdown": "...", "covers": ["p1-b2"]}}]}}]}}
@@ -77,13 +77,16 @@ async def _batch(chunk: List[Tuple[int, PageBlocks]], title: str, ai_model: str,
                                        feature="studio_pages")
         data = parse_json_response(raw)
     except Exception as exc:
-        logger.warning("studio summary batch (pages %s) failed: %s", [n for n, _ in chunk], exc)
+        logger.warning("studio summary batch (pages %s) failed: %s", [n for n, _ in chunk], exc, exc_info=True)
         return {}
     out: Dict[int, List[dict]] = {}
     for item in (data or {}).get("pages", []) if isinstance(data, dict) else []:
         if not isinstance(item, dict):
             continue
-        n = item.get("page")
+        try:
+            n = int(item.get("page"))
+        except (TypeError, ValueError):
+            continue
         if n in allowed_by_page:
             paras = clean_paragraphs(item.get("paragraphs"), allowed_by_page[n])
             if paras:

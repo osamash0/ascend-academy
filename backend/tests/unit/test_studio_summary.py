@@ -81,3 +81,13 @@ def test_a_failed_batch_leaves_its_pages_out(monkeypatch):
     pages = [(n, _pb(n, [f"Page {n} text here."])) for n in range(1, 10)]
     out = asyncio.run(ss.summarize_text_pages(pages, lecture_title="T", ai_model="openai", source_language="en"))
     assert out == {9: [{"markdown": "Nine.", "covers": []}]}
+
+
+def test_string_page_numbers_are_coerced(monkeypatch):
+    async def fake(prompt, ai_model, **kw):
+        return json.dumps({"pages": [{"page": "2", "paragraphs": [{"markdown": "ok", "covers": ["p2-b0"]}]},
+                                     {"page": "x", "paragraphs": [{"markdown": "no", "covers": []}]}]})
+
+    monkeypatch.setattr(ss, "generate_text_bulk", fake)
+    out = asyncio.run(ss._batch([(2, _pb(2, ["Hello"]))], "T", "m", "English"))
+    assert list(out) == [2]
