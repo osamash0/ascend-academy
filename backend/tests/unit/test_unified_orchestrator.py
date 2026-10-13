@@ -19,6 +19,9 @@ from backend.domain.parse_models import RunStatus
 from backend.services.parser import persist, unified_orchestrator as uo
 
 OWNER = "11111111-1111-1111-1111-111111111111"
+QUIZ_STATS = {"proposed": 2, "kept": 1, "repaired": 0, "dropped": 1, "drop_reasons": {"no_source": 1}}
+LONG_A = "Breadth-first search visits every vertex level by level from the source."
+LONG_B = "Depth-first search follows one branch to its end before it backtracks."
 
 
 def test_clean_title_strips_path_and_extension():
@@ -276,6 +279,14 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     async def finalize_lecture(lid, desc, total):
         rec["finalize"].append((desc, total))
 
+    async def save_parse_receipt(run_id, lecture_id, *, deck_skeleton, slide_provenance, quiz_grounding,
+                                 llm_usage=None):
+        rec.setdefault("receipts", []).append({
+            "run_id": run_id, "lecture_id": lecture_id, "deck_skeleton": deck_skeleton,
+            "slide_provenance": slide_provenance, "quiz_grounding": quiz_grounding,
+            "llm_usage": llm_usage,
+        })
+
     monkeypatch.setattr(uo.repos, "get_or_create_run", get_or_create_run)
     monkeypatch.setattr(uo.repos, "set_status", set_status)
     monkeypatch.setattr(uo.repos, "set_error", set_error)
@@ -296,6 +307,7 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     monkeypatch.setattr(persist, "insert_slide_quizzes", insert_slide_quizzes)
     monkeypatch.setattr(persist, "insert_deck_quizzes", insert_deck_quizzes)
     monkeypatch.setattr(persist, "finalize_lecture", finalize_lecture)
+    monkeypatch.setattr(uo.repos, "save_parse_receipt", save_parse_receipt)
 
     import backend.services.parser.synthesis as synthesis
     import backend.services.file_parse_service as fps
@@ -306,10 +318,12 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     import backend.services.localization_service as localization_service
     import backend.services.ai.orchestrator as ai_orchestrator
 
-    async def meta(slides, model, course_context_hint="", source_language="en"):
+    async def meta(slides, model, course_context_hint="", source_language="en", skeleton=None):
         return {"title": "DB Lecture", "summary": "Deck summary.", "keyTopics": ["Gradient Descent", "Loss Functions"]}
 
-    async def quiz(slides, title, model, source_language="en"):
+    async def quiz(slides, title, model, source_language="en", skeleton=None, stats=None):
+        if stats is not None:
+            stats.update(QUIZ_STATS)
         return [{"question": "dq", "options": ["a", "b", "c", "d"], "correctAnswer": "a", "slideId": 1}]
 
     async def localize_lecture(lecture_id, ai_model):
@@ -426,6 +440,20 @@ async def test_parse_pdf_unified_happy_path(monkeypatch):
     assert all(s[1] and s[2] for s in rec["slides"])  # title + summary non-empty
     assert rec["deck_quiz"] == [1]
     assert rec["finalize"] == [("Deck summary.", 3)]
+    assert RunStatus.COMPLETED in rec["status"]
+
+
+async def test_parse_pdf_unified_survives_skeleton_failure(monkeypatch):
+    """The deck skeleton is an optimisation input: failing to build it must
+    never abort a parse (callees build their own or fall back)."""
+    rec, run = _patch_common(monkeypatch)
+
+    def boom(pages):
+        raise RuntimeError("skeleton exploded")
+
+    monkeypatch.setattr("backend.services.parser.deck_plan.build_deck_skeleton", boom)
+    events = await _run("h", OWNER, filename="My Deck.pdf")
+    assert events[-1][0] == "complete"
     assert RunStatus.COMPLETED in rec["status"]
 
 
@@ -769,7 +797,7 @@ async def test_course_context_hint_threaded_into_meta_and_per_slide_context(monk
 
     captured_hints = []
 
-    async def fake_meta(slides, model, course_context_hint="", source_language="en"):
+    async def fake_meta(slides, model, course_context_hint="", source_language="en", skeleton=None):
         captured_hints.append(course_context_hint)
         return {"title": "DB Lecture", "summary": "Deck summary.", "keyTopics": []}
 
@@ -814,7 +842,7 @@ async def test_course_context_hint_absent_without_course_id_is_byte_identical(mo
 
     captured_hints = []
 
-    async def fake_meta(slides, model, course_context_hint="", source_language="en"):
+    async def fake_meta(slides, model, course_context_hint="", source_language="en", skeleton=None):
         captured_hints.append(course_context_hint)
         return {"title": "DB Lecture", "summary": "Deck summary.", "keyTopics": []}
 
@@ -1275,3 +1303,430 @@ def test_batch_slide_prompt_labels_slide_text_as_data_not_instructions():
     from backend.services.ai.prompts import BATCH_SLIDE_PROMPT
 
     assert "not instructions to you" in BATCH_SLIDE_PROMPT
+
+
+# ── Arc 5: parse receipt ─────────────────────────────────────────────────────
+
+async def test_parse_pdf_unified_writes_a_parse_receipt(monkeypatch):
+    rec, run = _patch_common(monkeypatch)
+    await _run("h", OWNER, filename="My Deck.pdf")
+    (receipt,) = rec["receipts"]
+    assert receipt["run_id"] == run.run_id
+    assert receipt["lecture_id"] == rec["lectures"][0][2]
+    assert [s["index"] for s in receipt["deck_skeleton"]["slides"]] == [0, 1, 2]
+    assert receipt["deck_skeleton"]["slides"][0]["role"] == "title"
+    assert [p["index"] for p in receipt["slide_provenance"]] == [0, 1, 2]
+    assert receipt["quiz_grounding"] == QUIZ_STATS
+
+
+async def test_receipt_provenance_records_batch_and_vision_routes(monkeypatch):
+    from backend.services.ai.prompts import PROMPT_VERSIONS
+    rec, run = _patch_common(monkeypatch, pages=[LONG_A, LONG_B, ""])
+    await _run("h", OWNER, filename="Deck.pdf", ai_model="groq")
+    prov = rec["receipts"][0]["slide_provenance"]
+    assert prov[0] == {
+        "index": 0, "route": "batch", "prompt": "BATCH_SLIDE_PROMPT",
+        "prompt_version": PROMPT_VERSIONS["BATCH_SLIDE_PROMPT"], "requested_model": "groq",
+        "input_text": "raw", "served_by": [], "cost_usd": 0.0,
+        "synthesis_failed": False, "needs_review": False, "review_reason": None,
+    }
+    assert prov[2]["input_text"] == "raw"
+    assert prov[1]["route"] == "batch"
+    assert prov[2]["route"] == "vision"
+    assert prov[2]["prompt"] == "SLIDE_VISION_PROMPT"
+    assert prov[2]["requested_model"] == uo.settings.vision_model
+
+
+async def test_receipt_marks_per_slide_fallback_when_batch_fails(monkeypatch):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    rec, run = _patch_common(monkeypatch, pages=[LONG_A, LONG_B])
+
+    async def failing_batch(*_a, **_k):
+        raise RuntimeError("batch provider down")
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", failing_batch)
+    await _run("h", OWNER, filename="Deck.pdf")
+    prov = rec["receipts"][0]["slide_provenance"]
+    assert [p["route"] for p in prov] == ["per_slide", "per_slide"]
+    assert prov[0]["prompt"] == "SLIDE_ANALYSIS_PROMPT"
+
+
+async def test_receipt_flags_a_failed_slide(monkeypatch):
+    rec, run = _patch_common(monkeypatch)
+
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+        if idx == 1:
+            raise RuntimeError("provider exploded")
+        return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text"}
+
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    await _run("h", OWNER, filename="Deck.pdf")
+    prov = rec["receipts"][0]["slide_provenance"]
+    assert prov[1]["synthesis_failed"] is True and prov[1]["needs_review"] is True
+    assert prov[0]["synthesis_failed"] is False
+
+
+async def test_on_demand_receipt_is_heuristic_with_no_quiz_grounding(monkeypatch):
+    rec, run = _patch_common(monkeypatch, pages=["raw text 0", "raw text 1"])
+    await _run("h", OWNER, filename="Deck.pdf", parsing_mode="on_demand")
+    (receipt,) = rec["receipts"]
+    assert [p["route"] for p in receipt["slide_provenance"]] == ["heuristic", "heuristic"]
+    assert receipt["slide_provenance"][0]["prompt"] is None
+    assert receipt["slide_provenance"][0]["prompt_version"] is None
+    assert receipt["slide_provenance"][0]["requested_model"] is None
+    assert receipt["quiz_grounding"] is None
+
+
+async def test_receipt_written_without_skeleton_when_skeleton_fails(monkeypatch):
+    rec, run = _patch_common(monkeypatch)
+
+    def boom(pages):
+        raise RuntimeError("skeleton exploded")
+
+    monkeypatch.setattr("backend.services.parser.deck_plan.build_deck_skeleton", boom)
+    await _run("h", OWNER, filename="Deck.pdf")
+    (receipt,) = rec["receipts"]
+    assert receipt["deck_skeleton"] is None
+    assert len(receipt["slide_provenance"]) == 3
+
+
+async def test_receipt_write_failure_never_fails_the_parse(monkeypatch, caplog):
+    import logging
+    rec, run = _patch_common(monkeypatch)
+
+    async def boom(*_a, **_k):
+        raise RuntimeError("parse_receipts table missing")
+
+    monkeypatch.setattr(uo.repos, "save_parse_receipt", boom)
+    caplog.set_level(logging.WARNING, logger=uo.logger.name)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+    assert events[-1][0] == "complete"
+    assert RunStatus.COMPLETED in rec["status"]
+    assert rec["errors"] == []
+    assert "parse receipt write failed" in caplog.text
+
+
+# ── Arc 7: per-slide synthesis input ─────────────────────────────────────────
+
+ARC7_FOOTER = "Prof Example Course Footer"
+ARC7_DECK = [
+    f"Short Title Bravo\n{ARC7_FOOTER}",  # stripped = 17 chars -> raw fallback
+    f"Breadth-first search visits every vertex level by level.\n{ARC7_FOOTER}",
+    f"Depth-first search follows one branch to its end first.\n{ARC7_FOOTER}",
+    f"Dijkstra finds shortest paths with nonnegative weights.\n{ARC7_FOOTER}",
+]
+
+
+def _slide_contents(events):
+    return {d["index"]: d["slide"]["content"] for t, d in events if t == "slide"}
+
+
+async def test_batch_synthesis_gets_stripped_text_but_slides_keep_raw_content(monkeypatch):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    rec, run = _patch_common(monkeypatch, pages=ARC7_DECK)
+    sent = {}
+
+    async def capturing_batch(slides_input, ai_model="cerebras", blueprint=None, **_kw):
+        sent.update({s["index"]: s["text"] for s in slides_input})
+        return [{"index": s["index"], "title": f"S{s['index']}", "summary": f"sum{s['index']}",
+                 "slide_type": "text"} for s in slides_input]
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", capturing_batch)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+
+    assert sent[1] == "Breadth-first search visits every vertex level by level."
+    assert all(ARC7_FOOTER not in sent[i] for i in (1, 2, 3))
+    assert sent[0] == ARC7_DECK[0]  # never sent near-empty
+    assert _slide_contents(events) == dict(enumerate(ARC7_DECK))
+
+
+async def test_per_slide_fallback_gets_stripped_text_but_slides_keep_raw_content(monkeypatch):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    rec, run = _patch_common(monkeypatch, pages=ARC7_DECK)
+
+    async def failing_batch(*_a, **_k):
+        raise RuntimeError("batch provider down")
+
+    seen = {}
+
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+        seen[idx] = text
+        return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text"}
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", failing_batch)
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+
+    assert seen[2] == "Depth-first search follows one branch to its end first."
+    assert seen[0] == ARC7_DECK[0]
+    assert _slide_contents(events) == dict(enumerate(ARC7_DECK))
+
+
+def test_input_text_kind():
+    assert uo._input_text_kind("heuristic", "raw", None) is None
+    assert uo._input_text_kind("batch", "raw page", "stripped page") == "stripped"
+    assert uo._input_text_kind("per_slide", "raw page", "raw page") == "raw"
+    assert uo._input_text_kind("per_slide", "raw page", None) == "raw"
+    assert uo._input_text_kind("batch", "raw page", None) == "raw"
+    assert uo._input_text_kind("vision", "raw page", "stripped page") == "raw"
+
+
+def test_input_text_kind_is_raw_when_only_blank_lines_were_dropped():
+    # strip_boilerplate always joins non-blank lines, so a page with a trailing
+    # newline or blank line differs from its "stripped" text even when no
+    # boilerplate line was removed. That is "raw", not "stripped".
+    from backend.services.parser.deck_plan import strip_boilerplate
+    bp = frozenset({"footer #"})
+    plain = "Depth-first search\n\nfollows one branch\n"
+    footed = "Depth-first search\nfollows one branch\nFooter 3\n"
+    assert uo._input_text_kind("batch", plain, strip_boilerplate(plain, bp)) == "raw"
+    assert uo._input_text_kind("per_slide", footed, strip_boilerplate(footed, bp)) == "stripped"
+    # synthesis_text's raw fallback hands the raw page back unchanged
+    assert uo._input_text_kind("batch", footed, footed) == "raw"
+
+
+async def test_receipt_records_what_text_each_slide_prompt_received(monkeypatch):
+    rec, run = _patch_common(monkeypatch, pages=ARC7_DECK)
+    await _run("h", OWNER, filename="Deck.pdf")
+    prov = rec["receipts"][0]["slide_provenance"]
+    assert [p["input_text"] for p in prov] == ["raw", "stripped", "stripped", "stripped"]
+
+
+async def test_on_demand_receipt_has_no_input_text(monkeypatch):
+    rec, run = _patch_common(monkeypatch, pages=["raw text 0", "raw text 1"])
+    await _run("h", OWNER, filename="Deck.pdf", parsing_mode="on_demand")
+    assert [p["input_text"] for p in rec["receipts"][0]["slide_provenance"]] == [None, None]
+
+
+def test_prompt_versions_follow_the_input_contract_policy():
+    from backend.services.ai.prompts import PROMPT_VERSIONS
+    # Single-caller prompts whose input changed: bumped.
+    assert PROMPT_VERSIONS["SLIDE_ANALYSIS_PROMPT"] == "v3"
+    assert PROMPT_VERSIONS["LECTURE_META_ANALYSIS_PROMPT"] == "v3"
+    # Shared with raw-text callers (file_parse_service, slide_synth_service): not
+    # bumped; slide_provenance[].input_text says what each slide received.
+    assert PROMPT_VERSIONS["BATCH_SLIDE_PROMPT"] == "v3"
+
+
+# ── Arc 7: LLM call context ──────────────────────────────────────────────────
+
+async def test_each_parse_llm_call_runs_inside_its_scope(monkeypatch):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    import backend.services.parser.synthesis as synthesis
+    from backend.services.ai.call_context import current_llm_call_context
+
+    rec, run = _patch_common(monkeypatch, pages=[LONG_A, LONG_B, ""])
+    seen = {}
+
+    def snap(key):
+        c = current_llm_call_context()
+        seen[key] = (c.run_id, c.slide_indices, c.prompt_name, c.calls is not None)
+
+    async def batch(slides_input, ai_model="cerebras", blueprint=None, **_kw):
+        snap("batch")
+        return [{"index": s["index"], "title": "T", "summary": "S", "slide_type": "text"}
+                for s in slides_input]
+
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+        snap(f"slide{idx}")
+        return {"title": "T", "content": text, "summary": "S", "slide_type": "text", "vision_routed": True}
+
+    async def meta(slides, model, course_context_hint="", source_language="en", skeleton=None):
+        snap("meta")
+        return {"title": "L", "summary": "D"}
+
+    async def quiz(slides, title, model, source_language="en", skeleton=None, stats=None):
+        snap("quiz")
+        return []
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", batch)
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    monkeypatch.setattr(synthesis, "analyze_lecture_meta", meta)
+    monkeypatch.setattr(synthesis, "generate_quiz_questions", quiz)
+    await _run("h", OWNER, filename="Deck.pdf")
+
+    rid = str(run.run_id)
+    assert seen["meta"] == (rid, None, "LECTURE_META_ANALYSIS_PROMPT", True)
+    assert seen["batch"] == (rid, (0, 1), "BATCH_SLIDE_PROMPT", True)
+    assert seen["slide2"] == (rid, (2,), "SLIDE_VISION_PROMPT", True)
+    assert seen["quiz"] == (rid, None, "SYNTHESIS_DECK_QUIZ_PROMPT", True)
+    assert current_llm_call_context().run_id is None  # reset after the parse
+
+
+async def test_per_slide_fallback_calls_are_scoped_to_their_own_slide(monkeypatch):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    from backend.services.ai.call_context import current_llm_call_context
+
+    rec, run = _patch_common(monkeypatch, pages=[LONG_A, LONG_B])
+
+    async def failing_batch(*_a, **_k):
+        raise RuntimeError("batch provider down")
+
+    seen = {}
+
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+        await asyncio.sleep(0)  # interleave the gathered tasks
+        c = current_llm_call_context()
+        seen[idx] = (c.slide_indices, c.prompt_name)
+        return {"title": "T", "content": text, "summary": "S", "slide_type": "text"}
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", failing_batch)
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    await _run("h", OWNER, filename="Deck.pdf")
+    assert seen == {0: ((0,), "SLIDE_ANALYSIS_PROMPT"), 1: ((1,), "SLIDE_ANALYSIS_PROMPT")}
+
+
+async def test_call_context_is_reset_when_the_parse_fails(monkeypatch):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    from backend.services.ai.call_context import current_llm_call_context
+
+    rec, run = _patch_common(monkeypatch, pages=_long_pages(40))
+
+    class _StarvedRotator:
+        def remaining_headroom(self, chain):
+            return 3
+
+    monkeypatch.setattr(ai_orchestrator, "get_rotator", lambda: _StarvedRotator())
+    with pytest.raises(uo.InsufficientHeadroomError):
+        await _run("h", OWNER)
+    assert current_llm_call_context() == type(current_llm_call_context())()
+
+
+async def test_each_parse_attempt_and_concurrent_parse_gets_its_own_calls_list(monkeypatch):
+    """A re-parse must not inherit the previous attempt's calls, and two parses
+    running at once must never share a list."""
+    import backend.services.ai.orchestrator as ai_orchestrator
+    from backend.services.ai.call_context import current_llm_call_context
+
+    _patch_common(monkeypatch, pages=[LONG_A, LONG_B])
+    lists = []
+
+    async def batch(slides_input, ai_model="cerebras", blueprint=None, **_kw):
+        await asyncio.sleep(0)  # let the concurrent parse interleave
+        lists.append(current_llm_call_context().calls)
+        return [{"index": s["index"], "title": "T", "summary": "S", "slide_type": "text"}
+                for s in slides_input]
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", batch)
+    await asyncio.gather(_run("h1", OWNER, filename="A.pdf"), _run("h2", OWNER, filename="B.pdf"))
+    await _run("h3", OWNER, filename="C.pdf")
+    assert len(lists) == 3
+    assert all(l is not None for l in lists)
+    assert len({id(l) for l in lists}) == 3
+
+
+# ── Arc 7: serving provider/cost in the receipt ─────────────────────────────
+
+def _served(provider, model, pt, ct, cost, prompt, slides, version=None):
+    from backend.services.ai.call_context import ServedCall
+    return ServedCall(provider=provider, model=model, prompt_tokens=pt, completion_tokens=ct,
+                      cost_usd=cost, prompt_name=prompt, slide_indices=slides,
+                      prompt_version=version)
+
+
+def test_llm_usage_receipt_splits_a_batch_call_and_totals_the_run():
+    prov = [{"index": 0, "route": "batch"}, {"index": 1, "route": "batch"}, {"index": 2, "route": "vision"}]
+    calls = [
+        _served("openai", "gpt-4o-mini", 2000, 1000, 0.0009, "BATCH_SLIDE_PROMPT", (0, 1), "v3"),
+        _served("groq", "gpt-oss-120b", 500, 100, 0.0, "LECTURE_META_ANALYSIS_PROMPT", None),
+        _served("groq", "gpt-oss-20b", 300, 50, 0.0, None, (7,)),  # slide not in receipt
+    ]
+    out, usage = uo._llm_usage_receipt(prov, calls)
+    assert "served_by" not in prov[0]  # input not mutated
+    assert out[0]["served_by"] == [{
+        "provider": "openai", "model": "gpt-4o-mini", "prompt": "BATCH_SLIDE_PROMPT",
+        "prompt_version": "v3",
+        "prompt_tokens": 2000, "completion_tokens": 1000, "cost_usd": 0.0009, "shared_by": 2,
+    }]
+    assert out[0]["cost_usd"] == pytest.approx(0.00045)
+    assert out[2]["served_by"] == [] and out[2]["cost_usd"] == 0.0
+    assert usage["calls"] == 3
+    assert (usage["prompt_tokens"], usage["completion_tokens"]) == (2800, 1150)
+    assert usage["cost_usd"] == pytest.approx(0.0009)
+    assert usage["by_prompt"]["LECTURE_META_ANALYSIS_PROMPT"] == {"calls": 1, "cost_usd": 0.0}
+    assert usage["by_prompt"]["unnamed"]["calls"] == 1
+    assert usage["by_provider"]["openai"] == {"calls": 1, "cost_usd": 0.0009}
+    assert usage["vision_metered"] is False
+    assert usage["unmetered"] == ["vision", "embeddings", "admin_slide_classifier"]
+    assert usage["dropped_calls"] == 0
+
+
+def test_llm_usage_receipt_surfaces_dropped_calls():
+    from backend.services.ai.call_context import CallLog
+    log = CallLog([_served("groq", "m", 1, 1, 0.0, "P", (0,))])
+    log.dropped = 4
+    _, usage = uo._llm_usage_receipt([{"index": 0}], log)
+    assert usage["dropped_calls"] == 4
+
+
+def test_run_level_calls_count_in_totals_but_never_in_a_slide():
+    prov = [{"index": 0, "route": "batch"}]
+    calls = [_served("groq", "m", 10, 5, 0.01, "CROSS_LECTURE_QUIZ_PROMPT", None)]
+    out, usage = uo._llm_usage_receipt(prov, calls)
+    assert out[0]["served_by"] == [] and out[0]["cost_usd"] == 0.0
+    assert usage["cost_usd"] == pytest.approx(0.01)
+    assert usage["by_prompt"]["CROSS_LECTURE_QUIZ_PROMPT"]["calls"] == 1
+
+
+async def test_receipt_records_serving_provider_and_cost(monkeypatch):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    import backend.services.parser.synthesis as synthesis
+    from backend.services.ai import cost as cost_module
+    from backend.services.ai.cost import LLMUsage
+
+    rec, run = _patch_common(monkeypatch, pages=[LONG_A, LONG_B, ""])
+    logged = []
+
+    async def fake_log(**kw):
+        logged.append(kw)
+
+    async def noop(*_a, **_k):
+        return None
+
+    monkeypatch.setattr(cost_module, "log_llm_call", fake_log)
+    monkeypatch.setattr(cost_module, "get_redis_or_none", lambda: None)
+    monkeypatch.setattr(ai_orchestrator._rotator, "flush_openai_cost_to_redis", noop)
+
+    async def metered(provider, model, pt, ct):
+        await ai_orchestrator._account_for_call(
+            provider, model, LLMUsage(prompt_tokens=pt, completion_tokens=ct),
+            user_id=None, course_id=None, feature="test", duration_seconds=0.0,
+        )
+
+    async def batch(slides_input, ai_model="cerebras", blueprint=None, **_kw):
+        await metered("openai", "gpt-4o-mini", 2000, 1000)  # $0.0003 + $0.0006
+        return [{"index": s["index"], "title": f"S{s['index']}", "summary": f"sum{s['index']}",
+                 "slide_type": "text"} for s in slides_input]
+
+    async def meta(slides, model, course_context_hint="", source_language="en", skeleton=None):
+        await metered("groq", "gpt-oss-120b", 500, 100)
+        return {"title": "L", "summary": "D"}
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", batch)
+    monkeypatch.setattr(synthesis, "analyze_lecture_meta", meta)
+    await _run("h", OWNER, filename="Deck.pdf")
+
+    (receipt,) = rec["receipts"]
+    prov = receipt["slide_provenance"]
+    assert prov[0]["served_by"][0]["provider"] == "openai"
+    assert prov[0]["served_by"][0]["shared_by"] == 2
+    assert prov[0]["cost_usd"] == pytest.approx(0.00045)
+    assert prov[2]["served_by"] == []  # vision: not metered
+    usage = receipt["llm_usage"]
+    assert usage["calls"] == 2 and usage["cost_usd"] == pytest.approx(0.0009)
+    assert usage["by_prompt"]["LECTURE_META_ANALYSIS_PROMPT"]["calls"] == 1
+    assert {row["run_id"] for row in logged} == {str(run.run_id)}
+
+
+async def test_usage_fold_failure_still_writes_the_receipt(monkeypatch):
+    rec, run = _patch_common(monkeypatch)
+
+    def boom(*_a, **_k):
+        raise RuntimeError("fold exploded")
+
+    monkeypatch.setattr(uo, "_llm_usage_receipt", boom)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+    assert events[-1][0] == "complete"
+    (receipt,) = rec["receipts"]
+    assert receipt["llm_usage"] is None
+    assert "served_by" not in receipt["slide_provenance"][0]

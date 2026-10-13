@@ -13,9 +13,12 @@ when needed, are fetched via `parser.storage._fetch_pdf_bytes`.
 """
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 from typing import Any, Dict, List
 
+from backend.services.ai.call_context import llm_call_scope
 from backend.services.ai.orchestrator import (
     generate_text_bulk,
     generate_text,
@@ -27,12 +30,35 @@ from backend.services.ai.prompts import (
     SLIDE_ANALYSIS_PROMPT,
     SYLLABUS_FACTS_EXTRACTION_PROMPT,
     SYNTHESIS_DECK_QUIZ_PROMPT,
+    SYNTHESIS_QUIZ_REPAIR_PROMPT,
     output_language as _output_language,
 )
 from backend.services.ai.quiz_validator import _normalize_answer_index
 from backend.services.ai.voice import with_voice
+from backend.services.parser.deck_plan import (
+    DeckSkeleton,
+    build_deck_skeleton,
+    select_meta_slides,
+    select_slides,
+)
+from backend.services.parser.quiz_grounding import STRUCTURAL_REASONS, GroundingVerdict, assess_grounding
 
 logger = logging.getLogger(__name__)
+
+# The deck-quiz prompt asks for 5-8 questions; the model's list length is
+# untrusted, so it bounds how many repair LLM calls a parse can trigger.
+MAX_DECK_QUIZ_QUESTIONS = 12
+MAX_CONCURRENT_REPAIRS = 3
+
+# Grounding is ADVISORY by default: content verdicts (low_support, ambiguous,
+# number_not_on_slide) keep the question and flag it (`grounding_flag`) instead
+# of dropping it. The verifier is a lexical-overlap filter; measured by the
+# drop-risk probe (commit c50a97f) at SUPPORT_THRESHOLD=0.5 it falsely drops
+# 87.5% of genuine paraphrased questions (14/16, all 8 German) while falsely
+# keeping 0% of on-topic hallucinations. Do NOT re-enable enforcement without a
+# semantic scorer and a re-run of that probe. Structural verdicts are dropped
+# in both modes.
+ENFORCE_SUPPORT_THRESHOLD = False
 
 
 # ---------------------------------------------------------------------------
@@ -40,9 +66,14 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 async def analyze_lecture_meta(
-    slides: List[str], ai_model: str, course_context_hint: str = "", source_language: str = "en"
+    slides: List[str],
+    ai_model: str,
+    course_context_hint: str = "",
+    source_language: str = "en",
+    skeleton: DeckSkeleton | None = None,
 ) -> Dict[str, Any]:
-    """One LLM call on the first 15 slides to extract lecture-level metadata.
+    """One LLM call on up to 15 slides spread across the whole deck (plus the
+    title slide) to extract lecture-level metadata.
 
     ``course_context_hint`` (Roadmap Phase 3.4, "new-upload awareness") is an
     optional short block of prior-lecture titles/concepts from the same
@@ -50,8 +81,10 @@ async def analyze_lecture_meta(
     with earlier lectures. Empty by default — the prompt is then BYTE-
     IDENTICAL to before this parameter existed (regression guard).
     """
+    skeleton = skeleton or build_deck_skeleton(slides)
+    picked = select_meta_slides(skeleton)
     combined_text = "\n\n".join(
-        f"[Slide {i + 1}]: {text[:400]}" for i, text in enumerate(slides[:15])
+        f"[Slide {i + 1}]: {skeleton.slides[i].text[:400]}" for i in picked
     )
     prompt = LECTURE_META_ANALYSIS_PROMPT.format(
         combined_text=combined_text,
@@ -91,14 +124,28 @@ async def generate_quiz_questions(
     lecture_title: str,
     ai_model: str,
     source_language: str = "en",
+    skeleton: DeckSkeleton | None = None,
+    stats: Dict[str, Any] | None = None,
 ) -> List[Dict[str, Any]]:
-    """Generate 5–8 deck-level MCQs from content-rich slides."""
-    content_slides = [s for s in slides if len(s) > 50][:10]
-    if not content_slides:
+    """Generate 5–8 deck-level MCQs from content-rich slides spread across
+    every section of the deck, labelled with their real slide numbers.
+
+    Every question must cite the slide its answer is stated on
+    (`source_slide`). `ground_deck_quiz` runs in advisory mode by default:
+    structurally failing questions are dropped, while low-overlap questions
+    are kept and flagged (`grounding_flag` plus `support_score`). Only when
+    ENFORCE_SUPPORT_THRESHOLD is True does it repair each unsupported
+    question once and then drop it.
+
+    ``stats`` (Arc 5 parse receipts), when given, receives the grounding
+    summary; it stays empty when no quiz was attempted."""
+    skeleton = skeleton or build_deck_skeleton(slides)
+    picked = select_slides(skeleton, 10)
+    if not picked:
         return []
 
     slide_summary = "\n\n".join(
-        f"[Slide {i + 1}]: {text[:500]}" for i, text in enumerate(content_slides)
+        f"[Slide {i + 1}]: {skeleton.slides[i].text[:500]}" for i in picked
     )
     prompt = SYNTHESIS_DECK_QUIZ_PROMPT.format(
         lecture_title=lecture_title,
@@ -107,7 +154,128 @@ async def generate_quiz_questions(
     )
     raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
     res = parse_json_response(raw)
-    return res if isinstance(res, list) else []
+    if not isinstance(res, list):
+        return []
+    return await ground_deck_quiz(res, skeleton, lecture_title, ai_model, source_language, stats=stats)
+
+
+def _grounded(q: Dict[str, Any], verdict: GroundingVerdict) -> Dict[str, Any]:
+    return {**q, "source_slide": verdict.source_slide, "support_score": round(verdict.score, 3)}
+
+
+def _flagged(q: Dict[str, Any], verdict: GroundingVerdict) -> Dict[str, Any]:
+    return {**_grounded(q, verdict), "grounding_flag": verdict.reason}
+
+
+async def _repair_question(
+    q: Dict[str, Any],
+    slide_number: int,
+    skeleton: DeckSkeleton,
+    lecture_title: str,
+    ai_model: str,
+    source_language: str,
+) -> Dict[str, Any] | None:
+    """One regeneration against the cited slide only. The returned question
+    is pinned to that slide, so a model cannot repair by relocating."""
+    prompt = SYNTHESIS_QUIZ_REPAIR_PROMPT.format(
+        lecture_title=lecture_title,
+        concept=str(q.get("concept") or q.get("question") or "")[:200],
+        slide_number=slide_number,
+        slide_text=skeleton.slides[slide_number - 1].text[:1500],
+        output_language=_output_language(source_language),
+    )
+    try:
+        with llm_call_scope(prompt_name="SYNTHESIS_QUIZ_REPAIR_PROMPT",
+                            slide_indices=(slide_number - 1,)):
+            raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
+    except Exception as exc:
+        logger.warning("deck quiz repair failed (non-fatal): %s", exc)
+        return None
+    res = parse_json_response(raw)
+    if isinstance(res, list) and res and isinstance(res[0], dict):
+        res = res[0]
+    if not isinstance(res, dict) or not res:
+        return None
+    return {**res, "source_slide": slide_number}
+
+
+async def ground_deck_quiz(
+    questions: List[Any],
+    skeleton: DeckSkeleton,
+    lecture_title: str,
+    ai_model: str,
+    source_language: str = "en",
+    stats: Dict[str, Any] | None = None,
+) -> List[Dict[str, Any]]:
+    """Verify each question against its cited slide.
+
+    A question with no usable slide or answer (missing, garbage, out of
+    range, empty slide, no key) is dropped without a repair in every mode:
+    there is nothing to repair against. A content verdict (low_support,
+    ambiguous, number_not_on_slide) is advisory by default: the question is
+    kept and flagged via ``grounding_flag``. With ENFORCE_SUPPORT_THRESHOLD it
+    instead gets ONE regeneration against its cited slide, then is dropped. Logs one ``deck_quiz_grounding {json}`` line
+    (proposed/kept/repaired/dropped + drop reasons) and, when ``stats`` is
+    given, merges the same summary into it for the parse receipt."""
+    # (question | None, was_repaired, drop_reason)
+    proposed = len(questions)
+    over_cap = max(0, proposed - MAX_DECK_QUIZ_QUESTIONS)
+    questions = questions[:MAX_DECK_QUIZ_QUESTIONS]
+    repair_slots = asyncio.Semaphore(MAX_CONCURRENT_REPAIRS)
+
+    async def _checked(q: Any) -> tuple[Dict[str, Any] | None, bool, str]:
+        try:
+            return await _one(q)
+        except Exception:
+            logger.warning("deck quiz grounding errored; dropping question", exc_info=True)
+            return None, False, "grounding_error"
+
+    async def _one(q: Any) -> tuple[Dict[str, Any] | None, bool, str]:
+        if not isinstance(q, dict):
+            return None, False, "not_an_object"
+        verdict = assess_grounding(q, skeleton)
+        if verdict.ok:
+            return _grounded(q, verdict), False, ""
+        if verdict.reason in STRUCTURAL_REASONS or verdict.source_slide is None:
+            return None, False, verdict.reason
+        if not ENFORCE_SUPPORT_THRESHOLD:
+            return _flagged(q, verdict), False, ""
+        async with repair_slots:
+            repaired = await _repair_question(
+                q, verdict.source_slide, skeleton, lecture_title, ai_model, source_language,
+            )
+        if repaired is None:
+            return None, False, "repair_failed"
+        second = assess_grounding(repaired, skeleton)
+        if second.ok:
+            return _grounded(repaired, second), True, ""
+        return None, False, f"repair_{second.reason}"
+
+    results = await asyncio.gather(*(_checked(q) for q in questions))
+    kept = [r for r, _, _ in results if r is not None]
+    flag_reasons: Dict[str, int] = {}
+    for r, _, _ in results:
+        if r is not None and r.get("grounding_flag"):
+            flag_reasons[r["grounding_flag"]] = flag_reasons.get(r["grounding_flag"], 0) + 1
+    reasons: Dict[str, int] = {}
+    for r, _, reason in results:
+        if r is None:
+            reasons[reason] = reasons.get(reason, 0) + 1
+    if over_cap:
+        reasons["over_cap"] = over_cap
+    summary = {
+        "proposed": proposed,
+        "kept": len(kept),
+        "repaired": sum(1 for _, was_repaired, _ in results if was_repaired),
+        "dropped": proposed - len(kept),
+        "drop_reasons": reasons,
+        "flagged": sum(flag_reasons.values()),
+        "flag_reasons": flag_reasons,
+    }
+    logger.info("deck_quiz_grounding %s", json.dumps(summary, sort_keys=True))
+    if stats is not None:
+        stats.update(summary)
+    return kept
 
 
 async def generate_cross_lecture_questions(
@@ -221,12 +389,17 @@ def _map_deck_quiz(quiz_questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]
                 q.get("correctAnswer"), options,
             )
             continue
-        # slideId is 1-based from LLM; frontend/embeddings use 0-based index
+        # source_slide is the verified 1-based deck number (Arc 4); slideId is
+        # the pre-v3 key, kept so stubbed/older output still maps.
+        # Frontend/embeddings use the 0-based index.
+        src = q.get("source_slide")
+        if src is None:
+            src = q.get("slideId", 1)
         try:
-            slide_id_0 = max(0, int(q.get("slideId", 1)) - 1)
+            slide_id_0 = max(0, int(src) - 1)
         except (TypeError, ValueError):
             slide_id_0 = 0
-        mapped.append({
+        entry = {
             "question": q.get("question", ""),
             "options": options,
             "correctAnswer": ans_idx,
@@ -234,7 +407,12 @@ def _map_deck_quiz(quiz_questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]
             "concept": q.get("concept", ""),
             "difficulty": q.get("difficulty", ""),
             "linked_slides": [slide_id_0],
-        })
+        }
+        if q.get("support_score") is not None:
+            entry["support_score"] = q["support_score"]
+        if q.get("grounding_flag"):
+            entry["grounding_flag"] = q["grounding_flag"]
+        mapped.append(entry)
     if dropped:
         logger.warning(
             "V4 quiz: dropped %d of %d questions with unresolvable answers",

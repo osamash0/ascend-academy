@@ -74,3 +74,31 @@ def test_missing_concept_defaults_to_empty_not_difficulty():
     out = _map_deck_quiz([q])
     assert out[0]["concept"] == ""
     assert out[0]["difficulty"] == "easy"
+
+
+def test_source_slide_alone_anchors_to_its_slide_not_slide_zero():
+    """Live gap from Arc 4 Task 4: the v3 prompt and verifier emit source_slide,
+    not slideId; reading only slideId anchored every question to slide 0."""
+    q = {"question": "Q", "options": ["a", "b", "c", "d"], "correctAnswer": "a", "source_slide": 3}
+    assert _map_deck_quiz([q])[0]["linked_slides"] == [2]
+
+
+def test_source_slide_wins_over_legacy_slideId_and_support_is_carried():
+    q = {"question": "Q", "options": ["a", "b", "c", "d"], "correctAnswer": "a",
+         "source_slide": 5, "slideId": 2, "support_score": 0.87}
+    out = _map_deck_quiz([q])[0]
+    assert out["linked_slides"] == [4]
+    assert out["support_score"] == 0.87
+
+
+def test_unverified_question_has_no_support_score_key():
+    q = {"question": "Q", "options": ["a", "b", "c", "d"], "correctAnswer": "a", "slideId": 2}
+    out = _map_deck_quiz([q])[0]
+    assert out["linked_slides"] == [1]
+    assert "support_score" not in out
+
+
+def test_grounding_flag_is_carried_only_when_present():
+    base = {"question": "Q", "options": ["a", "b", "c", "d"], "correctAnswer": "a", "source_slide": 2}
+    assert _map_deck_quiz([{**base, "grounding_flag": "low_support"}])[0]["grounding_flag"] == "low_support"
+    assert "grounding_flag" not in _map_deck_quiz([base])[0]

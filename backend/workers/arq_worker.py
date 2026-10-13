@@ -75,6 +75,17 @@ async def startup(ctx: dict) -> None:
     """Initialise the asyncpg pool and anything the job functions need."""
     from backend.core.database import init_db_pool
     await init_db_pool()
+    # The cache Redis (not the arq queue's) carries the fleet-wide LLM
+    # provider limit/cost counters. Best-effort: without it the worker still
+    # runs, with per-process limits only.
+    try:
+        from backend.core.redis import init_redis
+        await init_redis()
+    except Exception:
+        logger.warning(
+            "cache Redis unavailable in worker; provider limits/cost ceiling are per-process only",
+            exc_info=True,
+        )
     logger.info("Arq worker startup complete")
 
 
@@ -82,6 +93,11 @@ async def shutdown(ctx: dict) -> None:
     from backend.core.database import db_pool
     if db_pool:
         await db_pool.close()
+    try:
+        from backend.core.redis import close_redis
+        await close_redis()
+    except Exception:
+        logger.warning("cache Redis close failed in worker shutdown", exc_info=True)
     logger.info("Arq worker shutdown complete")
 
 
