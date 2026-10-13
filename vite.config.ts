@@ -4,6 +4,11 @@ import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Overridable for the same reason as the proxy: checkouts that share one
+  // node_modules (symlinked worktrees) otherwise share one pre-bundle cache,
+  // and two dev servers re-optimising it at once serve a page two copies of
+  // React ("Invalid hook call" from a Radix popover).
+  cacheDir: process.env.VITE_CACHE_DIR || "node_modules/.vite",
   server: {
     // SECURITY: bind to loopback only so the dev server is never reachable from
     // the host's public IP / 0.0.0.0. Reach it from another machine via the

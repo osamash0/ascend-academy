@@ -722,7 +722,19 @@ class ProviderRotator:
             logger.debug("ProviderRotator.flush_success_to_redis failed for %s: %s", provider_id, exc)
 
     async def flush_openai_cost_to_redis(self, cost_usd: float) -> None:
-        """Atomically adds to openai's fleet-wide daily cost total."""
+        """Adds to openai's daily cost: always to this process's in-memory
+        total, then best-effort to the fleet-wide Redis counter.
+
+        The local add must not depend on Redis. A process with Redis down —
+        or never initialised, which is every Arq worker (only main.py calls
+        init_redis()) — used to skip it, so the ceiling in `available()`
+        compared against a total stuck at $0 and never tripped.
+        `refresh_from_redis` takes max(local, fleet), so this never
+        double-counts.
+        """
+        with self._lock:
+            self._reset_if_new_day()
+            self._openai_daily_cost_usd += cost_usd
         from backend.services.ai.cost import get_redis_or_none, openai_daily_cost_key
         redis = get_redis_or_none()
         if redis is None:
@@ -731,8 +743,6 @@ class ProviderRotator:
             key = openai_daily_cost_key()
             await redis.incrbyfloat(key, cost_usd)
             await redis.expire(key, 2 * 86400)
-            with self._lock:
-                self._openai_daily_cost_usd += cost_usd
         except Exception as exc:
             logger.debug("ProviderRotator.flush_openai_cost_to_redis failed: %s", exc)
 
@@ -905,6 +915,23 @@ def _call_provider(
 # Rotation engine
 # ---------------------------------------------------------------------------
 
+def _http_status(exc: BaseException) -> Optional[int]:
+    """The HTTP status a provider SDK exception carries, or None.
+
+    openai/groq SDK errors expose it as ``status_code``. google-genai's
+    ``APIError`` (gemini, gemma, gemini_vision) exposes it as ``code`` and words
+    its message "404 NOT_FOUND. {...}", which none of the string sniffs match,
+    so a retired Gemini slug used to be retried on every call. Only ints count:
+    openai's APIError also has a ``code`` attribute, but there it is the
+    string error code (e.g. "model_not_found").
+    """
+    for attr in ("status_code", "code"):
+        value = getattr(exc, attr, None)
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+    return None
+
+
 def _generate_with_rotation(
     prompt: str,
     chain: List[str],
@@ -929,10 +956,8 @@ def _generate_with_rotation(
 
     ``prompt_name`` (optional) is a ``prompts.PROMPT_VERSIONS`` key, logged
     alongside the serving provider as a breadcrumb correlating a provider
-    choice to the prompt/version that produced it. Now that P1-1's
-    ``llm_calls`` table exists, this is still only logged (not written as a
-    column) — wiring ``prompt_name`` into ``_account_for_call``/``log_llm_call``
-    is a documented fast-follow, not done here.
+    choice to the prompt/version that produced it.
+    ``_account_for_call`` writes ``prompt_name`` to ``llm_calls`` (Arc 7).
     """
     chain = _chain_with_preferred(chain, preferred)
     available = _rotator.available(chain)
@@ -979,7 +1004,7 @@ def _generate_with_rotation(
             # demoted a permanent failure to a 90s backoff and left the head
             # of both chains re-firing one doomed request per call forever.
             is_payment_required = (
-                getattr(exc, "status_code", None) == 402
+                _http_status(exc) == 402
                 or "error code: 402" in msg
                 or "status 402" in msg
                 or "payment_required" in msg
@@ -1002,7 +1027,7 @@ def _generate_with_rotation(
             # request id that happens to contain those digits can't disable a
             # working provider.
             is_model_not_found = (
-                getattr(exc, "status_code", None) == 404
+                _http_status(exc) == 404
                 or "error code: 404" in msg
                 or "status 404" in msg
             )
@@ -1252,13 +1277,24 @@ async def _account_for_call(
     course_id: Optional[str],
     feature: str,
     duration_seconds: float,
+    prompt_name: Optional[str] = None,
 ) -> None:
     """Shared cost-accounting tail for generate_text/generate_text_bulk
     (Roadmap P1-1): mirrors this call's provider count (and openai's cost, if
     any) to Redis for fleet-wide budget tracking, logs the completion to
     ``public.llm_calls``, and — when ``user_id`` is given — adds to that
     user's running monthly spend. It also emits the completed call's latency,
-    cost, and token usage to Prometheus. Entirely best-effort; never raises."""
+    cost, and token usage to Prometheus.
+
+    Arc 7: the current ``call_context`` (set by the parse orchestrator) tags
+    the row with run_id / slide_indices / prompt_name, and the serving call is
+    recorded for the parse receipt. An explicit ``prompt_name`` wins over the
+    context's. Entirely best-effort; never raises."""
+    from backend.services.ai.call_context import (
+        ServedCall,
+        current_llm_call_context,
+        record_served_call,
+    )
     from backend.services.ai.cost import estimate_cost, log_llm_call, record_user_llm_spend
     from backend.core.metrics import (
         LLM_CALL_COST_USD_TOTAL,
@@ -1270,9 +1306,27 @@ async def _account_for_call(
     cost = estimate_cost(provider_id, model, usage)
     if provider_id == "openai" and cost > 0:
         await _rotator.flush_openai_cost_to_redis(cost)
+    call_ctx = current_llm_call_context()
+    name = prompt_name or call_ctx.prompt_name
+    from backend.services.ai.prompts import PROMPT_VERSIONS, get_prompt_version
+    # Recorded at call time so a later prompt bump never rewrites history;
+    # None for a free-form name that is not a registered prompt.
+    version = get_prompt_version(name) if name in PROMPT_VERSIONS else None
+    record_served_call(ServedCall(
+        provider=provider_id,
+        model=model,
+        prompt_tokens=usage.prompt_tokens if usage else 0,
+        completion_tokens=usage.completion_tokens if usage else 0,
+        cost_usd=cost,
+        prompt_name=name,
+        slide_indices=call_ctx.slide_indices,
+        prompt_version=version,
+    ))
     await log_llm_call(
         user_id=user_id, course_id=course_id, feature=feature,
         provider_id=provider_id, model=model, usage=usage, cost_usd=cost,
+        run_id=call_ctx.run_id, slide_indices=call_ctx.slide_indices, prompt_name=name,
+        prompt_version=version,
     )
     if user_id and cost > 0:
         await record_user_llm_spend(user_id, cost)
@@ -1346,6 +1400,7 @@ async def generate_text(
     await _account_for_call(
         provider_id, model, usage,
         user_id=user_id, course_id=course_id, feature=feature or "generate_text",
+        prompt_name=prompt_name,
         duration_seconds=time.perf_counter() - call_started,
     )
     await log_prompt_response("generate_text", prompt, text)
@@ -1389,6 +1444,7 @@ async def generate_text_bulk(
     await _account_for_call(
         provider_id, model, usage,
         user_id=user_id, course_id=course_id, feature=feature or "generate_text_bulk",
+        prompt_name=prompt_name,
         duration_seconds=time.perf_counter() - call_started,
     )
     await log_prompt_response("generate_text_bulk", prompt, text)
@@ -1805,6 +1861,7 @@ async def batch_analyze_text_slides(
         await _account_for_call(
             provider_id, model, usage,
             user_id=None, course_id=None, feature="batch_analyze_text_slides",
+            prompt_name="BATCH_SLIDE_PROMPT",
             duration_seconds=time.perf_counter() - call_started,
         )
     except Exception as exc:
