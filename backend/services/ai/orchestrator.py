@@ -1289,7 +1289,12 @@ async def _account_for_call(
     Arc 7: the current ``call_context`` (set by the parse orchestrator) tags
     the row with run_id / slide_indices / prompt_name, and the serving call is
     recorded for the parse receipt. An explicit ``prompt_name`` wins over the
-    context's. Entirely best-effort; never raises."""
+    context's.
+
+    Arc 9: a call made inside a parse without its own ``user_id`` /
+    ``course_id`` is billed to the parse's uploader and course from the
+    context. Explicit arguments always win, and the spend is recorded exactly
+    once per call. Entirely best-effort; never raises."""
     from backend.services.ai.call_context import (
         ServedCall,
         current_llm_call_context,
@@ -1302,11 +1307,16 @@ async def _account_for_call(
         LLM_CALL_TOKENS_TOTAL,
     )
 
+    call_ctx = current_llm_call_context()
+    if user_id is None:
+        user_id = call_ctx.user_id
+    if course_id is None:
+        course_id = call_ctx.course_id
+
     await _rotator.flush_success_to_redis(provider_id)
     cost = estimate_cost(provider_id, model, usage)
     if provider_id == "openai" and cost > 0:
         await _rotator.flush_openai_cost_to_redis(cost)
-    call_ctx = current_llm_call_context()
     name = prompt_name or call_ctx.prompt_name
     from backend.services.ai.prompts import PROMPT_VERSIONS, get_prompt_version
     # Recorded at call time so a later prompt bump never rewrites history;
