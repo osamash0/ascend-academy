@@ -55,6 +55,17 @@ async def v4_ask(request: Request, body: _Ask, user: Any = Depends(verify_token)
     return await service.ask(_uid(user), body.question.strip(), str(body.space_id) if body.space_id else None)
 
 
+@router.post("/friends/{person_id}/{answer}")
+@limiter.limit("30/minute")
+async def v4_answer_friend_request(person_id: UUID, answer: str, request: Request, user: Any = Depends(verify_token)):
+    """Accept or decline a friend request addressed to you."""
+    if answer not in ("accept", "decline"):
+        raise HTTPException(status_code=404, detail="Not found.")
+    if not await service.answer_friend_request(_uid(user), str(person_id), answer == "accept"):
+        raise HTTPException(status_code=404, detail="No pending request from this person.")
+    return {"ok": True}
+
+
 @router.post("/notifications/read-all")
 @limiter.limit("30/minute")
 async def v4_notifications_read_all(request: Request, user: Any = Depends(verify_token)):

@@ -199,6 +199,7 @@ async def get_world(user_id: str) -> Dict[str, Any]:
         )
         activity = await conn.fetch(_ACTIVITY_SQL, user_id, lecture_ids)
         record = await _record(conn, user_id)
+        social = await _social(conn, user_id)
         notes = await conn.fetch(
             "SELECT id, title, message, type, read, created_at FROM notifications "
             "WHERE user_id = $1::uuid ORDER BY created_at DESC LIMIT 30",
@@ -303,7 +304,115 @@ async def get_world(user_id: str) -> Dict[str, Any]:
         "xp": (viewer_row["total_xp"] or 0) if viewer_row else 0,
         "notifications": [_notification(r) for r in notes],
         "record": record,
+        "social": social,
     }
+
+
+# ── Social: friends, requests, the race ──────────────────────────────────────
+
+# The people the viewer shares a Space with (owner or member, live courses).
+_SHARED_SQL = """
+WITH mine AS (
+  SELECT c.id FROM courses c
+  WHERE NOT COALESCE(c.is_archived, false)
+    AND (c.professor_id = $1::uuid OR EXISTS (
+         SELECT 1 FROM course_enrollments e WHERE e.course_id = c.id AND e.user_id = $1::uuid))
+),
+members AS (
+  SELECT e.user_id, e.course_id FROM course_enrollments e JOIN mine m ON m.id = e.course_id
+  UNION
+  SELECT c.professor_id, c.id FROM courses c JOIN mine m ON m.id = c.id WHERE c.professor_id IS NOT NULL
+)
+SELECT user_id, count(DISTINCT course_id) AS shared
+FROM members WHERE user_id <> $1::uuid
+GROUP BY user_id
+"""
+
+_FRIENDS_SQL = """
+SELECT CASE WHEN requester_id = $1::uuid THEN addressee_id ELSE requester_id END AS user_id
+FROM friend_requests
+WHERE status = 'accepted' AND $1::uuid IN (requester_id, addressee_id)
+"""
+
+#: How many people the race shows, the viewer always among them.
+_RACE_SIZE = 25
+
+
+async def _social(conn: Any, user_id: str) -> Dict[str, Any]:
+    shared = {r["user_id"]: r["shared"] for r in await conn.fetch(_SHARED_SQL, user_id)}
+    friend_ids = {r["user_id"] for r in await conn.fetch(_FRIENDS_SQL, user_id)}
+    request_ids = [
+        r["requester_id"]
+        for r in await conn.fetch(
+            "SELECT requester_id FROM friend_requests WHERE addressee_id = $1::uuid AND status = 'pending' "
+            "ORDER BY created_at DESC",
+            user_id,
+        )
+    ]
+    # Test, seed and staff accounts never race real students — but a friend
+    # you chose is shown whatever their account. The classification arrives
+    # with migration 20261013000000 (PR #92); before it, everyone races.
+    classified = await conn.fetchval("SELECT to_regclass('public.account_classification') IS NOT NULL")
+    internal = (
+        "(SELECT a.is_internal FROM account_classification a WHERE a.user_id = p.user_id)"
+        if classified else "false"
+    )
+    racers = await conn.fetch(
+        f"""
+        SELECT p.user_id, p.display_name, p.full_name, p.email, p.avatar_url, COALESCE(p.total_xp, 0) AS xp
+        FROM profiles p
+        WHERE p.user_id = ANY($1::uuid[])
+          AND (p.user_id = ANY($2::uuid[]) OR NOT COALESCE({internal}, false))
+        ORDER BY xp DESC
+        LIMIT {_RACE_SIZE - 1}
+        """,
+        list({*shared, *friend_ids}), list(friend_ids),
+    )
+    me = await conn.fetchrow(
+        "SELECT user_id, display_name, full_name, email, avatar_url, COALESCE(total_xp, 0) AS xp "
+        "FROM profiles WHERE user_id = $1::uuid",
+        user_id,
+    )
+    # Your own row counts the Spaces you are in, not ones "shared with" you.
+    my_spaces = await conn.fetchval(
+        "SELECT count(*) FROM courses c WHERE NOT COALESCE(c.is_archived, false) AND (c.professor_id = $1::uuid "
+        "OR EXISTS (SELECT 1 FROM course_enrollments e WHERE e.course_id = c.id AND e.user_id = $1::uuid))",
+        user_id,
+    )
+    people = {
+        r["user_id"]: _person(r)
+        for r in await conn.fetch(
+            "SELECT user_id, display_name, full_name, email, avatar_url FROM profiles WHERE user_id = ANY($1::uuid[])",
+            list({*friend_ids, *request_ids}),
+        )
+    }
+
+    race = [
+        {"person": _person(r), "xp": r["xp"], "sharedSpaces": shared.get(r["user_id"], 0), "isViewer": False}
+        for r in racers
+    ]
+    if me:
+        race.append({"person": _person(me), "xp": me["xp"], "sharedSpaces": my_spaces, "isViewer": True})
+    # By XP; on a tie the viewer sits below, so a tie is never shown as a lead.
+    race.sort(key=lambda r: (-r["xp"], r["isViewer"]))
+
+    return {
+        "leaderboard": race,
+        "friends": [people[i] for i in friend_ids if i in people],
+        "requests": [{"person": people[i], "sharedSpaces": shared.get(i, 0)} for i in request_ids if i in people],
+    }
+
+
+async def answer_friend_request(user_id: str, requester_id: str, accept: bool) -> bool:
+    """Accept or decline a pending request addressed to the viewer. False if there was none."""
+    conn_cm = await get_db_connection()
+    async with conn_cm as conn:
+        result = await conn.execute(
+            "UPDATE friend_requests SET status = $3, responded_at = now() "
+            "WHERE addressee_id = $1::uuid AND requester_id = $2::uuid AND status = 'pending'",
+            user_id, requester_id, "accepted" if accept else "declined",
+        )
+    return result == "UPDATE 1"
 
 
 # ── The viewer's record: study days, the XP ledger, Moments ──────────────────

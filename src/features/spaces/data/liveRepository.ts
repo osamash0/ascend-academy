@@ -166,6 +166,9 @@ export function createLiveRepository(http: V4Transport) {
     world: () => http.get<World>(`${root}/world`),
     /* Home's ask bar: the grounded course tutor. */
     ask: (question: string) => http.post<AskAnswer>(`${root}/ask`, { question }),
+    /* Accept or decline a friend request addressed to you. */
+    answerFriendRequest: (personId: string, verdict: 'accept' | 'decline') =>
+      http.post<{ ok: true }>(`${root}/friends/${idPath(personId)}/${verdict}`, {}),
     /* Mark every notification read. */
     markNotificationsRead: () => http.post<{ marked: number }>(`${root}/notifications/read-all`, {}),
     /* Join an open Space (enrol in its course). Idempotent. */

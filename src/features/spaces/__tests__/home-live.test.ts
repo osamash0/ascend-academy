@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { homeFromWorld } from '../data/home';
 import type { World } from '../data/world';
+import { emptyWorld } from './emptyWorld';
 import type { Lesson, Space } from '../types';
 
 const space = (id: string, over: Partial<Space> = {}) =>
@@ -13,17 +14,13 @@ const lesson = (spaceId: string, order: number, over: Partial<Lesson> = {}) =>
     material: { uploadedAt: `2026-10-0${order}T10:00:00Z` }, ...over,
   }) as Lesson;
 
-const world = (over: Partial<World>): World => ({
-  viewer: { id: 'u', name: 'Lea', avatarUrl: null },
-  spaces: [space('dbs')],
-  lessons: [lesson('dbs', 1), lesson('dbs', 2), lesson('dbs', 3)],
-  activity: [],
-  streakDays: 3,
-  xp: 0,
-  notifications: [],
-  record: { studyDays: [], xpEvents: [], moments: [] },
-  ...over,
-});
+const world = (over: Partial<World>): World =>
+  emptyWorld({
+    spaces: [space('dbs')],
+    lessons: [lesson('dbs', 1), lesson('dbs', 2), lesson('dbs', 3)],
+    streakDays: 3,
+    ...over,
+  });
 
 describe('Home from the live world', () => {
   it('a brand-new account is onboarded, with no fake next action', () => {

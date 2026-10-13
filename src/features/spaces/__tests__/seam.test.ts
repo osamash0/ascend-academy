@@ -32,7 +32,6 @@ const STILL_ON_MOCKS = [
   'screens/PersonScreen.tsx',
   'screens/PracticeScreen.tsx',
   'screens/ReaderScreen.tsx',
-  'screens/SocialScreen.tsx',
   'screens/SpaceManageScreen.tsx',
   'screens/SpaceScreen.tsx',
   'screens/SpacesScreen.tsx',

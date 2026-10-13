@@ -36,6 +36,12 @@ export interface World {
     xpEvents: XpEvent[];
     moments: Moment[];
   };
+  /** Friends, requests to you, and the race (viewer included), by XP. */
+  social: {
+    leaderboard: { person: Person; xp: number; sharedSpaces: number; isViewer: boolean }[];
+    friends: Person[];
+    requests: { person: Person; sharedSpaces: number }[];
+  };
 }
 
 let live: World | null = null;

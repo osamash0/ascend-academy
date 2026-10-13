@@ -3,15 +3,12 @@ import * as history from '../mocks/history';
 import * as rank from '../mocks/rank';
 import * as record from '../data/record';
 import { setLiveWorld, type World } from '../data/world';
+import { emptyWorld } from './emptyWorld';
 
 afterEach(() => setLiveWorld(null));
 
 const live = (r: Partial<World['record']>) =>
-  setLiveWorld({
-    viewer: { id: 'u', name: 'Lea', avatarUrl: null },
-    spaces: [], lessons: [], activity: [], streakDays: 0, xp: 0, notifications: [],
-    record: { studyDays: [], xpEvents: [], moments: [], ...r },
-  });
+  setLiveWorld(emptyWorld({ record: { studyDays: [], xpEvents: [], moments: [], ...r } }));
 
 describe('the record', () => {
   it('demo answers exactly as the fixtures do', () => {
