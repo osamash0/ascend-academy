@@ -17,7 +17,6 @@ import { join } from 'node:path';
 const STILL_ON_MOCKS = [
   'components/ContributionCard.tsx',
   'components/ReanchorDialog.tsx',
-  'components/SearchPalette.tsx',
   'components/SpaceDialogs.tsx',
   'components/badges.tsx',
   'components/reader/TutorPanel.tsx',
