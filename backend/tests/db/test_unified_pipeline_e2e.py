@@ -23,6 +23,16 @@ def _areturn(val):
     return _f
 
 
+@pytest.fixture(autouse=True)
+def _uploader_is_a_professor(monkeypatch):
+    """Arc 9: parse_pdf_unified looks the uploader's role up via Supabase
+    (user_roles) for the "students" spend cap. These tests only own a Postgres
+    container, so the lookup is faked -- never a real Supabase call."""
+    monkeypatch.setattr(
+        "backend.core.auth_middleware._lookup_role_from_db", lambda uid: {"professor"}
+    )
+
+
 @pytest.fixture
 async def wired_pool(pg_dsn, applied_migrations):
     """Point the app's global asyncpg pool at the throwaway container."""
