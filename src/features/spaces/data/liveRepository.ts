@@ -3,7 +3,7 @@
  * The repository never substitutes fixtures for errors or missing live rows.
  */
 import type { ExplainAnswer } from '../components/reader/iui/spec';
-import type { Person } from '../types';
+import type { Note, Person } from '../types';
 import type { PracticeQuestion } from '../mocks/practice';
 import type { World } from './world';
 import type { AskAnswer } from './assistant';
@@ -153,6 +153,8 @@ export interface ReaderLecture {
 export interface V4Transport {
   get<T>(path: string): Promise<T>;
   post<T>(path: string, body: unknown): Promise<T>;
+  patch<T>(path: string, body: unknown): Promise<T>;
+  delete<T>(path: string): Promise<T>;
 }
 
 const root = '/api/v1/v4';
@@ -169,6 +171,11 @@ export function createLiveRepository(http: V4Transport) {
     /* Accept or decline a friend request addressed to you. */
     answerFriendRequest: (personId: string, verdict: 'accept' | 'decline') =>
       http.post<{ ok: true }>(`${root}/friends/${idPath(personId)}/${verdict}`, {}),
+    /* Private notes. The server answers with the stored note (real id, kept names). */
+    addNote: (body: string, lessonId: string | null) =>
+      http.post<Note>(`${root}/notes`, lessonId ? { body, lesson_id: lessonId } : { body }),
+    updateNote: (id: string, body: string) => http.patch<Note>(`${root}/notes/${idPath(id)}`, { body }),
+    deleteNote: (id: string) => http.delete<{ deleted: true }>(`${root}/notes/${idPath(id)}`),
     /* Mark every notification read. */
     markNotificationsRead: () => http.post<{ marked: number }>(`${root}/notifications/read-all`, {}),
     /* Join an open Space (enrol in its course). Idempotent. */

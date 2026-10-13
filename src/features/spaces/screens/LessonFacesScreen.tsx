@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Smartphone, Sun, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PdfPager, sampleAccent } from '@/components/pdf';
-import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
+import { addNote, deleteNote, notesError, notesForLesson, subscribeNotes, updateNote } from '../data/notes';
 import { submitAnswer, usePracticeQuestions } from '../data/practice';
 import { Scene, SURFACES } from '../components/Scene';
 import { LessonPager } from '../components/LessonPager';
@@ -148,6 +148,14 @@ export default function LessonFacesScreen() {
   const turnId = useRef(0);
   const mintTurnId = useCallback(() => turnId.current++, []);
   const [noteTick, setNoteTick] = useState(0);
+  /*
+   * Re-read notes when the store changes on its own — a live note getting its
+   * real id, or a failed write being taken back. Kept apart from `noteTick`,
+   * which also clears the new-note box: a server reply must never wipe
+   * something half-written.
+   */
+  const [, setNotesSeen] = useState(0);
+  useEffect(() => subscribeNotes(() => setNotesSeen((n) => n + 1)), []);
   const [accent, setAccent] = useState<string | null>(null);
   const [found, setFound] = useState<Found | null>(null);
   const foundNonce = useRef(0);
@@ -707,6 +715,11 @@ export default function LessonFacesScreen() {
           setNoteTick((t) => t + 1);
         }}
       />
+      {notesError() && (
+        <p role="alert" className="px-1 text-[13px] text-destructive">
+          {notesError()}
+        </p>
+      )}
       {myNotes.length === 0 && (
         <p className="px-1 text-[13px] text-faint">Nothing yet. Notes are private, and only you ever see them.</p>
       )}

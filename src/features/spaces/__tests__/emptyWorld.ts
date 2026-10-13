@@ -15,5 +15,6 @@ export const emptyWorld = (over: Partial<World> = {}): World => ({
   notifications: [],
   record: { studyDays: [], xpEvents: [], moments: [] },
   social: { leaderboard: [], friends: [], requests: [], sharedSpaceIds: {} },
+  notes: [],
   ...over,
 });

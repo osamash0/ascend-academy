@@ -1,6 +1,6 @@
 import * as fixtureSpaces from '../mocks/spaces';
 import * as fixtureLessons from '../mocks/lessons';
-import type { Lesson, Person, Space } from '../types';
+import type { Lesson, Note, Person, Space } from '../types';
 import type { AppNotification } from '../mocks/notifications';
 import type { StudyDay } from '../mocks/history';
 import type { XpEvent } from '../mocks/rank';
@@ -44,6 +44,8 @@ export interface World {
     /** The Spaces you share with each person, by person id. */
     sharedSpaceIds: Record<string, string[]>;
   };
+  /** The viewer's private notes, newest first. */
+  notes: Note[];
 }
 
 let live: World | null = null;

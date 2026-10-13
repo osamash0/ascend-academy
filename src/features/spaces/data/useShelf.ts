@@ -1,7 +1,7 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import type { LoadState } from '../types';
 import * as shelfStore from '../mocks/shelf';
-import { addNote, allNotes, notesVersion, subscribeNotes, updateNote } from '../mocks/notes';
+import { addNote, allNotes, notesVersion, subscribeNotes, updateNote } from './notes';
 import { myContributionById } from '../mocks/library';
 import { canvasById, pagesFor } from '../mocks/studio-canvas';
 import { spaceById } from '../mocks/spaces';

@@ -66,6 +66,48 @@ async def v4_answer_friend_request(person_id: UUID, answer: str, request: Reques
     return {"ok": True}
 
 
+class _NoteIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    body: str = Field(min_length=1, max_length=20000)
+    lesson_id: Optional[UUID] = None
+
+
+class _NoteEdit(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    body: str = Field(min_length=1, max_length=20000)
+
+
+@router.post("/notes")
+@limiter.limit("60/minute")
+async def v4_add_note(request: Request, body: _NoteIn, user: Any = Depends(verify_token)):
+    """A private note, on a Lesson you can open or on nothing."""
+    if not body.body.strip():
+        raise HTTPException(status_code=422, detail="A note needs something in it.")
+    try:
+        return await service.add_note(_uid(user), body.body, str(body.lesson_id) if body.lesson_id else None)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Lesson not found.")
+
+
+@router.patch("/notes/{note_id}")
+@limiter.limit("120/minute")
+async def v4_update_note(note_id: UUID, request: Request, body: _NoteEdit, user: Any = Depends(verify_token)):
+    if not body.body.strip():
+        raise HTTPException(status_code=422, detail="A note needs something in it.")
+    note = await service.update_note(_uid(user), str(note_id), body.body)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found.")
+    return note
+
+
+@router.delete("/notes/{note_id}")
+@limiter.limit("60/minute")
+async def v4_delete_note(note_id: UUID, request: Request, user: Any = Depends(verify_token)):
+    if not await service.delete_note(_uid(user), str(note_id)):
+        raise HTTPException(status_code=404, detail="Note not found.")
+    return {"deleted": True}
+
+
 @router.post("/notifications/read-all")
 @limiter.limit("30/minute")
 async def v4_notifications_read_all(request: Request, user: Any = Depends(verify_token)):

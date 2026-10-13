@@ -25,7 +25,6 @@ const STILL_ON_MOCKS = [
   'screens/LessonFacesScreen.tsx',
   'screens/LessonScreen.tsx',
   'screens/PracticeScreen.tsx',
-  'screens/ReaderScreen.tsx',
   'screens/SpaceManageScreen.tsx',
   'screens/SpaceScreen.tsx',
   'screens/SpacesScreen.tsx',

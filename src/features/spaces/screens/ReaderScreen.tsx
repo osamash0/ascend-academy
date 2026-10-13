@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useReducedMotion } from 'motion/react';
 import { ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
+import { addNote, deleteNote, notesForLesson, updateNote } from '../data/notes';
 import { Scene, SURFACES } from '../components/Scene';
 import { LessonPager } from '../components/LessonPager';
 import { NoteEditor } from '../components/NoteEditor';

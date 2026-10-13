@@ -30,7 +30,7 @@ import {
   nextAction,
   recentlyViewed,
 } from '../mocks/library';
-import { allNotes } from '../mocks/notes';
+import { allNotes } from './notes';
 import { currentRun } from '../mocks/history';
 import type { HeroKind, HomeItem, RecentItem } from '../mocks/library';
 import { canvasById, materialById, pagesFor } from '../mocks/studio-canvas';

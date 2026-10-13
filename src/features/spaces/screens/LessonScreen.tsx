@@ -8,7 +8,7 @@ import { topicIcon } from '@/lib/topicIcon';
 import type { Concept, Lesson, Space } from '../types';
 import { contributionsForLesson } from '../mocks/contributions';
 import { visibleContributions } from '../mocks/engagement';
-import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
+import { addNote, deleteNote, notesForLesson, updateNote } from '../data/notes';
 import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';

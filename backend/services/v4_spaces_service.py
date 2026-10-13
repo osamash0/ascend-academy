@@ -200,6 +200,7 @@ async def get_world(user_id: str) -> Dict[str, Any]:
         activity = await conn.fetch(_ACTIVITY_SQL, user_id, lecture_ids)
         record = await _record(conn, user_id)
         social = await _social(conn, user_id)
+        my_notes = await notes_for(conn, user_id)
         notes = await conn.fetch(
             "SELECT id, title, message, type, read, created_at FROM notifications "
             "WHERE user_id = $1::uuid ORDER BY created_at DESC LIMIT 30",
@@ -305,6 +306,7 @@ async def get_world(user_id: str) -> Dict[str, Any]:
         "notifications": [_notification(r) for r in notes],
         "record": record,
         "social": social,
+        "notes": my_notes,
     }
 
 
@@ -571,3 +573,98 @@ async def mark_notifications_read(user_id: str) -> int:
             "UPDATE notifications SET read = true WHERE user_id = $1::uuid AND NOT read", user_id,
         )
     return int(result.split()[-1]) if result else 0
+
+
+# ── Notes: private, anchored, outliving their anchor ─────────────────────────
+
+# The live names win while the anchor exists; the remembered ones after.
+_NOTE_SELECT = """
+SELECT n.id, n.user_id, n.body, n.lecture_id, n.course_id, n.updated_at,
+       COALESCE(l.title, n.lesson_title) AS lesson_title,
+       COALESCE(c.title, n.space_name) AS space_name
+FROM {source} n
+LEFT JOIN lectures l ON l.id = n.lecture_id
+LEFT JOIN courses c ON c.id = n.course_id
+"""
+
+
+def _note(r: Any) -> Dict[str, Any]:
+    """notes row → v4 Note. A gone anchor reads as empty, never as a sentence."""
+    return {
+        "id": str(r["id"]),
+        "authorId": str(r["user_id"]),
+        "body": r["body"],
+        "lessonId": str(r["lecture_id"]) if r["lecture_id"] else "",
+        "lessonTitle": r["lesson_title"] or "",
+        "spaceId": str(r["course_id"]) if r["course_id"] else "",
+        "spaceName": r["space_name"] or "",
+        "updatedAt": r["updated_at"].isoformat(),
+    }
+
+
+async def notes_for(conn: Any, user_id: str) -> List[Dict[str, Any]]:
+    if not await conn.fetchval("SELECT to_regclass('public.notes') IS NOT NULL"):
+        return []  # migration 20261014010000 not applied yet
+    rows = await conn.fetch(
+        _NOTE_SELECT.format(source="notes")
+        + " WHERE n.user_id = $1::uuid ORDER BY n.updated_at DESC LIMIT 500",
+        user_id,
+    )
+    return [_note(r) for r in rows]
+
+
+async def add_note(user_id: str, body: str, lesson_id: Optional[str]) -> Dict[str, Any]:
+    """Write a note, anchored to a Lesson the viewer can open — or to nothing.
+
+    The names it keeps come from the database at write time, never from the
+    client: they are what the note will show if its Lesson is later deleted.
+    Raises LookupError for a Lesson the viewer cannot open.
+    """
+    conn_cm = await get_db_connection()
+    async with conn_cm as conn:
+        lecture = None
+        if lesson_id:
+            lecture = await conn.fetchrow(
+                """
+                SELECT l.id, l.title, c.id AS course_id, c.title AS course_title
+                FROM lectures l LEFT JOIN courses c ON c.id = l.course_id
+                WHERE l.id = $1::uuid AND (
+                  c.professor_id = $2::uuid OR l.student_owner_id = $2::uuid OR EXISTS (
+                    SELECT 1 FROM course_enrollments e WHERE e.course_id = c.id AND e.user_id = $2::uuid))
+                """,
+                lesson_id, user_id,
+            )
+            if lecture is None:
+                raise LookupError("lesson")
+        row = await conn.fetchrow(
+            "WITH ins AS (INSERT INTO notes (user_id, lecture_id, course_id, lesson_title, space_name, body) "
+            "VALUES ($1::uuid, $2, $3, $4, $5, $6) RETURNING *) " + _NOTE_SELECT.format(source="ins"),
+            user_id,
+            lecture["id"] if lecture else None,
+            lecture["course_id"] if lecture else None,
+            lecture["title"] if lecture else "",
+            (lecture["course_title"] or "") if lecture else "",
+            body.strip(),
+        )
+    return _note(row)
+
+
+async def update_note(user_id: str, note_id: str, body: str) -> Optional[Dict[str, Any]]:
+    """Edit your own note in place; None if it is not yours or not there."""
+    conn_cm = await get_db_connection()
+    async with conn_cm as conn:
+        row = await conn.fetchrow(
+            "WITH upd AS (UPDATE notes SET body = $3, updated_at = now() "
+            "WHERE id = $2::uuid AND user_id = $1::uuid RETURNING *) " + _NOTE_SELECT.format(source="upd"),
+            user_id, note_id, body.strip(),
+        )
+    return _note(row) if row else None
+
+
+async def delete_note(user_id: str, note_id: str) -> bool:
+    conn_cm = await get_db_connection()
+    async with conn_cm as conn:
+        result = await conn.execute(
+            "DELETE FROM notes WHERE id = $2::uuid AND user_id = $1::uuid", user_id, note_id,
+        )
+    return result == "DELETE 1"
