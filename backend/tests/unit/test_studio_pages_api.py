@@ -101,3 +101,38 @@ def test_get_pages_signs_every_picture(monkeypatch):
     out = asyncio.run(svc.get_pages("00000000-0000-0000-0000-000000000001", "u"))
     assert [p["imageUrl"] for p in out["pages"]] == [
         "https://signed/lectures/L/p1.webp", "https://signed/lectures/L/p2.webp"]
+
+
+def _paths(**flags):
+    from types import SimpleNamespace
+
+    from fastapi import APIRouter
+
+    from backend.api.v1.material_pages import mount_materials_routers
+
+    parent = APIRouter()
+    mount_materials_routers(parent, SimpleNamespace(
+        feature_student_uploads=flags.get("uploads", False),
+        feature_studio_pages=flags.get("pages", False)))
+    return [(r.path, tuple(sorted(r.methods))) for r in parent.routes]
+
+
+PAGES = ("/materials/{lecture_id}/pages", ("GET",))
+
+
+def test_pages_route_mounted_with_only_studio_pages_flag():
+    paths = _paths(pages=True)
+    assert PAGES in paths
+    assert not any(p == "/materials/quota" for p, _ in paths)
+
+
+def test_pages_route_absent_with_both_flags_off():
+    assert _paths() == []
+
+
+def test_both_routers_coexist_with_uploads_on():
+    paths = _paths(uploads=True)
+    assert PAGES in paths
+    assert ("/materials/quota", ("GET",)) in paths
+    assert ("/materials/{lecture_id}", ("DELETE",)) in paths
+    assert paths.count(PAGES) == 1
