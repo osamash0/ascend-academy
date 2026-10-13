@@ -189,7 +189,7 @@ async def validate_upload(filename: Optional[str], content: bytes) -> int:
         return await _validate_pptx(content)
 
     if not lower.endswith(".pdf"):
-        raise ValueError("Only PDF and PowerPoint (.pptx) files are supported.")
+        raise ValueError("Only PDF, PowerPoint (.pptx) and photo (JPG, PNG, HEIC) files are supported.")
 
     # Validate size and magic bytes
     validate_pdf_content(content)

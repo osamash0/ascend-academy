@@ -62,7 +62,7 @@ async def test_validate_upload_pdf_returns_page_count(sample_pdf_bytes):
 
 
 async def test_validate_upload_rejects_non_pdf_non_pptx():
-    with pytest.raises(ValueError, match="Only PDF and PowerPoint"):
+    with pytest.raises(ValueError, match="Only PDF, PowerPoint"):
         await upload_service.validate_upload("notes.txt", b"%PDF-1.4 plus filler bytes")
 
 

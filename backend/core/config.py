@@ -129,6 +129,11 @@ class Settings(BaseSettings):
     # byte-for-byte as before this phase. Set FEATURE_COURSE_BRAIN=1 to enable.
     feature_course_brain: bool = Field(alias="FEATURE_COURSE_BRAIN", default=False)
 
+    # Studio pages (docs/superpowers/specs/2026-10-11-real-pages-pipeline-design.md):
+    # page pictures, block geometry and calm summaries in lecture_pages. Off = no
+    # new calls, rows or uploads.
+    feature_studio_pages: bool = Field(alias="FEATURE_STUDIO_PAGES", default=False)
+
     # ─── Study guide (Roadmap Phase 4.4) ────────────────────────────────────────
     # Off by default — gates GET /courses/{id}/study-guide. Depends on migration
     # 20260711020000_study_guides.sql. Set FEATURE_STUDY_GUIDE=1 to enable.

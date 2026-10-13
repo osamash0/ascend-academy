@@ -104,9 +104,14 @@ async def find_existing_upload(user_id: str, pdf_hash: str) -> Optional[Dict[str
 async def create_upload(user_id: str, file: UploadFile) -> Dict[str, Any]:
     """Validate, quota-check, store, and enqueue a private student upload."""
     content = await upload_service.read_upload_capped(file, settings.max_upload_mb)
-    await upload_service.validate_upload(file.filename, content)  # raises ValueError on invalid file
+    upload_name = file.filename or "upload"
+    if settings.feature_studio_pages:
+        from backend.services.image_intake import image_to_pdf, is_image
+        if is_image(upload_name):
+            content, upload_name = await asyncio.to_thread(image_to_pdf, content, upload_name)
+    await upload_service.validate_upload(upload_name, content)  # raises ValueError on invalid file
 
-    filename = sanitize_filename(file.filename)
+    filename = sanitize_filename(upload_name)
     pdf_hash = compute_pdf_hash(content)
 
     existing = await find_existing_upload(user_id, pdf_hash)

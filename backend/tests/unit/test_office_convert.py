@@ -129,5 +129,5 @@ def test_accepted_extensions_drops_pptx_when_converter_missing(monkeypatch):
 
 
 async def test_validate_upload_rejects_unsupported_extension():
-    with pytest.raises(ValueError, match="PDF and PowerPoint"):
+    with pytest.raises(ValueError, match="PDF, PowerPoint"):
         await upload_service.validate_upload("notes.txt", b"hello world")
