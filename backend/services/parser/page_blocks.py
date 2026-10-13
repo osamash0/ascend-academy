@@ -133,7 +133,7 @@ MIN_COVERAGE = 0.15
 def vision_blocks_to_source(items: Any, page_no: int) -> List[Dict[str, Any]]:
     """Vision boxes ([ymin, xmin, ymax, xmax] on 0..1000) → SourceBlocks."""
     out: List[Dict[str, Any]] = []
-    for it in items if isinstance(items, list) else []:
+    for i, it in enumerate(items if isinstance(items, list) else []):
         if not isinstance(it, dict):
             continue
         box = it.get("box_2d")
@@ -141,10 +141,12 @@ def vision_blocks_to_source(items: Any, page_no: int) -> List[Dict[str, Any]]:
         kind = it.get("kind") if it.get("kind") in VISION_KINDS else "paragraph"
         if not (isinstance(box, list) and len(box) == 4 and all(isinstance(v, (int, float)) for v in box)):
             continue
+        if any(v < 0 or v > 1000 for v in box):
+            continue  # reject a wild box rather than clamp it into a plausible one
         if kind != "figure" and not text.strip():
             continue
         ymin, xmin, ymax, xmax = (round(min(1.0, max(0.0, v / 1000)), 4) for v in box)
-        block: Dict[str, Any] = {"id": f"p{page_no}-b{len(out)}", "page": page_no,
+        block: Dict[str, Any] = {"id": f"p{page_no}-b{i}", "page": page_no,
                                  "bbox": [xmin, ymin, xmax, ymax], "kind": kind,
                                  "text": text.strip() if kind != "figure" else ""}
         conf = it.get("confidence")
