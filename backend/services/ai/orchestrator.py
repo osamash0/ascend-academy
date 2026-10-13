@@ -1349,6 +1349,35 @@ async def _account_for_call(
         LLM_CALL_TOKENS_TOTAL.labels(**labels, kind="completion").inc(usage.completion_tokens)
 
 
+async def enforce_llm_budget(user_id: Optional[str] = None) -> None:
+    """Per-call spend gate, run BEFORE any provider is invoked.
+
+    An explicit ``user_id`` is checked exactly as before (Roadmap P1-1).
+    Without one, a parse whose budget is enforced (Arc 9) checks the parse's
+    uploader from the call context. The first refusal latches
+    ``budget.exceeded`` so the pipeline can stop even where a step swallows
+    the error, and every later call of that parse is refused without another
+    Redis read. Raises ``LLMBudgetExceededError``."""
+    from backend.services.ai.call_context import current_llm_call_context
+    from backend.services.ai.cost import check_user_llm_budget
+    from backend.services.llm_client import LLMBudgetExceededError
+
+    if user_id:
+        await check_user_llm_budget(user_id)
+        return
+    ctx = current_llm_call_context()
+    budget = ctx.budget
+    if budget is None or not budget.enforce or not ctx.user_id:
+        return
+    if budget.exceeded:
+        raise LLMBudgetExceededError("Monthly LLM spend cap reached earlier in this parse.")
+    try:
+        await check_user_llm_budget(ctx.user_id)
+    except LLMBudgetExceededError:
+        budget.exceeded = True
+        raise
+
+
 async def generate_text(
     prompt: str,
     ai_model: str = "cerebras",
@@ -1381,11 +1410,9 @@ async def generate_text(
     specific feature name through yet).
     """
     from backend.services.llm_client import call_llm
-    from backend.services.ai.cost import check_user_llm_budget
     from backend.services.ai.prompt_log import log_prompt_response
 
-    if user_id:
-        await check_user_llm_budget(user_id)
+    await enforce_llm_budget(user_id)
 
     if ai_model == "llama3":
         call_started = time.perf_counter()
@@ -1436,11 +1463,9 @@ async def generate_text_bulk(
     cost-accounting contract (Roadmap P1-1) — identical here.
     """
     from backend.services.llm_client import call_llm
-    from backend.services.ai.cost import check_user_llm_budget
     from backend.services.ai.prompt_log import log_prompt_response
 
-    if user_id:
-        await check_user_llm_budget(user_id)
+    await enforce_llm_budget(user_id)
 
     preferred = _resolve_preferred(ai_model)
     await _rotator.refresh_from_redis(BULK_CHAIN)
@@ -1856,6 +1881,10 @@ async def batch_analyze_text_slides(
         structured=True,
     )
 
+    # Arc 9: the parse's spend gate (outside the try, so a refusal is not
+    # logged as a failed batch call; callers decide what a refusal means).
+    await enforce_llm_budget()
+
     # Single LLM call via BULK chain
     try:
         from backend.services.llm_client import call_llm
@@ -2027,6 +2056,9 @@ async def _regenerate_failing_slide_quizzes(
     )
 
     try:
+        # Arc 9: a refusal lands in the except below (keep originals); the
+        # latched parse budget still stops the parse.
+        await enforce_llm_budget()
         from backend.services.llm_client import call_llm
         preferred = _resolve_preferred(ai_model)
         await _rotator.refresh_from_redis(BULK_CHAIN)
