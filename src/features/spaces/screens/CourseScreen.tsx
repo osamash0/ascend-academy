@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowRight, BookOpen, RotateCcw, Search, Sparkles, Target } from 'lucide-react';
+import { ArrowRight, BookOpen, CalendarDays, RotateCcw, Search, Sparkles, Target, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Scene, SURFACES } from '../components/Scene';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
-import { useCourse, useFind, useRehearsalHistory } from '../data/useReader';
+import { useCourse, useCourseLinks, useFind, useRehearsalHistory } from '../data/useReader';
+import { CourseMap } from '../components/course/CourseMap';
 import { latestInCourse, readTrail } from '../data/trail';
 import { ideaAt, lightIdeas, type Light } from '../components/course/light';
 import { planToday, type TodayStep } from '../components/course/today';
 import { useViewer } from '../data/viewer';
+import { daysBetween, localToday, planExam } from '../components/course/examPlan';
+import { ExamRunway } from '../components/course/ExamRunway';
+import { examDateFor, setExamDate } from '../data/examDate';
 
 /**
  * A real course, as one journey.
@@ -67,6 +71,16 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
   /* Read once: the trail only changes while you are in the reader. */
   const [trail] = useState(readTrail);
   const [resume] = useState(() => latestInCourse(courseId));
+  /* The same ideas, two ways: the journey (lecture by lecture) or the map (what builds on what). */
+  const [view, setView] = useState<'journey' | 'map'>('journey');
+  const grouped = course?.lectures.filter((l) => l.ideas).length ?? 0;
+  const links = useCourseLinks(courseId, view === 'map' && grouped >= Math.max(2, Math.ceil((course?.lectures.length ?? 0) / 2)), grouped);
+  /* The exam date this student set for this course, if any (this browser only). */
+  const [exam, setExam] = useState(() => examDateFor(courseId));
+  const chooseExam = (date: string | null) => {
+    setExamDate(courseId, date);
+    setExam(date);
+  };
 
   const chrome = (body: React.ReactNode) => (
     <Scene surface={SURFACES.course} status="progress" motionKey={courseId}>
@@ -91,7 +105,15 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
 
   const resumeLecture = resume ? course.lectures.find((l) => l.id === resume.lectureId) : undefined;
   const resumeIdea = resume && resumeLecture?.ideas ? resumeLecture.ideas[ideaAt(resumeLecture.ideas, resume.page)] : undefined;
-  const today = planToday({ lectures: course.lectures, marks, weak: history?.weak ?? [], resume });
+  /* With an exam date, today is the plan's first day; without one, the next three useful things. */
+  const plan = exam
+    ? planExam({ lectures: course.lectures, trail, marks, weak: history?.weak ?? [], exam, today: localToday() })
+    : null;
+  const today = plan && plan.days.length ? plan.days[0].steps : planToday({ lectures: course.lectures, marks, weak: history?.weak ?? [], resume });
+  const stepHref = (step: TodayStep) =>
+    step.kind === 'rehearse'
+      ? `/v4/space/${course.id}/rehearse?lectures=${(step.lectureIds ?? [step.lectureId]).join(',')}`
+      : readHref(step.lectureId, step.page);
 
   return chrome(
     <div className="relative pb-36">
@@ -123,7 +145,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
         </div>
 
         {/* Today: read on, revisit a miss, refresh what is fading. */}
-        {today.length > 0 && (
+        {(today.length > 0 || plan) && (
           <motion.section
             aria-label="Today"
             initial={reduce ? false : { opacity: 0, y: 10 }}
@@ -131,22 +153,33 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             transition={{ duration: 0.35, delay: 0.1 }}
             className="mx-auto mt-12 max-w-3xl"
           >
-            <h2 className="mb-3 px-1 text-[17px] font-medium text-foreground">Today</h2>
-            <ol className={cn('grid gap-3', today.length > 1 && 'sm:grid-cols-[1.4fr_1fr]', today.length > 2 && 'sm:grid-rows-2')}>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 px-1">
+              <h2 className="text-[17px] font-medium text-foreground">Today</h2>
+              <ExamControl exam={exam} onChange={chooseExam} />
+            </div>
+            <ol
+              className={cn(
+                'grid gap-3',
+                today.length > 1 && 'sm:grid-cols-[1.4fr_1fr]',
+                today.length === 3 && 'sm:grid-rows-2',
+                today.length > 3 && 'sm:grid-cols-2',
+              )}
+            >
               {today.map((step, i) => (
-                <li key={step.kind} className={cn(i === 0 && today.length > 2 && 'sm:row-span-2')}>
+                <li key={`${step.kind}-${step.lectureId}-${step.page}`} className={cn(i === 0 && today.length === 3 && 'sm:row-span-2')}>
                   <TodayCard
                     step={step}
-                    href={readHref(step.lectureId, step.page)}
-                    poster={i === 0 ? course.lectures.find((l) => l.id === step.lectureId)?.poster ?? null : null}
-                    progress={step.kind === 'read' && resume ? resume.page / resume.pages : null}
-                    idea={step.kind === 'read' ? resumeIdea?.name : undefined}
-                    more={step.kind === 'revisit' ? Math.max(0, (history?.weak.length ?? 0) - 1) : 0}
+                    href={stepHref(step)}
+                    poster={i === 0 && step.kind === 'read' ? course.lectures.find((l) => l.id === step.lectureId)?.poster ?? null : null}
+                    progress={step.kind === 'read' && resume && step.lectureId === resume.lectureId ? resume.page / resume.pages : null}
+                    idea={step.kind === 'read' && resume && step.lectureId === resume.lectureId && !plan ? resumeIdea?.name : undefined}
+                    more={step.kind === 'revisit' && !plan ? Math.max(0, (history?.weak.length ?? 0) - 1) : 0}
                     reduce={Boolean(reduce)}
                   />
                 </li>
               ))}
             </ol>
+            {plan && plan.days.length > 0 && exam && <ExamRunway plan={plan} examDate={exam} hrefFor={stepHref} />}
           </motion.section>
         )}
 
@@ -221,13 +254,35 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
               <p className="mt-1 text-[13.5px] text-quiet">Every idea starts dark. A rehearsal lights the ones you get right.</p>
             )}
           </div>
-          <ul aria-label="Legend" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-quiet">
+          <div role="tablist" aria-label="How to see this Space" className="flex rounded-full bg-white/[0.06] p-1">
+            {(['journey', 'map'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="tab"
+                aria-selected={view === v}
+                onClick={() => setView(v)}
+                className={cn(
+                  'console-focusable h-8 rounded-full px-4 text-[13px] transition-colors',
+                  view === v ? 'bg-white text-background' : 'text-quiet hover:text-foreground',
+                )}
+              >
+                {v === 'journey' ? 'Journey' : 'Map'}
+              </button>
+            ))}
+          </div>
+          <ul aria-label="Legend" className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-quiet">
             <li className="flex items-center gap-1.5"><IdeaDot light="lit" />Tested, right</li>
             <li className="flex items-center gap-1.5"><IdeaDot light="fading" />Fading</li>
             <li className="flex items-center gap-1.5"><IdeaDot light="weak" />To revisit</li>
             <li className="flex items-center gap-1.5"><IdeaDot light="dark" />Not tested yet</li>
           </ul>
         </div>
+        {view === 'map' ? (
+          <div className="mt-8">
+            <CourseMap lectures={course.lectures} marks={marks} links={links.links} linksState={links.state} readHref={readHref} />
+          </div>
+        ) : (
         <ol aria-label="Lessons" className="relative mt-10">
           <span aria-hidden className="absolute bottom-6 left-[19px] top-6 w-px bg-gradient-to-b from-white/[0.18] via-white/[0.08] to-transparent" />
           {course.lectures.map((l, i) => (
@@ -309,6 +364,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             </motion.li>
           ))}
         </ol>
+        )}
       </div>
     </div>,
   );
@@ -318,7 +374,58 @@ const STEP_LOOK: Record<TodayStep['kind'], { icon: typeof BookOpen; tint: string
   read: { icon: BookOpen, tint: 'bg-white text-background', label: 'Read on' },
   revisit: { icon: RotateCcw, tint: 'bg-destructive/[0.16] text-destructive', label: 'Revisit' },
   refresh: { icon: Sparkles, tint: 'bg-success/[0.14] text-success', label: 'Refresh' },
+  rehearse: { icon: Target, tint: 'bg-white/[0.1] text-foreground', label: 'Rehearse' },
 };
+
+/** When the exam is — set once, and the plan follows from it. */
+function ExamControl({ exam, onChange }: { exam: string | null; onChange: (date: string | null) => void }) {
+  const [editing, setEditing] = useState(false);
+  const today = localToday();
+  if (editing || !exam) {
+    return (
+      <label className="flex h-9 items-center gap-2 rounded-full bg-white/[0.06] pl-3.5 pr-2 text-[13px] text-quiet focus-within:bg-white/[0.1]">
+        <CalendarDays aria-hidden className="h-3.5 w-3.5" />
+        <span>{exam ? 'Exam on' : 'When is your exam?'}</span>
+        <input
+          type="date"
+          min={today}
+          value={exam ?? ''}
+          onChange={(e) => {
+            if (e.target.value && e.target.value > today) {
+              onChange(e.target.value);
+              setEditing(false);
+            }
+          }}
+          className="h-7 rounded-full bg-transparent px-1.5 text-[13px] text-foreground outline-none [color-scheme:dark]"
+        />
+      </label>
+    );
+  }
+  const left = daysBetween(today, exam);
+  const date = new Date(`${exam}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return (
+    <span className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        title="Change the exam date"
+        className="console-focusable flex h-9 items-center gap-2 rounded-full bg-white/[0.06] px-3.5 text-[13px] text-foreground transition-colors hover:bg-white/[0.1]"
+      >
+        <CalendarDays aria-hidden className="h-3.5 w-3.5 text-quiet" />
+        {left > 0 ? `Exam in ${left} ${left === 1 ? 'day' : 'days'}` : left === 0 ? 'Exam today' : 'Exam passed'}
+        <span className="text-quiet">· {date}</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(null)}
+        aria-label="Clear the exam date"
+        className="console-focusable flex h-9 w-9 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
+      >
+        <X aria-hidden className="h-3.5 w-3.5" />
+      </button>
+    </span>
+  );
+}
 
 /** One step of today's session: what, why, how long — and the page that does it. */
 function TodayCard({

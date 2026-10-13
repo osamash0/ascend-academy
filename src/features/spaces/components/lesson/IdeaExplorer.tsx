@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowRight, BookOpen, Check } from 'lucide-react';
+import { ArrowRight, BookOpen, Check, PenLine } from 'lucide-react';
 import { PdfPage } from '@/components/pdf';
 import { cn } from '@/lib/utils';
 import type { Light } from '../course/light';
@@ -34,6 +34,8 @@ interface Props {
   file: string;
   readHref: (page: number) => string;
   conceptHref: (id: string) => string;
+  /** Real courses: explain the idea back instead of the (demo-only) idea page. */
+  onTeach?: (idea: IdeaEntry) => void;
 }
 
 const LIGHT_WORD: Record<Light, string | null> = {
@@ -49,7 +51,7 @@ const STATE: Record<Concept['progress'], string | null> = {
   untouched: null,
 };
 
-export function IdeaExplorer({ ideas, file, readHref, conceptHref }: Props) {
+export function IdeaExplorer({ ideas, file, readHref, conceptHref, onTeach }: Props) {
   const firstOpen = ideas.find((i) => i.concept.progress !== 'cleared') ?? ideas[0];
   const [on, setOn] = useState(firstOpen?.concept.id ?? '');
   const idea = ideas.find((i) => i.concept.id === on) ?? ideas[0];
@@ -141,7 +143,7 @@ export function IdeaExplorer({ ideas, file, readHref, conceptHref }: Props) {
               <PdfPage file={file} page={idea.previewPage} width={width} loading="" error="" />
             </div>
             <p className="mb-1 text-[12.5px] text-quiet">
-              {idea.concept.name} · {pages} page{pages === 1 ? '' : 's'}
+              {pages} page{pages === 1 ? '' : 's'}
             </p>
             <p className="mb-5 text-[20px] font-medium leading-[1.3] tracking-[-0.01em] text-foreground">{idea.gist}</p>
             <div className="flex flex-wrap gap-2">
@@ -152,13 +154,24 @@ export function IdeaExplorer({ ideas, file, readHref, conceptHref }: Props) {
                 <BookOpen aria-hidden className="h-4 w-4" />
                 Read from page {idea.firstPage}
               </Link>
-              <Link
-                to={conceptHref(idea.concept.id)}
-                className="console-focusable inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-[13.5px] text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
-              >
-                About this idea
-                <ArrowRight aria-hidden className="h-3.5 w-3.5" />
-              </Link>
+              {onTeach ? (
+                <button
+                  type="button"
+                  onClick={() => onTeach(idea)}
+                  className="console-focusable inline-flex h-10 items-center gap-2 rounded-full bg-white/[0.07] px-4 text-[13.5px] text-foreground transition-colors hover:bg-white/[0.12]"
+                >
+                  <PenLine aria-hidden className="h-4 w-4" />
+                  Teach it back
+                </button>
+              ) : (
+                <Link
+                  to={conceptHref(idea.concept.id)}
+                  className="console-focusable inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-[13.5px] text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
+                >
+                  About this idea
+                  <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+                </Link>
+              )}
             </div>
           </motion.div>
         </AnimatePresence>

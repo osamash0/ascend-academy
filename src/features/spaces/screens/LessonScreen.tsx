@@ -13,7 +13,8 @@ import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { StageRow as Row } from '../components/stage';
-import { isLive, useReaderContent, useReaderLesson, useRehearsalHistory } from '../data/useReader';
+import { isLive, saveRehearsal, teachBack, useReaderContent, useReaderLesson, useRehearsalHistory } from '../data/useReader';
+import { TeachBack } from '../components/reader/TeachBack';
 import { lightIdeas } from '../components/course/light';
 import { readTrail } from '../data/trail';
 import { sectionsFromRows, spineConcepts } from '../components/reader/anchors';
@@ -72,7 +73,9 @@ export default function LessonScreen() {
   const [noteTick, setNoteTick] = useState(0);
   const content = useReaderContent(spaceId, lessonId);
   const live = isLive(spaceId, lessonId);
-  const { history } = useRehearsalHistory(live ? spaceId : undefined);
+  const { history, reload: reloadHistory } = useRehearsalHistory(live ? spaceId : undefined);
+  /* The idea being explained back, if any. */
+  const [teaching, setTeaching] = useState<{ name: string; first: number; last: number } | null>(null);
   /* A real deck shows as one section until its ideas are grouped — that is a wait, not an idea. */
   const ideasPending = live && content.concepts.length === 1 && content.concepts[0].concept_id.startsWith('whole-');
   const [accent, setAccent] = useState<string | null>(null);
@@ -357,6 +360,21 @@ export default function LessonScreen() {
               file={pdfUrl}
               readHref={(p) => readerAt(p)}
               conceptHref={(id) => `/v4/space/${space.id}/concept/${id}`}
+              onTeach={live ? (it) => setTeaching({ name: it.concept.name, first: it.firstPage, last: it.lastPage }) : undefined}
+            />
+            <TeachBack
+              idea={teaching}
+              read={(text) => teachBack(lesson.id, teaching?.first ?? 1, teaching?.last ?? 1, teaching?.name ?? '', text)}
+              onPage={(p) => navigate(readerAt(p))}
+              onResult={(r) => {
+                if (!teaching) return;
+                saveRehearsal(space.id, `Teach-back · ${teaching.name}`.slice(0, 120), [lesson.id], [
+                  { lecture_id: lesson.id, page: teaching.first, idea: teaching.name.slice(0, 60), kind: 'teach', correct: r.verdict === 'solid' },
+                ])
+                  .then(reloadHistory)
+                  .catch(() => {});
+              }}
+              onClose={() => setTeaching(null)}
             />
           </Row>
         ) : (

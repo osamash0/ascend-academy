@@ -131,3 +131,13 @@
 # A documented example key in setup instructions — same class as section 2,
 # public by design, and shown on purpose so the guide can be followed.
  a01f20c526be0037897c3d016854c01fef281289:SETUP_GUIDE.md:generic-api-key:61
+
+# --------------------------------------------------------------------------
+# 5. KEYPOINTS_VERSION — 1 entry (2026-10-11)
+# --------------------------------------------------------------------------
+# generic-api-key reads the KEYPOINTS_VERSION constant in the teach-back
+# service as a credential: a name containing KEY, assigned a string. Its
+# value is the version label of a cache key (the idea's key points) and
+# grants nothing. (Not quoted here: quoting it trips the same rule.)
+# Triaged on PR #83 before listing.
+ 3585ef3ec117f27953a4bbbec486600299486369:backend/services/v4_teachback_service.py:generic-api-key:34

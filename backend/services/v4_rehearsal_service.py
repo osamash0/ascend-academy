@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 
 from backend.core.database import get_db_connection
 from backend.services.localization_service import get_lecture_content_for_locale
-from backend.services.v4_reader_service import IDEAS_VERSION, _generate_json
+from backend.services.v4_reader_service import IDEAS_VERSION, _generate_json, write_in
 from backend.services.cache import get_cache, set_cache
 
 logger = logging.getLogger(__name__)
@@ -202,12 +202,13 @@ Course: {course}
 {context}
 
 {kinds}
-Write in {language}. Be correct.
+{write_in} Be correct.
 Answer with ONE JSON object only: {{"title":"a short name for this rehearsal","questions":[...]}}"""
 
 
 async def _lecture_context(lecture: dict[str, Any], locale: str) -> tuple[str, int]:
-    content, _ = await get_lecture_content_for_locale(UUID(lecture["id"]), locale)
+    content, served = await get_lecture_content_for_locale(UUID(lecture["id"]), locale)
+    lecture["served"] = served
     slides = (content or {}).get("slides") or []
     if not slides:
         return "", 0
@@ -272,7 +273,7 @@ async def compose_rehearsal(
         course=course_title or "",
         context="\n".join(parts),
         kinds=KINDS,
-        language="German" if locale == "de" else "English",
+        write_in=write_in(locale, next((lec.get("served") for lec in lectures if lec.get("served")), locale)),
     )
     # Groq writes a rehearsal in seconds but its free tier caps tokens per
     # minute; Gemini has the headroom but measured 10s to 90s+ (timing out).
@@ -330,7 +331,7 @@ Idea: {idea} (pages {first}–{last})
 {pages}
 
 {kinds}
-Write in {language}. Be correct.
+{write_in} Be correct.
 Answer with ONE JSON object only: {{"questions":[...]}}"""
 
 
@@ -346,7 +347,7 @@ async def checkpoint(
     from backend.services.v4_reader_service import _lecture_row
 
     meta = await _lecture_row(lecture_id)
-    content, _ = await get_lecture_content_for_locale(lecture_id, locale)
+    content, served = await get_lecture_content_for_locale(lecture_id, locale)
     slides = (content or {}).get("slides") or []
     total = len(slides)
     if not total:
@@ -377,7 +378,7 @@ async def checkpoint(
         last=last,
         pages=pages,
         kinds=KINDS,
-        language="German" if locale == "de" else "English",
+        write_in=write_in(locale, served),
     )
     questions: list[dict[str, Any]] = []
     for prefer in ("groq", "gemini"):

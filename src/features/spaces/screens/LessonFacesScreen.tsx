@@ -12,6 +12,7 @@ import { NoteEditor } from '../components/NoteEditor';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import {
   fetchCheckpoint,
+  teachBack,
   isLive,
   saveRehearsal,
   useAsker,
@@ -28,6 +29,7 @@ import { readPrefs, writePrefs, type ReaderPrefs } from '../data/readerPrefs';
 import { useIdle } from '../components/reader/useIdle';
 import { ChapterStrip, chaptersOf } from '../components/reader/ChapterStrip';
 import { CheckpointCard } from '../components/reader/CheckpointCard';
+import { TeachBack } from '../components/reader/TeachBack';
 import { lightIdeas, type Light } from '../components/course/light';
 import { BreakNudge, BreakRoom, useReadingCare } from '../components/reader/ReadingCare';
 import { useMediaQuery } from '../data/useMediaQuery';
@@ -452,6 +454,8 @@ export default function LessonFacesScreen() {
    */
   const care = useReadingCare(pdfPage, ready);
   const [checkpointOpen, setCheckpointOpen] = useState(false);
+  /* The idea being explained back, if any. */
+  const [teaching, setTeaching] = useState<{ id: string; name: string; first: number; last: number } | null>(null);
   /*
    * A slide is landscape; a phone held upright shows it at a third of the
    * screen. Said once, and gone for good the first time the phone is turned.
@@ -470,7 +474,7 @@ export default function LessonFacesScreen() {
     if (portraitPhone) wasPortrait.current = true;
     else if (wasPortrait.current && !prefs.turned) setPref({ turned: true });
   }, [portraitPhone, prefs.turned, setPref]);
-  const quiet = useIdle(ready && view === 'slide' && !bench && !care.due && !care.resting && !checkpointOpen, 2800);
+  const quiet = useIdle(ready && view === 'slide' && !bench && !care.due && !care.resting && !checkpointOpen && !teaching, 2800);
 
   /*
    * Where the page actually is, so the chapter strip can sit on its top edge
@@ -1117,7 +1121,29 @@ export default function LessonFacesScreen() {
             .catch(() => {});
         }}
         onOpenChange={setCheckpointOpen}
+        onTeach={() => {
+          if (offer) setTeaching(offer);
+          dismissOffer();
+        }}
         onDismiss={dismissOffer}
+      />
+      <TeachBack
+        idea={teaching}
+        read={(text) => teachBack(lesson.id, teaching?.first ?? 1, teaching?.last ?? 1, teaching?.name ?? '', text)}
+        onPage={(p) => {
+          setTeaching(null);
+          goToPage(p);
+        }}
+        onResult={(r) => {
+          if (!teaching) return;
+          setChecked((c) => ({ ...c, [teaching.id]: r.verdict === 'solid' ? 'lit' : 'weak' }));
+          saveRehearsal(space.id, `Teach-back · ${teaching.name}`.slice(0, 120), [lesson.id], [
+            { lecture_id: lesson.id, page: teaching.first, idea: teaching.name.slice(0, 60), kind: 'teach', correct: r.verdict === 'solid' },
+          ])
+            .then(reloadHistory)
+            .catch(() => {});
+        }}
+        onClose={() => setTeaching(null)}
       />
       <BreakNudge
         care={care}
