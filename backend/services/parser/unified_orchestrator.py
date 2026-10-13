@@ -51,11 +51,14 @@ from backend.core.job_locks import acquire_job_lock, parse_lock_key, release_job
 from backend.domain.parse_models import RunStatus
 from backend.services.ai.call_context import (
     CallLog,
+    ParseBudget,
     ServedCall,
+    current_llm_call_context,
     llm_call_scope,
     pop_llm_call_context,
     push_llm_call_context,
 )
+from backend.services.llm_client import LLMBudgetExceededError
 from backend.services.parser import repos, persist, poster
 from backend.services.parser.storage import _fetch_pdf_bytes
 
@@ -87,6 +90,26 @@ class InsufficientHeadroomError(RuntimeError):
     failure, so the run is still marked FAILED and an ``error`` SSE event is
     still emitted — the only difference is *when*: before any LLM spend or
     lecture creation, not mid-parse."""
+
+
+# Arc 9: what a budget-refused parse reports. parse_runs has one free-text
+# ``error`` column (no code column), so the stable code rides on the SSE
+# ``error`` event and the message is what GET /upload/jobs shows the owner.
+PARSE_BUDGET_ERROR_CODE = "monthly_ai_budget_exceeded"
+PARSE_BUDGET_ERROR_MESSAGE = (
+    "Your monthly AI processing limit has been reached, so this file was not "
+    "processed. The limit resets at the start of next month."
+)
+
+
+def _parse_budget_enforced(visibility: str) -> bool:
+    """Arc 9: does settings.llm_parse_budget_enforce let this parse be refused?"""
+    mode = settings.llm_parse_budget_enforce
+    if mode == "all":
+        return True
+    if mode == "students":
+        return visibility == "private_student"
+    return False
 
 
 def _clean_title(filename: str) -> str:
@@ -719,7 +742,17 @@ async def parse_pdf_unified(
             filename=filename,
         )
         run_uuid = run.run_id
-        llm_ctx_token = push_llm_call_context(run_id=str(run_uuid), calls=served_calls)
+        # Arc 9: bill every LLM call of this parse to its uploader and course
+        # (_account_for_call reads them from the context), and decide once
+        # whether this parse's calls may be refused for budget.
+        billed_user = (
+            student_owner_id if visibility == "private_student" and student_owner_id else user_id
+        )
+        llm_ctx_token = push_llm_call_context(
+            run_id=str(run_uuid), calls=served_calls,
+            user_id=billed_user or None, course_id=course_id or None,
+            budget=ParseBudget(enforce=_parse_budget_enforced(visibility)),
+        )
         existing_lecture_id = run.lecture_id  # set by a prior (partial) attempt
 
         # ── Idempotent replay: a completed run never re-parses ───────────────
@@ -738,6 +771,14 @@ async def parse_pdf_unified(
                 pdf_hash, run_uuid,
             )
             return str(run_uuid)
+
+        # Arc 9 pre-flight: refuse an over-budget parse after the run row
+        # exists (so the refusal is recorded on it) and before the PDF fetch,
+        # the lecture row, or any LLM call. Skip-AI parses make no synthesis
+        # calls, so they are never refused here.
+        if parsing_mode != "on_demand":
+            from backend.services.ai.orchestrator import enforce_llm_budget
+            await enforce_llm_budget()
 
         await repos.set_status(run_uuid, RunStatus.EXTRACTING)
 
@@ -1271,18 +1312,29 @@ async def parse_pdf_unified(
         # within a single job_timeout cycle instead of needing the
         # reconciliation sweep at all.
         is_cancellation = isinstance(exc, asyncio.CancelledError)
-        logger.exception("Unified pipeline failed for pdf_hash=%s: %s", pdf_hash, exc)
+        # Arc 9: a budget refusal is an expected outcome, not a crash. It gets
+        # its own message + code and is NOT re-raised (Arq would log it as a
+        # failed job and dead-letter it); the partial-lecture finalize below
+        # still runs, so a lecture never stays half-written without status.
+        is_budget = isinstance(exc, LLMBudgetExceededError)
+        if is_budget:
+            logger.warning("Unified pipeline refused for pdf_hash=%s: %s", pdf_hash, exc)
+        else:
+            logger.exception("Unified pipeline failed for pdf_hash=%s: %s", pdf_hash, exc)
         # Full detail is in the server log above (logger.exception, with
         # traceback). What reaches the DB row / SSE stream — and from there
         # GET /upload/jobs, visible to the owning user — is a generic
         # message: str(exc) here could surface internal details (service
         # URLs, library internals) depending on what actually raised.
-        user_facing_error = (
-            "Processing timed out before it could finish. Please try again or contact "
-            "support if this keeps happening."
-            if is_cancellation
-            else "PDF parsing failed. Please try again or contact support if this keeps happening."
-        )
+        if is_cancellation:
+            user_facing_error = (
+                "Processing timed out before it could finish. Please try again or contact "
+                "support if this keeps happening."
+            )
+        elif is_budget:
+            user_facing_error = PARSE_BUDGET_ERROR_MESSAGE
+        else:
+            user_facing_error = "PDF parsing failed. Please try again or contact support if this keeps happening."
         try:
             if run_uuid is not None:
                 if created_lecture_id is not None and slide_db_ids:
@@ -1290,10 +1342,15 @@ async def parse_pdf_unified(
                 await repos.set_error(run_uuid, user_facing_error)
         except Exception:
             pass
+        error_event: Dict[str, Any] = {"message": user_facing_error}
+        if is_budget:
+            error_event["code"] = PARSE_BUDGET_ERROR_CODE
         try:
-            await emit("error", {"message": user_facing_error})
+            await emit("error", error_event)
         except Exception:
             pass
+        if is_budget:
+            return str(run_uuid) if run_uuid is not None else ""
         # A caught CancelledError MUST be re-raised (not swallowed) so
         # asyncio's own cancellation bookkeeping for this task stays correct
         # — `raise` here re-raises the exact exception object either way.
