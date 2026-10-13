@@ -227,3 +227,32 @@ The rows below describe *what* the live side must return, whichever file ends up
 - **LibreOffice in the image** adds about 400 MB and a cold start. If that is too much, PPTX stays off and is announced as such (the existing behaviour).
 - **Storage:** the free tier is 1 GB, which is roughly 10,000 pages. That is fine for a pilot; watch it, together with egress, given the August overage.
 - **Dependency on PR #84** (D8). If it stalls, steps 1–3 and 5 don't touch the orchestrator and can go first.
+
+## 12. Amendments while planning (2026-10-11)
+
+Reading the code for the plan changed five things. Where they differ, these override the sections above.
+
+1. **The summary is its own call, not a rider (overrides D5, §5.3, §5.5).**
+   - Text pages are no longer synthesised one call per page. The live pipeline batches them, 8 per call (`batch_analyze_text_slides`), and PR #84 and #92 both change that code.
+   - Extending that shared prompt would change what the live reader receives. So Studio summaries come from a separate `studio_summary` call, also batched 8 pages per call.
+   - Image-only pages and photos get their own vision call, which returns the boxes and the summary together.
+   - **Cost:**
+     - text pages: one extra batched call per 8 pages;
+     - image pages: one extra vision call each;
+     - both only when `FEATURE_STUDIO_PAGES` is on.
+
+     The reader's calls and outputs are untouched.
+2. **OpenAI, not Gemini, for boxes (overrides §5.3).**
+   - The launch runs `AI_PROVIDER_MODE=openai_only` (PR #92), which refuses other provider keys.
+   - Vision boxes are asked of whichever vision model is configured, and the box check decides.
+   - Expect more `geometry: 'page'` on photos until a box-capable model is allowed. The geometry report (plan Task 10) and the manual pass measure how many.
+3. **Several paragraphs per page (overrides §4.1).**
+   - Studio's sample has up to three summary paragraphs per page, each with its own covered blocks.
+   - `lecture_pages` therefore stores `summary jsonb` as `[{markdown, covers}]`, replacing `summary`, `gist` and `covers`.
+   - The first paragraph is the gist. The API turns them into `SummaryBlock`s `s-p{page}-{k}`.
+4. **Picture path (overrides §4.2).** `lectures/{lecture_id}/p{page}.webp`, so segment 2 is the lecture id, as in the other lecture buckets. The bucket has no client policies at all: every read is a backend-signed URL.
+5. **A pass after the reader's loop (refines §5).**
+   - The Studio work runs as one pass after the per-slide loop rather than inside it.
+   - `pages_ready` therefore rises during the "Writing your summary…" phase.
+   - Deck Lab lives on PR #84's branch, so a no-AI geometry report over the real decks stands in for it (plan Task 10).
+   - The frontend part is a typed client (`data/materialPages.ts`) that the parallel session's live repository calls.
