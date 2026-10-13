@@ -152,6 +152,7 @@
     "deleteConfirm": "Are you absolutely sure? This will permanently delete your account and all your data. Type DELETE to confirm.",
     "deleteSuccess": "Account deleted",
     "deleteSuccessDescription": "Your account and all data have been removed.",
+    "deleteSuccessFilesFinishing": "Your files are still being removed; this finishes shortly.",
     "deleteError": "We couldn't delete your account",
     "deleteErrorDescription": "Please contact support."
   },

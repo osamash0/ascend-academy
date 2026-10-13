@@ -6,7 +6,7 @@ that deleting the ``auth.users`` row removes (via FK ``ON DELETE CASCADE``)
 every PII-bearing row for that user across a representative slice of the
 schema, and separately verifies the two things a DB cascade *cannot* reach
 (``slide_embeddings`` and Supabase Storage objects) via
-``backend/services/account_service.erase_user_storage_and_derived_data``.
+``backend/services/erasure.py`` (manifest, job, run).
 
 Runs against a real Postgres via the shared ``backend/tests/db/conftest.py``
 fixtures (``pg_dsn``/``applied_migrations``/``db_conn``), which create a
@@ -218,12 +218,12 @@ def test_slide_embeddings_has_no_migration_tracked_cascade(conn):
     backend/scripts/slide_embeddings.sql run), slide_embeddings has NO FK to
     lectures, so deleting a lecture (and, transitively, an account) does
     NOT remove its embeddings via cascade. This is exactly why
-    ``account_service.erase_user_storage_and_derived_data`` deletes
+    ``backend/services/erasure.py`` (``run_job``) deletes
     slide_embeddings explicitly rather than trusting the cascade.
 
     If this test ever starts failing (i.e. the row IS gone), that's good
     news — it means P0-3 shipped a real migration with the FK — but the
-    explicit delete in account_service.py should stay as defense-in-depth
+    explicit delete in erasure.py should stay as defense-in-depth
     either way.
     """
     uid = str(uuid.uuid4())
@@ -252,5 +252,5 @@ def test_slide_embeddings_has_no_migration_tracked_cascade(conn):
         print(
             f"[P0-3 status] slide_embeddings rows remaining after lecture delete "
             f"via migrations-only schema: {remaining} (0 = FK now migration-tracked, "
-            f"1 = still script-only gap that account_service.py compensates for)"
+            f"1 = still script-only gap that erasure.py compensates for)"
         )
