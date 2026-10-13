@@ -6,10 +6,10 @@ import { standingNow } from '../data/standing';
 import {
   standingFor,
   xpBySource,
-  xpEvents,
+  xpEventsNow,
   xpForRank,
   type XpSource,
-} from '../mocks/rank';
+} from '../data/record';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { Skylight } from '../components/stage';
@@ -89,7 +89,7 @@ export default function RankScreen() {
   const { rank, into, span, toNext, pct } = standingFor(xp);
   const bySource = xpBySource();
   /** Newest first: what you did most recently is what you are asking about. */
-  const events = [...xpEvents].sort((a, b) => b.at.localeCompare(a.at));
+  const events = [...xpEventsNow()].sort((a, b) => b.at.localeCompare(a.at));
 
   /*
    * The ladder shown around you, not from Rank 1.

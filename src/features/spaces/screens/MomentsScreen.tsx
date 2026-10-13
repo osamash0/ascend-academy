@@ -1,7 +1,7 @@
 import { ArrowLeft, Award } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useViewer } from '../data/viewer';
-import { moments } from '../mocks/moments';
+import { momentsNow as moments } from '../data/record';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { Skylight } from '../components/stage';

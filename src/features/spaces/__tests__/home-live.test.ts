@@ -21,6 +21,7 @@ const world = (over: Partial<World>): World => ({
   streakDays: 3,
   xp: 0,
   notifications: [],
+  record: { studyDays: [], xpEvents: [], moments: [] },
   ...over,
 });
 

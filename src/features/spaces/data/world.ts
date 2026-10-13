@@ -2,6 +2,9 @@ import * as fixtureSpaces from '../mocks/spaces';
 import * as fixtureLessons from '../mocks/lessons';
 import type { Lesson, Person, Space } from '../types';
 import type { AppNotification } from '../mocks/notifications';
+import type { StudyDay } from '../mocks/history';
+import type { XpEvent } from '../mocks/rank';
+import type { Moment } from '../mocks/moments';
 
 /**
  * The viewer's world: every Space they can see and those Spaces' Lessons.
@@ -27,6 +30,12 @@ export interface World {
   xp: number;
   /** The viewer's latest notifications, newest first. */
   notifications: AppNotification[];
+  /** What the viewer has done: study days (newest first), the XP ledger, Moments. */
+  record: {
+    studyDays: StudyDay[];
+    xpEvents: XpEvent[];
+    moments: Moment[];
+  };
 }
 
 let live: World | null = null;

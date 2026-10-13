@@ -1,11 +1,9 @@
 import { Flame, Heart, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { libraryItems } from '../mocks/library';
+import { myPublishedNow } from '../data/library';
 import { standingNow } from '../data/standing';
-import { moments } from '../mocks/moments';
-import { standingFor } from '../mocks/rank';
-import { currentRun } from '../mocks/history';
+import { currentRun, momentsNow as moments, standingFor } from '../data/record';
 import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Avatar, RankRing } from '../components/Avatar';
@@ -49,7 +47,7 @@ export default function ProfileScreen() {
   const streak = currentRun();
 
   const allMoments = moments();
-  const published = libraryItems().filter((i) => i.kind === 'contribution');
+  const published = myPublishedNow();
   const likesReceived = published.reduce((n, i) => n + (i.likeCount ?? 0), 0);
 
   // Profile stands on the stage. You are not a subject, so the light is the

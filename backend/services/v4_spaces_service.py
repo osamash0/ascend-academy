@@ -198,6 +198,7 @@ async def get_world(user_id: str) -> Dict[str, Any]:
             user_id,
         )
         activity = await conn.fetch(_ACTIVITY_SQL, user_id, lecture_ids)
+        record = await _record(conn, user_id)
         notes = await conn.fetch(
             "SELECT id, title, message, type, read, created_at FROM notifications "
             "WHERE user_id = $1::uuid ORDER BY created_at DESC LIMIT 30",
@@ -301,6 +302,84 @@ async def get_world(user_id: str) -> Dict[str, Any]:
         # The XP ledger's running total (grant_xp keeps profiles.total_xp).
         "xp": (viewer_row["total_xp"] or 0) if viewer_row else 0,
         "notifications": [_notification(r) for r in notes],
+        "record": record,
+    }
+
+
+# ── The viewer's record: study days, the XP ledger, Moments ──────────────────
+
+_STUDY_DAYS_SQL = """
+SELECT (created_at AT TIME ZONE 'utc')::date AS day,
+       count(*) FILTER (WHERE event_type = 'slide_view') AS pages,
+       count(*) FILTER (WHERE event_type IN ('quiz_attempt', 'micro_quiz_attempt')) AS answered,
+       count(*) FILTER (WHERE event_type IN ('quiz_attempt', 'micro_quiz_attempt')
+                          AND (event_data->>'correct')::boolean) AS right_answers,
+       count(*) FILTER (WHERE event_type = 'lecture_complete') AS finished
+FROM learning_events
+WHERE user_id = $1::uuid
+  AND event_type IN ('slide_view', 'quiz_attempt', 'micro_quiz_attempt', 'lecture_complete')
+GROUP BY 1
+ORDER BY 1 DESC
+LIMIT 120
+"""
+
+
+def _day_summary(r: Any) -> str:
+    """One line, in the student's terms: what that day held."""
+    parts = []
+    if r["finished"]:
+        parts.append("Finished a Lesson" if r["finished"] == 1 else f"Finished {r['finished']} Lessons")
+    if r["pages"]:
+        parts.append(f"Read {r['pages']} page{'s' if r['pages'] != 1 else ''}")
+    if r["answered"]:
+        noun = "question" if r["answered"] == 1 else "questions"
+        parts.append(f"{r['right_answers']} of {r['answered']} {noun} right")
+    return " · ".join(parts)
+
+
+def _xp_source(reason: Optional[str]) -> tuple[str, str]:
+    """An xp_events reason as a v4 XP source and a label."""
+    reason = reason or ""
+    if reason.startswith("badge:"):
+        return "milestone", f"Earned “{reason.split(':', 1)[1]}”"
+    if reason == "course_created":
+        return "milestone", "Made a Space"
+    if reason == "lecture_complete":
+        return "learning", "Finished a Lesson"
+    if reason == "quiz_correct":
+        return "learning", "Answered a question right"
+    return "learning", "Learning"
+
+
+async def _record(conn: Any, user_id: str) -> Dict[str, Any]:
+    days = await conn.fetch(_STUDY_DAYS_SQL, user_id)
+    xp = await conn.fetch(
+        "SELECT id, xp, reason, created_at FROM xp_events WHERE user_id = $1::uuid "
+        "ORDER BY created_at DESC LIMIT 200",
+        user_id,
+    )
+    earned = await conn.fetch(
+        "SELECT id, badge_name, badge_description, earned_at FROM achievements "
+        "WHERE user_id = $1::uuid ORDER BY earned_at",
+        user_id,
+    )
+    xp_events = []
+    for r in xp:
+        source, label = _xp_source(r["reason"])
+        xp_events.append({
+            "id": str(r["id"]), "source": source, "label": label, "spaceName": None,
+            "amount": r["xp"], "at": r["created_at"].isoformat(),
+        })
+    return {
+        "studyDays": [{"date": r["day"].isoformat(), "summary": _day_summary(r)} for r in days],
+        "xpEvents": xp_events,
+        # A Moment is the first time something happened — exactly what an
+        # earned achievement records. Oldest first, as the fixtures are.
+        "moments": [
+            {"id": str(r["id"]), "title": r["badge_name"], "detail": r["badge_description"] or "",
+             "at": r["earned_at"].isoformat() if r["earned_at"] else None}
+            for r in earned
+        ],
     }
 
 
