@@ -1308,10 +1308,15 @@ async def _account_for_call(
     )
 
     call_ctx = current_llm_call_context()
+    # "" is as unattributed as None (FK columns; log_llm_call swallows errors).
+    user_id = user_id or None
+    course_id = course_id or None
     if user_id is None:
-        user_id = call_ctx.user_id
-    if course_id is None:
-        course_id = call_ctx.course_id
+        # The course follows the user: only a context-derived user inherits
+        # the parse's course, never an explicit caller.
+        user_id = call_ctx.user_id or None
+        if course_id is None:
+            course_id = call_ctx.course_id or None
 
     await _rotator.flush_success_to_redis(provider_id)
     cost = estimate_cost(provider_id, model, usage)

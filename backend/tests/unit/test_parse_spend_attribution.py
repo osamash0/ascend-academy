@@ -209,3 +209,17 @@ async def test_explicit_user_gate_is_unchanged_outside_a_parse(provider, metered
         await orchestrator.generate_text("p", user_id="learner-1")
     assert provider == []
     assert await orchestrator.generate_text("p") == '{"ok": true}'
+
+
+async def test_course_fallback_follows_the_user(metered):
+    with llm_call_scope(user_id="student-1", course_id="course-1"):
+        await _account(user_id="caller-9", course_id=None)
+    (row,) = metered.rows
+    assert (row["user_id"], row["course_id"]) == ("caller-9", None)
+
+
+async def test_empty_ids_are_treated_as_missing(metered):
+    with llm_call_scope(user_id="student-1", course_id=""):
+        await _account(user_id="", course_id="")
+    (row,) = metered.rows
+    assert (row["user_id"], row["course_id"]) == ("student-1", None)
