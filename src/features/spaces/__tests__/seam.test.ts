@@ -19,13 +19,7 @@ const STILL_ON_MOCKS = [
   'components/ReanchorDialog.tsx',
   'components/SpaceDialogs.tsx',
   'components/badges.tsx',
-  'components/reader/TutorPanel.tsx',
-  'screens/ConceptScreen.tsx',
-  'screens/LessonFacesScreen.tsx',
-  'screens/LessonScreen.tsx',
-  'screens/PracticeScreen.tsx',
   'screens/SpaceManageScreen.tsx',
-  'screens/SpaceScreen.tsx',
   'screens/SpacesScreen.tsx',
   'screens/StudioCanvasScreen.tsx',
 ];

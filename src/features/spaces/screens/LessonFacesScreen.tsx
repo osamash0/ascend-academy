@@ -36,7 +36,7 @@ import { useMediaQuery } from '../data/useMediaQuery';
 import { ReaderExit } from '../components/reader/ReaderHeader';
 import { SelectionAsk } from '../components/reader/SelectionAsk';
 import { TutorPanel, type Turn } from '../components/reader/TutorPanel';
-import type { TutorCitation } from '../mocks/tutor';
+import type { TutorCitation } from '../data/tutor';
 import { Companion } from '../components/reader/Companion';
 import { PracticePlane } from '../components/reader/PracticePlane';
 import { ReadingFace } from '../components/reader/ReadingFace';
@@ -651,13 +651,16 @@ export default function LessonFacesScreen() {
    * Selected words, asked about. On a live lecture they are answered in
    * Explain, as an interface; elsewhere they go to the tutor as before.
    */
+  const askInExplain = (question: string) => {
+    engage();
+    setCompanion(null);
+    setView('explain');
+    setQueued({ question, n: ++queuedN.current });
+  };
   const askAbout = (text: string) => {
     const words = text.replace(/\s+/g, ' ').trim().slice(0, 240);
     if (asker) {
-      engage();
-      setCompanion(null);
-      setView('explain');
-      setQueued({ question: `Explain this from the page: “${words}”`, n: ++queuedN.current });
+      askInExplain(`Explain this from the page: “${words}”`);
       return;
     }
     setQuote(text);
@@ -1196,6 +1199,9 @@ export default function LessonFacesScreen() {
           page={pdfPage}
           onSpot={setSpot}
           onAsk={(q) => {
+            // Live, every question is answered in Explain by the real model —
+            // the tutor panel only knows the fixtures' canned replies.
+            if (asker) return askInExplain(q);
             setQuote(q);
             openTutor(q, pdfPage);
           }}
@@ -1220,6 +1226,7 @@ export default function LessonFacesScreen() {
           onOpenPage={(p) => goToPage(p)}
           onOpenNotes={(_id, page) => openNotes(page)}
           onAskFormula={(tex) => {
+            if (asker) return askInExplain(`Explain this formula: ${tex}`);
             setQuote(tex);
             openTutor('This formula', anchor.page);
           }}

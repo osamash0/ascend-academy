@@ -198,6 +198,33 @@ export default function HomeScreen() {
     );
   }
 
+  if (!next && live) {
+    /*
+     * Live, a new account's first step is the catalog. Creating a Space would
+     * make an empty course v4 cannot fill yet (no upload here), and courses
+     * carry no join code — so both of the demo's buttons would lead nowhere
+     * real. They come back when v4 can upload and invite.
+     */
+    return chrome(
+      <div className="relative mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-6 text-center">
+        <h1 className="mb-4 text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[56px]">
+          {greeting()}, {viewer.name}
+        </h1>
+        <p className="mb-8 max-w-[46ch] text-[15.5px] leading-[1.75] text-quiet">
+          Nothing to pick up yet. Find a Space for something you’re learning — joining takes
+          one tap, and its first Lesson is waiting inside.
+        </p>
+        <Pressable
+          type="button"
+          onClick={() => navigate('/v4/spaces')}
+          className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900"
+        >
+          Find a Space
+        </Pressable>
+      </div>,
+    );
+  }
+
   if (!next) {
     return chrome(
       <div className="relative mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-6 text-center">
