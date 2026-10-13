@@ -198,4 +198,27 @@ The teaching decks are the DBS and SR files; image-only pages are rare in both s
 
 ## Manual pass
 
-Filled in by the controller.
+Run 2026-10-13 with the real `build_studio_pages` and real AI (gpt-4o-mini, through the configured chain), using an offline harness: page pictures and `lecture_pages` rows went to a scratch folder, not to storage or the database. There is no local Supabase, and the local backend points at production, so the plan's upload-and-API pass was not run. The HTTP upload path and real storage and database writes are exercised first on staging.
+
+| Input | Pages | Time | `block` geometry | With summary | needs_review | Paragraphs (with covers) | Bold terms |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 03 DBS Normalization.pdf, first 12 pages | 12 | 31 s | 12 | 12 | 0 | 20 (20) | 93 |
+| 00 DBS Introduction.pptx → LibreOffice → PDF, first 10 pages | 10 | 26 s | 10 | 10 | 0 | 11 (11) | 49 |
+| Photo of handwritten notes (generated locally, 3000×2250 JPEG, rotated and blurred) | 1 | 9 s | 0 | 1 | 0 | 1 (0) | 8 |
+
+What it shows:
+
+- **Text pages work end to end.**
+  - Every page got its blocks, a picture, a `page` event and a summary.
+  - Every summary paragraph points at real blocks.
+  - The summaries are accurate to the page.
+- **PPTX works** through LibreOffice when it is installed.
+- **Photos: the text is read, the positions are invented.**
+  - gpt-4o-mini transcribed all 7 handwritten lines correctly.
+  - It returned a uniform grid of boxes (x 0.1–0.4, evenly spaced) instead of where the lines are.
+  - The box check rejected them (coverage 6%), so the page is stored without geometry, as the spec requires.
+  - With today's model, photos open without Peek or Morph positions. A box-capable vision model would change this; re-measure then.
+- **Two summary-quality issues to fix before switching the feature on:**
+  1. Too many bold terms: up to about 12 on a page, against the prompt's 2–5. Recall turns every bold term into a blank, so the count must be enforced in code, not only in the prompt.
+  2. A reporting voice ("This page outlines…", "The document features…") instead of Studio's quiet prose.
+- **Cost:** 4 batched text calls, $0.0024 in total, plus 2 unmetered vision calls.
