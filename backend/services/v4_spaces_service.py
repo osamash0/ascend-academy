@@ -323,7 +323,7 @@ members AS (
   UNION
   SELECT c.professor_id, c.id FROM courses c JOIN mine m ON m.id = c.id WHERE c.professor_id IS NOT NULL
 )
-SELECT user_id, count(DISTINCT course_id) AS shared
+SELECT user_id, array_agg(DISTINCT course_id::text) AS ids
 FROM members WHERE user_id <> $1::uuid
 GROUP BY user_id
 """
@@ -339,7 +339,8 @@ _RACE_SIZE = 25
 
 
 async def _social(conn: Any, user_id: str) -> Dict[str, Any]:
-    shared = {r["user_id"]: r["shared"] for r in await conn.fetch(_SHARED_SQL, user_id)}
+    shared_ids = {r["user_id"]: list(r["ids"]) for r in await conn.fetch(_SHARED_SQL, user_id)}
+    shared = {uid: len(ids) for uid, ids in shared_ids.items()}
     friend_ids = {r["user_id"] for r in await conn.fetch(_FRIENDS_SQL, user_id)}
     request_ids = [
         r["requester_id"]
@@ -400,6 +401,9 @@ async def _social(conn: Any, user_id: str) -> Dict[str, Any]:
         "leaderboard": race,
         "friends": [people[i] for i in friend_ids if i in people],
         "requests": [{"person": people[i], "sharedSpaces": shared.get(i, 0)} for i in request_ids if i in people],
+        # The Spaces you share with each person shown anywhere above, by id —
+        # a person's page names them, so a count is not enough.
+        "sharedSpaceIds": {str(uid): ids for uid, ids in shared_ids.items()},
     }
 
 

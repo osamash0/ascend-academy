@@ -41,6 +41,8 @@ export interface World {
     leaderboard: { person: Person; xp: number; sharedSpaces: number; isViewer: boolean }[];
     friends: Person[];
     requests: { person: Person; sharedSpaces: number }[];
+    /** The Spaces you share with each person, by person id. */
+    sharedSpaceIds: Record<string, string[]>;
   };
 }
 

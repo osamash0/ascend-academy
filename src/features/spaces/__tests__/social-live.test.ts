@@ -32,7 +32,7 @@ describe('Social, live', () => {
           { person: ana, xp: 900, sharedSpaces: 2, isViewer: false },
           { person: { id: 'u', name: 'Lea', avatarUrl: null }, xp: 40, sharedSpaces: 3, isViewer: true },
         ],
-        friends: [], requests: [],
+        friends: [], requests: [], sharedSpaceIds: {},
       },
     }));
     const race = social.leaderboardNow();
@@ -42,7 +42,7 @@ describe('Social, live', () => {
 
   it('accepting moves a request to friends at once and tells the server', async () => {
     setLiveWorld(emptyWorld({
-      social: { leaderboard: [], friends: [ana], requests: [{ person: ben, sharedSpaces: 1 }] },
+      social: { leaderboard: [], friends: [ana], requests: [{ person: ben, sharedSpaces: 1 }], sharedSpaceIds: {} },
     }));
     social.acceptRequest('b');
     expect(social.currentRequests()).toEqual([]);
