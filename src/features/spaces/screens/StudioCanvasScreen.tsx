@@ -559,6 +559,23 @@ export default function StudioCanvasScreen() {
   const frame = (children: React.ReactNode) => root(<div className="mx-auto max-w-3xl p-8">{children}</div>);
   if (state === 'loading') return frame(<ListSkeleton />);
   if (state === 'error') return frame(<SpacesError what="this Material" />);
+  // A real upload still being read has no Lesson to open yet.
+  if (item?.opens.kind === 'lesson' && !item.opens.lessonId)
+    return frame(
+      <div className="py-24 text-center">
+        <p className="text-[17px] font-semibold">
+          {item.stage === 'failed' ? 'This file could not be read' : 'Still being read'}
+        </p>
+        <p className="mx-auto mt-2 max-w-[44ch] text-[14.5px] leading-relaxed opacity-70">
+          {item.stage === 'failed'
+            ? 'Nothing was made from it. Try bringing it in again, or another copy of it.'
+            : `${item.filename} opens as a Lesson as soon as it has been read. It takes a minute or two.`}
+        </p>
+        <Link to="/v4/library" className="mt-6 inline-block text-[14px] underline underline-offset-4">
+          Back to Library
+        </Link>
+      </div>,
+    );
   if (item?.opens.kind === 'lesson')
     return <Navigate replace to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}`} />;
   if (!item || !doc || !material)

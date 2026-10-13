@@ -1,17 +1,26 @@
-import { useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import type { LoadState } from '../types';
 import * as shelfStore from '../mocks/shelf';
 import { addNote, allNotes, notesVersion, subscribeNotes, updateNote } from './notes';
 import { myContributionById } from '../mocks/library';
 import { canvasById, pagesFor } from '../mocks/studio-canvas';
-import { spaceById } from '../mocks/spaces';
 import { locateLesson } from '../mocks/lessons';
 import { continueItem, yourWords } from '../studio/shelf';
 import type { ShelfItem, WordEntry } from '../studio/shelf';
 import type { CanvasDoc } from '../studio/types';
 import type { Contribution } from '../types';
 import { useScreenState } from './useSpaces';
-import { liveWorld } from './world';
+import { liveWorld, spaceById, type Upload, type World } from './world';
+import {
+  bringInLive,
+  canResend,
+  resend,
+  subscribeUploads,
+  uploadsNow,
+  uploadsVersion,
+  watchUploads,
+  wasBroughtIn,
+} from './uploads';
 
 /**
  * The shelf seam. Screens read the shelf only through these hooks and change it
@@ -71,10 +80,72 @@ function wordsNow(items: ShelfItem[], canvases: ReadonlyMap<string, CanvasDoc>):
   return yourWords([...notes, ...canvas]);
 }
 
+/**
+ * A real upload as a cover. It is private (shared nowhere) and, once the
+ * pipeline has made it a Lesson, opens that Lesson in your personal Space —
+ * whose id is yours. Its life bar is your reading of that Lesson.
+ */
+function coverOf(u: Upload, world: World): ShelfItem {
+  const lesson = u.lessonId ? world.lessons.find((l) => l.id === u.lessonId) : undefined;
+  return {
+    id: u.id,
+    filename: u.filename,
+    pageCount: u.pageCount,
+    cover: '',
+    stage: u.stage,
+    share: { kind: 'private' },
+    opens: { kind: 'lesson', spaceId: world.viewer.id, lessonId: u.lessonId ?? '' },
+    progress: {
+      pagesRead: lesson ? Math.round((lesson.percentComplete / 100) * u.pageCount) : 0,
+      recallKnew: 0,
+      recallTotal: 0,
+      answers: 0,
+      notes: u.lessonId ? world.notes.filter((n) => n.lessonId === u.lessonId).length : 0,
+    },
+    lastOpenedAt: (u.lessonId && world.activity.find((a) => a.lessonId === u.lessonId)?.at) || null,
+    lastPage: null,
+    addedAt: u.addedAt,
+    broughtIn: wasBroughtIn(u.id),
+  };
+}
+
+/** The live shelf: your uploads as covers, re-read as they develop. */
+function useLiveShelf(live: boolean): ShelfItem[] {
+  const v = useSyncExternalStore(subscribeUploads, uploadsVersion);
+  useEffect(() => {
+    if (live) watchUploads();
+  }, [live]);
+  return useMemo(
+    () => {
+      const world = liveWorld();
+      return live && world ? uploadsNow().map((u) => coverOf(u, world)) : NONE;
+    },
+    // `v` is the cue: an upload was sent, developed or failed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [live, v],
+  );
+}
+
 const NONE: ShelfItem[] = [];
 
-/** Live has no shelf files yet — see `useShelf`. Library hides bringing one in. */
-export const shelfAcceptsFiles = (): boolean => liveWorld() === null;
+/** Demo always; live, when this account may bring files in (students, uploads on). */
+export const shelfAcceptsFiles = (): boolean => {
+  const world = liveWorld();
+  return world === null || world.canUpload;
+};
+
+/** Bring files in: the demo store's timed development, or a real upload. Returns shelf ids. */
+export const bringFilesIn = (list: File[], fail: boolean): string[] =>
+  liveWorld() ? bringInLive(list) : list.map((f) => shelfStore.bringIn(f.name, undefined, { fail }));
+
+/** "Try again" on a failed cover, when there is something to try: null when there is not. */
+export function retryFor(item: ShelfItem): (() => void) | null {
+  if (!liveWorld()) return () => shelfStore.retryDeveloping(item.id, { fail: importWillFail() });
+  return canResend(item.id) ? () => resend(item.id) : null;
+}
+
+/** Live covers are yours alone: no sharing and no removing from here yet. */
+export const shelfIsDemo = (): boolean => liveWorld() === null;
 
 export function useShelf(): {
   state: LoadState;
@@ -88,14 +159,15 @@ export function useShelf(): {
   const notesV = useSyncExternalStore(subscribeNotes, notesVersion);
   const ready = state === 'ready';
   /*
-   * Live, the shelf holds no files yet: what it brings in is in-memory and
-   * develops on a timer, and the seed is the fixtures' Normalization deck —
-   * neither belongs in a real account. Your words (real notes) stay.
+   * Live, the shelf is your real uploads. The demo store's seed (the
+   * fixtures' Normalization deck) and its timed development never reach a
+   * real account.
    */
   const live = liveWorld() !== null;
+  const liveItems = useLiveShelf(live);
+  const shelf = live ? liveItems : all;
   // `notesV` is the cue to re-read the note store: a note was written.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const shelf = live ? NONE : all;
   const words = useMemo(() => (ready ? wordsNow(shelf, canvases) : []), [ready, shelf, canvases, notesV]);
   const items = ready ? shelf : [];
   return { state, items, continueItem: ready ? continueItem(shelf) : null, words };
@@ -104,7 +176,9 @@ export function useShelf(): {
 export function useShelfItem(id: string | undefined): { state: LoadState; item: ShelfItem | null } {
   const state = useScreenState();
   const all = useSyncExternalStore(shelfStore.subscribe, shelfStore.getItems);
-  const item = id && !liveWorld() ? (all.find((i) => i.id === id) ?? null) : null;
+  const live = liveWorld() !== null;
+  const liveItems = useLiveShelf(live);
+  const item = id ? ((live ? liveItems : all).find((i) => i.id === id) ?? null) : null;
   if (state !== 'ready') return { state, item: null };
   return { state: item ? 'ready' : 'empty', item };
 }

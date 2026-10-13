@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Plus, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { importWillFail, shelfActions } from '../data/useShelf';
+import { bringFilesIn, importWillFail, shelfIsDemo } from '../data/useShelf';
 import { inDialog, isTyping } from '../studio/keys';
 import { FLIGHT_EASE } from '../studio/motion';
 
@@ -25,10 +25,9 @@ export function useBringIn(enabled: boolean, onBrought?: (ids: string[]) => void
   const onBroughtRef = useRef(onBrought);
   onBroughtRef.current = onBrought;
 
-  /* The development itself runs in the store (`mocks/shelf.ts`), not in a cover. */
+  /* The development itself runs in a store (demo: timed; live: the real pipeline), not in a cover. */
   const bringFiles = useCallback((files: FileList | File[] | null | undefined) => {
-    const fail = importWillFail();
-    const ids = Array.from(files ?? []).map((f) => shelfActions.bringIn(f.name, undefined, { fail }));
+    const ids = bringFilesIn(Array.from(files ?? []), importWillFail());
     if (ids.length) onBroughtRef.current?.(ids);
   }, []);
 
@@ -134,7 +133,8 @@ export function BringInTile({ inputRef, onFiles, variant }: TileProps) {
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.pptx,image/*"
+        // The real pipeline reads PDFs (its .pptx path needs LibreOffice, which the servers lack).
+        accept={shelfIsDemo() ? '.pdf,.pptx,image/*' : '.pdf'}
         multiple
         aria-label="Bring something in"
         className="sr-only"
@@ -153,9 +153,13 @@ export function BringInTile({ inputRef, onFiles, variant }: TileProps) {
           {variant === 'cell' ? 'Bring something in' : 'Bring in your first file'}
         </span>
         <span className={cn(variant === 'empty' && 'mt-1 max-w-[44ch] text-[14.5px] leading-relaxed')}>
-          {variant === 'cell'
-            ? 'PDF, PPTX or a photo — drop it, or click'
-            : 'PDF, PPTX or a photo. It becomes a page you can read, ask and remember.'}
+          {shelfIsDemo()
+            ? variant === 'cell'
+              ? 'PDF, PPTX or a photo — drop it, or click'
+              : 'PDF, PPTX or a photo. It becomes a page you can read, ask and remember.'
+            : variant === 'cell'
+              ? 'A PDF — drop it, or click'
+              : 'A PDF. It becomes a Lesson only you can see — read it, ask it, practise it.'}
         </span>
       </span>
     </label>

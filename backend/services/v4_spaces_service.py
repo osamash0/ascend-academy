@@ -7,7 +7,10 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional
 
+from backend.core.config import settings
 from backend.core.database import get_db_connection
+from backend.services import materials_service
+from backend.services.v4_personal import TITLE as PERSONAL_TITLE
 
 
 def _person(row: Any) -> Dict[str, Any]:
@@ -101,10 +104,13 @@ SELECT l.id, l.course_id, l.title, l.created_at, l.professor_id, l.pdf_url,
        sp.completed_slides, sp.completed_at, sp.id IS NOT NULL AS started
 FROM lectures l
 LEFT JOIN student_progress sp ON sp.lecture_id = l.id AND sp.user_id = $1::uuid
-WHERE l.course_id = ANY($2::uuid[])
-  AND NOT COALESCE(l.is_archived, false)
-  AND COALESCE(l.visibility, 'course') = 'course'
-ORDER BY l.course_id, l.created_at
+WHERE NOT COALESCE(l.is_archived, false)
+  AND (
+    (l.course_id = ANY($2::uuid[]) AND COALESCE(l.visibility, 'course') = 'course')
+    -- The viewer's own uploads: their personal Space (v4_personal).
+    OR (l.course_id IS NULL AND l.student_owner_id = $1::uuid AND l.visibility = 'private_student')
+  )
+ORDER BY COALESCE(l.course_id, $1::uuid), l.created_at
 """
 
 _CONCEPTS_SQL = """
@@ -206,9 +212,19 @@ async def get_world(user_id: str) -> Dict[str, Any]:
             "WHERE user_id = $1::uuid ORDER BY created_at DESC LIMIT 30",
             user_id,
         )
+        is_student = await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM user_roles WHERE user_id = $1::uuid AND role = 'student')",
+            user_id,
+        )
+
+    uploads_on = settings.feature_student_uploads
+    uploads = await uploads_for(user_id) if uploads_on else []
 
     people = {r["user_id"]: _person(r) for r in people_rows}
     unknown = {"id": "unknown", "name": "Former member", "avatarUrl": None}
+    viewer = _person(viewer_row) if viewer_row else None
+    # A lesson's Space: its course, or — for an upload of your own — your personal Space.
+    space_of = lambda r: str(r["course_id"] or user_id)  # noqa: E731
 
     concepts_by_lesson: Dict[Any, List[Dict[str, Any]]] = {}
     for r in concepts:
@@ -223,14 +239,15 @@ async def get_world(user_id: str) -> Dict[str, Any]:
     lessons_out: List[Dict[str, Any]] = []
     order: Dict[Any, int] = {}
     for r in lessons:
-        order[r["course_id"]] = order.get(r["course_id"], 0) + 1
+        sid = space_of(r)
+        order[sid] = order.get(sid, 0) + 1
         pct = _percent(r["completed_slides"], r["completed_at"], r["total_slides"])
-        author = people.get(r["professor_id"], unknown)
+        author = (viewer if r["course_id"] is None else None) or people.get(r["professor_id"], unknown)
         lessons_out.append({
             "id": str(r["id"]),
-            "spaceId": str(r["course_id"]),
+            "spaceId": sid,
             "title": r["title"],
-            "order": order[r["course_id"]],
+            "order": order[sid],
             "state": "published",
             "origin": "official",
             "author": author,
@@ -294,8 +311,12 @@ async def get_world(user_id: str) -> Dict[str, Any]:
             "lastActiveAt": last_active,
         })
 
+    personal = _personal_space(user_id, viewer, [l for l in lessons_out if l["spaceId"] == user_id], uploads)
+    if personal:
+        spaces_out.append(personal)
+
     return {
-        "viewer": _person(viewer_row) if viewer_row else None,
+        "viewer": viewer,
         "spaces": spaces_out,
         "lessons": lessons_out,
         # What Home ranks: the lessons the viewer last touched, newest first.
@@ -307,6 +328,72 @@ async def get_world(user_id: str) -> Dict[str, Any]:
         "record": record,
         "social": social,
         "notes": my_notes,
+        # Files you brought in, newest first — the Library shelf (live).
+        "uploads": uploads,
+        # Students bring files in (FEATURE_STUDENT_UPLOADS); the endpoint enforces both.
+        "canUpload": bool(uploads_on and is_student),
+    }
+
+
+# ── Your own uploads: the personal Space and the shelf ───────────────────────
+
+
+async def uploads_for(user_id: str) -> List[Dict[str, Any]]:
+    """Every private upload run, newest first, in the shelf's terms.
+
+    A run is ``developing`` until the pipeline has made its lecture, ``failed``
+    if it stopped, and ``ready`` once there is a lecture to open.
+    """
+    rows = await materials_service.list_my_materials(user_id)
+    out: List[Dict[str, Any]] = []
+    for r in rows:
+        status = (r.get("status") or "").lower()
+        failed = status in {"failed", "error", "cancelled"}
+        ready = bool(r.get("lecture_id")) and status in {"complete", "completed", "succeeded", "done"}
+        out.append({
+            "id": r["run_id"],
+            "lessonId": r.get("lecture_id"),
+            "filename": r.get("filename") or r.get("title") or "Upload.pdf",
+            "title": r.get("title"),
+            "pageCount": r.get("total_slides") or 0,
+            "stage": "failed" if failed else ("ready" if ready else "developing"),
+            "addedAt": r["created_at"],
+        })
+    return out
+
+
+def _personal_space(
+    user_id: str, viewer: Optional[Dict[str, Any]], mine: List[Dict[str, Any]], uploads: List[Dict[str, Any]]
+) -> Optional[Dict[str, Any]]:
+    """Your uploads as a Space you own — present once you have brought something in."""
+    if not mine and not uploads:
+        return None
+    newest = max((u["addedAt"] for u in uploads), default=None) or max(
+        (l["material"]["uploadedAt"] for l in mine if l["material"]), default=None
+    )
+    return {
+        "id": user_id,
+        "name": PERSONAL_TITLE,
+        "shortCode": "MY",
+        "description": "Files you brought in. Only you can see them.",
+        "owner": viewer or {"id": user_id, "name": "You", "avatarUrl": None},
+        "universe": None,
+        "classification": {"domain": "", "subject": None},
+        "mode": "guided",
+        "visibility": "private",
+        "state": "active",
+        "groundingEnabled": False,
+        "strictMode": False,
+        "memberCount": 1,
+        "starCount": 0,
+        "starredByViewer": False,
+        "viewerRole": "owner",
+        "personal": True,
+        "viewerProgress": round(sum(l["percentComplete"] for l in mine) / len(mine)) if mine else 0,
+        "lessonCount": len(mine),
+        "lessonsDone": sum(1 for l in mine if l["progress"] == "done"),
+        "newSinceLastVisit": 0,
+        "lastActiveAt": newest or "",
     }
 
 

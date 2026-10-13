@@ -30,7 +30,7 @@ def lecture_id():
 
 
 async def test_ideas_without_pages_are_left_off_and_the_rest_are_in_page_order(monkeypatch, lecture_id):
-    async def fake_course(_cid):
+    async def fake_course(_cid, _uid=None):
         return {"id": "c", "title": "DBS", "lectures": [{"id": lecture_id, "title": "SQL", "order": 1}]}
 
     async def fake_conn():

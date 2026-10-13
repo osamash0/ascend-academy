@@ -25,6 +25,7 @@ from backend.core.database import get_db_connection
 from backend.services.localization_service import get_lecture_content_for_locale
 from backend.services.v4_reader_service import IDEAS_VERSION, _generate_json, write_in
 from backend.services.cache import get_cache, set_cache
+from backend.services.v4_personal import space_lectures
 
 logger = logging.getLogger(__name__)
 
@@ -247,10 +248,11 @@ async def compose_rehearsal(
 ) -> dict[str, Any]:
     async with await get_db_connection() as conn:
         course_title = await conn.fetchval("SELECT title FROM courses WHERE id = $1", course_id)
+        # A course's lectures, or your own uploads in your personal Space.
         rows = await conn.fetch(
-            """SELECT id, title, content_revision FROM lectures
-               WHERE course_id = $1 AND id = ANY($2::uuid[]) AND COALESCE(is_archived, false) = false
-               ORDER BY created_at""",
+            f"""SELECT l.id, l.title, l.content_revision FROM lectures l
+               WHERE {space_lectures("$1")} AND l.id = ANY($2::uuid[]) AND COALESCE(l.is_archived, false) = false
+               ORDER BY l.created_at""",
             course_id,
             lecture_ids,
         )

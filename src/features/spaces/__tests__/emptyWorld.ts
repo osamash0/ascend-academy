@@ -16,5 +16,7 @@ export const emptyWorld = (over: Partial<World> = {}): World => ({
   record: { studyDays: [], xpEvents: [], moments: [] },
   social: { leaderboard: [], friends: [], requests: [], sharedSpaceIds: {} },
   notes: [],
+  uploads: [],
+  canUpload: false,
   ...over,
 });

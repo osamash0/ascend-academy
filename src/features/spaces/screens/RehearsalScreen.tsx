@@ -10,6 +10,7 @@ import { grade, type Grade } from '../components/rehearsal/grade';
 import { composeRehearsal, saveRehearsal, useCourse, useRehearsalHistory } from '../data/useReader';
 import { fadingIdeas, type FadingIdea } from '../components/course/today';
 import type { Rehearsal, RehearsalHistory } from '../data/liveRepository';
+import { spaceById } from '../data/world';
 
 /**
  * Exam rehearsal, for a real course.
@@ -30,7 +31,7 @@ type Phase =
   | { at: 'composing'; lectures: string[] }
   | { at: 'failed'; message: string; retry: () => void }
   | { at: 'running'; rehearsal: Rehearsal; index: number; grades: (Grade | null)[] }
-  | { at: 'done'; rehearsal: Rehearsal; grades: Grade[]; saved: 'saving' | 'saved' | 'failed' };
+  | { at: 'done'; rehearsal: Rehearsal; grades: Grade[]; saved: 'saving' | 'saved' | 'failed' | 'unkept' };
 
 const LENGTHS = [5, 8, 12];
 
@@ -225,6 +226,8 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
     const next = () => {
       if (!last) return setPhase({ ...phase, index: index + 1 });
       const done = grades as Grade[];
+      // Your own uploads have no course to keep a history under (yet): say so, do not try.
+      if (spaceById(course.id)?.personal) return setPhase({ at: 'done', rehearsal, grades: done, saved: 'unkept' });
       setPhase({ at: 'done', rehearsal, grades: done, saved: 'saving' });
       /* Into your history: what each question tested, and whether it was right. */
       saveRehearsal(
@@ -372,7 +375,13 @@ function Debrief({
     <div className="mx-auto max-w-3xl px-6 pb-24 pt-20">
       <div className="flex flex-col items-center text-center">
         <p aria-live="polite" className="mb-4 h-5 text-[12.5px] text-faint">
-          {phase.saved === 'saving' ? 'Saving to your history…' : phase.saved === 'saved' ? 'Saved to your history' : 'Couldn’t save this one to your history'}
+          {phase.saved === 'saving'
+            ? 'Saving to your history…'
+            : phase.saved === 'saved'
+              ? 'Saved to your history'
+              : phase.saved === 'unkept'
+                ? 'Rehearsals of your own files are not kept yet'
+                : 'Couldn’t save this one to your history'}
         </p>
         <svg width={160} height={160} viewBox="0 0 160 160" aria-hidden>
           <circle cx={80} cy={80} r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={10} />

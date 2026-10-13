@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { lifeLine, type ShelfItem } from '../studio/shelf';
 import { FLIGHT_EASE } from '../studio/motion';
-import { importWillFail, shelfSpaceName, shelfActions, useCoverTitle, useDevelopment, useGlance } from '../data/useShelf';
+import { retryFor, shelfIsDemo, shelfSpaceName, useCoverTitle, useDevelopment, useGlance } from '../data/useShelf';
 import { ShareActions } from './ShareSheet';
 import { rememberOpened } from './returnFocus';
 import { SHELF_TONE } from './tone';
@@ -223,6 +223,7 @@ export function Cover({
   const fade = { duration: reduce ? 0.15 : 0.6, ease: FLIGHT_EASE };
   const showLines = glancing && !!item.cover && lines.length > 0 && item.stage === 'ready';
   const developing = item.stage === 'developing';
+  const retry = item.stage === 'failed' ? retryFor(item) : null;
   /* Only what you brought in this visit develops in front of you; a seeded file is simply still being prepared. */
   const live = developing && !!item.broughtIn;
   /* The development runs in the store, wherever this cover is: it only shows the phase. */
@@ -383,11 +384,11 @@ export function Cover({
         </button>
       )}
 
-      {!select && item.stage === 'failed' && (
+      {!select && item.stage === 'failed' && retry && (
         <div className="px-3.5 pb-3.5">
           <button
             type="button"
-            onClick={() => shelfActions.retryDeveloping(item.id, { fail: importWillFail() })}
+            onClick={retry}
             className="console-focusable h-8 rounded-full border border-white/15 px-3.5 text-[12.5px] font-medium text-foreground transition-colors hover:bg-white/[0.07]"
           >
             Try again
@@ -395,7 +396,8 @@ export function Cover({
         </div>
       )}
 
-      {!select && (
+      {/* Live covers are yours alone: nothing to share or remove from here yet. */}
+      {!select && shelfIsDemo() && (
         <div className="absolute right-2 top-2 z-10">
           <CoverMenu item={item} onRemove={onRemove} />
         </div>

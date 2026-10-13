@@ -128,7 +128,8 @@ export default function SpaceManageScreen() {
   // A real course is managed where its lectures are uploaded and published —
   // the course manager already does all of it, for professors and students.
   // These controls would only change the fixtures.
-  if (liveWorld()) return <Navigate replace to={managerHref(space.id)} />;
+  // Your own uploads are looked after in Library, where you brought them in.
+  if (liveWorld()) return <Navigate replace to={space.personal ? '/v4/library' : managerHref(space.id)} />;
 
   const members = membersForSpace(space.id);
   const orphans = orphansForSpace(space.id);

@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import { CheckSquare, Layers, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { shelfAcceptsFiles, shelfActions, useShelf, shelfSpaceName, shelfTitle } from '../data/useShelf';
+import { shelfAcceptsFiles, shelfActions, shelfIsDemo, useShelf, shelfSpaceName, shelfTitle } from '../data/useShelf';
 import { useLibrary } from '../data/useSpaces';
 import {
   filterItems,
@@ -82,7 +82,8 @@ export default function LibraryScreen() {
   const [grouped, setGrouped] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   // Your words has no covers, so Select never stands over it.
-  const selecting = params.get('select') === '1' && filter !== 'words';
+  // Select exists to share or remove, and live covers do neither yet.
+  const selecting = params.get('select') === '1' && filter !== 'words' && shelfIsDemo();
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
   const orphans = contributions.filter((c) => c.orphaned);
   /*
@@ -272,7 +273,13 @@ export default function LibraryScreen() {
         <header>
           <Masthead
             title="Library"
-            lede={accepts ? 'What you brought in, what you made of it, and what you shared.' : 'Your words, from every Lesson.'}
+            lede={
+              shelfIsDemo()
+                ? 'What you brought in, what you made of it, and what you shared.'
+                : accepts
+                  ? 'What you brought in, and your words from every Lesson.'
+                  : 'Your words, from every Lesson.'
+            }
           />
         </header>
 
@@ -314,7 +321,7 @@ export default function LibraryScreen() {
                     </button>
                   ))}
                 </div>
-                {items.length > 0 && !selecting && (
+                {items.length > 0 && !selecting && shelfIsDemo() && (
                   <button ref={pillRef} type="button" onClick={() => enterSelect()} className={ghostPillSm}>
                     <CheckSquare aria-hidden className="h-3.5 w-3.5" />
                     Select…

@@ -5,7 +5,7 @@
 import type { ExplainAnswer } from '../components/reader/iui/spec';
 import type { Note, Person } from '../types';
 import type { PracticeQuestion } from '../mocks/practice';
-import type { World } from './world';
+import type { Upload, World } from './world';
 import type { AskAnswer } from './assistant';
 
 /** A course, read as the reader's Space: its lectures in order. */
@@ -155,6 +155,8 @@ export interface V4Transport {
   post<T>(path: string, body: unknown): Promise<T>;
   patch<T>(path: string, body: unknown): Promise<T>;
   delete<T>(path: string): Promise<T>;
+  /** A multipart POST (a file). Optional: only bringing files in needs it. */
+  upload?<T>(path: string, form: FormData): Promise<T>;
 }
 
 const root = '/api/v1/v4';
@@ -166,6 +168,18 @@ export function createLiveRepository(http: V4Transport) {
     me: () => http.get<Person>(`${root}/me`),
     /* Everything the core loop renders: the viewer, their Spaces and Lessons (`/v4/world`). */
     world: () => http.get<World>(`${root}/world`),
+    /* Bring a file in: a private lecture in your personal Space (FEATURE_STUDENT_UPLOADS). */
+    bringIn: (file: File) => {
+      if (!http.upload) return Promise.reject(new Error('This transport cannot send files.'));
+      const form = new FormData();
+      form.append('file', file);
+      return http.upload<{ status: 'queued' | 'duplicate'; run_id?: string; lecture_id?: string }>(
+        `${root}/uploads`,
+        form,
+      );
+    },
+    /* Your uploads, as the shelf shows them — polled while one develops. */
+    uploads: () => http.get<{ uploads: Upload[] }>(`${root}/uploads`),
     /* Home's ask bar: the grounded course tutor. */
     ask: (question: string) => http.post<AskAnswer>(`${root}/ask`, { question }),
     /* Accept or decline a friend request addressed to you. */
@@ -241,5 +255,8 @@ export async function loadLiveRepository(): Promise<LiveRepository> {
     throw new Error('Live v4 data is not enabled.');
   }
   const { apiClient } = await import('@/lib/apiClient');
-  return createLiveRepository(apiClient);
+  return createLiveRepository({
+    ...apiClient,
+    upload: <T,>(path: string, form: FormData) => apiClient.upload(path, form).then((r) => r.json() as Promise<T>),
+  });
 }

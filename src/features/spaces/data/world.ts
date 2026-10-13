@@ -47,6 +47,23 @@ export interface World {
   };
   /** The viewer's private notes, newest first. */
   notes: Note[];
+  /** Files the viewer brought in, newest first. Ready ones are Lessons of their personal Space. */
+  uploads: Upload[];
+  /** Whether this account may bring files in (students, with uploads switched on). */
+  canUpload: boolean;
+}
+
+/** One file brought in, as the shelf shows it. */
+export interface Upload {
+  /** The parse run's id — stable from the moment the file is sent. */
+  id: string;
+  /** The Lesson it became, once it has (null while developing or failed). */
+  lessonId: string | null;
+  filename: string;
+  title: string | null;
+  pageCount: number;
+  stage: 'developing' | 'ready' | 'failed';
+  addedAt: string;
 }
 
 let live: World | null = null;

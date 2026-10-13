@@ -6,11 +6,13 @@ shape from src/features/spaces/types.ts (see v4_spaces_service).
 from typing import Any, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.core.auth_middleware import _user_id, verify_token
+from backend.core.auth_middleware import _user_id, require_student, verify_token
+from backend.core.config import settings
 from backend.core.rate_limit import limiter
+from backend.services import materials_service
 from backend.services import v4_spaces_service as service
 
 router = APIRouter(prefix="/v4", tags=["v4"])
@@ -113,6 +115,37 @@ async def v4_delete_note(note_id: UUID, request: Request, user: Any = Depends(ve
 async def v4_notifications_read_all(request: Request, user: Any = Depends(verify_token)):
     """The panel's one bulk action."""
     return {"marked": await service.mark_notifications_read(_uid(user))}
+
+
+def _uploads_on() -> None:
+    if not settings.feature_student_uploads:
+        raise HTTPException(status_code=404, detail="Not found.")
+
+
+@router.post("/uploads")
+@limiter.limit("10/minute")
+async def v4_upload(request: Request, file: UploadFile = File(...), user: Any = Depends(require_student)):
+    """Bring a file into your Library: a private lecture in your personal Space.
+
+    The same quota-gated pipeline as My Materials; a file you already brought
+    in comes back as that lecture instead of a second parse.
+    """
+    _uploads_on()
+    uid = _uid(user)
+    try:
+        return await materials_service.create_upload(uid, file)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except materials_service.QuotaExceededError as e:
+        raise HTTPException(status_code=403, detail=f"You have used all {e.limit} uploads for this month.")
+
+
+@router.get("/uploads")
+@limiter.limit("60/minute")
+async def v4_uploads(request: Request, user: Any = Depends(require_student)):
+    """Your uploads as the shelf shows them — polled while one is developing."""
+    _uploads_on()
+    return {"uploads": await service.uploads_for(_uid(user))}
 
 
 @router.get("/world")
