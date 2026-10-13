@@ -10,7 +10,9 @@ from typing import Tuple
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".heic")
 MAX_IMAGE_SIDE = 4096
-MAX_IMAGE_PIXELS = 40_000_000
+# 48-50 MP is a normal phone photo today (8000x6000 and up); 100 MP admits them
+# while staying under Pillow's own decompression-bomb error (~179 MP).
+MAX_IMAGE_PIXELS = 100_000_000
 
 
 def is_image(filename: str) -> bool:

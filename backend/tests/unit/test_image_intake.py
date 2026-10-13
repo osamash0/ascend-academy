@@ -94,10 +94,23 @@ async def test_flag_on_hands_validation_a_pdf(monkeypatch):
     assert seen["content"].startswith(b"%PDF")
 
 
+def test_a_48_megapixel_phone_photo_is_accepted():
+    """8000x6000 is the default output of many current phone cameras."""
+    buf = io.BytesIO()
+    Image.new("RGB", (8000, 6000), (230, 230, 230)).save(buf, format="JPEG", quality=70)
+    pdf, name = image_to_pdf(buf.getvalue(), "board.jpg")
+    assert name == "board.pdf"
+    with fitz.open(stream=pdf, filetype="pdf") as d:
+        info = d.extract_image(d[0].get_images()[0][0])
+    assert max(info["width"], info["height"]) <= 4096
+
+
 def test_oversized_dimensions_are_rejected_cheaply(monkeypatch):
-    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", None)  # only our own cap applies
+    """A 108 MP header is refused from its size alone, before any decode."""
+    fake = SimpleNamespace(width=12000, height=9000)
+    monkeypatch.setattr(Image, "open", lambda *a, **k: fake)
     with pytest.raises(ValueError, match="too large"):
-        image_to_pdf(_png(9000, 9000), "big.png")
+        image_to_pdf(b"header only", "huge.png")
 
 
 def test_decompression_bomb_becomes_value_error(monkeypatch):
