@@ -6,6 +6,7 @@ student uploads (which own the rest of /materials) are off.
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -26,9 +27,11 @@ async def material_pages(request: Request, lecture_id: str, user: Any = Depends(
     if not uid:
         raise HTTPException(status_code=401, detail="Sign in to open this.")
     try:
-        return await svc.get_pages(lecture_id, uid)
+        lid = UUID(lecture_id)
     except ValueError:
         raise HTTPException(status_code=404, detail="Not found.")
+    try:
+        return await svc.get_pages(str(lid), uid)
     except svc.NotVisible:
         raise HTTPException(status_code=404, detail="Not found.")
     except svc.StillDeveloping:
