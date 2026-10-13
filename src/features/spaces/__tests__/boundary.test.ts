@@ -76,6 +76,12 @@ const ALLOWED = [
   /^@\/components\/ui\//,
   /^@\/components\/console$/,
   /*
+   * The app's route constants: pure strings, no data, no network. For the few
+   * hand-offs to a room v4 does not have yet — a real Space is managed in the
+   * existing manager (uploads, publishing), so live Manage sends you there.
+   */
+  /^@\/lib\/routes$/,
+  /*
    * The two faces of a Lesson. `@/components/pdf` wraps react-pdf (the
    * Material as uploaded); `@/components/markdown` wraps react-markdown (the
    * parsed text). Both are renderers with no data and no network; they live

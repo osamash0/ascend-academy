@@ -11,6 +11,7 @@ import type { ShelfItem, WordEntry } from '../studio/shelf';
 import type { CanvasDoc } from '../studio/types';
 import type { Contribution } from '../types';
 import { useScreenState } from './useSpaces';
+import { liveWorld } from './world';
 
 /**
  * The shelf seam. Screens read the shelf only through these hooks and change it
@@ -70,6 +71,11 @@ function wordsNow(items: ShelfItem[], canvases: ReadonlyMap<string, CanvasDoc>):
   return yourWords([...notes, ...canvas]);
 }
 
+const NONE: ShelfItem[] = [];
+
+/** Live has no shelf files yet — see `useShelf`. Library hides bringing one in. */
+export const shelfAcceptsFiles = (): boolean => liveWorld() === null;
+
 export function useShelf(): {
   state: LoadState;
   items: ShelfItem[];
@@ -81,17 +87,24 @@ export function useShelf(): {
   const canvases = useSyncExternalStore(shelfStore.subscribe, shelfStore.getCanvases);
   const notesV = useSyncExternalStore(subscribeNotes, notesVersion);
   const ready = state === 'ready';
+  /*
+   * Live, the shelf holds no files yet: what it brings in is in-memory and
+   * develops on a timer, and the seed is the fixtures' Normalization deck —
+   * neither belongs in a real account. Your words (real notes) stay.
+   */
+  const live = liveWorld() !== null;
   // `notesV` is the cue to re-read the note store: a note was written.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const words = useMemo(() => (ready ? wordsNow(all, canvases) : []), [ready, all, canvases, notesV]);
-  const items = ready ? all : [];
-  return { state, items, continueItem: ready ? continueItem(all) : null, words };
+  const shelf = live ? NONE : all;
+  const words = useMemo(() => (ready ? wordsNow(shelf, canvases) : []), [ready, shelf, canvases, notesV]);
+  const items = ready ? shelf : [];
+  return { state, items, continueItem: ready ? continueItem(shelf) : null, words };
 }
 
 export function useShelfItem(id: string | undefined): { state: LoadState; item: ShelfItem | null } {
   const state = useScreenState();
   const all = useSyncExternalStore(shelfStore.subscribe, shelfStore.getItems);
-  const item = id ? (all.find((i) => i.id === id) ?? null) : null;
+  const item = id && !liveWorld() ? (all.find((i) => i.id === id) ?? null) : null;
   if (state !== 'ready') return { state, item: null };
   return { state: item ? 'ready' : 'empty', item };
 }

@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import { CheckSquare, Layers, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { shelfActions, useShelf, shelfSpaceName, shelfTitle } from '../data/useShelf';
+import { shelfAcceptsFiles, shelfActions, useShelf, shelfSpaceName, shelfTitle } from '../data/useShelf';
 import { useLibrary } from '../data/useSpaces';
 import {
   filterItems,
@@ -89,7 +89,8 @@ export default function LibraryScreen() {
    * What you bring in is always in front of you: if the filter or the search
    * would hide it, the shelf goes back to Everything (no toast to chase).
    */
-  const bring = useBringIn(state === 'ready', (ids) => {
+  const accepts = shelfAcceptsFiles();
+  const bring = useBringIn(state === 'ready' && accepts, (ids) => {
     const brought = shelfActions.getItems().filter((i) => ids.includes(i.id));
     const hidden = filter === 'words' || filterItems(brought, filter, q, shelfTitle).length < brought.length;
     if (hidden) setParam({ f: null, q: null });
@@ -99,9 +100,15 @@ export default function LibraryScreen() {
   useEffect(() => {
     if (state === 'ready') takeReturnTarget()?.focus();
   }, [state]);
-  const tile = (variant: 'cell' | 'empty') => (
-    <BringInTile inputRef={bring.inputRef} onFiles={bring.bringFiles} variant={variant} />
-  );
+  const tile = (variant: 'cell' | 'empty') =>
+    accepts ? (
+      <BringInTile inputRef={bring.inputRef} onFiles={bring.bringFiles} variant={variant} />
+    ) : variant === 'empty' ? (
+      /* Live: nothing to bring in here yet, so no tile that pretends to take a file. */
+      <p className="mx-auto mt-16 max-w-[44ch] text-center text-[15px] leading-relaxed text-quiet">
+        Notes you write in a Lesson gather here, each one a tap from the page it was written on.
+      </p>
+    ) : null;
 
   /* "{file} is ready", said politely, when a cover finishes developing. */
   const stages = useRef(new Map<string, ShelfItem['stage']>());
@@ -263,7 +270,10 @@ export default function LibraryScreen() {
     <ZoomThrough>
       <div className="relative mx-auto max-w-[1120px] px-4 pb-24 pt-10 sm:px-6 lg:px-8">
         <header>
-          <Masthead title="Library" lede="What you brought in, what you made of it, and what you shared." />
+          <Masthead
+            title="Library"
+            lede={accepts ? 'What you brought in, what you made of it, and what you shared.' : 'Your words, from every Lesson.'}
+          />
         </header>
 
         {nothing ? (

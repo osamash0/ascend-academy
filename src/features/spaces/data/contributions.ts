@@ -1,5 +1,5 @@
 import * as fixtures from '../mocks/contributions';
-import type { Contribution } from '../types';
+import type { Contribution, Membership } from '../types';
 import { liveWorld } from './world';
 
 /**
@@ -19,3 +19,10 @@ export const contributionsForLesson = (lessonId: string): Contribution[] =>
 
 export const contributionsForSpace = (spaceId: string): Contribution[] =>
   liveWorld() ? [] : fixtures.contributionsForSpace(spaceId);
+
+/** A Space's Members as the manage screen lists them. Live manages courses elsewhere, so none. */
+export const membersForSpace = (spaceId: string): Membership[] =>
+  liveWorld() ? [] : fixtures.membersForSpace(spaceId);
+
+export const orphansForSpace = (spaceId: string): Contribution[] =>
+  liveWorld() ? [] : fixtures.orphansForSpace(spaceId);

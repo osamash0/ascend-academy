@@ -1,5 +1,5 @@
 import { useReducer, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Archive,
@@ -12,8 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Role, SpaceMode } from '../types';
-import { canDelete } from '../mocks/spaces';
-import { membersForSpace, orphansForSpace } from '../mocks/contributions';
+import { membersForSpace, orphansForSpace } from '../data/contributions';
 import { StudioAction, StudioPill, StudioShell } from '../components/StudioShell';
 import { ListSkeleton, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
@@ -21,7 +20,7 @@ import { JoinCodeBlock } from '../components/SpaceDialogs';
 import { AuthorLine } from '../components/badges';
 import { ReanchorDialog } from '../components/ReanchorDialog';
 import type { Contribution } from '../types';
-import { spaceById } from '../data/world';
+import { canDelete, liveWorld, managerHref, spaceById } from '../data/world';
 
 /**
  * Manage a Space — the Owner's Studio screen.
@@ -125,6 +124,11 @@ export default function SpaceManageScreen() {
       </StudioShell>
     );
   }
+
+  // A real course is managed where its lectures are uploaded and published —
+  // the course manager already does all of it, for professors and students.
+  // These controls would only change the fixtures.
+  if (liveWorld()) return <Navigate replace to={managerHref(space.id)} />;
 
   const members = membersForSpace(space.id);
   const orphans = orphansForSpace(space.id);

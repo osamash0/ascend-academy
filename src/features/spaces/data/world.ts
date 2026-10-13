@@ -1,3 +1,4 @@
+import { ProfessorRoutes } from '@/lib/routes';
 import * as fixtureSpaces from '../mocks/spaces';
 import * as fixtureLessons from '../mocks/lessons';
 import type { Lesson, Note, Person, Space } from '../types';
@@ -147,3 +148,9 @@ export const locateLesson = (lessonId: string): { lesson: Lesson; spaceId: strin
   const lesson = live.lessons.find((l) => l.id === lessonId);
   return lesson ? { lesson, spaceId: lesson.spaceId } : undefined;
 };
+
+/** Deleting asks for the Space's name, typed — and only its Owner may. */
+export const canDelete = fixtureSpaces.canDelete;
+
+/** Where a real Space is managed: the existing manager, which uploads, publishes and edits. */
+export const managerHref = (spaceId: string): string => ProfessorRoutes.COURSE_DETAIL(spaceId);

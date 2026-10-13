@@ -2,6 +2,9 @@ import { useCallback, useRef, useState } from 'react';
 import { ASK_LATENCY_MS, SUGGESTED_QUESTIONS, findAnswer } from '../mocks/studio-answers';
 import type { ScriptedAnswer } from '../mocks/studio-answers';
 
+/** The next questions to offer on a canvas: the first not yet asked. Canvases are demo-only (live has no shelf files). */
+export { nextSuggestions } from '../mocks/studio-answers';
+
 /**
  * The ask seam (Living Learn spec §6.3). Mock now: a scripted answer after a
  * real wait. Wiring a model later replaces this hook's body and nothing above it.

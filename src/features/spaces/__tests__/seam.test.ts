@@ -19,9 +19,7 @@ const STILL_ON_MOCKS = [
   'components/ReanchorDialog.tsx',
   'components/SpaceDialogs.tsx',
   'components/badges.tsx',
-  'screens/SpaceManageScreen.tsx',
   'screens/SpacesScreen.tsx',
-  'screens/StudioCanvasScreen.tsx',
 ];
 
 const ROOT = join(process.cwd(), 'src/features/spaces');
