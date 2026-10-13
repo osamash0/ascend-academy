@@ -753,6 +753,7 @@ async def parse_pdf_unified(
         await emit("phase", {"phase": "extract"})
         raw_slides = await asyncio.to_thread(_extract_pages, pdf_bytes, odl_pages)
         total = len(raw_slides)
+        await repos.set_page_count(run_uuid, total)
         from backend.services.localization_service import detect_source_language
         source_language = detect_source_language("\n".join(raw_slides[:15]))
         from backend.services.parser.deck_plan import build_deck_skeleton

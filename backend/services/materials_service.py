@@ -152,7 +152,7 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
     async with await get_db_connection() as conn:
         run_rows = await conn.fetch(
             """
-            SELECT run_id, lecture_id, status, error, filename, started_at, finished_at
+            SELECT run_id, lecture_id, status, error, filename, started_at, finished_at, page_count
             FROM parse_runs
             WHERE user_id = $1 AND pipeline_version = $2
             ORDER BY started_at DESC
@@ -193,6 +193,9 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
                 )
 
         async def _fetch_pages_ready():
+            # Flag off: the lecture_pages table need not even exist.
+            if not settings.feature_studio_pages:
+                return []
             async with await get_db_connection() as c:
                 return await c.fetch(
                     "SELECT lecture_id, count(*) AS n FROM lecture_pages WHERE lecture_id = ANY($1::uuid[]) GROUP BY lecture_id",
@@ -229,7 +232,9 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
             "total_slides": (lec["total_slides"] if lec else 0) or 0,
             "quiz_count": c.get("quiz_count", 0),
             "stage": stage_of(r["status"]),
-            "page_count": (lec["total_slides"] if lec else 0) or 0,
+            # The run knows its page count right after extraction; the
+            # lecture's total_slides only after finalize.
+            "page_count": r.get("page_count") or (lec["total_slides"] if lec else 0) or 0,
             "pages_ready": ready.get(r["lecture_id"], 0),
             "poster_url": lec["poster_url"] if lec else None,
             "created_at": (lec["created_at"] if lec else r["started_at"]).isoformat(),
