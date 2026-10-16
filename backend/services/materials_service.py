@@ -35,6 +35,7 @@ from backend.services import upload_service
 from backend.services.cache import compute_pdf_hash
 from backend.services.parser import repos as parser_repos
 from backend.services.parser.unified_orchestrator import PIPELINE_VERSION_UNIFIED
+from backend.services.studio_pages_service import stage_of
 
 logger = logging.getLogger(__name__)
 
@@ -104,9 +105,14 @@ async def find_existing_upload(user_id: str, pdf_hash: str) -> Optional[Dict[str
 async def create_upload(user_id: str, file: UploadFile) -> Dict[str, Any]:
     """Validate, quota-check, store, and enqueue a private student upload."""
     content = await upload_service.read_upload_capped(file, settings.max_upload_mb)
-    await upload_service.validate_upload(file.filename, content)  # raises ValueError on invalid file
+    upload_name = file.filename or "upload"
+    if settings.feature_studio_pages:
+        from backend.services.image_intake import image_to_pdf, is_image
+        if is_image(upload_name):
+            content, upload_name = await asyncio.to_thread(image_to_pdf, content, upload_name)
+    await upload_service.validate_upload(upload_name, content)  # raises ValueError on invalid file
 
-    filename = sanitize_filename(file.filename)
+    filename = sanitize_filename(upload_name)
     pdf_hash = compute_pdf_hash(content)
 
     existing = await find_existing_upload(user_id, pdf_hash)
@@ -146,7 +152,7 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
     async with await get_db_connection() as conn:
         run_rows = await conn.fetch(
             """
-            SELECT run_id, lecture_id, status, error, filename, started_at, finished_at
+            SELECT run_id, lecture_id, status, error, filename, started_at, finished_at, page_count
             FROM parse_runs
             WHERE user_id = $1 AND pipeline_version = $2
             ORDER BY started_at DESC
@@ -157,6 +163,7 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
     lecture_ids = [r["lecture_id"] for r in run_rows if r["lecture_id"]]
     lectures: Dict[Any, Any] = {}
     counts: Dict[Any, Any] = {}
+    ready: Dict[Any, int] = {}
     if lecture_ids:
         # These two queries don't depend on each other, so run them on separate
         # pooled connections concurrently instead of serially — each is a
@@ -165,7 +172,7 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
             async with await get_db_connection() as c:
                 return await c.fetch(
                     """
-                    SELECT id, title, description, total_slides, created_at FROM lectures
+                    SELECT id, title, description, total_slides, poster_url, created_at FROM lectures
                     WHERE id = ANY($1::uuid[]) AND student_owner_id = $2
                     """,
                     lecture_ids, UUID(user_id),
@@ -185,9 +192,21 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
                     lecture_ids,
                 )
 
-        lecture_rows, agg_rows = await asyncio.gather(_fetch_lectures(), _fetch_counts())
+        async def _fetch_pages_ready():
+            # Flag off: the lecture_pages table need not even exist.
+            if not settings.feature_studio_pages:
+                return []
+            async with await get_db_connection() as c:
+                return await c.fetch(
+                    "SELECT lecture_id, count(*) AS n FROM lecture_pages WHERE lecture_id = ANY($1::uuid[]) GROUP BY lecture_id",
+                    lecture_ids,
+                )
+
+        lecture_rows, agg_rows, ready_rows = await asyncio.gather(
+            _fetch_lectures(), _fetch_counts(), _fetch_pages_ready())
         lectures = {r["id"]: r for r in lecture_rows}
         counts = {r["lecture_id"]: dict(r) for r in agg_rows}
+        ready = {r["lecture_id"]: r["n"] for r in ready_rows}
 
     out = []
     for r in run_rows:
@@ -212,6 +231,12 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
             "title": (lec["title"] if lec else None) or r["filename"],
             "total_slides": (lec["total_slides"] if lec else 0) or 0,
             "quiz_count": c.get("quiz_count", 0),
+            "stage": stage_of(r["status"]),
+            # The run knows its page count right after extraction; the
+            # lecture's total_slides only after finalize.
+            "page_count": r.get("page_count") or (lec["total_slides"] if lec else 0) or 0,
+            "pages_ready": ready.get(r["lecture_id"], 0),
+            "poster_url": lec["poster_url"] if lec else None,
             "created_at": (lec["created_at"] if lec else r["started_at"]).isoformat(),
         })
     return out

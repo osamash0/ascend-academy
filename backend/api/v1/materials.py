@@ -74,3 +74,4 @@ async def delete_material(request: Request, lecture_id: str, user: Any = Depends
     if not deleted:
         raise HTTPException(status_code=404, detail="Material not found or not owned by you.")
     return {"lecture_id": lecture_id, "deleted": True}
+

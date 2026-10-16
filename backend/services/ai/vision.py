@@ -82,9 +82,10 @@ def _sync_analyze_vision(
     raw_text: str = "",
     ai_model: str = "groq",
     blueprint_context: str = "",
+    prompt_override: str | None = None,
 ) -> Dict[str, Any]:
-    prompt = SLIDE_VISION_PROMPT
-    if blueprint_context:
+    prompt = prompt_override or SLIDE_VISION_PROMPT
+    if blueprint_context and not prompt_override:
         prompt += f"\n\nCONTEXT FROM MASTER PLAN:\n{blueprint_context}"
 
     # Build available vision providers in priority order.
@@ -126,7 +127,7 @@ def _sync_analyze_vision(
             "No vision provider available: all are unconfigured or disabled "
             "(dead model / billing). Returning the neutral fallback result."
         )
-        return dict(_FALLBACK_RESULT)
+        return {} if prompt_override else dict(_FALLBACK_RESULT)
 
     last_exc = None
     for provider in providers:
@@ -174,7 +175,7 @@ def _sync_analyze_vision(
             last_exc = exc
 
     logger.error("All vision providers failed: %s", last_exc)
-    return dict(_FALLBACK_RESULT)
+    return {} if prompt_override else dict(_FALLBACK_RESULT)
 
 
 async def analyze_slide_vision(
@@ -184,6 +185,12 @@ async def analyze_slide_vision(
     blueprint_context: str = "",
 ) -> Dict[str, Any]:
     return await asyncio.to_thread(_sync_analyze_vision, b64_image, raw_text, ai_model, blueprint_context)
+
+
+async def analyze_image_json(b64_image: str, prompt: str, ai_model: str) -> Dict[str, Any]:
+    """Any image + any JSON prompt through the same provider chain as slides.
+    Returns {} when every provider failed (never the slide fallback shape)."""
+    return await asyncio.to_thread(_sync_analyze_vision, b64_image, "", ai_model, "", prompt)
 
 
 async def analyze_diagram_slide(

@@ -156,11 +156,12 @@ async def test_list_my_materials_hides_runs_whose_lecture_left_the_private_lane(
         # student_owner_id, which promotion nulls.
         "FROM lectures": [
             {"id": "lec-private", "title": "Kept", "description": None,
-             "total_slides": 3, "created_at": started},
+             "total_slides": 3, "poster_url": None, "created_at": started},
         ],
         "FROM slides": [
             {"lecture_id": "lec-private", "slide_count": 3, "quiz_count": 4},
         ],
+        "FROM lecture_pages": [],
     }
 
     async def _fake_conn():
@@ -177,6 +178,100 @@ async def test_list_my_materials_hides_runs_whose_lecture_left_the_private_lane(
     assert out[1]["lecture_id"] is None
     assert out[1]["title"] == "still-parsing.pdf"
     assert out[1]["total_slides"] == 0
+
+
+@pytest.mark.asyncio
+async def test_list_my_materials_reports_shelf_fields(monkeypatch):
+    monkeypatch.setattr(materials_service.settings, "feature_studio_pages", True)
+    user_id = "11111111-1111-1111-1111-111111111111"
+    started = datetime(2026, 8, 2, tzinfo=timezone.utc)
+    responses = {
+        "FROM parse_runs": [
+            {"run_id": "r1", "lecture_id": "lec-done", "status": "completed", "error": None,
+             "filename": "a.pdf", "started_at": started, "finished_at": started},
+            {"run_id": "r2", "lecture_id": "lec-busy", "status": "running", "error": None,
+             "filename": "b.pdf", "started_at": started, "finished_at": None},
+        ],
+        "FROM lectures": [
+            {"id": "lec-done", "title": "A", "description": None, "total_slides": 3,
+             "poster_url": "lectures/lec-done/p1.webp", "created_at": started},
+            {"id": "lec-busy", "title": "B", "description": None, "total_slides": 0,
+             "poster_url": None, "created_at": started},
+        ],
+        "FROM slides": [],
+        "FROM lecture_pages": [{"lecture_id": "lec-done", "n": 3}],
+    }
+
+    async def _fake_conn():
+        return _FakeConn(responses)
+
+    with patch.object(materials_service, "get_db_connection", new=_fake_conn):
+        out = await materials_service.list_my_materials(user_id)
+
+    done, busy = out
+    assert (done["stage"], done["page_count"], done["pages_ready"]) == ("ready", 3, 3)
+    assert done["poster_url"] == "lectures/lec-done/p1.webp"
+    assert done["total_slides"] == 3
+    assert (busy["stage"], busy["pages_ready"], busy["poster_url"]) == ("developing", 0, None)
+
+
+def _shelf_responses(started, *, with_pages=True):
+    responses = {
+        "FROM parse_runs": [
+            {"run_id": "r1", "lecture_id": "lec-busy", "status": "analyzing", "error": None,
+             "filename": "b.pdf", "started_at": started, "finished_at": None, "page_count": 14},
+            {"run_id": "r0", "lecture_id": None, "status": "extracting", "error": None,
+             "filename": "c.pdf", "started_at": started, "finished_at": None, "page_count": None},
+        ],
+        "FROM lectures": [
+            {"id": "lec-busy", "title": "B", "description": None, "total_slides": 0,
+             "poster_url": None, "created_at": started},
+        ],
+        "FROM slides": [],
+    }
+    if with_pages:
+        responses["FROM lecture_pages"] = [{"lecture_id": "lec-busy", "n": 5}]
+    return responses
+
+
+@pytest.mark.asyncio
+async def test_list_my_materials_reports_the_runs_page_count_while_developing(monkeypatch):
+    """lectures.total_slides stays 0 until finalize, so the run's page_count
+    (set right after extraction) is what the shelf can show meanwhile."""
+    monkeypatch.setattr(materials_service.settings, "feature_studio_pages", True)
+    started = datetime(2026, 8, 2, tzinfo=timezone.utc)
+    seen = []
+
+    class _Recording(_FakeConn):
+        async def fetch(self, sql, *args):
+            seen.append(sql)
+            return await super().fetch(sql, *args)
+
+    async def _fake_conn():
+        return _Recording(_shelf_responses(started))
+
+    with patch.object(materials_service, "get_db_connection", new=_fake_conn):
+        busy, no_lecture = await materials_service.list_my_materials("11111111-1111-1111-1111-111111111111")
+
+    assert any("page_count" in q for q in seen if "FROM parse_runs" in q)
+    assert (busy["page_count"], busy["pages_ready"]) == (14, 5)
+    assert no_lecture["page_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_list_my_materials_never_reads_lecture_pages_with_the_flag_off(monkeypatch):
+    """Flag off must not need the lecture_pages table at all."""
+    monkeypatch.setattr(materials_service.settings, "feature_studio_pages", False)
+    started = datetime(2026, 8, 2, tzinfo=timezone.utc)
+
+    async def _fake_conn():
+        # No "FROM lecture_pages" key: _FakeConn raises on any such query.
+        return _FakeConn(_shelf_responses(started, with_pages=False))
+
+    with patch.object(materials_service, "get_db_connection", new=_fake_conn):
+        busy, _ = await materials_service.list_my_materials("11111111-1111-1111-1111-111111111111")
+
+    assert busy["pages_ready"] == 0
 
 
 @pytest.mark.asyncio
