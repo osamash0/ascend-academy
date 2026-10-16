@@ -140,4 +140,13 @@
 # value is the version label of a cache key (the idea's key points) and
 # grants nothing. (Not quoted here: quoting it trips the same rule.)
 # Triaged on PR #83 before listing.
- 3585ef3ec117f27953a4bbbec486600299486369:backend/services/v4_teachback_service.py:generic-api-key:34
+#
+# 2026-10-16: the nightly scans EVERY remote ref, and the same change was
+# re-committed on two unmerged branches (feat/reader-intelligent-ui,
+# claude/two-faces-lesson-styling-1da325), each with its own commit SHA and
+# therefore its own fingerprint. The line on main now carries an inline
+# `gitleaks:allow`, so any branch cut from main stays clean; these three
+# fingerprints cover the copies that predate it.
+3585ef3ec117f27953a4bbbec486600299486369:backend/services/v4_teachback_service.py:generic-api-key:34
+4d552c340ac8c844698384a46e5d45e64d99b9d6:backend/services/v4_teachback_service.py:generic-api-key:34
+7122798a85c5eab17b07a46e64ad9c928a58d880:backend/services/v4_teachback_service.py:generic-api-key:34
