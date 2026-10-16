@@ -7,7 +7,8 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { LaunchOverview } from "@/services/launchControlService";
 
-vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }), toast: vi.fn() }));
+const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
+vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: toastMock }), toast: vi.fn() }));
 
 const { fetchOverviewMock } = vi.hoisted(() => ({ fetchOverviewMock: vi.fn() }));
 vi.mock("@/services/launchControlService", () => ({

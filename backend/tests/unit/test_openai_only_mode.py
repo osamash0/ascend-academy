@@ -127,7 +127,20 @@ def accounted(monkeypatch):
     return calls
 
 
-async def test_vision_uses_only_openai_and_is_costed(monkeypatch, accounted):
+@pytest.fixture
+def openai_configured(monkeypatch):
+    """The rotator's hard gates (no client, cost ceiling) live in the
+    orchestrator, not in vision/embeddings: patching those modules' own
+    ``openai_client`` is not enough to make ``available(["openai"])`` say yes."""
+    async def no_refresh(_chain):
+        return None
+
+    monkeypatch.setitem(orch._clients, "openai", object())
+    monkeypatch.setattr(orch._rotator, "refresh_from_redis", no_refresh)
+    monkeypatch.setattr(orch._rotator, "_openai_daily_cost_usd", 0.0)
+
+
+async def test_vision_uses_only_openai_and_is_costed(monkeypatch, accounted, openai_configured):
     monkeypatch.setattr(vision_mod, "OPENAI_ONLY", True)
     monkeypatch.setattr(vision_mod, "gemini_client", object())
     monkeypatch.setattr(vision_mod, "openai_client", object())
@@ -146,7 +159,7 @@ async def test_vision_uses_only_openai_and_is_costed(monkeypatch, accounted):
     assert call.usage == LLMUsage(1200, 300)
 
 
-async def test_embeddings_use_openai_at_768_dims_and_are_costed(monkeypatch, accounted):
+async def test_embeddings_use_openai_at_768_dims_and_are_costed(monkeypatch, accounted, openai_configured):
     sent = {}
 
     def create(**kw):
