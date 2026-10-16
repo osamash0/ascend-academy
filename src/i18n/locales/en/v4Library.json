@@ -1,3 +1,124 @@
 {
-  "_about": "v4 Library and Studio"
+  "_about": "v4 Library and Studio",
+  "library": {
+    "title": "Library",
+    "lede": "Everything you’ve made — your notes, your uploads and the work you’ve published.",
+    "studio": {
+      "label": "Studio",
+      "uploads": "Uploads",
+      "drafts": "Drafts",
+      "impact": "How your work landed",
+      "pending_one": "{{count}} still being prepared",
+      "pending_other": "{{count}} still being prepared"
+    },
+    "heading": "Everything you made",
+    "filter": {
+      "label": "Filter",
+      "all": "Everything",
+      "note": "Notes",
+      "material": "Uploads",
+      "contribution": "Published"
+    },
+    "kind": {
+      "note": "Note",
+      "material": "Upload",
+      "contribution": "Published"
+    },
+    "newNote": "New note",
+    "unfiled": "Not filed in a Space yet",
+    "notPublished": "Not published yet",
+    "size": "{{size}} MB",
+    "orphan": {
+      "body": "The Lesson this was attached to was removed. Your work is safe, and it keeps its likes — but it has nowhere to open until it is given a new home.",
+      "rehome": "Find it a new home"
+    },
+    "open": {
+      "label": "Open",
+      "note": {
+        "inSpace": "Open note “{{title}}” in {{space}}",
+        "plain": "Open note “{{title}}”"
+      },
+      "material": {
+        "inSpace": "Open upload “{{title}}” in {{space}}",
+        "plain": "Open upload “{{title}}”"
+      },
+      "contribution": {
+        "inSpace": "Open published “{{title}}” in {{space}}",
+        "plain": "Open published “{{title}}”"
+      }
+    },
+    "empty": {
+      "all": {
+        "title": "Nothing here yet",
+        "body": "Anything you write, upload or publish shows up here — gathered from every Space you’re in.",
+        "cta": "Write your first note"
+      },
+      "note": {
+        "title": "No notes yet",
+        "body": "Notes are private. Write one while you read and it will be waiting here, next to every other note you’ve made."
+      },
+      "material": {
+        "title": "Nothing uploaded yet",
+        "body": "Upload material inside a Space and a Lesson builds itself from it. The file stays yours, and it lists here."
+      },
+      "contribution": {
+        "title": "Nothing published yet",
+        "body": "Share a summary, a worked example or a set of practice questions with a Space. Whatever you publish lands here, with how it landed."
+      },
+      "toSpaces": "Go to your Spaces"
+    }
+  },
+  "studio": {
+    "views": {
+      "uploads": "Manage uploads",
+      "drafts": "Your drafts",
+      "impact": "How your work landed"
+    },
+    "loading": "Loading…",
+    "failed": "Something went wrong",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
+    "selectRow": "Select this row",
+    "publish": "Publish",
+    "delete": "Delete",
+    "undo": "Undo",
+    "open": "Open {{title}} in {{space}}",
+    "toast": {
+      "published_one": "Published {{count}} item",
+      "published_other": "Published {{count}} items",
+      "deleted_one": "Deleted {{count}} item",
+      "deleted_other": "Deleted {{count}} items"
+    },
+    "size": "{{mb}} MB",
+    "uploads": {
+      "subtitle_one": "{{count}} file across your Spaces",
+      "subtitle_other": "{{count}} files across your Spaces",
+      "intro": "The original files you uploaded. Deleting one never breaks the Lesson built from it — the Lesson keeps working and says the source was removed.",
+      "published": "They are live in their Spaces now.",
+      "deleted": "The Lessons built from them keep working.",
+      "emptyTitle": "Nothing uploaded yet",
+      "emptyBody": "Upload material inside a Space and a Lesson builds itself from it.",
+      "working": "Working",
+      "ready": "Ready"
+    },
+    "drafts": {
+      "subtitle_one": "{{count}} unpublished across every Space",
+      "subtitle_other": "{{count}} unpublished across every Space",
+      "intro": "Only you can see these. Drafts and Lessons still processing stay private to their author until published — this is the one screen that gathers yours from every Space at once.",
+      "published": "They are in their paths now.",
+      "emptyTitle": "No drafts",
+      "emptyBody": "Everything you've started is published. Nothing waiting on you.",
+      "processing": "Processing",
+      "needsReview": "Needs review",
+      "draft": "Draft"
+    },
+    "impact": {
+      "subtitle_one": "{{count}} published contribution",
+      "subtitle_other": "{{count}} published contributions",
+      "intro": "Every contribution you’ve published, and what happened to it. Likes are shown per item — they say what people found useful, and never add up to a score.",
+      "emptyTitle": "Nothing published yet",
+      "emptyBody": "Share a summary, a worked example or a set of practice questions with a Space, and it will show up here with how it landed.",
+      "needsNewHome": "Needs a new home"
+    }
+  }
 }

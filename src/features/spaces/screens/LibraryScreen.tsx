@@ -10,6 +10,8 @@ import {
   Upload,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { formatMegabytes, formatTimestamp } from '../i18n/format';
 import { EnterList, EnterListItem } from '../components/Enter';
 import { cn } from '@/lib/utils';
 import { Pressable, PressableLink } from '../components/Pressable';
@@ -51,12 +53,8 @@ import { SpacesError, SpacesSkeleton } from '../components/states';
 
 type Filter = 'all' | LibraryKind;
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'Everything' },
-  { key: 'note', label: 'Notes' },
-  { key: 'material', label: 'Uploads' },
-  { key: 'contribution', label: 'Published' },
-];
+/* Labels live in the translations, at `library.filter.<key>`. */
+const FILTERS: Filter[] = ['all', 'note', 'material', 'contribution'];
 
 const KIND_ICON = {
   note: NotebookPen,
@@ -64,14 +62,10 @@ const KIND_ICON = {
   contribution: Sparkles,
 } as const;
 
-const KIND_LABEL = {
-  note: 'Note',
-  material: 'Upload',
-  contribution: 'Published',
-} as const;
+/* A translate function bound to v4Library. */
+type Say = (key: string, params?: Record<string, string | number>) => string;
 
-const formatSize = (bytes?: number) =>
-  bytes === undefined ? null : `${(bytes / 1_000_000).toFixed(1)} MB`;
+const formatSize = (t: Say, bytes?: number) => (bytes === undefined ? null : t('library.size', { size: formatMegabytes(bytes) }));
 
 /**
  * Where a note lives, or an honest admission that it does not live anywhere.
@@ -81,19 +75,16 @@ const formatSize = (bytes?: number) =>
  * "Unknown Lesson · No Space yet" — two invented strings joined by a separator
  * for a note that had simply not been filed.
  */
-const noteContext = (lessonTitle?: string, spaceName?: string) => {
+const noteContext = (t: Say, lessonTitle?: string, spaceName?: string) => {
   const parts = [lessonTitle, spaceName].filter((p) => p && p.trim().length > 0);
-  return parts.length > 0 ? parts.join(' · ') : 'Not filed in a Space yet';
+  return parts.length > 0 ? parts.join(' · ') : t('library.unfiled');
 };
 
-const formatWhen = (iso: string) => {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-};
 
 const LIBRARY_ACCENT = null;
 
 export default function LibraryScreen() {
+  const { t } = useTranslation('v4Library');
   /** Bodies edited this session, so the row shows the edit immediately. */
   const [noteBodies, setNoteBodies] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<Filter>('all');
@@ -149,8 +140,8 @@ export default function LibraryScreen() {
     <div className="relative mx-auto max-w-5xl px-6 pb-24 pt-10 lg:px-8">
       <header>
         <Masthead
-          title="Library"
-          lede="Everything you’ve made — your notes, your uploads and the work you’ve published."
+          title={t('library.title')}
+          lede={t('library.lede')}
         />
       </header>
 
@@ -179,21 +170,21 @@ export default function LibraryScreen() {
         What only these said was *where the dense work opens*, so that is all
         that is left; a dot marks the one with something waiting.
       */}
-      <nav aria-label="Studio" className="mt-8 flex flex-wrap items-center justify-center gap-2">
+      <nav aria-label={t('library.studio.label')} className="mt-8 flex flex-wrap items-center justify-center gap-2">
         <Link to="/v4/library/uploads" className={ghostPillSm}>
           <Upload aria-hidden className="h-3.5 w-3.5" />
-          Uploads
+          {t('library.studio.uploads')}
           {pending.length > 0 && (
-            <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-white" aria-label={`${pending.length} still being prepared`} />
+            <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-white" aria-label={t('library.studio.pending', { count: pending.length })} />
           )}
         </Link>
         <Link to="/v4/library/drafts" className={ghostPillSm}>
           <FileText aria-hidden className="h-3.5 w-3.5" />
-          Drafts
+          {t('library.studio.drafts')}
         </Link>
         <Link to="/v4/library/impact" className={ghostPillSm}>
           <Sparkles aria-hidden className="h-3.5 w-3.5" />
-          How your work landed
+          {t('library.studio.impact')}
         </Link>
       </nav>
 
@@ -210,25 +201,25 @@ export default function LibraryScreen() {
         pill as SpaceScreen's "Add Lesson"; the empty state keeps the larger
         `h-11` form, which is that screen's precedent too.
       */}
-      <h2 className="mt-20 text-[26px] font-medium tracking-[-0.02em]">Everything you made</h2>
+      <h2 className="mt-20 text-[26px] font-medium tracking-[-0.02em]">{t('library.heading')}</h2>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-      <div role="tablist" aria-label="Filter" className="flex flex-wrap items-center gap-1.5">
-        {FILTERS.map((f) => {
-          const count = f.key === 'all' ? items.length : items.filter((i) => i.kind === f.key).length;
+      <div role="tablist" aria-label={t('library.filter.label')} className="flex flex-wrap items-center gap-1.5">
+        {FILTERS.map((key) => {
+          const count = key === 'all' ? items.length : items.filter((i) => i.kind === key).length;
           return (
             <button
-              key={f.key}
+              key={key}
               role="tab"
-              aria-selected={filter === f.key}
-              onClick={() => setFilter(f.key)}
+              aria-selected={filter === key}
+              onClick={() => setFilter(key)}
               className={cn(
                 'console-focusable h-9 rounded-full px-4 text-[13.5px] font-medium transition-colors',
-                filter === f.key
+                filter === key
                   ? 'bg-white/[0.10] text-foreground'
                   : 'text-quiet hover:bg-white/[0.05] hover:text-foreground',
               )}
             >
-              {f.label}
+              {t(`library.filter.${key}`)}
               <span className="ml-1.5 tabular-nums text-faint">{count}</span>
             </button>
           );
@@ -243,7 +234,7 @@ export default function LibraryScreen() {
           className="console-focusable inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900"
         >
           <Plus aria-hidden className="h-4 w-4" />
-          New note
+          {t('library.newNote')}
         </Pressable>
         )}
       </div>
@@ -254,7 +245,6 @@ export default function LibraryScreen() {
         <div className="mt-6">
           <NoteEditor
             autoOpen
-            placeholder="Write it down while it is fresh…"
             onSave={(body) => {
               addNote({ lessonId: '', body });
               setComposing(false);
@@ -284,7 +274,7 @@ export default function LibraryScreen() {
                   {/* Where it is filed — said here, on the note, now that the
                       "latest note" cell that used to say it is gone. */}
                   <p className="mt-1.5 px-1 text-[12.5px] text-faint">
-                    {noteContext(item.lessonTitle, item.spaceName ?? undefined)}
+                    {noteContext(t, item.lessonTitle, item.spaceName ?? undefined)}
                   </p>
                 </div>
               ) : (
@@ -337,6 +327,7 @@ function LibraryRow({
   /** Only offered on an orphan, and only for your own contributions. */
   onReanchor?: () => void;
 }) {
+  const { t } = useTranslation('v4Library');
   const Icon = KIND_ICON[item.kind];
   // Notes open here; everything else is a pointer into its Space.
 
@@ -356,12 +347,12 @@ function LibraryRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-white/[0.06] px-2.5 py-[3px] text-[11.5px] font-medium text-quiet">
-            {KIND_LABEL[item.kind]}
+            {t(`library.kind.${item.kind}`)}
           </span>
           {item.endorsed && <EndorsedBadge />}
           {item.pending && (
             <span className="rounded-full bg-white/[0.06] px-2.5 py-[3px] text-[11.5px] font-medium text-quiet">
-              Not published yet
+              {t('library.notPublished')}
             </span>
           )}
         </div>
@@ -381,10 +372,10 @@ function LibraryRow({
           {[item.lessonTitle, item.spaceName].filter(Boolean).join(' · ')}
           <span className="text-faint">
             {[item.lessonTitle, item.spaceName].some(Boolean) ? ' · ' : ''}
-            {formatWhen(item.updatedAt)}
+            {formatTimestamp(item.updatedAt)}
           </span>
           {item.sizeBytes !== undefined && (
-            <span className="text-faint"> · {formatSize(item.sizeBytes)}</span>
+            <span className="text-faint"> · {formatSize(t, item.sizeBytes)}</span>
           )}
         </p>
 
@@ -399,9 +390,7 @@ function LibraryRow({
               at. That is no longer true: the button directly below this does
               exactly what the sentence describes, so the sentence can say so.
             */}
-            The Lesson this was attached to was removed. Your work is safe, and it
-            keeps its likes — but it has nowhere to open until it is given a new
-            home.
+            {t('library.orphan.body')}
           </p>
         )}
 
@@ -419,7 +408,7 @@ function LibraryRow({
             className="console-focusable relative z-10 mt-3 inline-flex h-9 items-center gap-1.5 rounded-full bg-white/[0.10] px-4 text-[13px] font-semibold text-foreground hover:bg-white/[0.16]"
           >
             <FolderInput aria-hidden className="h-3.5 w-3.5" />
-            Find it a new home
+            {t('library.orphan.rehome')}
           </Pressable>
         )}
       </div>
@@ -444,11 +433,11 @@ function LibraryRow({
           className="console-focusable absolute inset-0 rounded-2xl"
           aria-label={
             item.spaceName
-              ? `Open ${KIND_LABEL[item.kind].toLowerCase()} “${item.title}” in ${item.spaceName}`
-              : `Open ${KIND_LABEL[item.kind].toLowerCase()} “${item.title}”`
+              ? t(`library.open.${item.kind}.inSpace`, { title: item.title, space: item.spaceName })
+              : t(`library.open.${item.kind}.plain`, { title: item.title })
           }
         >
-          <span className="sr-only">Open</span>
+          <span className="sr-only">{t('library.open.label')}</span>
         </Link>
       )}
     </article>
@@ -460,29 +449,15 @@ function LibraryRow({
  * write a first note — not an error, and not a shrug.
  */
 function EmptyLibrary({ filter, onWriteNote }: { filter: Filter; onWriteNote: () => void }) {
-  const copy: Record<Filter, { title: string; body: string; cta: string }> = {
-    all: {
-      title: 'Nothing here yet',
-      body: 'Anything you write, upload or publish shows up here — gathered from every Space you’re in.',
-      cta: 'Write your first note',
-    },
-    note: {
-      title: 'No notes yet',
-      body: 'Notes are private. Write one while you read and it will be waiting here, next to every other note you’ve made.',
-      cta: 'Write a note',
-    },
-    material: {
-      title: 'Nothing uploaded yet',
-      body: 'Upload material inside a Space and a Lesson builds itself from it. The file stays yours, and it lists here.',
-      cta: 'Go to your Spaces',
-    },
-    contribution: {
-      title: 'Nothing published yet',
-      body: 'Share a summary, a worked example or a set of practice questions with a Space. Whatever you publish lands here, with how it landed.',
-      cta: 'Go to your Spaces',
-    },
-  };
-  const { title, body, cta } = copy[filter];
+  const { t } = useTranslation('v4Library');
+  const title = t(`library.empty.${filter}.title`);
+  const body = t(`library.empty.${filter}.body`);
+  const cta =
+    filter === 'all'
+      ? t('library.empty.all.cta')
+      : filter === 'note'
+        ? t('v4Spaces:notes.write')
+        : t('library.empty.toSpaces');
 
   return (
     <div className="mt-6 rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
