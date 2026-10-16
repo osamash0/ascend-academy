@@ -15,12 +15,14 @@ import { proofs, FADE_AFTER_DAYS, daysSince, type Mark } from './light';
  */
 
 export interface TodayStep {
-  kind: 'read' | 'revisit' | 'refresh';
+  kind: 'read' | 'revisit' | 'refresh' | 'rehearse';
   title: string;
   why: string;
   lectureId: string;
   page: number;
   minutes: number;
+  /** A rehearsal step: the lectures it covers. */
+  lectureIds?: string[];
 }
 
 interface Lecture {

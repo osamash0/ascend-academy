@@ -325,6 +325,13 @@ async def insert_deck_quizzes(
         linked = coerce_linked_slides(q.get("linked_slides"))
         anchor = next((slide_db_ids[i] for i in linked if i in slide_db_ids), fallback_slide_id)
         extra: Dict[str, Any] = {"linked_slides": linked, "is_deck": True}
+        # Arc 4: grounding score of the verified source slide (linked[0]).
+        # Lives in the existing metadata jsonb, no migration.
+        if q.get("support_score") is not None:
+            extra["support_score"] = q["support_score"]
+        # Advisory verdict (low_support/ambiguous/number_not_on_slide) kept, not dropped.
+        if q.get("grounding_flag"):
+            extra["grounding_flag"] = q["grounding_flag"]
         # Roadmap Phase 3.4: cross-lecture "connects to earlier material"
         # questions carry which prior lecture they draw on.
         if q.get("source_lecture_id"):

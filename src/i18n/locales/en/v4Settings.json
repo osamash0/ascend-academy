@@ -1,0 +1,10 @@
+{
+  "title": "Settings",
+  "subtitle": "Language, notifications, visibility and your data",
+  "language": {
+    "title": "Language",
+    "hint": "Pages, answers and checkpoints follow this language. Lesson titles stay in their original language.",
+    "en": "English",
+    "de": "Deutsch"
+  }
+}

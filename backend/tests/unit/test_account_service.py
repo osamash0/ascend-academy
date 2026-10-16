@@ -11,6 +11,7 @@ tests in backend/tests/db/test_gdpr_erasure_cascade.py.
 from __future__ import annotations
 
 import pytest
+from postgrest.exceptions import APIError
 
 from backend.services import account_service
 
@@ -62,6 +63,10 @@ class FakeSupabaseAdmin:
                 self._pending_filter = ("in", col, values)
                 return self
 
+            def range(self, start, end):
+                self._range = (start, end)
+                return self
+
             def delete(self):
                 self._pending_delete = True
                 return self
@@ -78,6 +83,8 @@ class FakeSupabaseAdmin:
                     self._outer.deleted.setdefault(self._name, []).extend(rows)
                     remaining = [r for r in self._tables_ref() if r not in rows]
                     self._tables_ref()[:] = remaining
+                if getattr(self, "_range", None):
+                    rows = rows[self._range[0]:self._range[1] + 1]
                 return _Result(list(rows))
 
             def _tables_ref(self):
@@ -124,99 +131,14 @@ async def test_export_user_data_scopes_every_table_to_uid(patch_admin):
 async def test_export_user_data_skips_missing_table_without_raising(patch_admin, monkeypatch):
     patch_admin({})
 
-    # Simulate a table that doesn't exist in this environment by making
-    # .execute() raise, mirroring a real PostgREST 404/undefined-table error.
+    # Simulate a table that doesn't exist in this environment: PostgREST
+    # answers PGRST205 (not in the schema cache). Only that code is skipped.
     class _Boom:
         def table(self, _name):
-            raise RuntimeError("relation does not exist")
+            raise APIError({"code": "PGRST205", "message": "table not found"})
 
     monkeypatch.setattr(account_service, "supabase_admin", _Boom())
 
     result = await account_service.export_user_data(UID)
     assert result["profiles"] == []
     assert result["user_id"] == UID
-
-
-@pytest.mark.asyncio
-async def test_erase_user_storage_deletes_own_slide_embeddings(patch_admin):
-    tables = {
-        "lectures": [{"id": "lec-1", "professor_id": UID, "student_owner_id": None, "pdf_hash": None}],
-        "slide_embeddings": [
-            {"id": "se-1", "lecture_id": "lec-1"},
-            {"id": "se-2", "lecture_id": "lec-other"},
-        ],
-        "worksheets": [],
-    }
-    fake = patch_admin(tables)
-
-    summary = await account_service.erase_user_storage_and_derived_data(UID)
-
-    assert summary["slide_embeddings_deleted"] == 1
-    assert fake.deleted["slide_embeddings"] == [{"id": "se-1", "lecture_id": "lec-1"}]
-
-
-@pytest.mark.asyncio
-async def test_erase_user_storage_retains_shared_pdf_hash_blob(patch_admin):
-    """Content-addressed dedup safety: a pdf_hash still referenced by another
-    user's lecture must NOT be deleted from storage."""
-    tables = {
-        "lectures": [
-            {"id": "lec-1", "professor_id": UID, "student_owner_id": None, "pdf_hash": "shared-hash"},
-            {"id": "lec-2", "professor_id": OTHER_UID, "student_owner_id": None, "pdf_hash": "shared-hash"},
-        ],
-        "slide_embeddings": [],
-        "worksheets": [],
-    }
-    fake = patch_admin(tables)
-
-    summary = await account_service.erase_user_storage_and_derived_data(UID)
-
-    assert summary["pdf_blobs_deleted"] == 0
-    assert summary["pdf_blobs_retained_shared"] == 1
-    assert "pdf-uploads" not in fake.storage.removed
-
-
-@pytest.mark.asyncio
-async def test_erase_user_storage_deletes_unshared_pdf_hash_blob(patch_admin):
-    tables = {
-        "lectures": [{"id": "lec-1", "professor_id": UID, "student_owner_id": None, "pdf_hash": "solo-hash"}],
-        "slide_embeddings": [],
-        "worksheets": [],
-    }
-    fake = patch_admin(tables)
-
-    summary = await account_service.erase_user_storage_and_derived_data(UID)
-
-    assert summary["pdf_blobs_deleted"] == 1
-    assert summary["pdf_blobs_retained_shared"] == 0
-    assert fake.storage.removed["pdf-uploads"] == ["solo-hash.pdf"]
-
-
-@pytest.mark.asyncio
-async def test_erase_user_storage_deletes_worksheet_files_for_owned_lectures(patch_admin):
-    tables = {
-        "lectures": [{"id": "lec-1", "professor_id": UID, "student_owner_id": None, "pdf_hash": None}],
-        "slide_embeddings": [],
-        "worksheets": [{"lecture_id": "lec-1", "file_url": "worksheets/lec-1/sheet.pdf"}],
-    }
-    fake = patch_admin(tables)
-
-    summary = await account_service.erase_user_storage_and_derived_data(UID)
-
-    assert summary["worksheet_files_deleted"] == 1
-    assert fake.storage.removed["worksheets"] == ["worksheets/lec-1/sheet.pdf"]
-
-
-@pytest.mark.asyncio
-async def test_erase_user_storage_is_noop_when_user_owns_nothing(patch_admin):
-    fake = patch_admin({"lectures": [], "slide_embeddings": [], "worksheets": []})
-
-    summary = await account_service.erase_user_storage_and_derived_data(UID)
-
-    assert summary == {
-        "pdf_blobs_deleted": 0,
-        "pdf_blobs_retained_shared": 0,
-        "worksheet_files_deleted": 0,
-        "slide_embeddings_deleted": 0,
-    }
-    assert fake.storage.removed == {}

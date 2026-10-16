@@ -477,6 +477,55 @@ async def replay_slides(run_id: UUID) -> AsyncIterator[SlideContent]:
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 
+# ── Parse receipts (Arc 5) ───────────────────────────────────────────────────
+
+
+async def save_parse_receipt(
+    run_id: UUID,
+    lecture_id: UUID,
+    *,
+    deck_skeleton: Optional[dict],
+    slide_provenance: list[dict],
+    quiz_grounding: Optional[dict],
+    llm_usage: Optional[dict] = None,
+) -> None:
+    """Upsert one run's receipt. A forced re-parse reuses its parse_runs row
+    (get_or_create_run upserts), so the newer receipt replaces the older one.
+    Missing parts are stored as SQL NULL, not JSON null. ``llm_usage`` (Arc 7)
+    holds the attempt's metered-call totals.
+
+    Known limitation: receipts are keyed by run_id alone, and parse_runs
+    dedupes per (pdf_hash, pipeline_version, user_id), so one owner's two
+    lectures built from the same PDF share a single run and therefore a single
+    receipt (the later write wins, and lecture_id follows it). A failed or
+    cancelled force-reparse leaves the previous run's receipt in place, still
+    describing the earlier parse.
+
+    Raises on DB error; non-fatality is the caller's job."""
+    pool = await _pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO parse_receipts
+                (run_id, lecture_id, deck_skeleton, slide_provenance, quiz_grounding, llm_usage)
+            VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb)
+            ON CONFLICT (run_id) DO UPDATE
+                SET lecture_id = EXCLUDED.lecture_id,
+                    deck_skeleton = EXCLUDED.deck_skeleton,
+                    slide_provenance = EXCLUDED.slide_provenance,
+                    quiz_grounding = EXCLUDED.quiz_grounding,
+                    llm_usage = EXCLUDED.llm_usage,
+                    created_at = now()
+            """,
+            run_id,
+            lecture_id,
+            None if deck_skeleton is None else json.dumps(deck_skeleton),
+            json.dumps(slide_provenance),
+            None if quiz_grounding is None else json.dumps(quiz_grounding),
+            None if llm_usage is None else json.dumps(llm_usage),
+        )
+
+
 def _run_from_row(row) -> ParseRun:
     outline_data = row["outline"]
     outline = None

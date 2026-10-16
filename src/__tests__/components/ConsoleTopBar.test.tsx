@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 
 const { signOutFn } = vi.hoisted(() => ({ signOutFn: vi.fn() }));
 
@@ -13,7 +13,9 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/components/NotificationBell', () => ({ NotificationBell: () => null }));
 vi.mock('@/components/UploadsIndicator', () => ({ UploadsIndicator: () => null }));
-vi.mock('@/components/console/ProfileChip', () => ({ ProfileChip: () => null }));
+vi.mock('@/components/console/ProfileChip', () => ({
+  ProfileChip: ({ compact }: { compact?: boolean }) => <button aria-label="Open account menu" data-compact={String(!!compact)} />,
+}));
 
 import { ConsoleTopBar } from '@/components/console/ConsoleTopBar';
 import { FEATURES } from '@/lib/featureFlags';
@@ -81,5 +83,38 @@ describe('ConsoleTopBar student navigation', () => {
     // width while its unclipped content still overlapped the center nav -
     // the exact M24 failure mode.
     expect(identityGroup?.className).toMatch(/shrink-0/);
+  });
+
+  // 2026-10-12: at 375px the bar measured 612px wide (every console page
+  // scrolled sideways) and the account chip was hidden below md, taking
+  // "My ID" with it. jsdom can't measure layout, so pin the breakpoints.
+  describe('on phones', () => {
+    it('keeps the account chip on every width, avatar-only on phones', () => {
+      renderWithProviders(<ConsoleTopBar />, { initialEntries: ['/dashboard'] });
+
+      const chip = screen.getByRole('button', { name: 'Open account menu' });
+      expect(chip).toHaveAttribute('data-compact', 'true');
+    });
+
+    it('moves the tab nav into a menu sheet below md', () => {
+      renderWithProviders(<ConsoleTopBar />, { initialEntries: ['/library'] });
+
+      expect(screen.getByRole('link', { name: 'Library' }).closest('nav')).toHaveClass('hidden', 'md:flex');
+      const trigger = screen.getByRole('button', { name: 'Open navigation' });
+      expect(trigger).toHaveClass('md:hidden');
+
+      fireEvent.click(trigger);
+      const sheet = screen.getByRole('dialog');
+      const library = within(sheet).getByRole('link', { name: 'Library' });
+      expect(library).toHaveAttribute('href', '/library');
+      expect(library).toHaveAttribute('aria-current', 'page');
+    });
+
+    it('hides the tray icons the account menu already offers below lg', () => {
+      renderWithProviders(<ConsoleTopBar />, { initialEntries: ['/dashboard'] });
+
+      expect(screen.getByRole('link', { name: 'Settings' })).toHaveClass('hidden', 'lg:flex');
+      expect(screen.getByRole('button', { name: 'Sign out' })).toHaveClass('hidden', 'lg:flex');
+    });
   });
 });

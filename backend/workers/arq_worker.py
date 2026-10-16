@@ -22,6 +22,7 @@ from arq.cron import cron
 
 from backend.core.config import settings
 from backend.core.worker_heartbeat import WORKER_HEARTBEAT_KEY, WORKER_HEARTBEAT_TTL_SECONDS
+from backend.services import erasure
 from backend.services.analytics_rollup import rollup_analytics_cache, rollup_concept_mastery
 from backend.services.localization_service import localize_lecture_job
 from backend.services.nudge_scheduler import (
@@ -280,6 +281,14 @@ async def _after_job_end(ctx: dict) -> None:
         logger.debug("after_job_end: DLQ capture hook failed", exc_info=True)
 
 
+async def drain_erasure_jobs_cron(ctx) -> dict[str, int]:
+    """Finish account erasures whose file deletes failed inline (GDPR F2)."""
+    result = await erasure.drain()
+    if any(result.values()):
+        logger.info("erasure drain: %s", result)
+    return result
+
+
 class WorkerSettings:
     functions = [
         parse_pdf_unified,
@@ -294,6 +303,8 @@ class WorkerSettings:
         cron(worker_heartbeat, second={0, 30}, run_at_startup=True),
         # R51/R52: stalled-run reconciliation sweep every 10 minutes.
         cron(reconcile_stalled_parse_runs, minute={0, 10, 20, 30, 40, 50}, run_at_startup=True),
+        # GDPR F2: finish account erasures whose inline file deletes failed.
+        cron(drain_erasure_jobs_cron, minute={0, 10, 20, 30, 40, 50}, unique=True),
         *_cron_jobs,
     ]
     on_startup = startup

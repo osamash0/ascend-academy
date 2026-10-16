@@ -1,0 +1,291 @@
+{
+  "views": {
+    "label": "Wie du diese Seite liest",
+    "page": "Seite",
+    "explain": "Erklären",
+    "text": "Text"
+  },
+  "screen": {
+    "empty": {
+      "title": "Noch nichts zu lesen",
+      "body": "{{lesson}} hat schon Ideen und Übungen, aber noch kein Material und keinen Text."
+    },
+    "backToLesson": "Zurück zur Lektion",
+    "explainSelection": "Erklär mir diese Stelle von der Seite: „{{words}}“",
+    "notes": {
+      "title": "Notizen · {{lesson}}",
+      "placeholder": "Nur für dich. Gesammelt in deiner Bibliothek.",
+      "empty": "Noch nichts. Notizen sind privat – nur du siehst sie."
+    },
+    "practiseIdea": "Diese Idee üben",
+    "practiseRead": "Üben, was du gerade gelesen hast",
+    "select": {
+      "read": "Als Text lesen",
+      "showPage": "Auf der Seite zeigen",
+      "explain": "Erklären"
+    },
+    "toc": {
+      "hide": "Inhalt ausblenden",
+      "keep": "Inhalt offen lassen"
+    },
+    "paper": {
+      "light": "Helles Papier",
+      "night": "Nachtpapier",
+      "nightHint": "Nachtpapier – dunkle Seiten für lange Sitzungen"
+    },
+    "turnPhone": "Dreh dein Handy quer für eine größere Seite",
+    "gotIt": "Verstanden",
+    "hint": {
+      "plain": "← → blättert um. Markier Wörter, um danach zu fragen.",
+      "withPoints": "← → blättert um, Scrollen geht die Punkte der Seite durch. Markier Wörter, um danach zu fragen."
+    },
+    "prevPage": "Vorherige Seite",
+    "nextPage": "Nächste Seite",
+    "saved": {
+      "checkpoint": "Checkpoint · {{idea}}",
+      "teach": "Erklär's zurück · {{idea}}"
+    },
+    "relatedAt": "{{lesson}} · S. {{page}}",
+    "thisFormula": "Diese Formel",
+    "points": {
+      "all": "Alle",
+      "label": "Punkte auf dieser Seite"
+    }
+  },
+  "chapters": {
+    "label": "Ideen in dieser Lektion",
+    "position": "Idee {{n}} von {{total}}",
+    "lastPage": "Letzte Seite dieser Idee",
+    "pagesLeft_one": "Noch {{count}} Seite in dieser Idee",
+    "pagesLeft_other": "Noch {{count}} Seiten in dieser Idee",
+    "elsewhere": "Seiten {{first}}–{{last}} · zum Hinspringen klicken",
+    "light": {
+      "lit": "Richtig beantwortet",
+      "fading": "Verblasst",
+      "weak": "Zum Wiederholen",
+      "dark": "Noch nicht geprüft"
+    },
+    "fadingNote": "Verblasst – bald wieder ansehen",
+    "segment": "{{name}}, Seiten {{first}} bis {{last}}",
+    "segmentWithLight": "{{name}}, Seiten {{first}} bis {{last}}, {{light}}",
+    "lightSpoken": {
+      "lit": "richtig beantwortet",
+      "fading": "verblasst",
+      "weak": "zum Wiederholen"
+    }
+  },
+  "checkpoint": {
+    "offer": {
+      "dismiss": "Nicht jetzt",
+      "finished": "Idee abgeschlossen",
+      "prompt": "Prüf sie, solange sie frisch ist.",
+      "failed": "Wir konnten gerade keine Frage schreiben.",
+      "loading": "Wir schreiben sie aus den Seiten…",
+      "retry": "Noch mal versuchen",
+      "start": "Eine Frage",
+      "teach": "Erklär's zurück"
+    },
+    "panel": {
+      "label": "Checkpoint: {{name}}",
+      "heading": "Checkpoint · Seiten {{first}}–{{last}}",
+      "progress": "{{n}} von {{total}}",
+      "close": "Zurück zum Lesen",
+      "next": "Nächste Frage",
+      "finish": "Fertig"
+    },
+    "done": {
+      "lit": "{{name}} leuchtet.",
+      "revisit": "{{name}}, zum Wiederholen markiert.",
+      "litNote": "Das siehst du in der Leiste und auf der Karte des Spaces.",
+      "revisitNote": "Die Karte des Spaces bringt sie vor der Prüfung zurück.",
+      "keepReading": "Weiterlesen"
+    }
+  },
+  "teach": {
+    "label": "Erklär's zurück: {{name}}",
+    "heading": "Erklär's zurück · Seiten {{first}}–{{last}}",
+    "close": "Zurück zum Lesen",
+    "prompt": "Erklär die Idee in deinen eigenen Worten. So, als hätte jemand diese Lektion verpasst.",
+    "placeholder": "Es geht um…",
+    "reading": "Wir gleichen sie mit den Seiten {{first}}–{{last}} ab…",
+    "submit": "Erklärung prüfen",
+    "hint": "Ein paar Sätze reichen.",
+    "failed": "Wir konnten sie gerade nicht lesen. Versuch es noch mal.",
+    "verdict": {
+      "solid": "Das kannst du erklären.",
+      "partial": "Fast geschafft.",
+      "off": "Noch nicht. Aber jetzt weißt du, wo es hakt."
+    },
+    "correctionPage": "Seite {{page}}",
+    "pointPage": "Seite {{page}}",
+    "points": "Was die Seiten lehren · {{covered}} von {{total}} in deinen Worten",
+    "retry": "Noch mal versuchen",
+    "keepReading": "Weiterlesen"
+  },
+  "care": {
+    "notNow": "Nicht jetzt",
+    "minutes_one": "{{count}} Minute",
+    "minutes_other": "{{count}} Minuten",
+    "pages_one": "{{count}} Seite",
+    "pages_other": "{{count}} Seiten",
+    "nudge": "Eine kurze Pause jetzt hilft, dass sich das Gelesene setzt.",
+    "takeBreak": "5 Minuten Pause",
+    "checkWhatStuck": "Prüfen, was hängen geblieben ist",
+    "break": "Pause",
+    "lookAway": "Schau weg vom Bildschirm – auf etwas weit Entferntes.",
+    "ready": "Weiter, wann immer du bereit bist.",
+    "breathe": "Atme ein, wenn das Licht wächst. Atme aus, wenn es schwindet.",
+    "backToPage": "Zurück zu Seite {{page}}"
+  },
+  "spine": {
+    "label": "Ideen in dieser Lektion"
+  },
+  "toc": {
+    "label": "Inhalt dieser Lektion",
+    "page": "Seite {{page}}"
+  },
+  "studio": {
+    "name": "Studio",
+    "page": "Seite {{page}}",
+    "close": "Studio schließen",
+    "closeNamed": "Ansicht „{{name}}“ schließen"
+  },
+  "companion": {
+    "close": "Schließen"
+  },
+  "select": {
+    "label": "Was du mit dem markierten Satz machen willst",
+    "ask": "Tutor fragen",
+    "saveNote": "Als Notiz speichern",
+    "saved": "In deinen Notizen gespeichert."
+  },
+  "tutor": {
+    "grounded": "Mit Quellen. Antworten stützen sich auf die Lektionen dieses Spaces und sagen, woher sie stammen.",
+    "empty": "Frag alles zu dieser Lektion. Oder markier einen Satz im Text und fang dort an.",
+    "quote": "„{{quote}}“",
+    "youAsked": "Deine Frage: ",
+    "answer": "Antwort: ",
+    "thinking": "Denkt nach…",
+    "failed": "Diese Antwort ist nicht angekommen.",
+    "retry": "Noch mal versuchen",
+    "dropQuote": "Markierten Satz entfernen",
+    "quick": {
+      "simpler": "Einfacher erklären",
+      "example": "Konkretes Beispiel",
+      "why": "Warum ist das wichtig?"
+    },
+    "composer": "Frag etwas zu dieser Lektion",
+    "send": "Senden"
+  },
+  "exit": {
+    "leave": "Leseansicht verlassen",
+    "where": "{{space}} · Lektion {{order}}",
+    "viewLabel": "Ansicht",
+    "view": {
+      "read": "Lesen",
+      "source": "Quelle"
+    },
+    "rail": {
+      "tutor": "Tutor",
+      "notes": "Notizen"
+    },
+    "cleared_one": "{{cleared}} von {{count}} Idee geschafft",
+    "cleared_other": "{{cleared}} von {{count}} Ideen geschafft"
+  },
+  "practice": {
+    "label": "Üben",
+    "heading": "Üben · {{title}}",
+    "back": "Zurück zum Lesen",
+    "empty": "Für diese Lektion gibt es noch keine Übungen.",
+    "right": "Richtig. ",
+    "notQuite": "Nicht ganz. ",
+    "check": "Prüfen",
+    "next": "Nächste Frage"
+  },
+  "text": {
+    "label": "Der Text",
+    "notesFor": "Notizen zu {{name}}",
+    "openPage": "Seite {{page}} im Material"
+  },
+  "explain": {
+    "page": "Seite {{page}}",
+    "composing": "Die Antwort zu dieser Seite entsteht …",
+    "fallback": "Wir haben das Modell gerade nicht erreicht. Diese Antwort ist deshalb aus dem Text der Seite gebaut.",
+    "related": {
+      "label": "Auch anderswo in diesem Space",
+      "heading": "<idea>{{idea}}</idea> kommt auch an anderen Stellen im Space vor"
+    },
+    "thinking": "Die passende Darstellung wird gesucht …",
+    "failed": "Das hat nicht geklappt.",
+    "retry": "Noch mal versuchen",
+    "ask": {
+      "placeholder": "Frag zu dieser Seite – oder nach einem Werkzeug …",
+      "placeholderTutor": "Frag den KI-Tutor zu dieser Seite …",
+      "label": "Zu dieser Seite fragen",
+      "send": "Fragen"
+    },
+    "starters": {
+      "how": "Zeig mir, wie das funktioniert",
+      "example": "Gib mir ein Beispiel zum Ausprobieren",
+      "mistakes": "Was wird hier oft falsch gemacht?"
+    },
+    "composed": {
+      "onPage": "Auf dieser Seite",
+      "points_one": "{{count}} Punkt. Wähl ihn, um ihn auf der Seite zu finden.",
+      "points_other": "{{count}} Punkte. Wähl einen, um ihn auf der Seite zu finden.",
+      "picture": "Diese Seite ist vor allem ein Bild – es gibt keinen Text zum Erklären.",
+      "parts": "Teile zum Entdecken",
+      "plain": "Nur Text"
+    }
+  },
+  "blocks": {
+    "explore": {
+      "all": "Alle"
+    },
+    "fd": {
+      "reset": "Zurücksetzen",
+      "pickSides": "Wähl eine linke und eine rechte Seite",
+      "broken": "Verletzt durch Zeilen {{a}} und {{b}}",
+      "holds": "Gilt für diese Zeilen",
+      "role": {
+        "left": "{{column}}: linke Seite",
+        "right": "{{column}}: rechte Seite",
+        "none": "{{column}}: nicht in der Abhängigkeit"
+      },
+      "left": "links",
+      "right": "rechts",
+      "cell": "Zeile {{row}}, {{column}}",
+      "addRow": "Zeile"
+    },
+    "stepper": {
+      "previous": "Vorheriger Schritt",
+      "next": "Nächster Schritt",
+      "position": "Schritt {{at}} von {{count}}"
+    },
+    "closure": {
+      "startWith": "Fang an mit",
+      "begin": "Zuerst kommt die Startmenge selbst.",
+      "pickStart": "Wähl mindestens ein Attribut als Start.",
+      "fires": "{{lhs}} liegt in der Menge. Also greift {{fd}} und fügt {{added}} hinzu.",
+      "done": "Nichts greift mehr – fertig.",
+      "superkey": "{{set}} ist ein Superschlüssel.",
+      "notKey": "Kein Schlüssel: {{missing}} wird nie erreicht."
+    },
+    "bcnf": {
+      "done_one": "Jede Relation ist in BCNF. {{count}} Zerlegung, nichts verloren. Jede Zerlegung behält die linke Seite der verletzenden FD in beiden Hälften, der Join ist also verlustfrei.",
+      "done_other": "Jede Relation ist in BCNF. {{count}} Zerlegungen, nichts verloren. Jede Zerlegung behält die linke Seite der verletzenden FD in beiden Hälften, der Join ist also verlustfrei.",
+      "split": "In {{relation}} hat <fd>{{fd}}</fd> eine linke Seite, die kein Schlüssel ist. Zerleg die Relation: Alles, was {{lhs}} bestimmt, kommt in eine eigene Relation. Der Rest bleibt bei {{lhs}}."
+    },
+    "check": {
+      "title": "Prüf dich selbst",
+      "retry": "Noch mal versuchen"
+    },
+    "sandbox": {
+      "restart": "Neu starten",
+      "error": "Die App ist mit einem Fehler abgebrochen: {{error}}",
+      "note": "Für diese Frage geschrieben · läuft isoliert, offline",
+      "viewCode": "Code ansehen",
+      "hideCode": "Code ausblenden"
+    }
+  }
+}

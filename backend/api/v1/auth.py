@@ -18,9 +18,14 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from backend.core.auth_middleware import verify_token, require_role, _user_id
 from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter
-from backend.services.account_service import (
-    erase_user_storage_and_derived_data,
-    export_user_data,
+from backend.services.account_service import export_user_data
+from backend.services.erasure import (
+    ErasureError,
+    _auth_user_exists as erasure_auth_user_exists,
+    build_erasure_manifest,
+    create_job as create_erasure_job,
+    mark_ready as mark_erasure_job_ready,
+    run_job as run_erasure_job,
 )
 from backend.services.cache import (
     invalidate_cached_token,
@@ -111,14 +116,15 @@ async def delete_account_endpoint(
     why client-side row deletion alone (the old Settings flow) left the auth
     identity — and anything not client-reachable — behind.
 
-    Two things a DB cascade cannot reach — Supabase Storage objects
-    (``pdf-uploads``/``worksheets``) and the (historically script-only)
-    ``slide_embeddings``/``lecture_blueprints`` rows — are cleaned up
-    explicitly by ``erase_user_storage_and_derived_data`` BEFORE the
-    ``auth.users`` row is deleted, since that call reads ``lectures`` rows a
-    subsequent cascade would otherwise remove first. See
-    ``backend/services/account_service.py`` for the full design rationale
-    (content-addressed dedup safety, what is intentionally NOT deleted).
+    A DB cascade cannot reach Supabase Storage, so the order matters. First
+    ``build_erasure_manifest`` lists every file the user owns across all five
+    buckets (``avatars``, ``lecture-pdfs``, ``lecture-posters``,
+    ``pdf-uploads``, ``worksheets``) while the ``lectures`` rows still exist,
+    and ``create_erasure_job`` writes that list down durably. Only then is the
+    ``auth.users`` row deleted. Afterwards the job is marked ready and run; if
+    removing the files fails it is retried by the worker, never swallowed. A
+    failure before the auth delete leaves the account untouched (502). See
+    ``backend/services/erasure.py``.
 
     We invalidate the token cache first so the just-deleted user can't replay
     their bearer token within the 45s TTL window.
@@ -129,25 +135,46 @@ async def delete_account_endpoint(
 
     await invalidate_cached_token(credentials.credentials)
 
+    # 1–2. Know every file first, and write that down durably. Until the auth
+    # row is gone nothing is deleted, so any failure here leaves the account
+    # exactly as it was (MILESTONE_2026_08 F2).
     try:
-        storage_summary = await erase_user_storage_and_derived_data(uid)
-    except Exception as e:
-        # Non-fatal: storage cleanup failing should not block the user's
-        # right to erasure of their DB-resident data. Logged for follow-up;
-        # any orphaned content-addressed blob is still unreachable once the
-        # owning lecture rows are cascaded away with the auth.users delete.
-        logger.error("Erasure storage cleanup failed for %s: %s", uid, e)
-        storage_summary = None
+        manifest = await build_erasure_manifest(uid)
+        job_id = await create_erasure_job(manifest)
+    except ErasureError as e:
+        logger.error("Erasure could not be prepared for %s: %s", uid, e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not delete the account right now. Nothing was changed; please try again.",
+        )
 
+    # 3. The account itself: Postgres cascades every row.
     try:
         await run_in_threadpool(supabase_admin.auth.admin.delete_user, uid)
     except Exception as e:
-        logger.error("Account deletion failed for %s: %s", uid, e)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Could not delete the account. Please contact support.",
-        )
-    return {"message": "Account deleted.", "storage_cleanup": storage_summary}
+        # The call can fail after the delete landed (timeout on the reply).
+        # Only the auth API's structured "user not found" lets us carry on;
+        # otherwise the job stays 'awaiting_auth_delete' and the worker drain
+        # cancels it if the account survived, or finishes it if it did not.
+        gone = await run_in_threadpool(erasure_auth_user_exists, supabase_admin, uid) is False
+        if not gone:
+            logger.error("Account deletion failed for %s: %s", uid, e)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Could not delete the account. Please contact support.",
+            )
+        logger.warning("Auth delete for %s raised (%s) but the account is gone; continuing", uid, e)
+
+    # 4. The files. A failure is retried by the worker, never swallowed.
+    # The account is already gone, so nothing here may turn into an error
+    # response: the drain cron picks up 'awaiting_auth_delete'/'pending' jobs.
+    try:
+        await mark_erasure_job_ready(job_id)
+        finished = await run_erasure_job(job_id)
+    except Exception as e:
+        logger.error("Erasure job %s for %s not finished inline: %s", job_id, uid, e)
+        finished = False
+    return {"message": "Account deleted.", "files": "removed" if finished else "finishing"}
 
 
 @router.post("/cleanup-token-cache")

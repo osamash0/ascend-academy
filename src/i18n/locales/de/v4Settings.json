@@ -1,0 +1,10 @@
+{
+  "title": "Einstellungen",
+  "subtitle": "Sprache, Benachrichtigungen, Sichtbarkeit und deine Daten",
+  "language": {
+    "title": "Sprache",
+    "hint": "Seiten, Antworten und Checkpoints folgen dieser Sprache. Titel von Lektionen bleiben in ihrer Originalsprache.",
+    "en": "English",
+    "de": "Deutsch"
+  }
+}

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowRightLeft, NotebookPen, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -95,7 +96,8 @@ interface Anchor {
   bottom: number;
 }
 
-export function SelectionAsk({ articleRef, onAsk, onSaveNote, also, askLabel = 'Ask the tutor' }: Props) {
+export function SelectionAsk({ articleRef, onAsk, onSaveNote, also, askLabel }: Props) {
+  const { t } = useTranslation('v4Reader');
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [saved, setSaved] = useState(false);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -252,7 +254,7 @@ export function SelectionAsk({ articleRef, onAsk, onSaveNote, also, askLabel = '
     <div
       ref={popover}
       role="group"
-      aria-label="What to do with the selected sentence"
+      aria-label={t('select.label')}
       onMouseDown={(e) => e.preventDefault()}
       style={{
         left: pos?.left ?? 0,
@@ -277,7 +279,7 @@ export function SelectionAsk({ articleRef, onAsk, onSaveNote, also, askLabel = '
           !saved && 'sr-only',
         )}
       >
-        {saved ? 'Saved to your notes.' : ''}
+        {saved ? t('select.saved') : ''}
       </p>
 
       {!saved && (
@@ -291,7 +293,7 @@ export function SelectionAsk({ articleRef, onAsk, onSaveNote, also, askLabel = '
             className="console-focusable flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[12.5px] font-medium text-foreground transition-colors hover:bg-white/[0.08]"
           >
             <Sparkles aria-hidden className="h-3.5 w-3.5" />
-            {askLabel}
+            {askLabel ?? t('select.ask')}
           </button>
           <button
             type="button"
@@ -302,7 +304,7 @@ export function SelectionAsk({ articleRef, onAsk, onSaveNote, also, askLabel = '
             className="console-focusable flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[12.5px] font-medium text-foreground transition-colors hover:bg-white/[0.08]"
           >
             <NotebookPen aria-hidden className="h-3.5 w-3.5" />
-            Save as note
+            {t('select.saveNote')}
           </button>
           {also && (
             <button

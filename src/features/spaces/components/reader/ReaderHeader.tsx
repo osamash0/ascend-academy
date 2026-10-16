@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { NotebookPen, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Concept } from '../../types';
@@ -70,13 +71,13 @@ export const viewTabId = (v: ReaderView) => `reader-view-tab-${v}`;
 
 /** Sentence case, one word each — the segment is a place, not an instruction. */
 const VIEW_LABEL: Record<ReaderView, string> = {
-  read: 'Read',
-  source: 'Source',
+  read: 'exit.view.read',
+  source: 'exit.view.source',
 };
 
 const RAIL: { tab: RailTab; label: string; icon: typeof Sparkles }[] = [
-  { tab: 'tutor', label: 'Tutor', icon: Sparkles },
-  { tab: 'notes', label: 'Notes', icon: NotebookPen },
+  { tab: 'tutor', label: 'exit.rail.tutor', icon: Sparkles },
+  { tab: 'notes', label: 'exit.rail.notes', icon: NotebookPen },
 ];
 
 /**
@@ -132,10 +133,11 @@ function ScrollProgress() {
 
 /** The control itself, so the two places it appears cannot drift apart. */
 function ExitLink({ to }: { to: string }) {
+  const { t } = useTranslation('v4Reader');
   return (
     <Link
       to={to}
-      aria-label="Leave the reader"
+      aria-label={t('exit.leave')}
       className="console-focusable flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
     >
       <X aria-hidden className="h-4 w-4" />
@@ -182,9 +184,10 @@ export function ReaderHeader({
   railTab,
   onRailToggle,
 }: Props) {
+  const { t } = useTranslation('v4Reader');
   const cleared = concepts.filter((c) => c.progress === 'cleared').length;
   /* Said once so the visible copy and the spoken copy cannot drift apart. */
-  const where = `${spaceName} · Lesson ${lessonOrder}`;
+  const where = t('exit.where', { space: spaceName, order: lessonOrder });
 
   return (
     <>
@@ -248,7 +251,7 @@ export function ReaderHeader({
           {showToggle && (
             <div
               role="tablist"
-              aria-label="Reader view"
+              aria-label={t('exit.viewLabel')}
               className="flex shrink-0 items-center gap-0.5 rounded-full border border-white/[0.08] bg-white/[0.04] p-0.5"
             >
               {(['read', 'source'] as const).map((v) => (
@@ -267,7 +270,7 @@ export function ReaderHeader({
                       : 'text-quiet hover:text-foreground',
                   )}
                 >
-                  {VIEW_LABEL[v]}
+                  {t(VIEW_LABEL[v])}
                 </button>
               ))}
             </div>
@@ -303,7 +306,7 @@ export function ReaderHeader({
             {concepts.length > 0 && (
               <div
                 role="img"
-                aria-label={`${cleared} of ${concepts.length} ideas cleared`}
+                aria-label={t('exit.cleared', { cleared, count: concepts.length })}
                 className="hidden items-center gap-1.5 sm:flex"
               >
                 {concepts.map((c) => (
@@ -326,7 +329,7 @@ export function ReaderHeader({
                 <button
                   key={tab}
                   type="button"
-                  aria-label={label}
+                  aria-label={t(label)}
                   aria-pressed={pressed}
                   onClick={() => onRailToggle(tab)}
                   className={cn(

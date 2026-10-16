@@ -2,6 +2,7 @@
  * Loading this module does not initialize auth or make requests in demo mode.
  * The repository never substitutes fixtures for errors or missing live rows.
  */
+import i18n from '@/i18n';
 import type { ExplainAnswer } from '../components/reader/iui/spec';
 
 /** A course, read as the reader's Space: its lectures in order. */
@@ -49,6 +50,13 @@ export type RehearsalQuestion =
   | (RehearsalBase & { kind: 'closure'; attrs: string[]; fds: RFD[]; start: string[] })
   | (RehearsalBase & { kind: 'bcnf'; relation: string; attrs: string[]; fds: RFD[] });
 
+/** One idea of the course building on an earlier one; ends are (lecture, first page). */
+export interface ReaderLink {
+  from: { lecture_id: string; first_page: number };
+  to: { lecture_id: string; first_page: number };
+  why: string;
+}
+
 /** One or two questions on a single idea, asked as the reader finishes it. */
 export interface Checkpoint {
   idea: string;
@@ -56,6 +64,18 @@ export interface Checkpoint {
   last: number;
   questions: RehearsalQuestion[];
   cached: boolean;
+}
+
+/** An explanation in the student's own words, read against the idea's key points. */
+export interface TeachBack {
+  idea: string;
+  first: number;
+  last: number;
+  verdict: 'solid' | 'partial' | 'off';
+  points: { point: string; page: number; covered: boolean }[];
+  /** `quote` is exactly as the student wrote it, so it can be underlined in their text. */
+  wrong: { quote: string; correction: string; page: number }[];
+  next: string;
 }
 
 /** One answered question, as history keeps it: what it tested, and whether it was right. */
@@ -157,6 +177,10 @@ export function createLiveRepository(http: V4Transport) {
       http.post<{ id: string; created_at: string }>(`${root}/reader/courses/${idPath(courseId)}/rehearsals`, body),
     checkpoint: (lectureId: string, body: { first: number; last: number; idea: string }) =>
       http.post<Checkpoint>(`${root}/reader/lectures/${idPath(lectureId)}/checkpoint`, body),
+    teachBack: (lectureId: string, body: { first: number; last: number; idea: string; explanation: string }) =>
+      http.post<TeachBack>(`${root}/reader/lectures/${idPath(lectureId)}/teach-back`, body),
+    courseLinks: (courseId: string) =>
+      http.get<{ links: ReaderLink[]; cached: boolean; complete: boolean }>(`${root}/reader/courses/${idPath(courseId)}/links`),
     rehearsalHistory: (courseId: string) => http.get<RehearsalHistory>(`${root}/reader/courses/${idPath(courseId)}/rehearsals`),
     askPage: (id: string, page: number, question: string, thread: { question: string; title: string }[]) =>
       http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/ask`, {
@@ -180,5 +204,18 @@ export async function loadLiveRepository(): Promise<LiveRepository> {
     throw new Error('Live v4 data is not enabled.');
   }
   const { apiClient } = await import('@/lib/apiClient');
-  return createLiveRepository(apiClient);
+  return createLiveRepository(withLanguage(apiClient));
+}
+
+/*
+ * Every request says which language the app is showing. The server would
+ * otherwise read the profile — and a reader who just switched to Deutsch would
+ * be answered in the old language until the profile write landed.
+ */
+function withLanguage(http: V4Transport): V4Transport {
+  const tag = (path: string) => `${path}${path.includes('?') ? '&' : '?'}lang=${(i18n.language || 'en').split('-')[0]}`;
+  return {
+    get: <T>(path: string) => http.get<T>(tag(path)),
+    post: <T>(path: string, body: unknown) => http.post<T>(tag(path), body),
+  };
 }
