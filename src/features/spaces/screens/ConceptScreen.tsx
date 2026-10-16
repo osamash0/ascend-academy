@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Check, ListChecks, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { gradientFor } from '@/components/console';
@@ -34,25 +35,15 @@ import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
  * Browse surface: you are choosing what to do with this idea, not reading it.
  */
 
-const STATE: Record<ConceptProgress, { label: string; blurb: string; cls: string }> = {
-  cleared: {
-    label: 'Cleared',
-    blurb: 'You have answered practice on this correctly.',
-    cls: 'border-success/40 bg-success/12 text-success',
-  },
-  discovered: {
-    label: 'Read',
-    blurb: 'You have met this idea but not yet proved it.',
-    cls: 'border-white/15 bg-white/[0.06] text-quiet',
-  },
-  untouched: {
-    label: 'Not yet',
-    blurb: 'You have not reached this idea.',
-    cls: 'border-white/12 bg-transparent text-faint',
-  },
+/* Words live in `v4Space:concept.state.<progress>`; only the look is here. */
+const STATE_CLS: Record<ConceptProgress, string> = {
+  cleared: 'border-success/40 bg-success/12 text-success',
+  discovered: 'border-white/15 bg-white/[0.06] text-quiet',
+  untouched: 'border-white/12 bg-transparent text-faint',
 };
 
 export default function ConceptScreen() {
+  const { t } = useTranslation('v4Space');
   const screenState = useScreenState();
   const { spaceId, conceptId } = useParams<{ spaceId: string; conceptId: string }>();
   const space = spaceId ? spaceById(spaceId) : undefined;
@@ -91,19 +82,18 @@ export default function ConceptScreen() {
   // All four states, on every screen. `?mock=loading|error` used to be a
   // no-op here, so these two had never been seen.
   if (screenState === 'loading') return chrome(<DetailSkeleton />);
-  if (screenState === 'error') return chrome(<SpacesError what="this idea" />);
+  if (screenState === 'error') return chrome(<SpacesError what="idea" />);
 
   if (!space || !concept)
     return chrome(
       <NotFound
         what="idea"
-        backTo={space ? `/v4/space/${space.id}` : '/v4/spaces'}
-        backLabel={space ? `Back to ${space.name}` : 'Back to Spaces'}
+        back={space ? { to: `/v4/space/${space.id}`, space: space.name } : { to: '/v4/spaces', place: 'spaces' }}
       />,
     );
 
   const Icon = topicIcon(concept.name, concept.id);
-  const state = STATE[concept.progress];
+  const stateCls = STATE_CLS[concept.progress];
   const practiceTotal = lessons.reduce((n, l) => n + l.practiceCount, 0);
 
   return chrome(
@@ -135,7 +125,7 @@ export default function ConceptScreen() {
             {space.name}
           </Link>
 
-          <p className="text-[13px] text-quiet">Idea in {space.name}</p>
+          <p className="text-[13px] text-quiet">{t('concept.ideaIn', { space: space.name })}</p>
           <h1 className="mt-2 max-w-[18ch] text-4xl font-bold leading-[1.1] tracking-[-0.02em] sm:text-[44px]">
             {concept.name}
           </h1>
@@ -145,13 +135,13 @@ export default function ConceptScreen() {
             <span
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium',
-                state.cls,
+                stateCls,
               )}
             >
               {concept.progress === 'cleared' && <Check aria-hidden className="h-3.5 w-3.5" />}
-              {state.label}
+              {t(`concept.state.${concept.progress}.label`)}
             </span>
-            <span className="text-[14px] text-quiet">{state.blurb}</span>
+            <span className="text-[14px] text-quiet">{t(`concept.state.${concept.progress}.blurb`)}</span>
           </div>
         </div>
       </div>
@@ -161,7 +151,7 @@ export default function ConceptScreen() {
             RelatedLecture exists for — so this is a list, not one link. */}
         <section className="mt-10">
           <h2 className="mb-4 text-[14px] font-medium text-quiet">
-            Appears in
+            {t('concept.appearsIn')}
             <span className="ml-2 tabular-nums text-faint">{lessons.length}</span>
           </h2>
           <ul className="space-y-2.5">
@@ -188,7 +178,7 @@ export default function ConceptScreen() {
 
         {practiceTotal > 0 && (
           <section className="mt-9">
-            <h2 className="mb-4 text-[14px] font-medium text-quiet">Practice</h2>
+            <h2 className="mb-4 text-[14px] font-medium text-quiet">{t('concept.practice.title')}</h2>
             {/*
               Practice belongs to a Lesson, so practising an idea means
               practising the first Lesson it appears in. An idea-level question
@@ -203,11 +193,13 @@ export default function ConceptScreen() {
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[15.5px] font-semibold">
-                  Practise this idea
+                  {t('concept.practice.cta')}
                 </span>
                 <span className="mt-0.5 block text-[13px] text-quiet tabular-nums">
-                  {practiceTotal} questions across{' '}
-                  {lessons.length === 1 ? 'its Lesson' : `${lessons.length} Lessons`}
+                  {t('concept.practice.summary', {
+                    count: practiceTotal,
+                    lessons: t('concept.practice.lessons', { count: lessons.length }),
+                  })}
                 </span>
               </span>
             </Link>
@@ -217,20 +209,19 @@ export default function ConceptScreen() {
         {/* Concept-level community — Doc 1's third anchor. */}
         <section className="mt-10">
           <h2 className="mb-1 text-[14px] font-medium text-origin-community">
-            From the community
+            {t('concept.community.title')}
             <span className="ml-2 tabular-nums">{contributions.length}</span>
           </h2>
           <p className="mb-5 text-[13px] text-faint">
-            What members made for this one idea. Sorted by what people found most useful.
+            {t('concept.community.lede')}
           </p>
 
           {contributions.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-white/15 px-6 py-10 text-center">
               <Sparkles aria-hidden className="mx-auto mb-3 h-5 w-5 text-quiet" />
-              <p className="mb-1.5 text-[15px] font-semibold">Nothing here yet</p>
+              <p className="mb-1.5 text-[15px] font-semibold">{t('concept.community.emptyTitle')}</p>
               <p className="mx-auto max-w-[44ch] text-[14px] leading-relaxed text-quiet">
-                A worked example or a mnemonic for this idea would help whoever meets it
-                next.
+                {t('concept.community.emptyBody')}
               </p>
             </div>
           ) : (

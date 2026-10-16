@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowRight, Check, PenLine, Sparkles, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { Checkpoint } from '../../data/liveRepository';
 import { QuestionView } from '../rehearsal/QuestionView';
@@ -40,6 +41,7 @@ interface Props {
 type Phase = 'offer' | 'loading' | 'asking' | 'done' | 'failed';
 
 export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onOpenChange, onTeach, onDismiss }: Props) {
+  const { t } = useTranslation('v4Reader');
   const reduce = useReducedMotion();
   const [phase, setPhase] = useState<Phase>('offer');
   const [cp, setCp] = useState<Checkpoint | null>(null);
@@ -103,18 +105,18 @@ export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onO
           <button
             type="button"
             onClick={onDismiss}
-            aria-label="Not now"
+            aria-label={t('checkpoint.offer.dismiss')}
             className="console-focusable absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
           >
             <X aria-hidden className="h-4 w-4" />
           </button>
           <p className="flex items-center gap-1.5 text-[12.5px] text-quiet">
             <Sparkles aria-hidden className="h-3.5 w-3.5" style={{ color: 'var(--reader-accent, hsl(var(--secondary)))' }} />
-            Idea finished
+            {t('checkpoint.offer.finished')}
           </p>
           <p className="mt-1.5 pr-6 text-[15px] leading-[1.4] text-foreground">{idea.name}</p>
           <p className="mt-1 text-[13px] text-quiet">
-            {phase === 'failed' ? "Couldn't write a question just now." : 'Check it while it is fresh.'}
+            {phase === 'failed' ? t('checkpoint.offer.failed') : t('checkpoint.offer.prompt')}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
           <button
@@ -123,7 +125,7 @@ export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onO
             disabled={phase === 'loading'}
             className="console-focusable inline-flex h-9 items-center gap-2 rounded-full bg-white px-4 text-[13px] font-medium text-background transition-colors disabled:bg-white/[0.12] disabled:text-quiet"
           >
-            {phase === 'loading' ? 'Writing it from the pages…' : phase === 'failed' ? 'Try again' : 'One question'}
+            {phase === 'loading' ? t('checkpoint.offer.loading') : phase === 'failed' ? t('checkpoint.offer.retry') : t('checkpoint.offer.start')}
             {phase === 'offer' && <ArrowRight aria-hidden className="h-3.5 w-3.5" />}
           </button>
           {onTeach && phase !== 'loading' && (
@@ -133,7 +135,7 @@ export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onO
               className="console-focusable inline-flex h-9 items-center gap-2 rounded-full bg-white/[0.08] px-4 text-[13px] text-foreground transition-colors hover:bg-white/[0.14]"
             >
               <PenLine aria-hidden className="h-3.5 w-3.5" />
-              Explain it back
+              {t('checkpoint.offer.teach')}
             </button>
           )}
           </div>
@@ -154,7 +156,7 @@ export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onO
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-label={`Checkpoint: ${idea.name}`}
+            aria-label={t('checkpoint.panel.label', { name: idea.name })}
             onKeyDown={(e) => {
               if (e.key === 'Escape') onDismiss();
               /* Arrows answer the question here; they must not turn pages behind it. */
@@ -167,18 +169,18 @@ export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onO
           >
             <div className="mb-6 flex items-center justify-between gap-4">
               <p className="text-[13px] tabular-nums text-quiet">
-                Checkpoint · pages {idea.first}–{idea.last}
+                {t('checkpoint.panel.heading', { first: idea.first, last: idea.last })}
                 {phase === 'asking' && cp.questions.length > 1 && (
                   <span className="text-faint">
                     {' '}
-                    · {at + 1} of {cp.questions.length}
+                    · {t('checkpoint.panel.progress', { n: at + 1, total: cp.questions.length })}
                   </span>
                 )}
               </p>
               <button
                 type="button"
                 onClick={onDismiss}
-                aria-label="Back to reading"
+                aria-label={t('checkpoint.panel.close')}
                 className="console-focusable flex h-8 w-8 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
               >
                 <X aria-hidden className="h-4 w-4" />
@@ -201,7 +203,7 @@ export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onO
                     onClick={() => (at + 1 < cp.questions.length ? setAt(at + 1) : finish(grades))}
                     className="console-focusable mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-medium text-background transition-colors"
                   >
-                    {at + 1 < cp.questions.length ? 'Next question' : 'Finish'}
+                    {at + 1 < cp.questions.length ? t('checkpoint.panel.next') : t('checkpoint.panel.finish')}
                     <ArrowRight aria-hidden className="h-4 w-4" />
                   </button>
                 )}
@@ -222,19 +224,19 @@ export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onO
                   {correct === grades.length ? <Check aria-hidden className="h-6 w-6" /> : <span className="text-[17px] tabular-nums">{correct}/{grades.length}</span>}
                 </motion.span>
                 <p className="mt-4 text-[19px] font-medium text-foreground">
-                  {correct === grades.length ? `${idea.name} is lit.` : `${idea.name}, marked to revisit.`}
+                  {correct === grades.length ? t('checkpoint.done.lit', { name: idea.name }) : t('checkpoint.done.revisit', { name: idea.name })}
                 </p>
                 <p className="mx-auto mt-1.5 max-w-sm text-[14px] leading-[1.5] text-quiet">
                   {correct === grades.length
-                    ? 'It shows on the strip and on the Space’s map.'
-                    : 'The Space’s map will bring it back before the exam.'}
+                    ? t('checkpoint.done.litNote')
+                    : t('checkpoint.done.revisitNote')}
                 </p>
                 <button
                   type="button"
                   onClick={onDismiss}
                   className="console-focusable mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-medium text-background transition-colors"
                 >
-                  Keep reading
+                  {t('checkpoint.done.keepReading')}
                   <ArrowRight aria-hidden className="h-4 w-4" />
                 </button>
               </div>

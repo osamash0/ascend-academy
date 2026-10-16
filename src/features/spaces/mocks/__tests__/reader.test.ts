@@ -360,6 +360,9 @@ describe('the reader is a focus surface', () => {
       join(process.cwd(), 'src/features/spaces/components/reader/ReaderHeader.tsx'),
       'utf8',
     );
-    expect(header).toContain('Leave the reader');
+    /* The words live in the translations now; the header carries their key. */
+    expect(header).toContain("t('exit.leave')");
+    const words = JSON.parse(readFileSync(join(process.cwd(), 'src/i18n/locales/en/v4Reader.json'), 'utf8'));
+    expect(words.exit.leave).toBe('Leave the reader');
   });
 });

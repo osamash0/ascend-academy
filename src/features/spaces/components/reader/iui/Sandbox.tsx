@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Code2, RotateCcw, ShieldCheck } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { ExplainBlock } from './spec';
 
@@ -83,6 +84,7 @@ export function buildSrcDoc(spec: Pick<SandboxSpec, 'html' | 'css' | 'js'>, acce
 }
 
 export function SandboxBlock({ block, onAsk }: { block: SandboxSpec; onAsk?: (question: string) => void }) {
+  const { t } = useTranslation('v4Reader');
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(Math.min(MAX_H, Math.max(MIN_H, block.height ?? 380)));
   const [error, setError] = useState<string | null>(null);
@@ -131,7 +133,7 @@ export function SandboxBlock({ block, onAsk }: { block: SandboxSpec; onAsk?: (qu
           className="console-focusable flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
         >
           <RotateCcw aria-hidden className="h-3.5 w-3.5" />
-          Restart
+          {t('blocks.sandbox.restart')}
         </button>
       </div>
       <div className="px-3">
@@ -148,13 +150,13 @@ export function SandboxBlock({ block, onAsk }: { block: SandboxSpec; onAsk?: (qu
       </div>
       {error && (
         <p role="alert" className="mx-5 mt-2 text-[12.5px] text-destructive">
-          The app stopped with an error: {error}
+          {t('blocks.sandbox.error', { error })}
         </p>
       )}
       <div className="flex items-center gap-3 px-5 py-3">
         <span className="flex items-center gap-1.5 text-[12px] text-faint">
           <ShieldCheck aria-hidden className="h-3.5 w-3.5" />
-          Written for this question · runs isolated, offline
+          {t('blocks.sandbox.note')}
         </span>
         <button
           type="button"
@@ -163,7 +165,7 @@ export function SandboxBlock({ block, onAsk }: { block: SandboxSpec; onAsk?: (qu
           className="console-focusable ml-auto flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
         >
           <Code2 aria-hidden className="h-3.5 w-3.5" />
-          {code ? 'Hide code' : 'View code'}
+          {code ? t('blocks.sandbox.hideCode') : t('blocks.sandbox.viewCode')}
         </button>
       </div>
       {code && (

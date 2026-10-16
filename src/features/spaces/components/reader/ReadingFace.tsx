@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { useReducedMotion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Prose } from '@/components/markdown';
 import { Block, Plane, anchorY } from './Planes';
@@ -84,6 +85,7 @@ export function ReadingFace({
   articleClassName = 'mx-auto max-w-2xl px-6 pb-[40vh] pt-[22vh]',
   compact = false,
 }: Props) {
+  const { t } = useTranslation('v4Reader');
   const reduce = useReducedMotion();
   /* The last anchor this face itself reported, so being told it back is a no-op. */
   const reported = useRef<number | null>(null);
@@ -152,7 +154,7 @@ export function ReadingFace({
   };
 
   return (
-    <Plane focused={focused} label="The text">
+    <Plane focused={focused} label={t('text.label')}>
       <div
         ref={scrollRef}
         data-reading-face
@@ -201,7 +203,7 @@ export function ReadingFace({
                     <button
                       type="button"
                       onClick={() => onOpenNotes(s.conceptId, s.firstPage)}
-                      aria-label={`Notes for ${s.name}`}
+                      aria-label={t('text.notesFor', { name: s.name })}
                       className={cn(
                         'console-focusable relative -ml-5 rounded-sm pl-5 text-left transition-colors',
                         'before:absolute before:left-0 before:top-[0.55em] before:h-px before:w-3 before:bg-white/[0.18] before:content-[""]',
@@ -276,6 +278,7 @@ export function ReadingFace({
  * material. A readout at first; a mark once the Learner has engaged.
  */
 function PageChip({ page, engaged, onOpen }: { page: number; engaged: boolean; onOpen: (p: number) => void }) {
+  const { t } = useTranslation('v4Reader');
   const shape = 'block h-[9px] w-3 rounded-[2px] bg-white/[0.85] shadow-[0_0_12px_rgba(255,255,255,0.18)]';
   if (!engaged)
     return <span aria-hidden className={cn('absolute -left-10 top-[0.6em]', shape)} />;
@@ -283,7 +286,7 @@ function PageChip({ page, engaged, onOpen }: { page: number; engaged: boolean; o
     <button
       type="button"
       onClick={() => onOpen(page)}
-      aria-label={`Page ${page} of the Material`}
+      aria-label={t('text.openPage', { page })}
       className="console-focusable absolute -left-12 top-0 flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-white/[0.06]"
     >
       <span aria-hidden className={shape} />

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
+import { Trans, useTranslation } from 'react-i18next';
 import { viewer } from '../mocks/people';
+import { formatNumber } from '../i18n/format';
 import {
   actionFor,
   hubInitialSelection,
@@ -66,6 +68,7 @@ import { ListSkeleton, SpacesError } from '../components/states';
  */
 
 export default function SpacesHubScreen() {
+  const { t } = useTranslation('v4Spaces');
   const screenState = useScreenState();
   const [selected, setSelected] = useState(() => hubInitialSelection());
 
@@ -137,8 +140,8 @@ export default function SpacesHubScreen() {
   const hero =
     shown === DISCOVER_ID || !space
       ? {
-          title: 'Find your next space',
-          desc: 'Browse Spaces across every subject people here are learning. Join in one click — leave whenever you want.',
+          title: t('hub.discover.title'),
+          desc: t('hub.discover.desc'),
           /*
            * Counts what the rails below actually hold.
            *
@@ -149,10 +152,12 @@ export default function SpacesHubScreen() {
            * "curated weekly" went with it: nothing curates anything weekly.
            */
           meta: (
-            <>
-              <b className="font-medium text-quiet">{discoverable.length}</b>{' '}
-              {discoverable.length === 1 ? 'Space' : 'Spaces'} you have not joined
-            </>
+            <Trans
+              t={t}
+              i18nKey="hub.discover.notJoined"
+              count={discoverable.length}
+              components={{ b: <b className="font-medium text-quiet" /> }}
+            />
           ),
           /*
            * Stays on this page. It used to be a Link to `/v4/spaces-legacy` —
@@ -160,7 +165,7 @@ export default function SpacesHubScreen() {
            * to leave. The content is the rails below the fold, and this is the
            * hero's only affordance for reaching them on a 100vh stage.
            */
-          action: { label: 'Browse Spaces', disabled: discoverable.length === 0 },
+          action: { label: t('hub.discover.browse'), disabled: discoverable.length === 0 },
           to: undefined,
           onPress: () => railsRef.current?.scrollIntoView({ block: 'start' }),
         }
@@ -169,22 +174,34 @@ export default function SpacesHubScreen() {
           desc: space.description ?? '',
           meta: (
             <>
-              {space.visibility === 'public' ? 'Public' : 'Invite only'} ·{' '}
-              <b className="font-medium text-quiet">
-                {space.memberCount.toLocaleString()}
-              </b>{' '}
-              members
+              {space.visibility === 'public' ? t('hub.meta.public') : t('hub.meta.invite')} ·{' '}
+              <Trans
+                t={t}
+                i18nKey="hub.meta.members"
+                count={space.memberCount}
+                values={{ n: formatNumber(space.memberCount) }}
+                components={{ b: <b className="font-medium text-quiet" /> }}
+              />
               {space.online !== undefined && space.online > 0 && (
                 <>
                   {' · '}
-                  <b className="font-medium text-quiet">{space.online}</b> online
+                  <Trans
+                    t={t}
+                    i18nKey="hub.meta.online"
+                    values={{ n: formatNumber(space.online) }}
+                    components={{ b: <b className="font-medium text-quiet" /> }}
+                  />
                 </>
               )}
               {' · '}
-              {space.lessonCount} {space.lessonCount === 1 ? 'Lesson' : 'Lessons'}
+              {t('badges.lessons', { count: space.lessonCount })}
             </>
           ),
-          action: actionFor(membershipOf(space)),
+          /* The mock's state machine decides; the label is said here. */
+          action: {
+            ...actionFor(membershipOf(space)),
+            label: t(`hub.action.${membershipOf(space)}`),
+          },
           to: `/v4/space/${space.id}`,
           onPress: undefined,
         };
@@ -196,8 +213,8 @@ export default function SpacesHubScreen() {
     </div>
   );
 
-  if (screenState === 'loading') return chrome(<ListSkeleton label="Loading your Spaces" />);
-  if (screenState === 'error') return chrome(<SpacesError what="your Spaces" />);
+  if (screenState === 'loading') return chrome(<ListSkeleton label="spaces" />);
+  if (screenState === 'error') return chrome(<SpacesError what="spaces" />);
 
   return (
     <div className="min-h-screen bg-[#0a0b0d] text-white">
@@ -299,7 +316,7 @@ export default function SpacesHubScreen() {
                     : 'text-quiet hover:bg-white/[0.06] hover:text-foreground',
                 )}
               >
-                {by === 'active' ? 'Last active' : 'A–Z'}
+                {by === 'active' ? t('hub.sort.active') : t('hub.sort.name')}
               </Pressable>
             ))}
           </div>
@@ -323,7 +340,7 @@ export default function SpacesHubScreen() {
             not. It is the rail that made selecting Discover read as a no-op.
           */}
           {!onDiscover && backIn.length > 0 && (
-            <Rail title="Jump back in">
+            <Rail title={t('hub.rail.jumpBackIn')}>
               {backIn.map((s) => (
                 <WideCard key={s.id} space={s} />
               ))}
@@ -335,14 +352,14 @@ export default function SpacesHubScreen() {
 
           {onDiscover
             ? discoverable.length > 0 && (
-                <Rail title="Worth a look">
+                <Rail title={t('hub.rail.worthALook')}>
                   {discoverable.map((s) => (
                     <StandardCard key={s.id} space={s} />
                   ))}
                 </Rail>
               )
             : popular.length > 0 && (
-                <Rail title="Popular right now">
+                <Rail title={t('hub.rail.popular')}>
                   {popular.map((s) => (
                     <StandardCard key={s.id} space={s} />
                   ))}
@@ -350,7 +367,7 @@ export default function SpacesHubScreen() {
               )}
 
           {fresh.length > 0 && (
-            <Rail title="New this week" grid>
+            <Rail title={t('hub.rail.newThisWeek')} grid>
               {fresh.map((s) => (
                 <CompactCard key={s.id} space={s} />
               ))}
@@ -374,10 +391,10 @@ export default function SpacesHubScreen() {
             <details className={cn('mt-4', GUTTER)}>
               <summary className="console-focusable inline-flex cursor-pointer items-center gap-2 rounded-full text-[13.5px] text-quiet transition-colors hover:text-foreground">
                 <Archive aria-hidden className="h-4 w-4" />
-                Archived · {archived.length}
+                {t('hub.archived.summary', { count: archived.length })}
               </summary>
               <p className="mt-3 max-w-[60ch] text-[13px] text-faint">
-                Read-only, and they keep everything you did. Nothing here earns XP.
+                {t('hub.archived.body')}
               </p>
               <div className="mt-4 flex flex-wrap gap-4">
                 {archived.map((s) => (

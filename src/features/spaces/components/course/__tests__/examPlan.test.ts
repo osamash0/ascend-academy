@@ -20,11 +20,11 @@ describe('the exam plan', () => {
     // 70% of 10 days reading → 7 days at 15 pages.
     expect(plan.pagesPerDay).toBe(15);
     expect(plan.days.map((d) => d.kind)).toEqual(['read', 'read', 'read', 'read', 'read', 'read', 'read', 'review', 'rehearse', 'eve']);
-    expect(plan.days[8].steps[0]).toMatchObject({ kind: 'rehearse', title: 'Full rehearsal', lectureIds: ['a', 'b'] });
+    expect(plan.days[8].steps[0]).toMatchObject({ kind: 'rehearse', title: { key: 'plan.exam.full.title' }, lectureIds: ['a', 'b'] });
     // Every page is planned exactly once, in lecture order.
     const reads = plan.days.flatMap((d) => d.steps).filter((s) => s.kind === 'read');
     expect(reads.reduce((n, s) => n + s.minutes, 0)).toBe(100);
-    expect(reads[0]).toMatchObject({ lectureId: 'a', page: 1, why: 'Pages 1–15' });
+    expect(reads[0]).toMatchObject({ lectureId: 'a', page: 1, why: { key: 'plan.exam.read.range', params: { first: 1, last: 15 } } });
     expect(reads.find((s) => s.lectureId === 'b')).toMatchObject({ page: 1 });
   });
 
@@ -52,7 +52,10 @@ describe('the exam plan', () => {
     });
     const steps = plan.days.flatMap((d) => d.steps);
     expect(steps.find((s) => s.kind === 'revisit')).toMatchObject({ title: '2PL phases', page: 34 });
-    expect(plan.days[7].steps.at(-1)).toMatchObject({ kind: 'rehearse', title: 'Rehearse Basics & Normalization' });
+    expect(plan.days[7].steps.at(-1)).toMatchObject({
+      kind: 'rehearse',
+      title: { key: 'plan.exam.chunk.title', params: { lessons: ['Basics', 'Normalization'] } },
+    });
     expect(plan.days.some((d) => d.steps.length === 0)).toBe(false);
   });
 

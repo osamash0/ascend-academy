@@ -1,0 +1,548 @@
+{
+  "_about": "v4: Space-Seite, Lektion, Probedurchlauf, Plan, Karte",
+  "plan": {
+    "page": "Seite {{page}}",
+    "pages": "Seiten {{first}}–{{last}}",
+    "today": {
+      "resume_one": "Ab Seite {{page}} · noch {{count}} Seite",
+      "resume_other": "Ab Seite {{page}} · noch {{count}} Seiten",
+      "fresh_one": "Von vorn · {{count}} Seite",
+      "fresh_other": "Von vorn · {{count}} Seiten",
+      "missed": "Beim letzten Mal falsch · {{lesson}}, Seiten {{first}}–{{last}}",
+      "fading_one": "Vor {{count}} Tag richtig beantwortet – das Licht verblasst · {{lesson}}",
+      "fading_other": "Vor {{count}} Tagen richtig beantwortet – das Licht verblasst · {{lesson}}"
+    },
+    "exam": {
+      "missed": "Beim letzten Mal falsch · {{lesson}}, {{pages}}",
+      "fading": "Verblasst · {{lesson}}, {{pages}}",
+      "lastLook": {
+        "title": "Ein kurzer letzter Blick",
+        "why": "Fünf Fragen quer durch den Space – dann Pause"
+      },
+      "full": {
+        "title": "Kompletter Probedurchlauf",
+        "why": "Jede Lektion, so wie die Prüfung fragt"
+      },
+      "read": {
+        "toEnd": "Seiten {{first}}–{{last}} · bis zum Ende",
+        "range": "Seiten {{first}}–{{last}}"
+      },
+      "chunk": {
+        "title": "{{lessons}} üben",
+        "why": "Fünf Fragen aus diesen Lektionen"
+      },
+      "week": {
+        "title": "Diese Woche, geübt",
+        "one": "{{lesson}} · fünf Fragen",
+        "many_one": "{{count}} Lektion · fünf Fragen",
+        "many_other": "{{count}} Lektionen · fünf Fragen"
+      }
+    }
+  },
+  "light": {
+    "lit": "Richtig beantwortet",
+    "fading": "Verblasst",
+    "weak": "Zum Wiederholen",
+    "dark": "Noch nicht geprüft",
+    "spoken": {
+      "lit": "richtig beantwortet",
+      "fading": "verblasst",
+      "weak": "zum Wiederholen",
+      "dark": "noch nicht geprüft"
+    }
+  },
+  "course": {
+    "kind": "Space",
+    "lessons_one": "{{count}} Lektion",
+    "lessons_other": "{{count}} Lektionen",
+    "pages_one": "{{count}} Seite",
+    "pages_other": "{{count}} Seiten",
+    "rehearse": "Für die Prüfung üben",
+    "today": "Heute",
+    "find": {
+      "label": "Finden, wo ein Thema behandelt wird",
+      "placeholder": "Wo kam … vor?",
+      "looking": "Sucht…",
+      "results": "Wo es behandelt wird",
+      "none": "Nichts in diesem Space erwähnt das.",
+      "page": "Seite {{page}}",
+      "pageTitle": "Seite {{page}}"
+    },
+    "journey": {
+      "title": "Der Space, erhellt von dem, was du weißt",
+      "dark": "Jede Idee beginnt dunkel. Ein Probedurchlauf lässt die aufleuchten, die du richtig beantwortest.",
+      "lessons": "Lektionen",
+      "goOnReading": "{{lesson}} weiterlesen",
+      "read": "{{lesson}} lesen",
+      "goOn": "Weiter",
+      "readShort": "Lesen",
+      "idea": "{{idea}}, Seite {{page}}",
+      "ideaLit": "{{idea}}, Seite {{page}}, {{light}}",
+      "readPercent": ", zu {{percent}} % gelesen"
+    },
+    "views": {
+      "label": "Wie du diesen Space ansiehst",
+      "journey": "Weg",
+      "map": "Karte"
+    },
+    "legend": "Legende",
+    "step": {
+      "read": "Weiterlesen",
+      "revisit": "Wiederholen",
+      "refresh": "Auffrischen",
+      "rehearse": "Üben"
+    },
+    "exam": {
+      "on": "Prüfung am",
+      "ask": "Wann ist deine Prüfung?",
+      "change": "Prüfungsdatum ändern",
+      "in_one": "Prüfung in {{count}} Tag",
+      "in_other": "Prüfung in {{count}} Tagen",
+      "today": "Prüfung heute",
+      "passed": "Prüfung vorbei",
+      "clear": "Prüfungsdatum entfernen"
+    },
+    "minutes_one": "~{{count}} Min.",
+    "minutes_other": "~{{count}} Min.",
+    "moreToRevisit_one": "und {{count}} weitere zum Wiederholen – auf der Karte unten rot",
+    "moreToRevisit_other": "und {{count}} weitere zum Wiederholen – auf der Karte unten rot",
+    "open": "Öffnen"
+  },
+  "map": {
+    "label": "Karte der Ideen dieses Spaces und was worauf aufbaut",
+    "star": "{{idea}}, {{lesson}}, {{light}}",
+    "buildsOn": "Baut auf {{ideas}} auf",
+    "start": "Ein Anfang: Sie braucht nichts, was früher in diesem Space kommt.",
+    "beginWeak": "Fang mit {{idea}} an – sie ist rot",
+    "beginDark": "Fang mit {{idea}} an – sie ist noch nicht geprüft",
+    "loading": "Wir finden heraus, welche Ideen aufeinander aufbauen…",
+    "failed": "Die Verbindungen zwischen den Ideen ließen sich gerade nicht erstellen. Die Sterne öffnen trotzdem ihre Seiten.",
+    "hint": "Zeig auf eine Idee, um zu sehen, worauf sie aufbaut. Drück sie, um sie zu lesen."
+  },
+  "runway": {
+    "label": "Tage bis zur Prüfung",
+    "day": "{{day}}: {{steps}}",
+    "today": "Heute",
+    "tomorrow": "Morgen",
+    "rest": "Pause",
+    "exam": "Prüfung",
+    "about_one": "etwa {{count}} Min.",
+    "about_other": "etwa {{count}} Min.",
+    "free": "Nichts geplant – ein freier Tag."
+  },
+  "rehearse": {
+    "leave": "Probedurchlauf verlassen",
+    "setup": {
+      "title": "Für die Prüfung üben",
+      "lede": "Ein kurzer Test aus deinen eigenen Seiten. Jede Antwort führt zurück zur Seite, die sie erklärt.",
+      "lessons": "Lektionen",
+      "clear": "Keine",
+      "all": "Alle",
+      "length": "Länge",
+      "lengthLabel": "Anzahl der Fragen",
+      "questions_one": "{{count}} Frage",
+      "questions_other": "{{count}} Fragen",
+      "start": "Probedurchlauf erstellen"
+    },
+    "failed": {
+      "weak": "Wir konnten den Probedurchlauf zu deinen Schwachstellen gerade nicht schreiben. Das Modell ist vielleicht ausgelastet.",
+      "any": "Wir konnten gerade keinen Probedurchlauf schreiben. Das Modell ist vielleicht ausgelastet.",
+      "retry": "Nochmal versuchen"
+    },
+    "composing": {
+      "title": "Dein Probedurchlauf entsteht",
+      "reading": "Wir lesen",
+      "wait": "Dauert meist etwa eine halbe Minute."
+    },
+    "run": {
+      "progress": "Frage {{n}} von {{total}}",
+      "next": "Nächste Frage",
+      "finish": "Zum Ergebnis"
+    },
+    "debrief": {
+      "saving": "Wird in deinem Verlauf gespeichert …",
+      "saved": "In deinem Verlauf gespeichert",
+      "saveFailed": "Wir konnten diesen Durchlauf nicht in deinem Verlauf speichern",
+      "verdict": {
+        "flawless": "Alles richtig.",
+        "strong": "Stark. Ein, zwei Ideen noch festigen.",
+        "close": "Auf gutem Weg.",
+        "again": "Lohnt noch einen Durchgang."
+      },
+      "byLesson": "Nach Lektion",
+      "readAgain": "Nochmal lesen",
+      "where": "{{lesson}} · Seite {{page}}",
+      "weakSpots": "Meine Schwachstellen üben",
+      "new": "Neuer Probedurchlauf",
+      "back": "Zurück zu {{title}}"
+    },
+    "history": {
+      "label": "Deine Probedurchläufe",
+      "summary_one": "{{count}} bisher · zuletzt {{score}}/{{total}}, {{when}}",
+      "summary_other": "{{count}} bisher · zuletzt {{score}}/{{total}}, {{when}}",
+      "missedLast": "Ideen, die du letztes Mal verpasst hast",
+      "page": "Seite {{page}}",
+      "missedTimes_one": "{{count}}× verpasst",
+      "missedTimes_other": "{{count}}× verpasst",
+      "rehearseWeak_one": "Diese eine üben",
+      "rehearseWeak_other": "Diese üben",
+      "noWeak": "Keine Schwachstellen. Alles, was du letztes Mal gefragt wurdest, hattest du richtig.",
+      "fading": "Verblasst: richtig, aber vor über einer Woche",
+      "fadingTitle": "{{lesson}}, Seite {{page}}",
+      "days_one": "{{count}} Tag",
+      "days_other": "{{count}} Tage",
+      "refresh": "Diese auffrischen"
+    }
+  },
+  "question": {
+    "moveUp": "„{{item}}“ nach oben",
+    "moveDown": "„{{item}}“ nach unten",
+    "fdHoldsHint": "Hak jede Abhängigkeit an, die auf diesen Zeilen gilt.",
+    "closureHint": "Bilde die Hülle von {{set}}. Tipp jedes Attribut an, das sie bestimmt.",
+    "bcnfHint": "Markier jede Abhängigkeit, die in {{relation}} BCNF verletzt.",
+    "check": "Prüfen",
+    "right": "Richtig",
+    "notQuite": "Nicht ganz",
+    "page": "{{lesson}}, Seite {{page}}",
+    "expected": {
+      "holds": "Gilt: {{fds}}",
+      "holdsNone": "Keine davon gilt",
+      "violating": "Verletzen BCNF: {{fds}}",
+      "violatingNone": "Keine verletzt BCNF"
+    }
+  },
+  "lesson": {
+    "number": "Lektion {{order}}",
+    "pages_one": "{{count}} Seite",
+    "pages_other": "{{count}} Seiten",
+    "completed": "Abgeschlossen",
+    "start": {
+      "continueAt": "Weiter auf Seite {{page}}",
+      "review": "Wiederholen",
+      "continue": "Weiterlesen",
+      "begin": "Lesen beginnen"
+    },
+    "openDeck": "{{action}}: {{title}}",
+    "practice": "Übungen · {{count}}",
+    "rehearse": "Diese Lektion üben",
+    "cleared_one": "{{cleared}} von {{count}} Idee geschafft",
+    "cleared_other": "{{cleared}} von {{count}} Ideen geschafft",
+    "materialRemoved": "Das ursprüngliche Material wurde entfernt. Die Lektion funktioniert trotzdem.",
+    "teachBackTitle": "Erklär's zurück · {{idea}}",
+    "community": {
+      "title": "Aus der Community",
+      "emptyTitle": "Hier ist noch nichts",
+      "emptyBody": "Hat es bei dir in dieser Lektion endlich Klick gemacht? Deine Erklärung hilft der nächsten Person."
+    },
+    "notes": {
+      "title": "Deine Notizen",
+      "placeholder": "Nur für dich. Gesammelt in deiner Bibliothek.",
+      "empty": "Noch nichts. Notizen sind privat. Nur du siehst sie."
+    }
+  },
+  "ideas": {
+    "title": "Die Ideen",
+    "grouping": "Die Lektion wird in ihre Ideen gegliedert …",
+    "lede": {
+      "live": "In der Reihenfolge, in der die Lektion sie lehrt. Jede leuchtet auf, sobald ein Checkpoint oder ein Probedurchlauf sie bestätigt.",
+      "demo": "In der Reihenfolge, in der die Lektion sie lehrt. Jede leuchtet auf der Karte des Space auf, sobald du sie geschafft hast."
+    },
+    "inLesson": "Ideen in dieser Lektion",
+    "progress": {
+      "cleared": "Geschafft",
+      "discovered": "Gelesen",
+      "untouched": "Noch nicht"
+    },
+    "pageRange": "Seiten {{first}}–{{last}}",
+    "readFrom": "Ab Seite {{page}} lesen",
+    "teachBack": "Erklär's zurück",
+    "about": "Über diese Idee"
+  },
+  "deck": {},
+  "tools": {
+    "title": "Ausprobieren, nicht nur lesen",
+    "lede": "Manche Seiten antworten mit einem Werkzeug. Jedes öffnet sich im Reader auf seiner Seite, mit Erklären daneben.",
+    "at": "{{verb}} · Seite {{page}}",
+    "verb": {
+      "fdTable": "Eine Abhängigkeit widerlegen",
+      "closure": "Eine Hülle berechnen",
+      "bcnf": "Eine Relation zerlegen",
+      "steps": "Einen Beweis durchgehen",
+      "explore": "Die Teile erkunden",
+      "compare": "Nebeneinander vergleichen"
+    }
+  },
+  "demo": {
+    "header": {
+      "owner": "Inhaber:in",
+      "manage": "Verwalten",
+      "archived": "Archiviert",
+      "archivedNotice": "Dieser Space ist schreibgeschützt. Dein Fortschritt bleibt erhalten, aber hier gibt es keine XP."
+    },
+    "upNext": {
+      "kicker": "Als Nächstes",
+      "percentRead": "{{percent}} % gelesen",
+      "continue": "Weiter",
+      "start": "Starten"
+    },
+    "glance": {
+      "segment": "Lektion {{order}}, {{title}}",
+      "segmentDone": "Lektion {{order}}, {{title}}, erledigt",
+      "done": "{{done}} von {{total}} erledigt",
+      "community_one": "{{count}} aus der Community",
+      "community_other": "{{count}} aus der Community"
+    },
+    "tabs": {
+      "label": "Space",
+      "overview": "Übersicht",
+      "map": "Karte",
+      "members": "Mitglieder"
+    },
+    "path": {
+      "title": "Der Pfad",
+      "lede": "In der festgelegten Reihenfolge. Schließ sie nacheinander ab.",
+      "add": "Lektion hinzufügen",
+      "emptyTitle": "Noch keine Lektionen",
+      "emptyOpen": "Dieser Space ist offen. Alle hier können die erste Lektion hinzufügen. Lade Material hoch, und die Lektion baut sich von selbst.",
+      "emptyOwned": "Lade dein Material hoch, und die erste Lektion baut sich von selbst.",
+      "emptyOther": "Hier wurde noch nichts veröffentlicht.",
+      "addFirst": "Erste Lektion hinzufügen",
+      "showMore_one": "{{count}} weitere Lektion zeigen",
+      "showMore_other": "{{count}} weitere Lektionen zeigen",
+      "showLess": "Weniger zeigen"
+    },
+    "community": {
+      "title": "Aus der Community",
+      "lede": "Von Mitgliedern dieses Space. Sortiert nach dem, was anderen am meisten geholfen hat.",
+      "contribute": "Beitragen",
+      "emptyTitle": "Noch nichts aus der Community",
+      "emptyBody": "Zusammenfassungen, durchgerechnete Beispiele, Eselsbrücken. Was dir geholfen hat, hilft auch der nächsten Person."
+    },
+    "members": {
+      "title": "Mitglieder",
+      "locked": "Wer in diesem Space ist, sehen nur Mitglieder. Tritt bei, um sie zu sehen.",
+      "alone": "Außer dir ist noch niemand hier.",
+      "showing": "{{shown}} von {{total}} angezeigt."
+    },
+    "roles": {
+      "owner": "Inhaber:in",
+      "editor": "Bearbeiter:in",
+      "member": "Mitglied"
+    },
+    "lessonRow": {
+      "processing": "Wird verarbeitet",
+      "draft": "Entwurf",
+      "needsReview": "Zu prüfen",
+      "sourceRemoved": "Quelldatei entfernt",
+      "label": "Lektion {{order}}. {{title}}. Von {{author}}. {{percent}} % abgeschlossen.",
+      "open": "Öffnen"
+    },
+    "map": {
+      "empty": "Noch nichts zu erhellen. Die Karte füllt sich, sobald Lektionen veröffentlicht sind.",
+      "lessonsCleared_one": "Lektion geschafft",
+      "lessonsCleared_other": "Lektionen geschafft",
+      "ideas_one": "Idee",
+      "ideas_other": "Ideen",
+      "folded_one": "{{count}} weitere eingeklappt",
+      "folded_other": "{{count}} weitere eingeklappt",
+      "label": "Fortschrittskarte für {{space}}: {{done}} von {{total}} Lektionen geschafft, {{cleared}} von {{ideas}} Ideen.",
+      "body": "{{title}}. Lektion {{order}}. {{cleared}} von {{total}} Ideen geschafft.",
+      "bodyTitle": "{{title}} – {{cleared}} von {{total}} Ideen geschafft",
+      "idea": {
+        "cleared": "{{name}} – geschafft",
+        "read": "{{name}} – gelesen",
+        "notStarted": "{{name}} – noch nicht begonnen"
+      },
+      "communityBody": "Community – von einem Mitglied veröffentlicht",
+      "metaCleared": "{{cleared}} / {{total}} GESCHAFFT",
+      "metaHere": "{{cleared}} / {{total}} · DU BIST HIER",
+      "legend": {
+        "cleared": "Geschafft",
+        "here": "Du bist hier",
+        "notYet": "Noch nicht",
+        "contributions": "Beiträge"
+      }
+    },
+    "contribution": {
+      "type": {
+        "text": "Ausarbeitung",
+        "pdf": "PDF",
+        "image": "Bild",
+        "link": "Link",
+        "practiceSet": "Übungsset"
+      },
+      "orphanedOwn": "Die Lektion, an der das hing, wurde entfernt. Deine Arbeit ist sicher und noch da. Sie hängt nur an keiner Lektion mehr.",
+      "orphanedOther": "Die Lektion, an der das hing, wurde entfernt. Von {{author}} geht nichts verloren. Es hängt nur an keiner Lektion mehr.",
+      "rehome": "Neuen Platz finden",
+      "endorse": "Empfehlen",
+      "endorsed": "Empfohlen",
+      "endorseOwn": "Deine eigene Arbeit kannst du nicht empfehlen.",
+      "hide": "Ausblenden",
+      "unhide": "Einblenden",
+      "hiddenToast": "Ausgeblendet",
+      "hiddenToastBody": "Für die Person, die es erstellt hat, und für dich bleibt es sichtbar. Nichts wurde gelöscht.",
+      "visibleToast": "Wieder sichtbar",
+      "visibleToastBody": "Alle in diesem Space sehen es wieder.",
+      "promote": "Übernehmen",
+      "promotedAlready": "Schon im Pfad.",
+      "promotedToast": "In den Pfad übernommen",
+      "promotedToastBody": "Es ist jetzt eine Lektion. Sie wird {{author}} zugeschrieben.",
+      "openIt": "Öffnen",
+      "report": "Melden",
+      "reported": "Gemeldet",
+      "reportedAlready": "Du hast das schon gemeldet.",
+      "reportedToastBody": "Wer diesen Space pflegt, sieht die Meldung.",
+      "hiddenByOwner": "Von Inhaber:in ausgeblendet",
+      "likeOwn_one": "{{count}} Like. Deinen eigenen Beitrag kannst du nicht liken.",
+      "likeOwn_other": "{{count}} Likes. Deinen eigenen Beitrag kannst du nicht liken.",
+      "liked_one": "Geliked. {{count}} Like. Tippen zum Entfernen.",
+      "liked_other": "Geliked. {{count}} Likes. Tippen zum Entfernen.",
+      "like_one": "Liken. {{count}} Like.",
+      "like_other": "Liken. {{count}} Likes.",
+      "likeOwnTitle": "Deinen eigenen Beitrag kannst du nicht liken."
+    }
+  },
+  "manage": {
+    "title": "Verwalten",
+    "titleSpace": "Space verwalten",
+    "loading": "Wird geladen …",
+    "failed": "Da ist etwas schiefgelaufen",
+    "notFound": "Space nicht gefunden",
+    "notFoundHint": "Diesen Space gibt es nicht, oder du hast keinen Zugriff darauf.",
+    "notYours": "Das ist nicht dein Space",
+    "notYoursHint": "{{space}} gehört {{owner}}. Nur Inhaber:innen können die Einstellungen und Mitglieder ändern.",
+    "back": "Zurück zum Space",
+    "save": "Änderungen speichern",
+    "saved": "Änderungen gespeichert",
+    "roles": {
+      "owner": "Inhaber:in",
+      "editor": "Bearbeiter:in",
+      "member": "Mitglied"
+    },
+    "details": {
+      "title": "Details",
+      "name": "Name",
+      "description": "Beschreibung"
+    },
+    "mode": {
+      "title": "Wer veröffentlichen darf",
+      "blurb": "Umstellen kostet nichts. Es ändert nur, wer ab jetzt veröffentlichen darf. Jede Lektion behält ihren Platz, ihre Urheberschaft und den Fortschritt aller.",
+      "now": "Jetzt: {{mode}}",
+      "guidedHint": "Ab jetzt veröffentlichen nur du und deine Bearbeiter:innen Lektionen.",
+      "openHint": "Ab jetzt kann jedes Mitglied Lektionen veröffentlichen."
+    },
+    "grounding": {
+      "title": "Maßgebliche Quelle",
+      "blurb": "Standardmäßig aus. Eingeschaltet gelten veröffentlichte Lektionen als Referenz. Alles andere im Space zeigt dann, ob es sich darauf zurückführen lässt. Es blockiert nichts, es kennzeichnet nur.",
+      "show": "Quellenbezug zeigen",
+      "showHint": "Markiert, was sich auf das Material dieses Spaces zurückführen lässt.",
+      "strict": "Nur Inhalte mit Quelle",
+      "strictHint": "Im Pfad bleibt nur Material, das sich zurückführen lässt. Dafür muss der Quellenbezug an sein."
+    },
+    "orphans": {
+      "title": "Braucht einen neuen Platz",
+      "blurb": "Die Lektion, an der diese Beiträge hingen, wurde gelöscht. Sie sind noch da und zählen weiter. Gib jedem eine Lektion, oder lass sie, dann können ihre Autor:innen das tun.",
+      "rehome": "Platz finden"
+    },
+    "members": {
+      "title": "Mitglieder",
+      "blurb": "Bearbeiter:innen können Inhalte hinzufügen und bearbeiten. Mitglieder lernen und können immer beitragen.",
+      "roleFor": "Rolle von {{name}}",
+      "roleChanged": "{{name}} ist jetzt {{role}}",
+      "remove": "{{name}} entfernen",
+      "removed": "{{name}} entfernt",
+      "removedHint": "Beiträge und Nennungen bleiben im Space.",
+      "undo": "Rückgängig",
+      "restored": "Wiederhergestellt",
+      "alone": "Bisher nur du. Teil den Code unten, um Leute dazuzuholen."
+    },
+    "invite": {
+      "title": "Mit Code einladen",
+      "blurb": "Wer diesen Code hat, tritt direkt bei. Es gibt keine Freigabe."
+    },
+    "archive": {
+      "title": "Archivieren",
+      "blurb": "Archiviert heißt schreibgeschützt. Der Fortschritt bleibt und nichts geht verloren, aber es gibt keine XP mehr, und der Space rutscht in deinen Spaces nach unten.",
+      "action": "Diesen Space archivieren",
+      "done": "Space archiviert",
+      "doneHint": "{{space}} ist jetzt schreibgeschützt."
+    },
+    "delete": {
+      "title": "Diesen Space löschen",
+      "blurb": "Alle Lektionen, alle Beiträge und der Fortschritt aller gehen mit. Das lässt sich nicht rückgängig machen. Gib zur Bestätigung <name>{{space}}</name> ein.",
+      "confirmLabel": "Gib den Namen des Space ein, um das Löschen zu bestätigen",
+      "action": "Endgültig löschen",
+      "done": "{{space}} gelöscht"
+    }
+  },
+  "concept": {
+    "state": {
+      "cleared": {
+        "label": "Geschafft",
+        "blurb": "Du hast Übungen dazu richtig beantwortet."
+      },
+      "discovered": {
+        "label": "Gelesen",
+        "blurb": "Du kennst diese Idee, hast sie aber noch nicht geprüft."
+      },
+      "untouched": {
+        "label": "Noch nicht",
+        "blurb": "Bis zu dieser Idee bist du noch nicht gekommen."
+      }
+    },
+    "ideaIn": "Idee in {{space}}",
+    "appearsIn": "Kommt vor in",
+    "practice": {
+      "title": "Üben",
+      "cta": "Diese Idee üben",
+      "summary_one": "{{count}} Frage in {{lessons}}",
+      "summary_other": "{{count}} Fragen in {{lessons}}",
+      "lessons_one": "ihrer Lektion",
+      "lessons_other": "{{count}} Lektionen"
+    },
+    "community": {
+      "title": "Aus der Community",
+      "lede": "Was Mitglieder zu genau dieser Idee gemacht haben. Sortiert danach, was anderen am meisten geholfen hat.",
+      "emptyTitle": "Hier ist noch nichts",
+      "emptyBody": "Ein durchgerechnetes Beispiel oder eine Eselsbrücke zu dieser Idee hilft allen, die ihr als Nächstes begegnen."
+    }
+  },
+  "practiceScreen": {
+    "empty": {
+      "title": "Hier gibt es noch keine Übungen",
+      "body": "Für {{lesson}} wurde bisher nichts geschrieben."
+    },
+    "backToLesson": "Zurück zur Lektion",
+    "verdict": {
+      "allHeld": {
+        "title": "Alles hat gehalten.",
+        "lede": "Nichts, wozu du zurückmusst. Die Erklärungen bleiben da, wann immer du sie brauchst."
+      },
+      "heldSecond": {
+        "title": "Gehalten, beim zweiten Blick.",
+        "lede": "Was du verpasst hattest, kam zurück und hat gehalten. Beim zweiten Versuch bleibt am meisten hängen."
+      },
+      "nearly": {
+        "title": "Fast geschafft.",
+        "lede": "Diese sitzen noch nicht. Lies noch einmal, warum. Dann versuch es erneut, solange es frisch ist."
+      }
+    },
+    "again": "Noch mal",
+    "leave": "Übung verlassen",
+    "secondLook": "Zweiter Blick",
+    "correctAnswer": "Richtige Antwort",
+    "wrongAnswer": "Deine Antwort, falsch",
+    "feedback": {
+      "right": "Richtig",
+      "rightHeld": "Richtig – es hat gehalten",
+      "notYet": "Noch nicht",
+      "comesBack": "Nicht ganz – diese Frage kommt wieder"
+    },
+    "seeHow": "Sieh dir an, wie es lief",
+    "next": "Nächste Frage",
+    "progress": {
+      "label": "Fortschritt in dieser Übung",
+      "value": "{{held}} von {{total}} gehalten"
+    }
+  }
+}

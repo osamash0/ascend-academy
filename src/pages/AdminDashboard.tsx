@@ -17,7 +17,9 @@ import {
   Search,
   Filter
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { AdminRoutes } from '@/lib/routes';
 import { Button } from '@/components/ui/button';
 import { adminService, AdminUser, ActivityEvent, SentryError, SentryErrorsResponse, BackupSession, DeploymentTelemetry, PlatformStats } from '@/services/adminService';
 import { supabase } from '@/integrations/supabase/client';
@@ -252,6 +254,10 @@ export default function AdminDashboard() {
               Manage users, monitor platform health, and control course visibility.
             </p>
           </div>
+          <div className="flex gap-2">
+          <Button asChild className="bg-white text-black hover:bg-white/90">
+            <Link to={AdminRoutes.LAUNCH}>Launch Control</Link>
+          </Button>
           <Button 
             onClick={() => { loadStats(); loadTabData(); }}
             disabled={loading}
@@ -260,6 +266,7 @@ export default function AdminDashboard() {
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh Data
           </Button>
+          </div>
         </div>
 
         {/* KPI Summary */}

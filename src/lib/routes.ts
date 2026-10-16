@@ -61,4 +61,5 @@ export const SharedRoutes = {
 
 export const AdminRoutes = {
   DASHBOARD: '/admin/dashboard',
+  LAUNCH: '/admin/launch',
 } as const;
