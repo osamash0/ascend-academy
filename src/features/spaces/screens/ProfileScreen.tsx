@@ -112,8 +112,8 @@ export default function ProfileScreen() {
         <div className="mx-auto mt-14 grid max-w-2xl grid-cols-3 divide-x divide-white/[0.08]">
           {[
             { to: '/v4/profile/history', n: streak, label: streak === 1 ? 'day in a row' : 'days in a row', icon: Flame },
-            { to: '/v4/library/impact', n: published.length, label: 'published', icon: Sparkles },
-            { to: '/v4/library/impact', n: likesReceived, label: likesReceived === 1 ? 'like' : 'likes', icon: Heart },
+            { to: '/v4/library?f=shared', n: published.length, label: 'published', icon: Sparkles },
+            { to: '/v4/library?f=shared', n: likesReceived, label: likesReceived === 1 ? 'like' : 'likes', icon: Heart },
           ].map((f) => (
             <Link
               key={f.label}

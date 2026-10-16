@@ -65,6 +65,8 @@ const ALLOWED = [
   /^motion\/react$/,
   /^lucide-react$/,
   /^sonner$/,
+  // Studio's one Markdown renderer (spec 3.4). Pure rendering, sanitises by default, no network.
+  /^streamdown$/,
   /^vitest$/,
   /^node:/,
   /^@testing-library\//,

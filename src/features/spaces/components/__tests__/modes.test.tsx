@@ -83,12 +83,15 @@ const MODE: Record<string, Mode> = {
   'PracticeScreen.tsx': 'learn',
   'ReaderScreen.tsx': 'learn',
   'LessonFacesScreen.tsx': 'learn',
-  'LibraryStudioScreen.tsx': 'studio',
+  // LibraryStudioScreen retired (One Library Task 7): uploads, drafts and impact are shelf filters + Select.
   'SpaceManageScreen.tsx': 'studio',
   'SettingsScreen.tsx': 'studio',
   // A router shim: picks a tab and renders SpaceScreen. It has no UI of its
   // own, so the chrome rules have nothing to say about it.
   'SpaceRoute.tsx': 'shim',
+  // StudioHomeScreen retired (One Library Task 7): `/v4/library/studio` redirects to the shelf.
+  // The canvas: its own ground (studio-surface.css) — the reader's black by default, light as a toggle.
+  'StudioCanvasScreen.tsx': 'own-ground',
 };
 
 const ALL_SCREENS = readdirSync(join(SRC, 'screens')).filter((f) => f.endsWith('.tsx'));
