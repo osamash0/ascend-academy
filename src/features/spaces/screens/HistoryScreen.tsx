@@ -88,8 +88,8 @@ export default function HistoryScreen() {
     </Scene>
   );
 
-  if (screenState === 'loading') return chrome(<ListSkeleton label="Loading your history" />);
-  if (screenState === 'error') return chrome(<SpacesError what="your study history" />);
+  if (screenState === 'loading') return chrome(<ListSkeleton label="history" />);
+  if (screenState === 'error') return chrome(<SpacesError what="history" />);
 
   return chrome(
     <div className="relative mx-auto max-w-3xl px-6 pb-24 pt-8 lg:px-8">

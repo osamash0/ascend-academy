@@ -815,7 +815,11 @@ async def parse_pdf_unified(
         # ── 2. Lecture-level analysis (title + summary) ──────────────────────
         await emit("phase", {"phase": "enhance"})
         await emit("progress", {"current": 0, "total": total, "message": "Analyzing lecture…"})
-        if ai_mode:
+        # A photo or scan has no text layer: a model asked for a title from
+        # nothing invents one ("Introduction to Machine Learning" for notes on
+        # integrity constraints). With no text, the file name is the title.
+        has_text = any((s or "").strip() for s in raw_slides)
+        if ai_mode and has_text:
             from backend.services.parser.synthesis import analyze_lecture_meta
             try:
                 with llm_call_scope(prompt_name="LECTURE_META_ANALYSIS_PROMPT"):

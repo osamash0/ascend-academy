@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowRight, BookOpen, Check, PenLine } from 'lucide-react';
 import { PdfPage } from '@/components/pdf';
@@ -38,20 +39,22 @@ interface Props {
   onTeach?: (idea: IdeaEntry) => void;
 }
 
+/* What each state says, as keys; a proven idea's light outranks its progress. */
 const LIGHT_WORD: Record<Light, string | null> = {
-  lit: 'Tested right',
-  fading: 'Fading',
-  weak: 'To revisit',
+  lit: 'light.lit',
+  fading: 'light.fading',
+  weak: 'light.weak',
   dark: null,
 };
 
 const STATE: Record<Concept['progress'], string | null> = {
-  cleared: 'Cleared',
-  discovered: 'Read',
+  cleared: 'ideas.progress.cleared',
+  discovered: 'ideas.progress.discovered',
   untouched: null,
 };
 
 export function IdeaExplorer({ ideas, file, readHref, conceptHref, onTeach }: Props) {
+  const { t } = useTranslation('v4Space');
   const firstOpen = ideas.find((i) => i.concept.progress !== 'cleared') ?? ideas[0];
   const [on, setOn] = useState(firstOpen?.concept.id ?? '');
   const idea = ideas.find((i) => i.concept.id === on) ?? ideas[0];
@@ -73,9 +76,10 @@ export function IdeaExplorer({ ideas, file, readHref, conceptHref, onTeach }: Pr
 
   return (
     <div className="grid gap-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-      <ol role="tablist" aria-label="Ideas in this Lesson" className="space-y-1.5">
+      <ol role="tablist" aria-label={t('ideas.inLesson')} className="space-y-1.5">
         {ideas.map((it, i) => {
           const active = it.concept.id === idea.concept.id;
+          const word = it.light !== undefined ? LIGHT_WORD[it.light] : STATE[it.concept.progress];
           return (
             <li key={it.concept.id}>
               <button
@@ -115,10 +119,8 @@ export function IdeaExplorer({ ideas, file, readHref, conceptHref, onTeach }: Pr
                   <span className="block truncate text-[15px] font-medium">{it.concept.name}</span>
                   <span className="block text-[12.5px] text-faint">
                     {/* Said only when there is something to say: an unproven idea is just its pages. */}
-                    {(it.light !== undefined ? LIGHT_WORD[it.light] : STATE[it.concept.progress]) && (
-                      <>{it.light !== undefined ? LIGHT_WORD[it.light] : STATE[it.concept.progress]} · </>
-                    )}
-                    Pages {it.firstPage}–{it.lastPage}
+                    {word && <>{t(word)} · </>}
+                    {t('ideas.pageRange', { first: it.firstPage, last: it.lastPage })}
                   </span>
                 </span>
               </button>
@@ -143,7 +145,7 @@ export function IdeaExplorer({ ideas, file, readHref, conceptHref, onTeach }: Pr
               <PdfPage file={file} page={idea.previewPage} width={width} loading="" error="" />
             </div>
             <p className="mb-1 text-[12.5px] text-quiet">
-              {pages} page{pages === 1 ? '' : 's'}
+              {t('lesson.pages', { count: pages })}
             </p>
             <p className="mb-5 text-[20px] font-medium leading-[1.3] tracking-[-0.01em] text-foreground">{idea.gist}</p>
             <div className="flex flex-wrap gap-2">
@@ -152,7 +154,7 @@ export function IdeaExplorer({ ideas, file, readHref, conceptHref, onTeach }: Pr
                 className="console-focusable inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-[13.5px] font-medium text-background"
               >
                 <BookOpen aria-hidden className="h-4 w-4" />
-                Read from page {idea.firstPage}
+                {t('ideas.readFrom', { page: idea.firstPage })}
               </Link>
               {onTeach ? (
                 <button
@@ -161,14 +163,14 @@ export function IdeaExplorer({ ideas, file, readHref, conceptHref, onTeach }: Pr
                   className="console-focusable inline-flex h-10 items-center gap-2 rounded-full bg-white/[0.07] px-4 text-[13.5px] text-foreground transition-colors hover:bg-white/[0.12]"
                 >
                   <PenLine aria-hidden className="h-4 w-4" />
-                  Teach it back
+                  {t('ideas.teachBack')}
                 </button>
               ) : (
                 <Link
                   to={conceptHref(idea.concept.id)}
                   className="console-focusable inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-[13.5px] text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
                 >
-                  About this idea
+                  {t('ideas.about')}
                   <ArrowRight aria-hidden className="h-3.5 w-3.5" />
                 </Link>
               )}

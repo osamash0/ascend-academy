@@ -138,4 +138,5 @@ async def ask_course(
         ai_model=ai_model,
         threshold=DEFAULT_THRESHOLD,
         allow_ungrounded=allow_ungrounded,
+        user_id=user_id,
     )

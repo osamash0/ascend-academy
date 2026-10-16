@@ -82,10 +82,10 @@ export default function PersonScreen() {
   // All four states, on every screen. `?mock=loading|error` used to be a
   // no-op here, so these two had never been seen.
   if (screenState === 'loading') return chrome(<DetailSkeleton />);
-  if (screenState === 'error') return chrome(<SpacesError what="this profile" />);
+  if (screenState === 'error') return chrome(<SpacesError what="person" />);
 
   if (!person) {
-    return chrome(<NotFound what="person" backTo="/v4/social" backLabel="Back to Social" />);
+    return chrome(<NotFound what="person" back={{ to: '/v4/social', place: 'social' }} />);
   }
 
   /*

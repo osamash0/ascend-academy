@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { gradientFor } from '@/components/console';
@@ -44,6 +45,7 @@ export function LessonTile({
   markers,
   className,
 }: LessonTileProps) {
+  const { t } = useTranslation('v4Spaces');
   return (
     <div
       className={cn(
@@ -76,7 +78,7 @@ export function LessonTile({
       {done && (
         <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-success/90 px-2 py-[3px] text-[11px] font-medium text-white">
           <Check aria-hidden className="h-3 w-3" />
-          Done
+          {t('tiles.done')}
         </div>
       )}
 

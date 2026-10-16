@@ -1,3 +1,393 @@
 {
-  "_about": "v4 shared chrome: top bar, states, badges, dialogs, shared words"
+  "_about": "v4 shared chrome: top bar, states, badges, dialogs, shared words",
+  "badges": {
+    "official": "Official",
+    "community": "Community",
+    "grounded": "Grounded",
+    "notGrounded": "Not grounded",
+    "groundedHint": "Traces back to this Space’s source material.",
+    "notGroundedHint": "No supporting passage found. Not a judgement of correctness.",
+    "guided": "Guided",
+    "open": "Open",
+    "guidedHint": "Only the Owner and Editors publish into the path.",
+    "openHint": "Every Member can publish Lessons into the path.",
+    "visibility": {
+      "private": "Private",
+      "invite": "Invite",
+      "public": "Public"
+    },
+    "endorsed": "Endorsed",
+    "endorsedHint": "Endorsed by the Owner. Still community-authored.",
+    "star": {
+      "own_one": "{{count}} stars. You can’t star your own Space.",
+      "own_other": "{{count}} stars. You can’t star your own Space.",
+      "starred_one": "Starred. {{count}} stars. Tap to remove.",
+      "starred_other": "Starred. {{count}} stars. Tap to remove.",
+      "star_one": "Star this Space. {{count}} stars.",
+      "star_other": "Star this Space. {{count}} stars.",
+      "ownHint": "You can’t star your own Space."
+    },
+    "lessons_one": "{{count}} Lesson",
+    "lessons_other": "{{count}} Lessons"
+  },
+  "pager": {
+    "prev": "Previous Lesson: {{order}}. {{title}}",
+    "next": "Next Lesson: {{order}}. {{title}}",
+    "lesson": "Lesson {{order}}",
+    "label": "Lesson pager"
+  },
+  "states": {
+    "loading": {
+      "any": "Loading",
+      "spaces": "Loading your Spaces",
+      "profile": "Loading profile",
+      "social": "Loading social",
+      "moments": "Loading your moments",
+      "history": "Loading your history",
+      "rank": "Loading your rank"
+    },
+    "noSpaces": {
+      "title": "No Spaces yet",
+      "body": "A Space is where you keep one subject — its material, its practice, and the people learning it with you.",
+      "create": "Create your first Space",
+      "join": "Join with a code"
+    },
+    "nothingToDiscover": {
+      "title": "No public Spaces in {{scope}}",
+      "body": "Nobody has opened a Space here yet. Widen the search, or start one and let others join you.",
+      "widen": "Search everywhere"
+    },
+    "failed": {
+      "spaces": "Couldn’t load your Spaces",
+      "space": "Couldn’t load this Space",
+      "lesson": "Couldn’t load this Lesson",
+      "idea": "Couldn’t load this idea",
+      "practice": "Couldn’t load this practice",
+      "person": "Couldn’t load this profile",
+      "library": "Couldn’t load your Library",
+      "work": "Couldn’t load your work",
+      "profile": "Couldn’t load your profile",
+      "settings": "Couldn’t load your settings",
+      "people": "Couldn’t load your people",
+      "moments": "Couldn’t load your moments",
+      "history": "Couldn’t load your study history",
+      "rank": "Couldn’t load your rank",
+      "next": "Couldn’t load your next thing",
+      "material": "Couldn’t load this Material",
+      "body": "The connection dropped on the way. Nothing of yours is lost.",
+      "retry": "Try again"
+    },
+    "missing": {
+      "space": "That Space isn’t here",
+      "lesson": "That Lesson isn’t here",
+      "idea": "That idea isn’t here",
+      "person": "That person isn’t here",
+      "screen": "That screen isn’t here",
+      "material": "That Material isn’t here",
+      "body": "It may have been removed, or the link may be wrong. Nothing of yours is affected."
+    },
+    "back": {
+      "space": "Back to {{name}}",
+      "spaces": "Back to Spaces",
+      "library": "Back to Library",
+      "social": "Back to Social"
+    }
+  },
+  "nav": {
+    "home": "Home",
+    "spaces": "Spaces",
+    "library": "Library",
+    "social": "Social",
+    "profile": "Profile",
+    "main": "Main",
+    "account": "Open account menu",
+    "xp": "{{xp}} XP",
+    "ask": "Ask anything",
+    "search": "Search",
+    "settings": "Settings",
+    "notWired": "Not wired in this design build",
+    "signOut": "Sign out — not wired in this design build"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "unread_one": "Notifications, {{count}} unread",
+    "unread_other": "Notifications, {{count}} unread",
+    "unreadDot": "Unread",
+    "markAllRead": "Mark all read",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "empty": {
+      "title": "Nothing yet",
+      "body": "When someone likes or endorses your work, or a Space you are in publishes something, it turns up here."
+    }
+  },
+  "search": {
+    "title": "Search",
+    "placeholder": "Search Spaces, Lessons and ideas…",
+    "label": "Search Spaces, Lessons and ideas",
+    "results": "Search results",
+    "count_one": "{{count}} result",
+    "count_other": "{{count}} results",
+    "none": "No results",
+    "hint": "Type to search what you can already see — your Spaces, and public ones.",
+    "noMatch": "Nothing matches “{{query}}”.",
+    "group": {
+      "spaces": "Spaces",
+      "lessons": "Lessons",
+      "ideas": "Ideas",
+      "community": "From the community"
+    }
+  },
+  "ask": {
+    "send": "Ask Luna"
+  },
+  "home": {
+    "greeting": {
+      "night": "Still up, {{name}}",
+      "morning": "Good morning, {{name}}",
+      "afternoon": "Good afternoon, {{name}}",
+      "evening": "Good evening, {{name}}"
+    },
+    "streak_one": "{{count}} day in a row",
+    "streak_other": "{{count}} days in a row",
+    "focus": "What should we focus on?",
+    "askPlaceholder": "Ask about your Spaces, Lessons or practice…",
+    "reason": {
+      "continue": "In progress",
+      "next": "Up next",
+      "review": "Due for review",
+      "new": "New since you were here"
+    },
+    "heroContinue": "Pick up where you left off",
+    "percentRead": "{{percent}}% read",
+    "continue": "Continue",
+    "start": "Start",
+    "alsoToday": "Also today",
+    "recent": "Recently viewed",
+    "lessonIn": "{{space}} · Lesson {{order}}",
+    "feedLabel": "{{reason}}: {{title}}, Lesson {{order}} in {{space}}",
+    "recentLabel": "{{title}}, Lesson {{order}} in {{space}}",
+    "open": "Open",
+    "caughtUp": {
+      "title": "You are caught up, {{name}}",
+      "body": "Everything in your Spaces is done. Nothing is waiting — come back when something new is published, or go back over what you have already cleared.",
+      "review": "Review something",
+      "find": "Find another Space"
+    },
+    "empty": {
+      "body": "Nothing to pick up yet. Start a Space for something you’re learning, or join one with a code from someone else.",
+      "create": "Create a Space",
+      "join": "Join with a code"
+    }
+  },
+  "hub": {
+    "discover": {
+      "title": "Find your next space",
+      "desc": "Browse Spaces across every subject people here are learning. Join in one click — leave whenever you want.",
+      "notJoined_one": "<b>{{count}}</b> Space you have not joined",
+      "notJoined_other": "<b>{{count}}</b> Spaces you have not joined",
+      "browse": "Browse Spaces"
+    },
+    "meta": {
+      "public": "Public",
+      "invite": "Invite only",
+      "members_one": "<b>{{n}}</b> member",
+      "members_other": "<b>{{n}}</b> members",
+      "online": "<b>{{n}}</b> online"
+    },
+    "action": {
+      "member": "Enter",
+      "joinable": "Join",
+      "request": "Request access",
+      "pending": "Requested"
+    },
+    "sort": {
+      "active": "Last active",
+      "name": "A–Z"
+    },
+    "rail": {
+      "jumpBackIn": "Jump back in",
+      "worthALook": "Worth a look",
+      "popular": "Popular right now",
+      "newThisWeek": "New this week"
+    },
+    "archived": {
+      "summary": "Archived · {{count}}",
+      "body": "Read-only, and they keep everything you did. Nothing here earns XP."
+    },
+    "legacy": {
+      "title": "Spaces",
+      "tabs": {
+        "mine": "mine",
+        "discover": "discover"
+      },
+      "newSpace": "New Space",
+      "sortBy": "Sort by",
+      "sorts": {
+        "recent": "Last active",
+        "alpha": "Name (A–Z)",
+        "progress": "Progress"
+      },
+      "groups": {
+        "discover": "Public Spaces",
+        "created": "Created by you",
+        "createdNote": "Drafts and activity, not your own progress",
+        "joined": "Joined",
+        "archived": "Archived",
+        "archivedNote": "Read-only. Progress kept, no XP earned"
+      },
+      "hideArchived": "Hide archived",
+      "showArchived_one": "Show {{count}} archived Space",
+      "showArchived_other": "Show {{count}} archived Spaces",
+      "hints": {
+        "browse": "Browse",
+        "open": "Open"
+      }
+    },
+    "cards": {
+      "seeAll": "See all",
+      "newActivity": "new activity",
+      "online_one": "{{n}} online",
+      "online_other": "{{n}} online",
+      "ofTheWeek": "Space of the week",
+      "youAreMember": "You are a member",
+      "inviteOnly": "Invite only",
+      "inviteOnlyShort": "invite only",
+      "members_one": "{{n}} member",
+      "members_other": "{{n}} members",
+      "pending": "You have asked to join. Waiting on the Owner."
+    },
+    "chips": {
+      "yours": "Your spaces",
+      "newLessons_one": "{{count}} new Lesson",
+      "newLessons_other": "{{count}} new Lessons",
+      "discover": "Discover spaces"
+    }
+  },
+  "tiles": {
+    "label": {
+      "owned": "You own this Space.",
+      "archived": "Archived.",
+      "processing": "Still processing.",
+      "complete": "{{percent}}% complete.",
+      "members_one": "{{n}} member.",
+      "members_other": "{{n}} members."
+    },
+    "archived": "Archived",
+    "done": "Done",
+    "new": "{{count}} new",
+    "percent": "{{percent}}%",
+    "drafts_one": "{{n}} draft",
+    "drafts_other": "{{n}} drafts",
+    "members_one": "{{n}} member",
+    "members_other": "{{n}} members",
+    "stars_one": "{{n}} star",
+    "stars_other": "{{n}} stars"
+  },
+  "ascent": {
+    "empty": "Nothing to light yet. Your journey fills in as you work through a Space.",
+    "cleared": "<b>{{cleared}}</b><n> / {{total}}</n> Spaces cleared",
+    "lessons": "<n>{{done}}/{{total}}</n> Lessons",
+    "folded": "{{count}} further folded",
+    "label": "Your journey: {{cleared}} of {{total}} Spaces cleared, {{done}} of {{lessons}} Lessons.",
+    "node": "{{name}}. {{done}} of {{total}} Lessons cleared.",
+    "nodeTitle": "{{name}} — {{done}} of {{total}} Lessons cleared"
+  },
+  "stage": {},
+  "shell": {},
+  "dialogs": {
+    "mode": {
+      "guided": "Only you and your Editors publish Lessons. Members still contribute alongside them.",
+      "open": "Every Member can publish Lessons, credited to them. Good for learning together."
+    },
+    "visibility": {
+      "private": "Only you.",
+      "invite": "Anyone with the code or link.",
+      "public": "Anyone can find and join, one tap."
+    },
+    "newSpace": {
+      "title": "New Space",
+      "description": "A Space is one subject, its material, and the people learning it with you. You can change any of this later.",
+      "name": "Name",
+      "namePlaceholder": "Database Systems",
+      "whoPublishes": "Who can publish Lessons",
+      "modeGroup": "Mode",
+      "whoSees": "Who can see it",
+      "visibilityGroup": "Visibility",
+      "create": "Create and open it"
+    },
+    "join": {
+      "title": "Join with a code",
+      "description": "Six characters, from whoever runs the Space.",
+      "codeLabel": "Join code",
+      "owner": "Owner",
+      "members_one": "{{n}} Member",
+      "members_other": "{{n}} Members",
+      "notFound": "No Space uses that code. Check it with whoever sent it.",
+      "join": "Join",
+      "joinNamed": "Join {{name}}"
+    },
+    "code": {
+      "copy": "Copy code",
+      "copied": "Copied"
+    },
+    "addLesson": {
+      "title": "Add a Lesson",
+      "description": "It starts as a draft in {{space}}. Only you and the people who maintain this Space can see a draft — nothing is published until you say so.",
+      "titleLabel": "What is it about",
+      "titlePlaceholder": "Normalization",
+      "noUpload": "In the finished product you would attach material here and the Lesson would build itself from it. This design build creates the draft and stops there.",
+      "create": "Create the draft and open it"
+    },
+    "contribute": {
+      "title": "Contribute",
+      "description": "Everyone in {{space}} will see this, with your name on it. For something private, write a note instead.",
+      "kind": "What kind",
+      "kindGroup": "Kind",
+      "kinds": {
+        "text": {
+          "label": "A write-up",
+          "blurb": "An explanation, a worked example, a summary."
+        },
+        "practice-set": {
+          "label": "Practice",
+          "blurb": "Questions with worked answers."
+        },
+        "link": {
+          "label": "A link",
+          "blurb": "Something useful that lives elsewhere."
+        }
+      },
+      "titleLabel": "Title",
+      "titlePlaceholder": "The one example that made it click",
+      "body": "The useful part",
+      "bodyPlaceholder": "Write the thing you wish had been there when you were stuck.",
+      "publish": "Publish to {{space}}",
+      "published": "Published to the Space",
+      "publishedHint": "Members can see it now. You cannot like your own work."
+    }
+  },
+  "reanchor": {
+    "title": "Find it a new home",
+    "description": "The Lesson “{{title}}” was attached to is gone. Pick another one in {{space}} and it will sit there instead, with its likes and its endorsement intact.",
+    "empty": "{{space}} has no published Lessons to move this into yet. Your work stays where it is, and nothing is lost — try again once a Lesson is published.",
+    "lessons": "Lessons",
+    "cancel": "Cancel",
+    "confirm": "Move it here",
+    "pickFirst": "Pick a Lesson first",
+    "failed": "Could not move it",
+    "failedHint": "That Lesson is no longer available. Nothing was changed.",
+    "moved": "Moved",
+    "movedHint": "“{{title}}” now sits in {{lesson}}.",
+    "newLesson": "its new Lesson"
+  },
+  "notes": {
+    "write": "Write a note",
+    "edit": "Edit note: {{note}}",
+    "label": "Note",
+    "placeholder": "Write it down while it is fresh…",
+    "hint": "Saves when you click away · Esc to cancel",
+    "delete": "Delete this note",
+    "done": "Done"
+  }
 }

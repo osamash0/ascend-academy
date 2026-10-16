@@ -1,3 +1,393 @@
 {
-  "_about": "v4: gemeinsame Oberfläche – Kopfleiste, Zustände, Abzeichen, Dialoge, gemeinsame Wörter"
+  "_about": "v4: gemeinsame Oberfläche – Kopfleiste, Zustände, Abzeichen, Dialoge, gemeinsame Wörter",
+  "badges": {
+    "official": "Offiziell",
+    "community": "Community",
+    "grounded": "Mit Quelle",
+    "notGrounded": "Ohne Quelle",
+    "groundedHint": "Lässt sich auf das Quellmaterial dieses Spaces zurückführen.",
+    "notGroundedHint": "Keine passende Stelle gefunden. Das sagt nichts darüber, ob es stimmt.",
+    "guided": "Geführt",
+    "open": "Offen",
+    "guidedHint": "Nur Inhaber:in und Bearbeiter:innen veröffentlichen in den Pfad.",
+    "openHint": "Jedes Mitglied kann Lektionen in den Pfad veröffentlichen.",
+    "visibility": {
+      "private": "Privat",
+      "invite": "Mit Einladung",
+      "public": "Öffentlich"
+    },
+    "endorsed": "Empfohlen",
+    "endorsedHint": "Von der Inhaberin oder dem Inhaber empfohlen. Bleibt ein Beitrag der Community.",
+    "star": {
+      "own_one": "{{count}} Stern. Deinen eigenen Space kannst du nicht markieren.",
+      "own_other": "{{count}} Sterne. Deinen eigenen Space kannst du nicht markieren.",
+      "starred_one": "Markiert. {{count}} Stern. Tippen zum Entfernen.",
+      "starred_other": "Markiert. {{count}} Sterne. Tippen zum Entfernen.",
+      "star_one": "Diesen Space mit einem Stern markieren. {{count}} Stern.",
+      "star_other": "Diesen Space mit einem Stern markieren. {{count}} Sterne.",
+      "ownHint": "Deinen eigenen Space kannst du nicht markieren."
+    },
+    "lessons_one": "{{count}} Lektion",
+    "lessons_other": "{{count}} Lektionen"
+  },
+  "pager": {
+    "prev": "Vorherige Lektion: {{order}}. {{title}}",
+    "next": "Nächste Lektion: {{order}}. {{title}}",
+    "lesson": "Lektion {{order}}",
+    "label": "Zwischen Lektionen wechseln"
+  },
+  "states": {
+    "loading": {
+      "any": "Wird geladen",
+      "spaces": "Deine Spaces werden geladen",
+      "profile": "Profil wird geladen",
+      "social": "Deine Leute werden geladen",
+      "moments": "Deine Momente werden geladen",
+      "history": "Dein Verlauf wird geladen",
+      "rank": "Dein Rang wird geladen"
+    },
+    "noSpaces": {
+      "title": "Noch keine Spaces",
+      "body": "In einem Space hältst du ein Fach zusammen – sein Material, seine Übungen und die Leute, die es mit dir lernen.",
+      "create": "Deinen ersten Space erstellen",
+      "join": "Mit Code beitreten"
+    },
+    "nothingToDiscover": {
+      "title": "Keine öffentlichen Spaces in {{scope}}",
+      "body": "Hier hat noch niemand einen Space eröffnet. Such breiter – oder starte einen und lass andere dazukommen.",
+      "widen": "Überall suchen"
+    },
+    "failed": {
+      "spaces": "Deine Spaces konnten nicht geladen werden",
+      "space": "Dieser Space konnte nicht geladen werden",
+      "lesson": "Diese Lektion konnte nicht geladen werden",
+      "idea": "Diese Idee konnte nicht geladen werden",
+      "practice": "Diese Übung konnte nicht geladen werden",
+      "person": "Dieses Profil konnte nicht geladen werden",
+      "library": "Deine Bibliothek konnte nicht geladen werden",
+      "work": "Deine Arbeit konnte nicht geladen werden",
+      "profile": "Dein Profil konnte nicht geladen werden",
+      "settings": "Deine Einstellungen konnten nicht geladen werden",
+      "people": "Deine Leute konnten nicht geladen werden",
+      "moments": "Deine Momente konnten nicht geladen werden",
+      "history": "Dein Lernverlauf konnte nicht geladen werden",
+      "rank": "Dein Rang konnte nicht geladen werden",
+      "next": "Dein nächster Schritt konnte nicht geladen werden",
+      "material": "Dieses Material konnte nicht geladen werden",
+      "body": "Die Verbindung ist unterwegs abgebrochen. Von deinen Sachen ist nichts verloren.",
+      "retry": "Noch mal versuchen"
+    },
+    "missing": {
+      "space": "Diesen Space gibt es hier nicht",
+      "lesson": "Diese Lektion gibt es hier nicht",
+      "idea": "Diese Idee gibt es hier nicht",
+      "person": "Diese Person gibt es hier nicht",
+      "screen": "Diese Ansicht gibt es hier nicht",
+      "material": "Dieses Material gibt es hier nicht",
+      "body": "Vielleicht wurde das entfernt, oder der Link stimmt nicht. Deine Sachen sind davon nicht betroffen."
+    },
+    "back": {
+      "space": "Zurück zu {{name}}",
+      "spaces": "Zurück zu den Spaces",
+      "library": "Zurück zur Bibliothek",
+      "social": "Zurück zu deinen Leuten"
+    }
+  },
+  "nav": {
+    "home": "Start",
+    "spaces": "Spaces",
+    "library": "Bibliothek",
+    "social": "Leute",
+    "profile": "Profil",
+    "main": "Hauptnavigation",
+    "account": "Kontomenü öffnen",
+    "xp": "{{xp}} XP",
+    "ask": "Frag, was du willst",
+    "search": "Suchen",
+    "settings": "Einstellungen",
+    "notWired": "In diesem Design-Build noch nicht angebunden",
+    "signOut": "Abmelden – in diesem Design-Build noch nicht angebunden"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "unread_one": "Benachrichtigungen, {{count}} ungelesen",
+    "unread_other": "Benachrichtigungen, {{count}} ungelesen",
+    "unreadDot": "Ungelesen",
+    "markAllRead": "Alle als gelesen markieren",
+    "today": "Heute",
+    "yesterday": "Gestern",
+    "empty": {
+      "title": "Noch nichts da",
+      "body": "Wenn jemand deine Arbeit likt oder empfiehlt, siehst du es hier. Genauso, wenn ein Space, in dem du bist, etwas veröffentlicht."
+    }
+  },
+  "search": {
+    "title": "Suche",
+    "placeholder": "Spaces, Lektionen und Ideen durchsuchen…",
+    "label": "Spaces, Lektionen und Ideen durchsuchen",
+    "results": "Suchergebnisse",
+    "count_one": "{{count}} Ergebnis",
+    "count_other": "{{count}} Ergebnisse",
+    "none": "Keine Ergebnisse",
+    "hint": "Tipp etwas ein. Gesucht wird in allem, was du schon sehen kannst: deinen Spaces und den öffentlichen.",
+    "noMatch": "Nichts passt zu „{{query}}“.",
+    "group": {
+      "spaces": "Spaces",
+      "lessons": "Lektionen",
+      "ideas": "Ideen",
+      "community": "Aus der Community"
+    }
+  },
+  "ask": {
+    "send": "Luna fragen"
+  },
+  "home": {
+    "greeting": {
+      "night": "Noch wach, {{name}}",
+      "morning": "Guten Morgen, {{name}}",
+      "afternoon": "Guten Tag, {{name}}",
+      "evening": "Guten Abend, {{name}}"
+    },
+    "streak_one": "{{count}} Tag in Folge",
+    "streak_other": "{{count}} Tage in Folge",
+    "focus": "Worauf konzentrieren wir uns?",
+    "askPlaceholder": "Frag etwas zu deinen Spaces, Lektionen oder Übungen …",
+    "reason": {
+      "continue": "Angefangen",
+      "next": "Als Nächstes",
+      "review": "Zum Wiederholen fällig",
+      "new": "Neu seit deinem letzten Besuch"
+    },
+    "heroContinue": "Mach da weiter, wo du aufgehört hast",
+    "percentRead": "{{percent}} % gelesen",
+    "continue": "Weiter",
+    "start": "Starten",
+    "alsoToday": "Außerdem heute",
+    "recent": "Zuletzt angesehen",
+    "lessonIn": "{{space}} · Lektion {{order}}",
+    "feedLabel": "{{reason}}: {{title}}, Lektion {{order}} in {{space}}",
+    "recentLabel": "{{title}}, Lektion {{order}} in {{space}}",
+    "open": "Öffnen",
+    "caughtUp": {
+      "title": "Du bist auf dem neuesten Stand, {{name}}",
+      "body": "In deinen Spaces ist alles erledigt. Gerade wartet nichts auf dich. Schau wieder vorbei, wenn etwas Neues erscheint – oder geh noch einmal durch, was du schon geschafft hast.",
+      "review": "Etwas wiederholen",
+      "find": "Weiteren Space finden"
+    },
+    "empty": {
+      "body": "Noch gibt es nichts zum Weitermachen. Starte einen Space für etwas, das du lernst. Oder tritt einem Space mit einem Code bei, den du von jemandem bekommen hast.",
+      "create": "Space erstellen",
+      "join": "Mit Code beitreten"
+    }
+  },
+  "hub": {
+    "discover": {
+      "title": "Finde deinen nächsten Space",
+      "desc": "Stöbere in Spaces zu allen Fächern, die hier gelernt werden. Mit einem Klick beitreten, jederzeit wieder gehen.",
+      "notJoined_one": "<b>{{count}}</b> Space, dem du noch nicht beigetreten bist",
+      "notJoined_other": "<b>{{count}}</b> Spaces, denen du noch nicht beigetreten bist",
+      "browse": "Spaces ansehen"
+    },
+    "meta": {
+      "public": "Öffentlich",
+      "invite": "Nur mit Einladung",
+      "members_one": "<b>{{n}}</b> Mitglied",
+      "members_other": "<b>{{n}}</b> Mitglieder",
+      "online": "<b>{{n}}</b> online"
+    },
+    "action": {
+      "member": "Betreten",
+      "joinable": "Beitreten",
+      "request": "Zugang anfragen",
+      "pending": "Angefragt"
+    },
+    "sort": {
+      "active": "Zuletzt aktiv",
+      "name": "A–Z"
+    },
+    "rail": {
+      "jumpBackIn": "Weitermachen",
+      "worthALook": "Einen Blick wert",
+      "popular": "Gerade beliebt",
+      "newThisWeek": "Neu diese Woche"
+    },
+    "archived": {
+      "summary": "Archiviert · {{count}}",
+      "body": "Nur lesbar. Alles, was du dort gemacht hast, bleibt erhalten. Hier gibt es keine XP."
+    },
+    "legacy": {
+      "title": "Spaces",
+      "tabs": {
+        "mine": "Meine",
+        "discover": "Entdecken"
+      },
+      "newSpace": "Neuer Space",
+      "sortBy": "Sortieren nach",
+      "sorts": {
+        "recent": "Zuletzt aktiv",
+        "alpha": "Name (A–Z)",
+        "progress": "Fortschritt"
+      },
+      "groups": {
+        "discover": "Öffentliche Spaces",
+        "created": "Von dir erstellt",
+        "createdNote": "Entwürfe und Aktivität, nicht dein eigener Fortschritt",
+        "joined": "Beigetreten",
+        "archived": "Archiviert",
+        "archivedNote": "Nur lesbar. Fortschritt bleibt, keine XP"
+      },
+      "hideArchived": "Archivierte ausblenden",
+      "showArchived_one": "{{count}} archivierten Space anzeigen",
+      "showArchived_other": "{{count}} archivierte Spaces anzeigen",
+      "hints": {
+        "browse": "Blättern",
+        "open": "Öffnen"
+      }
+    },
+    "cards": {
+      "seeAll": "Alle ansehen",
+      "newActivity": "Neues",
+      "online_one": "{{n}} online",
+      "online_other": "{{n}} online",
+      "ofTheWeek": "Space der Woche",
+      "youAreMember": "Du bist Mitglied",
+      "inviteOnly": "Nur mit Einladung",
+      "inviteOnlyShort": "nur mit Einladung",
+      "members_one": "{{n}} Mitglied",
+      "members_other": "{{n}} Mitglieder",
+      "pending": "Du hast um Beitritt gebeten. Die Zustimmung steht noch aus."
+    },
+    "chips": {
+      "yours": "Deine Spaces",
+      "newLessons_one": "{{count}} neue Lektion",
+      "newLessons_other": "{{count}} neue Lektionen",
+      "discover": "Spaces entdecken"
+    }
+  },
+  "tiles": {
+    "label": {
+      "owned": "Dieser Space gehört dir.",
+      "archived": "Archiviert.",
+      "processing": "Wird noch verarbeitet.",
+      "complete": "{{percent}} % erledigt.",
+      "members_one": "{{n}} Mitglied.",
+      "members_other": "{{n}} Mitglieder."
+    },
+    "archived": "Archiviert",
+    "done": "Fertig",
+    "new": "{{count}} neu",
+    "percent": "{{percent}} %",
+    "drafts_one": "{{n}} Entwurf",
+    "drafts_other": "{{n}} Entwürfe",
+    "members_one": "{{n}} Mitglied",
+    "members_other": "{{n}} Mitglieder",
+    "stars_one": "{{n}} Stern",
+    "stars_other": "{{n}} Sterne"
+  },
+  "ascent": {
+    "empty": "Noch leuchtet nichts. Dein Weg füllt sich, sobald du in einem Space vorankommst.",
+    "cleared": "<b>{{cleared}}</b><n> / {{total}}</n> Spaces abgeschlossen",
+    "lessons": "<n>{{done}}/{{total}}</n> Lektionen",
+    "folded": "{{count}} weitere eingeklappt",
+    "label": "Dein Weg: {{cleared}} von {{total}} Spaces abgeschlossen, {{done}} von {{lessons}} Lektionen.",
+    "node": "{{name}}. {{done}} von {{total}} Lektionen abgeschlossen.",
+    "nodeTitle": "{{name}} – {{done}} von {{total}} Lektionen abgeschlossen"
+  },
+  "stage": {},
+  "shell": {},
+  "dialogs": {
+    "mode": {
+      "guided": "Nur du und deine Bearbeiter:innen veröffentlichen Lektionen. Mitglieder können trotzdem beitragen.",
+      "open": "Jedes Mitglied kann Lektionen veröffentlichen, unter eigenem Namen. Gut, um gemeinsam zu lernen."
+    },
+    "visibility": {
+      "private": "Nur du.",
+      "invite": "Alle mit dem Code oder Link.",
+      "public": "Alle können ihn finden und mit einem Tippen beitreten."
+    },
+    "newSpace": {
+      "title": "Neuer Space",
+      "description": "Ein Space ist ein Fach, sein Material und die Leute, die es mit dir lernen. Du kannst alles später ändern.",
+      "name": "Name",
+      "namePlaceholder": "Datenbanksysteme",
+      "whoPublishes": "Wer Lektionen veröffentlichen darf",
+      "modeGroup": "Modus",
+      "whoSees": "Wer ihn sehen kann",
+      "visibilityGroup": "Sichtbarkeit",
+      "create": "Erstellen und öffnen"
+    },
+    "join": {
+      "title": "Mit Code beitreten",
+      "description": "Sechs Zeichen, von der Person, die den Space führt.",
+      "codeLabel": "Beitrittscode",
+      "owner": "Inhaber:in",
+      "members_one": "{{n}} Mitglied",
+      "members_other": "{{n}} Mitglieder",
+      "notFound": "Kein Space nutzt diesen Code. Frag bei der Person nach, die ihn dir geschickt hat.",
+      "join": "Beitreten",
+      "joinNamed": "{{name}} beitreten"
+    },
+    "code": {
+      "copy": "Code kopieren",
+      "copied": "Kopiert"
+    },
+    "addLesson": {
+      "title": "Lektion hinzufügen",
+      "description": "Sie beginnt als Entwurf in {{space}}. Einen Entwurf sehen nur du und die Leute, die den Space pflegen. Veröffentlicht wird erst, wenn du es sagst.",
+      "titleLabel": "Worum geht es",
+      "titlePlaceholder": "Normalisierung",
+      "noUpload": "Im fertigen Produkt hängst du hier Material an, und die Lektion baut sich daraus auf. Dieser Design-Build legt nur den Entwurf an.",
+      "create": "Entwurf anlegen und öffnen"
+    },
+    "contribute": {
+      "title": "Beitragen",
+      "description": "Alle in {{space}} sehen das, mit deinem Namen. Für etwas Privates schreib lieber eine Notiz.",
+      "kind": "Welche Art",
+      "kindGroup": "Art",
+      "kinds": {
+        "text": {
+          "label": "Ein Text",
+          "blurb": "Eine Erklärung, ein durchgerechnetes Beispiel, eine Zusammenfassung."
+        },
+        "practice-set": {
+          "label": "Übung",
+          "blurb": "Fragen mit ausgearbeiteten Antworten."
+        },
+        "link": {
+          "label": "Ein Link",
+          "blurb": "Etwas Nützliches, das woanders liegt."
+        }
+      },
+      "titleLabel": "Titel",
+      "titlePlaceholder": "Das eine Beispiel, bei dem es Klick gemacht hat",
+      "body": "Der nützliche Teil",
+      "bodyPlaceholder": "Schreib auf, was dir gefehlt hat, als du festgesteckt hast.",
+      "publish": "In {{space}} veröffentlichen",
+      "published": "Im Space veröffentlicht",
+      "publishedHint": "Mitglieder sehen es jetzt. Deine eigene Arbeit kannst du nicht liken."
+    }
+  },
+  "reanchor": {
+    "title": "Neuen Platz finden",
+    "description": "Die Lektion, an der „{{title}}“ hing, gibt es nicht mehr. Wähl eine andere in {{space}}. Dort steht es dann, mit seinen Likes und seiner Empfehlung.",
+    "empty": "{{space}} hat noch keine veröffentlichten Lektionen, in die das passt. Deine Arbeit bleibt, wo sie ist, und nichts geht verloren. Versuch es wieder, sobald eine Lektion veröffentlicht ist.",
+    "lessons": "Lektionen",
+    "cancel": "Abbrechen",
+    "confirm": "Hierhin verschieben",
+    "pickFirst": "Wähl zuerst eine Lektion",
+    "failed": "Wir konnten es nicht verschieben",
+    "failedHint": "Diese Lektion gibt es nicht mehr. Es wurde nichts geändert.",
+    "moved": "Verschoben",
+    "movedHint": "„{{title}}“ steht jetzt in {{lesson}}.",
+    "newLesson": "seiner neuen Lektion"
+  },
+  "notes": {
+    "write": "Notiz schreiben",
+    "edit": "Notiz bearbeiten: {{note}}",
+    "label": "Notiz",
+    "placeholder": "Schreib es auf, solange es frisch ist …",
+    "hint": "Speichert, wenn du woanders klickst · Esc zum Abbrechen",
+    "delete": "Diese Notiz löschen",
+    "done": "Fertig"
+  }
 }

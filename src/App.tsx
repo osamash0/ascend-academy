@@ -123,6 +123,7 @@ const V4Person = lazy(() => import("./features/spaces/screens/PersonScreen"));
 const V4Reader = lazy(() => import("./features/spaces/screens/ReaderScreen"));
 const V4LessonFaces = lazy(() => import("./features/spaces/screens/LessonFacesScreen"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const LaunchControl = lazy(() => import("./pages/LaunchControl"));
 const FriendsHub = lazy(() => import("./features/social/pages/FriendsHub"));
 const SocialProfile = lazy(() => import("./features/social/pages/SocialProfile"));
 const FriendProfile = lazy(() => import("./features/social/pages/FriendProfile"));
@@ -664,6 +665,14 @@ function AppRoutes() {
         )}
 
         {/* Admin routes */}
+        <Route
+          path="/admin/launch"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <LaunchControl />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/admin/dashboard"
           element={

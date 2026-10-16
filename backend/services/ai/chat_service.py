@@ -85,6 +85,7 @@ async def process_chat_request(
             pdf_hash=safe_pdf_hash,
             current_slide_index=current_slide_index,
             response_language=response_language,
+            user_id=user_id,
         )
         reply_text = result if isinstance(result, str) else result.get("reply", "")
         

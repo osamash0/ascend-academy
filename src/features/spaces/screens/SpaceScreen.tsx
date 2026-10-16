@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowLeft, ChevronDown, ChevronUp, MessageSquare, Play, Plus, Settings2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -35,6 +36,7 @@ import {
   whitePillSm,
 } from '../components/stage';
 import { AddLessonDialog, ContributeDialog } from '../components/SpaceDialogs';
+import { formatNumber } from '../i18n/format';
 
 /**
  * One Space.
@@ -61,10 +63,11 @@ export type SpaceTab = 'overview' | 'map' | 'members';
 /** How many Lessons the path shows before it offers "Show more". */
 const COLLAPSED_LESSONS = 4;
 
-const ROLE_LABEL: Record<Role, string> = {
-  owner: 'Owner',
-  editor: 'Editor',
-  member: 'Member',
+/** Keys under `v4Space:demo.roles`, translated at render. */
+const ROLE_KEY: Record<Role, string> = {
+  owner: 'demo.roles.owner',
+  editor: 'demo.roles.editor',
+  member: 'demo.roles.member',
 };
 
 export default function SpaceScreen({
@@ -76,10 +79,11 @@ export default function SpaceScreen({
   tab?: SpaceTab;
 }) {
   const viewer = useViewer();
+  const { t } = useTranslation('v4Space');
   const navigate = useNavigate();
   /** Tabs are routes, so switching one is navigation, not local state. */
-  const setTab = (t: SpaceTab) =>
-    navigate(t === 'overview' ? `/v4/space/${spaceId}` : `/v4/space/${spaceId}/${t}`);
+  const setTab = (next: SpaceTab) =>
+    navigate(next === 'overview' ? `/v4/space/${spaceId}` : `/v4/space/${spaceId}/${next}`);
   const { state, space, lessons, contributions, members } = useSpace(spaceId);
   /*
    * The path collapses by default. Doc 2 rule 3 names the problem — "in a
@@ -177,7 +181,7 @@ export default function SpaceScreen({
   );
 
   if (state === 'loading') return chrome(<SpacesSkeleton />);
-  if (state === 'error' || !space) return chrome(<SpacesError what="this Space" />);
+  if (state === 'error' || !space) return chrome(<SpacesError what="space" />);
 
   const owned = space.viewerRole === 'owner';
   const isEditor = owned || space.viewerRole === 'editor';
@@ -232,7 +236,7 @@ export default function SpaceScreen({
             <>
               {/* The Owner is a person, not a label: their own astronaut,
                   and a way to their profile. */}
-              <AuthorLine person={space.owner} prefix="Owner" linkToProfile />
+              <AuthorLine person={space.owner} prefix={t('demo.header.owner')} linkToProfile />
               <StarButton spaceId={space.id} viewerOwns={owned} />
               {/* Settings is a separate Studio screen, never a fourth tab. */}
               {owned && (
@@ -242,12 +246,12 @@ export default function SpaceScreen({
                   className={ghostPillSm}
                 >
                   <Settings2 aria-hidden className="h-3.5 w-3.5" />
-                  Manage
+                  {t('demo.header.manage')}
                 </button>
               )}
               {space.state === 'archived' && (
                 <span className="rounded-full bg-white/[0.06] px-2.5 py-[3px] text-[11.5px] font-medium text-quiet">
-                  Archived
+                  {t('demo.header.archived')}
                 </span>
               )}
             </>
@@ -261,7 +265,7 @@ export default function SpaceScreen({
         */}
         {space.state === 'archived' && (
           <Notice className="mx-auto mt-5 max-w-xl">
-            This Space is read-only. Your progress is kept, and nothing here earns XP.
+            {t('demo.header.archivedNotice')}
           </Notice>
         )}
 
@@ -277,11 +281,15 @@ export default function SpaceScreen({
             <UpNext
               to={`/v4/space/${space.id}/lesson/${nextLesson.id}`}
               number={nextLesson.order}
-              kicker={nextLesson.percentComplete > 0 ? `${nextLesson.percentComplete}% read` : 'Up next'}
+              kicker={
+                nextLesson.percentComplete > 0
+                  ? t('demo.upNext.percentRead', { percent: nextLesson.percentComplete })
+                  : t('demo.upNext.kicker')
+              }
               title={nextLesson.title}
               percent={nextLesson.percentComplete}
               accent={accent}
-              verb={space.viewerProgress > 0 ? 'Continue' : 'Start'}
+              verb={space.viewerProgress > 0 ? t('demo.upNext.continue') : t('demo.upNext.start')}
             />
           </div>
         )}
@@ -294,7 +302,10 @@ export default function SpaceScreen({
                 <li key={l.id}>
                   <Link
                     to={`/v4/space/${space.id}/lesson/${l.id}`}
-                    aria-label={`Lesson ${l.order}, ${l.title}${l.progress === 'done' ? ', done' : ''}`}
+                    aria-label={t(l.progress === 'done' ? 'demo.glance.segmentDone' : 'demo.glance.segment', {
+                      order: l.order,
+                      title: l.title,
+                    })}
                     title={`${l.order}. ${l.title}`}
                     className="console-focusable block py-1.5"
                   >
@@ -310,7 +321,10 @@ export default function SpaceScreen({
               ))}
             </ol>
             <p className="text-[12.5px] tabular-nums text-quiet">
-              {published.filter((l) => l.progress === 'done').length} of {published.length} done
+              {t('demo.glance.done', {
+                done: published.filter((l) => l.progress === 'done').length,
+                total: published.length,
+              })}
               {/*
                 Doc 2 rule 3: the header carries the community count and jumps to
                 that section — the price of keeping community on the same scroll
@@ -333,7 +347,7 @@ export default function SpaceScreen({
                     className="console-focusable inline-flex items-center gap-1.5 rounded-md text-quiet underline-offset-4 transition-colors hover:text-foreground hover:underline"
                   >
                     <MessageSquare aria-hidden className="h-3.5 w-3.5" />
-                    {allContributions.length} from the community
+                    {t('demo.glance.community', { count: allContributions.length })}
                   </button>
                 </>
               )}
@@ -345,21 +359,21 @@ export default function SpaceScreen({
       {/* ── Tabs ── */}
       <div
         role="tablist"
-        aria-label="Space"
+        aria-label={t('demo.tabs.label')}
         className="mt-16 flex items-center justify-center gap-1 border-b border-white/[0.08]"
       >
-        {(['overview', 'map', 'members'] as SpaceTab[]).map((t) => (
+        {(['overview', 'map', 'members'] as SpaceTab[]).map((name) => (
           <button
-            key={t}
+            key={name}
             role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
+            aria-selected={tab === name}
+            onClick={() => setTab(name)}
             className={cn(
               'console-focusable relative h-12 px-4 text-[14px] font-medium capitalize transition-colors',
-              tab === t ? 'text-foreground' : 'text-quiet hover:text-foreground',
+              tab === name ? 'text-foreground' : 'text-quiet hover:text-foreground',
             )}
           >
-            {t}
+            {t(`demo.tabs.${name}`)}
             {/*
               One indicator that *moves*, rather than three that cross-fade.
               `layoutId` makes Motion morph the same element between tabs, which
@@ -367,7 +381,7 @@ export default function SpaceScreen({
               already does for its pills — the two tab strips in the product now
               behave the same way instead of one sliding and one fading.
             */}
-            {tab === t && (
+            {tab === name && (
               <motion.span
                 aria-hidden
                 layoutId="v4SpaceTab"
@@ -385,9 +399,9 @@ export default function SpaceScreen({
         <>
           <StageRow
             id="path-heading"
-            title="The path"
+            title={t('demo.path.title')}
             count={lessons.length}
-            lede="In the order the Owner set. Clear them one by one."
+            lede={t('demo.path.lede')}
             action={
               /* Create lives on the screen that owns the object. In an Open
                  Space this is not Owner-only — every Member sees it. */
@@ -395,20 +409,20 @@ export default function SpaceScreen({
               space.state === 'active' && (
                 <Pressable type="button" onClick={() => setAddingLesson(true)} className={whitePillSm}>
                   <Plus aria-hidden className="h-4 w-4" />
-                  Add Lesson
+                  {t('demo.path.add')}
                 </Pressable>
               )
             }
           >
             {lessons.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-white/15 px-6 py-12 text-center">
-                <p className="mb-1.5 text-[15px] font-semibold">No Lessons yet</p>
+                <p className="mb-1.5 text-[15px] font-semibold">{t('demo.path.emptyTitle')}</p>
                 <p className="mx-auto mb-6 max-w-[46ch] text-[14px] leading-relaxed text-quiet">
                   {space.mode === 'open'
-                    ? 'This Space is Open — anyone here can add the first one. Upload material and the Lesson builds itself.'
+                    ? t('demo.path.emptyOpen')
                     : owned
-                      ? 'Upload your material and the first Lesson builds itself.'
-                      : 'The Owner hasn’t published anything here yet.'}
+                      ? t('demo.path.emptyOwned')
+                      : t('demo.path.emptyOther')}
                 </p>
                 {canAddLesson && (
                   <button
@@ -417,7 +431,7 @@ export default function SpaceScreen({
                     className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900"
                   >
                     <Plus aria-hidden className="h-4 w-4" />
-                    Add the first Lesson
+                    {t('demo.path.addFirst')}
                   </button>
                 )}
               </div>
@@ -438,7 +452,7 @@ export default function SpaceScreen({
                     className="console-focusable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 text-[14px] font-medium text-quiet transition-colors hover:border-white/30 hover:text-foreground"
                   >
                     <ChevronDown aria-hidden className="h-4 w-4" />
-                    Show {hiddenLessonCount} more {hiddenLessonCount === 1 ? 'Lesson' : 'Lessons'}
+                    {t('demo.path.showMore', { count: hiddenLessonCount })}
                   </button>
                 )}
 
@@ -449,7 +463,7 @@ export default function SpaceScreen({
                     className="console-focusable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 text-[14px] font-medium text-quiet transition-colors hover:border-white/30 hover:text-foreground"
                   >
                     <ChevronUp aria-hidden className="h-4 w-4" />
-                    Show less
+                    {t('demo.path.showLess')}
                   </button>
                 )}
               </>
@@ -460,15 +474,15 @@ export default function SpaceScreen({
           <div ref={communityRef} className="scroll-mt-24">
           <StageRow
             id="community-heading"
-            title="From the community"
+            title={t('demo.community.title')}
             count={allContributions.length}
-            lede="Made by members of this Space. Sorted by what people found most useful."
+            lede={t('demo.community.lede')}
             action={
               space.state === 'active' &&
               space.viewerRole !== null && (
                 <button type="button" onClick={() => setContributing(true)} className={ghostPillSm}>
                   <Plus aria-hidden className="h-4 w-4" />
-                  Contribute
+                  {t('demo.community.contribute')}
                 </button>
               )
             }
@@ -476,10 +490,9 @@ export default function SpaceScreen({
             {allContributions.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-white/15 px-6 py-10 text-center">
                 <Sparkles aria-hidden className="mx-auto mb-3 h-5 w-5 text-quiet" />
-                <p className="mb-1.5 text-[15px] font-semibold">Nothing from the community yet</p>
+                <p className="mb-1.5 text-[15px] font-semibold">{t('demo.community.emptyTitle')}</p>
                 <p className="mx-auto max-w-[44ch] text-[14px] leading-relaxed text-quiet">
-                  Summaries, worked examples, mnemonics — anything that helped you will
-                  help the next person.
+                  {t('demo.community.emptyBody')}
                 </p>
               </div>
             ) : (
@@ -529,8 +542,8 @@ export default function SpaceScreen({
       {tab === 'members' && (
         <section className="mt-10">
           <h2 className="mb-6 text-[26px] font-medium tracking-[-0.02em]">
-            Members
-            <span className="ml-2.5 tabular-nums text-quiet">{space.memberCount.toLocaleString()}</span>
+            {t('demo.members.title')}
+            <span className="ml-2.5 tabular-nums text-quiet">{formatNumber(space.memberCount)}</span>
           </h2>
           {/* Who may publish and who can find it — reference facts, so they
               live here rather than in the first look. */}
@@ -549,8 +562,8 @@ export default function SpaceScreen({
           {members.length === 0 && (
             <p className="rounded-2xl border border-dashed border-white/12 px-6 py-10 text-center text-[14px] leading-relaxed text-quiet">
               {space.viewerRole === null
-                ? 'Who is in this Space is visible to its members. Join to see them.'
-                : 'Nobody else is here yet.'}
+                ? t('demo.members.locked')
+                : t('demo.members.alone')}
             </p>
           )}
 
@@ -575,7 +588,7 @@ export default function SpaceScreen({
                           : 'bg-white/[0.06] text-quiet',
                     )}
                   >
-                    {ROLE_LABEL[m.role]}
+                    {t(ROLE_KEY[m.role])}
                   </span>
                 </div>
               </li>
@@ -583,7 +596,7 @@ export default function SpaceScreen({
           </ul>
           {members.length > 0 && members.length < space.memberCount && (
             <p className="mt-4 text-[13px] text-faint">
-              Showing {members.length} of {space.memberCount.toLocaleString()}.
+              {t('demo.members.showing', { shown: members.length, total: formatNumber(space.memberCount) })}
             </p>
           )}
         </section>

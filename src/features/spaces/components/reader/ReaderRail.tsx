@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { RailTab } from './ReaderHeader';
 import { useSummoned } from './useSummoned';
@@ -45,12 +46,11 @@ interface Props {
   notes: React.ReactNode;
 }
 
-const TABS: { tab: RailTab; label: string }[] = [
-  { tab: 'tutor', label: 'Tutor' },
-  { tab: 'notes', label: 'Notes' },
-];
+/* The labels are the header's own toggle words (`v4Reader:exit.rail.*`). */
+const TABS: RailTab[] = ['tutor', 'notes'];
 
 export function ReaderRail({ open, tab, onTabChange, onClose, tutor, notes }: Props) {
+  const { t } = useTranslation('v4Reader');
   const ref = useRef<HTMLElement>(null);
 
   /*
@@ -75,7 +75,7 @@ export function ReaderRail({ open, tab, onTabChange, onClose, tutor, notes }: Pr
       ref={ref}
       /* Programmatic focus target only — it is a region, not a control. */
       tabIndex={-1}
-      aria-label="Reader companions"
+      aria-label={t('read.rail.label')}
       className={cn(
         /*
           `top-14` is the header's height, spelled out rather than reached
@@ -89,33 +89,33 @@ export function ReaderRail({ open, tab, onTabChange, onClose, tutor, notes }: Pr
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-white/[0.07] px-3">
         <div
           role="tablist"
-          aria-label="Companions"
+          aria-label={t('read.rail.tabs')}
           className="flex items-center gap-0.5 rounded-full border border-white/[0.08] bg-white/[0.04] p-0.5"
         >
-          {TABS.map(({ tab: t, label }) => (
+          {TABS.map((rt) => (
             <button
-              key={t}
+              key={rt}
               type="button"
               role="tab"
-              id={`reader-rail-tab-${t}`}
-              aria-selected={tab === t}
+              id={`reader-rail-tab-${rt}`}
+              aria-selected={tab === rt}
               aria-controls="reader-rail-panel"
-              onClick={() => onTabChange(t)}
+              onClick={() => onTabChange(rt)}
               className={cn(
                 'console-focusable h-8 rounded-full px-4 text-[13px] font-medium transition-colors',
-                tab === t
+                tab === rt
                   ? 'bg-white/[0.10] text-foreground'
                   : 'text-quiet hover:text-foreground',
               )}
             >
-              {label}
+              {t(`exit.rail.${rt}`)}
             </button>
           ))}
         </div>
 
         <button
           type="button"
-          aria-label="Close companions"
+          aria-label={t('read.rail.close')}
           onClick={onClose}
           className="console-focusable ml-auto flex h-9 w-9 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
         >

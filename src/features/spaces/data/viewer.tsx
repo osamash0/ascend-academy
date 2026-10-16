@@ -74,7 +74,7 @@ export function LiveGate({ children }: { children: ReactNode }) {
   }, [live, load]);
 
   if (!live) return <>{children}</>;
-  if (failed) return <SpacesError what="your Spaces" onRetry={load} />;
+  if (failed) return <SpacesError what="spaces" onRetry={load} />;
   // A blank stage for the one round-trip: the screens' own skeletons follow.
   if (!person) return null;
   return (

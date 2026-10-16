@@ -1,4 +1,5 @@
 import { proofs, FADE_AFTER_DAYS, daysSince, type Mark } from './light';
+import { phrase, type Phrase, type Words } from './phrase';
 
 /**
  * Today's session: three things, in the order they pay off.
@@ -11,13 +12,15 @@ import { proofs, FADE_AFTER_DAYS, daysSince, type Mark } from './light';
  * step says why it is there and roughly how long it takes, and opens the
  * reader at the page that does the work.
  *
- * Pure: no DOM, no React.
+ * Pure: no DOM, no React, no language — a step's words are phrases the
+ * screen says (`./phrase`).
  */
 
 export interface TodayStep {
   kind: 'read' | 'revisit' | 'refresh' | 'rehearse';
-  title: string;
-  why: string;
+  /** A Lesson's or an idea's own name, or a phrase ("Full rehearsal"). */
+  title: Words;
+  why: Phrase;
   lectureId: string;
   page: number;
   minutes: number;
@@ -63,7 +66,7 @@ export function planToday({ lectures, marks, weak, resume, now = Date.now() }: I
     steps.push({
       kind: 'read',
       title: resumeLec.title,
-      why: `From page ${resume.page} · ${left} ${left === 1 ? 'page' : 'pages'} left`,
+      why: phrase('plan.today.resume', { page: resume.page, count: left }),
       lectureId: resumeLec.id,
       page: resume.page,
       minutes: Math.min(25, readMinutes(left)),
@@ -75,7 +78,7 @@ export function planToday({ lectures, marks, weak, resume, now = Date.now() }: I
       steps.push({
         kind: 'read',
         title: fresh.title,
-        why: `From the beginning · ${fresh.total_slides} pages`,
+        why: phrase('plan.today.fresh', { count: fresh.total_slides }),
         lectureId: fresh.id,
         page: 1,
         minutes: Math.min(25, readMinutes(fresh.total_slides)),
@@ -93,7 +96,7 @@ export function planToday({ lectures, marks, weak, resume, now = Date.now() }: I
     steps.push({
       kind: 'revisit',
       title: i >= 0 ? ideas[i].name : miss.idea,
-      why: `You missed it last time · ${lec.title}, pages ${range.first}–${range.last}`,
+      why: phrase('plan.today.missed', { lesson: lec.title, first: range.first, last: range.last }),
       lectureId: lec.id,
       page: range.first,
       minutes: reviewMinutes(range.last - range.first + 1),
@@ -118,7 +121,7 @@ export function planToday({ lectures, marks, weak, resume, now = Date.now() }: I
     steps.push({
       kind: 'refresh',
       title: ideas[i].name,
-      why: `Proven ${daysSince(t, now)} days ago — the light is fading · ${lec.title}`,
+      why: phrase('plan.today.fading', { count: daysSince(t, now), lesson: lec.title }),
       lectureId: lec.id,
       page: range.first,
       minutes: reviewMinutes(range.last - range.first + 1),

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { Lesson, Space } from '../types';
 
 /**
@@ -128,6 +129,7 @@ function curve(pts: { x: number; y: number }[]): string {
 }
 
 export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }) {
+  const { t } = useTranslation('v4Space');
   const navigate = useNavigate();
   const href = (l: Lesson) => `/v4/space/${space.id}/lesson/${l.id}`;
   const published = useMemo(
@@ -152,7 +154,7 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
   if (!placed.length) {
     return (
       <p className="py-16 text-center text-[14.5px] text-quiet">
-        Nothing to light yet — the map fills in as Lessons are published.
+        {t('demo.map.empty')}
       </p>
     );
   }
@@ -182,15 +184,16 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
       <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <p className="text-[14px] text-quiet">
           <span className="font-semibold tabular-nums text-foreground">{doneCount}</span>
-          <span className="tabular-nums"> / {placed.length}</span> Lessons cleared
+          <span className="tabular-nums"> / {placed.length}</span>{' '}
+          {t('demo.map.lessonsCleared', { count: placed.length })}
           <span className="text-faint">
             {' · '}
             <span className="tabular-nums">
               {clearedTotal}/{conceptTotal}
             </span>{' '}
-            ideas
+            {t('demo.map.ideas', { count: conceptTotal })}
           </span>
-          {folded > 0 && <span className="text-faint"> · {folded} further folded</span>}
+          {folded > 0 && <span className="text-faint"> · {t('demo.map.folded', { count: folded })}</span>}
         </p>
       </div>
 
@@ -207,7 +210,13 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
         className="w-full min-w-[790px] select-none sm:min-w-0"
         style={{ maxHeight: '70vh' }}
         role="img"
-        aria-label={`Progress map for ${space.name}: ${doneCount} of ${placed.length} Lessons cleared, ${clearedTotal} of ${conceptTotal} ideas.`}
+        aria-label={t('demo.map.label', {
+          space: space.name,
+          done: doneCount,
+          total: placed.length,
+          cleared: clearedTotal,
+          ideas: conceptTotal,
+        })}
       >
         <defs>
           {/* Earned. The only warm light on the screen. */}
@@ -274,7 +283,7 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
               className="group console-focusable cursor-pointer [&_text]:transition-[fill] [&_circle]:transition-[fill]"
               tabIndex={0}
               role="button"
-              aria-label={`${lesson.title}. Lesson ${lesson.order}. ${cleared} of ${total} ideas cleared.`}
+              aria-label={t('demo.map.body', { title: lesson.title, order: lesson.order, cleared, total })}
             >
               {/* Hover / focus target. Invisible until touched, then a soft
                   disc so the whole body reacts rather than just the 8px core —
@@ -286,7 +295,7 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
                 fill="rgba(255,255,255,0)"
                 className="transition-[fill] group-hover:fill-white/[0.035] group-focus-visible:fill-white/[0.06]"
               />
-              <title>{`${lesson.title} — ${cleared} of ${total} ideas cleared`}</title>
+              <title>{t('demo.map.bodyTitle', { title: lesson.title, cleared, total })}</title>
               {/* Halo: only for bodies that have earned light, or hold it now. */}
               {done && <circle cx={x} cy={y} r={26} fill="url(#lm-halo-gold)" />}
               {touched && !done && <circle cx={x} cy={y} r={30} fill="url(#lm-halo-here)" />}
@@ -331,7 +340,7 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
                 const seen = c.progress === 'discovered';
                 return lit ? (
                   <circle key={c.id} cx={cx} cy={cy} r={2.4} fill={done ? '#ffd98a' : '#b3a8ff'}>
-                    <title>{`${c.name} — cleared`}</title>
+                    <title>{t('demo.map.idea.cleared', { name: c.name })}</title>
                   </circle>
                 ) : (
                   <circle
@@ -348,7 +357,7 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
                           : 'rgba(255,255,255,0.24)'
                     }
                   >
-                    <title>{`${c.name} — ${seen ? 'read' : 'not started'}`}</title>
+                    <title>{t(seen ? 'demo.map.idea.read' : 'demo.map.idea.notStarted', { name: c.name })}</title>
                   </circle>
                 );
               })}
@@ -400,7 +409,7 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
                   >
                     C
                   </text>
-                  <title>Community — published by a Member</title>
+                  <title>{t('demo.map.communityBody')}</title>
                 </>
               )}
 
@@ -430,8 +439,8 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
                   fill="#7c88a6"
                 >
                   {done
-                    ? `${cleared} / ${total} CLEARED`
-                    : `${cleared} / ${total} · YOU ARE HERE`}
+                    ? t('demo.map.metaCleared', { cleared, total })
+                    : t('demo.map.metaHere', { cleared, total })}
                 </text>
               )}
             </g>
@@ -445,7 +454,8 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
         <li className="flex items-center gap-2">
           {/* The body's own gold, not a pale cream: next to the white "here"
               swatch, cream and white were the same dot. */}
-          <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: MAP_PALETTE.goldCore }} /> Cleared
+          <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: MAP_PALETTE.goldCore }} />{' '}
+          {t('demo.map.legend.cleared')}
         </li>
         <li className="flex items-center gap-2">
           {/* Inline, because a Tailwind arbitrary value cannot read a constant —
@@ -456,17 +466,18 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
             className="h-2.5 w-2.5 rounded-full"
             style={{ background: MAP_PALETTE.hereEdge }}
           />{' '}
-          You are here
+          {t('demo.map.legend.here')}
         </li>
         <li className="flex items-center gap-2">
           <span
             aria-hidden
             className="h-2.5 w-2.5 rounded-full border border-[#232838] bg-[#080a10]"
           />{' '}
-          Not yet
+          {t('demo.map.legend.notYet')}
         </li>
         <li className="flex items-center gap-2">
-          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#00d2d3]" /> Contributions
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#00d2d3]" />{' '}
+          {t('demo.map.legend.contributions')}
         </li>
           </ul>
         </div>

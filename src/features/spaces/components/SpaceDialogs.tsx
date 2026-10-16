@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { KeyRound, Link2, Lock, Plus, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,7 @@ import { addContribution } from '../mocks/contributions';
 import { useViewer } from '../data/viewer';
 import { AuthorLine, ClassificationChips, LessonCount } from './badges';
 import { publishedLessonsForSpace } from '../data/world';
+import { formatNumber } from '../i18n/format';
 
 /**
  * Creating and joining a Space.
@@ -31,23 +33,25 @@ import { publishedLessonsForSpace } from '../data/world';
  * Space's Overview — empty-state for a new one.
  */
 
-const MODES: { key: SpaceMode; label: string; blurb: string }[] = [
-  {
-    key: 'guided',
-    label: 'Guided',
-    blurb: 'Only you and your Editors publish Lessons. Members still contribute alongside them.',
-  },
-  {
-    key: 'open',
-    label: 'Open',
-    blurb: 'Every Member can publish Lessons, credited to them. Good for learning together.',
-  },
+/*
+ * Labels and blurbs are said at render, in the reader's language. The mode
+ * and visibility words are the badges' own, so the chip and the choice that
+ * set it can never disagree.
+ */
+/** The translator, as the label tables need it. */
+type Say = (key: string) => string;
+
+const modes = (t: Say): { key: SpaceMode; label: string; blurb: string }[] => [
+  { key: 'guided', label: t('badges.guided'), blurb: t('dialogs.mode.guided') },
+  { key: 'open', label: t('badges.open'), blurb: t('dialogs.mode.open') },
 ];
 
-const VISIBILITIES: { key: Visibility; label: string; blurb: string; icon: typeof Lock }[] = [
-  { key: 'private', label: 'Private', blurb: 'Only you.', icon: Lock },
-  { key: 'invite', label: 'Invite', blurb: 'Anyone with the code or link.', icon: Link2 },
-  { key: 'public', label: 'Public', blurb: 'Anyone can find and join, one tap.', icon: Users },
+const visibilities = (
+  t: Say,
+): { key: Visibility; label: string; blurb: string; icon: typeof Lock }[] => [
+  { key: 'private', label: t('badges.visibility.private'), blurb: t('dialogs.visibility.private'), icon: Lock },
+  { key: 'invite', label: t('badges.visibility.invite'), blurb: t('dialogs.visibility.invite'), icon: Link2 },
+  { key: 'public', label: t('badges.visibility.public'), blurb: t('dialogs.visibility.public'), icon: Users },
 ];
 
 /** A radio row — used for both mode and visibility so they read alike. */
@@ -115,6 +119,7 @@ export function NewSpaceDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const { t } = useTranslation('v4Spaces');
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [mode, setMode] = useState<SpaceMode>('guided');
@@ -133,39 +138,43 @@ export function NewSpaceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-[20px] font-semibold">New Space</DialogTitle>
+          <DialogTitle className="text-[20px] font-semibold">{t('dialogs.newSpace.title')}</DialogTitle>
           <DialogDescription className="text-[14px] leading-relaxed text-quiet">
-            A Space is one subject, its material, and the people learning it with you.
-            You can change any of this later.
+            {t('dialogs.newSpace.description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 pt-2">
           <div>
             <label htmlFor="space-name" className="mb-2 block text-[13.5px] font-medium">
-              Name
+              {t('dialogs.newSpace.name')}
             </label>
             <input
               id="space-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && create()}
-              placeholder="Database Systems"
+              placeholder={t('dialogs.newSpace.namePlaceholder')}
               autoFocus
               className="console-focusable h-11 w-full rounded-xl border border-white/12 bg-white/[0.04] px-4 text-[15px] outline-none placeholder:text-faint"
             />
           </div>
 
           <div>
-            <p className="mb-2 text-[13.5px] font-medium">Who can publish Lessons</p>
-            <Choice<SpaceMode> name="Mode" options={MODES} value={mode} onChange={setMode} />
+            <p className="mb-2 text-[13.5px] font-medium">{t('dialogs.newSpace.whoPublishes')}</p>
+            <Choice<SpaceMode>
+              name={t('dialogs.newSpace.modeGroup')}
+              options={modes(t)}
+              value={mode}
+              onChange={setMode}
+            />
           </div>
 
           <div>
-            <p className="mb-2 text-[13.5px] font-medium">Who can see it</p>
+            <p className="mb-2 text-[13.5px] font-medium">{t('dialogs.newSpace.whoSees')}</p>
             <Choice<Visibility>
-              name="Visibility"
-              options={VISIBILITIES}
+              name={t('dialogs.newSpace.visibilityGroup')}
+              options={visibilities(t)}
               value={visibility}
               onChange={setVisibility}
             />
@@ -179,7 +188,7 @@ export function NewSpaceDialog({
             className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Plus aria-hidden className="h-4 w-4" />
-            Create and open it
+            {t('dialogs.newSpace.create')}
           </Pressable>
         </div>
       </DialogContent>
@@ -196,6 +205,7 @@ export function JoinSpaceDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const { t } = useTranslation('v4Spaces');
   const navigate = useNavigate();
   const [code, setCode] = useState('');
   const found = code.trim().length >= 4 ? spaceByJoinCode(code) : undefined;
@@ -205,15 +215,15 @@ export function JoinSpaceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-[20px] font-semibold">Join with a code</DialogTitle>
+          <DialogTitle className="text-[20px] font-semibold">{t('dialogs.join.title')}</DialogTitle>
           <DialogDescription className="text-[14px] leading-relaxed text-quiet">
-            Six characters, from whoever runs the Space.
+            {t('dialogs.join.description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 pt-2">
           <input
-            aria-label="Join code"
+            aria-label={t('dialogs.join.codeLabel')}
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             placeholder="ABC123"
@@ -227,7 +237,7 @@ export function JoinSpaceDialog({
             <div className="rounded-2xl border border-white/[0.10] bg-white/[0.04] p-4">
               <p className="text-[16px] font-semibold">{found.name}</p>
               <div className="mt-2">
-                <AuthorLine person={found.owner} prefix="Owner" />
+                <AuthorLine person={found.owner} prefix={t('dialogs.join.owner')} />
               </div>
               {/*
                 The *published* count, not `lessonCount`. Cryptography has 12
@@ -239,7 +249,10 @@ export function JoinSpaceDialog({
               <p className="mt-2 flex items-center gap-2 text-[13px] text-quiet tabular-nums">
                 <LessonCount count={publishedLessonsForSpace(found.id).length} />
                 <span aria-hidden className="text-decor">·</span>
-                {found.memberCount.toLocaleString()} Members
+                {t('dialogs.join.members', {
+                  count: found.memberCount,
+                  n: formatNumber(found.memberCount),
+                })}
               </p>
               {/* The cap lives in the component; repeating its default here
                   would be a second place to change it. */}
@@ -248,7 +261,7 @@ export function JoinSpaceDialog({
           ) : (
             !tooShort && (
               <p className="text-[13.5px] text-quiet">
-                No Space uses that code. Check it with whoever sent it.
+                {t('dialogs.join.notFound')}
               </p>
             )
           )}
@@ -265,7 +278,7 @@ export function JoinSpaceDialog({
             className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <KeyRound aria-hidden className="h-4 w-4" />
-            {found ? `Join ${found.name}` : 'Join'}
+            {found ? t('dialogs.join.joinNamed', { name: found.name }) : t('dialogs.join.join')}
           </Pressable>
         </div>
       </DialogContent>
@@ -275,6 +288,7 @@ export function JoinSpaceDialog({
 
 /** Shown on the manage screen so an Owner can hand the code out. */
 export function JoinCodeBlock({ spaceId }: { spaceId: string }) {
+  const { t } = useTranslation('v4Spaces');
   const [copied, setCopied] = useState(false);
   const code = joinCodeFor(spaceId);
 
@@ -292,7 +306,7 @@ export function JoinCodeBlock({ spaceId }: { spaceId: string }) {
         }}
         className="console-focusable h-10 rounded-full border border-white/12 bg-white/[0.04] px-4 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
       >
-        {copied ? 'Copied' : 'Copy code'}
+        {copied ? t('dialogs.code.copied') : t('dialogs.code.copy')}
       </button>
     </div>
   );
@@ -323,6 +337,7 @@ export function AddLessonDialog({
   onAdded?: () => void;
 }) {
   const viewer = useViewer();
+  const { t } = useTranslation('v4Spaces');
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
 
@@ -339,24 +354,23 @@ export function AddLessonDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-[20px] font-semibold">Add a Lesson</DialogTitle>
+          <DialogTitle className="text-[20px] font-semibold">{t('dialogs.addLesson.title')}</DialogTitle>
           <DialogDescription className="text-[14px] leading-relaxed text-quiet">
-            It starts as a draft in {space.name}. Only you and the people who maintain this
-            Space can see a draft — nothing is published until you say so.
+            {t('dialogs.addLesson.description', { space: space.name })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 pt-2">
           <div>
             <label htmlFor="lesson-title" className="mb-2 block text-[13.5px] font-medium">
-              What is it about
+              {t('dialogs.addLesson.titleLabel')}
             </label>
             <input
               id="lesson-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && add()}
-              placeholder="Normalization"
+              placeholder={t('dialogs.addLesson.titlePlaceholder')}
               autoFocus
               className="console-focusable h-11 w-full rounded-xl border border-white/12 bg-white/[0.04] px-4 text-[15px] outline-none placeholder:text-faint"
             />
@@ -369,8 +383,7 @@ export function AddLessonDialog({
             in the state a real upload would leave it in.
           */}
           <p className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-[13px] leading-relaxed text-quiet">
-            In the finished product you would attach material here and the Lesson would build
-            itself from it. This design build creates the draft and stops there.
+            {t('dialogs.addLesson.noUpload')}
           </p>
 
           <Pressable
@@ -380,7 +393,7 @@ export function AddLessonDialog({
             className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Plus aria-hidden className="h-4 w-4" />
-            Create the draft and open it
+            {t('dialogs.addLesson.create')}
           </Pressable>
         </div>
       </DialogContent>
@@ -390,11 +403,14 @@ export function AddLessonDialog({
 
 /* ── Contribute ─────────────────────────────────────────────────── */
 
-const CONTRIBUTION_TYPES: { key: ContributionType; label: string; blurb: string }[] = [
-  { key: 'text', label: 'A write-up', blurb: 'An explanation, a worked example, a summary.' },
-  { key: 'practice-set', label: 'Practice', blurb: 'Questions with worked answers.' },
-  { key: 'link', label: 'A link', blurb: 'Something useful that lives elsewhere.' },
-];
+const contributionTypes = (
+  t: Say,
+): { key: ContributionType; label: string; blurb: string }[] =>
+  (['text', 'practice-set', 'link'] as const).map((key) => ({
+    key,
+    label: t(`dialogs.contribute.kinds.${key}.label`),
+    blurb: t(`dialogs.contribute.kinds.${key}.blurb`),
+  }));
 
 /**
  * Publish something into a Space's community section.
@@ -420,6 +436,7 @@ export function ContributeDialog({
   onAdded?: () => void;
 }) {
   const viewer = useViewer();
+  const { t } = useTranslation('v4Spaces');
   const [title, setTitle] = useState('');
   const [excerpt, setExcerpt] = useState('');
   const [type, setType] = useState<ContributionType>('text');
@@ -439,8 +456,8 @@ export function ContributeDialog({
     setTitle('');
     setExcerpt('');
     onAdded?.();
-    toast('Published to the Space', {
-      description: 'Members can see it now. You cannot like your own work.',
+    toast(t('dialogs.contribute.published'), {
+      description: t('dialogs.contribute.publishedHint'),
     });
   };
 
@@ -448,19 +465,18 @@ export function ContributeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-[20px] font-semibold">Contribute</DialogTitle>
+          <DialogTitle className="text-[20px] font-semibold">{t('dialogs.contribute.title')}</DialogTitle>
           <DialogDescription className="text-[14px] leading-relaxed text-quiet">
-            Everyone in {space.name} will see this, with your name on it. For something
-            private, write a note instead.
+            {t('dialogs.contribute.description', { space: space.name })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 pt-2">
           <div>
-            <p className="mb-2 text-[13.5px] font-medium">What kind</p>
+            <p className="mb-2 text-[13.5px] font-medium">{t('dialogs.contribute.kind')}</p>
             <Choice<ContributionType>
-              name="Kind"
-              options={CONTRIBUTION_TYPES}
+              name={t('dialogs.contribute.kindGroup')}
+              options={contributionTypes(t)}
               value={type}
               onChange={setType}
             />
@@ -468,13 +484,13 @@ export function ContributeDialog({
 
           <div>
             <label htmlFor="con-title" className="mb-2 block text-[13.5px] font-medium">
-              Title
+              {t('dialogs.contribute.titleLabel')}
             </label>
             <input
               id="con-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="The one example that made it click"
+              placeholder={t('dialogs.contribute.titlePlaceholder')}
               autoFocus
               className="console-focusable h-11 w-full rounded-xl border border-white/12 bg-white/[0.04] px-4 text-[15px] outline-none placeholder:text-faint"
             />
@@ -482,14 +498,14 @@ export function ContributeDialog({
 
           <div>
             <label htmlFor="con-body" className="mb-2 block text-[13.5px] font-medium">
-              The useful part
+              {t('dialogs.contribute.body')}
             </label>
             <textarea
               id="con-body"
               value={excerpt}
               onChange={(e) => setExcerpt(e.target.value)}
               rows={4}
-              placeholder="Write the thing you wish had been there when you were stuck."
+              placeholder={t('dialogs.contribute.bodyPlaceholder')}
               className="console-focusable w-full resize-y rounded-xl border border-white/12 bg-white/[0.04] px-4 py-3 text-[15px] leading-relaxed outline-none placeholder:text-faint"
             />
           </div>
@@ -501,7 +517,7 @@ export function ContributeDialog({
             className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Plus aria-hidden className="h-4 w-4" />
-            Publish to {space.name}
+            {t('dialogs.contribute.publish', { space: space.name })}
           </Pressable>
         </div>
       </DialogContent>

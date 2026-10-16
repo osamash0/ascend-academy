@@ -33,8 +33,8 @@ export default function JoinSpaceScreen({ spaceId }: { spaceId: string }) {
   );
 
   if (screenState === 'loading') return chrome(<DetailSkeleton />);
-  if (screenState === 'error') return chrome(<SpacesError what="this Space" />);
-  if (!space) return chrome(<NotFound what="Space" backTo="/v4/spaces" backLabel="Back to Spaces" />);
+  if (screenState === 'error') return chrome(<SpacesError what="space" />);
+  if (!space) return chrome(<NotFound what="space" back={{ to: '/v4/spaces', place: 'spaces' }} />);
   const lessons = publishedLessonsForSpace(space.id);
 
   const join = async () => {

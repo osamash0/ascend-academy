@@ -37,9 +37,14 @@ async def list_users(
     search: str = Query(None),
     role: str = Query(None),
     sort_by: str = Query("created_at"),
-    sort_desc: bool = Query(True)
+    sort_desc: bool = Query(True),
+    kind: str = Query("all", pattern="^(all|real|internal)$"),
 ):
-    """List all user profiles along with their assigned roles and aggregate statistics."""
+    """List all user profiles along with their assigned roles and aggregate statistics.
+
+    ``kind`` filters on the real-user classification (migration
+    20261013000000); before that migration is applied it is ignored and every
+    row reports ``is_internal: null``."""
     offset = (page - 1) * limit
     order_dir = "DESC" if sort_desc else "ASC"
     
@@ -67,8 +72,24 @@ async def list_users(
         params.append(role)
         where_sql += f"{' AND ' if where_clauses else 'WHERE '}EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = p.user_id AND ur.role = ${len(params)})"
 
+    from backend.core.database import db_pool as _pool, init_db_pool as _init
+    if not _pool:
+        await _init()
+        from backend.core.database import db_pool as _pool
+    async with _pool.acquire() as _conn:
+        classified = bool(await _conn.fetchval(
+            "SELECT to_regclass('public.account_classification') IS NOT NULL"
+        ))
+    join_sql = (
+        "LEFT JOIN public.account_classification ac ON ac.user_id = p.user_id"
+        if classified else ""
+    )
+    if classified and kind != "all":
+        where_sql += f"{' AND ' if where_sql else 'WHERE '}"
+        where_sql += "ac.is_internal" if kind == "internal" else "NOT ac.is_internal"
+
     # Total count query
-    count_query = f"SELECT count(*) FROM public.profiles p {where_sql}"
+    count_query = f"SELECT count(*) FROM public.profiles p {join_sql} {where_sql}"
 
     query = f"""
         SELECT 
@@ -84,8 +105,10 @@ async def list_users(
             COALESCE(
                 (SELECT json_agg(ur.role) FROM public.user_roles ur WHERE ur.user_id = p.user_id),
                 '[]'::json
-            ) as roles
+            ) as roles,
+            {"ac.is_internal, ac.internal_reason" if classified else "NULL::boolean AS is_internal, NULL::text AS internal_reason"}
         FROM public.profiles p
+        {join_sql}
         {where_sql}
         ORDER BY {safe_sort_col} {order_dir} NULLS LAST
         LIMIT ${len(params) + 1} OFFSET ${len(params) + 2};
@@ -113,7 +136,9 @@ async def list_users(
                     "current_level": r["current_level"],
                     "created_at": r["created_at"].isoformat() if r["created_at"] else None,
                     "last_seen": r["last_seen"].isoformat() if r["last_seen"] else None,
-                    "roles": json.loads(r["roles"]) if r["roles"] else []
+                    "roles": json.loads(r["roles"]) if r["roles"] else [],
+                    "is_internal": r["is_internal"],
+                    "internal_reason": r["internal_reason"],
                 })
             return {
                 "success": True, 

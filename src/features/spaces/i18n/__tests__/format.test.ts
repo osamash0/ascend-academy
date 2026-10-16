@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import i18n from '@/i18n';
-import { formatDate, formatList, formatRelativeDays } from '../format';
+import { formatDate, formatList, formatMegabytes, formatRelativeDays, formatTimestamp } from '../format';
 
 afterEach(async () => {
   await i18n.changeLanguage('en');
@@ -21,5 +21,14 @@ describe('formatting in the app’s language', () => {
   it('never moves a calendar day across a time zone', () => {
     expect(formatDate('2026-01-01')).toContain('1');
     expect(formatDate('2026-01-01')).toMatch(/Jan/);
+  });
+
+  it('sizes and moments follow the app’s language too', async () => {
+    await i18n.changeLanguage('de');
+    expect(formatMegabytes(2_400_000)).toBe('2,4');
+    expect(formatTimestamp('2026-02-10T12:00:00Z', true)).toBe('10. Feb. 2026');
+    await i18n.changeLanguage('en');
+    expect(formatMegabytes(2_400_000)).toBe('2.4');
+    expect(formatTimestamp('2026-02-10T12:00:00Z')).toBe('Feb 10');
   });
 });

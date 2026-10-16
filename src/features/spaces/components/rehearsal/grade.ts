@@ -1,3 +1,4 @@
+import i18n from '@/i18n';
 import type { RehearsalQuestion } from '../../data/liveRepository';
 import { closureOf, fdText, violations } from '../reader/iui/fd';
 
@@ -61,7 +62,9 @@ export function grade(q: RehearsalQuestion, a: Answer): Grade {
       const holds = holdingCandidates(q);
       return {
         correct: a.kind === 'fdHolds' && sameSet(a.holds, holds),
-        expected: holds.length ? `Holds: ${holds.map((i) => fdText(q.candidates[i])).join('; ')}` : 'None of them holds',
+        expected: holds.length
+          ? i18n.t('v4Space:question.expected.holds', { fds: holds.map((i) => fdText(q.candidates[i])).join('; ') })
+          : i18n.t('v4Space:question.expected.holdsNone'),
       };
     }
     case 'closure': {
@@ -75,7 +78,9 @@ export function grade(q: RehearsalQuestion, a: Answer): Grade {
       const v = bcnfViolations(q);
       return {
         correct: a.kind === 'bcnf' && sameSet(a.violating, v),
-        expected: v.length ? `Violating: ${v.map((i) => fdText(q.fds[i])).join('; ')}` : 'None violates BCNF',
+        expected: v.length
+          ? i18n.t('v4Space:question.expected.violating', { fds: v.map((i) => fdText(q.fds[i])).join('; ') })
+          : i18n.t('v4Space:question.expected.violatingNone'),
       };
     }
   }
