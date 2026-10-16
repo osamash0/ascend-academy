@@ -109,8 +109,8 @@ export default function RankScreen() {
     </Scene>
   );
 
-  if (screenState === 'loading') return chrome(<ListSkeleton label="Loading your rank" />);
-  if (screenState === 'error') return chrome(<SpacesError what="your rank" />);
+  if (screenState === 'loading') return chrome(<ListSkeleton label="rank" />);
+  if (screenState === 'error') return chrome(<SpacesError what="rank" />);
 
   return chrome(
     <div className="relative mx-auto max-w-3xl px-6 pb-24 pt-8 lg:px-8">

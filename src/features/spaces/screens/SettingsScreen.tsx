@@ -179,7 +179,7 @@ export default function SettingsScreen() {
         backTo="/v4/profile"
         backLabel="Back to Profile"
       >
-        {screenState === 'error' ? <SpacesError what="your settings" /> : <ListSkeleton />}
+        {screenState === 'error' ? <SpacesError what="settings" /> : <ListSkeleton />}
       </StudioShell>
     );
   }

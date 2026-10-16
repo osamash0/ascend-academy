@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Pressable } from './Pressable';
 
@@ -44,9 +45,10 @@ export function StudioShell({
   subtitle,
   actions,
   backTo = '/v4/library',
-  backLabel = 'Back to Library',
+  backLabel,
   children,
 }: Props) {
+  const { t } = useTranslation('v4Spaces');
   /*
    * No `MotionConfig` here. It used to carry its own — Studio screens do not
    * go through `Scene`, so for a while they ignored the reduced-motion setting
@@ -61,7 +63,7 @@ export function StudioShell({
           <div className="flex min-w-0 items-center gap-3">
             <Link
               to={backTo}
-              aria-label={backLabel}
+              aria-label={backLabel ?? t('states.back.library')}
               className="console-focusable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
             >
               <ChevronLeft aria-hidden className="h-5 w-5" />

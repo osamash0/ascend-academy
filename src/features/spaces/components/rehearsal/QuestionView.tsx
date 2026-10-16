@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowDown, ArrowUp, BookOpen, Check, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { RehearsalQuestion } from '../../data/liveRepository';
 import { fdText } from '../reader/iui/fd';
@@ -33,6 +34,7 @@ const option = (on: boolean, locked: boolean) =>
   );
 
 export function QuestionView({ q, lectureTitle, pageHref, graded, onCheck }: Props) {
+  const { t } = useTranslation('v4Space');
   const locked = graded !== null;
   const [choice, setChoice] = useState<number | null>(null);
   /* Never open on the answer: an order that arrives already solved is turned by one. */
@@ -127,7 +129,7 @@ export function QuestionView({ q, lectureTitle, pageHref, graded, onCheck }: Pro
                 <span className="flex gap-1">
                   <button
                     type="button"
-                    aria-label={`Move “${q.items[orig]}” up`}
+                    aria-label={t('question.moveUp', { item: q.items[orig] })}
                     disabled={i === 0}
                     onClick={() => move(i, -1)}
                     className="console-focusable flex h-8 w-8 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground disabled:opacity-25"
@@ -136,7 +138,7 @@ export function QuestionView({ q, lectureTitle, pageHref, graded, onCheck }: Pro
                   </button>
                   <button
                     type="button"
-                    aria-label={`Move “${q.items[orig]}” down`}
+                    aria-label={t('question.moveDown', { item: q.items[orig] })}
                     disabled={i === order.length - 1}
                     onClick={() => move(i, 1)}
                     className="console-focusable flex h-8 w-8 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground disabled:opacity-25"
@@ -176,7 +178,7 @@ export function QuestionView({ q, lectureTitle, pageHref, graded, onCheck }: Pro
               </tbody>
             </table>
           </div>
-          <p className="text-[13px] text-quiet">Tick every dependency that holds on these rows.</p>
+          <p className="text-[13px] text-quiet">{t('question.fdHoldsHint')}</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {q.candidates.map((fd, i) => (
               <button
@@ -211,11 +213,7 @@ export function QuestionView({ q, lectureTitle, pageHref, graded, onCheck }: Pro
               </span>
             ))}
           </div>
-          <p className="text-[13px] text-quiet">
-            Collect the closure of {'{'}
-            {q.start.join(', ')}
-            {'}'}: press every attribute it determines.
-          </p>
+          <p className="text-[13px] text-quiet">{t('question.closureHint', { set: `{${q.start.join(', ')}}` })}</p>
           <div className="flex flex-wrap gap-2">
             {q.attrs.map((a) => {
               const on = attrs.includes(a);
@@ -244,7 +242,7 @@ export function QuestionView({ q, lectureTitle, pageHref, graded, onCheck }: Pro
           <p className="font-mono text-[15px] text-foreground">
             {q.relation}({q.attrs.join(', ')})
           </p>
-          <p className="text-[13px] text-quiet">Flag every dependency that violates BCNF in {q.relation}.</p>
+          <p className="text-[13px] text-quiet">{t('question.bcnfHint', { relation: q.relation })}</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {q.fds.map((fd, i) => (
               <button
@@ -281,7 +279,7 @@ export function QuestionView({ q, lectureTitle, pageHref, graded, onCheck }: Pro
           }}
           className="console-focusable mt-8 h-12 rounded-full bg-white px-8 text-[15px] font-medium text-background transition-colors disabled:bg-white/[0.12] disabled:text-faint"
         >
-          Check
+          {t('question.check')}
         </button>
       ) : (
         <motion.div
@@ -292,7 +290,7 @@ export function QuestionView({ q, lectureTitle, pageHref, graded, onCheck }: Pro
         >
           <p className={cn('mb-1.5 flex items-center gap-2 text-[15px] font-medium', graded.correct ? 'text-success' : 'text-destructive')}>
             {graded.correct ? <Check aria-hidden className="h-4 w-4" /> : <X aria-hidden className="h-4 w-4" />}
-            {graded.correct ? 'Right' : 'Not quite'}
+            {graded.correct ? t('question.right') : t('question.notQuite')}
           </p>
           {!graded.correct && <p className="mb-2 font-mono text-[13.5px] text-foreground">{graded.expected}</p>}
           {q.why && (
@@ -305,7 +303,7 @@ export function QuestionView({ q, lectureTitle, pageHref, graded, onCheck }: Pro
             className="console-focusable mt-3 inline-flex h-9 items-center gap-2 rounded-full bg-white/[0.07] px-4 text-[13px] text-foreground transition-colors hover:bg-white/[0.12]"
           >
             <BookOpen aria-hidden className="h-3.5 w-3.5" />
-            {lectureTitle}, page {q.page}
+            {t('question.page', { lesson: lectureTitle, page: q.page })}
           </Link>
         </motion.div>
       )}

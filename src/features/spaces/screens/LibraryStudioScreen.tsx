@@ -13,6 +13,8 @@ import {
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
+import { formatMegabytes, formatTimestamp } from '../i18n/format';
 import { cn } from '@/lib/utils';
 import { draftsAcrossSpaces, impactRows, uploadRows } from '../mocks/library';
 import { StudioAction, StudioPill, StudioShell } from '../components/StudioShell';
@@ -51,16 +53,17 @@ type View = 'uploads' | 'drafts' | 'impact';
  * skeleton was already mislabelling the screen it was standing in for.
  */
 const VIEWS = {
-  uploads: { title: 'Manage uploads', icon: Upload },
-  drafts: { title: 'Your drafts', icon: FileText },
-  impact: { title: 'How your work landed', icon: Sparkles },
+  uploads: { title: 'studio.views.uploads', icon: Upload },
+  drafts: { title: 'studio.views.drafts', icon: FileText },
+  impact: { title: 'studio.views.impact', icon: Sparkles },
 } as const;
 
 const isView = (v: string | undefined): v is View => v !== undefined && v in VIEWS;
 
-const formatSize = (b?: number) => (b === undefined ? '—' : `${(b / 1_000_000).toFixed(1)} MB`);
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+/* A translate function bound to v4Library. */
+type Say = (key: string, params?: Record<string, string | number>) => string;
+
+const formatSize = (t: Say, b?: number) => (b === undefined ? '—' : t('studio.size', { mb: formatMegabytes(b) }));
 
 /**
  * A row's title, linked to the object it names.
@@ -111,6 +114,7 @@ function Row({
   reserveToggle?: boolean;
   children: React.ReactNode;
 }) {
+  const { t } = useTranslation('v4Library');
   return (
     <div
       className={cn(
@@ -134,7 +138,7 @@ function Row({
             onChange={onToggle}
             className="h-4 w-4 cursor-pointer accent-primary"
           />
-          <span className="sr-only">Select this row</span>
+          <span className="sr-only">{t('studio.selectRow')}</span>
         </label>
       ) : reserveToggle ? (
         /* Same 16px the label nets to — its p-1 and -m-1 cancel out. */
@@ -156,6 +160,7 @@ function EmptyState({ icon: Icon, title, body }: { icon: typeof Upload; title: s
 }
 
 export default function LibraryStudioScreen() {
+  const { t } = useTranslation('v4Library');
   const screenState = useScreenState();
   const { view } = useParams<{ view: View }>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -168,13 +173,13 @@ export default function LibraryStudioScreen() {
   const [removed, setRemoved] = useState<Set<string>>(new Set());
 
   /** Remove now, offer it back. */
-  const removeRows = (ids: string[], verb: string, describe: string) => {
+  const removeRows = (ids: string[], verb: 'published' | 'deleted', describe: string) => {
     setRemoved((prev) => new Set([...prev, ...ids]));
     setSelected(new Set());
-    toast(`${verb} ${ids.length} ${ids.length === 1 ? 'item' : 'items'}`, {
+    toast(t(`studio.toast.${verb}`, { count: ids.length }), {
       description: describe,
       action: {
-        label: 'Undo',
+        label: t('studio.undo'),
         onClick: () =>
           setRemoved((prev) => {
             const next = new Set(prev);
@@ -215,12 +220,12 @@ export default function LibraryStudioScreen() {
        */
       <StudioShell
         icon={Compass}
-        title="Library"
+        title={t('v4Spaces:nav.library')}
         subtitle={Object.values(VIEWS)
-          .map((v) => v.title)
+          .map((v) => t(v.title))
           .join(' · ')}
       >
-        <NotFound what="screen" backTo="/v4/library" backLabel="Back to Library" />
+        <NotFound what="screen" back={{ to: '/v4/library', place: 'library' }} />
       </StudioShell>
     );
   }
@@ -232,10 +237,10 @@ export default function LibraryStudioScreen() {
     return (
       <StudioShell
         icon={VIEWS[view].icon}
-        title={VIEWS[view].title}
-        subtitle={screenState === 'error' ? 'Something went wrong' : 'Loading…'}
+        title={t(VIEWS[view].title)}
+        subtitle={screenState === 'error' ? t('studio.failed') : t('studio.loading')}
       >
-        {screenState === 'error' ? <SpacesError what="your work" /> : <ListSkeleton />}
+        {screenState === 'error' ? <SpacesError what="work" /> : <ListSkeleton />}
       </StudioShell>
     );
   }
@@ -245,49 +250,44 @@ export default function LibraryStudioScreen() {
     return (
       <StudioShell
         icon={Upload}
-        title="Manage uploads"
-        subtitle={`${uploads.length} files across your Spaces`}
+        title={t('studio.views.uploads')}
+        subtitle={t('studio.uploads.subtitle', { count: uploads.length })}
         actions={
           <>
             <span className="hidden text-xs text-muted-foreground tabular-nums sm:inline">
-              {selected.size} selected
+              {t('studio.selected', { count: selected.size })}
             </span>
             <StudioAction
               disabled={selected.size === 0}
               tone="emerald"
               onClick={() =>
-                removeRows([...selected], 'Published', 'They are live in their Spaces now.')
+                removeRows([...selected], 'published', t('studio.uploads.published'))
               }
             >
               <Send aria-hidden className="h-4 w-4" />
-              Publish
+              {t('studio.publish')}
             </StudioAction>
             <StudioAction
               disabled={selected.size === 0}
               onClick={() =>
-                removeRows(
-                  [...selected],
-                  'Deleted',
-                  'The Lessons built from them keep working.',
-                )
+                removeRows([...selected], 'deleted', t('studio.uploads.deleted'))
               }
             >
               <Trash2 aria-hidden className="h-4 w-4" />
-              Delete
+              {t('studio.delete')}
             </StudioAction>
           </>
         }
       >
         <p className="mb-5 max-w-[70ch] text-sm leading-6 text-muted-foreground">
-          The original files you uploaded. Deleting one never breaks the Lesson built from
-          it — the Lesson keeps working and says the source was removed.
+          {t('studio.uploads.intro')}
         </p>
 
         {uploads.length === 0 ? (
           <EmptyState
             icon={Upload}
-            title="Nothing uploaded yet"
-            body="Upload material inside a Space and a Lesson builds itself from it."
+            title={t('studio.uploads.emptyTitle')}
+            body={t('studio.uploads.emptyBody')}
           />
         ) : (
           <div className="space-y-2">
@@ -297,7 +297,7 @@ export default function LibraryStudioScreen() {
                 <div className="min-w-0 flex-1">
                   <RowTitle
                     to={u.href ?? undefined}
-                    label={`Open ${u.title} in ${u.spaceName}`}
+                    label={t('studio.open', { title: u.title, space: u.spaceName })}
                   >
                     {u.title}
                   </RowTitle>
@@ -307,19 +307,19 @@ export default function LibraryStudioScreen() {
                   </p>
                 </div>
                 <span className="hidden w-20 shrink-0 text-right text-xs text-muted-foreground tabular-nums sm:block">
-                  {formatSize(u.sizeBytes)}
+                  {formatSize(t, u.sizeBytes)}
                 </span>
                 <span className="hidden w-28 shrink-0 text-right text-xs text-muted-foreground tabular-nums md:block">
-                  {formatDate(u.updatedAt)}
+                  {formatTimestamp(u.updatedAt, true)}
                 </span>
                 <div className="w-24 shrink-0 text-right">
                   {u.pending ? (
                     <StudioPill tone="processing">
-                      <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> Working
+                      <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> {t('studio.uploads.working')}
                     </StudioPill>
                   ) : (
                     <StudioPill tone="ready">
-                      <CheckCircle2 aria-hidden className="h-3.5 w-3.5" /> Ready
+                      <CheckCircle2 aria-hidden className="h-3.5 w-3.5" /> {t('studio.uploads.ready')}
                     </StudioPill>
                   )}
                 </div>
@@ -336,37 +336,35 @@ export default function LibraryStudioScreen() {
     return (
       <StudioShell
         icon={FileText}
-        title="Your drafts"
-        subtitle={`${drafts.length} unpublished across every Space`}
+        title={t('studio.views.drafts')}
+        subtitle={t('studio.drafts.subtitle', { count: drafts.length })}
         actions={
           <>
             <span className="hidden text-xs text-muted-foreground tabular-nums sm:inline">
-              {selected.size} selected
+              {t('studio.selected', { count: selected.size })}
             </span>
             <StudioAction
               disabled={selected.size === 0}
               tone="emerald"
               onClick={() =>
-                removeRows([...selected], 'Published', 'They are in their paths now.')
+                removeRows([...selected], 'published', t('studio.drafts.published'))
               }
             >
               <Send aria-hidden className="h-4 w-4" />
-              Publish
+              {t('studio.publish')}
             </StudioAction>
           </>
         }
       >
         <p className="mb-5 max-w-[70ch] text-sm leading-6 text-muted-foreground">
-          Only you can see these. Drafts and Lessons still processing stay private to their
-          author until published — this is the one screen that gathers yours from every
-          Space at once.
+          {t('studio.drafts.intro')}
         </p>
 
         {drafts.length === 0 ? (
           <EmptyState
             icon={FileText}
-            title="No drafts"
-            body="Everything you've started is published. Nothing waiting on you."
+            title={t('studio.drafts.emptyTitle')}
+            body={t('studio.drafts.emptyBody')}
           />
         ) : (
           <div className="space-y-2">
@@ -383,7 +381,7 @@ export default function LibraryStudioScreen() {
                 <div className="min-w-0 flex-1">
                   <RowTitle
                     to={`/v4/space/${d.spaceId}/lesson/${d.lessonId}`}
-                    label={`Open ${d.title} in ${d.spaceName}`}
+                    label={t('studio.open', { title: d.title, space: d.spaceName })}
                   >
                     {d.title}
                   </RowTitle>
@@ -392,12 +390,12 @@ export default function LibraryStudioScreen() {
                 <div className="w-28 shrink-0 text-right">
                   {d.state === 'processing' ? (
                     <StudioPill tone="processing">
-                      <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> Processing
+                      <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> {t('studio.drafts.processing')}
                     </StudioPill>
                   ) : d.state === 'needs-review' ? (
-                    <StudioPill tone="warn">Needs review</StudioPill>
+                    <StudioPill tone="warn">{t('studio.drafts.needsReview')}</StudioPill>
                   ) : (
-                    <StudioPill tone="draft">Draft</StudioPill>
+                    <StudioPill tone="draft">{t('studio.drafts.draft')}</StudioPill>
                   )}
                 </div>
               </Row>
@@ -412,19 +410,18 @@ export default function LibraryStudioScreen() {
   return (
     <StudioShell
       icon={Sparkles}
-      title="How your work landed"
-      subtitle={`${impact.length} published contributions`}
+      title={t('studio.views.impact')}
+      subtitle={t('studio.impact.subtitle', { count: impact.length })}
     >
       <p className="mb-5 max-w-[70ch] text-sm leading-6 text-muted-foreground">
-        Every contribution you’ve published, and what happened to it. Likes are shown per
-        item — they say what people found useful, and never add up to a score.
+        {t('studio.impact.intro')}
       </p>
 
       {impact.length === 0 ? (
         <EmptyState
           icon={Sparkles}
-          title="Nothing published yet"
-          body="Share a summary, a worked example or a set of practice questions with a Space, and it will show up here with how it landed."
+          title={t('studio.impact.emptyTitle')}
+          body={t('studio.impact.emptyBody')}
         />
       ) : (
         <div className="space-y-2">
@@ -435,18 +432,18 @@ export default function LibraryStudioScreen() {
                 <p className="truncate text-xs text-muted-foreground">
                   {[r.lessonTitle, r.spaceName].filter(Boolean).join(' · ')}
                   {[r.lessonTitle, r.spaceName].some(Boolean) ? ' · ' : ''}
-                  {formatDate(r.createdAt)}
+                  {formatTimestamp(r.createdAt, true)}
                 </p>
               </div>
 
               {r.orphaned && (
                 <StudioPill tone="warn">
-                  <Unlink aria-hidden className="h-3.5 w-3.5" /> Needs a new home
+                  <Unlink aria-hidden className="h-3.5 w-3.5" /> {t('studio.impact.needsNewHome')}
                 </StudioPill>
               )}
               {r.endorsed && (
                 <StudioPill tone="ready">
-                  <CheckCircle2 aria-hidden className="h-3.5 w-3.5" /> Endorsed
+                  <CheckCircle2 aria-hidden className="h-3.5 w-3.5" /> {t('v4Spaces:badges.endorsed')}
                 </StudioPill>
               )}
 

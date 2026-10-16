@@ -566,7 +566,10 @@ describe('Library can re-home an orphan', () => {
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
       .replace(/^\s*\/\/.*$/gm, '');
-    const at = src.indexOf('Find it a new home');
+    /* The words live in the translations; the screen carries their key. */
+    const words = JSON.parse(readFileSync(join(process.cwd(), 'src/i18n/locales/en/v4Library.json'), 'utf8'));
+    expect(words.library.orphan.rehome).toBe('Find it a new home');
+    const at = src.indexOf("t('library.orphan.rehome')");
     expect(at, 'the action is gone — retarget this guard').toBeGreaterThan(-1);
     const control = src.slice(Math.max(0, at - 700), at);
     expect(control, 'the re-home action sits under the row overlay').toMatch(/relative z-10/);

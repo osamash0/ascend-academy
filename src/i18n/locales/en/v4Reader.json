@@ -287,5 +287,21 @@
       "viewCode": "View code",
       "hideCode": "Hide code"
     }
+  },
+  "read": {
+    "materialCaption": "The Material this Lesson was built from",
+    "unwritten": {
+      "title": "Not written yet",
+      "body": "{{lesson}} has its ideas and its practice, but the text itself has not been written yet."
+    },
+    "source": {
+      "pageNumber": "Page {{page}}",
+      "belongsTo": "This page belongs to <idea>{{name}}</idea>"
+    },
+    "rail": {
+      "label": "Reader companions",
+      "tabs": "Companions",
+      "close": "Close companions"
+    }
   }
 }
