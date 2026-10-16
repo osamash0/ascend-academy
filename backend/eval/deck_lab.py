@@ -13,17 +13,19 @@ The "old" selectors are re-implemented here as named reference functions
 comparison does not depend on dead code. The "new" selectors call the very
 functions production calls.
 
-Run: python -m backend.eval.deck_lab [--decks NAME ...] [--dir DIR] [--out FILE]
+Run: python -m backend.eval.deck_lab [--decks NAME ...] [--dir DIR] [--out FILE] [--grounding-semantic [--embedding-cache FILE]]
 """
 from __future__ import annotations
 
 import argparse
+import asyncio
+import os
 import sys
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import TYPE_CHECKING, Mapping, Sequence
 
 from backend.eval import decks
 from backend.eval.data.grounding_probe import (
@@ -44,7 +46,11 @@ from backend.services.parser.deck_plan import (
     select_slides,
     synthesis_text,
 )
+from backend.eval.embedding_cache import ALLOW_API_ENV, DEFAULT_EMBEDDING_CACHE, EmbeddingCacheMiss
 from backend.services.parser.quiz_grounding import SUPPORT_THRESHOLD, assess_grounding
+
+if TYPE_CHECKING:
+    from backend.eval.semantic_grounding_eval import SemanticRun
 
 QUIZ_BUDGET = 10
 META_BUDGET = 15
@@ -378,17 +384,20 @@ def _rate(num: int, den: int) -> str:
     return f"{num}/{den} ({100 * num / den:.0f}%)" if den else "n/a (nothing scored)"
 
 
-def provenance_lines(deck_dir: Path, names: Sequence[str], threshold: float) -> list[str]:
+def provenance_lines(deck_dir: Path, names: Sequence[str], threshold: float,
+                     embeddings: str | None = None) -> list[str]:
     shown = str(deck_dir).replace(str(Path.home()), "~", 1)
-    return [
+    lines = [
         "<!--",
         f"  generated : {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ')}",
         f"  commit    : {_git_sha()}",
         f"  deck dir  : {shown} ({len(names)} decks)",
         f"  threshold : SUPPORT_THRESHOLD = {threshold}",
         "  LLM calls : 0",
-        "-->",
     ]
+    if embeddings:
+        lines.append(f"  embeddings: {embeddings}")
+    return lines + ["-->"]
 
 
 def _interpretation(probe: ProbeResult) -> str:
@@ -415,7 +424,86 @@ def _interpretation(probe: ProbeResult) -> str:
             f"Consequence: {consequence}")
 
 
-def render_markdown(reports: Sequence[DeckReport], probe: ProbeResult, provenance: Sequence[str]) -> str:
+def _yes(flag: bool) -> str:
+    return "yes" if flag else "no"
+
+
+def _semantic_interpretation(run: "SemanticRun") -> str:
+    """Reading guide under the semantic rates; every clause follows the run's
+    numbers, the pre-registered gate and the live flags."""
+    from backend.eval import semantic_grounding_eval as sge
+    from backend.services.parser import semantic_grounding, synthesis
+
+    half = sge.EXPECTED_PROBE_ANSWERS // 2
+    gate = (f"Pre-registered gate ({sge.DECISION_COLUMN} false drop <= {sge.MAX_FALSE_DROPS}/{half}, "
+            f"false keep <= {sge.MAX_FALSE_KEEPS}/{half}, calibration errors <= {sge.MAX_CALIBRATION_ERRORS}): ")
+    if run.decision.eligible:
+        gate += ("PASSED — the data would allow wiring semantic grounding into production "
+                 "(a separate, user-approved change; this report changes no flag).")
+    else:
+        stance = ("the verifier stays advisory" if not synthesis.ENFORCE_SUPPORT_THRESHOLD else
+                  "enforce mode is on with the lexical/uncalibrated scorer")
+        gate += (f"FAILED ({'; '.join(run.decision.failures)}) — {stance}; "
+                 "these numbers are recorded, not tuned.")
+    lex, comb = run.probe.rates("lexical"), run.probe.rates("combined")
+    shift = (f"Combined vs lexical on the probe: false drops {lex.false_drops} -> {comb.false_drops}, "
+             f"false keeps {lex.false_keeps} -> {comb.false_keeps}.")
+    live = (f"Live configuration: ENFORCE_SUPPORT_THRESHOLD={synthesis.ENFORCE_SUPPORT_THRESHOLD}, "
+            f"SEMANTIC_SUPPORT_THRESHOLD={semantic_grounding.SEMANTIC_SUPPORT_THRESHOLD}; "
+            "semantic grounding is eval-only (no production scorer setting).")
+    return f"{gate} {shift} {live}"
+
+
+def render_semantic_section(run: "SemanticRun | None") -> list[str]:
+    out = ["", "## Semantic grounding", ""]
+    if run is None:
+        return out + ["Not run. `--grounding-semantic` scores the probe with embeddings (opt-in: it reads the",
+                      f"embedding cache, or with {ALLOW_API_ENV}=1 sends slide text to Google's embedding API)."]
+    if run.calibration is None:
+        missing = ", ".join(_label(d) for d in run.missing_calibration_decks)
+        return out + [f"Skipped: calibration decks not found in the deck dir ({missing}); "
+                      "the threshold is never fitted on the probe."]
+    from backend.eval.semantic_grounding_eval import COLUMNS
+
+    cal, probe = run.calibration, run.probe
+    out += [
+        "Held-out protocol: the cosine threshold is fitted only on the Arc 4 calibration pairs",
+        "(`backend/eval/data/grounding_calibration.py`), then the probe is scored once at it.",
+        "Combined = lexical ok OR cosine >= threshold; ambiguous = a distractor closer than the key",
+        "that clears the threshold itself.",
+        f"Embeddings: `{run.model}`, {run.fetched} text(s) fetched live, {run.cached} from `{run.cache_path.name}`.",
+        "Reproducing this needs the local vector cache and the local PDFs (neither is committed); "
+        "the fetched-live / from-cache counts are specific to the run that produced this file.",
+        "",
+        f"- Threshold: {cal.threshold:.3f} (cosine of stem + key vs. cited slide)",
+        f"- Calibration: {cal.errors}/{cal.scored} misclassified; grounded min {min(cal.grounded):.3f}, "
+        f"ungrounded max {max(cal.ungrounded):.3f}; {cal.gated} answer(s) decided by deterministic gates, not scored",
+        "",
+        "| Scorer | False drop | False keep |",
+        "|---|---|---|",
+    ]
+    for column in COLUMNS:
+        r = probe.rates(column)
+        out.append(f"| {column} | {_rate(r.false_drops, r.paraphrased)} | {_rate(r.false_keeps, r.hallucinated)} |")
+    if all(o.combined_ok == o.semantic_ok for o in probe.outcomes):
+        out.append("\nCombined equals semantic on this probe: every lexically-kept answer was also kept semantically.")
+    if probe.missing_decks:
+        out.append(f"\nNot scored, deck missing: {', '.join(_label(d) for d in probe.missing_decks)}")
+    out += [
+        "",
+        _semantic_interpretation(run),
+        "",
+        "| Deck | Slide | Kind | Answer | Lexical | Cosine | Reason | Lexical kept | Semantic kept | Combined kept |",
+        "|---|---:|---|---|---:|---:|---|---|---|---|",
+    ]
+    for o in probe.outcomes:
+        out.append(f"| {_label(o.pair.deck)} | {o.pair.slide} | {o.kind} | {o.answer} | {o.lexical:.3f} | "
+                   f"{o.cosine:.3f} | {o.reason} | {_yes(o.lexical_ok)} | {_yes(o.semantic_ok)} | {_yes(o.combined_ok)} |")
+    return out
+
+
+def render_markdown(reports: Sequence[DeckReport], probe: ProbeResult, provenance: Sequence[str],
+                    semantic: "SemanticRun | None" = None) -> str:
     t = corpus_totals(reports)
     total = f"**Total ({t.decks} deck{'' if t.decks == 1 else 's'})**"
     out: list[str] = ["# Deck Lab — old vs new slide selection (no LLM calls)", "", *provenance, ""]
@@ -519,6 +607,7 @@ def render_markdown(reports: Sequence[DeckReport], probe: ProbeResult, provenanc
         for o in probe.outcomes:
             out.append(f"| {_label(o.pair.deck)} | {o.pair.slide} | {o.kind} | {o.answer} | "
                        f"{o.score:.3f} | {o.reason} | {'yes' if o.accepted else 'no'} |")
+    out += render_semantic_section(semantic)
     return "\n".join(out) + "\n"
 
 
@@ -534,6 +623,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dir", default=None,
                    help="directory holding the PDFs (default: $DECK_LAB_DIR or ~/Downloads)")
     p.add_argument("--out", default=None, help="write the markdown here instead of stdout")
+    p.add_argument("--grounding-semantic", action="store_true",
+                   help="also score the grounding probe with embeddings (Arc 8). Offline from "
+                        f"--embedding-cache unless {ALLOW_API_ENV}=1, which sends slide text to "
+                        "Google's embedding API")
+    p.add_argument("--embedding-cache", default=str(DEFAULT_EMBEDDING_CACHE),
+                   help="JSON cache of embeddings keyed by sha256 of the text")
     return p
 
 
@@ -557,7 +652,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         if pages is not None:
             skeletons[deck] = build_deck_skeleton(pages)
     probe = run_grounding_probe(PROBE_PAIRS, skeletons)
-    md = render_markdown(reports, probe, provenance_lines(deck_dir, names, probe.threshold))
+    semantic = None
+    if args.grounding_semantic:
+        from backend.eval import semantic_grounding_eval  # lazy: it imports this module
+        try:
+            semantic = asyncio.run(semantic_grounding_eval.run_semantic_grounding(
+                deck_dir, Path(args.embedding_cache), allow_api=os.environ.get(ALLOW_API_ENV) == "1"))
+        except EmbeddingCacheMiss as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+    embeddings = None if semantic is None else (
+        f"{semantic.fetched} text(s) fetched live, {semantic.cached} from cache ({semantic.model})")
+    md = render_markdown(reports, probe, provenance_lines(deck_dir, names, probe.threshold, embeddings), semantic)
     if args.out:
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)
