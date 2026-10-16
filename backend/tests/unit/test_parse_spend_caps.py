@@ -420,7 +420,7 @@ async def test_latched_budget_refuses_an_explicit_parse_user_without_a_redis_rea
 
 async def test_explicit_other_user_or_unenforced_context_is_unchanged(spend):
     from backend.services.llm_client import LLMBudgetExceededError
-    budget = _enforced_ctx(exceeded=True)
+    _enforced_ctx(exceeded=True)                             # pushes the context; return unused
     await ai_orchestrator.enforce_llm_budget(OTHER)          # other user: real check, under cap
     _over_cap(spend, OTHER)
     with pytest.raises(LLMBudgetExceededError):
