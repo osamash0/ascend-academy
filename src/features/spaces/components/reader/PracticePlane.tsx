@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PracticeQuestion } from '../../mocks/practice';
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export function PracticePlane({ open, lessonTitle, questions, onClose }: Props) {
+  const { t } = useTranslation('v4Reader');
   const ref = useRef<HTMLElement>(null);
   const [i, setI] = useState(0);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -48,7 +50,7 @@ export function PracticePlane({ open, lessonTitle, questions, onClose }: Props) 
   };
 
   return (
-    <Plane focused label="Practice" className="z-[3]">
+    <Plane focused label={t('practice.label')} className="z-[3]">
       <div
         className="flex h-full items-start justify-center overflow-y-auto bg-[#070b14]/70 px-6 pb-[20vh] pt-[16vh]"
         onClick={(e) => {
@@ -58,12 +60,12 @@ export function PracticePlane({ open, lessonTitle, questions, onClose }: Props) 
         <section
           ref={ref}
           tabIndex={-1}
-          aria-label={`Practise · ${lessonTitle}`}
+          aria-label={t('practice.heading', { title: lessonTitle })}
           className="w-full max-w-[560px] rounded-xl border border-white/[0.08] bg-[#0b1020]/95 p-7 outline-none shadow-[0_24px_80px_-24px_rgba(0,0,0,0.6)] backdrop-blur-md"
         >
           <div className="mb-6 flex items-center justify-between gap-3">
             <p className="text-[12.5px] text-quiet">
-              Practise · {lessonTitle}
+              {t('practice.heading', { title: lessonTitle })}
               {questions.length > 0 && (
                 <span className="tabular-nums">
                   {' '}
@@ -77,12 +79,12 @@ export function PracticePlane({ open, lessonTitle, questions, onClose }: Props) 
               className="console-focusable inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
             >
               <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
-              Back to reading
+              {t('practice.back')}
             </button>
           </div>
 
           {!q ? (
-            <p className="text-[15px] leading-[1.6] text-quiet">There is no practice for this Lesson yet.</p>
+            <p className="text-[15px] leading-[1.6] text-quiet">{t('practice.empty')}</p>
           ) : (
             <>
               <h2 className="text-[20px] font-semibold leading-[1.35] tracking-[-0.01em] text-foreground">
@@ -120,7 +122,7 @@ export function PracticePlane({ open, lessonTitle, questions, onClose }: Props) 
 
               {graded && (
                 <p aria-live="polite" className="mt-5 text-[14.5px] leading-[1.6] text-quiet">
-                  <span className="font-medium text-foreground">{graded.correct ? 'Right. ' : 'Not quite. '}</span>
+                  <span className="font-medium text-foreground">{graded.correct ? t('practice.right') : t('practice.notQuite')}</span>
                   {graded.explanation}
                 </p>
               )}
@@ -133,7 +135,7 @@ export function PracticePlane({ open, lessonTitle, questions, onClose }: Props) 
                     onClick={() => setChecked(true)}
                     className="console-focusable inline-flex h-10 items-center rounded-full bg-white px-5 text-[14px] font-semibold text-slate-900 disabled:bg-white/[0.10] disabled:text-quiet"
                   >
-                    Check
+                    {t('practice.check')}
                   </button>
                 ) : (
                   <button
@@ -141,7 +143,7 @@ export function PracticePlane({ open, lessonTitle, questions, onClose }: Props) 
                     onClick={next}
                     className="console-focusable inline-flex h-10 items-center rounded-full bg-white px-5 text-[14px] font-semibold text-slate-900"
                   >
-                    {last ? 'Back to reading' : 'Next question'}
+                    {last ? t('practice.back') : t('practice.next')}
                   </button>
                 )}
               </div>

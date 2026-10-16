@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { timing } from './Planes';
 import type { ReadingSection } from './anchors';
@@ -19,8 +20,9 @@ interface Props {
 }
 
 export function LessonToc({ sections, conceptId, page, onPage }: Props) {
+  const { t } = useTranslation('v4Reader');
   return (
-    <nav aria-label="Contents of this Lesson" className="w-full">
+    <nav aria-label={t('toc.label')} className="w-full">
       <ol className="space-y-1">
         {sections.map((s) => {
           const current = s.conceptId === conceptId;
@@ -58,7 +60,7 @@ export function LessonToc({ sections, conceptId, page, onPage }: Props) {
                           )}
                         >
                           <span className="w-5 shrink-0 tabular-nums">{b.page}</span>
-                          <span className="line-clamp-2">{b.title ?? `Page ${b.page}`}</span>
+                          <span className="line-clamp-2">{b.title ?? t('toc.page', { page: b.page })}</span>
                         </button>
                       </li>
                     );

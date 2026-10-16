@@ -2,6 +2,7 @@
  * Loading this module does not initialize auth or make requests in demo mode.
  * The repository never substitutes fixtures for errors or missing live rows.
  */
+import i18n from '@/i18n';
 import type { ExplainAnswer } from '../components/reader/iui/spec';
 
 /** A course, read as the reader's Space: its lectures in order. */
@@ -203,5 +204,18 @@ export async function loadLiveRepository(): Promise<LiveRepository> {
     throw new Error('Live v4 data is not enabled.');
   }
   const { apiClient } = await import('@/lib/apiClient');
-  return createLiveRepository(apiClient);
+  return createLiveRepository(withLanguage(apiClient));
+}
+
+/*
+ * Every request says which language the app is showing. The server would
+ * otherwise read the profile — and a reader who just switched to Deutsch would
+ * be answered in the old language until the profile write landed.
+ */
+function withLanguage(http: V4Transport): V4Transport {
+  const tag = (path: string) => `${path}${path.includes('?') ? '&' : '?'}lang=${(i18n.language || 'en').split('-')[0]}`;
+  return {
+    get: <T>(path: string) => http.get<T>(tag(path)),
+    post: <T>(path: string, body: unknown) => http.post<T>(tag(path), body),
+  };
 }

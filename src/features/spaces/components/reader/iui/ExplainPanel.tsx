@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowUp, ArrowUpRight, RotateCcw, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { timing } from '../Planes';
 import { BlockView } from './Blocks';
@@ -60,9 +61,11 @@ interface Turn {
 /** How long one block takes to "arrive". */
 const BLOCK_MS = 520;
 
-const STARTERS = ['Show me how this works', 'Give me an example to try', 'What do people get wrong here?'];
+/** Keys under `explain.starters` — the questions offered before any is asked. */
+const STARTERS = ['how', 'example', 'mistakes'] as const;
 
 export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot, onAsk, ask, queued, related }: Props) {
+  const { t } = useTranslation('v4Reader');
   const reduce = useReducedMotion();
   const seen = useRef(new Set<string>());
   const first = !seen.current.has(answerKey);
@@ -143,12 +146,12 @@ export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot
     send(queued.question);
   }, [queued, send]);
 
-  const retry = (t: Turn) => {
-    setThreads((all) => ({ ...all, [answerKey]: (all[answerKey] ?? []).filter((x) => x.id !== t.id) }));
-    send(t.question);
+  const retry = (turn: Turn) => {
+    setThreads((all) => ({ ...all, [answerKey]: (all[answerKey] ?? []).filter((x) => x.id !== turn.id) }));
+    send(turn.question);
   };
 
-  const suggestions = [...(answer?.next ?? []), ...STARTERS].slice(0, 3);
+  const suggestions = [...(answer?.next ?? []), ...STARTERS.map((k) => t(`explain.starters.${k}`))].slice(0, 3);
 
   return (
     <div className="flex h-full flex-col">
@@ -162,9 +165,9 @@ export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot
           >
             <p className="mb-2 flex items-center gap-2 text-[12.5px] text-quiet">
               <Sparkles aria-hidden className="h-3.5 w-3.5" style={{ color: 'var(--reader-accent,hsl(var(--secondary)))' }} />
-              Page {page}
+              {t('explain.page', { page })}
               <span aria-hidden className="text-faint">·</span>
-              {answer ? answer.format : 'Composing an answer for this page…'}
+              {answer ? answer.format : t('explain.composing')}
             </p>
             {answer ? (
               <h2 className="mb-6 text-[24px] font-medium leading-[1.2] tracking-[-0.015em] text-foreground">{answer.title}</h2>
@@ -173,7 +176,7 @@ export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot
             )}
             {fallback && (
               <p className="-mt-3 mb-6 text-[12.5px] text-quiet">
-                Explain couldn’t reach the model just now, so this is built from the page’s own text.
+                {t('explain.fallback')}
               </p>
             )}
           </motion.div>
@@ -210,14 +213,19 @@ export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot
           {/* The idea, elsewhere in the course: lectures connect. */}
           {!composing && related && related.links.length > 0 && (
             <motion.nav
-              aria-label="Also taught in this Space"
+              aria-label={t('explain.related.label')}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: timing.card }}
               className="mt-8 rounded-2xl border border-white/[0.07] p-4"
             >
               <p className="mb-2.5 text-[12.5px] text-quiet">
-                <span className="text-foreground">{related.idea}</span> also appears elsewhere in the Space
+                <Trans
+                  t={t}
+                  i18nKey="explain.related.heading"
+                  values={{ idea: related.idea }}
+                  components={{ idea: <span className="text-foreground" /> }}
+                />
               </p>
               <ul className="space-y-1">
                 {related.links.map((l) => (
@@ -237,39 +245,39 @@ export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot
           )}
 
           {/* The conversation about this page. */}
-          {turns.map((t, i) => (
-            <div key={t.id} ref={i === turns.length - 1 ? lastTurn : undefined} className="mt-10 scroll-mt-4">
+          {turns.map((turn, i) => (
+            <div key={turn.id} ref={i === turns.length - 1 ? lastTurn : undefined} className="mt-10 scroll-mt-4">
               <div className="mb-5 flex justify-end">
                 <p className="max-w-[85%] rounded-2xl rounded-br-md bg-white/[0.08] px-4 py-2.5 text-[14.5px] leading-[1.45] text-foreground">
-                  {t.question}
+                  {turn.question}
                 </p>
               </div>
-              {t.status === 'thinking' && (
+              {turn.status === 'thinking' && (
                 <div aria-live="polite" className="space-y-3">
                   <p className="flex items-center gap-2 text-[12.5px] text-quiet">
                     <Sparkles aria-hidden className="h-3.5 w-3.5" style={{ color: 'var(--reader-accent,hsl(var(--secondary)))' }} />
-                    Choosing how to show this…
+                    {t('explain.thinking')}
                   </p>
                   <Shimmer className="h-[20px] w-3/4" />
                   <Shimmer className="w-11/12" />
                   <Shimmer className="w-2/3" />
                 </div>
               )}
-              {t.status === 'failed' && (
+              {turn.status === 'failed' && (
                 <div role="alert" className="flex items-center gap-3 text-[13.5px] text-quiet">
-                  That one didn’t come through.
+                  {t('explain.failed')}
                   <button
                     type="button"
-                    onClick={() => retry(t)}
+                    onClick={() => retry(turn)}
                     className="console-focusable flex h-8 items-center gap-1.5 rounded-full bg-white/[0.06] px-3 text-[12.5px] text-foreground transition-colors hover:bg-white/[0.1]"
                   >
                     <RotateCcw aria-hidden className="h-3.5 w-3.5" />
-                    Try again
+                    {t('explain.retry')}
                   </button>
                 </div>
               )}
-              {t.status === 'ready' && t.answer && (
-                <TurnAnswer answer={t.answer} onSpot={onSpot} onAsk={send} reduce={!!reduce} />
+              {turn.status === 'ready' && turn.answer && (
+                <TurnAnswer answer={turn.answer} onSpot={onSpot} onAsk={send} reduce={!!reduce} />
               )}
             </div>
           ))}
@@ -303,14 +311,14 @@ export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             maxLength={400}
-            placeholder={ask ? 'Ask about this page — or ask for a tool…' : 'Ask the tutor about this page…'}
-            aria-label="Ask about this page"
+            placeholder={ask ? t('explain.ask.placeholder') : t('explain.ask.placeholderTutor')}
+            aria-label={t('explain.ask.label')}
             className="h-9 min-w-0 flex-1 bg-transparent text-[14px] text-foreground outline-none placeholder:text-faint"
           />
           <button
             type="submit"
             disabled={draft.trim().length < 2}
-            aria-label="Ask"
+            aria-label={t('explain.ask.send')}
             className="console-focusable flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-background transition-colors disabled:bg-white/[0.12] disabled:text-faint"
           >
             <ArrowUp aria-hidden className="h-4 w-4" />
