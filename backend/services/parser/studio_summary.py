@@ -52,16 +52,15 @@ def _page_section(page_no: int, pb: PageBlocks) -> Tuple[str, set]:
 
 
 def _cap_bold(md: str, kept: set) -> str:
-    """Keep at most MAX_BOLD_PER_PAGE distinct bold terms (case-insensitive)
-    across one page; later ones lose their ** but keep their text."""
+    """Recall turns every bold run into a blank, so across one page: each term
+    is bold once (case-insensitive), at most MAX_BOLD_PER_PAGE terms, and an
+    empty run is not a term. Everything unbolded keeps its text."""
     def repl(m: "re.Match[str]") -> str:
         term = m.group(1).strip().lower()
-        if term in kept:
-            return m.group(0)
-        if len(kept) < MAX_BOLD_PER_PAGE:
-            kept.add(term)
-            return m.group(0)
-        return m.group(1)
+        if not term or term in kept or len(kept) >= MAX_BOLD_PER_PAGE:
+            return m.group(1)
+        kept.add(term)
+        return m.group(0)
 
     return _BOLD.sub(repl, md)
 

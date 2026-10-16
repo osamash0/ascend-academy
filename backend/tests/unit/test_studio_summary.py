@@ -131,7 +131,7 @@ def test_bold_terms_are_capped_at_five_per_page():
     bold = re.findall(r"\*\*(.+?)\*\*", md)
     assert len({b.lower() for b in bold}) == ss.MAX_BOLD_PER_PAGE == 5
     assert {b.lower() for b in bold} == {"term0", "term1", "term2", "term3", "term4"}
-    assert "**TERM0**" in md, "a repeat of an already-bold term stays bold and is not counted again"
+    assert "**TERM0**" not in md and "TERM0 again" in md, "a repeat of a bold term is plain: one Recall blank per term"
     for t in terms:
         assert t in md, "unbolded terms keep their text"
     assert "**term5**" not in md and "term5" in md
@@ -147,3 +147,21 @@ def test_prompts_ask_about_the_subject_not_the_page():
     # Both prompts are still valid format strings.
     ss.STUDIO_SUMMARY_PROMPT.format(title="T", language="English", pages="PAGE 1")
     VISION_BLOCKS_PROMPT.format(title="T", language="English", page=1)
+
+
+def test_a_repeated_term_is_bold_only_the_first_time():
+    """Recall turns every bold run into a blank, so a term bold twice on one
+    page was two blanks for one idea (INSERT and DELETE on 06 DBS Integrity p42)."""
+    raw = [
+        {"markdown": "Triggers run **BEFORE** or **AFTER** an **INSERT** or **DELETE**.", "covers": []},
+        {"markdown": "They cannot be set for **insert** or **DELETE** in that case.", "covers": []},
+    ]
+    out = ss.clean_paragraphs(raw, set())
+    joined = " ".join(p["markdown"] for p in out)
+    assert joined.count("**") // 2 == 4
+    assert "for insert or DELETE in that case" in out[1]["markdown"]
+
+
+def test_an_empty_bold_run_is_not_a_term():
+    out = ss.clean_paragraphs([{"markdown": "A ** ** gap and **keys**.", "covers": []}], set())
+    assert out[0]["markdown"] == "A   gap and **keys**."
