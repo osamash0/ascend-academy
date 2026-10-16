@@ -1,5 +1,7 @@
 import { Fragment, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Check, MoreHorizontal, Share2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -16,6 +18,7 @@ import { ShareActions } from './ShareSheet';
 import { rememberOpened } from './returnFocus';
 import { SHELF_TONE } from './tone';
 import { useZoomThrough } from './ZoomThrough';
+import { say } from '../components/course/phrase';
 
 /**
  * A cover on the shelf (One Library spec §5.2): the real first page, its name,
@@ -24,17 +27,17 @@ import { useZoomThrough } from './ZoomThrough';
  */
 
 /** What the chip says, and what the cover's name says after the filename. */
-function stateLabel(item: ShelfItem): string {
-  if (item.stage === 'developing') return 'Developing…';
-  if (item.stage === 'failed') return 'Couldn’t read this file';
+function stateLabel(t: TFunction<'v4Library'>, item: ShelfItem): string {
+  if (item.stage === 'developing') return t('cover.developing');
+  if (item.stage === 'failed') return t('cover.failed');
   const s = item.share;
-  if (s.kind === 'draft') return `Draft in ${shelfSpaceName(s.spaceId)}`;
-  if (s.kind === 'shared') return `Shared in ${shelfSpaceName(s.spaceId)}`;
-  return 'Only you';
+  if (s.kind === 'draft') return t('cover.draftIn', { space: shelfSpaceName(s.spaceId) });
+  if (s.kind === 'shared') return t('cover.sharedIn', { space: shelfSpaceName(s.spaceId) });
+  return t('library.onlyYou');
 }
 
-const coverLabel = (item: ShelfItem, title: string): string =>
-  [title, stateLabel(item), ...lifeLine(item)].join(', ');
+const coverLabel = (t: TFunction<'v4Library'>, item: ShelfItem, title: string): string =>
+  [title, stateLabel(t, item), ...lifeLine(item).map((p) => say(t, p))].join(', ');
 
 const SMALL_WORDS = new Set(['a', 'an', 'and', 'for', 'in', 'of', 'on', 'the', 'to']);
 
@@ -55,8 +58,6 @@ const spaceTint = (spaceId: string): number => {
   for (const ch of spaceId) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return [0.03, 0.05, 0.07, 0.09][h % 4];
 };
-
-const pagesLabel = (n: number) => `${n} ${n === 1 ? 'page' : 'pages'}`;
 
 /** `**term**` → the warm term colour; everything else as written. */
 export function Terms({ text }: { text: string }) {
@@ -110,7 +111,8 @@ export function LifeBar({
 
 /** "Read 6/12 · Recall 9/31 · 2 answers · 1 note" — zeros left out. */
 export function LifeLine({ item, className }: { item: ShelfItem; className?: string }) {
-  const parts = lifeLine(item);
+  const { t } = useTranslation('v4Library');
+  const parts = lifeLine(item).map((p) => say(t, p));
   if (parts.length === 0) return null;
   return (
     <p className={cn('flex flex-wrap gap-x-3 gap-y-0.5 text-[12.5px] text-quiet', className)}>
@@ -122,6 +124,7 @@ export function LifeLine({ item, className }: { item: ShelfItem; className?: str
 }
 
 function StateChip({ item, pulse }: { item: ShelfItem; pulse: boolean }) {
+  const { t } = useTranslation('v4Library');
   const reduce = useReducedMotion();
   const s = item.share;
   const dot =
@@ -155,13 +158,13 @@ function StateChip({ item, pulse }: { item: ShelfItem; pulse: boolean }) {
         }
       />
       <span className="truncate">
-        {stateLabel(item)}
-        {pulse && ' · ready'}
+        {stateLabel(t, item)}
+        {pulse && ` · ${t('cover.ready')}`}
       </span>
       {s.kind === 'shared' && item.stage === 'ready' && (
         <>
           {s.likes > 0 && <span className="shrink-0 tabular-nums">♥ {s.likes}</span>}
-          {s.endorsed && <span className="shrink-0">Endorsed</span>}
+          {s.endorsed && <span className="shrink-0">{t('cover.endorsed')}</span>}
         </>
       )}
     </motion.span>
@@ -169,6 +172,7 @@ function StateChip({ item, pulse }: { item: ShelfItem; pulse: boolean }) {
 }
 
 function CoverMenu({ item, onRemove }: { item: ShelfItem; onRemove?: () => void }) {
+  const { t } = useTranslation('v4Library');
   const { filename } = item;
   const trigger = useRef<HTMLButtonElement>(null);
   // The same actions as the page's Share button: a drafted or shared file is published or taken back, never re-shared.
@@ -180,7 +184,7 @@ function CoverMenu({ item, onRemove }: { item: ShelfItem; onRemove?: () => void 
             <button
               ref={trigger}
               type="button"
-              aria-label={`More for ${filename}`}
+              aria-label={t('cover.more', { file: filename })}
               className="console-focusable flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-foreground backdrop-blur-sm transition-colors hover:bg-black/75"
             >
               <MoreHorizontal aria-hidden className="h-4 w-4" />
@@ -195,7 +199,7 @@ function CoverMenu({ item, onRemove }: { item: ShelfItem; onRemove?: () => void 
             {onRemove && (
               <DropdownMenuItem onSelect={onRemove} className="gap-2 rounded-lg text-[13px]">
                 <Trash2 aria-hidden className="h-3.5 w-3.5" />
-                Remove…
+                {t('cover.remove')}
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
@@ -216,6 +220,7 @@ export function Cover({
   /** "Remove…" from the menu: into Select, with this cover checked. */
   onRemove?: () => void;
 }) {
+  const { t } = useTranslation('v4Library');
   const reduce = useReducedMotion();
   const { title, lessonTitle } = useCoverTitle(item);
   const { lines } = useGlance(item);
@@ -287,7 +292,7 @@ export function Cover({
             aria-hidden
             className="absolute inset-x-0 bottom-2.5 text-center text-[12px] font-semibold tracking-[0.01em] text-[#222]"
           >
-            {phase === 'writing' ? 'Writing your summary…' : 'Reading your pages…'}
+            {t(phase === 'writing' ? 'cover.writing' : 'cover.reading')}
           </p>
         )}
         <AnimatePresence>
@@ -318,8 +323,10 @@ export function Cover({
           meta line carries the rest, so no fact is printed twice on a cover.
         */}
         <p className="mt-0.5 text-[12.5px] text-faint">
-          {pagesLabel(item.pageCount)}
-          {item.sample && <span className="ml-2 rounded-full bg-white/[0.07] px-2 py-px text-[11px]">Sample pages</span>}
+          {t('cover.pages', { count: item.pageCount })}
+          {item.sample && (
+            <span className="ml-2 rounded-full bg-white/[0.07] px-2 py-px text-[11px]">{t('cover.sample')}</span>
+          )}
         </p>
         <div className="mt-2.5">
           <LifeBar read={item.progress.pagesRead} total={item.pageCount} developing={live} />
@@ -349,7 +356,7 @@ export function Cover({
       ) : (
         <Link
           to={href}
-          aria-label={coverLabel(item, title)}
+          aria-label={coverLabel(t, item, title)}
           data-opened-via="cover"
           onClick={(e) => {
             rememberOpened(item.id, 'cover');
@@ -371,7 +378,7 @@ export function Cover({
           role="checkbox"
           data-select-box={item.id}
           aria-checked={select.checked}
-          aria-label={coverLabel(item, title)}
+          aria-label={coverLabel(t, item, title)}
           onClick={select.onToggle}
           className={cn(
             'console-focusable absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg border transition-colors',
@@ -391,7 +398,7 @@ export function Cover({
             onClick={retry}
             className="console-focusable h-8 rounded-full border border-white/15 px-3.5 text-[12.5px] font-medium text-foreground transition-colors hover:bg-white/[0.07]"
           >
-            Try again
+            {t('cover.retry')}
           </button>
         </div>
       )}

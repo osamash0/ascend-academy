@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, useReducedMotion } from 'motion/react';
 import { CheckSquare, Layers, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,7 @@ import { YourWords } from '../library/YourWords';
 import { ZoomThrough } from '../library/ZoomThrough';
 import { SelectBar } from '../library/SelectBar';
 import { takeReturnTarget } from '../library/returnFocus';
+import { formatNumber } from '../i18n/format';
 
 /**
  * Library — the shelf (One Library spec §5.1).
@@ -42,28 +44,20 @@ import { takeReturnTarget } from '../library/returnFocus';
  * Select (`?select=1`) is the one dense moment, on purpose (spec §5.8).
  */
 
-const FILTERS: { key: ShelfFilter; label: string }[] = [
-  { key: 'all', label: 'Everything' },
-  { key: 'reading', label: 'Reading' },
-  { key: 'shared', label: 'Shared' },
-  { key: 'words', label: 'Your words' },
-];
-
-const SORTS: { key: ShelfSort; label: string }[] = [
-  { key: 'recent', label: 'Recently opened' },
-  { key: 'added', label: 'Added' },
-  { key: 'az', label: 'A–Z' },
-];
+/* Labels are `library.filter.<key>` and `library.sort.<key>`. */
+const FILTERS: ShelfFilter[] = ['all', 'reading', 'shared', 'words'];
+const SORTS: ShelfSort[] = ['recent', 'added', 'az'];
 
 /** From this many items up, the shelf offers search, sort and grouping. */
 const BIG_SHELF = 9;
 
 const asFilter = (v: string | null): ShelfFilter =>
-  FILTERS.some((f) => f.key === v) ? (v as ShelfFilter) : 'all';
+  FILTERS.includes(v as ShelfFilter) ? (v as ShelfFilter) : 'all';
 
 const LIBRARY_ACCENT = null;
 
 export default function LibraryScreen() {
+  const { t } = useTranslation('v4Library');
   const viewer = useViewer();
   const { state, items, continueItem, words } = useShelf();
   /* Read beside the shelf, so both settle together rather than one after the other. */
@@ -106,7 +100,7 @@ export default function LibraryScreen() {
     ) : variant === 'empty' ? (
       /* Live: nothing to bring in here yet, so no tile that pretends to take a file. */
       <p className="mx-auto mt-16 max-w-[44ch] text-center text-[15px] leading-relaxed text-quiet">
-        Notes you write in a Lesson gather here, each one a tap from the page it was written on.
+        {t('library.wordsOnlyEmpty')}
       </p>
     ) : null;
 
@@ -119,8 +113,8 @@ export default function LibraryScreen() {
       if (stages.current.get(i.id) === 'developing' && i.stage === 'ready') ready.push(i.filename);
       stages.current.set(i.id, i.stage);
     }
-    if (ready.length) setSaid(ready.map((f) => `${f} is ready`).join('. '));
-  }, [items]);
+    if (ready.length) setSaid(ready.map((file) => t('library.isReady', { file })).join('. '));
+  }, [items, t]);
 
   /** URL params, set or cleared together (one navigation), leaving the others (mock, …) alone. */
   const setParam = (patch: Record<string, string | null>) =>
@@ -224,7 +218,7 @@ export default function LibraryScreen() {
   /* The filters are tabs: one in the tab order, arrows move between them (APG tabs, automatic activation). */
   const tabRefs = useRef(new Map<ShelfFilter, HTMLButtonElement>());
   const onTabKey = (e: ReactKeyboardEvent) => {
-    const at = FILTERS.findIndex((f) => f.key === filter);
+    const at = FILTERS.indexOf(filter);
     const to =
       e.key === 'ArrowRight'
         ? (at + 1) % FILTERS.length
@@ -237,7 +231,7 @@ export default function LibraryScreen() {
               : -1;
     if (to < 0) return;
     e.preventDefault();
-    const key = FILTERS[to].key;
+    const key = FILTERS[to];
     showFilter(key);
     tabRefs.current.get(key)?.focus();
   };
@@ -271,14 +265,8 @@ export default function LibraryScreen() {
       <div className="relative mx-auto max-w-[1120px] px-4 pb-24 pt-10 sm:px-6 lg:px-8">
         <header>
           <Masthead
-            title="Library"
-            lede={
-              shelfIsDemo()
-                ? 'What you brought in, what you made of it, and what you shared.'
-                : accepts
-                  ? 'What you brought in, and your words from every Lesson.'
-                  : 'Your words, from every Lesson.'
-            }
+            title={t('library.title')}
+            lede={t(shelfIsDemo() ? 'library.lede.demo' : accepts ? 'library.lede.live' : 'library.lede.wordsOnly')}
           />
         </header>
 
@@ -290,40 +278,40 @@ export default function LibraryScreen() {
               <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
                 <div
                   role="tablist"
-                  aria-label="Filter"
+                  aria-label={t('library.filter.label')}
                   className="flex flex-wrap items-center justify-center gap-1.5"
                   onKeyDown={onTabKey}
                 >
                   {FILTERS.map((f) => (
                     <button
-                      key={f.key}
+                      key={f}
                       ref={(el) => {
-                        if (el) tabRefs.current.set(f.key, el);
-                        else tabRefs.current.delete(f.key);
+                        if (el) tabRefs.current.set(f, el);
+                        else tabRefs.current.delete(f);
                       }}
-                      id={`library-tab-${f.key}`}
+                      id={`library-tab-${f}`}
                       type="button"
                       role="tab"
-                      aria-selected={filter === f.key}
+                      aria-selected={filter === f}
                       aria-controls="library-panel"
-                      tabIndex={filter === f.key ? 0 : -1}
-                      onClick={() => showFilter(f.key)}
+                      tabIndex={filter === f ? 0 : -1}
+                      onClick={() => showFilter(f)}
                       className={cn(
                         'console-focusable h-9 rounded-full px-4 text-[13.5px] font-medium transition-colors',
-                        filter === f.key
+                        filter === f
                           ? 'bg-white/[0.10] text-foreground'
                           : 'text-quiet hover:bg-white/[0.05] hover:text-foreground',
                       )}
                     >
-                      {f.label}
-                      <span className="ml-1.5 tabular-nums text-faint">{counts[f.key]}</span>
+                      {t(`library.filter.${f}`)}
+                      <span className="ml-1.5 tabular-nums text-faint">{formatNumber(counts[f])}</span>
                     </button>
                   ))}
                 </div>
                 {items.length > 0 && !selecting && (
                   <button ref={pillRef} type="button" onClick={() => enterSelect()} className={ghostPillSm}>
                     <CheckSquare aria-hidden className="h-3.5 w-3.5" />
-                    Select…
+                    {t('library.selectPill')}
                   </button>
                 )}
               </div>
@@ -338,22 +326,22 @@ export default function LibraryScreen() {
                     <input
                       ref={searchRef}
                       type="search"
-                      aria-label="Search your Library"
-                      placeholder="Search your Library   /"
+                      aria-label={t('library.search.label')}
+                      placeholder={t('library.search.placeholder')}
                       value={q}
                       onChange={(e) => setParam({ q: e.target.value || null })}
                       className="console-focusable h-9 w-full rounded-full border border-white/12 bg-white/[0.05] pl-9 pr-4 text-[13.5px] text-foreground placeholder:text-faint"
                     />
                   </label>
                   <select
-                    aria-label="Sort"
+                    aria-label={t('library.sort.label')}
                     value={sort}
                     onChange={(e) => setSort(e.target.value as ShelfSort)}
                     className="console-focusable h-9 rounded-full border border-white/12 bg-white/[0.05] px-3.5 text-[13px] text-quiet"
                   >
                     {SORTS.map((s) => (
-                      <option key={s.key} value={s.key} className="bg-black text-foreground">
-                        {s.label}
+                      <option key={s} value={s} className="bg-black text-foreground">
+                        {t(`library.sort.${s}`)}
                       </option>
                     ))}
                   </select>
@@ -364,7 +352,7 @@ export default function LibraryScreen() {
                     className={cn(ghostPillSm, grouped && 'bg-white/[0.12] text-foreground')}
                   >
                     <Layers aria-hidden className="h-3.5 w-3.5" />
-                    Group by Space
+                    {t('library.groupBySpace')}
                   </button>
                 </div>
               )}
@@ -437,6 +425,7 @@ function Shelf({
   pick: (id: string) => { checked: boolean; onToggle: () => void } | undefined;
   onRemove: (id: string) => void;
 }) {
+  const { t } = useTranslation('v4Library');
   const cover = (item: ShelfItem) => (
     <Cover item={item} select={pick(item.id)} onRemove={() => onRemove(item.id)} />
   );
@@ -444,7 +433,7 @@ function Shelf({
     return (
       <section aria-labelledby="your-shelf">
         <h2 id="your-shelf" className="mb-4 text-[20px] font-medium tracking-[-0.02em]">
-          Your shelf
+          {t('library.shelf')}
         </h2>
         <EnterList aria-labelledby="your-shelf" className={GRID}>
           <EnterListItem>{cell}</EnterListItem>
@@ -455,13 +444,13 @@ function Shelf({
       </section>
     );
   }
-  const groups = groupBySpace(items, shelfSpaceName);
+  const groups = groupBySpace(items, shelfSpaceName, t('library.onlyYou'));
   return (
     <div className="space-y-12">
       {groups.map((g, gi) => (
         <section key={g.title} aria-label={g.title}>
           <h2 className="mb-4 text-[20px] font-medium tracking-[-0.02em]">{g.title}</h2>
-          <EnterList aria-label={gi === 0 ? 'Your shelf' : g.title} className={GRID}>
+          <EnterList aria-label={gi === 0 ? t('library.shelf') : g.title} className={GRID}>
             {gi === 0 && <EnterListItem>{cell}</EnterListItem>}
             {g.items.map((item) => (
               <EnterListItem key={item.id}>{cover(item)}</EnterListItem>
@@ -474,10 +463,11 @@ function Shelf({
 }
 
 function NothingHere({ filter, q }: { filter: ShelfFilter; q: string }) {
+  const { t } = useTranslation('v4Library');
   const line = q
-    ? `Nothing on your shelf is called “${q}”.`
+    ? t('library.nothing.search', { q })
     : filter === 'shared'
-      ? 'Nothing shared yet. When a page is ready for others, share it from the page itself.'
-      : 'Nothing left to read. Everything here is read through.';
+      ? t('library.nothing.shared')
+      : t('library.nothing.reading');
   return <p className="mt-8 text-center text-[14px] text-quiet">{line}</p>;
 }

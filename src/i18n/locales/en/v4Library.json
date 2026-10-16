@@ -1,124 +1,197 @@
 {
-  "_about": "v4 Library and Studio",
+  "_about": "v4 Library: the shelf, its covers, Your words, Select and Share",
   "library": {
     "title": "Library",
-    "lede": "Everything you’ve made — your notes, your uploads and the work you’ve published.",
-    "studio": {
-      "label": "Studio",
-      "uploads": "Uploads",
-      "drafts": "Drafts",
-      "impact": "How your work landed",
-      "pending_one": "{{count}} still being prepared",
-      "pending_other": "{{count}} still being prepared"
+    "lede": {
+      "demo": "What you brought in, what you made of it, and what you shared.",
+      "live": "What you brought in, and your words from every Lesson.",
+      "wordsOnly": "Your words, from every Lesson."
     },
-    "heading": "Everything you made",
+    "wordsOnlyEmpty": "Notes you write in a Lesson gather here, each one a tap from the page it was written on.",
     "filter": {
       "label": "Filter",
       "all": "Everything",
-      "note": "Notes",
-      "material": "Uploads",
-      "contribution": "Published"
+      "reading": "Reading",
+      "shared": "Shared",
+      "words": "Your words"
     },
-    "kind": {
-      "note": "Note",
-      "material": "Upload",
-      "contribution": "Published"
+    "selectPill": "Select…",
+    "search": {
+      "label": "Search your Library",
+      "placeholder": "Search your Library   /"
     },
-    "newNote": "New note",
-    "unfiled": "Not filed in a Space yet",
-    "notPublished": "Not published yet",
-    "size": "{{size}} MB",
-    "orphan": {
-      "body": "The Lesson this was attached to was removed. Your work is safe, and it keeps its likes — but it has nowhere to open until it is given a new home.",
-      "rehome": "Find it a new home"
+    "sort": {
+      "label": "Sort",
+      "recent": "Recently opened",
+      "added": "Added",
+      "az": "A–Z"
     },
-    "open": {
-      "label": "Open",
-      "note": {
-        "inSpace": "Open note “{{title}}” in {{space}}",
-        "plain": "Open note “{{title}}”"
-      },
-      "material": {
-        "inSpace": "Open upload “{{title}}” in {{space}}",
-        "plain": "Open upload “{{title}}”"
-      },
-      "contribution": {
-        "inSpace": "Open published “{{title}}” in {{space}}",
-        "plain": "Open published “{{title}}”"
-      }
+    "groupBySpace": "Group by Space",
+    "shelf": "Your shelf",
+    "onlyYou": "Only you",
+    "nothing": {
+      "search": "Nothing on your shelf is called “{{q}}”.",
+      "shared": "Nothing shared yet. When a page is ready for others, share it from the page itself.",
+      "reading": "Nothing left to read. Everything here is read through."
     },
-    "empty": {
-      "all": {
-        "title": "Nothing here yet",
-        "body": "Anything you write, upload or publish shows up here — gathered from every Space you’re in.",
-        "cta": "Write your first note"
-      },
-      "note": {
-        "title": "No notes yet",
-        "body": "Notes are private. Write one while you read and it will be waiting here, next to every other note you’ve made."
-      },
-      "material": {
-        "title": "Nothing uploaded yet",
-        "body": "Upload material inside a Space and a Lesson builds itself from it. The file stays yours, and it lists here."
-      },
-      "contribution": {
-        "title": "Nothing published yet",
-        "body": "Share a summary, a worked example or a set of practice questions with a Space. Whatever you publish lands here, with how it landed."
-      },
-      "toSpaces": "Go to your Spaces"
+    "isReady": "{{file}} is ready",
+    "aSpace": "a Space"
+  },
+  "bringIn": {
+    "veil": "Drop to bring it in",
+    "label": "Bring something in",
+    "first": "Bring in your first file",
+    "hint": {
+      "demoCell": "PDF, PPTX or a photo — drop it, or click",
+      "demoEmpty": "PDF, PPTX or a photo. It becomes a page you can read, ask and remember.",
+      "liveCell": "A PDF — drop it, or click",
+      "liveEmpty": "A PDF. It becomes a Lesson only you can see — read it, ask it, practise it."
     }
   },
-  "studio": {
-    "views": {
-      "uploads": "Manage uploads",
-      "drafts": "Your drafts",
-      "impact": "How your work landed"
-    },
-    "loading": "Loading…",
-    "failed": "Something went wrong",
-    "selected_one": "{{count}} selected",
-    "selected_other": "{{count}} selected",
-    "selectRow": "Select this row",
-    "publish": "Publish",
-    "delete": "Delete",
+  "continue": {
+    "label": "Continue reading {{file}}",
+    "labelAt": "Continue reading {{file}}, page {{page}} of {{total}}",
+    "eyebrow": "Pick up where you left off",
+    "eyebrowAt": "Pick up where you left off · page {{page}} of {{total}}",
+    "cta": "Continue reading"
+  },
+  "cover": {
+    "developing": "Developing…",
+    "failed": "Couldn’t read this file",
+    "draftIn": "Draft in {{space}}",
+    "sharedIn": "Shared in {{space}}",
+    "ready": "ready",
+    "endorsed": "Endorsed",
+    "pages_one": "{{count}} page",
+    "pages_other": "{{count}} pages",
+    "sample": "Sample pages",
+    "writing": "Writing your summary…",
+    "reading": "Reading your pages…",
+    "more": "More for {{file}}",
+    "remove": "Remove…",
+    "retry": "Try again"
+  },
+  "life": {
+    "read": "Read {{read}}/{{total}}",
+    "recall": "Recall {{knew}}/{{total}}",
+    "answers_one": "{{count}} answer",
+    "answers_other": "{{count}} answers",
+    "notes_one": "{{count}} note",
+    "notes_other": "{{count}} notes"
+  },
+  "journey": {
+    "label": "Where this page is",
+    "brought": "Brought in",
+    "understood": "Understood",
+    "shared": "Shared",
+    "landed": "Landed",
+    "state": {
+      "done": "done",
+      "now": "now",
+      "todo": "not yet"
+    }
+  },
+  "select": {
+    "group": "Selection",
+    "countLabel": "Selection count",
+    "count_one": "{{count}} selected",
+    "count_other": "{{count}} selected",
+    "shareTo": "Share to…",
+    "publishDrafts": "Publish drafts",
+    "remove": "Remove",
+    "all": "Select all",
+    "done": "Done",
+    "published_one": "Published {{count}} draft",
+    "published_other": "Published {{count}} drafts",
+    "removed_one": "Removed {{count}}",
+    "removed_other": "Removed {{count}}",
     "undo": "Undo",
-    "open": "Open {{title}} in {{space}}",
-    "toast": {
-      "published_one": "Published {{count}} item",
-      "published_other": "Published {{count}} items",
-      "deleted_one": "Deleted {{count}} item",
-      "deleted_other": "Deleted {{count}} items"
+    "confirm": {
+      "title_one": "Remove {{count}} from your Library?",
+      "title_other": "Remove {{count}} from your Library?",
+      "demo": "They leave your shelf. You can undo this for a few seconds.",
+      "live_one": "Its Lesson goes too, with your progress and practice. Your notes stay. You can undo this for a few seconds — after that it is for good.",
+      "live_other": "Their Lessons go too, with your progress and practice. Your notes stay. You can undo this for a few seconds — after that it is for good.",
+      "stillReading_one": "{{count}} still being read will stay.",
+      "stillReading_other": "{{count}} still being read will stay.",
+      "keep": "Keep them",
+      "remove_one": "Remove {{count}}",
+      "remove_other": "Remove {{count}}"
+    }
+  },
+  "share": {
+    "role": {
+      "owner": "you own it",
+      "editor": "you edit it",
+      "member": "you’re a member"
     },
-    "size": "{{mb}} MB",
-    "uploads": {
-      "subtitle_one": "{{count}} file across your Spaces",
-      "subtitle_other": "{{count}} files across your Spaces",
-      "intro": "The original files you uploaded. Deleting one never breaks the Lesson built from it — the Lesson keeps working and says the source was removed.",
-      "published": "They are live in their Spaces now.",
-      "deleted": "The Lessons built from them keep working.",
-      "emptyTitle": "Nothing uploaded yet",
-      "emptyBody": "Upload material inside a Space and a Lesson builds itself from it.",
-      "working": "Working",
-      "ready": "Ready"
+    "mode": {
+      "open": "Open",
+      "guided": "Guided"
     },
-    "drafts": {
-      "subtitle_one": "{{count}} unpublished across every Space",
-      "subtitle_other": "{{count}} unpublished across every Space",
-      "intro": "Only you can see these. Drafts and Lessons still processing stay private to their author until published — this is the one screen that gathers yours from every Space at once.",
-      "published": "They are in their paths now.",
-      "emptyTitle": "No drafts",
-      "emptyBody": "Everything you've started is published. Nothing waiting on you.",
-      "processing": "Processing",
-      "needsReview": "Needs review",
-      "draft": "Draft"
+    "title": "Share {{file}}",
+    "titleMany_one": "Share {{count}} file",
+    "titleMany_other": "Share {{count}} files",
+    "description": "Choose a Space. What happens next is written below before you confirm.",
+    "leftAsTheyAre": "Left as they are: {{list}}.",
+    "looking": "Looking for your Spaces…",
+    "noSpaces": "You aren’t in a Space yet. Join or make one, then share from here.",
+    "spaces": "Spaces",
+    "shareTo": "Share to {{space}}",
+    "share": "Share",
+    "sharedTo": "Shared to {{space}}",
+    "doneDraft_one": "{{count}} drafted in {{space}}",
+    "doneDraft_other": "{{count}} drafted in {{space}}",
+    "doneShared_one": "{{count}} shared",
+    "doneShared_other": "{{count}} shared",
+    "outcome": {
+      "draft": "It becomes a draft Lesson in {{space}}. Only you and editors see it until you publish.",
+      "community": "Open Space: it joins the path as a Community Lesson, with your name on it.",
+      "contribution": "It arrives as your Contribution, with your name on it. The owner can endorse it into the path."
     },
-    "impact": {
-      "subtitle_one": "{{count}} published contribution",
-      "subtitle_other": "{{count}} published contributions",
-      "intro": "Every contribution you’ve published, and what happened to it. Likes are shown per item — they say what people found useful, and never add up to a score.",
-      "emptyTitle": "Nothing published yet",
-      "emptyBody": "Share a summary, a worked example or a set of practice questions with a Space, and it will show up here with how it landed.",
-      "needsNewHome": "Needs a new home"
+    "left": {
+      "preparing_one": "{{count}} still being prepared",
+      "preparing_other": "{{count}} still being prepared",
+      "unread_one": "{{count}} couldn’t be read",
+      "unread_other": "{{count}} couldn’t be read",
+      "inSpace_one": "{{count}} already in a Space",
+      "inSpace_other": "{{count}} already in a Space"
+    },
+    "shared": "Shared",
+    "likes_one": "like",
+    "likes_other": "likes",
+    "notReady": "It can be shared once it’s ready.",
+    "publishTo": "Publish to {{space}}",
+    "openIn": "Open in {{space}}",
+    "takeBack": "Take back to only you",
+    "itsSpace": "its Space",
+    "takeBackDialog": {
+      "title": "Take {{file}} back to only you?",
+      "body": "It leaves {{space}}. Your page and your words stay.",
+      "keep": "Keep it shared",
+      "confirm": "Take it back"
+    },
+    "backToYou": "Back to only you"
+  },
+  "words": {
+    "title": "Your words",
+    "lede": "Every note and every answer you asked for, each one still attached to its page.",
+    "newNote": "New note",
+    "placeholder": "Write it down while it is fresh…",
+    "empty": "Nothing written yet. Notes you write and answers you ask for gather here.",
+    "kind": {
+      "note": "Note",
+      "answer": "Answer"
+    },
+    "yourPage": "Your page",
+    "itsLesson": "its Lesson",
+    "unfiled": "Not filed in a Space yet",
+    "page": "page {{page}}",
+    "myNote": "My note",
+    "orphan": {
+      "title": "Needs a new home",
+      "body": "The Lesson this was attached to was removed. Your work is safe, and it keeps its likes — but it has nowhere to open until it is given a new home.",
+      "rehome": "Find it a new home"
     }
   }
 }

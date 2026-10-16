@@ -12,32 +12,29 @@ import { resetReanchors } from '../../mocks/reanchor';
  * of it may be left in English.
  */
 
-/* "Uploads" and "Filter" are left out: German says them the same way. */
+/* "Filter" and "A–Z" are left out: German says them the same way. */
 const ENGLISH_CHROME = [
   'Library',
-  'Everything you’ve made',
-  'Everything you made',
   'Everything',
-  'Notes',
-  'Published',
-  'Drafts',
-  'How your work landed',
-  'still being prepared',
+  'Reading',
+  'Shared',
+  'Your words',
+  'Your shelf',
+  'Select',
+  'Only you',
+  'Continue reading',
+  'Pick up where you left off',
+  'Bring something in',
+  'drop it, or click',
+  'pages',
+  'Read',
+  'Recall',
   'New note',
   'Not filed in a Space yet',
-  'Not published yet',
+  'Needs a new home',
   'Find it a new home',
-  'was removed',
-  'Your work is safe',
-  'Open',
-  'Nothing here yet',
-  'No notes yet',
-  'Nothing uploaded yet',
-  'Nothing published yet',
-  'Write your first note',
-  'Write a note',
-  'Go to your Spaces',
-  'Write it down',
+  'Nothing written yet',
+  'More for',
 ];
 
 /*
@@ -60,7 +57,8 @@ const leftover = () => {
   const all = said();
   return ENGLISH_CHROME.filter((w) => new RegExp(`(^|[^\\p{L}])${w}($|[^\\p{L}])`, 'u').test(all));
 };
-const rawKeys = () => said().match(/\b(?:library)\.[a-z][\w.]*/g) ?? [];
+const rawKeys = () =>
+  said().match(/\b(?:library|bringIn|continue|cover|life|journey|select|share|words)\.[a-z][\w.]*/g) ?? [];
 
 const open = async () => {
   const r = render(
@@ -68,7 +66,7 @@ const open = async () => {
       <LibraryScreen />
     </MemoryRouter>,
   );
-  await screen.findByRole('heading', { name: 'Alles, was du gemacht hast' }, { timeout: 3000 });
+  await screen.findByRole('heading', { name: 'Bibliothek' }, { timeout: 3000 });
   return r;
 };
 
@@ -81,33 +79,33 @@ afterEach(async () => {
   await act(() => i18n.changeLanguage('en'));
 });
 
-/*
- * Skipped, not deleted: these were written for the list Library that the One
- * Library (shelf, covers, Your words — PR #91) replaced when PR #96 merged
- * main. The One Library is not translated yet; un-skip when it is (a German
- * slice of its own), and retarget the queries to the shelf.
- */
-describe.skip('the Library, in German', () => {
-  it('the page, its filters and its rows say nothing in English', async () => {
+describe('the Library, in German', () => {
+  it('the shelf, its filters and its covers say nothing in English', async () => {
     await open();
-    expect(screen.getByRole('heading', { name: 'Bibliothek' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /^Alles/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /^Notizen/ })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Entwürfe/ })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Neues Zuhause finden' })).toBeInTheDocument());
+    expect(screen.getByRole('tab', { name: /^Deine Worte/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Dein Regal' })).toBeInTheDocument();
     expect(leftover()).toEqual([]);
     expect(rawKeys()).toEqual([]);
   });
 
   it('every filter, and writing a new note, stay German', async () => {
     await open();
-    for (const name of [/^Notizen/, /^Uploads/, /^Veröffentlicht/, /^Alles/]) {
+    for (const name of [/^Zu lesen/, /^Geteilt/, /^Deine Worte/]) {
       fireEvent.click(screen.getByRole('tab', { name }));
       expect(leftover()).toEqual([]);
       expect(rawKeys()).toEqual([]);
     }
     fireEvent.click(screen.getByRole('button', { name: /Neue Notiz/ }));
     expect(await screen.findByPlaceholderText('Schreib es auf, solange es frisch ist …')).toBeInTheDocument();
+    expect(leftover()).toEqual([]);
+    expect(rawKeys()).toEqual([]);
+  });
+
+  it('Select, and its Remove confirm, stay German', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: /^Auswählen/ }));
+    await waitFor(() => expect(screen.getByRole('group', { name: 'Auswahl' })).toBeInTheDocument());
     expect(leftover()).toEqual([]);
     expect(rawKeys()).toEqual([]);
   });

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -49,6 +50,7 @@ export function SelectBar({
   onClear: () => void;
   onDone: () => void;
 }) {
+  const { t } = useTranslation('v4Library');
   const reduce = useReducedMotion();
   const [sharing, setSharing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -80,7 +82,7 @@ export function SelectBar({
 
   const publish = () => {
     for (const d of drafts) shelfActions.publish(d.id);
-    toast(drafts.length === 1 ? 'Published 1 draft' : `Published ${drafts.length} drafts`, ABOVE_SELECT_BAR);
+    toast(t('select.published', { count: drafts.length }), ABOVE_SELECT_BAR);
   };
 
   const remove = () => {
@@ -88,11 +90,11 @@ export function SelectBar({
     justRemoved.current = true;
     setConfirming(false);
     onClear();
-    toast(`Removed ${removed}`, {
+    toast(t('select.removed', { count: removed }), {
       ...ABOVE_SELECT_BAR,
       // Live, the delete happens when this closes: Undo must stay up exactly that long.
       duration: UNDO_MS,
-      action: { label: 'Undo', onClick: undo },
+      action: { label: t('select.undo'), onClick: undo },
     });
   };
 
@@ -103,7 +105,7 @@ export function SelectBar({
           ref={barRef}
           key="selection"
           role="group"
-          aria-label="Selection"
+          aria-label={t('select.group')}
           className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-[calc(100%-2rem)] max-w-[760px] items-center gap-1 overflow-x-auto rounded-full border border-white/12 bg-[#0b0b0b]/95 px-2 py-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.55)] backdrop-blur-md"
           initial={reduce ? { opacity: 0 } : { opacity: 0, y: 32 }}
           animate={{ opacity: 1, y: 0 }}
@@ -112,37 +114,37 @@ export function SelectBar({
         >
           <span
             role="status"
-            aria-label="Selection count"
+            aria-label={t('select.countLabel')}
             aria-live="polite"
             className="shrink-0 px-3 text-[13px] font-medium tabular-nums text-foreground"
           >
-            {n} selected
+            {t('select.count', { count: n })}
           </span>
           <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-white/12" />
           {/* Live covers are yours alone: sharing them is not wired yet, so it is not offered. */}
           {demo && (
             <>
               <button type="button" disabled={n === 0} onClick={() => setSharing(true)} className={PLAIN}>
-                Share to…
+                {t('select.shareTo')}
               </button>
               <button type="button" disabled={drafts.length === 0} onClick={publish} className={PLAIN}>
-                Publish drafts
+                {t('select.publishDrafts')}
               </button>
             </>
           )}
           <button type="button" disabled={removable.length === 0} onClick={() => setConfirming(true)} className={PLAIN}>
-            Remove
+            {t('select.remove')}
           </button>
           <span className="flex-1" />
           <button type="button" disabled={total === 0 || n === total} onClick={onSelectAll} className={QUIET}>
-            Select all
+            {t('select.all')}
           </button>
           <button
             type="button"
             onClick={onDone}
             className={cn(ACTION, 'bg-foreground text-background hover:opacity-90')}
           >
-            Done
+            {t('select.done')}
           </button>
 
           <ShareSheet
@@ -163,14 +165,10 @@ export function SelectBar({
               }}
             >
               <DialogHeader>
-                <DialogTitle>Remove {removable.length} from your Library?</DialogTitle>
+                <DialogTitle>{t('select.confirm.title', { count: removable.length })}</DialogTitle>
                 <DialogDescription>
-                  {demo
-                    ? 'They leave your shelf. You can undo this for a few seconds.'
-                    : `${
-                        removable.length === 1 ? 'Its Lesson goes' : 'Their Lessons go'
-                      } too, with your progress and practice. Your notes stay. You can undo this for a few seconds — after that it is for good.`}
-                  {removable.length < n && ` ${n - removable.length} still being read will stay.`}
+                  {demo ? t('select.confirm.demo') : t('select.confirm.live', { count: removable.length })}
+                  {removable.length < n && ` ${t('select.confirm.stillReading', { count: n - removable.length })}`}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
@@ -179,14 +177,14 @@ export function SelectBar({
                   onClick={() => setConfirming(false)}
                   className="console-focusable h-10 rounded-full border border-border px-5 text-[14px]"
                 >
-                  Keep them
+                  {t('select.confirm.keep')}
                 </button>
                 <button
                   type="button"
                   onClick={remove}
                   className="console-focusable h-10 rounded-full bg-foreground px-5 text-[14px] font-medium text-background"
                 >
-                  Remove {removable.length}
+                  {t('select.confirm.remove', { count: removable.length })}
                 </button>
               </DialogFooter>
             </DialogContent>
