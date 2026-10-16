@@ -56,6 +56,10 @@ EXPORT_TABLES: list[tuple[str, str]] = [
     ("tutor_sessions", "user_id"),
     ("api_tokens", "user_id"),
     ("course_access", "user_id"),
+    ("user_roles", "user_id"),
+    ("internal_account_overrides", "user_id"),
+    # v4 reader notes; the table is live in production ahead of its migration.
+    ("notes", "user_id"),
 ]
 
 # Columns never exported even though the row is: secrets, not personal data.
@@ -68,6 +72,9 @@ EXPORT_EXCLUSIONS: dict[tuple[str, str], str] = {
     ),
     ("account_erasure_jobs", "subject_id"): (
         "erasure bookkeeping; exists only while an account is being deleted"
+    ),
+    ("internal_account_overrides", "set_by"): (
+        "admin audit trail: who classified an account, not data about the subject"
     ),
 }
 

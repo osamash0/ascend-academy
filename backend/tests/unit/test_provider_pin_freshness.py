@@ -20,7 +20,12 @@ from backend.services.ai import orchestrator as orch
 # are derived from the registry, and GROQ_VISION_MODEL is env-only (None by
 # default), so the embedding model is the one hard-coded pin left.
 DIRECT_MODEL_PINS = {
-    "EMBEDDING_MODEL": (emb.EMBEDDING_MODEL, emb.EMBEDDING_MODEL_VERIFIED_ON),
+    "EMBEDDING_MODEL": (emb.GEMINI_EMBEDDING_MODEL, emb.EMBEDDING_MODEL_VERIFIED_ON),
+    # AI_PROVIDER_MODE=openai_only: the tier and embedding models are called
+    # outside the registry's single openai model, so each carries its own pin.
+    "OPENAI_BULK_MODEL": (orch.OPENAI_BULK_MODEL, orch.OPENAI_TIER_MODELS_VERIFIED_ON),
+    "OPENAI_VISION_MODEL": (orch.OPENAI_VISION_MODEL, orch.OPENAI_TIER_MODELS_VERIFIED_ON),
+    "OPENAI_EMBEDDING_MODEL": (emb.OPENAI_EMBEDDING_MODEL, emb.OPENAI_EMBEDDING_MODEL_VERIFIED_ON),
 }
 
 HOW_TO_REVERIFY = """

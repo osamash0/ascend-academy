@@ -86,6 +86,57 @@ OLLAMA_MODEL      = "llama3"
 # is None, vision.py does not offer groq as a vision provider at all.
 GROQ_VISION_MODEL = os.environ.get("GROQ_VISION_MODEL") or None
 
+# ---------------------------------------------------------------------------
+# Provider mode
+# ---------------------------------------------------------------------------
+# AI_PROVIDER_MODE=openai_only runs every text, vision and embedding call on
+# the one paid OpenAI account: both chains collapse to ["openai"], the
+# user-facing model picker is ignored, and vision/embeddings skip Google.
+# "multi" (the default) keeps the free-tier failover chains below, so dev
+# without an OpenAI key keeps working. main.py and the Arq worker refuse to
+# boot in openai_only while any other provider key is set (see
+# assert_provider_mode), so nothing can silently fall back to a free tier.
+AI_PROVIDER_MODE = (os.environ.get("AI_PROVIDER_MODE") or "multi").strip().lower()
+OPENAI_ONLY = AI_PROVIDER_MODE == "openai_only"
+
+# OPENAI_MODEL serves the quality chain (tutor, quizzes, summaries);
+# OPENAI_BULK_MODEL serves the high-volume per-slide bulk chain and defaults
+# to the same model, so setting only OPENAI_MODEL behaves exactly as before.
+OPENAI_QUALITY_MODEL = os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
+OPENAI_BULK_MODEL = os.environ.get("OPENAI_BULK_MODEL") or OPENAI_QUALITY_MODEL
+OPENAI_VISION_MODEL = os.environ.get("OPENAI_VISION_MODEL") or OPENAI_QUALITY_MODEL
+# When the bulk and vision tier models were last confirmed live (one real
+# call each — gpt-4.1-nano text, gpt-4.1-mini with an image). Same 45-day rule
+# as every registry pin (test_provider_pin_freshness): re-probe, never re-date.
+OPENAI_TIER_MODELS_VERIFIED_ON = datetime.date(2026, 10, 11)
+
+# Keys whose presence in openai_only mode means some leg could still reach a
+# provider other than OpenAI.
+_NON_OPENAI_KEY_VARS = (
+    "GROQ_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "CEREBRAS_API_KEY",
+    "OPENROUTER_API_KEY", "MISTRAL_API_KEY", "CLOUDFLARE_API_TOKEN",
+)
+
+
+def assert_provider_mode() -> None:
+    """Fail fast when AI_PROVIDER_MODE=openai_only is not actually true.
+
+    Called at API and worker startup. Raises RuntimeError naming the stray
+    keys (never their values) so a misconfigured deploy refuses to boot
+    instead of quietly sending student data to a provider the privacy policy
+    does not name.
+    """
+    if not OPENAI_ONLY:
+        return
+    stray = [v for v in _NON_OPENAI_KEY_VARS if (os.environ.get(v) or "").strip()]
+    if stray:
+        raise RuntimeError(
+            "AI_PROVIDER_MODE=openai_only but other provider keys are set: "
+            f"{', '.join(stray)}. Remove them from the environment."
+        )
+    if not (os.environ.get("OPENAI_API_KEY") or "").strip():
+        raise RuntimeError("AI_PROVIDER_MODE=openai_only but OPENAI_API_KEY is not set.")
+
 _VISION_SLIDE_TYPES_METADATA = {"title_slide", "meta_slide"}
 
 # ---------------------------------------------------------------------------
@@ -306,7 +357,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             id="openai",
             # `or` rather than a get() default, so a key that is present but
             # blank in .env falls back instead of being sent to the API.
-            model=os.environ.get("OPENAI_MODEL") or "gpt-4o-mini",
+            model=OPENAI_QUALITY_MODEL,
             verified_on=datetime.date(2026, 10, 10),
             daily_limit=0, rpm=60, tpm=100000,
             env_var="OPENAI_API_KEY",
@@ -341,6 +392,20 @@ BULK_CHAIN:    List[str] = ["groq_fast", "cloudflare", "gemma", "mistral", "open
 # leads now that Cerebras (same model, previously the head) is out.
 QUALITY_CHAIN: List[str] = ["groq", "openrouter", "cloudflare", "gemini", "mistral", "groq_fast", "gemma", "openai"]
 
+if OPENAI_ONLY:
+    BULK_CHAIN = ["openai"]
+    QUALITY_CHAIN = ["openai"]
+
+
+def _model_for(provider_id: str, tier: str) -> str:
+    """The model a provider serves for a chain tier ("quality" or "bulk").
+
+    Only openai distinguishes tiers; every other provider has one model.
+    """
+    if provider_id == "openai" and tier == "bulk":
+        return OPENAI_BULK_MODEL
+    return PROVIDER_REGISTRY[provider_id].model
+
 # Maps the user-facing ai_model string (sent from the frontend) to the
 # orchestrator's internal provider id. Values that don't map fall back to
 # the chain's natural head.
@@ -367,6 +432,10 @@ _USER_MODEL_TO_PROVIDER: Dict[str, str] = {
 
 def _resolve_preferred(ai_model: Optional[str]) -> Optional[str]:
     """Map a user-facing model selection to a provider id, or None."""
+    if OPENAI_ONLY:
+        # _chain_with_preferred would INSERT any other preference into the
+        # one-leg chain, so a stale "gemini" picker value must not survive.
+        return "openai"
     if not ai_model or ai_model.lower() == "auto":
         from backend.core.config import settings
         ai_model = settings.parser_llm_model or "cerebras"
@@ -874,7 +943,7 @@ def _call_google(model: str, prompt: str) -> Tuple[str, Optional["LLMUsage"]]:
 
 
 def _call_provider(
-    provider_id: str, prompt: str, *, json_mode: bool = False
+    provider_id: str, prompt: str, *, json_mode: bool = False, model: Optional[str] = None,
 ) -> Tuple[str, Optional["LLMUsage"]]:
     """
     Dispatches a prompt to the named provider. Returns (text, usage) — usage
@@ -888,6 +957,9 @@ def _call_provider(
     mode there too (Google's SDK has an equivalent via
     ``response_mime_type``, already used by vision.py, but wiring it into
     this text path is out of scope for this pass).
+
+    ``model`` overrides the registry model for the OpenAI-compatible path
+    (the bulk tier's cheaper openai model, see ``_model_for``).
     """
     cfg = PROVIDER_REGISTRY.get(provider_id)
     if cfg is None:
@@ -919,7 +991,7 @@ def _call_provider(
     if client is None:
         raise RuntimeError(f"Provider '{provider_id}' client not initialised ({cfg.env_var} missing)")
     return _call_openai_compat(
-        client, cfg.model, prompt, provider_id=provider_id, json_mode=json_mode,
+        client, model or cfg.model, prompt, provider_id=provider_id, json_mode=json_mode,
     )
 
 
@@ -951,6 +1023,7 @@ def _generate_with_rotation(
     *,
     json_mode: bool = False,
     prompt_name: Optional[str] = None,
+    tier: str = "quality",
 ) -> Tuple[str, str, str, Optional["LLMUsage"]]:
     """
     Tries each provider in `chain` (skipping unavailable ones), rotates on 429.
@@ -970,6 +1043,11 @@ def _generate_with_rotation(
     alongside the serving provider as a breadcrumb correlating a provider
     choice to the prompt/version that produced it.
     ``_account_for_call`` writes ``prompt_name`` to ``llm_calls`` (Arc 7).
+
+    ``tier`` ("quality" or "bulk") picks the model a multi-model provider
+    serves — today only openai, whose bulk tier is a cheaper model. Like
+    ``json_mode``, the model is passed to ``_call_provider`` only when it
+    differs from the registry default, for the same test-double reason.
     """
     chain = _chain_with_preferred(chain, preferred)
     available = _rotator.available(chain)
@@ -990,11 +1068,13 @@ def _generate_with_rotation(
 
     for pid in available:
         try:
-            result, usage = (
-                _call_provider(pid, prompt, json_mode=True)
-                if json_mode
-                else _call_provider(pid, prompt)
-            )
+            model = _model_for(pid, tier)
+            call_kwargs: Dict[str, Any] = {}
+            if json_mode:
+                call_kwargs["json_mode"] = True
+            if model != PROVIDER_REGISTRY[pid].model:
+                call_kwargs["model"] = model
+            result, usage = _call_provider(pid, prompt, **call_kwargs)
             _rotator.record_success(pid)
             if prompt_name:
                 from backend.services.ai.prompts import get_prompt_version
@@ -1004,7 +1084,7 @@ def _generate_with_rotation(
                 )
             else:
                 logger.info("✅ Provider '%s' served request", pid)
-            return result, pid, PROVIDER_REGISTRY[pid].model, usage
+            return result, pid, model, usage
         except Exception as exc:
             msg = str(exc).lower()
             # A 402 is a billing wall, not a throttle — no amount of waiting
@@ -1450,7 +1530,7 @@ async def generate_text_bulk(
     text, provider_id, model, usage = await call_llm(
         lambda: _generate_with_rotation(
             prompt, BULK_CHAIN, preferred=preferred,
-            json_mode=json_mode, prompt_name=prompt_name,
+            json_mode=json_mode, prompt_name=prompt_name, tier="bulk",
         )
     )
     await _account_for_call(
@@ -1471,7 +1551,7 @@ def process_slide_batch(text: str, ai_model: str = "cerebras") -> Dict[str, Any]
     )
     raw, _pid, _model, _usage = _generate_with_rotation(
         prompt, BULK_CHAIN, preferred=_resolve_preferred(ai_model), json_mode=True,
-        prompt_name="process_slide_batch_inline",
+        prompt_name="process_slide_batch_inline", tier="bulk",
     )
     return parse_json_response(raw)
 
@@ -1867,7 +1947,7 @@ async def batch_analyze_text_slides(
         raw, provider_id, model, usage = await call_llm(
             lambda: _generate_with_rotation(
                 full_prompt, BULK_CHAIN, preferred=preferred,
-                json_mode=True, prompt_name="BATCH_SLIDE_PROMPT",
+                json_mode=True, prompt_name="BATCH_SLIDE_PROMPT", tier="bulk",
             )
         )
         await _account_for_call(
@@ -2036,7 +2116,7 @@ async def _regenerate_failing_slide_quizzes(
         raw, provider_id, model, usage = await call_llm(
             lambda: _generate_with_rotation(
                 full_prompt, BULK_CHAIN, preferred=preferred,
-                json_mode=True, prompt_name="BATCH_SLIDE_QUIZ_REGEN_PROMPT",
+                json_mode=True, prompt_name="BATCH_SLIDE_QUIZ_REGEN_PROMPT", tier="bulk",
             )
         )
         await _account_for_call(
