@@ -1,13 +1,11 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useInView, useReducedMotion } from 'motion/react';
 import { ArrowRight, Check, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const LunaAvatar = lazy(() =>
-  import('@/features/avatar/LunaAvatar').then((m) => ({ default: m.LunaAvatar })),
-);
+import { HOP_MS, LunaGuide, type GuideReaction } from './LunaGuide';
 
 /**
  * The landing page's first screen IS the product (Abi, 2026-10-10).
@@ -190,7 +188,15 @@ function ExploreView({ onTouch }: { onTouch: () => void }) {
 
 /* ─────────────────────────── Practise ─────────────────────────── */
 
-function PractiseView({ auto, onTouch }: { auto: boolean; onTouch: () => void }) {
+function PractiseView({
+  auto,
+  onTouch,
+  onAnswer,
+}: {
+  auto: boolean;
+  onTouch: () => void;
+  onAnswer: (right: boolean) => void;
+}) {
   const { t } = useTranslation('landing');
   const [picked, setPicked] = useState<string | null>(null);
   useEffect(() => {
@@ -199,6 +205,9 @@ function PractiseView({ auto, onTouch }: { auto: boolean; onTouch: () => void })
     return () => window.clearTimeout(id);
   }, [auto]);
   const right = picked === '3NF';
+  useEffect(() => {
+    if (picked) onAnswer(picked === '3NF');
+  }, [picked]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="flex h-full flex-col items-center justify-center px-[8%] text-center">
       <p className="[text-wrap:balance] text-[clamp(19px,3.6cqw,38px)] font-medium leading-[1.15] tracking-[-0.02em] text-white">
@@ -276,16 +285,31 @@ function LivePage() {
   const { t } = useTranslation('landing');
   const reduce = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { amount: 0.4 });
+  const seen = useInView(ref, { amount: 0.15, once: true });
   const [view, setView] = useState<View>('original');
+  // The tab Luna stands on. While the page plays itself she hops to the next
+  // tab first, and the page turns as she lands — she is why it changes.
+  const [lunaAt, setLunaAt] = useState<View>('original');
+  const [reaction, setReaction] = useState<GuideReaction | null>(null);
   const [touched, setTouched] = useState(false);
   const playing = !touched && !reduce && inView;
   const touch = () => setTouched(true);
+  const show = (v: View) => {
+    setLunaAt(v);
+    setView(v);
+  };
 
   useEffect(() => {
     if (!playing) return;
-    const id = window.setTimeout(() => setView((v) => VIEWS[(VIEWS.indexOf(v) + 1) % VIEWS.length]), DWELL);
-    return () => window.clearTimeout(id);
+    const next = VIEWS[(VIEWS.indexOf(view) + 1) % VIEWS.length];
+    const hop = window.setTimeout(() => setLunaAt(next), DWELL - HOP_MS);
+    const turn = window.setTimeout(() => setView(next), DWELL);
+    return () => {
+      window.clearTimeout(hop);
+      window.clearTimeout(turn);
+    };
   }, [playing, view]);
 
   return (
@@ -299,6 +323,7 @@ function LivePage() {
 
       {/* Views — a play bar, like stories: it fills while the page plays itself. */}
       <div
+        ref={tabsRef}
         role="tablist"
         aria-label={t('story.hero.try')}
         className="relative mx-auto flex w-fit items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1 backdrop-blur"
@@ -312,7 +337,7 @@ function LivePage() {
               aria-selected={on}
               onClick={() => {
                 touch();
-                setView(v);
+                show(v);
               }}
               className={cn(
                 'relative h-9 overflow-hidden rounded-full px-[clamp(10px,1.6vw,18px)] text-[13.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white',
@@ -340,6 +365,7 @@ function LivePage() {
             </button>
           );
         })}
+        <LunaGuide tabs={tabsRef} at={lunaAt} view={view} touched={touched} arrived={seen} reaction={reaction} />
       </div>
 
       {/* The page. Every view is the same page — it changes in place. */}
@@ -360,22 +386,15 @@ function LivePage() {
             )}
             {view === 'learn' && <LearnView />}
             {view === 'explore' && <ExploreView onTouch={touch} />}
-            {view === 'practise' && <PractiseView auto={!touched} onTouch={touch} />}
+            {view === 'practise' && (
+              <PractiseView
+                auto={!touched}
+                onTouch={touch}
+                onAnswer={(right) => setReaction({ kind: right ? 'right' : 'wrong', n: Date.now() })}
+              />
+            )}
           </motion.div>
         </AnimatePresence>
-      </div>
-
-      {/* Luna keeps you company, perched on the page's top edge beside the
-          tabs — never across the page itself. Decoration only. */}
-      <div aria-hidden className="pointer-events-none absolute left-[3%] top-[70px] hidden -translate-y-full sm:block">
-        <Suspense fallback={null}>
-          <motion.div
-            animate={reduce ? undefined : { y: [0, -8, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            <LunaAvatar size={96} showBackdrop={false} animated={!reduce} />
-          </motion.div>
-        </Suspense>
       </div>
     </div>
   );
@@ -430,7 +449,7 @@ export function Hero() {
       </div>
 
       <motion.div
-        className="relative mt-12"
+        className="relative mt-24 sm:mt-32"
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.25, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
