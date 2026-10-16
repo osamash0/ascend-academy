@@ -38,15 +38,21 @@ def llm(monkeypatch):
     return box
 
 
+def _letters(i: int) -> str:
+    """Digits-as-letters so synthetic slides differ after normalize_line
+    (which folds digit runs and would mark numbered fixtures as boilerplate)."""
+    return "".join(chr(97 + int(d)) for d in str(i))
+
+
 # ── analyze_lecture_meta ──────────────────────────────────────────────────────
 
-async def test_analyze_lecture_meta_limits_to_first_15_slides(llm):
+async def test_analyze_lecture_meta_caps_prompt_at_15_slides(llm):
     llm["reply"] = json.dumps({"title": "X", "keyTopics": []})
-    slides = [f"slide {i} content text" for i in range(20)]
+    slides = [f"slide {_letters(i)} content text about topic {_letters(i * 7)}" for i in range(20)]
     await synthesis.analyze_lecture_meta(slides, "cerebras")
     prompt = llm["text_prompts"][0]
-    assert "[Slide 15]" in prompt
-    assert "[Slide 16]" not in prompt
+    assert prompt.count("[Slide ") == 15
+    assert "[Slide 1]" in prompt  # the title slide is always included
 
 
 async def test_analyze_lecture_meta_appends_course_hint_only_when_present(llm):
@@ -118,28 +124,32 @@ async def test_generate_quiz_skips_llm_when_no_rich_slides(llm):
     assert llm["calls"] == 0
 
 
-async def test_generate_quiz_returns_list_when_model_returns_array(llm):
-    q = {"question": "Q?", "options": ["a", "b", "c", "d"], "correctAnswer": "a"}
+async def test_generate_quiz_returns_grounded_questions_from_model_array(llm):
+    rich = "Graphs consist of vertices and edges that model pairwise relations."
+    q = {"question": "What do graphs consist of?",
+         "options": ["Vertices and edges", "Rows and columns", "Keys and values", "Pages and frames"],
+         "correctAnswer": "Vertices and edges", "source_slide": 2}
     llm["reply"] = json.dumps([q])
-    rich = "x" * 60
-    out = await synthesis.generate_quiz_questions([rich], "Graphs", "cerebras")
-    assert out == [q]
+    out = await synthesis.generate_quiz_questions(["Graphs", rich], "Graphs", "cerebras")  # slide 0 is the title
+    assert [o["question"] for o in out] == [q["question"]]
+    assert out[0]["source_slide"] == 2 and out[0]["support_score"] == 1.0
     assert "Graphs" in llm["bulk_prompts"][0]
 
 
 async def test_generate_quiz_non_list_response_returns_empty(llm):
     llm["reply"] = json.dumps({"not": "an array"})
-    out = await synthesis.generate_quiz_questions(["x" * 60], "T", "cerebras")
+    rich = "Graphs consist of vertices and edges that model pairwise relations."
+    out = await synthesis.generate_quiz_questions(["Graphs", rich], "T", "cerebras")
     assert out == []
+    assert llm["calls"] == 1  # the guard under test was actually reached
 
 
 async def test_generate_quiz_caps_at_10_content_slides(llm):
     llm["reply"] = "[]"
-    slides = ["x" * 60 for _ in range(15)]
+    slides = [f"Fact {_letters(i)} states that indexes speed up lookups on large tables." for i in range(15)]
     await synthesis.generate_quiz_questions(slides, "T", "cerebras")
     prompt = llm["bulk_prompts"][0]
-    assert "[Slide 10]" in prompt
-    assert "[Slide 11]" not in prompt
+    assert prompt.count("[Slide ") == 10
 
 
 # ── generate_cross_lecture_questions ─────────────────────────────────────────
@@ -238,3 +248,419 @@ async def test_extract_syllabus_facts_exception_returns_empty(monkeypatch):
     monkeypatch.setattr(synthesis, "generate_text", _boom)
     out = await synthesis.extract_syllabus_facts("text", "cerebras")
     assert out == {}
+
+
+# ── whole-deck sampling + real slide numbers ─────────────────────────────────
+
+async def test_quiz_prompt_labels_slides_with_their_real_deck_numbers(llm):
+    xenon = "The xenon atom has many electrons and reacts rarely with other elements."
+    yttrium = "The yttrium metal is silvery and appears in rare earth mineral deposits."
+    slides = ["Title", "short", xenon, "tiny", yttrium]
+    llm["reply"] = "[]"
+    await synthesis.generate_quiz_questions(slides, "T", "groq")
+    prompt = llm["bulk_prompts"][0]
+    assert "[Slide 3]: The xenon" in prompt and "[Slide 5]: The yttrium" in prompt
+    assert "[Slide 1]: The xenon" not in prompt
+
+
+async def test_quiz_sees_late_slides_of_a_long_deck(llm):
+    tag = _letters
+    slides = ["Title"] + [f"Fact {tag(i)} states that indexes speed up lookups on large tables." for i in range(40)]
+    llm["reply"] = "[]"
+    await synthesis.generate_quiz_questions(slides, "T", "groq")
+    assert any(f"Fact {tag(i)} " in llm["bulk_prompts"][0] for i in range(30, 40))
+
+
+async def test_meta_sees_slides_beyond_fifteen(llm):
+    tag = _letters
+    slides = ["Title"] + [
+        f"1. Part {i}" if i % 10 == 0 else f"Note {tag(i)} explains how transactions keep data consistent."
+        for i in range(60)
+    ]
+    llm["reply"] = "{}"
+    await synthesis.analyze_lecture_meta(slides, "groq")
+    assert "Part 50" in llm["text_prompts"][0]
+
+
+async def test_meta_prompt_reads_exactly_the_deck_plan_meta_selection(llm, monkeypatch):
+    llm["reply"] = "{}"
+    slides = ["Title"] + [f"Note {_letters(i)} explains how transactions keep data consistent." for i in range(30)]
+    monkeypatch.setattr(synthesis, "select_meta_slides", lambda sk: [0, 7, 21])
+    await synthesis.analyze_lecture_meta(slides, "groq")
+    prompt = llm["text_prompts"][0]
+    assert prompt.count("[Slide ") == 3
+    assert "[Slide 8]" in prompt and "[Slide 22]" in prompt
+
+
+# Golden digests of the rendered meta prompt, captured from the inline
+# selection BEFORE it moved into deck_plan.select_meta_slides (Arc 6 task 2):
+# the refactor must leave the prompt byte-identical.
+_META_PROMPT_GOLDEN = {
+    "long_fixture": ("21ef66bfce2acd4ace9ed9da2bc4d6af4dcc0a0c830ac8c1d767f8d8e328739d", 1937),
+    "sixty_one_slides": ("fc09a51aa1dcba1d280424f7fc6675944b270e9fd99c05a45e2822ec397c9781", 1461),
+}
+
+
+async def test_meta_prompt_is_byte_identical_to_the_pre_refactor_prompt(llm):
+    import hashlib
+
+    from backend.tests.support.deck_lab_decks import LONG_DECK
+
+    decks = {
+        "long_fixture": LONG_DECK,
+        "sixty_one_slides": ["Title"] + [
+            f"1. Part {i}" if i % 10 == 0 else f"Note {_letters(i)} explains how transactions keep data consistent."
+            for i in range(60)
+        ],
+    }
+    for name, deck in decks.items():
+        llm["text_prompts"].clear()
+        await synthesis.analyze_lecture_meta(deck, "groq")
+        prompt = llm["text_prompts"][0]
+        assert (hashlib.sha256(prompt.encode()).hexdigest(), len(prompt)) == _META_PROMPT_GOLDEN[name], name
+
+
+# ── grounded deck quiz prompts (Arc 4) ───────────────────────────────────────
+
+def test_deck_quiz_prompt_asks_for_source_slide_and_is_versioned():
+    from backend.services.ai.prompts import PROMPT_VERSIONS, SYNTHESIS_DECK_QUIZ_PROMPT
+    assert "source_slide" in SYNTHESIS_DECK_QUIZ_PROMPT
+    assert "slideId" not in SYNTHESIS_DECK_QUIZ_PROMPT
+    assert "Which is NOT" in SYNTHESIS_DECK_QUIZ_PROMPT  # negated questions are forbidden
+    assert PROMPT_VERSIONS["SYNTHESIS_DECK_QUIZ_PROMPT"] == "v3"
+
+
+def test_repair_prompt_formats_with_one_slide_and_is_versioned():
+    from backend.services.ai.prompts import PROMPT_VERSIONS, SYNTHESIS_QUIZ_REPAIR_PROMPT
+    out = SYNTHESIS_QUIZ_REPAIR_PROMPT.format(
+        lecture_title="T", concept="C", slide_number=7, slide_text="body", output_language="German",
+    )
+    assert "[Slide 7]:\nbody" in out and "must be 7" in out and "German" in out
+    assert out.count("[Slide ") == 1
+    assert PROMPT_VERSIONS["SYNTHESIS_QUIZ_REPAIR_PROMPT"] == "v1"
+
+
+async def test_rendered_deck_quiz_prompt_requests_source_slide(llm):
+    llm["reply"] = "[]"
+    rich = "Graphs consist of vertices and edges that model pairwise relations."
+    await synthesis.generate_quiz_questions(["Graphs", rich], "T", "groq")
+    assert "source_slide" in llm["bulk_prompts"][0]
+
+
+# ── grounded deck quiz verifier (Arc 4) ──────────────────────────────────────
+import re as _re
+
+from backend.services.parser.quiz_grounding import SUPPORT_THRESHOLD
+from backend.tests.support.quiz_grounding_deck import GRAPH_DECK_PAGES
+
+_REPAIR_MARK = "Rewrite one multiple-choice question"
+
+
+def _mcq(question, options, answer, source, concept="c"):
+    return {"question": question, "options": options, "correctAnswer": answer,
+            "source_slide": source, "concept": concept, "explanation": "e", "difficulty": "easy"}
+
+
+GOOD = _mcq("Which algorithm computes shortest paths from a single source?",
+            ["Dijkstra", "Kruskal", "Prim", "Floyd"], "Dijkstra", 3, concept="Dijkstra")
+OTHER_SLIDE = _mcq("Which algorithm builds a minimum spanning tree?",
+                   ["Kruskal", "Bellman", "Floyd", "Johnson"], "Kruskal", 3, concept="MST")
+BAD_NUMBER = _mcq("How many colors suffice for planar maps?",
+                  ["5 colors", "3 colors", "6 colors", "8 colors"], "5 colors", 5, concept="Coloring")
+AMBIGUOUS = _mcq("What does an edge join?",
+                 ["Two adjacent faces", "Exactly two vertices", "Three cycles", "A forest"],
+                 "Two adjacent faces", 2, concept="Edges")
+NO_SOURCE = {k: v for k, v in GOOD.items() if k != "source_slide"}
+OUT_OF_RANGE = {**GOOD, "source_slide": 99}
+GARBAGE = {**GOOD, "source_slide": "somewhere"}
+
+
+def _router(first_reply, repairs=None):
+    """The deck-quiz call gets ``first_reply``; a repair call gets the entry of
+    ``repairs`` keyed by the [Slide N] label in its prompt (else '{}')."""
+    repairs = repairs or {}
+
+    def reply(prompt):
+        if _REPAIR_MARK in prompt:
+            for n, r in repairs.items():
+                if f"[Slide {n}]:" in prompt:
+                    return r
+            return "{}"
+        return first_reply
+    return reply
+
+
+@pytest.fixture
+def enforce(monkeypatch):
+    """Opt a test into the hard-gate (repair-then-drop) mode."""
+    monkeypatch.setattr(synthesis, "ENFORCE_SUPPORT_THRESHOLD", True)
+
+
+def _repair_prompts(llm):
+    return [p for p in llm["bulk_prompts"] if _REPAIR_MARK in p]
+
+
+async def test_adversarial_questions_are_all_rejected_when_repairs_fail(enforce, llm):
+    llm["reply"] = _router(json.dumps([GOOD, OTHER_SLIDE, BAD_NUMBER, AMBIGUOUS, NO_SOURCE, OUT_OF_RANGE, GARBAGE]))
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert [q["question"] for q in out] == [GOOD["question"]]
+    assert out[0]["source_slide"] == 3 and out[0]["support_score"] >= SUPPORT_THRESHOLD
+    # One repair each for (a), (b), (c) against their cited slide; none for (d).
+    labels = sorted(int(_re.search(r"\[Slide (\d+)\]:", p).group(1)) for p in _repair_prompts(llm))
+    assert labels == [2, 3, 5]
+    assert llm["calls"] == 1 + 3
+
+
+async def test_repair_sees_only_the_cited_slide_and_a_grounded_repair_ships(enforce, llm):
+    fixed = _mcq("Which algorithm requires non-negative edge weights?",
+                 ["Dijkstra", "Kruskal", "Prim", "Floyd"], "Dijkstra", 3)
+    llm["reply"] = _router(json.dumps([OTHER_SLIDE]), {3: json.dumps(fixed)})
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert [q["question"] for q in out] == [fixed["question"]]
+    assert out[0]["source_slide"] == 3
+    (prompt,) = _repair_prompts(llm)
+    assert prompt.count("[Slide ") == 1
+    assert "Dijkstra computes shortest paths" in prompt
+    assert "Kruskal builds" not in prompt and "University of Marburg" not in prompt
+
+
+async def test_repair_that_relocates_to_another_slide_is_pinned_back_and_dropped(enforce, llm):
+    moved = _mcq("Which algorithm builds a minimum spanning tree?",
+                 ["Kruskal", "Bellman", "Floyd", "Johnson"], "Kruskal", 4)
+    llm["reply"] = _router(json.dumps([OTHER_SLIDE]), {3: json.dumps(moved)})
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert out == []
+    assert len(_repair_prompts(llm)) == 1  # exactly one attempt, then drop
+
+
+async def test_repair_exception_drops_only_that_question(enforce, llm):
+    def reply(prompt):
+        if _REPAIR_MARK in prompt:
+            raise RuntimeError("provider down")
+        return json.dumps([GOOD, OTHER_SLIDE])
+    llm["reply"] = reply
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert [q["question"] for q in out] == [GOOD["question"]]
+
+
+async def test_no_shipped_question_cites_a_nonexistent_slide(enforce, llm):
+    sources = [None, "somewhere", 0, -3, 7, 99, 1.5, True, [3], 1, "Slide 3", 3]
+    llm["reply"] = _router(json.dumps([{**GOOD, "source_slide": s} for s in sources]),
+                           {1: json.dumps({**GOOD, "source_slide": 99})})
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert len(out) == 2
+    assert all(1 <= q["source_slide"] <= len(GRAPH_DECK_PAGES) for q in out)
+    assert all(q["source_slide"] == 3 for q in out)
+    assert llm["calls"] == 2  # quiz + the one repair for in-range slide 1
+
+
+async def test_one_structured_summary_line_per_generation(enforce, llm, caplog):
+    import logging
+    fixed = _mcq("Which algorithm requires non-negative edge weights?",
+                 ["Dijkstra", "Kruskal", "Prim", "Floyd"], "Dijkstra", 3)
+    llm["reply"] = _router(json.dumps([GOOD, OTHER_SLIDE, BAD_NUMBER, NO_SOURCE, OUT_OF_RANGE]),
+                           {3: json.dumps(fixed)})
+    with caplog.at_level(logging.INFO, logger=synthesis.logger.name):
+        await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    lines = [r.getMessage() for r in caplog.records if r.getMessage().startswith("deck_quiz_grounding ")]
+    assert len(lines) == 1
+    payload = json.loads(lines[0].split(" ", 1)[1])
+    assert payload["proposed"] == 5 and payload["kept"] == 2 and payload["repaired"] == 1
+    assert payload["dropped"] == 3
+    assert payload["drop_reasons"] == {"no_source": 1, "source_out_of_range": 1, "repair_failed": 1}
+
+
+async def test_model_array_is_capped_and_repairs_are_bounded(enforce, llm, caplog):
+    import logging
+    llm["reply"] = _router(json.dumps([OTHER_SLIDE] * 30))
+    with caplog.at_level(logging.INFO, logger=synthesis.logger.name):
+        out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert out == []
+    assert len(_repair_prompts(llm)) <= synthesis.MAX_DECK_QUIZ_QUESTIONS == 12
+    line = next(r.getMessage() for r in caplog.records if r.getMessage().startswith("deck_quiz_grounding "))
+    payload = json.loads(line.split(" ", 1)[1])
+    assert payload["proposed"] == 30 and payload["dropped"] == 30
+    assert payload["drop_reasons"]["over_cap"] == 18
+
+
+async def test_repair_concurrency_is_bounded(enforce, monkeypatch):
+    import asyncio
+    state = {"now": 0, "peak": 0}
+
+    async def fake(prompt, ai_model=None):
+        if _REPAIR_MARK not in prompt:
+            return json.dumps([OTHER_SLIDE] * 10)
+        state["now"] += 1
+        state["peak"] = max(state["peak"], state["now"])
+        for _ in range(5):
+            await asyncio.sleep(0)
+        state["now"] -= 1
+        return "{}"
+
+    monkeypatch.setattr(synthesis, "generate_text_bulk", fake)
+    await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert 1 < state["peak"] <= synthesis.MAX_CONCURRENT_REPAIRS == 3
+
+
+async def test_unexpected_error_drops_only_that_question(llm, monkeypatch, caplog):
+    import logging
+    real = synthesis.assess_grounding
+
+    def flaky(q, skeleton, *a, **k):
+        if q.get("concept") == "MST":
+            raise RuntimeError("boom")
+        return real(q, skeleton, *a, **k)
+
+    monkeypatch.setattr(synthesis, "assess_grounding", flaky)
+    llm["reply"] = _router(json.dumps([GOOD, OTHER_SLIDE, GOOD]))
+    with caplog.at_level(logging.INFO, logger=synthesis.logger.name):
+        out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert [q["question"] for q in out] == [GOOD["question"]] * 2
+    line = next(r.getMessage() for r in caplog.records if r.getMessage().startswith("deck_quiz_grounding "))
+    assert json.loads(line.split(" ", 1)[1])["drop_reasons"] == {"grounding_error": 1}
+
+
+async def test_grounded_question_maps_to_its_zero_based_source_slide(llm):
+    llm["reply"] = _router(json.dumps([GOOD]))
+    mapped = synthesis._map_deck_quiz(await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq"))
+    assert mapped[0]["linked_slides"] == [2]
+    assert mapped[0]["support_score"] >= SUPPORT_THRESHOLD
+
+
+
+# ── Arc 5: grounding summary returned, not only logged ───────────────────────
+
+async def test_grounding_summary_is_returned_through_stats(enforce, llm):
+    fixed = _mcq("Which algorithm requires non-negative edge weights?",
+                 ["Dijkstra", "Kruskal", "Prim", "Floyd"], "Dijkstra", 3)
+    llm["reply"] = _router(json.dumps([GOOD, OTHER_SLIDE, BAD_NUMBER, NO_SOURCE, OUT_OF_RANGE]),
+                           {3: json.dumps(fixed)})
+    stats: dict = {}
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq", stats=stats)
+    assert isinstance(out, list) and len(out) == 2
+    assert stats == {
+        "proposed": 5, "kept": 2, "repaired": 1, "dropped": 3,
+        "drop_reasons": {"no_source": 1, "source_out_of_range": 1, "repair_failed": 1},
+        "flagged": 0, "flag_reasons": {},
+    }
+
+
+async def test_stats_equals_the_logged_summary_line(llm, caplog):
+    import logging
+    llm["reply"] = _router(json.dumps([OTHER_SLIDE] * 30))
+    stats: dict = {}
+    with caplog.at_level(logging.INFO, logger=synthesis.logger.name):
+        await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq", stats=stats)
+    line = next(r.getMessage() for r in caplog.records if r.getMessage().startswith("deck_quiz_grounding "))
+    assert json.loads(line.split(" ", 1)[1]) == stats
+    assert stats["drop_reasons"]["over_cap"] == 18
+
+
+async def test_stats_untouched_when_no_quiz_is_attempted(llm):
+    stats: dict = {}
+    out = await synthesis.generate_quiz_questions(["short", "also short"], "T", "cerebras", stats=stats)
+    assert out == [] and stats == {}
+
+
+# ── advisory-by-default grounding (measured 87.5% false-drop at 0.5) ──────────
+
+def _summary(caplog):
+    line = next(r.getMessage() for r in caplog.records if r.getMessage().startswith("deck_quiz_grounding "))
+    return json.loads(line.split(" ", 1)[1])
+
+
+def test_enforcement_is_off_by_default():
+    assert synthesis.ENFORCE_SUPPORT_THRESHOLD is False
+
+
+async def test_advisory_keeps_low_support_flagged_without_a_repair_call(llm):
+    llm["reply"] = _router(json.dumps([OTHER_SLIDE]))
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert [q["question"] for q in out] == [OTHER_SLIDE["question"]]
+    assert out[0]["grounding_flag"] == "low_support"
+    assert 0 <= out[0]["support_score"] < SUPPORT_THRESHOLD
+    assert out[0]["source_slide"] == 3
+    assert llm["calls"] == 1 and _repair_prompts(llm) == []
+
+
+async def test_advisory_keeps_ambiguous_and_number_not_on_slide_flagged(llm):
+    llm["reply"] = _router(json.dumps([AMBIGUOUS, BAD_NUMBER]))
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert [q["grounding_flag"] for q in out] == ["ambiguous", "number_not_on_slide"]
+    assert llm["calls"] == 1
+
+
+async def test_ok_question_has_no_grounding_flag(llm):
+    llm["reply"] = _router(json.dumps([GOOD]))
+    (q,) = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert "grounding_flag" not in q and q["support_score"] >= SUPPORT_THRESHOLD
+
+
+@pytest.mark.parametrize("mode", [False, True])
+async def test_structural_failures_are_dropped_in_both_modes_without_repair(llm, monkeypatch, mode):
+    monkeypatch.setattr(synthesis, "ENFORCE_SUPPORT_THRESHOLD", mode)
+    no_answer = {**GOOD, "correctAnswer": "nonsense"}
+    llm["reply"] = _router(json.dumps([NO_SOURCE, OUT_OF_RANGE, GARBAGE, no_answer, "str"]))
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq")
+    assert out == [] and llm["calls"] == 1
+
+
+async def test_advisory_summary_counts_flags_and_matches_stats(llm, caplog):
+    import logging
+    llm["reply"] = _router(json.dumps([GOOD, OTHER_SLIDE, AMBIGUOUS, BAD_NUMBER, NO_SOURCE, OUT_OF_RANGE]))
+    stats: dict = {}
+    with caplog.at_level(logging.INFO, logger=synthesis.logger.name):
+        await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq", stats=stats)
+    assert stats == {
+        "proposed": 6, "kept": 4, "repaired": 0, "dropped": 2,
+        "drop_reasons": {"no_source": 1, "source_out_of_range": 1},
+        "flagged": 3,
+        "flag_reasons": {"low_support": 1, "ambiguous": 1, "number_not_on_slide": 1},
+    }
+    assert _summary(caplog) == stats
+
+
+async def test_over_cap_is_structural_in_advisory_mode(llm):
+    llm["reply"] = _router(json.dumps([GOOD] * 30))
+    stats: dict = {}
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq", stats=stats)
+    assert len(out) == 12 and stats["drop_reasons"] == {"over_cap": 18} and stats["flagged"] == 0
+
+
+async def test_enforce_mode_still_repairs_then_drops_and_has_no_flags(enforce, llm):
+    llm["reply"] = _router(json.dumps([OTHER_SLIDE]))
+    stats: dict = {}
+    out = await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq", stats=stats)
+    assert out == [] and len(_repair_prompts(llm)) == 1
+    assert stats["flagged"] == 0 and stats["flag_reasons"] == {}
+
+
+def test_structural_reasons_are_the_documented_set():
+    from backend.services.parser.quiz_grounding import STRUCTURAL_REASONS
+    assert STRUCTURAL_REASONS == frozenset({"no_source", "source_out_of_range", "empty_slide", "no_answer"})
+
+
+async def test_flag_survives_mapping(llm):
+    llm["reply"] = _router(json.dumps([OTHER_SLIDE, GOOD]))
+    mapped = synthesis._map_deck_quiz(await synthesis.generate_quiz_questions(GRAPH_DECK_PAGES, "Graphs", "groq"))
+    assert mapped[0]["grounding_flag"] == "low_support"
+    assert "grounding_flag" not in mapped[1]
+
+
+async def test_repair_call_is_scoped_to_its_cited_slide(monkeypatch):
+    from backend.services.ai.call_context import current_llm_call_context, llm_call_scope
+    from backend.services.parser.deck_plan import build_deck_skeleton
+
+    seen = {}
+
+    async def fake(prompt, ai_model=None):
+        c = current_llm_call_context()
+        seen["ctx"] = (c.run_id, c.slide_indices, c.prompt_name)
+        return json.dumps({"question": "q"})
+
+    monkeypatch.setattr(synthesis, "generate_text_bulk", fake)
+    sk = build_deck_skeleton(["alpha slide text", "bravo slide text", "charlie slide text"])
+    with llm_call_scope(run_id="run-1", prompt_name="SYNTHESIS_DECK_QUIZ_PROMPT"):
+        out = await synthesis._repair_question({"concept": "c"}, 3, sk, "Graphs", "groq", "en")
+    assert out["source_slide"] == 3
+    assert seen["ctx"] == ("run-1", (2,), "SYNTHESIS_QUIZ_REPAIR_PROMPT")

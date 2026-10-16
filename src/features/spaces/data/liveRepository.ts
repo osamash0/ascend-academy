@@ -2,6 +2,7 @@
  * Loading this module does not initialize auth or make requests in demo mode.
  * The repository never substitutes fixtures for errors or missing live rows.
  */
+import i18n from '@/i18n';
 import type { ExplainAnswer } from '../components/reader/iui/spec';
 import type { Note, Person } from '../types';
 import type { PracticeQuestion } from '../mocks/practice';
@@ -257,8 +258,26 @@ export async function loadLiveRepository(): Promise<LiveRepository> {
     throw new Error('Live v4 data is not enabled.');
   }
   const { apiClient } = await import('@/lib/apiClient');
-  return createLiveRepository({
-    ...apiClient,
-    upload: <T,>(path: string, form: FormData) => apiClient.upload(path, form).then((r) => r.json() as Promise<T>),
-  });
+  return createLiveRepository(
+    withLanguage({
+      ...apiClient,
+      upload: <T,>(path: string, form: FormData) => apiClient.upload(path, form).then((r) => r.json() as Promise<T>),
+    }),
+  );
+}
+
+/*
+ * Every request says which language the app is showing. The server would
+ * otherwise read the profile — and a reader who just switched to Deutsch would
+ * be answered in the old language until the profile write landed.
+ */
+function withLanguage(http: V4Transport): V4Transport {
+  const tag = (path: string) => `${path}${path.includes('?') ? '&' : '?'}lang=${(i18n.language || 'en').split('-')[0]}`;
+  return {
+    get: <T>(path: string) => http.get<T>(tag(path)),
+    post: <T>(path: string, body: unknown) => http.post<T>(tag(path), body),
+    patch: <T>(path: string, body: unknown) => http.patch<T>(tag(path), body),
+    delete: <T>(path: string) => http.delete<T>(tag(path)),
+    upload: http.upload ? <T>(path: string, form: FormData) => http.upload!<T>(tag(path), form) : undefined,
+  };
 }

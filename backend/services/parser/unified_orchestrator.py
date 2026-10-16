@@ -40,7 +40,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence
 from uuid import UUID
 
 import redis.asyncio as aioredis
@@ -49,6 +49,13 @@ from backend.core.config import settings
 from backend.core.database import supabase_admin
 from backend.core.job_locks import acquire_job_lock, parse_lock_key, release_job_lock
 from backend.domain.parse_models import RunStatus
+from backend.services.ai.call_context import (
+    CallLog,
+    ServedCall,
+    llm_call_scope,
+    pop_llm_call_context,
+    push_llm_call_context,
+)
 from backend.services.parser import repos, persist, poster
 from backend.services.parser.storage import _fetch_pdf_bytes
 
@@ -169,6 +176,17 @@ async def _synthesize_slide(
         return {"title": "", "content": text, "summary": "", "slide_type": "image-only", "vision_routed": True}
 
 
+async def _synthesize_slide_scoped(
+    idx: int, text: str, lecture_context: str, ai_model: str, pdf_bytes: bytes,
+    source_language: str, *, prompt_name: str,
+) -> Dict[str, Any]:
+    """_synthesize_slide inside this slide's LLM call scope (Arc 7). Entered
+    INSIDE the coroutine: asyncio.gather copies the context when it creates
+    each task, so a scope around the gather would tag every slide the same."""
+    with llm_call_scope(slide_indices=(idx,), prompt_name=prompt_name):
+        return await _synthesize_slide(idx, text, lecture_context, ai_model, pdf_bytes, source_language)
+
+
 async def _synthesize_text_slides_individually(
     text_items: List[tuple[int, str]],
     lecture_context: str,
@@ -190,7 +208,8 @@ async def _synthesize_text_slides_individually(
         return f"{lecture_context}\n\nThe professor gave this instruction for this slide — honor it: {instr}"
 
     results = await asyncio.gather(
-        *[_synthesize_slide(idx, text, _ctx(idx), ai_model, pdf_bytes, source_language)
+        *[_synthesize_slide_scoped(idx, text, _ctx(idx), ai_model, pdf_bytes, source_language,
+                                   prompt_name=_ROUTE_PROMPTS["per_slide"])
           for idx, text in text_items],
         return_exceptions=True,
     )
@@ -242,10 +261,14 @@ async def _synthesize_text_slide_batch(
     ]
     blueprint = {"overall_summary": lecture_context[:1500]} if lecture_context else None
     try:
-        raw_results = await batch_analyze_text_slides(
-            slides_input, ai_model=ai_model, blueprint=blueprint,
-            source_language=source_language,
-        )
+        with llm_call_scope(
+            slide_indices=tuple(idx for idx, _ in text_items),
+            prompt_name=_ROUTE_PROMPTS["batch"],
+        ):
+            raw_results = await batch_analyze_text_slides(
+                slides_input, ai_model=ai_model, blueprint=blueprint,
+                source_language=source_language,
+            )
     except Exception as exc:
         logger.warning(
             "Batch synthesis failed for %d slide(s) starting at index %s (%s) — "
@@ -271,6 +294,7 @@ async def _synthesize_text_slide_batch(
             "summary": (item.get("summary") or "").strip(),
             "slide_type": item.get("slide_type") or "text",
             "vision_routed": False,
+            "route": "batch",
         }
     if missing:
         # The batch response omitted individual slides (rare) — per-slide
@@ -309,6 +333,166 @@ def _review_flag_for(
     if not raw_title or not raw_summary:
         return True, "empty_content"
     return False, None
+
+
+# Arc 5 parse receipts: which prompt each synthesis route renders.
+_ROUTE_PROMPTS: Dict[str, str] = {
+    "batch": "BATCH_SLIDE_PROMPT",
+    "per_slide": "SLIDE_ANALYSIS_PROMPT",
+    "vision": "SLIDE_VISION_PROMPT",
+}
+
+
+def _slide_route(*, ai_mode: bool, is_vision: bool, res: Any) -> str:
+    """How one slide was synthesized. Only the batch helper tags its results;
+    a text slide without that tag went through the per-slide fallback."""
+    if not ai_mode:
+        return "heuristic"
+    if is_vision:
+        return "vision"
+    if isinstance(res, dict) and res.get("route") == "batch":
+        return "batch"
+    return "per_slide"
+
+
+def _input_text_kind(route: str, raw: str, sent: Optional[str]) -> Optional[str]:
+    """What this slide's synthesis prompt received (Arc 7): "stripped"
+    (boilerplate removed by deck_plan.synthesis_text), "raw" (the page as
+    extracted; vision always gets raw), or None when no LLM call was made."""
+    if route == "heuristic":
+        return None
+    if route in ("batch", "per_slide") and sent is not None:
+        from backend.services.parser.deck_plan import normalize_page
+        # strip_boilerplate also drops blank lines, so "differs from raw" is not
+        # "a boilerplate line was removed": compare against the page normalised
+        # the same way. sent == raw is synthesis_text's raw fallback.
+        if sent != raw and sent != normalize_page(raw):
+            return "stripped"
+    return "raw"
+
+
+def _provenance_entry(
+    index: int,
+    route: str,
+    *,
+    ai_model: str,
+    synthesis_failed: bool,
+    needs_review: bool,
+    review_reason: Optional[str],
+    input_text: Optional[str] = None,
+) -> Dict[str, Any]:
+    """One slide's receipt line. ``requested_model`` is the model the parse
+    asked for (head of the provider chain); the serving provider/model/cost are
+    added at finalize by _llm_usage_receipt. ``input_text`` says whether the
+    prompt got boilerplate-stripped or raw text: BATCH_SLIDE_PROMPT is shared
+    with raw-text callers, so its version tag alone cannot say."""
+    from backend.services.ai.prompts import get_prompt_version
+
+    prompt = _ROUTE_PROMPTS.get(route)
+    if route == "heuristic":
+        model = None
+    elif route == "vision":
+        model = settings.vision_model
+    else:
+        model = ai_model
+    return {
+        "index": index,
+        "route": route,
+        "prompt": prompt,
+        "prompt_version": get_prompt_version(prompt) if prompt else None,
+        "requested_model": model,
+        "input_text": input_text,
+        "synthesis_failed": synthesis_failed,
+        "needs_review": needs_review,
+        "review_reason": review_reason,
+    }
+
+
+def _llm_usage_receipt(
+    slide_provenance: List[Dict[str, Any]], calls: Sequence[ServedCall],
+) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Fold this attempt's metered LLM calls into the receipt (Arc 7). Pure:
+    returns new provenance entries plus the run totals.
+
+    Each entry gains ``served_by`` (one item per call that carried the slide:
+    provider, model, prompt, tokens, cost, and ``shared_by`` = how many slides
+    the call covered) and ``cost_usd`` (the slide's even share of those calls).
+    Run-level calls (meta, quiz, facts, ...) have no slide and count only in
+    the totals. Vision, embeddings and the admin-slide classifier are not
+    metered; ``unmetered`` names them so the totals are not read as complete.
+    ``dropped_calls`` counts calls the in-memory cap refused (0 normally).
+    Per-slide cost shares need not sum to llm_usage.cost_usd (rounding;
+    run-level calls; out-of-range indices) -- the totals are authoritative."""
+    provenance = [{**entry, "served_by": [], "cost_usd": 0.0} for entry in slide_provenance]
+    by_index = {entry["index"]: entry for entry in provenance}
+    totals: Dict[str, Any] = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0,
+                              "cost_usd": 0.0, "by_prompt": {}, "by_provider": {},
+                              "dropped_calls": getattr(calls, "dropped", 0)}
+    for call in calls:
+        totals["calls"] += 1
+        totals["prompt_tokens"] += call.prompt_tokens
+        totals["completion_tokens"] += call.completion_tokens
+        totals["cost_usd"] += call.cost_usd
+        for key, name in (("by_prompt", call.prompt_name or "unnamed"), ("by_provider", call.provider)):
+            bucket = totals[key].setdefault(name, {"calls": 0, "cost_usd": 0.0})
+            bucket["calls"] += 1
+            bucket["cost_usd"] += call.cost_usd
+        shared_by = len(call.slide_indices or ())
+        for i in call.slide_indices or ():
+            entry = by_index.get(i)
+            if entry is None:
+                continue
+            entry["served_by"].append({
+                "provider": call.provider, "model": call.model, "prompt": call.prompt_name,
+                "prompt_version": call.prompt_version,
+                "prompt_tokens": call.prompt_tokens, "completion_tokens": call.completion_tokens,
+                "cost_usd": round(call.cost_usd, 6), "shared_by": shared_by,
+            })
+            entry["cost_usd"] += call.cost_usd / shared_by
+    for entry in provenance:
+        entry["cost_usd"] = round(entry["cost_usd"], 6)
+    totals["cost_usd"] = round(totals["cost_usd"], 6)
+    for key in ("by_prompt", "by_provider"):
+        for bucket in totals[key].values():
+            bucket["cost_usd"] = round(bucket["cost_usd"], 6)
+    totals["vision_metered"] = False
+    totals["unmetered"] = ["vision", "embeddings", "admin_slide_classifier"]
+    return provenance, totals
+
+
+async def _write_parse_receipt(
+    run_id: UUID,
+    lecture_id: UUID,
+    *,
+    skeleton: Any,
+    slide_provenance: List[Dict[str, Any]],
+    quiz_grounding: Optional[Dict[str, Any]],
+    served_calls: Sequence[ServedCall] = (),
+) -> None:
+    """Arc 5: persist what this parse saw and decided, for the professor.
+    Arc 7: plus who served each slide and what the run cost so far. A receipt
+    is diagnostics, so failing to build or write any part of it is logged and
+    never fails a parse that otherwise succeeded; a failed usage fold still
+    writes the rest of the receipt."""
+    llm_usage: Optional[Dict[str, Any]] = None
+    try:
+        slide_provenance, llm_usage = _llm_usage_receipt(slide_provenance, served_calls)
+    except Exception as exc:
+        logger.warning("parse receipt llm usage fold failed (non-fatal) run=%s: %s",
+                       run_id, exc, exc_info=True)
+    try:
+        from backend.services.parser.deck_plan import skeleton_receipt
+
+        await repos.save_parse_receipt(
+            run_id,
+            lecture_id,
+            deck_skeleton=skeleton_receipt(skeleton) if skeleton is not None else None,
+            slide_provenance=slide_provenance,
+            quiz_grounding=quiz_grounding,
+            llm_usage=llm_usage,
+        )
+    except Exception as exc:
+        logger.warning("parse receipt write failed (non-fatal) run=%s: %s", run_id, exc, exc_info=True)
 
 
 async def _attach_completed_blueprint_material(run_id: UUID, lecture_id: UUID) -> None:
@@ -508,6 +692,10 @@ async def parse_pdf_unified(
     created_lecture_id: Optional[UUID] = None
     slide_db_ids: Dict[int, UUID] = {}
     deck_summary = ""
+    # Arc 7: metered LLM calls of THIS attempt (a forced re-parse reuses the
+    # run_id, so the list, not llm_calls, scopes the receipt to one attempt).
+    served_calls: List[ServedCall] = CallLog()
+    llm_ctx_token = None
 
     # In-flight dedupe lock (Roadmap P2-3). Prefer the worker's own Arq redis
     # pool (`ctx["redis"]`, queue Redis) so a real job needs no extra
@@ -531,6 +719,7 @@ async def parse_pdf_unified(
             filename=filename,
         )
         run_uuid = run.run_id
+        llm_ctx_token = push_llm_call_context(run_id=str(run_uuid), calls=served_calls)
         existing_lecture_id = run.lecture_id  # set by a prior (partial) attempt
 
         # ── Idempotent replay: a completed run never re-parses ───────────────
@@ -566,6 +755,15 @@ async def parse_pdf_unified(
         total = len(raw_slides)
         from backend.services.localization_service import detect_source_language
         source_language = detect_source_language("\n".join(raw_slides[:15]))
+        from backend.services.parser.deck_plan import build_deck_skeleton
+        try:
+            skeleton = build_deck_skeleton(raw_slides)
+        except Exception as exc:  # non-fatal: meta/quiz retry the build and fail non-fatally on their own
+            logger.warning(
+                "deck skeleton failed (non-fatal; meta/quiz will retry the build and fail non-fatally on their own): %s",
+                exc, exc_info=True,
+            )
+            skeleton = None
         await emit("progress", {"current": total, "total": total, "message": f"Extracted {total} slides"})
 
         # ``on_demand`` (Skip AI): persist raw extracted slides with no LLM
@@ -620,10 +818,11 @@ async def parse_pdf_unified(
         if ai_mode:
             from backend.services.parser.synthesis import analyze_lecture_meta
             try:
-                meta = await analyze_lecture_meta(
-                    raw_slides, ai_model, course_context_hint=course_context_hint,
-                    source_language=source_language,
-                )
+                with llm_call_scope(prompt_name="LECTURE_META_ANALYSIS_PROMPT"):
+                    meta = await analyze_lecture_meta(
+                        raw_slides, ai_model, course_context_hint=course_context_hint,
+                        source_language=source_language, skeleton=skeleton,
+                    )
             except Exception as exc:
                 logger.warning("lecture meta failed (non-fatal): %s", exc)
                 meta = {}
@@ -690,6 +889,8 @@ async def parse_pdf_unified(
         # below, which would otherwise race the writes it is meant to patch.
         embed_tasks: List[asyncio.Task] = []
         previous_narrative = ""
+        slide_provenance: List[Dict[str, Any]] = []
+        synth_inputs: Dict[int, str] = {}  # Arc 7: text each slide prompt received
 
         # Roadmap Phase 3 (course brain): collect administrative-slide text
         # during the loop so it can feed one combined syllabus-fact extraction
@@ -708,6 +909,7 @@ async def parse_pdf_unified(
                 "message": (f"Analyzing slides {chunk_start + 1}–{chunk_end}/{total}…"
                             if ai_mode else f"Importing slides {chunk_start + 1}–{chunk_end}/{total}…"),
             })
+            vision_idx_set: set = set()
             if ai_mode:
                 def _ctx_with_instruction(i: int) -> str:
                     instr = carried_instructions.get(i)
@@ -726,10 +928,19 @@ async def parse_pdf_unified(
                     if len((raw_slides[i] or "").strip()) >= _MIN_TEXT_FOR_SYNTH
                 ]
                 vision_idxs = [i for i in chunk_idxs if i not in text_idxs]
+                vision_idx_set = set(vision_idxs)
 
                 results_map: Dict[int, Any] = {}
                 if text_idxs:
-                    text_items = [(i, raw_slides[i]) for i in text_idxs]
+                    from backend.services.parser.deck_plan import synthesis_text
+                    # Arc 7: the model reads boilerplate-stripped text (raw
+                    # fallback under _MIN_TEXT_FOR_SYNTH); routing above and the
+                    # persisted content below stay on the raw page.
+                    text_items = [
+                        (i, synthesis_text(raw_slides[i], skeleton, i, _MIN_TEXT_FOR_SYNTH))
+                        for i in text_idxs
+                    ]
+                    synth_inputs.update(text_items)
                     # Note: any slide here carrying a regen instruction routes
                     # itself to the per-slide fallback inside the helper (the
                     # batch schema has no per-slide instruction hook), so
@@ -742,9 +953,9 @@ async def parse_pdf_unified(
                     ))
                 if vision_idxs:
                     vision_results = await asyncio.gather(*[
-                        _synthesize_slide(
+                        _synthesize_slide_scoped(
                             i, raw_slides[i], _ctx_with_instruction(i), ai_model, pdf_bytes,
-                            source_language,
+                            source_language, prompt_name=_ROUTE_PROMPTS["vision"],
                         )
                         for i in vision_idxs
                     ], return_exceptions=True)
@@ -762,6 +973,7 @@ async def parse_pdf_unified(
 
             for rel, res in enumerate(results):
                 i = chunk_start + rel
+                route = _slide_route(ai_mode=ai_mode, is_vision=i in vision_idx_set, res=res)
                 synthesis_failed = isinstance(res, Exception) or not isinstance(res, dict)
                 if synthesis_failed:
                     logger.error("slide %d synthesis failed: %s", i, res)
@@ -780,9 +992,20 @@ async def parse_pdf_unified(
                     if ai_mode
                     else (False, None)
                 )
+                slide_provenance.append(_provenance_entry(
+                    i, route, ai_model=ai_model, synthesis_failed=synthesis_failed,
+                    needs_review=needs_review, review_reason=review_reason,
+                    input_text=_input_text_kind(route, raw_slides[i], synth_inputs.get(i)),
+                ))
+                # Text routes echo the (stripped) synthesis input as content;
+                # students must see the real page, so pin it to the raw text.
+                content = (
+                    raw_slides[i] if route in ("batch", "per_slide")
+                    else res.get("content", raw_slides[i])
+                )
                 ui_slide = {
                     "title": title,
-                    "content": res.get("content", raw_slides[i]) or "",
+                    "content": content or "",
                     "summary": res.get("summary", "") or "",
                     "slide_type": res.get("slide_type", "text"),
                     "questions": [],
@@ -839,7 +1062,8 @@ async def parse_pdf_unified(
                 from backend.services.parser.synthesis import extract_syllabus_facts
                 from backend.services.course_context_service import upsert_course_context_facts
                 combined = "\n\n---\n\n".join(admin_slide_texts[:5])
-                facts = await extract_syllabus_facts(combined, ai_model)
+                with llm_call_scope(prompt_name="SYLLABUS_FACTS_EXTRACTION_PROMPT"):
+                    facts = await extract_syllabus_facts(combined, ai_model)
                 if facts:
                     await upsert_course_context_facts(course_uuid, facts)
             except Exception as exc:
@@ -847,13 +1071,18 @@ async def parse_pdf_unified(
 
         # ── 5. Deck-level quiz (AI mode only) ────────────────────────────────
         deck_quiz = []
+        quiz_stats: Dict[str, Any] = {}
         if ai_mode:
             await emit("progress", {"current": total, "total": total, "message": "Generating quiz…"})
             from backend.services.parser.synthesis import generate_quiz_questions, _map_deck_quiz
             try:
-                deck_quiz = _map_deck_quiz(
-                    await generate_quiz_questions(raw_slides, lecture_title, ai_model, source_language)
-                )
+                with llm_call_scope(prompt_name="SYNTHESIS_DECK_QUIZ_PROMPT"):
+                    deck_quiz = _map_deck_quiz(
+                        await generate_quiz_questions(
+                            raw_slides, lecture_title, ai_model, source_language, skeleton=skeleton,
+                            stats=quiz_stats,
+                        )
+                    )
             except Exception as exc:
                 logger.warning("deck quiz failed (non-fatal): %s", exc)
                 deck_quiz = []
@@ -867,9 +1096,10 @@ async def parse_pdf_unified(
                     from backend.services.parser.synthesis import (
                         generate_cross_lecture_questions, _map_cross_lecture_quiz,
                     )
-                    cross_raw = await generate_cross_lecture_questions(
-                        lecture_title, course_synthesis_ctx["prior_lectures"], ai_model
-                    )
+                    with llm_call_scope(prompt_name="CROSS_LECTURE_QUIZ_PROMPT"):
+                        cross_raw = await generate_cross_lecture_questions(
+                            lecture_title, course_synthesis_ctx["prior_lectures"], ai_model
+                        )
                     deck_quiz += _map_cross_lecture_quiz(cross_raw)
                 except Exception as exc:
                     logger.warning("cross-lecture quiz generation failed (non-fatal): %s", exc)
@@ -884,6 +1114,13 @@ async def parse_pdf_unified(
             except Exception as exc:
                 logger.error("deck/finalize persist failed: %s", exc)
                 raise
+            await _write_parse_receipt(
+                run_uuid, created_lecture_id,
+                skeleton=skeleton,
+                slide_provenance=slide_provenance,
+                quiz_grounding=quiz_stats or None,
+                served_calls=served_calls,
+            )
             # A reader locale is only published as an atomic snapshot of the
             # canonical source revision — never a partial translation. But a
             # provider-side failure must not throw away a deck that parsed
@@ -1062,6 +1299,8 @@ async def parse_pdf_unified(
         # — `raise` here re-raises the exact exception object either way.
         raise
     finally:
+        if llm_ctx_token is not None:
+            pop_llm_call_context(llm_ctx_token)
         if got_lock:
             await release_job_lock(lock_redis, lock_key)
         if owns_lock_conn and lock_redis is not None:

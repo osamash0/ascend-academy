@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Smartphone, Sun, X } from 'lucide-react';
@@ -99,13 +100,15 @@ const TOC_WITH_PANEL = 1640;
 const TOC_WIDTH = 260;
 
 type View = 'slide' | 'explain' | 'text';
-const VIEWS: { id: View; label: string }[] = [
-  { id: 'slide', label: 'Page' },
-  { id: 'explain', label: 'Explain' },
-  { id: 'text', label: 'Text' },
+/* Labels live in the v4Reader namespace (views.page / views.explain / views.text). */
+const VIEWS: { id: View; label: 'page' | 'explain' | 'text' }[] = [
+  { id: 'slide', label: 'page' },
+  { id: 'explain', label: 'explain' },
+  { id: 'text', label: 'text' },
 ];
 
 export default function LessonFacesScreen() {
+  const { t: tr } = useTranslation('v4Reader');
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
   const { state, space, lesson, prev, next } = useReaderLesson(spaceId, lessonId);
   const content = useReaderContent(spaceId, lessonId);
@@ -624,15 +627,15 @@ export default function LessonFacesScreen() {
       <>
         <ReaderExit to={back} />
         <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center px-6 pt-14 text-center">
-          <p className="mb-2 text-[17px] font-semibold">Nothing to read yet</p>
+          <p className="mb-2 text-[17px] font-semibold">{tr('screen.empty.title')}</p>
           <p className="mb-7 max-w-[46ch] text-[14.5px] leading-relaxed text-quiet">
-            {lesson.title} has its ideas and its practice, but no Material and no text yet.
+            {tr('screen.empty.body', { lesson: lesson.title })}
           </p>
           <Link
             to={back}
             className="console-focusable inline-flex h-11 items-center rounded-full border border-white/12 bg-white/[0.04] px-6 text-[14px] font-medium"
           >
-            Back to the Lesson
+            {tr('screen.backToLesson')}
           </Link>
         </div>
       </>,
@@ -660,7 +663,7 @@ export default function LessonFacesScreen() {
   const askAbout = (text: string) => {
     const words = text.replace(/\s+/g, ' ').trim().slice(0, 240);
     if (asker) {
-      askInExplain(`Explain this from the page: “${words}”`);
+      askInExplain(tr('screen.explainSelection', { words }));
       return;
     }
     setQuote(text);
@@ -673,7 +676,7 @@ export default function LessonFacesScreen() {
   };
   const openNotes = (page: number) => {
     openStudio();
-    setCompanion({ kind: 'notes', title: `Notes · ${lesson.title}`, page });
+    setCompanion({ kind: 'notes', title: tr('screen.notes.title', { lesson: lesson.title }), page });
   };
 
   const tutorNode = (
@@ -712,7 +715,7 @@ export default function LessonFacesScreen() {
       ))}
       <NoteEditor
         key={`new-${noteTick}`}
-        placeholder="Private to you, and gathered in your Library."
+        placeholder={tr('screen.notes.placeholder')}
         onSave={(body) => {
           addNote({ lessonId: lesson.id, body, lessonTitle: lesson.title, spaceId: space.id, spaceName: space.name });
           setNoteTick((t) => t + 1);
@@ -724,7 +727,7 @@ export default function LessonFacesScreen() {
         </p>
       )}
       {myNotes.length === 0 && (
-        <p className="px-1 text-[13px] text-faint">Nothing yet. Notes are private, and only you ever see them.</p>
+        <p className="px-1 text-[13px] text-faint">{tr('screen.notes.empty')}</p>
       )}
     </div>
   );
@@ -746,7 +749,7 @@ export default function LessonFacesScreen() {
           className="console-focusable inline-flex h-8 items-center gap-1.5 rounded-full px-2 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
         >
           <ListChecks aria-hidden className="h-3.5 w-3.5" />
-          Practise this idea
+          {tr('screen.practiseIdea')}
         </button>
       }
     >
@@ -767,14 +770,14 @@ export default function LessonFacesScreen() {
           className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14.5px] font-semibold text-slate-900"
         >
           <ListChecks aria-hidden className="h-4 w-4" />
-          Practise what you just read
+          {tr('screen.practiseRead')}
         </button>
       )}
       <Link
         to={back}
         className="console-focusable inline-flex h-12 items-center rounded-full border border-white/12 bg-white/[0.04] px-6 text-[14px] font-medium"
       >
-        Back to the Lesson
+        {tr('screen.backToLesson')}
       </Link>
     </div>
   );
@@ -816,14 +819,14 @@ export default function LessonFacesScreen() {
       <SelectionAsk
         articleRef={pdfRef}
         also={{
-          label: 'Read this',
+          label: tr('screen.select.read'),
           onPress: (text) => {
             openStudio();
             findOn('text', text);
           },
         }}
         onAsk={(text) => askAbout(text)}
-        askLabel={asker ? 'Explain this' : undefined}
+        askLabel={asker ? tr('screen.select.explain') : undefined}
         onSaveNote={(text) => {
           addNote({ lessonId: lesson.id, body: `“${text}”`, lessonTitle: lesson.title, spaceId: space.id, spaceName: space.name });
           setNoteTick((t) => t + 1);
@@ -834,7 +837,7 @@ export default function LessonFacesScreen() {
       <SelectionAsk
         articleRef={textRef}
         also={{
-          label: 'Show page',
+          label: tr('screen.select.showPage'),
           onPress: (text) => {
             const p = pageOfSelection() ?? anchor.page;
             goToPage(p);
@@ -842,7 +845,7 @@ export default function LessonFacesScreen() {
           },
         }}
         onAsk={(text) => askAbout(text)}
-        askLabel={asker ? 'Explain this' : undefined}
+        askLabel={asker ? tr('screen.select.explain') : undefined}
         onSaveNote={(text) => {
           addNote({ lessonId: lesson.id, body: `“${text}”`, lessonTitle: lesson.title, spaceId: space.id, spaceName: space.name });
           setNoteTick((t) => t + 1);
@@ -891,8 +894,8 @@ export default function LessonFacesScreen() {
             type="button"
             onClick={() => setPref({ tocPinned: !prefs.tocPinned })}
             aria-pressed={prefs.tocPinned}
-            aria-label={prefs.tocPinned ? 'Hide the contents' : 'Keep the contents open'}
-            title={prefs.tocPinned ? 'Hide the contents' : 'Keep the contents open'}
+            aria-label={prefs.tocPinned ? tr('screen.toc.hide') : tr('screen.toc.keep')}
+            title={prefs.tocPinned ? tr('screen.toc.hide') : tr('screen.toc.keep')}
             className="console-focusable flex h-8 w-8 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
           >
             {prefs.tocPinned ? <PanelLeftClose aria-hidden className="h-4 w-4" /> : <PanelLeftOpen aria-hidden className="h-4 w-4" />}
@@ -902,8 +905,8 @@ export default function LessonFacesScreen() {
           type="button"
           onClick={() => setPref({ night: !night })}
           aria-pressed={night}
-          aria-label={night ? 'Light paper' : 'Night paper'}
-          title={night ? 'Light paper' : 'Night paper — dark pages for long sessions'}
+          aria-label={night ? tr('screen.paper.light') : tr('screen.paper.night')}
+          title={night ? tr('screen.paper.light') : tr('screen.paper.nightHint')}
           className="console-focusable flex h-8 w-8 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
         >
           {night ? <Sun aria-hidden className="h-4 w-4" /> : <Moon aria-hidden className="h-4 w-4" />}
@@ -911,7 +914,7 @@ export default function LessonFacesScreen() {
       </div>
       <div
         role="tablist"
-        aria-label="How to read this page"
+        aria-label={tr('views.label')}
         className={cn('flex rounded-full p-1', overPage)}
       >
         {VIEWS.map((v) => {
@@ -941,7 +944,7 @@ export default function LessonFacesScreen() {
                   className="absolute inset-0 rounded-full bg-white"
                 />
               )}
-              <span className="relative">{v.label}</span>
+              <span className="relative">{tr(`views.${v.label}`)}</span>
             </button>
           );
         })}
@@ -1001,10 +1004,10 @@ export default function LessonFacesScreen() {
         <motion.div {...fade} className="absolute inset-x-4 top-[72px] z-30 flex justify-center">
           <p className="flex items-center gap-2 rounded-full bg-white/[0.08] py-1.5 pl-4 pr-1.5 text-[12.5px] text-foreground">
             <Smartphone aria-hidden className="h-3.5 w-3.5 rotate-90 text-quiet" />
-            Turn your phone sideways for a bigger page
+            {tr('screen.turnPhone')}
             <button
               type="button"
-              aria-label="Got it"
+              aria-label={tr('screen.gotIt')}
               onClick={() => setPref({ turned: true })}
               className="console-focusable flex h-7 w-7 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
             >
@@ -1068,7 +1071,7 @@ export default function LessonFacesScreen() {
       >
         {hintShown && !short && (
           <p className="hidden text-[12px] text-faint sm:block">
-            ← → turns the page{beats.length >= 2 ? ', scrolling steps through its points' : ''}. Select words to ask about them.
+            {beats.length >= 2 ? tr('screen.hint.withPoints') : tr('screen.hint.plain')}
           </p>
         )}
         <GlassPill
@@ -1081,7 +1084,7 @@ export default function LessonFacesScreen() {
             type="button"
             onClick={() => turnPage(-1)}
             disabled={pdfPage <= 1}
-            aria-label="Previous page"
+            aria-label={tr('screen.prevPage')}
             className="console-focusable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
           >
             <ChevronLeft aria-hidden className="h-4 w-4" />
@@ -1094,7 +1097,7 @@ export default function LessonFacesScreen() {
             type="button"
             onClick={() => turnPage(1)}
             disabled={numPages > 0 && pdfPage >= numPages}
-            aria-label="Next page"
+            aria-label={tr('screen.nextPage')}
             className="console-focusable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
           >
             <ChevronRight aria-hidden className="h-4 w-4" />
@@ -1129,7 +1132,7 @@ export default function LessonFacesScreen() {
           setChecked((c) => ({ ...c, [offer.id]: outcome.correct === outcome.total ? 'lit' : 'weak' }));
           saveRehearsal(
             space.id,
-            `Checkpoint · ${offer.name}`.slice(0, 120),
+            tr('screen.saved.checkpoint', { idea: offer.name }).slice(0, 120),
             [lesson.id],
             outcome.results.map((r) => ({ ...r, idea: r.idea.slice(0, 60), lecture_id: lesson.id })),
           )
@@ -1153,7 +1156,7 @@ export default function LessonFacesScreen() {
         onResult={(r) => {
           if (!teaching) return;
           setChecked((c) => ({ ...c, [teaching.id]: r.verdict === 'solid' ? 'lit' : 'weak' }));
-          saveRehearsal(space.id, `Teach-back · ${teaching.name}`.slice(0, 120), [lesson.id], [
+          saveRehearsal(space.id, tr('screen.saved.teach', { idea: teaching.name }).slice(0, 120), [lesson.id], [
             { lecture_id: lesson.id, page: teaching.first, idea: teaching.name.slice(0, 60), kind: 'teach', correct: r.verdict === 'solid' },
           ])
             .then(reloadHistory)
@@ -1169,7 +1172,7 @@ export default function LessonFacesScreen() {
 
       <Studio
         open={view === 'explain' && !bench}
-        label="Explain"
+        label={tr('views.explain')}
         where={section.name}
         page={anchor.page}
         onClose={escapeStudio}
@@ -1187,7 +1190,7 @@ export default function LessonFacesScreen() {
               ? {
                   idea: ideaName,
                   links: relatedFound.map((r) => ({
-                    label: `${r.lecture_title} · p${r.page}`,
+                    label: tr('screen.relatedAt', { lesson: r.lecture_title, page: r.page }),
                     detail: r.title ?? '',
                     href: `/v4/space/${space.id}/lesson/${r.lecture_id}/faces?page=${r.page}&view=explain${
                       /«([^»]+)»/.exec(r.snippet) ? `&spot=${encodeURIComponent(/«([^»]+)»/.exec(r.snippet)![1])}` : ''
@@ -1228,7 +1231,7 @@ export default function LessonFacesScreen() {
           onAskFormula={(tex) => {
             if (asker) return askInExplain(`Explain this formula: ${tex}`);
             setQuote(tex);
-            openTutor('This formula', anchor.page);
+            openTutor(tr('screen.thisFormula'), anchor.page);
           }}
           wide={false}
           companion={companion ? { page: companion.page, node: companionNode } : null}
@@ -1265,12 +1268,13 @@ function PointDots({
   beat: number;
   onPick: (i: number) => void;
 }) {
+  const { t: tr } = useTranslation('v4Reader');
   const [open, setOpen] = useState(false);
-  const items = [{ label: 'All', i: -1 }, ...beats.map((b, i) => ({ label: b.label, i }))];
+  const items = [{ label: tr('screen.points.all'), i: -1 }, ...beats.map((b, i) => ({ label: b.label, i }))];
   return (
     <div
       role="tablist"
-      aria-label="Points on this page"
+      aria-label={tr('screen.points.label')}
       onPointerEnter={() => setOpen(true)}
       onPointerLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}

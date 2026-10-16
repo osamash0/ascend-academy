@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { Concept } from '../../types';
 import { timing } from './Planes';
@@ -28,12 +29,13 @@ interface Props {
 }
 
 export function Spine({ concepts, currentId, onJump, right = 12 }: Props) {
+  const { t } = useTranslation('v4Reader');
   const [open, setOpen] = useState(false);
   if (concepts.length === 0) return null;
 
   return (
     <nav
-      aria-label="Concepts in this Lesson"
+      aria-label={t('spine.label')}
       onPointerEnter={() => setOpen(true)}
       onPointerLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}

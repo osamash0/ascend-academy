@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowRight, BookOpen, Check, PenLine, RotateCcw, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { TeachBack as Reading } from '../../data/liveRepository';
 import { annotate } from './teach';
@@ -31,12 +32,13 @@ type Phase = 'write' | 'reading' | 'read' | 'failed';
 const MIN = 40;
 
 const VERDICT: Record<Reading['verdict'], string> = {
-  solid: 'You can teach this.',
-  partial: 'Nearly there.',
-  off: 'Not yet — but now you know where.',
+  solid: 'teach.verdict.solid',
+  partial: 'teach.verdict.partial',
+  off: 'teach.verdict.off',
 };
 
 export function TeachBack({ idea, read, onPage, onResult, onClose }: Props) {
+  const { t } = useTranslation('v4Reader');
   const reduce = useReducedMotion();
   const [phase, setPhase] = useState<Phase>('write');
   const [text, setText] = useState('');
@@ -90,7 +92,7 @@ export function TeachBack({ idea, read, onPage, onResult, onClose }: Props) {
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-label={`Teach it back: ${idea.name}`}
+            aria-label={t('teach.label', { name: idea.name })}
             onKeyDown={(e) => {
               if (e.key === 'Escape') onClose();
               /* Typing and arrows belong to the panel, not to the pages behind it. */
@@ -105,14 +107,14 @@ export function TeachBack({ idea, read, onPage, onResult, onClose }: Props) {
               <div>
                 <p className="flex items-center gap-1.5 text-[13px] text-quiet">
                   <PenLine aria-hidden className="h-3.5 w-3.5" />
-                  Teach it back · pages {idea.first}–{idea.last}
+                  {t('teach.heading', { first: idea.first, last: idea.last })}
                 </p>
                 <h2 className="mt-1.5 text-[22px] font-medium leading-snug tracking-[-0.01em] text-foreground">{idea.name}</h2>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Back to reading"
+                aria-label={t('teach.close')}
                 className="console-focusable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
               >
                 <X aria-hidden className="h-4 w-4" />
@@ -122,7 +124,7 @@ export function TeachBack({ idea, read, onPage, onResult, onClose }: Props) {
             {(phase === 'write' || phase === 'reading' || phase === 'failed') && (
               <>
                 <label htmlFor="teach-back-text" className="block text-[15px] leading-[1.5] text-quiet">
-                  Explain it in your own words, as if to a friend who missed this Lesson.
+                  {t('teach.prompt')}
                 </label>
                 <textarea
                   id="teach-back-text"
@@ -135,7 +137,7 @@ export function TeachBack({ idea, read, onPage, onResult, onClose }: Props) {
                   disabled={phase === 'reading'}
                   maxLength={2000}
                   rows={7}
-                  placeholder="It's about…"
+                  placeholder={t('teach.placeholder')}
                   className="mt-3 w-full resize-y rounded-2xl border border-white/[0.1] bg-white/[0.03] p-4 text-[15px] leading-[1.6] text-foreground outline-none placeholder:text-faint focus:border-white/[0.25] disabled:opacity-60"
                 />
                 <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -145,13 +147,13 @@ export function TeachBack({ idea, read, onPage, onResult, onClose }: Props) {
                     disabled={phase === 'reading' || text.trim().length < MIN}
                     className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-medium text-background transition-colors disabled:bg-white/[0.12] disabled:text-faint"
                   >
-                    {phase === 'reading' ? `Reading it against pages ${idea.first}–${idea.last}…` : 'Check my explanation'}
+                    {phase === 'reading' ? t('teach.reading', { first: idea.first, last: idea.last }) : t('teach.submit')}
                     {phase !== 'reading' && <ArrowRight aria-hidden className="h-4 w-4" />}
                   </button>
                   {text.trim().length < MIN && phase === 'write' && (
-                    <span className="text-[12.5px] text-faint">A few sentences is enough.</span>
+                    <span className="text-[12.5px] text-faint">{t('teach.hint')}</span>
                   )}
-                  {phase === 'failed' && <span className="text-[13px] text-destructive">Couldn't read it just now — try again.</span>}
+                  {phase === 'failed' && <span className="text-[13px] text-destructive">{t('teach.failed')}</span>}
                 </div>
               </>
             )}
@@ -164,7 +166,7 @@ export function TeachBack({ idea, read, onPage, onResult, onClose }: Props) {
                     reading.verdict === 'solid' ? 'text-success' : 'text-foreground',
                   )}
                 >
-                  {VERDICT[reading.verdict]}
+                  {t(VERDICT[reading.verdict])}
                 </p>
 
                 {/* Their words, given back with the wrong parts marked. */}
@@ -205,7 +207,7 @@ export function TeachBack({ idea, read, onPage, onResult, onClose }: Props) {
                           className="console-focusable ml-2 inline-flex items-center gap-1 rounded-full text-[12.5px] text-quiet transition-colors hover:text-foreground"
                         >
                           <BookOpen aria-hidden className="h-3 w-3" />
-                          page {w.page}
+                          {t('teach.correctionPage', { page: w.page })}
                         </button>
                       </li>
                     ))}
@@ -214,7 +216,7 @@ export function TeachBack({ idea, read, onPage, onResult, onClose }: Props) {
 
                 {/* What the pages teach: ticked if you got it across, else one press from its page. */}
                 <p className="mb-2 mt-6 text-[13px] tabular-nums text-quiet">
-                  What the pages teach · {covered} of {reading.points.length} in your words
+                  {t('teach.points', { covered, total: reading.points.length })}
                 </p>
                 <ul className="space-y-1.5">
                   {reading.points.map((p) => (
@@ -236,7 +238,7 @@ export function TeachBack({ idea, read, onPage, onResult, onClose }: Props) {
                           onClick={() => onPage(p.page)}
                           className="console-focusable shrink-0 rounded-full bg-white/[0.06] px-3 py-1 text-[12.5px] text-foreground transition-colors hover:bg-white/[0.12]"
                         >
-                          Page {p.page}
+                          {t('teach.pointPage', { page: p.page })}
                         </button>
                       )}
                     </li>
@@ -253,7 +255,7 @@ export function TeachBack({ idea, read, onPage, onResult, onClose }: Props) {
                       className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[14px] font-medium text-background transition-colors"
                     >
                       <RotateCcw aria-hidden className="h-4 w-4" />
-                      Try again
+                      {t('teach.retry')}
                     </button>
                   )}
                   <button
@@ -266,7 +268,7 @@ export function TeachBack({ idea, read, onPage, onResult, onClose }: Props) {
                         : 'bg-white/[0.07] text-foreground hover:bg-white/[0.12]',
                     )}
                   >
-                    Keep reading
+                    {t('teach.keepReading')}
                     <ArrowRight aria-hidden className="h-4 w-4" />
                   </button>
                 </div>

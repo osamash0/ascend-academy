@@ -69,6 +69,7 @@ beforeEach(() => {
   useAuthMock.mockReset();
   apiGetMock.mockReset();
   apiPostMock.mockReset();
+  toastFn.mockClear();
 });
 
 /** Mount the Data & Privacy pane (selected via the `?tab=` query param). */
@@ -122,6 +123,27 @@ describe("Settings — GDPR account erasure", () => {
       expect(apiPostMock).toHaveBeenCalledWith("/api/auth/delete-account", {}),
     );
     await waitFor(() => expect(signOut).toHaveBeenCalled());
+  });
+
+  it("tells the user their files are still being removed when the server defers them", async () => {
+    apiPostMock.mockResolvedValue({ message: "Account deleted.", files: "finishing" });
+    const signOut = vi.fn().mockResolvedValue(undefined);
+
+    renderDataPane(signOut);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /delete my account/i }));
+    await user.click(
+      await screen.findByRole("button", { name: /yes, delete everything/i }),
+    );
+
+    await waitFor(() => expect(signOut).toHaveBeenCalled());
+    const deletedToasts = toastFn.mock.calls.filter(
+      ([arg]) => /deleteSuccess|Account deleted/.test(arg?.title ?? ""),
+    );
+    expect(deletedToasts).toHaveLength(1);
+    expect(deletedToasts[0][0].description).toMatch(
+      /deleteSuccessFilesFinishing|still being removed/,
+    );
   });
 
   it("does NOT delete rows client-side or sign out when the server delete fails", async () => {

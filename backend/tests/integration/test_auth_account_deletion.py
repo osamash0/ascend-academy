@@ -36,35 +36,54 @@ class _RecordingAdmin:
         return _Auth()
 
 
-async def _fake_erase(uid):
-    """Stand-in for account_service.erase_user_storage_and_derived_data —
-    these tests exercise the auth-endpoint wiring (rate limit, admin-delete
-    call, error surfacing), not the storage/embeddings cleanup itself, which
-    has its own coverage in test_account_service.py and
-    test_gdpr_erasure_cascade.py (real local Postgres)."""
-    return {
-        "pdf_blobs_deleted": 0,
-        "pdf_blobs_retained_shared": 0,
-        "worksheet_files_deleted": 0,
-        "slide_embeddings_deleted": 0,
-    }
+def _wire(monkeypatch, calls, *, manifest_fails=False, job_fails=False, auth_fails=False, run_ok=True, ready_raises=False, run_raises=False, exists_after=True):
+    from backend.services import erasure as er
 
+    async def manifest(uid, client=None):
+        calls.append(("manifest", uid))
+        if manifest_fails:
+            raise er.ErasureError("listing failed")
+        return er.ErasureManifest(subject_id=uid)
 
-def test_delete_account_invokes_admin_delete_with_caller_id(app, professor_user, monkeypatch):
-    admin = _RecordingAdmin()
-    monkeypatch.setattr(auth_api, "supabase_admin", admin)
-    monkeypatch.setattr(auth_api, "erase_user_storage_and_derived_data", _fake_erase)
-    app.dependency_overrides[verify_token] = lambda: professor_user
+    async def create(m, client=None):
+        calls.append("job")
+        if job_fails:
+            raise er.ErasureError("insert failed")
+        return "job-1"
 
-    r = TestClient(app).post("/api/auth/delete-account", headers=H)
+    async def ready(job_id, client=None):
+        calls.append("ready")
+        if ready_raises:
+            raise RuntimeError("db hiccup")
 
-    assert r.status_code == 200
-    assert admin.deleted == [professor_user.id]
+    async def run(job_id, client=None):
+        calls.append("run")
+        if run_raises:
+            raise RuntimeError("db hiccup")
+        return run_ok
+
+    class _Admin:
+        class auth:  # noqa: N801 - mirrors supabase client shape
+            class admin:  # noqa: N801
+                @staticmethod
+                def delete_user(uid):
+                    calls.append(("auth_delete", uid))
+                    if auth_fails:
+                        raise RuntimeError("auth down")
+
+    monkeypatch.setattr(auth_api, "build_erasure_manifest", manifest)
+    monkeypatch.setattr(auth_api, "create_erasure_job", create)
+    monkeypatch.setattr(auth_api, "mark_erasure_job_ready", ready)
+    monkeypatch.setattr(auth_api, "run_erasure_job", run)
+    monkeypatch.setattr(auth_api, "supabase_admin", _Admin)
+    # What auth says after a raising delete: True / None = maybe alive, False = gone.
+    monkeypatch.setattr(auth_api, "erasure_auth_user_exists",
+                        lambda c, uid: calls.append("exists?") or exists_after)
 
 
 def test_delete_account_returns_502_when_admin_delete_fails(app, professor_user, monkeypatch):
+    _wire(monkeypatch, [])
     monkeypatch.setattr(auth_api, "supabase_admin", _RecordingAdmin(fail=True))
-    monkeypatch.setattr(auth_api, "erase_user_storage_and_derived_data", _fake_erase)
     app.dependency_overrides[verify_token] = lambda: professor_user
 
     r = TestClient(app).post("/api/auth/delete-account", headers=H)
@@ -75,32 +94,59 @@ def test_delete_account_returns_502_when_admin_delete_fails(app, professor_user,
 
 
 def test_delete_account_requires_authentication(app, monkeypatch):
+    _wire(monkeypatch, [])
     monkeypatch.setattr(auth_api, "supabase_admin", _RecordingAdmin())
-    monkeypatch.setattr(auth_api, "erase_user_storage_and_derived_data", _fake_erase)
     # No verify_token override → the real dependency runs and rejects the
     # bogus bearer token.
     r = TestClient(app).post("/api/auth/delete-account", headers=H)
     assert r.status_code == 401
 
 
-def test_delete_account_proceeds_and_reports_when_storage_cleanup_errors(app, professor_user, monkeypatch):
-    """Storage cleanup failing must not block DB-level erasure — the user's
-    right to erasure of their DB-resident PII should not depend on a
-    best-effort storage sweep succeeding."""
-    admin = _RecordingAdmin()
-    monkeypatch.setattr(auth_api, "supabase_admin", admin)
-
-    async def _boom(uid):
-        raise RuntimeError("storage backend unavailable")
-
-    monkeypatch.setattr(auth_api, "erase_user_storage_and_derived_data", _boom)
+def _post(app, professor_user):
     app.dependency_overrides[verify_token] = lambda: professor_user
+    return TestClient(app).post("/api/auth/delete-account", headers=H)
 
-    r = TestClient(app).post("/api/auth/delete-account", headers=H)
 
-    assert r.status_code == 200
-    assert admin.deleted == [professor_user.id]
-    assert r.json()["storage_cleanup"] is None
+def test_records_the_job_before_deleting_and_removes_files_after(app, professor_user, monkeypatch):
+    calls = []
+    _wire(monkeypatch, calls)
+    resp = _post(app, professor_user)
+    assert resp.status_code == 200
+    assert calls == [("manifest", professor_user.id), "job", ("auth_delete", professor_user.id), "ready", "run"]
+    assert resp.json() == {"message": "Account deleted.", "files": "removed"}
+
+
+def test_aborts_before_anything_when_the_manifest_fails(app, professor_user, monkeypatch):
+    calls = []
+    _wire(monkeypatch, calls, manifest_fails=True)
+    resp = _post(app, professor_user)
+    assert resp.status_code == 502
+    assert calls == [("manifest", professor_user.id)]  # the account and its files are untouched
+
+
+def test_aborts_when_the_job_cannot_be_recorded(app, professor_user, monkeypatch):
+    calls = []
+    _wire(monkeypatch, calls, job_fails=True)
+    resp = _post(app, professor_user)
+    assert resp.status_code == 502
+    assert not any(isinstance(c, tuple) and c[0] == "auth_delete" for c in calls)
+
+
+def test_says_files_are_finishing_when_the_run_is_deferred(app, professor_user, monkeypatch):
+    calls = []
+    _wire(monkeypatch, calls, run_ok=False)
+    resp = _post(app, professor_user)
+    assert resp.status_code == 200
+    assert resp.json()["files"] == "finishing"
+
+
+def test_502_when_auth_delete_fails_leaves_the_job_to_the_drain(app, professor_user, monkeypatch):
+    calls = []
+    _wire(monkeypatch, calls, auth_fails=True)
+    resp = _post(app, professor_user)
+    assert resp.status_code == 502
+    assert "run" not in calls and "ready" not in calls
+
 
 
 def test_export_data_returns_caller_scoped_document(app, professor_user, monkeypatch):
@@ -135,3 +181,36 @@ def test_export_data_returns_502_when_export_fails(app, professor_user, monkeypa
     r = TestClient(app).get("/api/auth/export-data", headers=H)
 
     assert r.status_code == 502
+
+
+def test_a_failing_ready_mark_still_answers_200_finishing(app, professor_user, monkeypatch):
+    calls = []
+    _wire(monkeypatch, calls, ready_raises=True)
+    resp = _post(app, professor_user)
+    assert resp.status_code == 200
+    assert resp.json()["files"] == "finishing"
+
+
+def test_a_raising_run_still_answers_200_finishing(app, professor_user, monkeypatch):
+    calls = []
+    _wire(monkeypatch, calls, run_raises=True)
+    resp = _post(app, professor_user)
+    assert resp.status_code == 200
+    assert resp.json()["files"] == "finishing"
+
+
+def test_auth_delete_raising_after_it_landed_still_finishes(app, professor_user, monkeypatch):
+    calls = []
+    _wire(monkeypatch, calls, auth_fails=True, exists_after=False, run_ok=False)
+    resp = _post(app, professor_user)
+    assert resp.status_code == 200
+    assert resp.json() == {"message": "Account deleted.", "files": "finishing"}
+    assert calls[-3:] == ["exists?", "ready", "run"]
+
+
+def test_auth_delete_raising_with_auth_unreachable_is_still_502(app, professor_user, monkeypatch):
+    calls = []
+    _wire(monkeypatch, calls, auth_fails=True, exists_after=None)
+    resp = _post(app, professor_user)
+    assert resp.status_code == 502
+    assert "ready" not in calls and "run" not in calls

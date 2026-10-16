@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 /**
@@ -40,6 +41,7 @@ interface Props {
 }
 
 export function ChapterStrip({ chapters, page, onJump, lights = [] }: Props) {
+  const { t } = useTranslation('v4Reader');
   const reduce = useReducedMotion();
   const [hover, setHover] = useState<number | null>(null);
   if (chapters.length < 2) return null;
@@ -51,10 +53,10 @@ export function ChapterStrip({ chapters, page, onJump, lights = [] }: Props) {
   const label = chapters[shown];
   /* Said in words: how much of the idea you are in is still ahead. */
   const ahead = chapters[at].last - page;
-  const left = ahead <= 0 ? 'Last page of this idea' : `${ahead} ${ahead === 1 ? 'page' : 'pages'} left in this idea`;
+  const left = ahead <= 0 ? t('chapters.lastPage') : t('chapters.pagesLeft', { count: ahead });
 
   return (
-    <nav aria-label="Ideas in this Lesson" className="w-full" onPointerLeave={() => setHover(null)}>
+    <nav aria-label={t('chapters.label')} className="w-full" onPointerLeave={() => setHover(null)}>
       <div className="mb-2 flex h-[18px] items-baseline justify-between gap-4 overflow-hidden text-[12.5px]">
         <AnimatePresence mode="wait" initial={false}>
           <motion.p
@@ -66,7 +68,7 @@ export function ChapterStrip({ chapters, page, onJump, lights = [] }: Props) {
             className={cn('min-w-0 truncate', hover !== null && hover !== at ? 'text-quiet' : 'text-foreground')}
           >
             <span className="text-faint">
-              Idea {shown + 1} of {chapters.length}
+              {t('chapters.position', { n: shown + 1, total: chapters.length })}
             </span>
             <span aria-hidden className="mx-2 text-faint">·</span>
             {label.name}
@@ -74,10 +76,10 @@ export function ChapterStrip({ chapters, page, onJump, lights = [] }: Props) {
         </AnimatePresence>
         {/* On a phone the name needs the width; the segments still show how far along you are. */}
         <p className="hidden shrink-0 tabular-nums text-faint sm:block">
-          {lights[shown] === 'lit' && <span className="mr-1.5 text-success">Tested right ·</span>}
-          {lights[shown] === 'fading' && <span className="mr-1.5 text-success">Fading — due for a look ·</span>}
-          {lights[shown] === 'weak' && <span className="mr-1.5 text-destructive">To revisit ·</span>}
-          {shown === at ? left : `Pages ${label.first}–${label.last} · click to go there`}
+          {lights[shown] === 'lit' && <span className="mr-1.5 text-success">{t('chapters.light.lit')} ·</span>}
+          {lights[shown] === 'fading' && <span className="mr-1.5 text-success">{t('chapters.fadingNote')} ·</span>}
+          {lights[shown] === 'weak' && <span className="mr-1.5 text-destructive">{t('chapters.light.weak')} ·</span>}
+          {shown === at ? left : t('chapters.elsewhere', { first: label.first, last: label.last })}
         </p>
       </div>
       <ol className="flex items-center gap-[3px]">
@@ -92,7 +94,11 @@ export function ChapterStrip({ chapters, page, onJump, lights = [] }: Props) {
                 onPointerEnter={() => setHover(i)}
                 onFocus={() => setHover(i)}
                 onBlur={() => setHover(null)}
-                aria-label={`${c.name}, pages ${c.first} to ${c.last}${lights[i] === 'lit' ? ', tested right' : lights[i] === 'fading' ? ', fading' : lights[i] === 'weak' ? ', to revisit' : ''}`}
+                aria-label={
+                  lights[i] && lights[i] !== 'dark'
+                    ? t('chapters.segmentWithLight', { name: c.name, first: c.first, last: c.last, light: t(`chapters.lightSpoken.${lights[i]}`) })
+                    : t('chapters.segment', { name: c.name, first: c.first, last: c.last })
+                }
                 aria-current={i === at ? 'location' : undefined}
                 className="console-focusable group flex h-4 w-full items-center rounded-sm"
               >

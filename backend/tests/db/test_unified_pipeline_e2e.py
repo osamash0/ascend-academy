@@ -125,3 +125,100 @@ async def test_unified_rerun_replays_no_duplicate(wired_pool, db_conn, make_user
     assert cur.fetchone()[0] == 1
     cur.execute("SELECT count(*) FROM slides s JOIN lectures l ON l.id=s.lecture_id WHERE l.pdf_hash=%s", ("hash_dup",))
     assert cur.fetchone()[0] == 3
+
+
+async def test_unified_writes_parse_receipt(wired_pool, db_conn, make_user, monkeypatch):
+    prof = make_user(role="professor")
+    _patch_synthesis(monkeypatch, pages=["t0", "t1", "t2"], deck_quiz=[])
+    events = await _run("hash_receipt", prof)
+    assert [t for t, _ in events][-1] == "complete"
+
+    cur = db_conn.cursor()
+    cur.execute(
+        "SELECT r.run_id = p.run_id, jsonb_array_length(r.deck_skeleton->'slides'), "
+        "jsonb_array_length(r.slide_provenance), r.quiz_grounding IS NULL "
+        "FROM parse_receipts r JOIN parse_runs p ON p.lecture_id = r.lecture_id "
+        "WHERE p.pdf_hash = %s",
+        ("hash_receipt",),
+    )
+    assert cur.fetchone() == (True, 3, 3, True)
+
+
+async def test_save_parse_receipt_round_trip_replaces_not_duplicates(
+    wired_pool, db_conn, make_user, make_lecture, monkeypatch
+):
+    """Real asyncpg upsert: jsonb lands intact, and a second save for the same
+    run_id replaces the row (including a changed lecture_id)."""
+    from backend.services.parser import repos
+
+    prof = make_user(role="professor")
+    _patch_synthesis(monkeypatch, pages=["t0", "t1"], deck_quiz=[])
+    await _run("hash_replace", prof)
+    cur = db_conn.cursor()
+    cur.execute("SELECT run_id, lecture_id FROM parse_runs WHERE pdf_hash = %s", ("hash_replace",))
+    run_id, first_lecture = cur.fetchone()
+    cur.execute("SELECT deck_skeleton, slide_provenance FROM parse_receipts WHERE run_id = %s", (run_id,))
+    skel, prov = cur.fetchone()
+    assert [s["index"] for s in skel["slides"]] == [0, 1]
+    assert [p["index"] for p in prov] == [0, 1]
+
+    other_lecture = make_lecture(prof)
+    await repos.save_parse_receipt(
+        run_id, other_lecture,
+        deck_skeleton=None,
+        slide_provenance=[{"index": 0, "route": "batch"}],
+        quiz_grounding={"proposed": 3, "kept": 2},
+    )
+    cur.execute(
+        "SELECT lecture_id, deck_skeleton IS NULL, slide_provenance, quiz_grounding "
+        "FROM parse_receipts WHERE run_id = %s",
+        (run_id,),
+    )
+    rows = cur.fetchall()
+    assert len(rows) == 1
+    assert rows[0] == (other_lecture, True, [{"index": 0, "route": "batch"}], {"proposed": 3, "kept": 2})
+    assert rows[0][0] != first_lecture
+
+
+async def test_parse_tags_llm_calls_with_its_run_and_receipt_totals_them(
+    wired_pool, db_conn, make_user, monkeypatch
+):
+    import backend.services.ai.orchestrator as ai_orchestrator
+    from backend.services.ai import cost as cost_module
+    from backend.services.ai.cost import LLMUsage
+
+    prof = make_user(role="professor")
+    pages = [
+        "Breadth-first search visits every vertex level by level.",
+        "Depth-first search follows one branch to its end first.",
+    ]
+    _patch_synthesis(monkeypatch, pages=pages, deck_quiz=[])
+    monkeypatch.setattr(cost_module, "get_redis_or_none", lambda: None)
+
+    async def batch(slides_input, ai_model="cerebras", blueprint=None, **_kw):
+        await ai_orchestrator._account_for_call(
+            "groq", "gpt-oss-20b", LLMUsage(prompt_tokens=800, completion_tokens=200),
+            user_id=None, course_id=None, feature="batch_analyze_text_slides",
+            duration_seconds=0.0, prompt_name="BATCH_SLIDE_PROMPT",
+        )
+        return [{"index": s["index"], "title": "T", "summary": "S", "slide_type": "text"}
+                for s in slides_input]
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", batch)
+    await _run("hash_llm_ctx", prof)
+
+    cur = db_conn.cursor()
+    cur.execute("SELECT run_id FROM parse_runs WHERE pdf_hash = %s", ("hash_llm_ctx",))
+    (run_id,) = cur.fetchone()
+    cur.execute(
+        "SELECT provider, slide_indices, prompt_tokens FROM public.llm_calls "
+        "WHERE run_id = %s AND prompt_name = 'BATCH_SLIDE_PROMPT'",
+        (run_id,),
+    )
+    assert cur.fetchall() == [("groq", [0, 1], 800)]
+    cur.execute("SELECT llm_usage, slide_provenance FROM parse_receipts WHERE run_id = %s", (run_id,))
+    usage, prov = cur.fetchone()
+    assert usage["by_prompt"]["BATCH_SLIDE_PROMPT"]["calls"] == 1
+    assert usage["prompt_tokens"] >= 800
+    assert prov[0]["served_by"][0]["provider"] == "groq"
+    assert prov[0]["served_by"][0]["shared_by"] == 2
