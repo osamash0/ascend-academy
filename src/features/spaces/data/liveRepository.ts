@@ -180,6 +180,8 @@ export function createLiveRepository(http: V4Transport) {
     },
     /* Your uploads, as the shelf shows them — polled while one develops. */
     uploads: () => http.get<{ uploads: Upload[] }>(`${root}/uploads`),
+    /* Remove an upload for good: its Lesson (lecture id) or a failed run (run id). */
+    removeUpload: (id: string) => http.delete<{ removed: true }>(`${root}/uploads/${idPath(id)}`),
     /* Home's ask bar: the grounded course tutor. */
     ask: (question: string) => http.post<AskAnswer>(`${root}/ask`, { question }),
     /* Accept or decline a friend request addressed to you. */

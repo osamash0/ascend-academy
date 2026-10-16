@@ -13,7 +13,7 @@ import {
 import type { ShelfItem } from '../studio/shelf';
 import { FLIGHT_EASE } from '../studio/motion';
 import { inDialog } from '../studio/keys';
-import { shelfActions } from '../data/useShelf';
+import { UNDO_MS, canRemove, removeFromShelf, shelfActions, shelfIsDemo } from '../data/useShelf';
 import { ShareSheet } from './ShareSheet';
 import { ABOVE_SELECT_BAR } from './toasts';
 
@@ -54,6 +54,9 @@ export function SelectBar({
   const [confirming, setConfirming] = useState(false);
   const n = selected.length;
   const drafts = selected.filter((i) => i.share.kind === 'draft' && i.stage === 'ready');
+  /* A file still being read is not removable (live): Remove takes the rest. */
+  const removable = selected.filter(canRemove);
+  const demo = shelfIsDemo();
   /* After an action empties the selection, focus moves to the bar's first action still enabled. */
   const barRef = useRef<HTMLDivElement>(null);
   const firstEnabled = () => barRef.current?.querySelector<HTMLElement>('button:not(:disabled)') ?? null;
@@ -81,21 +84,15 @@ export function SelectBar({
   };
 
   const remove = () => {
-    const removed = selected.flatMap((i) => {
-      const r = shelfActions.remove(i.id);
-      return r ? [r] : [];
-    });
+    const { removed, undo } = removeFromShelf(removable);
     justRemoved.current = true;
     setConfirming(false);
     onClear();
-    toast(`Removed ${removed.length}`, {
+    toast(`Removed ${removed}`, {
       ...ABOVE_SELECT_BAR,
-      action: {
-        label: 'Undo',
-        onClick: () => {
-          for (const r of [...removed].reverse()) shelfActions.restore(r);
-        },
-      },
+      // Live, the delete happens when this closes: Undo must stay up exactly that long.
+      duration: UNDO_MS,
+      action: { label: 'Undo', onClick: undo },
     });
   };
 
@@ -122,13 +119,18 @@ export function SelectBar({
             {n} selected
           </span>
           <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-white/12" />
-          <button type="button" disabled={n === 0} onClick={() => setSharing(true)} className={PLAIN}>
-            Share to…
-          </button>
-          <button type="button" disabled={drafts.length === 0} onClick={publish} className={PLAIN}>
-            Publish drafts
-          </button>
-          <button type="button" disabled={n === 0} onClick={() => setConfirming(true)} className={PLAIN}>
+          {/* Live covers are yours alone: sharing them is not wired yet, so it is not offered. */}
+          {demo && (
+            <>
+              <button type="button" disabled={n === 0} onClick={() => setSharing(true)} className={PLAIN}>
+                Share to…
+              </button>
+              <button type="button" disabled={drafts.length === 0} onClick={publish} className={PLAIN}>
+                Publish drafts
+              </button>
+            </>
+          )}
+          <button type="button" disabled={removable.length === 0} onClick={() => setConfirming(true)} className={PLAIN}>
             Remove
           </button>
           <span className="flex-1" />
@@ -161,9 +163,14 @@ export function SelectBar({
               }}
             >
               <DialogHeader>
-                <DialogTitle>Remove {n} from your Library?</DialogTitle>
+                <DialogTitle>Remove {removable.length} from your Library?</DialogTitle>
                 <DialogDescription>
-                  They leave your shelf. You can undo this for a few seconds.
+                  {demo
+                    ? 'They leave your shelf. You can undo this for a few seconds.'
+                    : `${
+                        removable.length === 1 ? 'Its Lesson goes' : 'Their Lessons go'
+                      } too, with your progress and practice. Your notes stay. You can undo this for a few seconds — after that it is for good.`}
+                  {removable.length < n && ` ${n - removable.length} still being read will stay.`}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
@@ -179,7 +186,7 @@ export function SelectBar({
                   onClick={remove}
                   className="console-focusable h-10 rounded-full bg-foreground px-5 text-[14px] font-medium text-background"
                 >
-                  Remove {n}
+                  Remove {removable.length}
                 </button>
               </DialogFooter>
             </DialogContent>

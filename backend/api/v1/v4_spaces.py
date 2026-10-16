@@ -148,6 +148,16 @@ async def v4_uploads(request: Request, user: Any = Depends(require_student)):
     return {"uploads": await service.uploads_for(_uid(user))}
 
 
+@router.delete("/uploads/{upload_id}")
+@limiter.limit("30/minute")
+async def v4_remove_upload(upload_id: UUID, request: Request, user: Any = Depends(require_student)):
+    """Remove one of your uploads: its Lesson (by lecture id) or a failed run (by run id)."""
+    _uploads_on()
+    if not await service.remove_upload(_uid(user), str(upload_id)):
+        raise HTTPException(status_code=404, detail="Nothing of yours by that id.")
+    return {"removed": True}
+
+
 @router.get("/world")
 @limiter.limit("60/minute")
 async def v4_world(request: Request, user: Any = Depends(verify_token)):

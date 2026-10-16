@@ -13,7 +13,9 @@ import { useScreenState } from './useSpaces';
 import { liveWorld, spaceById, type Upload, type World } from './world';
 import {
   bringInLive,
+  canRemoveUpload,
   canResend,
+  removeUploads,
   resend,
   subscribeUploads,
   uploadsNow,
@@ -144,8 +146,32 @@ export function retryFor(item: ShelfItem): (() => void) | null {
   return canResend(item.id) ? () => resend(item.id) : null;
 }
 
-/** Live covers are yours alone: no sharing and no removing from here yet. */
+/** Live covers are yours alone: they cannot be shared or published from here yet. */
 export const shelfIsDemo = (): boolean => liveWorld() === null;
+
+export { UNDO_MS } from './uploads';
+
+/** Can this cover be removed? Live, not while it is still being read. */
+export const canRemove = (item: ShelfItem): boolean => shelfIsDemo() || canRemoveUpload(item);
+
+/**
+ * Remove covers, with Undo. Demo: out of the store at once, back into their
+ * slots on Undo. Live: off the shelf at once, deleted when the Undo window
+ * closes (`removeUploads`).
+ */
+export function removeFromShelf(items: ShelfItem[]): { removed: number; undo: () => void } {
+  if (!shelfIsDemo()) return removeUploads(items.map((i) => i.id));
+  const removed = items.flatMap((i) => {
+    const r = shelfStore.remove(i.id);
+    return r ? [r] : [];
+  });
+  return {
+    removed: removed.length,
+    undo: () => {
+      for (const r of [...removed].reverse()) shelfStore.restore(r);
+    },
+  };
+}
 
 export function useShelf(): {
   state: LoadState;

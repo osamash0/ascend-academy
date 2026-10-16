@@ -31,9 +31,12 @@ let polling = false;
 let version = 0;
 let snapshot: Upload[] = [];
 const listeners = new Set<() => void>();
+/** Removed, but still inside their Undo window: off the shelf, not yet deleted. */
+const hidden = new Set<string>();
+const compose = () => [...sending, ...(fetched ?? liveWorld()?.uploads ?? [])].filter((u) => !hidden.has(u.id));
 const notify = () => {
   version += 1;
-  snapshot = [...sending, ...(fetched ?? liveWorld()?.uploads ?? [])];
+  snapshot = compose();
   listeners.forEach((fn) => fn());
 };
 
@@ -46,7 +49,7 @@ export const uploadsVersion = (): number => version;
 
 /** Every upload, newest first: what is being sent, then what the server has. */
 export function uploadsNow(): Upload[] {
-  if (version === 0) snapshot = [...sending, ...(fetched ?? liveWorld()?.uploads ?? [])];
+  if (version === 0) snapshot = compose();
   return snapshot;
 }
 
@@ -149,12 +152,80 @@ export function resend(id: string): void {
   void send(id, file);
 }
 
+/** How long Undo is offered before a removal is carried out. */
+export const UNDO_MS = 6000;
+
+/** A file still being read cannot be removed: the pipeline would make its Lesson afterwards. */
+export const canRemoveUpload = (u: Pick<Upload, 'stage'>): boolean => u.stage !== 'developing';
+
+/**
+ * Remove uploads from the shelf, for good once the Undo window closes.
+ *
+ * They leave the shelf at once. Nothing is deleted until `UNDO_MS` has passed
+ * without Undo — so Undo is an honest undo, not a re-upload. Then each goes:
+ * a refused send just drops (it never reached the server); anything else is
+ * deleted on the server — its Lesson by lecture id, a failed run by its own
+ * id — and the world reloads quietly, so the Lesson leaves My materials too.
+ * A delete that fails puts the cover back and says so.
+ */
+export function removeUploads(ids: string[]): { removed: number; undo: () => void } {
+  const targets = uploadsNow().filter((u) => ids.includes(u.id) && canRemoveUpload(u));
+  targets.forEach((u) => hidden.add(u.id));
+  notify();
+  let undone = false;
+  const commit = setTimeout(() => void carryOut(targets), UNDO_MS);
+  return {
+    removed: targets.length,
+    undo: () => {
+      if (undone) return;
+      undone = true;
+      clearTimeout(commit);
+      targets.forEach((u) => hidden.delete(u.id));
+      notify();
+    },
+  };
+}
+
+async function carryOut(targets: Upload[]): Promise<void> {
+  const local = targets.filter((u) => u.id.startsWith('sending-'));
+  for (const u of local) {
+    sending = sending.filter((s) => s.id !== u.id);
+    files.delete(u.id);
+    hidden.delete(u.id);
+  }
+  const remote = targets.filter((u) => !u.id.startsWith('sending-'));
+  if (!remote.length) return notify();
+  const repo = await loadLiveRepository();
+  const results = await Promise.allSettled(remote.map((u) => repo.removeUpload(u.lessonId ?? u.id)));
+  const failed = remote.filter((_, i) => results[i].status === 'rejected');
+  const gone = new Set(remote.filter((u) => !failed.includes(u)).map((u) => u.id));
+  if (fetched) fetched = fetched.filter((u) => !gone.has(u.id));
+  remote.forEach((u) => hidden.delete(u.id));
+  if (gone.size) {
+    try {
+      setLiveWorld(await repo.world());
+      fetched = liveWorld()?.uploads ?? fetched;
+    } catch {
+      /* The shelf is already right; the Space catches up on the next load. */
+    }
+  }
+  notify();
+  if (failed.length) {
+    toast.error(
+      failed.length === 1
+        ? `${failed[0].filename} could not be removed. It is back on your shelf.`
+        : `${failed.length} files could not be removed. They are back on your shelf.`,
+    );
+  }
+}
+
 /** Tests: forget everything. */
 export function __resetUploads(): void {
   fetched = null;
   sending = [];
   files.clear();
   broughtIn.clear();
+  hidden.clear();
   if (timer) clearTimeout(timer);
   timer = null;
   polling = false;

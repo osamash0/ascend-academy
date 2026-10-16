@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { lifeLine, type ShelfItem } from '../studio/shelf';
 import { FLIGHT_EASE } from '../studio/motion';
-import { retryFor, shelfIsDemo, shelfSpaceName, useCoverTitle, useDevelopment, useGlance } from '../data/useShelf';
+import { canRemove, retryFor, shelfIsDemo, shelfSpaceName, useCoverTitle, useDevelopment, useGlance } from '../data/useShelf';
 import { ShareActions } from './ShareSheet';
 import { rememberOpened } from './returnFocus';
 import { SHELF_TONE } from './tone';
@@ -190,7 +190,7 @@ function CoverMenu({ item, onRemove }: { item: ShelfItem; onRemove?: () => void 
             align="end"
             className="min-w-[13rem] rounded-xl border-white/10 bg-[#0b0b0b] p-1 text-foreground"
           >
-            {share.menuItems('gap-2 rounded-lg text-[13px]', <Share2 aria-hidden className="h-3.5 w-3.5" />)}
+            {shelfIsDemo() && share.menuItems('gap-2 rounded-lg text-[13px]', <Share2 aria-hidden className="h-3.5 w-3.5" />)}
             {/* Remove, with its confirm and Undo, lives in Select: one place for the one destructive act. */}
             {onRemove && (
               <DropdownMenuItem onSelect={onRemove} className="gap-2 rounded-lg text-[13px]">
@@ -396,8 +396,8 @@ export function Cover({
         </div>
       )}
 
-      {/* Live covers are yours alone: nothing to share or remove from here yet. */}
-      {!select && shelfIsDemo() && (
+      {/* Live, the menu is Remove alone — and a file still being read has none. */}
+      {!select && (shelfIsDemo() || (canRemove(item) && onRemove)) && (
         <div className="absolute right-2 top-2 z-10">
           <CoverMenu item={item} onRemove={onRemove} />
         </div>

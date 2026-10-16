@@ -114,6 +114,46 @@ async def test_an_upload_older_than_its_run_still_reaches_the_shelf(
     ]
 
 
+async def test_removing_uploads(services, db_conn, make_user, make_lecture, make_slide, monkeypatch):
+    """A read file goes with its Lesson (notes stay); a failed run is forgotten;
+    a file still being read, and anything of someone else's, stays."""
+    spaces, reader = services
+    import backend.services.materials_service as materials
+
+    monkeypatch.setattr(materials, "get_db_connection", reader.get_db_connection)
+    tag = uuid.uuid4().hex[:6]
+    student = make_user(email=f"rm-{tag}@gmail.com")
+    other = make_user(email=f"rm2-{tag}@gmail.com")
+    lec = make_lecture(student, title="Graphs")
+    _make_private(db_conn, lec, student)
+    make_slide(lec)
+    version = materials.STUDENT_PIPELINE_VERSION
+    with db_conn.cursor() as cur:
+        cur.execute("INSERT INTO notes (user_id, lecture_id, lesson_title, body) VALUES (%s, %s, 'Graphs', 'BFS first')",
+                    (str(student), str(lec)))
+        runs = {}
+        for name, status, lecture in (("done", "completed", lec), ("failed", "failed", None), ("busy", "running", None)):
+            cur.execute(
+                "INSERT INTO parse_runs (pdf_hash, lecture_id, pipeline_version, status, user_id) "
+                "VALUES (%s, %s, %s, %s, %s) RETURNING run_id",
+                (f"{name}-{tag}", str(lecture) if lecture else None, version, status, str(student)),
+            )
+            runs[name] = str(cur.fetchone()[0])
+
+    assert not await spaces.remove_upload(str(other), str(lec))  # not theirs
+    assert not await spaces.remove_upload(str(student), runs["busy"])  # still being read
+    assert await spaces.remove_upload(str(student), runs["failed"])
+    assert await spaces.remove_upload(str(student), str(lec))
+
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM lectures WHERE id = %s", (str(lec),))
+        assert cur.fetchone()[0] == 0
+        cur.execute("SELECT run_id::text FROM parse_runs WHERE user_id = %s", (str(student),))
+        assert {r[0] for r in cur.fetchall()} == {runs["busy"]}  # the read file's run went with it
+        cur.execute("SELECT lecture_id, body FROM notes WHERE user_id = %s", (str(student),))
+        assert cur.fetchall() == [(None, "BFS first")]
+
+
 async def test_no_uploads_no_personal_space(services, make_user, monkeypatch):
     spaces, _ = services
     viewer = make_user(email=f"new-{uuid.uuid4().hex[:6]}@gmail.com")

@@ -82,8 +82,7 @@ export default function LibraryScreen() {
   const [grouped, setGrouped] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   // Your words has no covers, so Select never stands over it.
-  // Select exists to share or remove, and live covers do neither yet.
-  const selecting = params.get('select') === '1' && filter !== 'words' && shelfIsDemo();
+  const selecting = params.get('select') === '1' && filter !== 'words';
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
   const orphans = contributions.filter((c) => c.orphaned);
   /*
@@ -321,7 +320,7 @@ export default function LibraryScreen() {
                     </button>
                   ))}
                 </div>
-                {items.length > 0 && !selecting && shelfIsDemo() && (
+                {items.length > 0 && !selecting && (
                   <button ref={pillRef} type="button" onClick={() => enterSelect()} className={ghostPillSm}>
                     <CheckSquare aria-hidden className="h-3.5 w-3.5" />
                     Select…

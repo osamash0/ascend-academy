@@ -392,6 +392,30 @@ async def uploads_for(user_id: str) -> List[Dict[str, Any]]:
     return out
 
 
+async def remove_upload(user_id: str, upload_id: str) -> bool:
+    """Take one of your uploads off your shelf, for good.
+
+    A file that was read is its lecture: deleting that removes its slides,
+    practice, progress and run with it (every reference cascades), while your
+    notes on it stay, no longer anchored. A file that failed never became a
+    lecture, so its run is what is forgotten. A file still being read is not
+    removable — the pipeline would make its lecture after the fact.
+    """
+    if await materials_service.delete_material(user_id, upload_id):
+        return True
+    conn_cm = await get_db_connection()
+    async with conn_cm as conn:
+        result = await conn.execute(
+            """
+            DELETE FROM parse_runs
+            WHERE run_id = $1::uuid AND user_id = $2::uuid AND pipeline_version = $3
+              AND lecture_id IS NULL AND status IN ('failed', 'cancelled')
+            """,
+            upload_id, user_id, materials_service.STUDENT_PIPELINE_VERSION,
+        )
+    return result.split()[-1] != "0"
+
+
 def _personal_space(
     user_id: str, viewer: Optional[Dict[str, Any]], mine: List[Dict[str, Any]], uploads: List[Dict[str, Any]]
 ) -> Optional[Dict[str, Any]]:

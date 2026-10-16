@@ -7,13 +7,15 @@ import { emptyWorld } from './emptyWorld';
 const repo = {
   bringIn: vi.fn(),
   uploads: vi.fn(),
+  removeUpload: vi.fn(),
   world: vi.fn(),
 };
 vi.mock('../data/liveRepository', () => ({ loadLiveRepository: async () => repo }));
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
 
 const { setLiveWorld } = await import('../data/world');
-const { bringFilesIn, retryFor, shelfAcceptsFiles, useShelf, useShelfItem } = await import('../data/useShelf');
+const { UNDO_MS, bringFilesIn, canRemove, removeFromShelf, retryFor, shelfAcceptsFiles, useShelf, useShelfItem } =
+  await import('../data/useShelf');
 const { __resetUploads, canResend, uploadsNow } = await import('../data/uploads');
 
 const upload = (id: string, over: Partial<Upload> = {}): Upload => ({
@@ -84,6 +86,61 @@ describe('your uploads on a real shelf', () => {
     repo.uploads.mockResolvedValue({ uploads: [upload('run-10')] });
     act(() => retryFor(cover)!());
     await waitFor(() => expect(uploadsNow().map((u) => u.id)).toEqual(['run-10']));
+  });
+
+  describe('removing', () => {
+    const shelf = () =>
+      emptyWorld({
+        canUpload: true,
+        spaces: [mine],
+        lessons: [graphs],
+        uploads: [
+          upload('run-2'),
+          upload('run-1', { lessonId: 'lec-1', stage: 'ready' }),
+          upload('run-0', { stage: 'failed' }),
+        ],
+      });
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it('leaves the shelf at once and deletes only when Undo has passed', async () => {
+      setLiveWorld(shelf());
+      repo.removeUpload.mockResolvedValue({ removed: true });
+      repo.world.mockResolvedValue(shelf()); // reloaded quietly afterwards
+      const items = renderHook(() => useShelf()).result.current.items;
+
+      const r = removeFromShelf(items);
+      expect(r.removed).toBe(2); // the one still being read stays
+      expect(uploadsNow().map((u) => u.id)).toEqual(['run-2']);
+      expect(repo.removeUpload).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(UNDO_MS);
+      // A read file goes by its Lesson; a failed one by its run.
+      expect(repo.removeUpload.mock.calls.map((c) => c[0]).sort()).toEqual(['lec-1', 'run-0']);
+      expect(repo.world).toHaveBeenCalledTimes(1);
+    });
+
+    it('Undo inside the window deletes nothing and puts them back', async () => {
+      setLiveWorld(shelf());
+      const r = removeFromShelf(renderHook(() => useShelf()).result.current.items);
+      r.undo();
+      await vi.advanceTimersByTimeAsync(UNDO_MS * 2);
+      expect(repo.removeUpload).not.toHaveBeenCalled();
+      expect(uploadsNow().map((u) => u.id)).toEqual(['run-2', 'run-1', 'run-0']);
+    });
+
+    it('a delete that fails comes back and says so', async () => {
+      setLiveWorld(shelf());
+      repo.removeUpload.mockRejectedValue(new Error('500'));
+      const { toast } = await import('sonner');
+      const ready = renderHook(() => useShelf()).result.current.items.filter((i) => i.id === 'run-1');
+      expect(canRemove(ready[0])).toBe(true);
+
+      removeFromShelf(ready);
+      await vi.advanceTimersByTimeAsync(UNDO_MS);
+      expect(uploadsNow().map((u) => u.id)).toEqual(['run-2', 'run-1', 'run-0']);
+      expect(toast.error).toHaveBeenCalledWith('run-1.pdf could not be removed. It is back on your shelf.');
+    });
   });
 
   it('a run that failed on the server offers no retry here', () => {
