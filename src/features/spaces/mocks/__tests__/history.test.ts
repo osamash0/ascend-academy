@@ -154,7 +154,12 @@ describe('a record, not a streak system', () => {
 
   it('says out loud that none of this counts toward XP', () => {
     // The one thing that stops a calendar being read as a scoreboard.
-    expect(screen).toMatch(/counts toward XP/);
+    // The sentence lives in the translations; the screen carries its key.
+    expect(screen).toContain("t('history.legend')");
+    const words = JSON.parse(
+      readFileSync(join(process.cwd(), 'src/i18n/locales/en/v4People.json'), 'utf8'),
+    );
+    expect(words.history.legend).toMatch(/counts toward XP/);
   });
 
   it('shows the longest run beside the current one', () => {

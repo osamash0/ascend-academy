@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { people, viewer } from '../mocks/people';
 import { spaceById } from '../mocks/spaces';
@@ -15,6 +16,8 @@ import { leaderboard, resolveContributionAnchor } from '../mocks/library';
 import { likeCount, visibleContributions } from '../mocks/engagement';
 import { anchorFor, isOrphaned } from '../mocks/reanchor';
 import { isFriend } from '../mocks/social';
+import { standingFor } from '../mocks/rank';
+import { formatNumber } from '../i18n/format';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { useScreenState } from '../data/useSpaces';
@@ -40,6 +43,7 @@ import { Masthead, Sep, Skylight, StageRow, backLink, ghostPillSm, stageCard, st
  */
 
 export default function PersonScreen() {
+  const { t } = useTranslation('v4People');
   const screenState = useScreenState();
   const { personId } = useParams<{ personId: string }>();
   const person = people.find((p) => p.id === personId);
@@ -131,7 +135,7 @@ export default function PersonScreen() {
     <div className="relative mx-auto max-w-3xl px-6 pb-24 pt-6 lg:px-8">
       <Link to="/v4/social" className={backLink}>
         <ArrowLeft aria-hidden className="h-4 w-4" />
-        Social
+        {t('v4Spaces:nav.social')}
       </Link>
 
       {/* The face sits centred above the masthead, the way Profile's does. */}
@@ -143,17 +147,18 @@ export default function PersonScreen() {
             <>
               {standing ? (
                 <>
-                  {standing.rank}
+                  {/* The mock's `rank` is an English label; the number is what it says. */}
+                  {t('person.rank', { n: standingFor(standing.xp).rank })}
                   <Sep />
-                  {standing.xp.toLocaleString()} XP
+                  {t('v4Spaces:nav.xp', { xp: formatNumber(standing.xp) })}
                 </>
               ) : (
-                'No rank yet'
+                t('person.noRank')
               )}
               {isFriend(person.id) && (
                 <>
                   <Sep />
-                  Friends
+                  {t('person.friends')}
                 </>
               )}
             </>
@@ -164,7 +169,7 @@ export default function PersonScreen() {
 
       {/* Named, not tiled — Social shows people, never Space cards. */}
       {shared.length > 0 && (
-        <StageRow id="person-shared" title="Spaces you are both in" count={shared.length}>
+        <StageRow id="person-shared" title={t('person.shared')} count={shared.length}>
           <ul className="flex flex-wrap gap-2">
             {shared.map((s) => (
               <li key={s.id}>
@@ -182,12 +187,12 @@ export default function PersonScreen() {
 
       <StageRow
         id="person-published"
-        title="What they have published"
+        title={t('person.published')}
         count={published.length > 0 ? published.length : undefined}
       >
         {published.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-white/12 px-5 py-9 text-center text-[14px] text-quiet">
-            {person.name} hasn’t published anything in a Space you share.
+            {t('person.nothingPublished', { name: person.name })}
           </p>
         ) : (
           <ul className="space-y-2.5">
@@ -227,7 +232,7 @@ export default function PersonScreen() {
                     <Heart aria-hidden className="h-3.5 w-3.5" />
                     {likeCount(c.id)}
                     {/* A bare number announced as "148" says nothing. */}
-                    <span className="sr-only">likes</span>
+                    <span className="sr-only">{t('person.likes')}</span>
                   </span>
                 </>
               );
@@ -255,7 +260,7 @@ export default function PersonScreen() {
                     <div className={cn(cls, 'border-dashed opacity-80')}>
                       {row}
                       {isOrphaned(c) && (
-                        <span className="shrink-0 text-[12px] text-quiet">Needs a new home</span>
+                        <span className="shrink-0 text-[12px] text-quiet">{t('person.needsNewHome')}</span>
                       )}
                     </div>
                   )}
