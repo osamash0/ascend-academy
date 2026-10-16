@@ -33,19 +33,19 @@ export function Slide({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'relative aspect-[16/10] w-full overflow-hidden rounded-[10px] bg-[#f7f7f4] text-[#1c1c1c]',
+        'relative aspect-[16/10] w-full overflow-hidden rounded-[10px] bg-[#f7f7f4] text-[#1c1c1c] [container-type:inline-size]',
         className,
       )}
     >
       <div className="absolute inset-x-0 top-0 h-[6%]" style={{ background: '#1f3b4d' }} />
       <div className="flex h-full flex-col px-[5.5%] pb-[4%] pt-[9%]">
-        <p className="text-[clamp(6px,0.75vw,10px)] font-semibold uppercase tracking-[0.12em] text-[#1f3b4d]/70">
+        <p className="text-[1.25cqw] font-semibold uppercase tracking-[0.12em] text-[#1f3b4d]/70">
           {t('story.slide.kicker')}
         </p>
-        <p className="mt-[1.2%] text-[clamp(10px,1.45vw,21px)] font-bold leading-tight">{t('story.slide.title')}</p>
+        <p className="mt-[1.2%] text-[2.45cqw] font-bold leading-tight">{t('story.slide.title')}</p>
         <div className="mt-[1.5%] h-px w-full bg-[#1f3b4d]/25" />
         <div className="mt-[3%] grid flex-1 grid-cols-[1.55fr_1fr] gap-[4%]">
-          <ul className="space-y-[2.2%] text-[clamp(5.5px,0.78vw,11.5px)] leading-[1.35]">
+          <ul className="space-y-[2.2%] text-[1.32cqw] leading-[1.35]">
             {(['b1', 'b2', 'b3', 'b4', 'b5'] as const).map((k) => (
               <li key={k} className="flex gap-[3%]">
                 <span className="mt-[0.45em] h-[0.4em] w-[0.4em] shrink-0 rounded-full bg-[#1f3b4d]" />
@@ -53,7 +53,7 @@ export function Slide({ className }: { className?: string }) {
               </li>
             ))}
           </ul>
-          <div className="self-start overflow-hidden rounded-[4px] border border-[#1f3b4d]/30 text-[clamp(5px,0.68vw,10px)]">
+          <div className="self-start overflow-hidden rounded-[4px] border border-[#1f3b4d]/30 text-[1.15cqw]">
             <div className="grid grid-cols-3 bg-[#1f3b4d] px-[6%] py-[3%] font-semibold text-white">
               <span>OrderId</span>
               <span>Customer</span>
@@ -75,7 +75,7 @@ export function Slide({ className }: { className?: string }) {
             ))}
           </div>
         </div>
-        <p className="mt-auto self-end text-[clamp(5px,0.62vw,9px)] text-[#1c1c1c]/50">{t('story.slide.page')}</p>
+        <p className="mt-auto self-end text-[1.05cqw] text-[#1c1c1c]/50">{t('story.slide.page')}</p>
       </div>
     </div>
   );
@@ -87,17 +87,17 @@ function LearnView() {
   const { t } = useTranslation('landing');
   return (
     <div className="flex h-full flex-col justify-center px-[8%]">
-      <h3 className="text-[clamp(22px,3vw,40px)] font-medium leading-[1.1] tracking-[-0.03em] text-white">
+      <h3 className="text-[clamp(24px,5.4cqw,56px)] font-medium leading-[1.08] tracking-[-0.03em] text-white">
         {t('story.read.title')}
       </h3>
-      <p className="mt-[3%] text-[clamp(14px,1.6vw,21px)] leading-[1.5] text-white/75">{t('story.read.p1')}</p>
-      <p className="mt-[1.5%] text-[clamp(14px,1.6vw,21px)] leading-[1.5] text-white/75">
+      <p className="mt-[3%] text-[clamp(15px,2.5cqw,26px)] leading-[1.5] text-white/75">{t('story.read.p1')}</p>
+      <p className="mt-[1.5%] text-[clamp(15px,2.5cqw,26px)] leading-[1.5] text-white/75">
         <span className="rounded px-1" style={{ background: tint(ACCENT, 25), color: '#fff' }}>
           {t('story.read.p2')}
         </span>
       </p>
       {/* The original is never lost: the dense page, small, in the corner. */}
-      <div className="absolute bottom-[6%] right-[5%] w-[22%] opacity-70">
+      <div className="absolute bottom-[6%] right-[5%] w-[24%] opacity-80">
         <Slide className="rounded-[6px]" />
       </div>
     </div>
@@ -134,11 +134,11 @@ function ExploreView({ onTouch }: { onTouch: () => void }) {
   const lit = useMemo(() => closure(start), [start]);
   return (
     <div className="flex h-full flex-col items-center justify-center px-[6%]">
-      <p className="inline-flex items-center gap-2 text-[13px] text-white/50">
+      <p className="inline-flex items-center gap-2 text-[clamp(13px,1.7cqw,17px)] text-white/50">
         <Sparkles aria-hidden className="h-3.5 w-3.5" style={{ color: ACCENT }} />
         {t('story.ask.tool')} · {t('story.ask.hint')}
       </p>
-      <div className="mt-[6%] flex w-full max-w-[560px] items-center">
+      <div className="mt-[6%] flex w-full max-w-[72cqw] items-center">
         {ATTRS.map((a, i) => (
           <div key={a} className="flex flex-1 items-center last:flex-none">
             <motion.button
@@ -149,7 +149,7 @@ function ExploreView({ onTouch }: { onTouch: () => void }) {
                 setStart(a);
               }}
               aria-pressed={start === a}
-              className="rounded-full border px-[clamp(10px,1.4vw,20px)] py-[clamp(6px,0.9vw,12px)] text-[clamp(12px,1.3vw,17px)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="rounded-full border px-[clamp(12px,2.6cqw,28px)] py-[clamp(7px,1.5cqw,16px)] text-[clamp(13px,2.2cqw,22px)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               style={
                 lit.has(a)
                   ? { borderColor: tint(ACCENT, 60), background: tint(ACCENT, start === a ? 32 : 14), color: '#fff' }
@@ -174,13 +174,13 @@ function ExploreView({ onTouch }: { onTouch: () => void }) {
         key={start}
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mt-[7%] font-mono text-[clamp(14px,1.7vw,22px)] text-white"
+        className="mt-[7%] font-mono text-[clamp(15px,3cqw,30px)] text-white"
       >
         {start}⁺ = {'{ '}
         {ATTRS.filter((a) => lit.has(a)).join(', ')}
         {' }'}
       </motion.p>
-      <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-white/45">
+      <p className="mt-3 inline-flex items-center gap-1.5 text-[clamp(12px,1.6cqw,16px)] text-white/45">
         <Check aria-hidden className="h-3.5 w-3.5" style={{ color: ACCENT }} />
         {t('story.ask.result')}
       </p>
@@ -201,10 +201,10 @@ function PractiseView({ auto, onTouch }: { auto: boolean; onTouch: () => void })
   const right = picked === '3NF';
   return (
     <div className="flex h-full flex-col items-center justify-center px-[8%] text-center">
-      <p className="text-[clamp(17px,2.2vw,28px)] font-medium leading-snug tracking-[-0.02em] text-white">
+      <p className="[text-wrap:balance] text-[clamp(19px,3.6cqw,38px)] font-medium leading-[1.15] tracking-[-0.02em] text-white">
         {t('story.prove.q')}
       </p>
-      <div className="mt-[5%] grid w-full max-w-[520px] grid-cols-3 gap-3">
+      <div className="mt-[6%] grid w-full max-w-[66cqw] grid-cols-3 gap-[clamp(8px,1.6cqw,16px)]">
         {['2NF', '3NF', 'BCNF'].map((o) => {
           const sel = picked === o;
           return (
@@ -217,7 +217,7 @@ function PractiseView({ auto, onTouch }: { auto: boolean; onTouch: () => void })
                 setPicked(o);
               }}
               className={cn(
-                'h-[clamp(40px,4.6vw,56px)] rounded-xl border text-[clamp(14px,1.4vw,17px)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white',
+                'h-[clamp(44px,8cqw,80px)] rounded-2xl border text-[clamp(15px,2.5cqw,24px)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white',
                 !sel && 'border-white/12 text-white/80 hover:bg-white/[0.05]',
               )}
               style={
@@ -233,7 +233,7 @@ function PractiseView({ auto, onTouch }: { auto: boolean; onTouch: () => void })
           );
         })}
       </div>
-      <div className="mt-[4%] h-6">
+      <div className="mt-[4%] h-[clamp(24px,3.4cqw,34px)]">
         <AnimatePresence mode="wait">
           {picked && (
             <motion.p
@@ -241,7 +241,7 @@ function PractiseView({ auto, onTouch }: { auto: boolean; onTouch: () => void })
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="inline-flex items-center gap-2 text-[15px] text-white/80"
+              className="inline-flex items-center gap-2 text-[clamp(15px,2.1cqw,20px)] text-white/80"
             >
               {right ? (
                 <Check aria-hidden className="h-4 w-4" style={{ color: ACCENT }} />
@@ -257,7 +257,7 @@ function PractiseView({ auto, onTouch }: { auto: boolean; onTouch: () => void })
         {[1, 1, 0, right ? 1 : 0].map((ok, i) => (
           <motion.span
             key={i}
-            className="h-1 w-8 rounded-full"
+            className="h-1 w-[clamp(28px,4.4cqw,44px)] rounded-full"
             animate={{ background: ok ? ACCENT : 'rgba(255,255,255,0.15)' }}
           />
         ))}
@@ -343,7 +343,7 @@ function LivePage() {
       </div>
 
       {/* The page. Every view is the same page — it changes in place. */}
-      <div className="relative mt-5 aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0b] shadow-[0_50px_140px_-30px_rgba(0,0,0,0.95)]">
+      <div className="relative mt-5 aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0b] [container-type:inline-size] shadow-[0_50px_140px_-30px_rgba(0,0,0,0.95)]">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div
             key={view}
@@ -365,14 +365,15 @@ function LivePage() {
         </AnimatePresence>
       </div>
 
-      {/* Luna keeps you company. Decoration only. */}
-      <div aria-hidden className="pointer-events-none absolute -bottom-10 -left-12 hidden sm:block">
+      {/* Luna keeps you company, perched on the page's top edge beside the
+          tabs — never across the page itself. Decoration only. */}
+      <div aria-hidden className="pointer-events-none absolute left-[3%] top-[70px] hidden -translate-y-full sm:block">
         <Suspense fallback={null}>
           <motion.div
             animate={reduce ? undefined : { y: [0, -8, 0] }}
             transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <LunaAvatar size={120} showBackdrop={false} animated={!reduce} />
+            <LunaAvatar size={96} showBackdrop={false} animated={!reduce} />
           </motion.div>
         </Suspense>
       </div>
