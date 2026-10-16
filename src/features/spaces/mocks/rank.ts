@@ -1,3 +1,4 @@
+import i18n from '@/i18n';
 import { viewer } from './people';
 
 /**
@@ -78,8 +79,8 @@ export const standingFor = (xp: number): Standing => {
   return { rank, into, span, toNext: ceiling - xp, pct: Math.round((into / span) * 100) };
 };
 
-/** `Rank 4` — the label, so no screen writes the word itself. */
-export const rankLabel = (xp: number) => `Rank ${standingFor(xp).rank}`;
+/** `Rank 4` / `Rang 4` — the label, so no screen writes the word itself. Said at call time, in the app's language. */
+export const rankLabel = (xp: number) => i18n.t('v4People:rank.name', { n: standingFor(xp).rank });
 
 /**
  * Where a single piece of XP came from.

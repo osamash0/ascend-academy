@@ -51,6 +51,8 @@ export function Studio({ open, where, page, onClose, children, panel, width = ST
           ref={ref}
           tabIndex={-1}
           aria-label={label ?? t('studio.name')}
+          /* The text studio scrolls with the arrow keys; the reader finds it by this, never by its words. */
+          data-studio={label ? undefined : 'text'}
           initial={{ opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 24 }}
