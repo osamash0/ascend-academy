@@ -222,3 +222,27 @@ What it shows:
   1. Too many bold terms: up to about 12 on a page, against the prompt's 2–5. Recall turns every bold term into a blank, so the count must be enforced in code, not only in the prompt.
   2. A reporting voice ("This page outlines…", "The document features…") instead of Studio's quiet prose.
 - **Cost:** 4 batched text calls, $0.0024 in total, plus 2 unmetered vision calls.
+
+## Real-path pass (production, test account), 2026-10-16
+
+This used the same steps as `POST /materials/upload` (photo conversion, validation, hashing, storing the PDF, creating the run), but skipped the quota claim. The real `parse_pdf_unified` job ran inline with `FEATURE_STUDIO_PAGES` on, because the queue lives in the production Docker network and can't be reached from here. Afterwards I called the pages service and the shelf listing. The test account was `abdul@test.com`, and migration `20261013010000` had been applied to production first, after a pg_dump.
+
+| Input | Total job time | Studio pages | `block` geometry | Pages with summary | Max bold per page | "This page…" | Signed picture | Shelf |
+|---|---:|---:|---:|---:|---:|---:|---|---|
+| 06 DBS Integrity.pdf (45 pp) | 301 s | 45 | 44 | 45 | 7 | 0 | 200, WebP, 85 KB | ready · 45/45 |
+| integrity-notes.heic (48 MP, generated) | 27 s | 1 | 0 | 1 | 5 | 0 | 200, WebP, 60 KB | ready · 1/1 |
+| 05 DBS SQL.pdf (136 pp) | **905 s** | 136 | 135 | 135 | 7 | 0 | 200, WebP, 129 KB | ready · 136/136 |
+
+Findings:
+
+1. **The 136-page deck needs 905 s, which is past the worker's 900 s `job_timeout`.** On the server the job would be cancelled.
+   - The main cause is in the reader, not the Studio pass. On SQL decks, `batch_analyze_text_slides` gets SQL back instead of JSON on **every** batch (gpt-4o-mini echoes the slide's code), so every page falls back to per-slide synthesis. JSON mode evidently isn't enforced on that call.
+   - Translation then runs over the whole deck.
+   - The Studio rows were all written within 19 s at the end of the pass.
+2. **Text-less uploads get an invented title.** The photo was titled "Introduction to Machine Learning", because the reader's meta step receives no text.
+3. **Repeated bold terms stay bold.** The cap keeps at most 5 distinct terms, but repeats such as INSERT and DELETE stay bold, so Recall makes two blanks for one term.
+4. **`parse_receipts` is missing in production.** PR #84's two migrations are not applied, so every parse logs a non-fatal traceback.
+5. **As designed:**
+   - the last page of each deck is a picture with no text, so it has geometry `page`; page 136 of the SQL deck also has no summary (`needs_review`);
+   - photo boxes were rejected, so there is no geometry;
+   - every signed URL downloads.
