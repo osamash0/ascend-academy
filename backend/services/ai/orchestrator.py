@@ -48,11 +48,23 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _init_env() -> None:
-    _root    = Path(__file__).resolve().parent.parent.parent.parent / ".env"
-    _backend = Path(__file__).resolve().parent.parent.parent / ".env"
-    if _root.exists():    load_dotenv(dotenv_path=_root,    override=True)
-    if _backend.exists(): load_dotenv(dotenv_path=_backend, override=True)
+_ROOT_ENV = Path(__file__).resolve().parent.parent.parent.parent / ".env"
+_BACKEND_ENV = Path(__file__).resolve().parent.parent.parent / ".env"
+
+
+def _init_env(root: Path = _ROOT_ENV, backend: Path = _BACKEND_ENV) -> None:
+    """Fill in variables the process doesn't already have; never overwrite.
+
+    backend/.env is read first so it still wins over the root .env (as it did
+    when both were loaded with override=True, root first). What the process
+    already has always wins: with override=True, importing this module put
+    .env values over a caller's DATABASE_URL, including tests/conftest.py's
+    guard DSN and a harness's blanked one, which then wrote to production.
+    Docker images carry no .env (see .dockerignore), so this only affects
+    local runs."""
+    for path in (backend, root):
+        if path.exists():
+            load_dotenv(dotenv_path=path, override=False)
 
 _init_env()
 
