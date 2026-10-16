@@ -1,6 +1,8 @@
 import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useMotionValueEvent, useReducedMotion, useSpring } from 'motion/react';
 import type { Mood } from '@/features/avatar/types';
+import { cn } from '@/lib/utils';
 
 const LunaAvatar = lazy(() =>
   import('@/features/avatar/LunaAvatar').then((m) => ({ default: m.LunaAvatar })),
@@ -12,15 +14,17 @@ const LunaAvatar = lazy(() =>
  * The live page used to turn by itself while Luna stood beside it as
  * decoration. Now she is the reason it turns: she stands on the tab bar, hops
  * onto the next tab, and the page changes as she lands. She reacts to what is
- * on the page — squints at the dense original, follows the closure chain,
- * reads along, concentrates on the question — and cheers a right answer.
+ * on the page — squints at the dense page, follows the parts being explained,
+ * waits for the answer, concentrates on the question — and cheers a right one.
+ * She says one or two words per tab: the demo's only labels, where the eye is.
  * The moment the visitor touches anything she steps back and watches *them*.
  *
  * She stays Luna (face, helmet, eyes, moods from the avatar system); only
  * scale and motion change. Decoration only: aria-hidden, never focusable.
  */
 
-export type GuideView = 'original' | 'explore' | 'learn' | 'practise';
+export const GUIDE_VIEWS = ['page', 'explain', 'ask', 'practise'] as const;
+export type GuideView = (typeof GUIDE_VIEWS)[number];
 export type GuideReaction = { kind: 'right' | 'wrong' | 'poke'; n: number };
 
 /** How long a reaction (a cheer, a head tilt) holds before her mood returns to the page. */
@@ -29,9 +33,9 @@ export const REACTION_MS = 1600;
 export const HOP_MS = 620;
 
 const VIEW_MOOD: Record<GuideView, Mood> = {
-  original: 'thinking', // "hmm" — a page this dense makes anyone squint
-  explore: 'curious',
-  learn: 'bright',
+  page: 'thinking', // "hmm" — a page this dense makes anyone squint
+  explain: 'curious',
+  ask: 'bright',
   practise: 'focused',
 };
 
@@ -47,12 +51,12 @@ type Gaze = { x: number; y: number };
 /** Where her eyes rest on each page while she is showing it (-1..1; +y is down, toward the page). */
 function viewGaze(view: GuideView, beat: number): Gaze {
   switch (view) {
-    case 'original':
+    case 'page':
       return { x: 0.35, y: 0.9 };
-    case 'explore': // follows the chain lighting up, left to right
-      return { x: [-0.75, 0, 0.75][beat % 3], y: 0.8 };
-    case 'learn': // reading along the line, then back to its start
-      return { x: [-0.7, -0.2, 0.3, 0.75][beat % 4], y: 0.7 };
+    case 'explain': // from the parts on the left to the lit words on the right
+      return { x: [-0.7, 0.75, -0.5, 0.8][beat % 4], y: 0.75 };
+    case 'ask': // watches the question being typed, then the answer below it
+      return { x: [-0.3, 0.3, 0][beat % 3], y: beat % 3 === 2 ? 0.95 : 0.55 };
     case 'practise':
       return { x: 0.1, y: 0.95 };
   }
@@ -82,6 +86,7 @@ export function LunaGuide({
   arrived: boolean;
   reaction: GuideReaction | null;
 }) {
+  const { t } = useTranslation('landing');
   const reduce = useReducedMotion() ?? false;
   const self = useRef<HTMLDivElement>(null);
 
@@ -92,7 +97,7 @@ export function LunaGuide({
     if (!list) return;
     const measure = () => {
       const btns = list.querySelectorAll<HTMLElement>('[role="tab"]');
-      const i = (['original', 'explore', 'learn', 'practise'] as const).indexOf(at);
+      const i = GUIDE_VIEWS.indexOf(at);
       const b = btns[i];
       if (b) setX(b.offsetLeft + b.offsetWidth / 2 - WIDTH / 2);
     };
@@ -108,8 +113,7 @@ export function LunaGuide({
   const prevAt = useRef(at);
   useEffect(() => {
     if (prevAt.current === at) return;
-    const order = ['original', 'explore', 'learn', 'practise'];
-    setDir(Math.sign(order.indexOf(at) - order.indexOf(prevAt.current)));
+    setDir(Math.sign(GUIDE_VIEWS.indexOf(at) - GUIDE_VIEWS.indexOf(prevAt.current)));
     prevAt.current = at;
     setHop((h) => h + 1);
   }, [at]);
@@ -154,7 +158,7 @@ export function LunaGuide({
   const [beat, setBeat] = useState(0);
   useEffect(() => {
     if (reduce || touched) return;
-    const id = window.setInterval(() => setBeat((b) => b + 1), view === 'learn' ? 900 : 1400);
+    const id = window.setInterval(() => setBeat((b) => b + 1), view === 'explain' ? 1050 : 1400);
     return () => window.clearInterval(id);
   }, [view, touched, reduce]);
 
@@ -251,6 +255,27 @@ export function LunaGuide({
           </motion.div>
         </motion.div>
       </motion.div>
+
+      {/* What she says: one or two words, the demo's only labels. */}
+      <AnimatePresence mode="wait">
+        {!hopping && (
+          <motion.span
+            key={at}
+            data-testid="luna-says"
+            // On the last tab she speaks to her left, so the bubble never leaves a phone screen.
+            className={cn(
+              'absolute top-[12%] whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[12.5px] font-medium text-black shadow-[0_6px_20px_-8px_rgba(0,0,0,0.8)]',
+              GUIDE_VIEWS.indexOf(at) === GUIDE_VIEWS.length - 1 ? 'right-[calc(100%-6px)] rounded-br-[4px]' : 'left-[calc(100%-6px)] rounded-bl-[4px]',
+            )}
+            initial={reduce ? false : { opacity: 0, scale: 0.85, x: -4 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.12 } }}
+            transition={{ type: 'spring', stiffness: 400, damping: 26, delay: 0.1 }}
+          >
+            {t(`story.luna.${at}`)}
+          </motion.span>
+        )}
+      </AnimatePresence>
 
       {/* Stardust. */}
       <AnimatePresence>

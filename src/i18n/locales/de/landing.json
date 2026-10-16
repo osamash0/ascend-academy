@@ -153,35 +153,38 @@
       "try": "Probier’s aus"
     },
     "tabs": {
-      "original": "Original",
-      "explore": "Entdecken",
-      "learn": "Lernen",
+      "page": "Seite",
+      "explain": "Erklären",
+      "ask": "Fragen",
       "practise": "Üben"
     },
     "slide": {
-      "kicker": "Datenbanken · 03",
-      "title": "Normalisierung: Funktionale Abhängigkeiten",
-      "b1": "Eine funktionale Abhängigkeit X → Y gilt auf R gdw. zwei Tupel, die in X übereinstimmen, auch in Y übereinstimmen",
-      "b2": "Armstrong-Axiome: Reflexivität, Verstärkung, Transitivität (korrekt & vollständig)",
-      "b3": "Hülle X⁺ := Menge aller von X funktional bestimmten Attribute",
-      "b4": "Transitive Abhängigkeit A → B → C mit B Nicht-Schlüssel ⇒ Update-Anomalien",
-      "b5": "3NF: kein Nicht-Schlüsselattribut transitiv von einem Schlüsselkandidaten abhängig",
+      "kicker": "Mikroökonomie · 14",
+      "title": "Marktgleichgewicht: Nachfrage, Angebot und Preis",
+      "b1": "Nachfragekurve: nachgefragte Menge sinkt mit steigendem Preis, Qd = a − bP (ceteris paribus)",
+      "b2": "Angebotskurve: angebotene Menge steigt mit dem Preis, Qs = c + dP",
+      "b3": "Gleichgewichtspreis P* mit Qd = Qs; kein Nachfrage-, kein Angebotsüberschuss",
+      "b4": "Eine Angebotsverschiebung (Ernte, Inputkosten, Technologie) verschiebt P* entlang der Nachfragekurve",
+      "b5": "Knappheit bei P < P* ⇒ Preis steigt; Überschuss bei P > P* ⇒ Preis fällt",
+      "chart": "P / Q",
       "page": "S. 14"
     },
-    "read": {
-      "title": "Wenn ein Fakt einen anderen bestimmt",
-      "p1": "Gleiches X, gleiches Y. Das ist eine Abhängigkeit: X → Y.",
-      "p2": "Eine Kette wie Schlüssel → B → C lässt eine Tabelle sich selbst widersprechen."
-    },
     "ask": {
-      "tool": "Hülle",
-      "hint": "Tipp eins an",
-      "result": "berechnet, nicht geraten"
+      "q": "Warum macht eine schlechte Ernte Brot teuer?",
+      "a": "Weniger Getreide heißt weniger Brot zu jedem Preis. Zum alten Preis wollen mehr Leute Brot, als es gibt, also erhöhen die Bäcker ihn, bis Käufer und Brote wieder zusammenpassen.",
+      "cite": "S. 14",
+      "placeholder": "Frag etwas zu dieser Seite"
     },
     "prove": {
-      "q": "Customer → City. Welche Normalform bricht zuerst?",
-      "right": "Richtig. City auslagern.",
-      "wrong": "Schau, was City bestimmt."
+      "q": "Frost vernichtet die halbe Kaffeeernte. Der Preis…",
+      "options": [
+        "Fällt",
+        "Bleibt",
+        "Steigt"
+      ],
+      "right": "Richtig. Weniger Säcke zu jedem Preis.",
+      "wrong": "Denk an die Schlange zum alten Preis.",
+      "cite": "S. 14"
     },
     "lights": {
       "title": "Jedes Fach hat sein eigenes Licht.",
@@ -194,6 +197,49 @@
     "close": {
       "title": "Fang mit einem PDF an.",
       "start": "Loslegen"
+    },
+    "luna": {
+      "page": "Seite 14.",
+      "explain": "Erklär’s mir.",
+      "ask": "Frag nach.",
+      "practise": "Du bist dran."
+    },
+    "explain": {
+      "headline": "Ein Preis ist da, wo Käufer und Verkäufer aufhören zu streiten",
+      "format": "Teile zum Entdecken",
+      "parts": [
+        {
+          "label": "Nachfrage",
+          "body": "Je billiger etwas ist, desto mehr Leute wollen es.",
+          "spot": "nachgefragte Menge sinkt mit steigendem Preis"
+        },
+        {
+          "label": "Angebot",
+          "body": "Je teurer, desto mehr Verkäufer tauchen auf.",
+          "spot": "angebotene Menge steigt mit dem Preis"
+        },
+        {
+          "label": "Wo sie sich treffen",
+          "body": "Bei einem Preis wartet niemand mehr. Das ist der Marktpreis.",
+          "spot": "kein Nachfrage-, kein Angebotsüberschuss"
+        }
+      ],
+      "stepsTitle": "Wenn die Ernte ausfällt",
+      "steps": [
+        {
+          "label": "Weniger Ware",
+          "body": "Zu jedem Preis gibt es weniger."
+        },
+        {
+          "label": "Knappheit",
+          "body": "Zum alten Preis gibt es mehr Käufer als Verkäufer."
+        },
+        {
+          "label": "Preis steigt",
+          "body": "Verkäufer erhöhen ihn, bis die Schlange weg ist."
+        }
+      ],
+      "tap": "Tipp einen Teil an — er leuchtet auf der Seite auf"
     }
   }
 }
