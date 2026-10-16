@@ -1,5 +1,5 @@
 import { useReducer, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Trans, useTranslation } from 'react-i18next';
 import {
@@ -13,9 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Role, SpaceMode } from '../types';
-import { canDelete, spaceById } from '../mocks/spaces';
-import { membersForSpace, orphansForSpace } from '../mocks/contributions';
-import { viewer } from '../mocks/people';
+import { membersForSpace, orphansForSpace } from '../data/contributions';
 import { StudioAction, StudioPill, StudioShell } from '../components/StudioShell';
 import { ListSkeleton, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
@@ -23,6 +21,7 @@ import { JoinCodeBlock } from '../components/SpaceDialogs';
 import { AuthorLine } from '../components/badges';
 import { ReanchorDialog } from '../components/ReanchorDialog';
 import type { Contribution } from '../types';
+import { canDelete, liveWorld, managerHref, spaceById } from '../data/world';
 
 /**
  * Manage a Space — the Owner's Studio screen.
@@ -120,6 +119,12 @@ export default function SpaceManageScreen() {
       </StudioShell>
     );
   }
+
+  // A real course is managed where its lectures are uploaded and published —
+  // the course manager already does all of it, for professors and students.
+  // These controls would only change the fixtures.
+  // Your own uploads are looked after in Library, where you brought them in.
+  if (liveWorld()) return <Navigate replace to={space.personal ? '/v4/library' : managerHref(space.id)} />;
 
   const members = membersForSpace(space.id);
   const orphans = orphansForSpace(space.id);

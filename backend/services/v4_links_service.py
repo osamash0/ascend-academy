@@ -126,7 +126,7 @@ def keep_links(ideas: list[dict[str, Any]], data: Any) -> list[dict[str, Any]]:
 
 
 async def course_links(course_id: UUID, *, user_id: str) -> dict[str, Any]:
-    course = await course_map(course_id)
+    course = await course_map(course_id, user_id)
     lectures = [lec for lec in course["lectures"] if lec.get("ideas")]
     if len(lectures) < max(2, (len(course["lectures"]) + 1) // 2):
         raise HTTPException(status_code=409, detail="The lectures' ideas are still being grouped.")

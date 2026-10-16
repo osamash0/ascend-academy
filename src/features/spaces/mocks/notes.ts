@@ -17,11 +17,28 @@ import { viewer } from './people';
 
 let store: Note[] = seed.map((n) => ({ ...n, authorId: viewer.id }));
 let counter = 0;
+/** Bumped on every write, so a view can re-read (Library's "Your words"). */
+let version = 0;
+const listeners = new Set<() => void>();
+const changed = () => {
+  version++;
+  listeners.forEach((fn) => fn());
+};
+
+export const notesVersion = (): number => version;
+
+export const subscribeNotes = (fn: () => void): (() => void) => {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+};
 
 /** Test seam — the fixtures are mutable, so each test starts from the seed. */
 export const resetNotes = (): void => {
   store = seed.map((n) => ({ ...n, authorId: viewer.id }));
   counter = 0;
+  changed();
 };
 
 export const allNotes = (): Note[] =>
@@ -73,6 +90,7 @@ export const addNote = ({
     updatedAt: new Date().toISOString(),
   };
   store = [note, ...store];
+  changed();
   return note;
 };
 
@@ -82,9 +100,11 @@ export const updateNote = (id: string, body: string): Note | undefined => {
   if (i === -1) return undefined;
   if (!body.trim()) return store[i];
   store[i] = { ...store[i], body: body.trim(), updatedAt: new Date().toISOString() };
+  changed();
   return store[i];
 };
 
 export const deleteNote = (id: string): void => {
   store = store.filter((n) => n.id !== id);
+  changed();
 };

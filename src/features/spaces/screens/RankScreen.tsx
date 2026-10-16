@@ -1,15 +1,15 @@
 import { ArrowLeft, BookOpen, Check, Heart, Sparkles, Star, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { viewer } from '../mocks/people';
-import { viewerStanding } from '../mocks/library';
+import { useViewer } from '../data/viewer';
+import { standingNow } from '../data/standing';
 import {
   standingFor,
   xpBySource,
-  xpEvents,
+  xpEventsNow,
   xpForRank,
   type XpSource,
-} from '../mocks/rank';
+} from '../data/record';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { Skylight } from '../components/stage';
@@ -83,12 +83,13 @@ const formatWhen = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
 export default function RankScreen() {
+  const viewer = useViewer();
   const screenState = useScreenState();
-  const { xp } = viewerStanding();
+  const { xp } = standingNow();
   const { rank, into, span, toNext, pct } = standingFor(xp);
   const bySource = xpBySource();
   /** Newest first: what you did most recently is what you are asking about. */
-  const events = [...xpEvents].sort((a, b) => b.at.localeCompare(a.at));
+  const events = [...xpEventsNow()].sort((a, b) => b.at.localeCompare(a.at));
 
   /*
    * The ladder shown around you, not from Rank 1.

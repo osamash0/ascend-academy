@@ -7,10 +7,9 @@ import { cn } from '@/lib/utils';
 import { LaunchButton, gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
 import type { Concept, Lesson, Space } from '../types';
-import { contributionsForLesson } from '../mocks/contributions';
-import { visibleContributions } from '../mocks/engagement';
-import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
-import { viewer } from '../mocks/people';
+import { contributionsForLesson, visibleContributions } from '../data/contributions';
+import { addNote, deleteNote, notesForLesson, updateNote } from '../data/notes';
+import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { StageRow as Row } from '../components/stage';
@@ -22,7 +21,7 @@ import { sectionsFromRows, spineConcepts } from '../components/reader/anchors';
 import { LessonDeck } from '../components/lesson/LessonDeck';
 import { IdeaExplorer, type IdeaEntry } from '../components/lesson/IdeaExplorer';
 import { ToolShelf } from '../components/lesson/ToolShelf';
-import { authoredFor, toolsFor } from '../mocks/explain';
+import { authoredFor, toolsFor } from '../data/tools';
 import { ContributionCard } from '../components/ContributionCard';
 import { NoteEditor } from '../components/NoteEditor';
 import { LessonPager } from '../components/LessonPager';
@@ -53,6 +52,7 @@ const CONCEPT_STATE: Record<Concept['progress'], { label: string; cls: string }>
 };
 
 export default function LessonScreen() {
+  const viewer = useViewer();
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation('v4Space');

@@ -21,7 +21,7 @@ import { NotificationPanel } from './NotificationPanel';
 import { SearchPalette, useSearchPalette } from './SearchPalette';
 import { MobileNav } from './MobileNav';
 import { useGround } from './ground';
-import { viewerStanding } from '../mocks/library';
+import { standingNow } from '../data/standing';
 import { formatNumber } from '../i18n/format';
 import type { Person } from '../types';
 
@@ -68,8 +68,8 @@ interface Props {
   active: NavKey;
   viewer: Person;
   /**
-   * Mock progression — the real values come from the XP engine later.
-   * Defaults read `viewerStanding()` so the bar and Social cannot disagree.
+   * Defaults read `standingNow()` — the XP ledger live, the fixture
+   * leaderboard in demo — so the bar and Social cannot disagree.
    */
   rank?: string;
   xp?: number;
@@ -79,8 +79,8 @@ interface Props {
 export function SpacesTopBar({
   active,
   viewer,
-  rank = viewerStanding().rank,
-  xp = viewerStanding().xp,
+  rank = standingNow().rank,
+  xp = standingNow().xp,
   onNavigate,
 }: Props) {
   const navigate = useNavigate();

@@ -1,0 +1,5509 @@
+{
+ "_generated": "scripts/studio/build_fixture.py from Normalization.pdf pages 1-12. Do not edit by hand.",
+ "pages": [
+  {
+   "materialId": "m-norm",
+   "page": 1,
+   "width": 720.0,
+   "height": 405.0,
+   "imageUrl": "/v4-mock/studio/normalization-p1.webp",
+   "geometry": "block",
+   "blocks": [
+    {
+     "id": "p1-b0",
+     "page": 1,
+     "bbox": [
+      0.8307,
+      0.0571,
+      0.9879,
+      0.1531
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 0
+    },
+    {
+     "id": "p1-b2",
+     "page": 1,
+     "bbox": [
+      0.0511,
+      0.7755,
+      0.9402,
+      0.9444
+     ],
+     "kind": "paragraph",
+     "text": "Database Systems\nNormalization\nThorsten Papenbrock",
+     "readingOrder": 2
+    },
+    {
+     "id": "p1-b3",
+     "page": 1,
+     "bbox": [
+      0.4167,
+      0.0082,
+      0.5738,
+      0.1041
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 3
+    }
+   ]
+  },
+  {
+   "materialId": "m-norm",
+   "page": 2,
+   "width": 720.0,
+   "height": 405.0,
+   "imageUrl": "/v4-mock/studio/normalization-p2.webp",
+   "geometry": "block",
+   "blocks": [
+    {
+     "id": "p2-b0",
+     "page": 2,
+     "bbox": [
+      0.8307,
+      0.0571,
+      0.9879,
+      0.1531
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 0
+    },
+    {
+     "id": "p2-b2",
+     "page": 2,
+     "bbox": [
+      0.0393,
+      0.046,
+      0.2703,
+      0.1639
+     ],
+     "kind": "heading",
+     "text": "Normalization",
+     "readingOrder": 2
+    },
+    {
+     "id": "p2-b3",
+     "page": 2,
+     "bbox": [
+      0.0589,
+      0.217,
+      0.2777,
+      0.2759
+     ],
+     "kind": "paragraph",
+     "text": "1. Requirement Analysis",
+     "readingOrder": 3
+    },
+    {
+     "id": "p2-b4",
+     "page": 2,
+     "bbox": [
+      0.108,
+      0.2712,
+      0.3142,
+      0.3307
+     ],
+     "kind": "list",
+     "text": "• Informal description",
+     "readingOrder": 4
+    },
+    {
+     "id": "p2-b5",
+     "page": 2,
+     "bbox": [
+      0.0589,
+      0.3255,
+      0.2667,
+      0.3844
+     ],
+     "kind": "paragraph",
+     "text": "2. Conceptional Design",
+     "readingOrder": 5
+    },
+    {
+     "id": "p2-b6",
+     "page": 2,
+     "bbox": [
+      0.108,
+      0.3797,
+      0.3806,
+      0.4392
+     ],
+     "kind": "list",
+     "text": "• Entity-Relationship Diagram",
+     "readingOrder": 6
+    },
+    {
+     "id": "p2-b7",
+     "page": 2,
+     "bbox": [
+      0.0589,
+      0.434,
+      0.2561,
+      0.4929
+     ],
+     "kind": "paragraph",
+     "text": "3. Distribution Design",
+     "readingOrder": 7
+    },
+    {
+     "id": "p2-b8",
+     "page": 2,
+     "bbox": [
+      0.108,
+      0.4882,
+      0.241,
+      0.5477
+     ],
+     "kind": "list",
+     "text": "• Partitioning",
+     "readingOrder": 8
+    },
+    {
+     "id": "p2-b9",
+     "page": 2,
+     "bbox": [
+      0.0589,
+      0.5425,
+      0.2167,
+      0.6014
+     ],
+     "kind": "paragraph",
+     "text": "4. Logical Design",
+     "readingOrder": 9
+    },
+    {
+     "id": "p2-b10",
+     "page": 2,
+     "bbox": [
+      0.108,
+      0.5967,
+      0.2918,
+      0.6562
+     ],
+     "kind": "list",
+     "text": "• Relation schemas",
+     "readingOrder": 10
+    },
+    {
+     "id": "p2-b11",
+     "page": 2,
+     "bbox": [
+      0.0589,
+      0.651,
+      0.2216,
+      0.7099
+     ],
+     "kind": "paragraph",
+     "text": "5. Data Definition",
+     "readingOrder": 11
+    },
+    {
+     "id": "p2-b12",
+     "page": 2,
+     "bbox": [
+      0.108,
+      0.7052,
+      0.2201,
+      0.7647
+     ],
+     "kind": "list",
+     "text": "• SQL DDL",
+     "readingOrder": 12
+    },
+    {
+     "id": "p2-b13",
+     "page": 2,
+     "bbox": [
+      0.0589,
+      0.7595,
+      0.226,
+      0.8184
+     ],
+     "kind": "paragraph",
+     "text": "6. Physical Design",
+     "readingOrder": 13
+    },
+    {
+     "id": "p2-b14",
+     "page": 2,
+     "bbox": [
+      0.108,
+      0.8137,
+      0.3434,
+      0.8732
+     ],
+     "kind": "list",
+     "text": "• Parameters and Indices",
+     "readingOrder": 14
+    },
+    {
+     "id": "p2-b15",
+     "page": 2,
+     "bbox": [
+      0.0589,
+      0.868,
+      0.3773,
+      0.9269
+     ],
+     "kind": "paragraph",
+     "text": "7. Implementation and Maintenance",
+     "readingOrder": 15
+    },
+    {
+     "id": "p2-b16",
+     "page": 2,
+     "bbox": [
+      0.108,
+      0.9222,
+      0.384,
+      0.9817
+     ],
+     "kind": "list",
+     "text": "• Installationen, Backups, etc .",
+     "readingOrder": 16
+    },
+    {
+     "id": "p2-b17",
+     "page": 2,
+     "bbox": [
+      0.3263,
+      0.531,
+      0.39,
+      0.6583
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 17
+    },
+    {
+     "id": "p2-b18",
+     "page": 2,
+     "bbox": [
+      0.3263,
+      0.531,
+      0.39,
+      0.6583
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 18
+    },
+    {
+     "id": "p2-b19",
+     "page": 2,
+     "bbox": [
+      0.3268,
+      0.528,
+      1.0,
+      1.0
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 19
+    }
+   ]
+  },
+  {
+   "materialId": "m-norm",
+   "page": 3,
+   "width": 720.0,
+   "height": 405.0,
+   "imageUrl": "/v4-mock/studio/normalization-p3.webp",
+   "geometry": "block",
+   "blocks": [
+    {
+     "id": "p3-b0",
+     "page": 3,
+     "bbox": [
+      0.8307,
+      0.0571,
+      0.9879,
+      0.1531
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 0
+    },
+    {
+     "id": "p3-b2",
+     "page": 3,
+     "bbox": [
+      0.0393,
+      0.046,
+      0.2703,
+      0.1639
+     ],
+     "kind": "heading",
+     "text": "Normalization",
+     "readingOrder": 2
+    },
+    {
+     "id": "p3-b3",
+     "page": 3,
+     "bbox": [
+      0.0393,
+      0.2142,
+      0.3434,
+      0.2836
+     ],
+     "kind": "list",
+     "text": "• Functional Dependencies",
+     "readingOrder": 3
+    },
+    {
+     "id": "p3-b4",
+     "page": 3,
+     "bbox": [
+      0.0393,
+      0.2752,
+      0.2452,
+      0.3446
+     ],
+     "kind": "list",
+     "text": "• Closure Algorithm",
+     "readingOrder": 4
+    },
+    {
+     "id": "p3-b5",
+     "page": 3,
+     "bbox": [
+      0.0393,
+      0.3363,
+      0.3215,
+      0.4057
+     ],
+     "kind": "list",
+     "text": "• Boyce-Codd Normal Form",
+     "readingOrder": 5
+    },
+    {
+     "id": "p3-b6",
+     "page": 3,
+     "bbox": [
+      0.0393,
+      0.3973,
+      0.2081,
+      0.4668
+     ],
+     "kind": "list",
+     "text": "• Normal Forms",
+     "readingOrder": 6
+    }
+   ]
+  },
+  {
+   "materialId": "m-norm",
+   "page": 4,
+   "width": 720.0,
+   "height": 405.0,
+   "imageUrl": "/v4-mock/studio/normalization-p4.webp",
+   "geometry": "block",
+   "blocks": [
+    {
+     "id": "p4-b0",
+     "page": 4,
+     "bbox": [
+      0.8307,
+      0.0571,
+      0.9879,
+      0.1531
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 0
+    },
+    {
+     "id": "p4-b1",
+     "page": 4,
+     "bbox": [
+      0.0393,
+      0.0207,
+      0.6618,
+      0.1921
+     ],
+     "kind": "heading",
+     "text": "Functional Dependencies\nDesign Process: Existing Steps so far",
+     "readingOrder": 1
+    },
+    {
+     "id": "p4-b2",
+     "page": 4,
+     "bbox": [
+      0.8307,
+      0.8491,
+      0.9806,
+      0.9391
+     ],
+     "kind": "paragraph",
+     "text": "Slide 4\nThorstenPapenbrock",
+     "readingOrder": 2
+    },
+    {
+     "id": "p4-b3",
+     "page": 4,
+     "bbox": [
+      0.0398,
+      0.2156,
+      0.1563,
+      0.3237
+     ],
+     "kind": "paragraph",
+     "text": "Conceptional\nDesign",
+     "readingOrder": 3
+    },
+    {
+     "id": "p4-b4",
+     "page": 4,
+     "bbox": [
+      0.2284,
+      0.4923,
+      0.8226,
+      0.6868
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 4
+    },
+    {
+     "id": "p4-b5",
+     "page": 4,
+     "bbox": [
+      0.3556,
+      0.7415,
+      0.8234,
+      0.9376
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 5
+    },
+    {
+     "id": "p4-b6",
+     "page": 4,
+     "bbox": [
+      0.3482,
+      0.2212,
+      0.8178,
+      0.4875
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 6
+    },
+    {
+     "id": "p4-b7",
+     "page": 4,
+     "bbox": [
+      0.4121,
+      0.6941,
+      0.4576,
+      0.7749
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 7
+    },
+    {
+     "id": "p4-b8",
+     "page": 4,
+     "bbox": [
+      0.4121,
+      0.6941,
+      0.4576,
+      0.7749
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 8
+    },
+    {
+     "id": "p4-b9",
+     "page": 4,
+     "bbox": [
+      0.0426,
+      0.6782,
+      1.0,
+      1.0
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 9
+    },
+    {
+     "id": "p4-b10",
+     "page": 4,
+     "bbox": [
+      0.5671,
+      0.6897,
+      0.612,
+      0.7715
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 10
+    },
+    {
+     "id": "p4-b11",
+     "page": 4,
+     "bbox": [
+      0.5671,
+      0.6897,
+      0.612,
+      0.7715
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 11
+    },
+    {
+     "id": "p4-b12",
+     "page": 4,
+     "bbox": [
+      0.0,
+      0.1328,
+      0.6195,
+      1.0
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 12
+    },
+    {
+     "id": "p4-b13",
+     "page": 4,
+     "bbox": [
+      0.1309,
+      0.3744,
+      0.2108,
+      0.6181
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 13
+    },
+    {
+     "id": "p4-b14",
+     "page": 4,
+     "bbox": [
+      0.1309,
+      0.3744,
+      0.2108,
+      0.6181
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 14
+    },
+    {
+     "id": "p4-b15",
+     "page": 4,
+     "bbox": [
+      0.122,
+      0.3549,
+      0.6845,
+      1.0
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 15
+    },
+    {
+     "id": "p4-b16",
+     "page": 4,
+     "bbox": [
+      0.1309,
+      0.6663,
+      0.2108,
+      0.91
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 16
+    },
+    {
+     "id": "p4-b17",
+     "page": 4,
+     "bbox": [
+      0.1309,
+      0.6663,
+      0.2108,
+      0.91
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 17
+    },
+    {
+     "id": "p4-b18",
+     "page": 4,
+     "bbox": [
+      0.122,
+      0.6468,
+      0.6845,
+      1.0
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 18
+    },
+    {
+     "id": "p4-b19",
+     "page": 4,
+     "bbox": [
+      0.1215,
+      0.265,
+      0.2109,
+      0.3363
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 19
+    },
+    {
+     "id": "p4-b20",
+     "page": 4,
+     "bbox": [
+      0.1215,
+      0.265,
+      0.2109,
+      0.3363
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 20
+    },
+    {
+     "id": "p4-b22",
+     "page": 4,
+     "bbox": [
+      0.0398,
+      0.4816,
+      0.1021,
+      0.5455
+     ],
+     "kind": "paragraph",
+     "text": "Logical",
+     "readingOrder": 22
+    },
+    {
+     "id": "p4-b23",
+     "page": 4,
+     "bbox": [
+      0.0398,
+      0.5702,
+      0.1568,
+      0.6783
+     ],
+     "kind": "paragraph",
+     "text": "Design\n(Translation)",
+     "readingOrder": 23
+    },
+    {
+     "id": "p4-b24",
+     "page": 4,
+     "bbox": [
+      0.0398,
+      0.7896,
+      0.1287,
+      0.942
+     ],
+     "kind": "paragraph",
+     "text": "Logical\nDesign\n(Merging)",
+     "readingOrder": 24
+    },
+    {
+     "id": "p4-b25",
+     "page": 4,
+     "bbox": [
+      0.8303,
+      0.6651,
+      0.9907,
+      0.8393
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 25
+    },
+    {
+     "id": "p4-b26",
+     "page": 4,
+     "bbox": [
+      0.8207,
+      0.6651,
+      0.9907,
+      0.8393
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 26
+    },
+    {
+     "id": "p4-b27",
+     "page": 4,
+     "bbox": [
+      0.8213,
+      0.6625,
+      1.0,
+      1.0
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 27
+    },
+    {
+     "id": "p4-b28",
+     "page": 4,
+     "bbox": [
+      0.8505,
+      0.6609,
+      0.9705,
+      0.7909
+     ],
+     "kind": "paragraph",
+     "text": "Further\nimprovements\nare possible!",
+     "readingOrder": 28
+    }
+   ]
+  },
+  {
+   "materialId": "m-norm",
+   "page": 5,
+   "width": 720.0,
+   "height": 405.0,
+   "imageUrl": "/v4-mock/studio/normalization-p5.webp",
+   "geometry": "block",
+   "blocks": [
+    {
+     "id": "p5-b0",
+     "page": 5,
+     "bbox": [
+      0.8307,
+      0.0571,
+      0.9879,
+      0.1531
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 0
+    },
+    {
+     "id": "p5-b1",
+     "page": 5,
+     "bbox": [
+      0.0393,
+      0.0207,
+      0.3854,
+      0.1921
+     ],
+     "kind": "heading",
+     "text": "Functional Dependencies\nMotivation",
+     "readingOrder": 1
+    },
+    {
+     "id": "p5-b2",
+     "page": 5,
+     "bbox": [
+      0.8307,
+      0.8491,
+      0.9806,
+      0.9391
+     ],
+     "kind": "paragraph",
+     "text": "Slide 5\nThorstenPapenbrock",
+     "readingOrder": 2
+    },
+    {
+     "id": "p5-b3",
+     "page": 5,
+     "bbox": [
+      0.8308,
+      0.7375,
+      0.9319,
+      0.7891
+     ],
+     "kind": "paragraph",
+     "text": "Normalization",
+     "readingOrder": 3
+    },
+    {
+     "id": "p5-b4",
+     "page": 5,
+     "bbox": [
+      0.8308,
+      0.692,
+      0.9811,
+      0.7436
+     ],
+     "kind": "paragraph",
+     "text": "Database Systems",
+     "readingOrder": 4
+    },
+    {
+     "id": "p5-b5",
+     "page": 5,
+     "bbox": [
+      0.0393,
+      0.2156,
+      0.5386,
+      0.28
+     ],
+     "kind": "list",
+     "text": "• Improvements (= Refinement of the logical design)",
+     "readingOrder": 5
+    },
+    {
+     "id": "p5-b6",
+     "page": 5,
+     "bbox": [
+      0.0875,
+      0.2732,
+      0.5597,
+      0.3814
+     ],
+     "kind": "paragraph",
+     "text": "• Improve attributes\n(z.B. break down structures make them explicit)",
+     "readingOrder": 6
+    },
+    {
+     "id": "p5-b7",
+     "page": 5,
+     "bbox": [
+      0.0875,
+      0.3752,
+      0.556,
+      0.4833
+     ],
+     "kind": "paragraph",
+     "text": "• Resolve constraints\n(z.B. split schemas to make constraints explicit)",
+     "readingOrder": 7
+    },
+    {
+     "id": "p5-b8",
+     "page": 5,
+     "bbox": [
+      0.1373,
+      0.4771,
+      0.3936,
+      0.5416
+     ],
+     "kind": "list",
+     "text": "• Functional Dependencies",
+     "readingOrder": 8
+    },
+    {
+     "id": "p5-b9",
+     "page": 5,
+     "bbox": [
+      0.1373,
+      0.5348,
+      0.4043,
+      0.5992
+     ],
+     "kind": "list",
+     "text": "• Multivalued Dependencies",
+     "readingOrder": 9
+    },
+    {
+     "id": "p5-b10",
+     "page": 5,
+     "bbox": [
+      0.0393,
+      0.6501,
+      0.3027,
+      0.7146
+     ],
+     "kind": "list",
+     "text": "• Goal: Avoid redundancies",
+     "readingOrder": 10
+    },
+    {
+     "id": "p5-b11",
+     "page": 5,
+     "bbox": [
+      0.0393,
+      0.7078,
+      0.3707,
+      0.7722
+     ],
+     "kind": "list",
+     "text": "• Approach: Split relation schemas",
+     "readingOrder": 11
+    },
+    {
+     "id": "p5-b12",
+     "page": 5,
+     "bbox": [
+      0.0875,
+      0.7654,
+      0.4469,
+      0.8299
+     ],
+     "kind": "list",
+     "text": "• Without losing semantic information",
+     "readingOrder": 12
+    },
+    {
+     "id": "p5-b13",
+     "page": 5,
+     "bbox": [
+      0.0875,
+      0.8231,
+      0.6334,
+      0.8875
+     ],
+     "kind": "list",
+     "text": "• Without losing the possibility to reconstruct the relations",
+     "readingOrder": 13
+    },
+    {
+     "id": "p5-b14",
+     "page": 5,
+     "bbox": [
+      0.0393,
+      0.8807,
+      0.3196,
+      0.9452
+     ],
+     "kind": "list",
+     "text": "• Systematics: Normalization",
+     "readingOrder": 14
+    },
+    {
+     "id": "p5-b15",
+     "page": 5,
+     "bbox": [
+      0.4441,
+      0.4614,
+      0.4542,
+      0.5498
+     ],
+     "kind": "heading",
+     "text": "!",
+     "readingOrder": 15
+    }
+   ]
+  },
+  {
+   "materialId": "m-norm",
+   "page": 6,
+   "width": 720.0,
+   "height": 405.0,
+   "imageUrl": "/v4-mock/studio/normalization-p6.webp",
+   "geometry": "block",
+   "blocks": [
+    {
+     "id": "p6-b0",
+     "page": 6,
+     "bbox": [
+      0.8307,
+      0.0571,
+      0.9879,
+      0.1531
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 0
+    },
+    {
+     "id": "p6-b1",
+     "page": 6,
+     "bbox": [
+      0.0393,
+      0.0207,
+      0.3854,
+      0.1921
+     ],
+     "kind": "heading",
+     "text": "Functional Dependencies\nDefinition",
+     "readingOrder": 1
+    },
+    {
+     "id": "p6-b2",
+     "page": 6,
+     "bbox": [
+      0.8307,
+      0.8491,
+      0.9806,
+      0.9391
+     ],
+     "kind": "paragraph",
+     "text": "Slide 6\nThorstenPapenbrock",
+     "readingOrder": 2
+    },
+    {
+     "id": "p6-b3",
+     "page": 6,
+     "bbox": [
+      0.8308,
+      0.7375,
+      0.9319,
+      0.7891
+     ],
+     "kind": "paragraph",
+     "text": "Normalization",
+     "readingOrder": 3
+    },
+    {
+     "id": "p6-b4",
+     "page": 6,
+     "bbox": [
+      0.8308,
+      0.692,
+      0.9811,
+      0.7436
+     ],
+     "kind": "paragraph",
+     "text": "Database Systems",
+     "readingOrder": 4
+    },
+    {
+     "id": "p6-b5",
+     "page": 6,
+     "bbox": [
+      0.0393,
+      0.2156,
+      0.1247,
+      0.2794
+     ],
+     "kind": "paragraph",
+     "text": "Informal:",
+     "readingOrder": 5
+    },
+    {
+     "id": "p6-b6",
+     "page": 6,
+     "bbox": [
+      0.0393,
+      0.2732,
+      0.7657,
+      0.427
+     ],
+     "kind": "paragraph",
+     "text": "• A functional dependency (FD) X → A is an expression over a relation R:\nWhenever there are two tuples in the values of the attribute set X, they also\nagree in the attribute value of A.",
+     "readingOrder": 6
+    },
+    {
+     "id": "p6-b7",
+     "page": 6,
+     "bbox": [
+      0.0393,
+      0.4208,
+      0.1098,
+      0.4846
+     ],
+     "kind": "paragraph",
+     "text": "Formal:",
+     "readingOrder": 7
+    },
+    {
+     "id": "p6-b8",
+     "page": 6,
+     "bbox": [
+      0.0393,
+      0.4785,
+      0.7606,
+      0.5901
+     ],
+     "kind": "paragraph",
+     "text": "• A functional dependency (FD) X → A in a relation schema R with a relational\ninstance r and X ⊆ R and A ∈ R is a valid expression, if and only if",
+     "readingOrder": 8
+    },
+    {
+     "id": "p6-b9",
+     "page": 6,
+     "bbox": [
+      0.0705,
+      0.5725,
+      0.4225,
+      0.6431
+     ],
+     "kind": "paragraph",
+     "text": "∀ t i , t j ∈ r : t i [X] = t j [X] ⇒ t i [A] = t j [A].",
+     "readingOrder": 9
+    },
+    {
+     "id": "p6-b10",
+     "page": 6,
+     "bbox": [
+      0.0393,
+      0.6715,
+      0.1473,
+      0.736
+     ],
+     "kind": "list",
+     "text": "• Notation",
+     "readingOrder": 10
+    },
+    {
+     "id": "p6-b11",
+     "page": 6,
+     "bbox": [
+      0.0875,
+      0.7292,
+      0.339,
+      0.7936
+     ],
+     "kind": "list",
+     "text": "• A, B, C, … are attributes",
+     "readingOrder": 11
+    },
+    {
+     "id": "p6-b12",
+     "page": 6,
+     "bbox": [
+      0.0875,
+      0.7868,
+      0.3712,
+      0.8513
+     ],
+     "kind": "list",
+     "text": "• …, X, Y, Z are attribute sets",
+     "readingOrder": 12
+    },
+    {
+     "id": "p6-b13",
+     "page": 6,
+     "bbox": [
+      0.0875,
+      0.8445,
+      0.4585,
+      0.9106
+     ],
+     "kind": "list",
+     "text": "• X → A: „X functionally determines A.“",
+     "readingOrder": 13
+    },
+    {
+     "id": "p6-b14",
+     "page": 6,
+     "bbox": [
+      0.8095,
+      0.3939,
+      0.8286,
+      0.4823
+     ],
+     "kind": "heading",
+     "text": "X",
+     "readingOrder": 14
+    },
+    {
+     "id": "p6-b15",
+     "page": 6,
+     "bbox": [
+      0.8118,
+      0.349,
+      0.8201,
+      0.4177
+     ],
+     "kind": "paragraph",
+     "text": "r",
+     "readingOrder": 15
+    },
+    {
+     "id": "p6-b16",
+     "page": 6,
+     "bbox": [
+      0.8734,
+      0.3933,
+      0.8928,
+      0.4817
+     ],
+     "kind": "heading",
+     "text": "A",
+     "readingOrder": 16
+    },
+    {
+     "id": "p6-b17",
+     "page": 6,
+     "bbox": [
+      0.833,
+      0.49,
+      0.8685,
+      0.5769
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 17
+    },
+    {
+     "id": "p6-b18",
+     "page": 6,
+     "bbox": [
+      0.833,
+      0.49,
+      0.8685,
+      0.5769
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 18
+    },
+    {
+     "id": "p6-b19",
+     "page": 6,
+     "bbox": [
+      0.8335,
+      0.487,
+      1.0,
+      1.0
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 19
+    },
+    {
+     "id": "p6-b20",
+     "page": 6,
+     "bbox": [
+      0.4446,
+      0.6818,
+      0.5824,
+      0.7462
+     ],
+     "kind": "list",
+     "text": "• Short form:",
+     "readingOrder": 20
+    },
+    {
+     "id": "p6-b21",
+     "page": 6,
+     "bbox": [
+      0.4928,
+      0.7394,
+      0.7099,
+      0.8039
+     ],
+     "kind": "paragraph",
+     "text": "• For ABC:\n{A, B, C}",
+     "readingOrder": 21
+    },
+    {
+     "id": "p6-b22",
+     "page": 6,
+     "bbox": [
+      0.4928,
+      0.7971,
+      0.7511,
+      0.8632
+     ],
+     "kind": "list",
+     "text": "• For X → A, X → B, X → C:",
+     "readingOrder": 22
+    },
+    {
+     "id": "p6-b23",
+     "page": 6,
+     "bbox": [
+      0.5426,
+      0.8561,
+      0.6763,
+      0.9221
+     ],
+     "kind": "list",
+     "text": "• X → ABC or",
+     "readingOrder": 23
+    },
+    {
+     "id": "p6-b24",
+     "page": 6,
+     "bbox": [
+      0.5426,
+      0.9151,
+      0.7702,
+      1.0
+     ],
+     "kind": "paragraph",
+     "text": "• X → Y with Y = {A, B,\nC}",
+     "readingOrder": 24
+    },
+    {
+     "id": "p6-b25",
+     "page": 6,
+     "bbox": [
+      0.6264,
+      0.173,
+      0.9882,
+      0.2678
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 25
+    },
+    {
+     "id": "p6-b26",
+     "page": 6,
+     "bbox": [
+      0.5771,
+      0.173,
+      0.9882,
+      0.2678
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 26
+    },
+    {
+     "id": "p6-b27",
+     "page": 6,
+     "bbox": [
+      0.5777,
+      0.17,
+      1.0,
+      1.0
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 27
+    },
+    {
+     "id": "p6-b28",
+     "page": 6,
+     "bbox": [
+      0.6405,
+      0.1817,
+      0.9741,
+      0.2406
+     ],
+     "kind": "paragraph",
+     "text": "German: Funktionale Abhängigkeit (FA)",
+     "readingOrder": 28
+    }
+   ]
+  },
+  {
+   "materialId": "m-norm",
+   "page": 7,
+   "width": 720.0,
+   "height": 405.0,
+   "imageUrl": "/v4-mock/studio/normalization-p7.webp",
+   "geometry": "block",
+   "blocks": [
+    {
+     "id": "p7-b0",
+     "page": 7,
+     "bbox": [
+      0.8307,
+      0.0571,
+      0.9879,
+      0.1531
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 0
+    },
+    {
+     "id": "p7-b1",
+     "page": 7,
+     "bbox": [
+      0.0393,
+      0.0207,
+      0.3854,
+      0.1921
+     ],
+     "kind": "heading",
+     "text": "Functional Dependencies\nExample",
+     "readingOrder": 1
+    },
+    {
+     "id": "p7-b2",
+     "page": 7,
+     "bbox": [
+      0.8308,
+      0.8875,
+      0.8819,
+      0.9391
+     ],
+     "kind": "paragraph",
+     "text": "Slide 7",
+     "readingOrder": 2
+    },
+    {
+     "id": "p7-b3",
+     "page": 7,
+     "bbox": [
+      0.0518,
+      0.3122,
+      0.9645,
+      0.3662
+     ],
+     "kind": "paragraph",
+     "text": "ID\nName\nEvolution\nLocation\nSex\nWeight\nSize\nType\nWeak\nStrong\nSpecial",
+     "readingOrder": 3
+    },
+    {
+     "id": "p7-b4",
+     "page": 7,
+     "bbox": [
+      0.0526,
+      0.3633,
+      0.9517,
+      0.4173
+     ],
+     "kind": "paragraph",
+     "text": "25\nPikachu\nRaichu\nViridian Forest\nm/w\n6.0\n0.4\nelectric\nground\nwater\nfalse",
+     "readingOrder": 4
+    },
+    {
+     "id": "p7-b5",
+     "page": 7,
+     "bbox": [
+      0.0526,
+      0.415,
+      0.9517,
+      0.469
+     ],
+     "kind": "paragraph",
+     "text": "27\nSandshrew\nSandslash\nRoute 4\nm/w\n12.0\n0.6\nground\ngras\nelectric\nfalse",
+     "readingOrder": 5
+    },
+    {
+     "id": "p7-b6",
+     "page": 7,
+     "bbox": [
+      0.0526,
+      0.4667,
+      0.9517,
+      0.5208
+     ],
+     "kind": "paragraph",
+     "text": "29\nNidoran\nNidorino\nSafari Zone\nm\n7.0\n0.5\npoison\nground\ngras\nfalse",
+     "readingOrder": 6
+    },
+    {
+     "id": "p7-b7",
+     "page": 7,
+     "bbox": [
+      0.0526,
+      0.5185,
+      0.9517,
+      0.5725
+     ],
+     "kind": "paragraph",
+     "text": "32\nNidoran\nNidorina\nSafari Zone\nw\n7.0\n0.4\npoison\nground\ngras\nfalse",
+     "readingOrder": 7
+    },
+    {
+     "id": "p7-b8",
+     "page": 7,
+     "bbox": [
+      0.0526,
+      0.5702,
+      0.9517,
+      0.6242
+     ],
+     "kind": "paragraph",
+     "text": "37\nVulpix\nNinetails\nRoute 7\nm/w\n9.9\n0.6\nfire\nwater\nice\nfalse",
+     "readingOrder": 8
+    },
+    {
+     "id": "p7-b9",
+     "page": 7,
+     "bbox": [
+      0.0526,
+      0.6219,
+      0.9494,
+      0.6759
+     ],
+     "kind": "paragraph",
+     "text": "38\nNinetails\nnull\nnull\nm/w\n19.9\n1.1\nfire\nwater\nice\ntrue",
+     "readingOrder": 9
+    },
+    {
+     "id": "p7-b10",
+     "page": 7,
+     "bbox": [
+      0.0526,
+      0.6736,
+      0.9517,
+      0.7277
+     ],
+     "kind": "paragraph",
+     "text": "63\nAbra\nKadabra\nRoute 24\nm/w\n19.5\n0.9\npsychic\nghost\nfighting\nfalse",
+     "readingOrder": 10
+    },
+    {
+     "id": "p7-b11",
+     "page": 7,
+     "bbox": [
+      0.0526,
+      0.7254,
+      0.9517,
+      0.7794
+     ],
+     "kind": "paragraph",
+     "text": "64\nKadabra\nAlakazam\nCerulean Cave\nm/w\n56.5\n1.3\npsychic\nghost\nfighting\nfalse",
+     "readingOrder": 11
+    },
+    {
+     "id": "p7-b12",
+     "page": 7,
+     "bbox": [
+      0.0478,
+      0.7771,
+      0.9517,
+      0.8311
+     ],
+     "kind": "paragraph",
+     "text": "130\nGyarados\nnull\nFuchsia City\nm/w\n235.0\n6.5\nwater\nelectric\nfire\nfalse",
+     "readingOrder": 12
+    },
+    {
+     "id": "p7-b13",
+     "page": 7,
+     "bbox": [
+      0.0478,
+      0.8288,
+      0.9494,
+      0.8828
+     ],
+     "kind": "paragraph",
+     "text": "150\nMewtwo\nnull\nCerulean Cave\nnull\n122.0\n2.0\npsychic\nghost\nfighting\ntrue",
+     "readingOrder": 13
+    },
+    {
+     "id": "p7-b14",
+     "page": 7,
+     "bbox": [
+      0.2863,
+      0.2374,
+      0.399,
+      0.2883
+     ],
+     "kind": "paragraph",
+     "text": "Name • Weight",
+     "readingOrder": 14
+    },
+    {
+     "id": "p7-b15",
+     "page": 7,
+     "bbox": [
+      0.4769,
+      0.9114,
+      0.6509,
+      0.9623
+     ],
+     "kind": "paragraph",
+     "text": "Location, Weight • Type",
+     "readingOrder": 15
+    },
+    {
+     "id": "p7-b16",
+     "page": 7,
+     "bbox": [
+      0.6824,
+      0.2332,
+      0.7782,
+      0.2841
+     ],
+     "kind": "paragraph",
+     "text": "Type • Weak",
+     "readingOrder": 16
+    }
+   ]
+  },
+  {
+   "materialId": "m-norm",
+   "page": 8,
+   "width": 720.0,
+   "height": 405.0,
+   "imageUrl": "/v4-mock/studio/normalization-p8.webp",
+   "geometry": "block",
+   "blocks": [
+    {
+     "id": "p8-b0",
+     "page": 8,
+     "bbox": [
+      0.8307,
+      0.0571,
+      0.9879,
+      0.1531
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 0
+    },
+    {
+     "id": "p8-b1",
+     "page": 8,
+     "bbox": [
+      0.0393,
+      0.0207,
+      0.5293,
+      0.1921
+     ],
+     "kind": "heading",
+     "text": "Functional Dependencies\nThe Splitting/Combining Rule",
+     "readingOrder": 1
+    },
+    {
+     "id": "p8-b2",
+     "page": 8,
+     "bbox": [
+      0.8307,
+      0.8491,
+      0.9806,
+      0.9391
+     ],
+     "kind": "paragraph",
+     "text": "Slide 8\nThorstenPapenbrock",
+     "readingOrder": 2
+    },
+    {
+     "id": "p8-b3",
+     "page": 8,
+     "bbox": [
+      0.8308,
+      0.7375,
+      0.9319,
+      0.7891
+     ],
+     "kind": "paragraph",
+     "text": "Normalization",
+     "readingOrder": 3
+    },
+    {
+     "id": "p8-b4",
+     "page": 8,
+     "bbox": [
+      0.8308,
+      0.692,
+      0.9811,
+      0.7436
+     ],
+     "kind": "paragraph",
+     "text": "Database Systems",
+     "readingOrder": 4
+    },
+    {
+     "id": "p8-b5",
+     "page": 8,
+     "bbox": [
+      0.0393,
+      0.2137,
+      0.1605,
+      0.2775
+     ],
+     "kind": "paragraph",
+     "text": "Splitting Rule",
+     "readingOrder": 5
+    },
+    {
+     "id": "p8-b6",
+     "page": 8,
+     "bbox": [
+      0.0591,
+      0.2636,
+      0.3472,
+      0.383
+     ],
+     "kind": "paragraph",
+     "text": "• A 1 ,A 2 ,…A n → B 1 ,B 2 ,…,B m\n• A 1 ,A 2 ,…A n → B i\nfor i=1,…,m",
+     "readingOrder": 6
+    },
+    {
+     "id": "p8-b7",
+     "page": 8,
+     "bbox": [
+      0.0591,
+      0.415,
+      0.2013,
+      0.4789
+     ],
+     "kind": "paragraph",
+     "text": "Combining Rule",
+     "readingOrder": 7
+    },
+    {
+     "id": "p8-b8",
+     "page": 8,
+     "bbox": [
+      0.0591,
+      0.4649,
+      0.3472,
+      0.5339
+     ],
+     "kind": "paragraph",
+     "text": "• A 1 ,A 2 ,…A n → B i\nfor i=1,…,m",
+     "readingOrder": 8
+    },
+    {
+     "id": "p8-b9",
+     "page": 8,
+     "bbox": [
+      0.0591,
+      0.5131,
+      0.3058,
+      0.5844
+     ],
+     "kind": "list",
+     "text": "• A 1 ,A 2 ,…A n → B 1 ,B 2 ,…,B m",
+     "readingOrder": 9
+    },
+    {
+     "id": "p8-b10",
+     "page": 8,
+     "bbox": [
+      0.0591,
+      0.6164,
+      0.1458,
+      0.6802
+     ],
+     "kind": "paragraph",
+     "text": "Examples",
+     "readingOrder": 10
+    },
+    {
+     "id": "p8-b11",
+     "page": 8,
+     "bbox": [
+      0.0591,
+      0.6663,
+      0.2723,
+      0.7308
+     ],
+     "kind": "list",
+     "text": "• Title, Year → Length",
+     "readingOrder": 11
+    },
+    {
+     "id": "p8-b12",
+     "page": 8,
+     "bbox": [
+      0.0591,
+      0.7168,
+      0.2541,
+      0.7813
+     ],
+     "kind": "list",
+     "text": "• Title, Year → Type",
+     "readingOrder": 12
+    },
+    {
+     "id": "p8-b13",
+     "page": 8,
+     "bbox": [
+      0.0591,
+      0.7673,
+      0.3209,
+      0.8318
+     ],
+     "kind": "list",
+     "text": "• Title, Year → StudioName",
+     "readingOrder": 13
+    },
+    {
+     "id": "p8-b14",
+     "page": 8,
+     "bbox": [
+      0.0591,
+      0.8155,
+      0.4484,
+      0.8823
+     ],
+     "kind": "list",
+     "text": "• Title, Year → Length, Type, StudioName",
+     "readingOrder": 14
+    },
+    {
+     "id": "p8-b15",
+     "page": 8,
+     "bbox": [
+      0.4507,
+      0.6057,
+      0.8284,
+      0.6695
+     ],
+     "kind": "paragraph",
+     "text": "The splitting rule only on right-hand side!",
+     "readingOrder": 15
+    },
+    {
+     "id": "p8-b16",
+     "page": 8,
+     "bbox": [
+      0.4706,
+      0.6556,
+      0.6838,
+      0.72
+     ],
+     "kind": "list",
+     "text": "• Title, Year → Length",
+     "readingOrder": 16
+    },
+    {
+     "id": "p8-b17",
+     "page": 8,
+     "bbox": [
+      0.5186,
+      0.7061,
+      0.6731,
+      0.7721
+     ],
+     "kind": "paragraph",
+     "text": "⇏ Year → Length",
+     "readingOrder": 17
+    },
+    {
+     "id": "p8-b18",
+     "page": 8,
+     "bbox": [
+      0.5186,
+      0.7571,
+      0.6716,
+      0.8232
+     ],
+     "kind": "paragraph",
+     "text": "⇏ Title → Length",
+     "readingOrder": 18
+    }
+   ]
+  },
+  {
+   "materialId": "m-norm",
+   "page": 9,
+   "width": 720.0,
+   "height": 405.0,
+   "imageUrl": "/v4-mock/studio/normalization-p9.webp",
+   "geometry": "block",
+   "blocks": [
+    {
+     "id": "p9-b0",
+     "page": 9,
+     "bbox": [
+      0.8307,
+      0.0571,
+      0.9879,
+      0.1531
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 0
+    },
+    {
+     "id": "p9-b1",
+     "page": 9,
+     "bbox": [
+      0.0393,
+      0.2156,
+      0.1336,
+      0.2794
+     ],
+     "kind": "paragraph",
+     "text": "Reflexivity",
+     "readingOrder": 1
+    },
+    {
+     "id": "p9-b2",
+     "page": 9,
+     "bbox": [
+      0.0393,
+      0.2732,
+      0.2001,
+      0.3377
+     ],
+     "kind": "list",
+     "text": "• Y ⊆ X ⇒ X → Y",
+     "readingOrder": 2
+    },
+    {
+     "id": "p9-b3",
+     "page": 9,
+     "bbox": [
+      0.0393,
+      0.335,
+      0.1555,
+      0.3995
+     ],
+     "kind": "list",
+     "text": "• Triviality!",
+     "readingOrder": 3
+    },
+    {
+     "id": "p9-b4",
+     "page": 9,
+     "bbox": [
+      0.0393,
+      0.4503,
+      0.1663,
+      0.5142
+     ],
+     "kind": "paragraph",
+     "text": "Augmentation",
+     "readingOrder": 4
+    },
+    {
+     "id": "p9-b5",
+     "page": 9,
+     "bbox": [
+      0.0393,
+      0.508,
+      0.2308,
+      0.5725
+     ],
+     "kind": "list",
+     "text": "• X → Y ⇒ XZ → YZ",
+     "readingOrder": 5
+    },
+    {
+     "id": "p9-b6",
+     "page": 9,
+     "bbox": [
+      0.0393,
+      0.5698,
+      0.1702,
+      0.6343
+     ],
+     "kind": "list",
+     "text": "• Minimality!",
+     "readingOrder": 6
+    },
+    {
+     "id": "p9-b7",
+     "page": 9,
+     "bbox": [
+      0.0393,
+      0.6851,
+      0.1401,
+      0.749
+     ],
+     "kind": "paragraph",
+     "text": "Transitivity",
+     "readingOrder": 7
+    },
+    {
+     "id": "p9-b8",
+     "page": 9,
+     "bbox": [
+      0.0393,
+      0.7428,
+      0.2792,
+      0.8072
+     ],
+     "kind": "list",
+     "text": "• X → Y ∧ Y → Z ⇒ X → Z",
+     "readingOrder": 8
+    },
+    {
+     "id": "p9-b9",
+     "page": 9,
+     "bbox": [
+      0.0393,
+      0.8046,
+      0.2398,
+      0.869
+     ],
+     "kind": "list",
+     "text": "• Closure Algorithm!",
+     "readingOrder": 9
+    },
+    {
+     "id": "p9-b10",
+     "page": 9,
+     "bbox": [
+      0.0393,
+      0.0207,
+      0.3854,
+      0.1921
+     ],
+     "kind": "heading",
+     "text": "Functional Dependencies\nAxioms",
+     "readingOrder": 10
+    },
+    {
+     "id": "p9-b11",
+     "page": 9,
+     "bbox": [
+      0.8307,
+      0.8491,
+      0.9806,
+      0.9391
+     ],
+     "kind": "paragraph",
+     "text": "Slide 9\nThorstenPapenbrock",
+     "readingOrder": 11
+    },
+    {
+     "id": "p9-b12",
+     "page": 9,
+     "bbox": [
+      0.8308,
+      0.7375,
+      0.9319,
+      0.7891
+     ],
+     "kind": "paragraph",
+     "text": "Normalization",
+     "readingOrder": 12
+    },
+    {
+     "id": "p9-b13",
+     "page": 9,
+     "bbox": [
+      0.8308,
+      0.692,
+      0.9811,
+      0.7436
+     ],
+     "kind": "paragraph",
+     "text": "Database Systems",
+     "readingOrder": 13
+    },
+    {
+     "id": "p9-b14",
+     "page": 9,
+     "bbox": [
+      0.5172,
+      0.041,
+      0.8094,
+      0.1823
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 14
+    },
+    {
+     "id": "p9-b15",
+     "page": 9,
+     "bbox": [
+      0.4722,
+      0.041,
+      0.8094,
+      0.1823
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 15
+    },
+    {
+     "id": "p9-b16",
+     "page": 9,
+     "bbox": [
+      0.4728,
+      0.038,
+      1.0,
+      1.0
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 16
+    },
+    {
+     "id": "p9-b17",
+     "page": 9,
+     "bbox": [
+      0.5454,
+      0.0197,
+      0.7811,
+      0.1853
+     ],
+     "kind": "paragraph",
+     "text": "Axioms are derivation rules ,\nwith which further FDs are\nderived from the previous\nones.",
+     "readingOrder": 17
+    },
+    {
+     "id": "p9-b18",
+     "page": 9,
+     "bbox": [
+      0.6492,
+      0.237,
+      0.9885,
+      0.6863
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 18
+    },
+    {
+     "id": "p9-b19",
+     "page": 9,
+     "bbox": [
+      0.6093,
+      0.237,
+      0.9885,
+      0.6863
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 19
+    },
+    {
+     "id": "p9-b20",
+     "page": 9,
+     "bbox": [
+      0.6098,
+      0.234,
+      1.0,
+      1.0
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 20
+    },
+    {
+     "id": "p9-b21",
+     "page": 9,
+     "bbox": [
+      0.6614,
+      0.2519,
+      0.9562,
+      0.653
+     ],
+     "kind": "paragraph",
+     "text": "The following properties are known\nas Armstrong Axioms :\n• Sound\nRules don’t derive non-derivable\nFDs.\n• Complete\nRules can generate all derivable\nFDs.\n• Minimal\nNo rules can be canceled out.",
+     "readingOrder": 21
+    }
+   ]
+  },
+  {
+   "materialId": "m-norm",
+   "page": 10,
+   "width": 720.0,
+   "height": 405.0,
+   "imageUrl": "/v4-mock/studio/normalization-p10.webp",
+   "geometry": "block",
+   "blocks": [
+    {
+     "id": "p10-b0",
+     "page": 10,
+     "bbox": [
+      0.8307,
+      0.0571,
+      0.9879,
+      0.1531
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 0
+    },
+    {
+     "id": "p10-b1",
+     "page": 10,
+     "bbox": [
+      0.0393,
+      0.2156,
+      0.1336,
+      0.2794
+     ],
+     "kind": "paragraph",
+     "text": "Reflexivity",
+     "readingOrder": 1
+    },
+    {
+     "id": "p10-b2",
+     "page": 10,
+     "bbox": [
+      0.0393,
+      0.2732,
+      0.2001,
+      0.3377
+     ],
+     "kind": "list",
+     "text": "• Y ⊆ X ⇒ X → Y",
+     "readingOrder": 2
+    },
+    {
+     "id": "p10-b3",
+     "page": 10,
+     "bbox": [
+      0.0393,
+      0.335,
+      0.1555,
+      0.3995
+     ],
+     "kind": "list",
+     "text": "• Triviality!",
+     "readingOrder": 3
+    },
+    {
+     "id": "p10-b4",
+     "page": 10,
+     "bbox": [
+      0.0393,
+      0.4503,
+      0.1663,
+      0.5142
+     ],
+     "kind": "paragraph",
+     "text": "Augmentation",
+     "readingOrder": 4
+    },
+    {
+     "id": "p10-b5",
+     "page": 10,
+     "bbox": [
+      0.0393,
+      0.508,
+      0.2308,
+      0.5725
+     ],
+     "kind": "list",
+     "text": "• X → Y ⇒ XZ → YZ",
+     "readingOrder": 5
+    },
+    {
+     "id": "p10-b6",
+     "page": 10,
+     "bbox": [
+      0.0393,
+      0.5698,
+      0.1702,
+      0.6343
+     ],
+     "kind": "list",
+     "text": "• Minimality!",
+     "readingOrder": 6
+    },
+    {
+     "id": "p10-b7",
+     "page": 10,
+     "bbox": [
+      0.0393,
+      0.6851,
+      0.1401,
+      0.749
+     ],
+     "kind": "paragraph",
+     "text": "Transitivity",
+     "readingOrder": 7
+    },
+    {
+     "id": "p10-b8",
+     "page": 10,
+     "bbox": [
+      0.0393,
+      0.7428,
+      0.2792,
+      0.8072
+     ],
+     "kind": "list",
+     "text": "• X → Y ∧ Y → Z ⇒ X → Z",
+     "readingOrder": 8
+    },
+    {
+     "id": "p10-b9",
+     "page": 10,
+     "bbox": [
+      0.0393,
+      0.8046,
+      0.2398,
+      0.869
+     ],
+     "kind": "list",
+     "text": "• Closure Algorithm!",
+     "readingOrder": 9
+    },
+    {
+     "id": "p10-b10",
+     "page": 10,
+     "bbox": [
+      0.0393,
+      0.0207,
+      0.3854,
+      0.1921
+     ],
+     "kind": "heading",
+     "text": "Functional Dependencies\nAxioms",
+     "readingOrder": 10
+    },
+    {
+     "id": "p10-b11",
+     "page": 10,
+     "bbox": [
+      0.8307,
+      0.8491,
+      0.9806,
+      0.9391
+     ],
+     "kind": "paragraph",
+     "text": "Slide 10\nThorstenPapenbrock",
+     "readingOrder": 11
+    },
+    {
+     "id": "p10-b12",
+     "page": 10,
+     "bbox": [
+      0.8308,
+      0.7375,
+      0.9319,
+      0.7891
+     ],
+     "kind": "paragraph",
+     "text": "Normalization",
+     "readingOrder": 12
+    },
+    {
+     "id": "p10-b13",
+     "page": 10,
+     "bbox": [
+      0.8308,
+      0.692,
+      0.9811,
+      0.7436
+     ],
+     "kind": "paragraph",
+     "text": "Database Systems",
+     "readingOrder": 13
+    },
+    {
+     "id": "p10-b14",
+     "page": 10,
+     "bbox": [
+      0.3579,
+      0.237,
+      0.8094,
+      0.9382
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 14
+    },
+    {
+     "id": "p10-b15",
+     "page": 10,
+     "bbox": [
+      0.2428,
+      0.237,
+      0.8094,
+      0.9382
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 15
+    },
+    {
+     "id": "p10-b16",
+     "page": 10,
+     "bbox": [
+      0.2435,
+      0.234,
+      1.0,
+      1.0
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 16
+    },
+    {
+     "id": "p10-b17",
+     "page": 10,
+     "bbox": [
+      0.3701,
+      0.2892,
+      0.6287,
+      0.3481
+     ],
+     "kind": "paragraph",
+     "text": "Commutativity does not apply!",
+     "readingOrder": 17
+    },
+    {
+     "id": "p10-b18",
+     "page": 10,
+     "bbox": [
+      0.3701,
+      0.3751,
+      0.4442,
+      0.4776
+     ],
+     "kind": "paragraph",
+     "text": "Proof\n• Given:",
+     "readingOrder": 18
+    },
+    {
+     "id": "p10-b19",
+     "page": 10,
+     "bbox": [
+      0.3701,
+      0.4611,
+      0.5577,
+      0.5641
+     ],
+     "kind": "list",
+     "text": "• X → Y\n• By counterexample:",
+     "readingOrder": 19
+    },
+    {
+     "id": "p10-b20",
+     "page": 10,
+     "bbox": [
+      0.4201,
+      0.7623,
+      0.4856,
+      0.8218
+     ],
+     "kind": "list",
+     "text": "• Y ↛ X",
+     "readingOrder": 20
+    },
+    {
+     "id": "p10-b21",
+     "page": 10,
+     "bbox": [
+      0.3701,
+      0.8086,
+      0.4377,
+      0.8681
+     ],
+     "kind": "list",
+     "text": "• q.e.d.",
+     "readingOrder": 21
+    },
+    {
+     "id": "p10-b22",
+     "page": 10,
+     "bbox": [
+      0.6364,
+      0.51,
+      0.7531,
+      0.5788
+     ],
+     "kind": "paragraph",
+     "text": "X\nY\nZ",
+     "readingOrder": 22
+    },
+    {
+     "id": "p10-b23",
+     "page": 10,
+     "bbox": [
+      0.634,
+      0.5821,
+      0.7554,
+      0.6509
+     ],
+     "kind": "paragraph",
+     "text": "a 1\nb 1\nc 1",
+     "readingOrder": 23
+    },
+    {
+     "id": "p10-b24",
+     "page": 10,
+     "bbox": [
+      0.634,
+      0.6542,
+      0.7554,
+      0.723
+     ],
+     "kind": "paragraph",
+     "text": "a 2\nb 1\nc 1",
+     "readingOrder": 24
+    },
+    {
+     "id": "p10-b25",
+     "page": 10,
+     "bbox": [
+      0.634,
+      0.7263,
+      0.7554,
+      0.795
+     ],
+     "kind": "paragraph",
+     "text": "a 3\nb 2\nc 1",
+     "readingOrder": 25
+    },
+    {
+     "id": "p10-b26",
+     "page": 10,
+     "bbox": [
+      0.634,
+      0.7984,
+      0.7554,
+      0.8671
+     ],
+     "kind": "paragraph",
+     "text": "a 4\nb 1\nc 1",
+     "readingOrder": 26
+    }
+   ]
+  },
+  {
+   "materialId": "m-norm",
+   "page": 11,
+   "width": 720.0,
+   "height": 405.0,
+   "imageUrl": "/v4-mock/studio/normalization-p11.webp",
+   "geometry": "block",
+   "blocks": [
+    {
+     "id": "p11-b0",
+     "page": 11,
+     "bbox": [
+      0.8307,
+      0.0571,
+      0.9879,
+      0.1531
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 0
+    },
+    {
+     "id": "p11-b1",
+     "page": 11,
+     "bbox": [
+      0.0393,
+      0.2156,
+      0.1336,
+      0.2794
+     ],
+     "kind": "paragraph",
+     "text": "Reflexivity",
+     "readingOrder": 1
+    },
+    {
+     "id": "p11-b2",
+     "page": 11,
+     "bbox": [
+      0.0393,
+      0.2732,
+      0.2001,
+      0.3377
+     ],
+     "kind": "list",
+     "text": "• Y ⊆ X ⇒ X → Y",
+     "readingOrder": 2
+    },
+    {
+     "id": "p11-b3",
+     "page": 11,
+     "bbox": [
+      0.0393,
+      0.335,
+      0.1555,
+      0.3995
+     ],
+     "kind": "list",
+     "text": "• Triviality!",
+     "readingOrder": 3
+    },
+    {
+     "id": "p11-b4",
+     "page": 11,
+     "bbox": [
+      0.0393,
+      0.4503,
+      0.1663,
+      0.5142
+     ],
+     "kind": "paragraph",
+     "text": "Augmentation",
+     "readingOrder": 4
+    },
+    {
+     "id": "p11-b5",
+     "page": 11,
+     "bbox": [
+      0.0393,
+      0.508,
+      0.2308,
+      0.5725
+     ],
+     "kind": "list",
+     "text": "• X → Y ⇒ XZ → YZ",
+     "readingOrder": 5
+    },
+    {
+     "id": "p11-b6",
+     "page": 11,
+     "bbox": [
+      0.0393,
+      0.5698,
+      0.1702,
+      0.6343
+     ],
+     "kind": "list",
+     "text": "• Minimality!",
+     "readingOrder": 6
+    },
+    {
+     "id": "p11-b7",
+     "page": 11,
+     "bbox": [
+      0.0393,
+      0.6851,
+      0.1401,
+      0.749
+     ],
+     "kind": "paragraph",
+     "text": "Transitivity",
+     "readingOrder": 7
+    },
+    {
+     "id": "p11-b8",
+     "page": 11,
+     "bbox": [
+      0.0393,
+      0.7428,
+      0.2792,
+      0.8072
+     ],
+     "kind": "list",
+     "text": "• X → Y ∧ Y → Z ⇒ X → Z",
+     "readingOrder": 8
+    },
+    {
+     "id": "p11-b9",
+     "page": 11,
+     "bbox": [
+      0.0393,
+      0.8046,
+      0.2398,
+      0.869
+     ],
+     "kind": "list",
+     "text": "• Closure Algorithm!",
+     "readingOrder": 9
+    },
+    {
+     "id": "p11-b10",
+     "page": 11,
+     "bbox": [
+      0.0393,
+      0.0207,
+      0.3854,
+      0.1921
+     ],
+     "kind": "heading",
+     "text": "Functional Dependencies\nAxioms",
+     "readingOrder": 10
+    },
+    {
+     "id": "p11-b11",
+     "page": 11,
+     "bbox": [
+      0.8307,
+      0.8491,
+      0.9806,
+      0.9391
+     ],
+     "kind": "paragraph",
+     "text": "Slide 11\nThorstenPapenbrock",
+     "readingOrder": 11
+    },
+    {
+     "id": "p11-b12",
+     "page": 11,
+     "bbox": [
+      0.8308,
+      0.7375,
+      0.9319,
+      0.7891
+     ],
+     "kind": "paragraph",
+     "text": "Normalization",
+     "readingOrder": 12
+    },
+    {
+     "id": "p11-b13",
+     "page": 11,
+     "bbox": [
+      0.8308,
+      0.692,
+      0.9811,
+      0.7436
+     ],
+     "kind": "paragraph",
+     "text": "Database Systems",
+     "readingOrder": 13
+    },
+    {
+     "id": "p11-b14",
+     "page": 11,
+     "bbox": [
+      0.3578,
+      0.237,
+      0.8094,
+      0.9382
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 14
+    },
+    {
+     "id": "p11-b15",
+     "page": 11,
+     "bbox": [
+      0.2867,
+      0.237,
+      0.8094,
+      0.9382
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 15
+    },
+    {
+     "id": "p11-b16",
+     "page": 11,
+     "bbox": [
+      0.2873,
+      0.234,
+      1.0,
+      1.0
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 16
+    },
+    {
+     "id": "p11-b17",
+     "page": 11,
+     "bbox": [
+      0.3701,
+      0.2973,
+      0.4442,
+      0.3997
+     ],
+     "kind": "paragraph",
+     "text": "Proof\n• Given:",
+     "readingOrder": 17
+    },
+    {
+     "id": "p11-b18",
+     "page": 11,
+     "bbox": [
+      0.4201,
+      0.3832,
+      0.5552,
+      0.4427
+     ],
+     "kind": "list",
+     "text": "• X → Y ∧ Y → Z",
+     "readingOrder": 18
+    },
+    {
+     "id": "p11-b19",
+     "page": 11,
+     "bbox": [
+      0.3701,
+      0.4295,
+      0.4655,
+      0.489
+     ],
+     "kind": "list",
+     "text": "• To show:",
+     "readingOrder": 19
+    },
+    {
+     "id": "p11-b20",
+     "page": 11,
+     "bbox": [
+      0.3701,
+      0.4724,
+      0.754,
+      0.6105
+     ],
+     "kind": "paragraph",
+     "text": "• Any two tuples, that agree in X, must\nagree in Z as well.\n• Select:",
+     "readingOrder": 20
+    },
+    {
+     "id": "p11-b21",
+     "page": 11,
+     "bbox": [
+      0.3701,
+      0.5939,
+      0.7063,
+      0.7675
+     ],
+     "kind": "paragraph",
+     "text": "• Any two tuples,\nthat agree in X:\n(x, y 1 , z 1 ) and (x, y 2 , z 2 )\n• Since X → Y ⇒ (x, y, z 1 ) and (x, y, z 2 )",
+     "readingOrder": 21
+    },
+    {
+     "id": "p11-b22",
+     "page": 11,
+     "bbox": [
+      0.3701,
+      0.7543,
+      0.7204,
+      0.8138
+     ],
+     "kind": "list",
+     "text": "• Since Y → Z ⇒ (x, y 1 , z 1 ) and (x, y 2 , z 2 )",
+     "readingOrder": 22
+    },
+    {
+     "id": "p11-b23",
+     "page": 11,
+     "bbox": [
+      0.3701,
+      0.8006,
+      0.4377,
+      0.8601
+     ],
+     "kind": "list",
+     "text": "• q.e.d.",
+     "readingOrder": 23
+    }
+   ]
+  },
+  {
+   "materialId": "m-norm",
+   "page": 12,
+   "width": 720.0,
+   "height": 405.0,
+   "imageUrl": "/v4-mock/studio/normalization-p12.webp",
+   "geometry": "block",
+   "blocks": [
+    {
+     "id": "p12-b0",
+     "page": 12,
+     "bbox": [
+      0.8307,
+      0.0571,
+      0.9879,
+      0.1531
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 0
+    },
+    {
+     "id": "p12-b1",
+     "page": 12,
+     "bbox": [
+      0.0393,
+      0.2156,
+      0.1336,
+      0.2794
+     ],
+     "kind": "paragraph",
+     "text": "Reflexivity",
+     "readingOrder": 1
+    },
+    {
+     "id": "p12-b2",
+     "page": 12,
+     "bbox": [
+      0.0393,
+      0.2732,
+      0.2001,
+      0.3377
+     ],
+     "kind": "list",
+     "text": "• Y ⊆ X ⇒ X → Y",
+     "readingOrder": 2
+    },
+    {
+     "id": "p12-b3",
+     "page": 12,
+     "bbox": [
+      0.0393,
+      0.335,
+      0.1555,
+      0.3995
+     ],
+     "kind": "list",
+     "text": "• Triviality!",
+     "readingOrder": 3
+    },
+    {
+     "id": "p12-b4",
+     "page": 12,
+     "bbox": [
+      0.0393,
+      0.4503,
+      0.1663,
+      0.5142
+     ],
+     "kind": "paragraph",
+     "text": "Augmentation",
+     "readingOrder": 4
+    },
+    {
+     "id": "p12-b5",
+     "page": 12,
+     "bbox": [
+      0.0393,
+      0.508,
+      0.2308,
+      0.5725
+     ],
+     "kind": "list",
+     "text": "• X → Y ⇒ XZ → YZ",
+     "readingOrder": 5
+    },
+    {
+     "id": "p12-b6",
+     "page": 12,
+     "bbox": [
+      0.0393,
+      0.5698,
+      0.1702,
+      0.6343
+     ],
+     "kind": "list",
+     "text": "• Minimality!",
+     "readingOrder": 6
+    },
+    {
+     "id": "p12-b7",
+     "page": 12,
+     "bbox": [
+      0.0393,
+      0.6851,
+      0.1401,
+      0.749
+     ],
+     "kind": "paragraph",
+     "text": "Transitivity",
+     "readingOrder": 7
+    },
+    {
+     "id": "p12-b8",
+     "page": 12,
+     "bbox": [
+      0.0393,
+      0.7428,
+      0.2792,
+      0.8072
+     ],
+     "kind": "list",
+     "text": "• X → Y ∧ Y → Z ⇒ X → Z",
+     "readingOrder": 8
+    },
+    {
+     "id": "p12-b9",
+     "page": 12,
+     "bbox": [
+      0.0393,
+      0.8046,
+      0.2398,
+      0.869
+     ],
+     "kind": "list",
+     "text": "• Closure Algorithm!",
+     "readingOrder": 9
+    },
+    {
+     "id": "p12-b10",
+     "page": 12,
+     "bbox": [
+      0.0393,
+      0.0207,
+      0.3854,
+      0.1921
+     ],
+     "kind": "heading",
+     "text": "Functional Dependencies\nAxioms",
+     "readingOrder": 10
+    },
+    {
+     "id": "p12-b11",
+     "page": 12,
+     "bbox": [
+      0.8307,
+      0.8491,
+      0.9806,
+      0.9391
+     ],
+     "kind": "paragraph",
+     "text": "Slide 12\nThorstenPapenbrock",
+     "readingOrder": 11
+    },
+    {
+     "id": "p12-b12",
+     "page": 12,
+     "bbox": [
+      0.8308,
+      0.7375,
+      0.9319,
+      0.7891
+     ],
+     "kind": "paragraph",
+     "text": "Normalization",
+     "readingOrder": 12
+    },
+    {
+     "id": "p12-b13",
+     "page": 12,
+     "bbox": [
+      0.8308,
+      0.692,
+      0.9811,
+      0.7436
+     ],
+     "kind": "paragraph",
+     "text": "Database Systems",
+     "readingOrder": 13
+    },
+    {
+     "id": "p12-b14",
+     "page": 12,
+     "bbox": [
+      0.437,
+      0.2156,
+      0.5123,
+      0.2794
+     ],
+     "kind": "paragraph",
+     "text": "Splitting",
+     "readingOrder": 14
+    },
+    {
+     "id": "p12-b15",
+     "page": 12,
+     "bbox": [
+      0.437,
+      0.2732,
+      0.6126,
+      0.3377
+     ],
+     "kind": "list",
+     "text": "• X → YZ ⇒ X → Y",
+     "readingOrder": 15
+    },
+    {
+     "id": "p12-b16",
+     "page": 12,
+     "bbox": [
+      0.437,
+      0.335,
+      0.516,
+      0.3995
+     ],
+     "kind": "list",
+     "text": "• Split!",
+     "readingOrder": 16
+    },
+    {
+     "id": "p12-b17",
+     "page": 12,
+     "bbox": [
+      0.437,
+      0.4503,
+      0.5333,
+      0.5142
+     ],
+     "kind": "paragraph",
+     "text": "Combining",
+     "readingOrder": 17
+    },
+    {
+     "id": "p12-b18",
+     "page": 12,
+     "bbox": [
+      0.437,
+      0.508,
+      0.6875,
+      0.5725
+     ],
+     "kind": "list",
+     "text": "• X → Y ∧ X → Z ⇒ X → YZ",
+     "readingOrder": 18
+    },
+    {
+     "id": "p12-b19",
+     "page": 12,
+     "bbox": [
+      0.437,
+      0.5698,
+      0.5548,
+      0.6343
+     ],
+     "kind": "list",
+     "text": "• Combine!",
+     "readingOrder": 19
+    },
+    {
+     "id": "p12-b20",
+     "page": 12,
+     "bbox": [
+      0.437,
+      0.6851,
+      0.5985,
+      0.749
+     ],
+     "kind": "paragraph",
+     "text": "Pseudotransitivity",
+     "readingOrder": 20
+    },
+    {
+     "id": "p12-b21",
+     "page": 12,
+     "bbox": [
+      0.437,
+      0.7428,
+      0.7127,
+      0.8072
+     ],
+     "kind": "list",
+     "text": "• X → Y ∧ WY → Z ⇒ WX → Z",
+     "readingOrder": 21
+    },
+    {
+     "id": "p12-b22",
+     "page": 12,
+     "bbox": [
+      0.437,
+      0.8046,
+      0.6376,
+      0.869
+     ],
+     "kind": "list",
+     "text": "• Closure Algorithm!",
+     "readingOrder": 22
+    },
+    {
+     "id": "p12-b23",
+     "page": 12,
+     "bbox": [
+      0.7371,
+      0.6693,
+      0.992,
+      0.8561
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 23
+    },
+    {
+     "id": "p12-b24",
+     "page": 12,
+     "bbox": [
+      0.7209,
+      0.6693,
+      0.992,
+      0.8561
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 24
+    },
+    {
+     "id": "p12-b25",
+     "page": 12,
+     "bbox": [
+      0.7214,
+      0.6663,
+      1.0,
+      1.0
+     ],
+     "kind": "figure",
+     "text": "",
+     "readingOrder": 25
+    },
+    {
+     "id": "p12-b26",
+     "page": 12,
+     "bbox": [
+      0.7494,
+      0.6736,
+      0.9779,
+      0.8322
+     ],
+     "kind": "paragraph",
+     "text": "Derive:\nX → Y ∧ WY → Z\n⇒ WX → WY ∧ WY → Z\n(Akk.)\n⇒ WX → Z\n(Tran.)",
+     "readingOrder": 26
+    }
+   ]
+  }
+ ],
+ "blocks": [
+  {
+   "id": "c-p1-b2",
+   "origin": "extracted",
+   "markdown": "Database Systems Normalization Thorsten Papenbrock",
+   "source": {
+    "materialId": "m-norm",
+    "page": 1,
+    "blockIds": [
+     "p1-b2"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p2-b2",
+   "origin": "extracted",
+   "markdown": "### Normalization",
+   "source": {
+    "materialId": "m-norm",
+    "page": 2,
+    "blockIds": [
+     "p2-b2"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p2-b3",
+   "origin": "extracted",
+   "markdown": "1. Requirement Analysis",
+   "source": {
+    "materialId": "m-norm",
+    "page": 2,
+    "blockIds": [
+     "p2-b3"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p2-b4",
+   "origin": "extracted",
+   "markdown": "- Informal description",
+   "source": {
+    "materialId": "m-norm",
+    "page": 2,
+    "blockIds": [
+     "p2-b4"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p2-b5",
+   "origin": "extracted",
+   "markdown": "2. Conceptional Design",
+   "source": {
+    "materialId": "m-norm",
+    "page": 2,
+    "blockIds": [
+     "p2-b5"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p2-b6",
+   "origin": "extracted",
+   "markdown": "- Entity-Relationship Diagram",
+   "source": {
+    "materialId": "m-norm",
+    "page": 2,
+    "blockIds": [
+     "p2-b6"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p2-b7",
+   "origin": "extracted",
+   "markdown": "3. Distribution Design",
+   "source": {
+    "materialId": "m-norm",
+    "page": 2,
+    "blockIds": [
+     "p2-b7"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p2-b8",
+   "origin": "extracted",
+   "markdown": "- Partitioning",
+   "source": {
+    "materialId": "m-norm",
+    "page": 2,
+    "blockIds": [
+     "p2-b8"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p2-b9",
+   "origin": "extracted",
+   "markdown": "4. Logical Design",
+   "source": {
+    "materialId": "m-norm",
+    "page": 2,
+    "blockIds": [
+     "p2-b9"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p2-b10",
+   "origin": "extracted",
+   "markdown": "- Relation schemas",
+   "source": {
+    "materialId": "m-norm",
+    "page": 2,
+    "blockIds": [
+     "p2-b10"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p2-b11",
+   "origin": "extracted",
+   "markdown": "5. Data Definition",
+   "source": {
+    "materialId": "m-norm",
+    "page": 2,
+    "blockIds": [
+     "p2-b11"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p2-b12",
+   "origin": "extracted",
+   "markdown": "- SQL DDL",
+   "source": {
+    "materialId": "m-norm",
+    "page": 2,
+    "blockIds": [
+     "p2-b12"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p2-b13",
+   "origin": "extracted",
+   "markdown": "6. Physical Design",
+   "source": {
+    "materialId": "m-norm",
+    "page": 2,
+    "blockIds": [
+     "p2-b13"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p2-b14",
+   "origin": "extracted",
+   "markdown": "- Parameters and Indices",
+   "source": {
+    "materialId": "m-norm",
+    "page": 2,
+    "blockIds": [
+     "p2-b14"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p2-b15",
+   "origin": "extracted",
+   "markdown": "7. Implementation and Maintenance",
+   "source": {
+    "materialId": "m-norm",
+    "page": 2,
+    "blockIds": [
+     "p2-b15"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p3-b2",
+   "origin": "extracted",
+   "markdown": "### Normalization",
+   "source": {
+    "materialId": "m-norm",
+    "page": 3,
+    "blockIds": [
+     "p3-b2"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p3-b3",
+   "origin": "extracted",
+   "markdown": "- Functional Dependencies",
+   "source": {
+    "materialId": "m-norm",
+    "page": 3,
+    "blockIds": [
+     "p3-b3"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p3-b4",
+   "origin": "extracted",
+   "markdown": "- Closure Algorithm",
+   "source": {
+    "materialId": "m-norm",
+    "page": 3,
+    "blockIds": [
+     "p3-b4"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p3-b5",
+   "origin": "extracted",
+   "markdown": "- Boyce-Codd Normal Form",
+   "source": {
+    "materialId": "m-norm",
+    "page": 3,
+    "blockIds": [
+     "p3-b5"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p3-b6",
+   "origin": "extracted",
+   "markdown": "- Normal Forms",
+   "source": {
+    "materialId": "m-norm",
+    "page": 3,
+    "blockIds": [
+     "p3-b6"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p4-b1",
+   "origin": "extracted",
+   "markdown": "### Functional Dependencies Design Process: Existing Steps so far",
+   "source": {
+    "materialId": "m-norm",
+    "page": 4,
+    "blockIds": [
+     "p4-b1"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p4-b2",
+   "origin": "extracted",
+   "markdown": "Slide 4 ThorstenPapenbrock",
+   "source": {
+    "materialId": "m-norm",
+    "page": 4,
+    "blockIds": [
+     "p4-b2"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p4-b3",
+   "origin": "extracted",
+   "markdown": "Conceptional Design",
+   "source": {
+    "materialId": "m-norm",
+    "page": 4,
+    "blockIds": [
+     "p4-b3"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p4-b22",
+   "origin": "extracted",
+   "markdown": "Logical",
+   "source": {
+    "materialId": "m-norm",
+    "page": 4,
+    "blockIds": [
+     "p4-b22"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p4-b23",
+   "origin": "extracted",
+   "markdown": "Design (Translation)",
+   "source": {
+    "materialId": "m-norm",
+    "page": 4,
+    "blockIds": [
+     "p4-b23"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p4-b24",
+   "origin": "extracted",
+   "markdown": "Logical Design (Merging)",
+   "source": {
+    "materialId": "m-norm",
+    "page": 4,
+    "blockIds": [
+     "p4-b24"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p4-b28",
+   "origin": "extracted",
+   "markdown": "Further improvements are possible!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 4,
+    "blockIds": [
+     "p4-b28"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b1",
+   "origin": "extracted",
+   "markdown": "### Functional Dependencies Motivation",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b1"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b2",
+   "origin": "extracted",
+   "markdown": "Slide 5 ThorstenPapenbrock",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b2"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b3",
+   "origin": "extracted",
+   "markdown": "Normalization",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b3"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b4",
+   "origin": "extracted",
+   "markdown": "Database Systems",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b4"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b5",
+   "origin": "extracted",
+   "markdown": "- Improvements (= Refinement of the logical design)",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b5"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b6",
+   "origin": "extracted",
+   "markdown": "Improve attributes (z.B. break down structures make them explicit)",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b6"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b7",
+   "origin": "extracted",
+   "markdown": "Resolve constraints (z.B. split schemas to make constraints explicit)",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b7"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b8",
+   "origin": "extracted",
+   "markdown": "- Functional Dependencies",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b8"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b9",
+   "origin": "extracted",
+   "markdown": "- Multivalued Dependencies",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b9"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b10",
+   "origin": "extracted",
+   "markdown": "- Goal: Avoid redundancies",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b10"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b11",
+   "origin": "extracted",
+   "markdown": "- Approach: Split relation schemas",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b11"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b12",
+   "origin": "extracted",
+   "markdown": "- Without losing semantic information",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b12"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b13",
+   "origin": "extracted",
+   "markdown": "- Without losing the possibility to reconstruct the relations",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b13"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b14",
+   "origin": "extracted",
+   "markdown": "- Systematics: Normalization",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b14"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p5-b15",
+   "origin": "extracted",
+   "markdown": "### !",
+   "source": {
+    "materialId": "m-norm",
+    "page": 5,
+    "blockIds": [
+     "p5-b15"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b1",
+   "origin": "extracted",
+   "markdown": "### Functional Dependencies Definition",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b1"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b2",
+   "origin": "extracted",
+   "markdown": "Slide 6 ThorstenPapenbrock",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b2"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b3",
+   "origin": "extracted",
+   "markdown": "Normalization",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b3"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b4",
+   "origin": "extracted",
+   "markdown": "Database Systems",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b4"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b5",
+   "origin": "extracted",
+   "markdown": "Informal:",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b5"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b6",
+   "origin": "extracted",
+   "markdown": "A functional dependency (FD) X → A is an expression over a relation R: Whenever there are two tuples in the values of the attribute set X, they also agree in the attribute value of A.",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b6"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b7",
+   "origin": "extracted",
+   "markdown": "Formal:",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b7"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b8",
+   "origin": "extracted",
+   "markdown": "A functional dependency (FD) X → A in a relation schema R with a relational instance r and X ⊆ R and A ∈ R is a valid expression, if and only if",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b8"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b9",
+   "origin": "extracted",
+   "markdown": "∀ t i , t j ∈ r : t i [X] = t j [X] ⇒ t i [A] = t j [A].",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b9"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b10",
+   "origin": "extracted",
+   "markdown": "- Notation",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b10"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b11",
+   "origin": "extracted",
+   "markdown": "- A, B, C, … are attributes",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b11"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b12",
+   "origin": "extracted",
+   "markdown": "- …, X, Y, Z are attribute sets",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b12"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b13",
+   "origin": "extracted",
+   "markdown": "- X → A: „X functionally determines A.“",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b13"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b14",
+   "origin": "extracted",
+   "markdown": "### X",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b14"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b15",
+   "origin": "extracted",
+   "markdown": "r",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b15"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b16",
+   "origin": "extracted",
+   "markdown": "### A",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b16"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b20",
+   "origin": "extracted",
+   "markdown": "- Short form:",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b20"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b21",
+   "origin": "extracted",
+   "markdown": "For ABC: {A, B, C}",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b21"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b22",
+   "origin": "extracted",
+   "markdown": "- For X → A, X → B, X → C:",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b22"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b23",
+   "origin": "extracted",
+   "markdown": "- X → ABC or",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b23"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p6-b28",
+   "origin": "extracted",
+   "markdown": "German: Funktionale Abhängigkeit (FA)",
+   "source": {
+    "materialId": "m-norm",
+    "page": 6,
+    "blockIds": [
+     "p6-b28"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b1",
+   "origin": "extracted",
+   "markdown": "### Functional Dependencies Example",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b1"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b2",
+   "origin": "extracted",
+   "markdown": "Slide 7",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b2"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b3",
+   "origin": "extracted",
+   "markdown": "ID Name Evolution Location Sex Weight Size Type Weak Strong Special",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b3"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b4",
+   "origin": "extracted",
+   "markdown": "25 Pikachu Raichu Viridian Forest m/w 6.0 0.4 electric ground water false",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b4"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b5",
+   "origin": "extracted",
+   "markdown": "27 Sandshrew Sandslash Route 4 m/w 12.0 0.6 ground gras electric false",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b5"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b6",
+   "origin": "extracted",
+   "markdown": "29 Nidoran Nidorino Safari Zone m 7.0 0.5 poison ground gras false",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b6"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b7",
+   "origin": "extracted",
+   "markdown": "32 Nidoran Nidorina Safari Zone w 7.0 0.4 poison ground gras false",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b7"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b8",
+   "origin": "extracted",
+   "markdown": "37 Vulpix Ninetails Route 7 m/w 9.9 0.6 fire water ice false",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b8"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b9",
+   "origin": "extracted",
+   "markdown": "38 Ninetails null null m/w 19.9 1.1 fire water ice true",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b9"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b10",
+   "origin": "extracted",
+   "markdown": "63 Abra Kadabra Route 24 m/w 19.5 0.9 psychic ghost fighting false",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b10"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b11",
+   "origin": "extracted",
+   "markdown": "64 Kadabra Alakazam Cerulean Cave m/w 56.5 1.3 psychic ghost fighting false",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b11"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b12",
+   "origin": "extracted",
+   "markdown": "130 Gyarados null Fuchsia City m/w 235.0 6.5 water electric fire false",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b12"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b13",
+   "origin": "extracted",
+   "markdown": "150 Mewtwo null Cerulean Cave null 122.0 2.0 psychic ghost fighting true",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b13"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b14",
+   "origin": "extracted",
+   "markdown": "Name • Weight",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b14"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p7-b16",
+   "origin": "extracted",
+   "markdown": "Type • Weak",
+   "source": {
+    "materialId": "m-norm",
+    "page": 7,
+    "blockIds": [
+     "p7-b16"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b1",
+   "origin": "extracted",
+   "markdown": "### Functional Dependencies The Splitting/Combining Rule",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b1"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b2",
+   "origin": "extracted",
+   "markdown": "Slide 8 ThorstenPapenbrock",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b2"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b3",
+   "origin": "extracted",
+   "markdown": "Normalization",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b3"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b4",
+   "origin": "extracted",
+   "markdown": "Database Systems",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b4"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b5",
+   "origin": "extracted",
+   "markdown": "Splitting Rule",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b5"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b6",
+   "origin": "extracted",
+   "markdown": "A 1 ,A 2 ,…A n → B 1 ,B 2 ,…,B m A 1 ,A 2 ,…A n → B i for i=1,…,m",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b6"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b7",
+   "origin": "extracted",
+   "markdown": "Combining Rule",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b7"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b8",
+   "origin": "extracted",
+   "markdown": "A 1 ,A 2 ,…A n → B i for i=1,…,m",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b8"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b9",
+   "origin": "extracted",
+   "markdown": "- A 1 ,A 2 ,…A n → B 1 ,B 2 ,…,B m",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b9"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b10",
+   "origin": "extracted",
+   "markdown": "Examples",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b10"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b11",
+   "origin": "extracted",
+   "markdown": "- Title, Year → Length",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b11"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b12",
+   "origin": "extracted",
+   "markdown": "- Title, Year → Type",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b12"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b13",
+   "origin": "extracted",
+   "markdown": "- Title, Year → StudioName",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b13"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b14",
+   "origin": "extracted",
+   "markdown": "- Title, Year → Length, Type, StudioName",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b14"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b15",
+   "origin": "extracted",
+   "markdown": "The splitting rule only on right-hand side!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b15"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b16",
+   "origin": "extracted",
+   "markdown": "- Title, Year → Length",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b16"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b17",
+   "origin": "extracted",
+   "markdown": "⇏ Year → Length",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b17"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p8-b18",
+   "origin": "extracted",
+   "markdown": "⇏ Title → Length",
+   "source": {
+    "materialId": "m-norm",
+    "page": 8,
+    "blockIds": [
+     "p8-b18"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b1",
+   "origin": "extracted",
+   "markdown": "Reflexivity",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b1"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b2",
+   "origin": "extracted",
+   "markdown": "- Y ⊆ X ⇒ X → Y",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b2"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b3",
+   "origin": "extracted",
+   "markdown": "- Triviality!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b3"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b4",
+   "origin": "extracted",
+   "markdown": "Augmentation",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b4"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b5",
+   "origin": "extracted",
+   "markdown": "- X → Y ⇒ XZ → YZ",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b5"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b6",
+   "origin": "extracted",
+   "markdown": "- Minimality!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b6"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b7",
+   "origin": "extracted",
+   "markdown": "Transitivity",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b7"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b8",
+   "origin": "extracted",
+   "markdown": "- X → Y ∧ Y → Z ⇒ X → Z",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b8"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b9",
+   "origin": "extracted",
+   "markdown": "- Closure Algorithm!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b9"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b10",
+   "origin": "extracted",
+   "markdown": "### Functional Dependencies Axioms",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b10"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b11",
+   "origin": "extracted",
+   "markdown": "Slide 9 ThorstenPapenbrock",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b11"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b12",
+   "origin": "extracted",
+   "markdown": "Normalization",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b12"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b13",
+   "origin": "extracted",
+   "markdown": "Database Systems",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b13"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b17",
+   "origin": "extracted",
+   "markdown": "Axioms are derivation rules , with which further FDs are derived from the previous ones.",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b17"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p9-b21",
+   "origin": "extracted",
+   "markdown": "The following properties are known as Armstrong Axioms : Sound Rules don’t derive non-derivable FDs. Complete Rules can generate all derivable FDs. Minimal No rules can be canceled out.",
+   "source": {
+    "materialId": "m-norm",
+    "page": 9,
+    "blockIds": [
+     "p9-b21"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b1",
+   "origin": "extracted",
+   "markdown": "Reflexivity",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b1"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b2",
+   "origin": "extracted",
+   "markdown": "- Y ⊆ X ⇒ X → Y",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b2"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b3",
+   "origin": "extracted",
+   "markdown": "- Triviality!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b3"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b4",
+   "origin": "extracted",
+   "markdown": "Augmentation",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b4"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b5",
+   "origin": "extracted",
+   "markdown": "- X → Y ⇒ XZ → YZ",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b5"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b6",
+   "origin": "extracted",
+   "markdown": "- Minimality!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b6"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b7",
+   "origin": "extracted",
+   "markdown": "Transitivity",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b7"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b8",
+   "origin": "extracted",
+   "markdown": "- X → Y ∧ Y → Z ⇒ X → Z",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b8"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b9",
+   "origin": "extracted",
+   "markdown": "- Closure Algorithm!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b9"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b10",
+   "origin": "extracted",
+   "markdown": "### Functional Dependencies Axioms",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b10"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b11",
+   "origin": "extracted",
+   "markdown": "Slide 10 ThorstenPapenbrock",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b11"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b12",
+   "origin": "extracted",
+   "markdown": "Normalization",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b12"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b13",
+   "origin": "extracted",
+   "markdown": "Database Systems",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b13"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b17",
+   "origin": "extracted",
+   "markdown": "Commutativity does not apply!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b17"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b18",
+   "origin": "extracted",
+   "markdown": "Proof Given:",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b18"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b19",
+   "origin": "extracted",
+   "markdown": "- X → Y\n- By counterexample:",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b19"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b20",
+   "origin": "extracted",
+   "markdown": "- Y ↛ X",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b20"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b21",
+   "origin": "extracted",
+   "markdown": "- q.e.d.",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b21"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b22",
+   "origin": "extracted",
+   "markdown": "X Y Z",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b22"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b23",
+   "origin": "extracted",
+   "markdown": "a 1 b 1 c 1",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b23"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b24",
+   "origin": "extracted",
+   "markdown": "a 2 b 1 c 1",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b24"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b25",
+   "origin": "extracted",
+   "markdown": "a 3 b 2 c 1",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b25"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p10-b26",
+   "origin": "extracted",
+   "markdown": "a 4 b 1 c 1",
+   "source": {
+    "materialId": "m-norm",
+    "page": 10,
+    "blockIds": [
+     "p10-b26"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b1",
+   "origin": "extracted",
+   "markdown": "Reflexivity",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b1"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b2",
+   "origin": "extracted",
+   "markdown": "- Y ⊆ X ⇒ X → Y",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b2"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b3",
+   "origin": "extracted",
+   "markdown": "- Triviality!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b3"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b4",
+   "origin": "extracted",
+   "markdown": "Augmentation",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b4"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b5",
+   "origin": "extracted",
+   "markdown": "- X → Y ⇒ XZ → YZ",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b5"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b6",
+   "origin": "extracted",
+   "markdown": "- Minimality!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b6"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b7",
+   "origin": "extracted",
+   "markdown": "Transitivity",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b7"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b8",
+   "origin": "extracted",
+   "markdown": "- X → Y ∧ Y → Z ⇒ X → Z",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b8"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b9",
+   "origin": "extracted",
+   "markdown": "- Closure Algorithm!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b9"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b10",
+   "origin": "extracted",
+   "markdown": "### Functional Dependencies Axioms",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b10"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b11",
+   "origin": "extracted",
+   "markdown": "Slide 11 ThorstenPapenbrock",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b11"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b12",
+   "origin": "extracted",
+   "markdown": "Normalization",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b12"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b13",
+   "origin": "extracted",
+   "markdown": "Database Systems",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b13"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b17",
+   "origin": "extracted",
+   "markdown": "Proof Given:",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b17"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b18",
+   "origin": "extracted",
+   "markdown": "- X → Y ∧ Y → Z",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b18"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b19",
+   "origin": "extracted",
+   "markdown": "- To show:",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b19"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b20",
+   "origin": "extracted",
+   "markdown": "Any two tuples, that agree in X, must agree in Z as well. Select:",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b20"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b21",
+   "origin": "extracted",
+   "markdown": "Any two tuples, that agree in X: (x, y 1 , z 1 ) and (x, y 2 , z 2 ) Since X → Y ⇒ (x, y, z 1 ) and (x, y, z 2 )",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b21"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b22",
+   "origin": "extracted",
+   "markdown": "- Since Y → Z ⇒ (x, y 1 , z 1 ) and (x, y 2 , z 2 )",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b22"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p11-b23",
+   "origin": "extracted",
+   "markdown": "- q.e.d.",
+   "source": {
+    "materialId": "m-norm",
+    "page": 11,
+    "blockIds": [
+     "p11-b23"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b1",
+   "origin": "extracted",
+   "markdown": "Reflexivity",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b1"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b2",
+   "origin": "extracted",
+   "markdown": "- Y ⊆ X ⇒ X → Y",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b2"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b3",
+   "origin": "extracted",
+   "markdown": "- Triviality!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b3"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b4",
+   "origin": "extracted",
+   "markdown": "Augmentation",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b4"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b5",
+   "origin": "extracted",
+   "markdown": "- X → Y ⇒ XZ → YZ",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b5"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b6",
+   "origin": "extracted",
+   "markdown": "- Minimality!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b6"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b7",
+   "origin": "extracted",
+   "markdown": "Transitivity",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b7"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b8",
+   "origin": "extracted",
+   "markdown": "- X → Y ∧ Y → Z ⇒ X → Z",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b8"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b9",
+   "origin": "extracted",
+   "markdown": "- Closure Algorithm!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b9"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b10",
+   "origin": "extracted",
+   "markdown": "### Functional Dependencies Axioms",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b10"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b11",
+   "origin": "extracted",
+   "markdown": "Slide 12 ThorstenPapenbrock",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b11"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b12",
+   "origin": "extracted",
+   "markdown": "Normalization",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b12"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b13",
+   "origin": "extracted",
+   "markdown": "Database Systems",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b13"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b14",
+   "origin": "extracted",
+   "markdown": "Splitting",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b14"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b15",
+   "origin": "extracted",
+   "markdown": "- X → YZ ⇒ X → Y",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b15"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b16",
+   "origin": "extracted",
+   "markdown": "- Split!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b16"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b17",
+   "origin": "extracted",
+   "markdown": "Combining",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b17"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b18",
+   "origin": "extracted",
+   "markdown": "- X → Y ∧ X → Z ⇒ X → YZ",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b18"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b19",
+   "origin": "extracted",
+   "markdown": "- Combine!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b19"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b20",
+   "origin": "extracted",
+   "markdown": "Pseudotransitivity",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b20"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b21",
+   "origin": "extracted",
+   "markdown": "- X → Y ∧ WY → Z ⇒ WX → Z",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b21"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b22",
+   "origin": "extracted",
+   "markdown": "- Closure Algorithm!",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b22"
+    ]
+   },
+   "edited": false
+  },
+  {
+   "id": "c-p12-b26",
+   "origin": "extracted",
+   "markdown": "Derive: X → Y ∧ WY → Z ⇒ WX → WY ∧ WY → Z (Akk.) ⇒ WX → Z (Tran.)",
+   "source": {
+    "materialId": "m-norm",
+    "page": 12,
+    "blockIds": [
+     "p12-b26"
+    ]
+   },
+   "edited": false
+  }
+ ]
+}

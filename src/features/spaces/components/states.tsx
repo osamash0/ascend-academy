@@ -34,10 +34,11 @@ export type Failed =
   | 'moments'
   | 'history'
   | 'rank'
-  | 'next';
+  | 'next'
+  | 'material';
 
 /** What is not there. */
-export type Missing = 'space' | 'lesson' | 'idea' | 'person' | 'screen';
+export type Missing = 'space' | 'lesson' | 'idea' | 'person' | 'screen' | 'material';
 
 /** What a list is loading, for a screen reader. */
 export type Loading = 'any' | 'spaces' | 'profile' | 'social' | 'moments' | 'history' | 'rank';

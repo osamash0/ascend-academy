@@ -8,9 +8,8 @@ import { Pressable } from '../components/Pressable';
 import { topicIcon } from '@/lib/topicIcon';
 import type { Membership, Role, Space } from '../types';
 import { useSpace } from '../data/useSpaces';
-import { viewer } from '../mocks/people';
-import { contributionsForLesson, contributionsForSpace } from '../mocks/contributions';
-import { visibleContributions } from '../mocks/engagement';
+import { useViewer } from '../data/viewer';
+import { contributionsForLesson, contributionsForSpace, visibleContributions } from '../data/contributions';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { LessonRow } from '../components/LessonRow';
@@ -79,6 +78,7 @@ export default function SpaceScreen({
   /** Driven by the URL segment — see SpaceRoute. */
   tab?: SpaceTab;
 }) {
+  const viewer = useViewer();
   const { t } = useTranslation('v4Space');
   const navigate = useNavigate();
   /** Tabs are routes, so switching one is navigation, not local state. */

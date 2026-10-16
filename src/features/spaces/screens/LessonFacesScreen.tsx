@@ -5,8 +5,8 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Smartphone, Sun, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PdfPager, sampleAccent } from '@/components/pdf';
-import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
-import { practiceForLesson } from '../mocks/practice';
+import { addNote, deleteNote, notesError, notesForLesson, subscribeNotes, updateNote } from '../data/notes';
+import { submitAnswer, usePracticeQuestions } from '../data/practice';
 import { Scene, SURFACES } from '../components/Scene';
 import { LessonPager } from '../components/LessonPager';
 import { NoteEditor } from '../components/NoteEditor';
@@ -24,6 +24,7 @@ import {
   useRelated,
 } from '../data/useReader';
 import { markTrail } from '../data/trail';
+import { useReadingProgress } from '../data/reading';
 import { GlassPill } from '../components/reader/glass/GlassPill';
 import { readPrefs, writePrefs, type ReaderPrefs } from '../data/readerPrefs';
 import { useIdle } from '../components/reader/useIdle';
@@ -36,7 +37,7 @@ import { useMediaQuery } from '../data/useMediaQuery';
 import { ReaderExit } from '../components/reader/ReaderHeader';
 import { SelectionAsk } from '../components/reader/SelectionAsk';
 import { TutorPanel, type Turn } from '../components/reader/TutorPanel';
-import type { TutorCitation } from '../mocks/tutor';
+import type { TutorCitation } from '../data/tutor';
 import { Companion } from '../components/reader/Companion';
 import { PracticePlane } from '../components/reader/PracticePlane';
 import { ReadingFace } from '../components/reader/ReadingFace';
@@ -150,6 +151,14 @@ export default function LessonFacesScreen() {
   const turnId = useRef(0);
   const mintTurnId = useCallback(() => turnId.current++, []);
   const [noteTick, setNoteTick] = useState(0);
+  /*
+   * Re-read notes when the store changes on its own — a live note getting its
+   * real id, or a failed write being taken back. Kept apart from `noteTick`,
+   * which also clears the new-note box: a server reply must never wipe
+   * something half-written.
+   */
+  const [, setNotesSeen] = useState(0);
+  useEffect(() => subscribeNotes(() => setNotesSeen((n) => n + 1)), []);
   const [accent, setAccent] = useState<string | null>(null);
   const [found, setFound] = useState<Found | null>(null);
   const foundNonce = useRef(0);
@@ -161,6 +170,12 @@ export default function LessonFacesScreen() {
 
   const pdfRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
+
+  const liveReader = !!spaceId && isLive(spaceId);
+  /* Count the reading: progress, visits and the streak, page by page. */
+  useReadingProgress(lessonId, pdfPage, liveReader && numPages > 0);
+  /* The practice bench: the lecture's real questions when live. */
+  const practice = usePracticeQuestions(lessonId, liveReader);
 
   /* Leave a mark where you are, so the course can offer to pick up here. */
   useEffect(() => {
@@ -638,13 +653,16 @@ export default function LessonFacesScreen() {
    * Selected words, asked about. On a live lecture they are answered in
    * Explain, as an interface; elsewhere they go to the tutor as before.
    */
+  const askInExplain = (question: string) => {
+    engage();
+    setCompanion(null);
+    setView('explain');
+    setQueued({ question, n: ++queuedN.current });
+  };
   const askAbout = (text: string) => {
     const words = text.replace(/\s+/g, ' ').trim().slice(0, 240);
     if (asker) {
-      engage();
-      setCompanion(null);
-      setView('explain');
-      setQueued({ question: tr('screen.explainSelection', { words }), n: ++queuedN.current });
+      askInExplain(tr('screen.explainSelection', { words }));
       return;
     }
     setQuote(text);
@@ -702,6 +720,11 @@ export default function LessonFacesScreen() {
           setNoteTick((t) => t + 1);
         }}
       />
+      {notesError() && (
+        <p role="alert" className="px-1 text-[13px] text-destructive">
+          {notesError()}
+        </p>
+      )}
       {myNotes.length === 0 && (
         <p className="px-1 text-[13px] text-faint">{tr('screen.notes.empty')}</p>
       )}
@@ -1178,6 +1201,9 @@ export default function LessonFacesScreen() {
           page={pdfPage}
           onSpot={setSpot}
           onAsk={(q) => {
+            // Live, every question is answered in Explain by the real model —
+            // the tutor panel only knows the fixtures' canned replies.
+            if (asker) return askInExplain(q);
             setQuote(q);
             openTutor(q, pdfPage);
           }}
@@ -1202,6 +1228,7 @@ export default function LessonFacesScreen() {
           onOpenPage={(p) => goToPage(p)}
           onOpenNotes={(_id, page) => openNotes(page)}
           onAskFormula={(tex) => {
+            if (asker) return askInExplain(`Explain this formula: ${tex}`);
             setQuote(tex);
             openTutor(tr('screen.thisFormula'), anchor.page);
           }}
@@ -1217,8 +1244,9 @@ export default function LessonFacesScreen() {
       <PracticePlane
         open={bench === 'practice'}
         lessonTitle={lesson.title}
-        questions={practiceForLesson(lesson.id)}
+        questions={practice.questions}
         onClose={closeBench}
+        onAnswer={liveReader ? (q, a) => submitAnswer(lesson.id, q.id, a) : undefined}
       />
 
       {pagerShowing && <LessonPager spaceId={space.id} prev={prev} next={next} keys={false} />}

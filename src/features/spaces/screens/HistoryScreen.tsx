@@ -1,16 +1,16 @@
 import { ArrowLeft, Flame } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import {
   currentRun,
   daysStudied,
   lastStudied,
   longestRun,
   recentWeeks,
-  studyDays,
-  TODAY,
-} from '../mocks/history';
+  studyDaysNow,
+  todayNow,
+} from '../data/record';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { Skylight } from '../components/stage';
@@ -67,6 +67,7 @@ const formatShort = (iso: string) =>
   });
 
 export default function HistoryScreen() {
+  const viewer = useViewer();
   const screenState = useScreenState();
   const run = currentRun();
   const best = longestRun();
@@ -74,7 +75,7 @@ export default function HistoryScreen() {
   const last = lastStudied();
   const weeks = recentWeeks();
   /** Newest first — the recent past is what anyone came here to read. */
-  const days = [...studyDays].sort((a, b) => b.date.localeCompare(a.date));
+  const days = [...studyDaysNow()].sort((a, b) => b.date.localeCompare(a.date));
 
   const chrome = (body: React.ReactNode) => (
     // Profile's rooms share its stage and its neutral light (monochrome brand).
@@ -120,7 +121,7 @@ export default function HistoryScreen() {
             </p>
             {last && (
               <p className="mt-2 text-[13px] text-faint">
-                {last === TODAY ? 'Including today.' : `Last on ${formatDay(last)}.`}
+                {last === todayNow() ? 'Including today.' : `Last on ${formatDay(last)}.`}
               </p>
             )}
           </header>

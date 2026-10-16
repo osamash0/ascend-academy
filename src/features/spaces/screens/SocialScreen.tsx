@@ -3,17 +3,18 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Check, Search, UserPlus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { leaderboard } from '../mocks/library';
 
 /** Your row on the board — what the "Where you stand" cell opens. */
 const STANDING_ROW_ID = 'your-standing';
 import {
   acceptRequest,
+  leaderboardNow,
   currentFriends,
   currentRequests,
   declineRequest,
-} from '../mocks/social';
-import { viewer } from '../mocks/people';
+  type RankedPerson,
+} from '../data/social';
+import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { useScreenState } from '../data/useSpaces';
@@ -40,6 +41,7 @@ import { Masthead, Sep, Skylight, ghostPillSm, stageCard, whitePillSm } from '..
 type Tab = 'ranking' | 'friends' | 'requests';
 
 export default function SocialScreen() {
+  const viewer = useViewer();
   const screenState = useScreenState();
   /*
    * Accepting or declining mutates a store outside React, so a tick re-reads
@@ -49,6 +51,7 @@ export default function SocialScreen() {
    */
   const [socialTick, setSocialTick] = useState(0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  const leaderboard = leaderboardNow();
   const friends = useMemo(() => currentFriends(), [socialTick]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const friendRequests = useMemo(() => currentRequests(), [socialTick]);
@@ -312,7 +315,7 @@ function Empty({ title, body }: { title: string; body: string }) {
  * The board, as a place: you and your neighbours on one track, spaced by XP.
  * Distance is the gap — nobody has to read a number to see it.
  */
-function RaceLine({ around }: { around: typeof leaderboard }) {
+function RaceLine({ around }: { around: RankedPerson[] }) {
   const xs = around.map((r) => r.xp);
   const lo = Math.min(...xs);
   const hi = Math.max(...xs);

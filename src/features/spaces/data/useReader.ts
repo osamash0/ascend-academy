@@ -21,6 +21,7 @@ import {
   type RehearsalResult,
 } from './liveRepository';
 import { useLesson, useLessonContent, type LessonContentResult, type LessonResult } from './useSpaces';
+import { liveWorld } from './world';
 
 /**
  * The reader's data, demo or real.
@@ -109,6 +110,9 @@ export function spaceFromCourse(c: ReaderCourse): Space {
 
 function lessonFrom(c: ReaderCourse, l: ReaderCourse['lectures'][number], concepts: ReaderConcept[] = []): Lesson {
   const owner = { id: `course-${c.id}`, name: c.author ?? 'Course team', avatarUrl: null };
+  // What the world knows about this Lesson for this viewer: their progress
+  // and the size of its practice bank. Absent outside a loaded world.
+  const known = liveWorld()?.lessons.find((x) => x.id === l.id);
   return {
     id: l.id,
     spaceId: c.id,
@@ -118,9 +122,8 @@ function lessonFrom(c: ReaderCourse, l: ReaderCourse['lectures'][number], concep
     origin: 'official',
     author: owner,
     grounding: 'grounded',
-    // Progress is not read yet: say nothing rather than invent some.
-    progress: 'not-started',
-    percentComplete: 0,
+    progress: known?.progress ?? 'not-started',
+    percentComplete: known?.percentComplete ?? 0,
     concepts: concepts.map((k) => ({ id: k.concept_id, name: k.name, progress: 'untouched' })),
     material: {
       id: `material-${l.id}`,
@@ -131,7 +134,7 @@ function lessonFrom(c: ReaderCourse, l: ReaderCourse['lectures'][number], concep
       sourceRemoved: false,
     },
     contributionCount: 0,
-    practiceCount: 0,
+    practiceCount: known?.practiceCount ?? 0,
   };
 }
 

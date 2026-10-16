@@ -73,6 +73,7 @@
       "history": "Couldn’t load your study history",
       "rank": "Couldn’t load your rank",
       "next": "Couldn’t load your next thing",
+      "material": "Couldn’t load this Material",
       "body": "The connection dropped on the way. Nothing of yours is lost.",
       "retry": "Try again"
     },
@@ -82,6 +83,7 @@
       "idea": "That idea isn’t here",
       "person": "That person isn’t here",
       "screen": "That screen isn’t here",
+      "material": "That Material isn’t here",
       "body": "It may have been removed, or the link may be wrong. Nothing of yours is affected."
     },
     "back": {

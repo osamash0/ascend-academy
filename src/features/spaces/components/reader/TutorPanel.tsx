@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import { useTranslation } from 'react-i18next';
 import { ArrowUp, ArrowUpRight, Quote, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { askTutor, type TutorCitation, type TutorReply } from '../../mocks/tutor';
+import { askTutor, type TutorCitation, type TutorReply } from '../../data/tutor';
 import type { Lesson } from '../../types';
 
 /**

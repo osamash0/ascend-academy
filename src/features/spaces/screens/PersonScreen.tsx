@@ -2,19 +2,10 @@ import { useMemo } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { people, viewer } from '../mocks/people';
-import { spaceById } from '../mocks/spaces';
-import {
-  linalgContributions,
-  normalizationContributions,
-  sharedSpaceIds,
-  spaceContributions,
-} from '../mocks/contributions';
-import { conceptContributions } from '../mocks/concepts';
-import { leaderboard, resolveContributionAnchor } from '../mocks/library';
-import { likeCount, visibleContributions } from '../mocks/engagement';
-import { anchorFor, isOrphaned } from '../mocks/reanchor';
-import { isFriend } from '../mocks/social';
+import { useViewer } from '../data/viewer';
+import { personNow, publishedByNow, sharedSpaceIdsNow, standingOfNow } from '../data/people';
+import { anchorFor, isOrphaned, likeCount, resolveContributionAnchor } from '../data/contributions';
+import { isFriend } from '../data/social';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { useScreenState } from '../data/useSpaces';
@@ -22,6 +13,7 @@ import { Avatar } from '../components/Avatar';
 import { EndorsedBadge } from '../components/badges';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { Masthead, Sep, Skylight, StageRow, backLink, ghostPillSm, stageCard, stageCardHover } from '../components/stage';
+import { spaceById } from '../data/world';
 
 /**
  * Someone else's public profile.
@@ -40,40 +32,20 @@ import { Masthead, Sep, Skylight, StageRow, backLink, ghostPillSm, stageCard, st
  */
 
 export default function PersonScreen() {
+  const viewer = useViewer();
   const screenState = useScreenState();
   const { personId } = useParams<{ personId: string }>();
-  const person = people.find((p) => p.id === personId);
+  const person = personId ? personNow(personId) : undefined;
 
-  const standing = leaderboard.find((r) => r.person.id === personId);
+  const standing = personId ? standingOfNow(personId) : undefined;
 
-  /** Everything they published, at any anchor level. */
+  /**
+   * Everything they published, at any anchor level — public means published,
+   * so hidden work never shows here (data/people.ts). Most-liked first, with
+   * likes read from the store so a like made elsewhere reorders this list.
+   */
   const published = useMemo(
-    () =>
-      // Public means published. Hidden work belongs to its author and to the
-      // people who maintain the Space, never to a passing visitor — so this
-      // asks with no role, which is the strictest answer `visibleContributions`
-      // gives. Written out longhand here was the seventh copy of that rule.
-      visibleContributions(
-        [
-          ...normalizationContributions,
-          ...spaceContributions,
-          /*
-           * `linalgContributions` was missing. Every list of "all the
-           * contributions" in this codebase has been assembled by hand, and
-           * this is the fourth one found short of the same group — so Inês
-           * Ferreira's two Linear Algebra pieces were absent from her own
-           * page, on a screen whose heading counts what she has published.
-           */
-          ...linalgContributions,
-          ...conceptContributions,
-        ].filter((c) => c.author.id === personId),
-        null,
-      )
-        // Likes come from the store, not the fixture. Reading `c.likeCount`
-        // meant a like made on a Lesson screen never showed here, and could
-        // never reorder this list — the mistake `ContributionCard` names in
-        // its own comment, made again on a newer screen.
-        .sort((a, b) => likeCount(b.id) - likeCount(a.id)),
+    () => (personId ? publishedByNow(personId).sort((a, b) => likeCount(b.id) - likeCount(a.id)) : []),
     [personId],
   );
 
@@ -88,7 +60,7 @@ export default function PersonScreen() {
   const shared = useMemo(
     () =>
       personId
-        ? sharedSpaceIds(viewer.id, personId)
+        ? sharedSpaceIdsNow(viewer.id, personId)
             .map((id) => spaceById(id))
             .filter((s): s is NonNullable<typeof s> => Boolean(s))
         : [],
