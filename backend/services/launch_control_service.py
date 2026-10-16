@@ -5,7 +5,7 @@ Four panels, all computed live from the database and the running config:
 * readiness gates — can we launch? Each gate passes, fails, or asks a human
   to confirm something the app cannot see (a pg_dump, the privacy policy);
 * real-users pulse — who signed up, who came back, internal accounts excluded
-  (migration 20261013000000_real_users.sql);
+  (migration 20261013000100_real_users.sql);
 * AI spend — today against the fleet ceiling, by feature/model, and per
   student against the monthly cap (public.llm_calls);
 * catalog health — every lecture a student can open, against the quality gate.
@@ -122,7 +122,7 @@ def evaluate_gates(
             "real_users", "Real users are told apart from test accounts",
             "pass" if classification_ready else "fail",
             "account classification is live" if classification_ready
-            else "apply migration 20261013000000_real_users.sql",
+            else "apply migration 20261013000100_real_users.sql",
         ),
         gate(
             "starter", "One starter course for onboarding",
