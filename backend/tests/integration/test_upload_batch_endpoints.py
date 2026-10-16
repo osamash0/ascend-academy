@@ -344,6 +344,46 @@ class TestRetryRun:
         r = app_client.post(f"/api/upload/jobs/{uuid4()}/retry")
         assert r.status_code == 404
 
+    def test_retry_keeps_the_original_private_visibility_without_a_jwt_role(
+        self, app_client, patch_supabase, fake_arq_pool, monkeypatch
+    ):
+        """Arc 9: visibility comes from the run itself (a "-student" pipeline
+        version), never from the retrying JWT -- a student whose token lacks
+        app_metadata.role must not escape the student spend cap by retrying."""
+        run = _make_run(status=RunStatus.FAILED, pipeline_version="5-student")
+
+        async def fake_get(run_id):
+            return run
+
+        async def fake_requeue(run_id):
+            return None
+
+        monkeypatch.setattr(repos_module, "get_run_by_id", fake_get)
+        monkeypatch.setattr(repos_module, "requeue_run", fake_requeue)
+
+        r = app_client.post(f"/api/upload/jobs/{run.run_id}/retry")
+        assert r.status_code == 200
+        (_name, kwargs), = fake_arq_pool
+        assert kwargs["visibility"] == "private_student"
+        assert kwargs["user_id"] == str(run.user_id)
+
+    def test_retry_of_a_course_run_stays_course_visible(
+        self, app_client, patch_supabase, fake_arq_pool, monkeypatch
+    ):
+        run = _make_run(status=RunStatus.FAILED, pipeline_version="5")
+
+        async def fake_get(run_id):
+            return run
+
+        async def fake_requeue(run_id):
+            return None
+
+        monkeypatch.setattr(repos_module, "get_run_by_id", fake_get)
+        monkeypatch.setattr(repos_module, "requeue_run", fake_requeue)
+        r = app_client.post(f"/api/upload/jobs/{run.run_id}/retry")
+        assert r.status_code == 200
+        assert fake_arq_pool[0][1]["visibility"] == "course"
+
     def test_retry_success_re_enqueues_with_original_params(
         self, app_client, patch_supabase, fake_arq_pool, monkeypatch
     ):

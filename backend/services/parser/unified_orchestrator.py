@@ -51,11 +51,14 @@ from backend.core.job_locks import acquire_job_lock, parse_lock_key, release_job
 from backend.domain.parse_models import RunStatus
 from backend.services.ai.call_context import (
     CallLog,
+    ParseBudget,
     ServedCall,
+    current_llm_call_context,
     llm_call_scope,
     pop_llm_call_context,
     push_llm_call_context,
 )
+from backend.services.llm_client import LLMBudgetExceededError
 from backend.services.parser import repos, persist, poster
 from backend.services.parser.storage import _fetch_pdf_bytes
 
@@ -87,6 +90,62 @@ class InsufficientHeadroomError(RuntimeError):
     failure, so the run is still marked FAILED and an ``error`` SSE event is
     still emitted — the only difference is *when*: before any LLM spend or
     lecture creation, not mid-parse."""
+
+
+# Arc 9: what a budget-refused parse reports. parse_runs has one free-text
+# ``error`` column (no code column), so the stable code rides on the SSE
+# ``error`` event and the message is what GET /upload/jobs shows the owner.
+PARSE_BUDGET_ERROR_CODE = "monthly_ai_budget_exceeded"
+PARSE_BUDGET_ERROR_MESSAGE = (
+    "Your monthly AI processing limit has been reached, so this file was not "
+    "processed. The limit resets at the start of next month."
+)
+# Same code, but for a parse that ran out of budget AFTER work was saved (a
+# lecture row exists): the pre-flight wording would be false there.
+PARSE_BUDGET_STOPPED_MESSAGE = (
+    "Your monthly AI budget ran out while this file was being processed. The "
+    "part already processed was saved; you can process the rest next month."
+)
+
+
+async def _parse_budget_enforced(visibility: str, user_id: Optional[str]) -> bool:
+    """Arc 9: does settings.llm_parse_budget_enforce let this parse be refused?
+
+    "students" caps a private "My Materials" upload AND any upload by a user
+    whose role is student (a student can also upload into a course). The role
+    is read from user_roles -- never from a JWT claim, which the worker does
+    not have -- once per parse and only when it can matter. Fail safe for
+    spend: if the lookup fails we cannot rule out a student, so the cap is
+    enforced (logged)."""
+    mode = settings.llm_parse_budget_enforce
+    if mode == "all":
+        return True
+    if mode != "students":
+        return False
+    if visibility == "private_student":
+        return True
+    if not user_id:
+        return False
+    try:
+        from starlette.concurrency import run_in_threadpool
+        from backend.core.auth_middleware import _lookup_role_from_db
+        roles = await run_in_threadpool(_lookup_role_from_db, str(user_id))
+    except Exception as exc:
+        logger.warning("parse budget: role lookup raised for %s, enforcing: %s", user_id, exc)
+        return True
+    if roles is None:
+        logger.warning("parse budget: role lookup failed for %s, enforcing the cap", user_id)
+        return True
+    return "student" in roles
+
+
+def _raise_if_parse_budget_exceeded() -> None:
+    """Stop this parse once any of its LLM calls was refused for budget
+    (Arc 9). Synthesis, vision, meta and quiz steps deliberately swallow their
+    own LLM errors; the latched ParseBudget flag survives that."""
+    budget = current_llm_call_context().budget
+    if budget is not None and budget.exceeded:
+        raise LLMBudgetExceededError("Monthly LLM spend cap reached during this parse.")
 
 
 def _clean_title(filename: str) -> str:
@@ -153,7 +212,12 @@ async def _synthesize_slide(
     # Image-only slide → render + vision.
     try:
         import base64
+        from backend.services.ai.orchestrator import enforce_llm_budget
         from backend.services.ai.vision import analyze_slide_vision, format_slide_content
+        # Arc 9: vision bypasses the metered text path, so the parse's spend
+        # gate runs here. A refusal lands in the except below (this function
+        # never raises); the latched budget flag stops the parse.
+        await enforce_llm_budget()
         img = await asyncio.to_thread(_render_page_jpeg, pdf_bytes, idx)
         vres = await analyze_slide_vision(
             base64.b64encode(img).decode(), text, settings.vision_model, lecture_context
@@ -242,7 +306,9 @@ async def _synthesize_text_slide_batch(
 
     Returns a dict keyed by slide index; values may be ``Exception``
     instances (never raised here) so the caller's existing per-slide error
-    handling keeps working unchanged.
+    handling keeps working unchanged. The one exception is
+    ``LLMBudgetExceededError`` (Arc 9): it is re-raised, not captured, and
+    ends the whole parse.
     """
     if not text_items:
         return {}
@@ -270,6 +336,10 @@ async def _synthesize_text_slide_batch(
                 source_language=source_language,
             )
     except Exception as exc:
+        # Arc 9: a budget refusal is final for the whole parse; a per-slide
+        # fallback would only be refused N more times.
+        if isinstance(exc, LLMBudgetExceededError):
+            raise
         logger.warning(
             "Batch synthesis failed for %d slide(s) starting at index %s (%s) — "
             "falling back to per-slide synthesis for this batch only",
@@ -719,7 +789,16 @@ async def parse_pdf_unified(
             filename=filename,
         )
         run_uuid = run.run_id
-        llm_ctx_token = push_llm_call_context(run_id=str(run_uuid), calls=served_calls)
+        # Arc 9: bill every LLM call of this parse to its uploader and course
+        # (_account_for_call reads them from the context), and decide once
+        # whether this parse's calls may be refused for budget.
+        # The billed user is the lecture owner (``owner`` below is UUID(user_id)).
+        billed_user = user_id
+        llm_ctx_token = push_llm_call_context(
+            run_id=str(run_uuid), calls=served_calls,
+            user_id=billed_user or None, course_id=course_id or None,
+            budget=ParseBudget(enforce=await _parse_budget_enforced(visibility, user_id)),
+        )
         existing_lecture_id = run.lecture_id  # set by a prior (partial) attempt
 
         # ── Idempotent replay: a completed run never re-parses ───────────────
@@ -738,6 +817,14 @@ async def parse_pdf_unified(
                 pdf_hash, run_uuid,
             )
             return str(run_uuid)
+
+        # Arc 9 pre-flight: refuse an over-budget parse after the run row
+        # exists (so the refusal is recorded on it) and before the PDF fetch,
+        # the lecture row, or any LLM call. Skip-AI parses make no synthesis
+        # calls, so they are never refused here.
+        if parsing_mode != "on_demand":
+            from backend.services.ai.orchestrator import enforce_llm_budget
+            await enforce_llm_budget()
 
         await repos.set_status(run_uuid, RunStatus.EXTRACTING)
 
@@ -828,6 +915,7 @@ async def parse_pdf_unified(
                 meta = {}
         else:
             meta = {}
+        _raise_if_parse_budget_exceeded()  # Arc 9: before any lecture row exists
         lecture_title = (meta.get("title") or "").strip() or _clean_title(filename)
         deck_summary = (meta.get("summary") or "").strip()
         lecture_context = f"{lecture_title}: {deck_summary}"
@@ -900,6 +988,7 @@ async def parse_pdf_unified(
         admin_slide_texts: List[str] = []
 
         for chunk_start in range(0, total, chunk_size):
+            _raise_if_parse_budget_exceeded()  # Arc 9: a refusal in the last chunk ends the parse
             chunk_end = min(chunk_start + chunk_size, total)
             ctx_for_chunk = lecture_context
             if previous_narrative:
@@ -1104,6 +1193,10 @@ async def parse_pdf_unified(
                 except Exception as exc:
                     logger.warning("cross-lecture quiz generation failed (non-fatal): %s", exc)
 
+        # Arc 9: a refusal anywhere above (vision, syllabus facts, deck quiz,
+        # quiz repair, all non-fatal by design) fails the run before finalize.
+        _raise_if_parse_budget_exceeded()
+
         # ── 6. Finalize + persist deck quiz ──────────────────────────────────
         await emit("phase", {"phase": "finalize"})
         total_persisted = len(slide_db_ids)
@@ -1135,23 +1228,29 @@ async def parse_pdf_unified(
                     await localize_course(course_uuid, ai_model)
                 await emit("localization", {"status": "ready", "locales": ["en", "de"]})
             except Exception as exc:
-                logger.error("lecture localization failed, queueing retry: %s", exc)
-                try:
-                    redis_pool = ctx.get("redis")
-                    if redis_pool:
-                        await redis_pool.enqueue_job(
-                            "localize_lecture_job", lecture_id=str(created_lecture_id), ai_model=ai_model,
-                        )
-                    else:
-                        from backend.services.upload_service import get_arq_pool
-                        pool = await get_arq_pool()
-                        await pool.enqueue_job(
-                            "localize_lecture_job", lecture_id=str(created_lecture_id), ai_model=ai_model,
-                        )
-                    await emit("localization", {"status": "retrying"})
-                except Exception as enqueue_exc:
-                    logger.warning("localization retry enqueue failed: %s", enqueue_exc)
+                budget = current_llm_call_context().budget
+                if budget is not None and budget.exceeded:
+                    # Arc 9: a retry job would be refused by the same cap.
+                    logger.warning("lecture localization stopped, parse budget spent: %s", exc)
                     await emit("localization", {"status": "failed"})
+                else:
+                    logger.error("lecture localization failed, queueing retry: %s", exc)
+                    try:
+                        redis_pool = ctx.get("redis")
+                        if redis_pool:
+                            await redis_pool.enqueue_job(
+                                "localize_lecture_job", lecture_id=str(created_lecture_id), ai_model=ai_model,
+                            )
+                        else:
+                            from backend.services.upload_service import get_arq_pool
+                            pool = await get_arq_pool()
+                            await pool.enqueue_job(
+                                "localize_lecture_job", lecture_id=str(created_lecture_id), ai_model=ai_model,
+                            )
+                        await emit("localization", {"status": "retrying"})
+                    except Exception as enqueue_exc:
+                        logger.warning("localization retry enqueue failed: %s", enqueue_exc)
+                        await emit("localization", {"status": "failed"})
             # Roadmap Phase 1.1 (review engine): generate spaced-repetition
             # cards from this lecture's quiz questions. Best-effort — never
             # blocks parse completion. Off by default (FEATURE_REVIEW_ENGINE).
@@ -1271,18 +1370,33 @@ async def parse_pdf_unified(
         # within a single job_timeout cycle instead of needing the
         # reconciliation sweep at all.
         is_cancellation = isinstance(exc, asyncio.CancelledError)
-        logger.exception("Unified pipeline failed for pdf_hash=%s: %s", pdf_hash, exc)
+        # Arc 9: a budget refusal is an expected outcome, not a crash. It gets
+        # its own message + code and is NOT re-raised (Arq would log it as a
+        # failed job and dead-letter it); the partial-lecture finalize below
+        # still runs, so a lecture never stays half-written without status.
+        is_budget = isinstance(exc, LLMBudgetExceededError)
+        if is_budget:
+            logger.warning("Unified pipeline refused for pdf_hash=%s: %s", pdf_hash, exc)
+        else:
+            logger.exception("Unified pipeline failed for pdf_hash=%s: %s", pdf_hash, exc)
         # Full detail is in the server log above (logger.exception, with
         # traceback). What reaches the DB row / SSE stream — and from there
         # GET /upload/jobs, visible to the owning user — is a generic
         # message: str(exc) here could surface internal details (service
         # URLs, library internals) depending on what actually raised.
-        user_facing_error = (
-            "Processing timed out before it could finish. Please try again or contact "
-            "support if this keeps happening."
-            if is_cancellation
-            else "PDF parsing failed. Please try again or contact support if this keeps happening."
-        )
+        if is_cancellation:
+            user_facing_error = (
+                "Processing timed out before it could finish. Please try again or contact "
+                "support if this keeps happening."
+            )
+        elif is_budget:
+            user_facing_error = (
+                PARSE_BUDGET_STOPPED_MESSAGE
+                if created_lecture_id is not None and slide_db_ids
+                else PARSE_BUDGET_ERROR_MESSAGE
+            )
+        else:
+            user_facing_error = "PDF parsing failed. Please try again or contact support if this keeps happening."
         try:
             if run_uuid is not None:
                 if created_lecture_id is not None and slide_db_ids:
@@ -1290,10 +1404,15 @@ async def parse_pdf_unified(
                 await repos.set_error(run_uuid, user_facing_error)
         except Exception:
             pass
+        error_event: Dict[str, Any] = {"message": user_facing_error}
+        if is_budget:
+            error_event["code"] = PARSE_BUDGET_ERROR_CODE
         try:
-            await emit("error", {"message": user_facing_error})
+            await emit("error", error_event)
         except Exception:
             pass
+        if is_budget:
+            return str(run_uuid) if run_uuid is not None else ""
         # A caught CancelledError MUST be re-raised (not swallowed) so
         # asyncio's own cancellation bookkeeping for this task stays correct
         # — `raise` here re-raises the exact exception object either way.

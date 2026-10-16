@@ -733,8 +733,6 @@ async def retry_run_endpoint(
     """Retry a FAILED parse run without re-uploading bytes — the original PDF
     is already in permanent storage, keyed by pdf_hash."""
     user_id = _user_id(user)
-    meta_role = _app_metadata(user).get("role", "")
-    visibility = "private_student" if meta_role == "student" else "course"
     try:
         run_uuid = UUID(run_id)
     except ValueError:
@@ -747,6 +745,15 @@ async def retry_run_endpoint(
         raise HTTPException(status_code=403, detail="You do not own this run.")
     if run.status != RunStatus.FAILED:
         raise HTTPException(status_code=409, detail="Only failed runs can be retried.")
+
+    # Visibility is the ORIGINAL upload's, read off the run itself: private
+    # uploads are keyed under a "-student" pipeline_version (see
+    # parse_pdf_unified). The retrying JWT is not consulted, so a token without
+    # app_metadata.role cannot turn a student's retry into a course-visible
+    # (uncapped) parse. The owner stays run.user_id, as on the first attempt.
+    visibility = (
+        "private_student" if str(run.pipeline_version or "").endswith("-student") else "course"
+    )
 
     # requeue_run, not set_status: it also restarts started_at, so the retried
     # row isn't instantly "stalled" to the waiting-state sweep, and clears the
