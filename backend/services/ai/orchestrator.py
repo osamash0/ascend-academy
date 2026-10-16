@@ -1225,7 +1225,16 @@ def parse_json_response(raw: str) -> Any:
         raw = str(raw)
 
     raw = raw.strip()
-    fence = re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
+    # A well-formed reply parses as is. This must come first: the batch prompts
+    # ask for Markdown content, so a reply can carry ```sql blocks INSIDE its
+    # JSON strings, and stripping "the first fence" would cut that code out and
+    # try to parse it as the JSON (every batch of an SQL deck was discarded).
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+    # Only a fence that wraps the WHOLE reply is a wrapper; inner fences are content.
+    fence = re.match(r"^```(?:json)?\s*([\s\S]*?)\s*```$", raw)
     if fence:
         raw = fence.group(1).strip()
     raw = _sanitize_json_string(raw)

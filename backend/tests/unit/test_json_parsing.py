@@ -166,3 +166,28 @@ def test_unicode_escaped_sequences_decode():
 def test_sanitize_preserves_plain_text():
     s = '{"clean": "no defects here"}'
     assert _sanitize_json_string(s) == s
+
+
+# ── code fences INSIDE the JSON (2026-10-16 real-path pass) ──────────────────
+# The batch prompt asks for Markdown "content", so slides with code come back
+# with ```sql blocks inside a JSON string. The fence-stripper used to grab that
+# inner block and try to parse the SQL as JSON, discarding every batch of an
+# SQL deck (136/136 pages fell back to per-slide calls; 905 s for one deck).
+
+def _with_code(content: str) -> str:
+    return json.dumps({"slides": [{"page_number": 1, "title": "Joins", "content": content}]})
+
+
+def test_a_code_fence_inside_a_json_string_does_not_hijack_parsing():
+    raw = _with_code("A join:\n```sql\nSELECT * FROM a JOIN b ON a.id = b.id;\n```\nDone.")
+    assert parse_json_response(raw) == json.loads(raw)
+
+
+def test_a_fenced_response_whose_content_has_its_own_fence():
+    inner = _with_code("```sql\nSELECT 1;\n```")
+    assert parse_json_response("```json\n" + inner + "\n```") == json.loads(inner)
+
+
+def test_two_code_blocks_inside_strings_survive():
+    raw = _with_code("```sql\nSELECT 1;\n```\nand\n```sql\nSELECT 2;\n```")
+    assert parse_json_response(raw)["slides"][0]["content"].count("SELECT") == 2
