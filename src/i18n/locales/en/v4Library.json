@@ -291,6 +291,141 @@
       "emptyTitle": "Nothing published yet",
       "emptyBody": "Share a summary, a worked example or a set of practice questions with a Space, and it will show up here with how it landed.",
       "needsNewHome": "Needs a new home"
+    },
+    "canvas": {
+      "back": "Back to Library",
+      "breadcrumb": "Breadcrumb",
+      "library": "Library",
+      "sample": "Sample pages in this preview",
+      "themeLight": "Use light theme",
+      "themeDark": "Use dark theme",
+      "updates": "Canvas updates",
+      "view": {
+        "learn": "Learn",
+        "source": "Source",
+        "show": "Show source",
+        "showingLearn": "Showing Learn",
+        "showingSource": "Showing the source"
+      },
+      "recall": {
+        "toggle": "Recall",
+        "needsLearn": "Recall works in Learn",
+        "ring": "Recall, page {{page}}: {{knew}} of {{total}} known",
+        "reveal": "Reveal term, page {{page}}",
+        "revealed": "{{text}}, revealed",
+        "markIt": "{{text}}, revealed — mark whether you knew it",
+        "knew": "Knew it",
+        "notYet": "Not yet",
+        "left_one": "{{count}} term to try again",
+        "left_other": "{{count}} terms to try again",
+        "tryAgain": "Try again",
+        "startOver": "Start over"
+      },
+      "hint": {
+        "source": "Rest on a paragraph to see the source, press S, or ask below · R to recall",
+        "noOriginal": "Use ← → to move between pages, or ask below · R to recall",
+        "backOn": "Back on page {{page}}"
+      },
+      "composer": {
+        "label": "Ask about this Material",
+        "placeholder": "Ask about this Material…",
+        "ask": "Ask",
+        "answering": "Answering…",
+        "unknown": "In this preview I can answer a few questions about this Material — try one of these:",
+        "removed": "Answer removed",
+        "undo": "Undo",
+        "below": "Added below ↓"
+      },
+      "answer": {
+        "added": "Answer added under: {{where}} (for: {{question}})",
+        "addedEnd": "Answer added under: the end (for: {{question}})",
+        "from": "From your question",
+        "remove": "Remove this answer"
+      },
+      "rail": {
+        "label": "Pages of this Material",
+        "heading": "Pages",
+        "notes": "Your notes",
+        "page": "Page {{page}}"
+      },
+      "pager": {
+        "label": "Page",
+        "previous": "Previous page",
+        "next": "Next page"
+      },
+      "page": {
+        "divider": "page {{page}}",
+        "dividerSource": "page {{page}} · source",
+        "section": "Page {{page}}",
+        "notes": "Your notes",
+        "sourceSection": "Source page {{page}}",
+        "marker": "p.{{page}}",
+        "showSource": "Show the source, page {{page}}",
+        "alt": "Page {{page}} of {{name}}"
+      },
+      "depth": {
+        "label": "Depth for page {{page}}",
+        "gist": "Gist",
+        "summary": "Summary",
+        "full": "Full",
+        "page": "Page"
+      },
+      "peek": {
+        "label": "Source page",
+        "removed": "The source file was removed. Learn keeps working.",
+        "failed": "Couldn’t load this page.",
+        "retry": "Try again",
+        "caption": "Source · {{name}} · page {{page}}",
+        "pin": "Pin",
+        "fullPage": "Full page",
+        "close": "Close"
+      },
+      "full": {
+        "title": "{{name}} · page {{page}}",
+        "description": "The source page, with the selected spot outlined.",
+        "zoom": "Zoom"
+      },
+      "original": {
+        "back": "Back to: {{text}}",
+        "backEdited": "Back to (edited): {{text}}",
+        "edited": "Edited by you",
+        "parts_one": "{{count}} part not in your version",
+        "parts_other": "{{count}} parts not in your version",
+        "figures_one": "{{count}} figure not in your version",
+        "figures_other": "{{count}} figures not in your version",
+        "notIn": "Not in your version: {{text}}",
+        "add": "Add to your version: {{text}}",
+        "addPill": "Add to your version",
+        "backToLearn": "Back to Learn"
+      },
+      "blocks": {
+        "reset": "Reset",
+        "pick": "Pick a left and a right side",
+        "broken": "Broken by rows {{a}} and {{b}}",
+        "holds": "Holds on these rows",
+        "roleLeft": "{{name}}: left side",
+        "roleRight": "{{name}}: right side",
+        "roleNone": "{{name}}: not in the dependency",
+        "tagLeft": "left",
+        "tagRight": "right",
+        "cell": "Row {{row}}, {{column}}",
+        "addRow": "Row",
+        "startWith": "Start with",
+        "begin": "Begin with the start set itself.",
+        "pickOne": "Pick at least one attribute to start from.",
+        "fired": "{{lhs}} is inside the set, so {{fd}} fires and adds {{added}}.",
+        "done": "Nothing else fires — done.",
+        "superkey": "{{start}} is a superkey.",
+        "notKey": "Not a key: it never reaches {{rest}}.",
+        "previousStep": "Previous step",
+        "nextStep": "Next step",
+        "step": "Step {{at}} of {{count}}",
+        "bcnfDone_one": "Every relation is in BCNF. {{count}} split, nothing lost: each split keeps the violating FD’s left side in both halves, so the join is lossless.",
+        "bcnfDone_other": "Every relation is in BCNF. {{count}} splits, nothing lost: each split keeps the violating FD’s left side in both halves, so the join is lossless.",
+        "bcnfSplit": "In {{relation}}, <fd>{{fd}}</fd> has a left side that is not a key. Split it: everything {{lhs}} decides goes to one relation, the rest stays with {{lhs}}.",
+        "check": "Check",
+        "tryAgain": "Try again"
+      }
     }
   }
 }

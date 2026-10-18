@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Check, ChevronLeft, ChevronRight, Plus, RotateCcw, X } from 'lucide-react';
+import { Trans, useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Markdown } from '../components/Markdown';
 import { CARD_SETTLE_S, MARK_FADE_S } from '../motion';
@@ -140,6 +141,7 @@ const initialRoles = (block: Extract<AnswerBlock, { type: 'fdTable' }>): Record<
   );
 
 function FdTable({ block }: { block: Extract<AnswerBlock, { type: 'fdTable' }> }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.blocks' });
   const beats = useBeats();
   const [rows, setRows] = useState(block.rows);
   const [roles, setRoles] = useState<Record<string, Role>>(() => initialRoles(block));
@@ -166,7 +168,7 @@ function FdTable({ block }: { block: Extract<AnswerBlock, { type: 'fdTable' }> }
           className={cn(BTN, '-mt-3 gap-1.5 px-2.5 text-[12.5px]')}
         >
           <RotateCcw aria-hidden className="h-3.5 w-3.5" />
-          Reset
+          {t('reset')}
         </button>
       </div>
 
@@ -181,7 +183,7 @@ function FdTable({ block }: { block: Extract<AnswerBlock, { type: 'fdTable' }> }
               : 'rgb(var(--studio-woven) / 0.14)',
         }}
       >
-        <span className="font-mono text-[14px] text-foreground">{ready ? fdText(fd) : 'Pick a left and a right side'}</span>
+        <span className="font-mono text-[14px] text-foreground">{ready ? fdText(fd) : t('pick')}</span>
         <span aria-live="polite" aria-atomic="true" className="ml-auto">
           {ready && (
             <motion.span
@@ -194,7 +196,7 @@ function FdTable({ block }: { block: Extract<AnswerBlock, { type: 'fdTable' }> }
               style={{ color: bad.length ? MARK : WOVEN }}
             >
               {bad.length ? <X aria-hidden className="h-3.5 w-3.5" /> : <Check aria-hidden className="h-3.5 w-3.5" />}
-              {bad.length ? `Broken by rows ${bad[0][0] + 1} and ${bad[0][1] + 1}` : 'Holds on these rows'}
+              {bad.length ? t('broken', { a: bad[0][0] + 1, b: bad[0][1] + 1 }) : t('holds')}
             </motion.span>
           )}
         </span>
@@ -210,7 +212,7 @@ function FdTable({ block }: { block: Extract<AnswerBlock, { type: 'fdTable' }> }
                   <button
                     type="button"
                     onClick={() => cycle(c)}
-                    aria-label={`${c}: ${roles[c] === 'l' ? 'left side' : roles[c] === 'r' ? 'right side' : 'not in the dependency'}`}
+                    aria-label={t(roles[c] === 'l' ? 'roleLeft' : roles[c] === 'r' ? 'roleRight' : 'roleNone', { name: c })}
                     className={cn(
                       'flex min-h-8 w-full items-center gap-1.5 rounded-lg px-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       roles[c]
@@ -224,7 +226,7 @@ function FdTable({ block }: { block: Extract<AnswerBlock, { type: 'fdTable' }> }
                         className="ml-auto rounded px-1.5 text-[11px] text-background"
                         style={{ background: roles[c] === 'l' ? 'hsl(var(--foreground) / 0.75)' : TERM }}
                       >
-                        {roles[c] === 'l' ? 'left' : 'right'}
+                        {roles[c] === 'l' ? t('tagLeft') : t('tagRight')}
                       </span>
                     )}
                   </button>
@@ -247,7 +249,7 @@ function FdTable({ block }: { block: Extract<AnswerBlock, { type: 'fdTable' }> }
                   <td key={ci} className="border-b border-[rgb(var(--studio-hairline))] p-1">
                     <input
                       value={v}
-                      aria-label={`Row ${ri + 1}, ${block.columns[ci]}`}
+                      aria-label={t('cell', { row: ri + 1, column: block.columns[ci] })}
                       onChange={(e) =>
                         setRows((rs) => rs.map((r, i) => (i === ri ? r.map((x, j) => (j === ci ? e.target.value : x)) : r)))
                       }
@@ -268,7 +270,7 @@ function FdTable({ block }: { block: Extract<AnswerBlock, { type: 'fdTable' }> }
           className={cn(BTN, 'shrink-0 gap-1.5 px-3 text-[12.5px]')}
         >
           <Plus aria-hidden className="h-3.5 w-3.5" />
-          Row
+          {t('addRow')}
         </button>
       </div>
     </Card>
@@ -300,9 +302,10 @@ function AttrChip({ name, state }: { name: string; state: 'in' | 'new' | 'out' }
 }
 
 function Stepper({ at, count, onAt }: { at: number; count: number; onAt: (n: number) => void }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.blocks' });
   return (
     <div className="flex items-center gap-2">
-      <button type="button" aria-label="Previous step" disabled={at === 0} onClick={() => onAt(at - 1)} className={cn(BTN, 'w-8')}>
+      <button type="button" aria-label={t('previousStep')} disabled={at === 0} onClick={() => onAt(at - 1)} className={cn(BTN, 'w-8')}>
         <ChevronLeft aria-hidden className="h-4 w-4" />
       </button>
       <div className="flex gap-1" aria-hidden>
@@ -315,11 +318,11 @@ function Stepper({ at, count, onAt }: { at: number; count: number; onAt: (n: num
         ))}
       </div>
       <span className="text-[12.5px] tabular-nums text-quiet">
-        Step {at + 1} of {count}
+        {t('step', { at: at + 1, count })}
       </span>
       <button
         type="button"
-        aria-label="Next step"
+        aria-label={t('nextStep')}
         disabled={at >= count - 1}
         onClick={() => onAt(at + 1)}
         className={cn(BTN, 'w-8')}
@@ -331,6 +334,7 @@ function Stepper({ at, count, onAt }: { at: number; count: number; onAt: (n: num
 }
 
 function Closure({ block }: { block: Extract<AnswerBlock, { type: 'closure' }> }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.blocks' });
   const beats = useBeats();
   const [start, setStart] = useState<string[]>(block.start);
   const steps = useMemo(() => closureSteps(start, block.fds), [start, block.fds]);
@@ -347,7 +351,7 @@ function Closure({ block }: { block: Extract<AnswerBlock, { type: 'closure' }> }
   return (
     <Card label={block.title}>
       <CardTitle>{block.title}</CardTitle>
-      <p className="mb-2 text-[13px] text-quiet">Start with</p>
+      <p className="mb-2 text-[13px] text-quiet">{t('startWith')}</p>
       <div className="mb-4 flex flex-wrap gap-1.5">
         {block.attrs.map((a) => {
           const on = start.includes(a);
@@ -417,18 +421,18 @@ function Closure({ block }: { block: Extract<AnswerBlock, { type: 'closure' }> }
             >
               {at === 0
                 ? start.length
-                  ? 'Begin with the start set itself.'
-                  : 'Pick at least one attribute to start from.'
+                  ? t('begin')
+                  : t('pickOne')
                 : step.fired
-                  ? `${step.fired.lhs.join(', ')} is inside the set, so ${fdText(step.fired)} fires and adds ${step.added.join(', ')}.`
+                  ? t('fired', { lhs: step.fired.lhs.join(', '), fd: fdText(step.fired), added: step.added.join(', ') })
                   : ''}
               {done && at > 0 && (
                 <span className="text-foreground">
                   {' '}
-                  Nothing else fires — done.{' '}
+                  {t('done')}{' '}
                   {isKey
-                    ? `${start.join(', ')} is a superkey.`
-                    : `Not a key: it never reaches ${block.attrs.filter((x) => !result.includes(x)).join(', ')}.`}
+                    ? t('superkey', { start: start.join(', ') })
+                    : t('notKey', { rest: block.attrs.filter((x) => !result.includes(x)).join(', ') })}
                 </span>
               )}
             </motion.p>
@@ -473,6 +477,7 @@ function RelationCard({ r, state }: { r: Relation; state: 'ok' | 'split' | 'new'
 }
 
 function Bcnf({ block }: { block: Extract<AnswerBlock, { type: 'bcnf' }> }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.blocks' });
   const beats = useBeats();
   const steps = useMemo(() => bcnfSteps(block.relation, block.fds), [block.relation, block.fds]);
   const [at, setAt] = useState(0);
@@ -523,14 +528,16 @@ function Bcnf({ block }: { block: Extract<AnswerBlock, { type: 'bcnf' }> }) {
           >
             {done ? (
               <span className="text-foreground">
-                Every relation is in BCNF. {steps.length - 1} split{steps.length === 2 ? '' : 's'}, nothing lost: each
-                split keeps the violating FD’s left side in both halves, so the join is lossless.
+                {t('bcnfDone', { count: steps.length - 1 })}
               </span>
             ) : (
               <>
-                In {next.split!.from.name}, <span className="font-mono text-foreground">{fdText(next.split!.by)}</span> has
-                a left side that is not a key. Split it: everything {next.split!.by.lhs.join(', ')} decides goes to one
-                relation, the rest stays with {next.split!.by.lhs.join(', ')}.
+                <Trans
+                  t={t}
+                  i18nKey="bcnfSplit"
+                  values={{ relation: next.split!.from.name, fd: fdText(next.split!.by), lhs: next.split!.by.lhs.join(', ') }}
+                  components={{ fd: <span className="font-mono text-foreground" /> }}
+                />
               </>
             )}
           </motion.p>
@@ -544,6 +551,7 @@ function Bcnf({ block }: { block: Extract<AnswerBlock, { type: 'bcnf' }> }) {
 /* ----------------------------------------------------------------- check */
 
 function CheckBlock({ block }: { block: Extract<AnswerBlock, { type: 'check' }> }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.blocks' });
   const beats = useBeats();
   const name = useId();
   /** The option you lean to: radios only choose (arrow keys move it), nothing is shown yet. */
@@ -640,7 +648,7 @@ function CheckBlock({ block }: { block: Extract<AnswerBlock, { type: 'check' }> 
           }}
           className={cn(BTN, 'mt-2 px-3 text-[12.5px] text-foreground')}
         >
-          Check
+          {t('check')}
         </button>
       ) : (
         <button
@@ -653,7 +661,7 @@ function CheckBlock({ block }: { block: Extract<AnswerBlock, { type: 'check' }> 
           className={cn(BTN, 'mt-2 gap-1.5 px-2.5 text-[12.5px]')}
         >
           <RotateCcw aria-hidden className="h-3.5 w-3.5" />
-          Try again
+          {t('tryAgain')}
         </button>
       )}
     </Card>

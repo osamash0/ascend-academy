@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Maximize2, Pin, PinOff, RotateCw, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { boxStyle } from '../geometry';
 import type { Region } from '../geometry';
@@ -33,6 +34,7 @@ const action =
 export function Peek({
   region, materialName, pinned, sourceRemoved, onTogglePin, onClose, onFullPage, onPointerEnter, onPointerLeave,
 }: Props) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas' });
   const { page, box } = region;
   // Retries belong to one page: a different page starts clean.
   const [retry, setRetry] = useState({ url: page.imageUrl, n: 0 });
@@ -42,7 +44,7 @@ export function Peek({
 
   return (
     <motion.aside
-      aria-label="Source page"
+      aria-label={t('peek.label')}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 6 }}
@@ -52,13 +54,13 @@ export function Peek({
     >
       {sourceRemoved ? (
         <p className="p-3 text-[14px] leading-relaxed text-quiet">
-          The source file was removed. Learn keeps working.
+          {t('peek.removed')}
         </p>
       ) : failed === src ? (
         <div className="flex flex-col items-center gap-3 p-6 text-[14px] text-quiet">
-          Couldn’t load this page.
+          {t('peek.failed')}
           <button type="button" className={action} onClick={() => setRetry({ url: page.imageUrl, n: attempt + 1 })}>
-            <RotateCw aria-hidden className="h-3.5 w-3.5" /> Try again
+            <RotateCw aria-hidden className="h-3.5 w-3.5" /> {t('peek.retry')}
           </button>
         </div>
       ) : (
@@ -70,7 +72,7 @@ export function Peek({
             <motion.img
               key={src}
               src={src}
-              alt={`Page ${page.page} of ${materialName}`}
+              alt={t('page.alt', { page: page.page, name: materialName })}
               loading="lazy"
               decoding="async"
               onError={() => setFailed(src)}
@@ -95,18 +97,18 @@ export function Peek({
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className="min-w-0 flex-1 truncate text-[12.5px] text-faint">
-          Source · {materialName} · page {page.page}
+          {t('peek.caption', { name: materialName, page: page.page })}
         </span>
         <button type="button" aria-pressed={pinned} onClick={onTogglePin} className={cn(action, pinned && 'bg-foreground text-background hover:bg-foreground hover:text-background')}>
           {pinned ? <PinOff aria-hidden className="h-3.5 w-3.5" /> : <Pin aria-hidden className="h-3.5 w-3.5" />}
-          Pin
+          {t('peek.pin')}
         </button>
         {!sourceRemoved && (
           <button type="button" onClick={onFullPage} className={action}>
-            <Maximize2 aria-hidden className="h-3.5 w-3.5" /> Full page
+            <Maximize2 aria-hidden className="h-3.5 w-3.5" /> {t('peek.fullPage')}
           </button>
         )}
-        <button type="button" onClick={onClose} aria-label="Close" className={cn(action, 'w-8 justify-center px-0')}>
+        <button type="button" onClick={onClose} aria-label={t('peek.close')} className={cn(action, 'w-8 justify-center px-0')}>
           <X aria-hidden className="h-3.5 w-3.5" />
         </button>
       </div>

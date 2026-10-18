@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useIsPresent, useReducedMotion, type HTMLMotionProps } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { CleanBlock } from './CleanBlock';
 import { DepthDial } from './DepthDial';
 import { OriginalPage } from './OriginalPage';
@@ -12,7 +13,7 @@ import type { PageGroup } from '../geometry';
 import { blocksAtDepth, optionsFor, shownAt, type Depth } from '../depth';
 import { DEPTH_ENTER_S, DEPTH_LAYOUT_S, DEPTH_LEAVE_S, DEPTH_STAGGER_S, FLIGHT_EASE } from '../motion';
 import type { CanvasView } from '../useMorph';
-import { pageProgress, recallLabel, stateOf, type RecallState, type TermState } from '../recall';
+import { pageProgress, stateOf, type RecallState, type TermState } from '../recall';
 import { TermStateContext } from '../termState';
 import type { CanvasBlock, SourcePage } from '../types';
 
@@ -75,6 +76,7 @@ export interface BlockRecall {
  * carries the ids it needs. Every other page crossfades.
  */
 export function CanvasPage(p: Props) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas' });
   const levelOf = (page: number): Depth => p.levels[page] ?? 'summary';
   // Once per (blocks, pages, levels), not per block per render. At Full, the page's own text counts too.
   const lowConfidence = useMemo(() => {
@@ -141,7 +143,7 @@ export function CanvasPage(p: Props) {
                   key="clean"
                   data-view="clean"
                   data-page-anchor={g.page}
-                  aria-label={g.page ? `Page ${g.page}` : 'Your notes'}
+                  aria-label={g.page ? t('page.section', { page: g.page }) : t('page.notes')}
                   className="scroll-mt-40 lg:scroll-mt-28"
                   initial={{ opacity: morph ? 1 : 0 }}
                   animate={{ opacity: 1 }}
@@ -155,7 +157,7 @@ export function CanvasPage(p: Props) {
                         ? (() => {
                             // Only what is on screen counts: at Full or Page there are no terms, so no ring.
                             const { knew, total } = pageProgress(shown, recall.state);
-                            return <ProgressRing knew={knew} total={total} label={recallLabel(g.page, knew, total)} />;
+                            return <ProgressRing knew={knew} total={total} label={t('recall.ring', { page: g.page, knew, total })} />;
                           })()
                         : undefined
                     }

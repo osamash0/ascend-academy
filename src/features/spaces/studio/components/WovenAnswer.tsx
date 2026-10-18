@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Markdown } from './Markdown';
 import { AnswerBlockView } from '../answers/Blocks';
@@ -47,6 +48,7 @@ export function wordDelays(count: number): number[] {
  * Remove collapses it, then asks the screen to take it out (Undo lives there).
  */
 export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek, flying = false, flash = false }: Props) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.answer' });
   const reduce = useReducedMotion();
   const animate = fresh && !reduce;
   const [settled, setSettled] = useState(!animate);
@@ -145,7 +147,7 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek, fly
           transition={{ duration: 0.6, delay: 0.3 }}
           className="mb-1 text-[12px] text-[rgb(var(--studio-woven))]"
         >
-          From your question
+          {t('from')}
           {block.format && <span className="text-quiet"> · {block.format}</span>}
         </motion.p>
         <p className="mb-1.5 text-[13px] text-quiet">{block.askedAs}</p>
@@ -241,7 +243,8 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek, fly
 
         <button
           type="button"
-          aria-label="Remove this answer"
+          aria-label={t('remove')}
+          data-remove-answer
           onClick={() => setLeaving(true)}
           className="console-focusable absolute right-0 top-0 flex h-7 w-7 items-center justify-center rounded-full text-faint opacity-0 transition-opacity hover:bg-[rgb(var(--studio-chip))] hover:text-foreground focus-visible:opacity-100 group-hover/woven:opacity-100 [@media(hover:none)]:opacity-100"
         >

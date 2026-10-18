@@ -291,6 +291,141 @@
       "emptyTitle": "Noch nichts veröffentlicht",
       "emptyBody": "Teile eine Zusammenfassung, ein durchgerechnetes Beispiel oder Übungsfragen mit einem Space. Dann erscheint es hier, zusammen mit dem, was daraus geworden ist.",
       "needsNewHome": "Braucht einen neuen Platz"
+    },
+    "canvas": {
+      "back": "Zurück zur Bibliothek",
+      "breadcrumb": "Navigationspfad",
+      "library": "Bibliothek",
+      "sample": "Beispielseiten in dieser Vorschau",
+      "themeLight": "Helles Design verwenden",
+      "themeDark": "Dunkles Design verwenden",
+      "updates": "Änderungen an deiner Version",
+      "view": {
+        "learn": "Lernen",
+        "source": "Quelle",
+        "show": "Quelle zeigen",
+        "showingLearn": "Lernansicht wird angezeigt",
+        "showingSource": "Quelle wird angezeigt"
+      },
+      "recall": {
+        "toggle": "Abrufen",
+        "needsLearn": "Abrufen funktioniert in der Lernansicht",
+        "ring": "Abrufen, Seite {{page}}: {{knew}} von {{total}} gewusst",
+        "reveal": "Begriff aufdecken, Seite {{page}}",
+        "revealed": "{{text}}, aufgedeckt",
+        "markIt": "{{text}}, aufgedeckt – markiere, ob du ihn gewusst hast",
+        "knew": "Gewusst",
+        "notYet": "Noch nicht",
+        "left_one": "{{count}} Begriff zum Wiederholen",
+        "left_other": "{{count}} Begriffe zum Wiederholen",
+        "tryAgain": "Noch mal versuchen",
+        "startOver": "Von vorn beginnen"
+      },
+      "hint": {
+        "source": "Verweil auf einem Absatz, um die Quelle zu sehen, drück S oder frag unten · R zum Abrufen",
+        "noOriginal": "Mit ← → wechselst du die Seite, oder frag unten · R zum Abrufen",
+        "backOn": "Wieder auf Seite {{page}}"
+      },
+      "composer": {
+        "label": "Frag etwas zu diesem Material",
+        "placeholder": "Frag etwas zu diesem Material…",
+        "ask": "Fragen",
+        "answering": "Antwort wird geschrieben…",
+        "unknown": "In dieser Vorschau kann ich ein paar Fragen zu diesem Material beantworten – probier eine davon:",
+        "removed": "Antwort entfernt",
+        "undo": "Rückgängig",
+        "below": "Unten hinzugefügt ↓"
+      },
+      "answer": {
+        "added": "Antwort unter „{{where}}“ hinzugefügt (zu: {{question}})",
+        "addedEnd": "Antwort am Ende hinzugefügt (zu: {{question}})",
+        "from": "Aus deiner Frage",
+        "remove": "Antwort entfernen"
+      },
+      "rail": {
+        "label": "Seiten dieses Materials",
+        "heading": "Seiten",
+        "notes": "Deine Notizen",
+        "page": "Seite {{page}}"
+      },
+      "pager": {
+        "label": "Seite",
+        "previous": "Vorherige Seite",
+        "next": "Nächste Seite"
+      },
+      "page": {
+        "divider": "Seite {{page}}",
+        "dividerSource": "Seite {{page}} · Quelle",
+        "section": "Seite {{page}}",
+        "notes": "Deine Notizen",
+        "sourceSection": "Quellseite {{page}}",
+        "marker": "S. {{page}}",
+        "showSource": "Quelle zeigen, Seite {{page}}",
+        "alt": "Seite {{page}} von {{name}}"
+      },
+      "depth": {
+        "label": "Tiefe für Seite {{page}}",
+        "gist": "Kern",
+        "summary": "Zusammenfassung",
+        "full": "Volltext",
+        "page": "Seite"
+      },
+      "peek": {
+        "label": "Quellseite",
+        "removed": "Die Quelldatei wurde entfernt. Lernen funktioniert weiterhin.",
+        "failed": "Wir konnten diese Seite nicht laden.",
+        "retry": "Noch mal versuchen",
+        "caption": "Quelle · {{name}} · Seite {{page}}",
+        "pin": "Anheften",
+        "fullPage": "Ganze Seite",
+        "close": "Schließen"
+      },
+      "full": {
+        "title": "{{name}} · Seite {{page}}",
+        "description": "Die Quellseite, die ausgewählte Stelle ist umrandet.",
+        "zoom": "Zoom"
+      },
+      "original": {
+        "back": "Zurück zu: {{text}}",
+        "backEdited": "Zurück zu (bearbeitet): {{text}}",
+        "edited": "Von dir bearbeitet",
+        "parts_one": "{{count}} Teil fehlt in deiner Version",
+        "parts_other": "{{count}} Teile fehlen in deiner Version",
+        "figures_one": "{{count}} Abbildung fehlt in deiner Version",
+        "figures_other": "{{count}} Abbildungen fehlen in deiner Version",
+        "notIn": "Nicht in deiner Version: {{text}}",
+        "add": "Zu deiner Version hinzufügen: {{text}}",
+        "addPill": "Zu deiner Version hinzufügen",
+        "backToLearn": "Zurück zu Lernen"
+      },
+      "blocks": {
+        "reset": "Zurücksetzen",
+        "pick": "Wähl eine linke und eine rechte Seite",
+        "broken": "Verletzt durch die Zeilen {{a}} und {{b}}",
+        "holds": "Gilt für diese Zeilen",
+        "roleLeft": "{{name}}: linke Seite",
+        "roleRight": "{{name}}: rechte Seite",
+        "roleNone": "{{name}}: nicht in der Abhängigkeit",
+        "tagLeft": "links",
+        "tagRight": "rechts",
+        "cell": "Zeile {{row}}, {{column}}",
+        "addRow": "Zeile",
+        "startWith": "Starte mit",
+        "begin": "Fang mit der Startmenge selbst an.",
+        "pickOne": "Wähl mindestens ein Attribut als Start.",
+        "fired": "Die Menge enthält {{lhs}}, also greift {{fd}} und fügt {{added}} hinzu.",
+        "done": "Nichts greift mehr – fertig.",
+        "superkey": "Die Menge {{start}} ist ein Superschlüssel.",
+        "notKey": "Kein Schlüssel: {{rest}} wird nie erreicht.",
+        "previousStep": "Vorheriger Schritt",
+        "nextStep": "Nächster Schritt",
+        "step": "Schritt {{at}} von {{count}}",
+        "bcnfDone_one": "Jede Relation ist in BCNF. {{count}} Aufteilung, nichts geht verloren: Jede Aufteilung behält die linke Seite der verletzenden FD in beiden Hälften, also ist der Join verlustfrei.",
+        "bcnfDone_other": "Jede Relation ist in BCNF. {{count}} Aufteilungen, nichts geht verloren: Jede Aufteilung behält die linke Seite der verletzenden FD in beiden Hälften, also ist der Join verlustfrei.",
+        "bcnfSplit": "In {{relation}} hat <fd>{{fd}}</fd> eine linke Seite, die kein Schlüssel ist. Teile die Relation: alles, was {{lhs}} bestimmt, kommt in eine Relation, der Rest bleibt bei {{lhs}}.",
+        "check": "Prüfen",
+        "tryAgain": "Noch mal versuchen"
+      }
     }
   }
 }

@@ -73,6 +73,7 @@
       "history": "Dein Lernverlauf konnte nicht geladen werden",
       "rank": "Dein Rang konnte nicht geladen werden",
       "next": "Dein nächster Schritt konnte nicht geladen werden",
+      "material": "Dieses Material konnte nicht geladen werden",
       "body": "Die Verbindung ist unterwegs abgebrochen. Von deinen Sachen ist nichts verloren.",
       "retry": "Noch mal versuchen"
     },
@@ -82,6 +83,7 @@
       "idea": "Diese Idee gibt es hier nicht",
       "person": "Diese Person gibt es hier nicht",
       "screen": "Diese Ansicht gibt es hier nicht",
+      "material": "Dieses Material gibt es hier nicht",
       "body": "Vielleicht wurde das entfernt, oder der Link stimmt nicht. Deine Sachen sind davon nicht betroffen."
     },
     "back": {
