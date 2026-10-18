@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { NotebookPen, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 /**
@@ -31,12 +32,13 @@ interface Props {
 
 export function NoteEditor({
   value = '',
-  placeholder = 'Write it down while it is fresh…',
+  placeholder,
   onSave,
   onDelete,
   autoOpen = false,
   className,
 }: Props) {
+  const { t } = useTranslation('v4Spaces');
   const [open, setOpen] = useState(autoOpen);
   const [body, setBody] = useState(value);
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -65,7 +67,7 @@ export function NoteEditor({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label={value ? `Edit note: ${value.slice(0, 60)}` : 'Write a note'}
+        aria-label={value ? t('notes.edit', { note: value.slice(0, 60) }) : t('notes.write')}
         className={cn(
           'console-focusable flex w-full items-start gap-3 rounded-2xl border px-5 py-4 text-left transition-colors',
           value
@@ -80,7 +82,7 @@ export function NoteEditor({
             {value}
           </span>
         ) : (
-          <span className="text-[14px] text-quiet">Write a note</span>
+          <span className="text-[14px] text-quiet">{t('notes.write')}</span>
         )}
       </button>
     );
@@ -113,13 +115,13 @@ export function NoteEditor({
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) commit();
           }}
           rows={4}
-          placeholder={placeholder}
-          aria-label="Note"
+          placeholder={placeholder ?? t('notes.placeholder')}
+          aria-label={t('notes.label')}
           className="w-full resize-y bg-transparent p-4 text-[14.5px] leading-relaxed outline-none placeholder:text-faint"
         />
         <div className="flex items-center justify-between gap-3 border-t border-white/[0.07] px-4 py-2.5">
           <p className="text-[12.5px] text-faint">
-            Saves when you click away · Esc to cancel
+            {t('notes.hint')}
           </p>
           <div className="flex items-center gap-2">
             {onDelete && value && (
@@ -131,7 +133,7 @@ export function NoteEditor({
                   onDelete();
                   setOpen(false);
                 }}
-                aria-label="Delete this note"
+                aria-label={t('notes.delete')}
                 className="console-focusable flex h-8 w-8 items-center justify-center rounded-lg text-quiet transition-colors hover:bg-destructive/10 hover:text-destructive"
               >
                 <Trash2 aria-hidden className="h-3.5 w-3.5" />
@@ -145,7 +147,7 @@ export function NoteEditor({
               }}
               className="console-focusable h-8 rounded-lg bg-white px-3.5 text-[13px] font-semibold text-slate-900"
             >
-              Done
+              {t('notes.done')}
             </button>
           </div>
         </div>

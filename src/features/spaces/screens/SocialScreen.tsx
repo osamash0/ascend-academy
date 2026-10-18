@@ -89,8 +89,8 @@ export default function SocialScreen() {
   );
 
   // All four states. `?mock=loading|error` was a no-op on this screen.
-  if (screenState === 'loading') return chrome(<ListSkeleton label="Loading social" />);
-  if (screenState === 'error') return chrome(<SpacesError what="your people" />);
+  if (screenState === 'loading') return chrome(<ListSkeleton label="social" />);
+  if (screenState === 'error') return chrome(<SpacesError what="people" />);
 
   return chrome(
     <>

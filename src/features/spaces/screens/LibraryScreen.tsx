@@ -259,7 +259,7 @@ export default function LibraryScreen() {
   );
 
   if (state === 'loading') return chrome(<SpacesSkeleton />);
-  if (state === 'error') return chrome(<SpacesError what="your Library" />);
+  if (state === 'error') return chrome(<SpacesError what="library" />);
 
   const fade = { duration: reduce ? 0.15 : 0.24, ease: FLIGHT_EASE };
   const showContinue = !!continueItem && (filter === 'all' || filter === 'reading') && !q && !selecting;

@@ -287,5 +287,21 @@
       "viewCode": "Code ansehen",
       "hideCode": "Code ausblenden"
     }
+  },
+  "read": {
+    "materialCaption": "Das Material, aus dem diese Lektion entstanden ist",
+    "unwritten": {
+      "title": "Noch nicht geschrieben",
+      "body": "{{lesson}} hat schon ihre Ideen und Übungen. Der Text selbst ist aber noch nicht geschrieben."
+    },
+    "source": {
+      "pageNumber": "Seite {{page}}",
+      "belongsTo": "Diese Seite gehört zu <idea>{{name}}</idea>"
+    },
+    "rail": {
+      "label": "Begleiter beim Lesen",
+      "tabs": "Begleiter",
+      "close": "Begleiter schließen"
+    }
   }
 }

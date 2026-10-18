@@ -31,7 +31,7 @@ from backend.services.v4_reader_service import _generate_json, _lecture_row, wri
 
 logger = logging.getLogger(__name__)
 
-KEYPOINTS_VERSION = "keypoints-v1"
+KEYPOINTS_VERSION = "keypoints-v1"  # gitleaks:allow — cache-key version label, not a credential
 KEYPOINTS_TTL = 60 * 60 * 24 * 60
 SPAN_SLIDES = 14
 SLIDE_CHARS = 600

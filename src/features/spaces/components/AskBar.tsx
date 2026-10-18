@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowUp, Loader2, Plus, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,6 +45,7 @@ export function AskBar({
   busy = false,
   className,
 }: AskBarProps) {
+  const { t } = useTranslation('v4Spaces');
   const [input, setInput] = useState('');
   const box = useRef<HTMLTextAreaElement>(null);
 
@@ -115,7 +117,7 @@ export function AskBar({
           <button
             type="submit"
             disabled={!input.trim() || busy}
-            aria-label="Ask Luna"
+            aria-label={t('ask.send')}
             /*
               `disabled:opacity-30` without `transition-opacity`: the dim state
               is a state, not an animation. CSS here may transition colour and

@@ -1,5 +1,6 @@
 import { Compass, Plus, RotateCw, TriangleAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Pressable, PressableLink } from './Pressable';
 
@@ -9,7 +10,41 @@ import { Pressable, PressableLink } from './Pressable';
  * "Treat failure and emptiness as moments for direction, not mood." An empty
  * screen is an invitation to act; an error says what happened and how to fix
  * it, without apologising or being vague.
+ *
+ * Every sentence here is whole, per thing, in `v4Spaces:states.*`. They used
+ * to be one English frame around a noun ("Couldn’t load ${what}"), which no
+ * other language can fill: German needs the noun's gender in the words
+ * around it ("dieser Space", "diese Lektion"). So a caller names *which*
+ * thing, and the sentence is chosen, not assembled.
  */
+
+/** What failed to load. */
+export type Failed =
+  | 'spaces'
+  | 'space'
+  | 'lesson'
+  | 'idea'
+  | 'practice'
+  | 'person'
+  | 'library'
+  | 'material'
+  | 'work'
+  | 'profile'
+  | 'settings'
+  | 'people'
+  | 'moments'
+  | 'history'
+  | 'rank'
+  | 'next';
+
+/** What is not there. */
+export type Missing = 'space' | 'lesson' | 'idea' | 'person' | 'screen' | 'material';
+
+/** What a list is loading, for a screen reader. */
+export type Loading = 'any' | 'spaces' | 'profile' | 'social' | 'moments' | 'history' | 'rank';
+
+/** The way back from something that is not there. */
+export type Back = { to: string; space: string } | { to: string; place: 'spaces' | 'library' | 'social' };
 
 /* ── Loading ────────────────────────────────────────────────────── */
 
@@ -71,9 +106,10 @@ export function DetailSkeleton() {
 }
 
 /** A list of rows — Library, Social, Settings, the Studio screens. */
-export function ListSkeleton({ label = 'Loading' }: { label?: string }) {
+export function ListSkeleton({ label = 'any' }: { label?: Loading }) {
+  const { t } = useTranslation('v4Spaces');
   return (
-    <div aria-busy="true" aria-label={label} className="mx-auto max-w-4xl px-6 pt-8 lg:px-8">
+    <div aria-busy="true" aria-label={t(`states.loading.${label}`)} className="mx-auto max-w-4xl px-6 pt-8 lg:px-8">
       <div className={bar('mb-3 h-7 w-40 rounded-xl')} />
       <div className={bar('mb-8 h-4 w-64')} />
       <div className="space-y-2.5">
@@ -139,18 +175,15 @@ export function NoSpacesYet({
   onCreate: () => void;
   onJoin: () => void;
 }) {
+  const { t } = useTranslation('v4Spaces');
   return (
-    <Shell
-      icon={<Plus aria-hidden className="h-6 w-6" />}
-      title="No Spaces yet"
-      body="A Space is where you keep one subject — its material, its practice, and the people learning it with you."
-      >
+    <Shell icon={<Plus aria-hidden className="h-6 w-6" />} title={t('states.noSpaces.title')} body={t('states.noSpaces.body')}>
       <Pressable type="button" onClick={onCreate} className={PRIMARY}>
         <Plus aria-hidden className="h-4 w-4" />
-        Create your first Space
+        {t('states.noSpaces.create')}
       </Pressable>
       <Pressable type="button" onClick={onJoin} className={SECONDARY}>
-        Join with a code
+        {t('states.noSpaces.join')}
       </Pressable>
     </Shell>
   );
@@ -164,14 +197,15 @@ export function NothingToDiscover({
   scopeLabel: string;
   onWiden: () => void;
 }) {
+  const { t } = useTranslation('v4Spaces');
   return (
     <Shell
       icon={<Compass aria-hidden className="h-6 w-6" />}
-      title={`No public Spaces in ${scopeLabel}`}
-      body="Nobody has opened a Space here yet. Widen the search, or start one and let others join you."
+      title={t('states.nothingToDiscover.title', { scope: scopeLabel })}
+      body={t('states.nothingToDiscover.body')}
     >
       <Pressable type="button" onClick={onWiden} className={SECONDARY}>
-        Search everywhere
+        {t('states.nothingToDiscover.widen')}
       </Pressable>
     </Shell>
   );
@@ -185,12 +219,13 @@ export function NothingToDiscover({
  */
 export function SpacesError({
   /** What failed to load. Defaults to Spaces, which is where this started. */
-  what = 'your Spaces',
+  what = 'spaces',
   onRetry = () => window.location.reload(),
 }: {
-  what?: string;
+  what?: Failed;
   onRetry?: () => void;
 }) {
+  const { t } = useTranslation('v4Spaces');
   return (
     <Shell
       icon={<TriangleAlert aria-hidden className="h-6 w-6 text-destructive" />}
@@ -199,12 +234,12 @@ export function SpacesError({
         "Couldn't load your Spaces" on a Lesson is a sentence about something
         the reader did not ask for.
       */
-      title={`Couldn’t load ${what}`}
-      body="The connection dropped on the way. Nothing of yours is lost."
+      title={t(`states.failed.${what}`)}
+      body={t('states.failed.body')}
     >
       <Pressable type="button" onClick={onRetry} className={PRIMARY}>
         <RotateCw aria-hidden className="h-4 w-4" />
-        Try again
+        {t('states.failed.retry')}
       </Pressable>
     </Shell>
   );
@@ -220,23 +255,16 @@ export function SpacesError({
  * is a wrong diagnosis attached to a retry button that will never work. The
  * two states need different words because they need different actions.
  */
-export function NotFound({
-  what,
-  backTo,
-  backLabel,
-}: {
-  what: string;
-  backTo: string;
-  backLabel: string;
-}) {
+export function NotFound({ what, back }: { what: Missing; back: Back }) {
+  const { t } = useTranslation('v4Spaces');
   return (
     <Shell
       icon={<Compass aria-hidden className="h-6 w-6" />}
-      title={`That ${what} isn’t here`}
-      body="It may have been removed, or the link may be wrong. Nothing of yours is affected."
+      title={t(`states.missing.${what}`)}
+      body={t('states.missing.body')}
     >
-      <PressableLink to={backTo} className={SECONDARY}>
-        {backLabel}
+      <PressableLink to={back.to} className={SECONDARY}>
+        {'space' in back ? t('states.back.space', { name: back.space }) : t(`states.back.${back.place}`)}
       </PressableLink>
     </Shell>
   );

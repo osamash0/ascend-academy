@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowDownWideNarrow, KeyRound, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Pressable } from '../components/Pressable';
@@ -50,11 +51,8 @@ type Sort = 'recent' | 'alpha' | 'progress';
 
 const RAIL_SCROLL = '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
 
-const SORTS: { key: Sort; label: string }[] = [
-  { key: 'recent', label: 'Last active' },
-  { key: 'alpha', label: 'Name (A–Z)' },
-  { key: 'progress', label: 'Progress' },
-];
+/** In display order; each is said as `hub.legacy.sorts.<key>`. */
+const SORTS: Sort[] = ['recent', 'alpha', 'progress'];
 
 const applySort = (list: Space[], sort: Sort): Space[] =>
   [...list].sort((a, b) => {
@@ -73,6 +71,7 @@ interface Group {
 
 export default function SpacesScreen() {
   const viewer = useViewer();
+  const { t } = useTranslation('v4Spaces');
   const navigate = useNavigate();
   const { state, mine, discover } = useSpaces();
   const [tab, setTab] = useState<Tab>('mine');
@@ -89,27 +88,27 @@ export default function SpacesScreen() {
    */
   const groups: Group[] = useMemo(() => {
     if (tab === 'discover') {
-      return [{ key: 'discover', label: 'Public Spaces', spaces: applySort(discover, sort) }];
+      return [{ key: 'discover', label: t('hub.legacy.groups.discover'), spaces: applySort(discover, sort) }];
     }
     const g: Group[] = [];
     if (mine.created.length)
       g.push({
         key: 'created',
-        label: 'Created by you',
-        note: 'Drafts and activity, not your own progress',
+        label: t('hub.legacy.groups.created'),
+        note: t('hub.legacy.groups.createdNote'),
         spaces: applySort(mine.created, sort),
       });
     if (mine.joined.length)
-      g.push({ key: 'joined', label: 'Joined', spaces: applySort(mine.joined, sort) });
+      g.push({ key: 'joined', label: t('hub.legacy.groups.joined'), spaces: applySort(mine.joined, sort) });
     if (showArchived && mine.archived.length)
       g.push({
         key: 'archived',
-        label: 'Archived',
-        note: 'Read-only. Progress kept, no XP earned',
+        label: t('hub.legacy.groups.archived'),
+        note: t('hub.legacy.groups.archivedNote'),
         spaces: applySort(mine.archived, sort),
       });
     return g;
-  }, [tab, mine, discover, showArchived, sort]);
+  }, [tab, mine, discover, showArchived, sort, t]);
 
   const flat = useMemo(() => groups.flatMap((g) => g.spaces), [groups]);
 
@@ -192,24 +191,24 @@ export default function SpacesScreen() {
     <section className="relative flex select-none flex-col pb-28">
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center gap-x-8 gap-y-4 px-6 pt-8 lg:px-12">
-        <h1 className="text-[30px] font-bold tracking-[-0.02em]">Spaces</h1>
+        <h1 className="text-[30px] font-bold tracking-[-0.02em]">{t('hub.legacy.title')}</h1>
 
         {/* Plain text tabs: weight and colour do the work, no pill needed. */}
-        <div role="tablist" aria-label="Spaces" className="flex items-center gap-6">
-          {(['mine', 'discover'] as Tab[]).map((t) => (
+        <div role="tablist" aria-label={t('hub.legacy.title')} className="flex items-center gap-6">
+          {(['mine', 'discover'] as Tab[]).map((key) => (
             <button
-              key={t}
+              key={key}
               role="tab"
-              aria-selected={tab === t}
-              onClick={() => setTab(t)}
+              aria-selected={tab === key}
+              onClick={() => setTab(key)}
               className={cn(
                 'console-focusable rounded-md py-1 text-[15px] capitalize transition-colors',
-                tab === t
+                tab === key
                   ? 'font-semibold text-foreground'
                   : 'font-normal text-quiet hover:text-foreground',
               )}
             >
-              {t}
+              {t(`hub.legacy.tabs.${key}`)}
             </button>
           ))}
         </div>
@@ -221,7 +220,7 @@ export default function SpacesScreen() {
             className="console-focusable flex h-9 items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-4 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
           >
             <KeyRound aria-hidden className="h-3.5 w-3.5" />
-            Join with a code
+            {t('home.empty.join')}
           </button>
           {/* Create lives on the screen that owns the object. */}
           <Pressable
@@ -230,7 +229,7 @@ export default function SpacesScreen() {
             className="console-focusable flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900"
           >
             <Plus aria-hidden className="h-4 w-4" />
-            New Space
+            {t('hub.legacy.newSpace')}
           </Pressable>
         </div>
       </div>
@@ -240,24 +239,24 @@ export default function SpacesScreen() {
         <ArrowDownWideNarrow aria-hidden className="h-4 w-4 shrink-0 text-faint" />
         {/* `shrink-0` + nowrap: at 375px this label was breaking into
             "Sort" / "by" on two lines and pushing the chips into a second row. */}
-        <span className="shrink-0 whitespace-nowrap text-[13.5px] text-faint">Sort by</span>
+        <span className="shrink-0 whitespace-nowrap text-[13.5px] text-faint">{t('hub.legacy.sortBy')}</span>
         {/* The chips scroll rather than wrap — three of them plus the label do
             not fit on one line at 375px, and a wrapped row reads as a mistake. */}
         <div className="-mr-6 flex items-center gap-1 overflow-x-auto pr-6 lg:mr-0 lg:pr-0">
-          {SORTS.map((o) => (
+          {SORTS.map((key) => (
             <button
-              key={o.key}
+              key={key}
               type="button"
-              aria-pressed={sort === o.key}
-              onClick={() => setSort(o.key)}
+              aria-pressed={sort === key}
+              onClick={() => setSort(key)}
               className={cn(
                 'console-focusable h-8 shrink-0 whitespace-nowrap rounded-full px-3 text-[13px] transition-colors',
-                sort === o.key
+                sort === key
                   ? 'bg-white/[0.10] font-medium text-foreground'
                   : 'text-quiet hover:bg-white/[0.05] hover:text-foreground',
               )}
             >
-              {o.label}
+              {t(`hub.legacy.sorts.${key}`)}
             </button>
           ))}
         </div>
@@ -332,10 +331,8 @@ export default function SpacesScreen() {
               className="console-focusable flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/12 text-[13.5px] font-medium text-quiet transition-colors hover:border-white/25 hover:text-foreground"
             >
               {showArchived
-                ? 'Hide archived'
-                : `Show ${mine.archived.length} archived ${
-                    mine.archived.length === 1 ? 'Space' : 'Spaces'
-                  }`}
+                ? t('hub.legacy.hideArchived')
+                : t('hub.legacy.showArchived', { count: mine.archived.length })}
             </button>
           </div>
         )}
@@ -347,8 +344,8 @@ export default function SpacesScreen() {
 
       <ControllerHints
         hints={[
-          { key: '←→', label: 'Browse' },
-          { key: '↵', label: 'Open' },
+          { key: '←→', label: t('hub.legacy.hints.browse') },
+          { key: '↵', label: t('hub.legacy.hints.open') },
         ]}
         className="pointer-events-none fixed bottom-6 right-6 lg:right-12"
       />

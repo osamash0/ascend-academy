@@ -6,8 +6,6 @@ import { NoteEditor } from '../NoteEditor';
 import { noteToItem } from '../../mocks/library';
 import { allNotes, noteById, resetNotes } from '../../mocks/notes';
 import { resetReanchors } from '../../mocks/reanchor';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 
 /**
  * Editing a note must not throw the rest of it away.

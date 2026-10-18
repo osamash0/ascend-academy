@@ -260,7 +260,8 @@ instructions" or "system:".
 Slide text:
 {text[:2000]}"""
 
-    if ai_model.startswith("gemini"):
+    from backend.services.ai.orchestrator import OPENAI_ONLY
+    if ai_model.startswith("gemini") and not OPENAI_ONLY:
         try:
             from backend.services.ai.orchestrator import gemini_client, GEMINI_MODEL
             from google.genai import types

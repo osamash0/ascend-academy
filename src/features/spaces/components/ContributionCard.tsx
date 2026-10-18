@@ -15,6 +15,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { useReducer, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { isLiked, likeCount, toggleLike } from '../mocks/engagement';
@@ -115,12 +116,13 @@ const TYPE_ICON: Record<ContributionType, typeof FileText> = {
   'practice-set': ListChecks,
 };
 
-const TYPE_LABEL: Record<ContributionType, string> = {
-  text: 'Write-up',
-  pdf: 'PDF',
-  image: 'Image',
-  link: 'Link',
-  'practice-set': 'Practice set',
+/** Keys under `v4Space:demo.contribution.type`, translated at render. */
+const TYPE_KEY: Record<ContributionType, string> = {
+  text: 'demo.contribution.type.text',
+  pdf: 'demo.contribution.type.pdf',
+  image: 'demo.contribution.type.image',
+  link: 'demo.contribution.type.link',
+  'practice-set': 'demo.contribution.type.practiceSet',
 };
 
 interface Props {
@@ -149,6 +151,7 @@ export function ContributionCard({
   onModerated,
   className,
 }: Props) {
+  const { t } = useTranslation('v4Space');
   const Icon = TYPE_ICON[c.type];
   /*
    * Like state comes from the store, not from the fixture's `likedByViewer`.
@@ -214,7 +217,7 @@ export function ContributionCard({
         <span aria-hidden className="text-faint">·</span>
         <span className="inline-flex items-center gap-1.5 text-[12.5px] text-faint">
           <Icon aria-hidden className="h-3.5 w-3.5" />
-          {TYPE_LABEL[c.type]}
+          {t(TYPE_KEY[c.type])}
         </span>
       </div>
 
@@ -252,8 +255,8 @@ export function ContributionCard({
         <p className="flex items-start gap-2 text-[13px] leading-relaxed text-quiet">
           <Unlink aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
           {isOwn
-            ? 'The Lesson this was attached to was removed. Your work is safe and still here — it just isn’t attached to a Lesson any more.'
-            : `The Lesson this was attached to was removed. Nothing of ${c.author.name}’s is lost — it just isn’t attached to a Lesson any more.`}
+            ? t('demo.contribution.orphanedOwn')
+            : t('demo.contribution.orphanedOther', { author: c.author.name })}
         </p>
       )}
 
@@ -288,7 +291,7 @@ export function ContributionCard({
           {mayRehome && (
             <CardAction
               icon={FolderInput}
-              label="Find it a new home"
+              label={t('demo.contribution.rehome')}
               onClick={() => setRehoming(true)}
             />
           )}
@@ -296,12 +299,12 @@ export function ContributionCard({
             <>
               <CardAction
                 icon={Check}
-                label={endorsed ? 'Endorsed' : 'Endorse'}
+                label={endorsed ? t('demo.contribution.endorsed') : t('demo.contribution.endorse')}
                 active={endorsed}
                 // You cannot endorse your own work: Doc 1 grants XP for being
                 // endorsed, so self-endorsement is a button that prints points.
                 disabled={!canEndorse(c, space.viewerRole)}
-                disabledReason="You can’t endorse your own work."
+                disabledReason={t('demo.contribution.endorseOwn')}
                 onClick={() => {
                   toggleEndorse(c, space.viewerRole);
                   force();
@@ -309,31 +312,33 @@ export function ContributionCard({
               />
               <CardAction
                 icon={hidden ? Eye : EyeOff}
-                label={hidden ? 'Unhide' : 'Hide'}
+                label={hidden ? t('demo.contribution.unhide') : t('demo.contribution.hide')}
                 onClick={() => {
                   const now = toggleHidden(c, space.viewerRole);
                   force();
                   onModerated?.();
-                  toast(now ? 'Hidden' : 'Visible again', {
+                  toast(now ? t('demo.contribution.hiddenToast') : t('demo.contribution.visibleToast'), {
                     description: now
-                      ? 'Still visible to its author and to you. Nothing was deleted.'
-                      : 'Everyone in this Space can see it again.',
+                      ? t('demo.contribution.hiddenToastBody')
+                      : t('demo.contribution.visibleToastBody'),
                   });
                 }}
               />
               <CardAction
                 icon={ArrowUpFromLine}
-                label="Promote"
+                label={t('demo.contribution.promote')}
                 disabled={promoted}
-                disabledReason="Already in the path."
+                disabledReason={t('demo.contribution.promotedAlready')}
                 onClick={() => {
                   const id = promote(c, space, space.viewerRole);
                   force();
                   onModerated?.();
                   if (!id) return;
-                  toast('Promoted into the path', {
-                    description: `It is a Lesson now, credited to ${c.author.name}.`,
-                    action: { label: 'Open it', onClick: () => navigate(`/v4/space/${space.id}/lesson/${id}`) },
+                  toast(t('demo.contribution.promotedToast'), {
+                    description: t('demo.contribution.promotedToastBody', { author: c.author.name }),
+                    action: {
+                      label: t('demo.contribution.openIt'), onClick: () => navigate(`/v4/space/${space.id}/lesson/${id}`),
+                    },
                   });
                 }}
               />
@@ -342,18 +347,18 @@ export function ContributionCard({
           {canReport(c) && (
             <CardAction
               icon={Flag}
-              label={reported ? 'Reported' : 'Report'}
+              label={reported ? t('demo.contribution.reported') : t('demo.contribution.report')}
               active={reported}
               disabled={reported}
-              disabledReason="You have reported this."
+              disabledReason={t('demo.contribution.reportedAlready')}
               className={moderator ? 'ml-auto' : undefined}
               onClick={() => {
                 report(c);
                 force();
                 // NEEDS-BACKEND: no queue, no reviewer. Says that rather than
                 // implying an outcome it cannot deliver.
-                toast('Reported', {
-                  description: 'Whoever runs this Space will be able to see it flagged.',
+                toast(t('demo.contribution.reported'), {
+                  description: t('demo.contribution.reportedToastBody'),
                 });
               }}
             />
@@ -372,7 +377,7 @@ export function ContributionCard({
           {hidden && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-[3px] text-[11.5px] font-medium text-quiet">
               <EyeOff aria-hidden className="h-3 w-3" />
-              Hidden by the Owner
+              {t('demo.contribution.hiddenByOwner')}
             </span>
           )}
           <GroundingMarker
@@ -396,12 +401,12 @@ export function ContributionCard({
           aria-pressed={liked}
           aria-label={
             isOwn
-              ? `${likes} likes. You can’t like your own contribution.`
+              ? t('demo.contribution.likeOwn', { count: likes })
               : liked
-                ? `Liked. ${likes} likes. Tap to remove.`
-                : `Like this. ${likes} likes.`
+                ? t('demo.contribution.liked', { count: likes })
+                : t('demo.contribution.like', { count: likes })
           }
-          title={isOwn ? 'You can’t like your own contribution.' : undefined}
+          title={isOwn ? t('demo.contribution.likeOwnTitle') : undefined}
           className={cn(
             'console-focusable inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium tabular-nums transition-colors',
             liked

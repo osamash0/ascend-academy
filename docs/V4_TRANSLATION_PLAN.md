@@ -1,6 +1,6 @@
 # Translating v4 — plan
 
-*2026-10-11. Scope: everything a reader sees in `src/features/spaces` (the v4 app: Home, Spaces, the Space page, the reader, rehearsal, Library/Studio, Social, Profile, Settings). Status: decisions taken (Abi, 2026-10-11: "go with your recommendations") — the words are in `docs/V4_GLOSSARY.md`. **Slices 0 and 1 done**; slice 2 next.*
+*2026-10-11. Scope: everything a reader sees in `src/features/spaces` (the v4 app: Home, Spaces, the Space page, the reader, rehearsal, Library/Studio, Social, Profile, Settings). Status: decisions taken (Abi, 2026-10-11: "go with your recommendations") — the words are in `docs/V4_GLOSSARY.md`. **Slices 0–4 done**; slice 5 next.*
 
 ## Where we are
 
@@ -38,9 +38,9 @@ House rules that are already decided (`docs/BRAND_VOICE.md`, "German register"):
 |---|---|---|---|
 | **0** ✓ | Plumbing: namespaces `v4Spaces/v4Reader/v4Space/v4Library/v4People/v4Settings` (en + de, parity-checked), `src/features/spaces/i18n/format.ts`, a Language section in v4 Settings (the app's one setting), every reader request carries `?lang=` (server prefers it over the profile), reader hooks and memos keyed on the language, `docs/V4_GLOSSARY.md`, `BRAND_VOICE.md` decision 4 | — | choosing Deutsch switches Settings and the reader's view tabs at once, and Explain answers in German (tested) |
 | **1** ✓ | **Reader** — LessonFaces, strip, points, glass pill labels, checkpoint, teach-back, break care, night paper | ~215 (done: 197 keys) | a German reader finishes a Lesson without one English word of chrome — `readerGerman.test.tsx` renders the page, Text and Explain views, a checkpoint and a teach-back in German and fails on English chrome or a raw key. Still English there: the shared loading/error/not-found states (slice 3) and the older `/read` reader (`ReaderScreen`, `SourceView`, `ReaderRail`) |
-| **2** | **Space page** — Today, exam plan + runway, map, journey, search, rehearsal, Lesson page | ~180 | plan reasons read naturally in German (via `{key, params}`) |
-| **3** | **Home, Spaces hub, top bar, mobile nav, states, dialogs** | ~200 | every empty, error and loading state in German |
-| **4** | **Library + Studio** | ~170 | — |
+| **2** ✓ | **Space page** — Today, exam plan + runway, map, journey, search, rehearsal, Lesson page | ~180 (done: 299 v4Space keys + badges and the Lesson pager in v4Spaces) | plan reasons read naturally in German (via `{key, params}`) — the planners return phrases (`components/course/phrase.ts`); four `spaceGerman.*.test.tsx` files render the live Space page, the map, the runway, rehearsal, the Lesson page and the demo Space page in German. Still English there: the shared states' sentences (`states.tsx` weaves an English `what` — slice 3 redesigns them as whole sentences per screen, since German needs the noun's gender) and the top bar |
+| **3** ✓ | **Home, Spaces hub, top bar, mobile nav, states, dialogs** | ~200 (done: 351 keys — also the Space manage screen, idea and practice pages, and the older `/read` reader) | every empty, error and loading state in German — `states.tsx` now takes *which* thing (`what="lesson"`) and picks a whole sentence, since German needs the noun's gender; `spaceGerman.states.test.tsx` renders every one. Still English: the Home ask box's suggestion chips (demo assistant data) |
+| **4** ✓ | **Library + Studio** | ~170 (done: 81 keys) | `spaceGerman.library` and `spaceGerman.studio` render the Library, every filter, and every Studio view in German; dates and sizes via `format.ts` (`formatTimestamp`, `formatMegabytes`) |
 | **5** | **Social, Profile, Person, Rank, Moments, Settings, History** | ~250 | — |
 | **6** | Guards (below) switched from warn to fail | — | CI fails on a new hard-coded string |
 

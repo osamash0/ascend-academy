@@ -66,8 +66,8 @@ export default function MomentsScreen() {
     </Scene>
   );
 
-  if (screenState === 'loading') return chrome(<ListSkeleton label="Loading your moments" />);
-  if (screenState === 'error') return chrome(<SpacesError what="your moments" />);
+  if (screenState === 'loading') return chrome(<ListSkeleton label="moments" />);
+  if (screenState === 'error') return chrome(<SpacesError what="moments" />);
 
   return chrome(
     <div className="relative mx-auto max-w-3xl px-6 pb-24 pt-8 lg:px-8">

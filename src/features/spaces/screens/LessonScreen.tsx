@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Check, FileWarning, ListChecks, Play, Sparkles, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LaunchButton, gradientFor } from '@/components/console';
@@ -43,16 +44,18 @@ import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
  * anchor level, and your own private notes.
  */
 
+/* `label` is a key: the word is said at render, in the reader's language. */
 const CONCEPT_STATE: Record<Concept['progress'], { label: string; cls: string }> = {
-  cleared: { label: 'Cleared', cls: 'border-success/40 bg-success/10 text-success' },
-  discovered: { label: 'Read', cls: 'border-white/15 bg-white/[0.05] text-quiet' },
-  untouched: { label: 'Not yet', cls: 'border-white/10 bg-transparent text-faint' },
+  cleared: { label: 'ideas.progress.cleared', cls: 'border-success/40 bg-success/10 text-success' },
+  discovered: { label: 'ideas.progress.discovered', cls: 'border-white/15 bg-white/[0.05] text-quiet' },
+  untouched: { label: 'ideas.progress.untouched', cls: 'border-white/10 bg-transparent text-faint' },
 };
 
 export default function LessonScreen() {
   const viewer = useViewer();
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation('v4Space');
   /*
    * Demo ids read the mocks, a real course and lecture read the backend — the
    * same hooks the reader uses, so moving between the two costs nothing.
@@ -114,14 +117,13 @@ export default function LessonScreen() {
   // All four states, on every screen. `?mock=loading|error` used to be a
   // no-op here, so these two had never been seen.
   if (reader.state === 'loading') return chrome(<DetailSkeleton />);
-  if (reader.state === 'error') return chrome(<SpacesError what="this Lesson" />);
+  if (reader.state === 'error') return chrome(<SpacesError what="lesson" />);
 
   if (!space || !lesson)
     return chrome(
       <NotFound
-        what="Lesson"
-        backTo={space ? `/v4/space/${space.id}` : '/v4/spaces'}
-        backLabel={space ? `Back to ${space.name}` : 'Back to Spaces'}
+        what="lesson"
+        back={space ? { to: `/v4/space/${space.id}`, space: space.name } : { to: '/v4/spaces', place: 'spaces' }}
       />,
     );
 
@@ -173,12 +175,12 @@ export default function LessonScreen() {
           : navigate(`/v4/space/${space.id}/lesson/${lesson.id}/practice`);
   const startLabel =
     mark && mark.page > 1 && pdfUrl
-      ? `Continue at page ${mark.page}`
+      ? t('lesson.start.continueAt', { page: mark.page })
       : done
-        ? 'Review'
+        ? t('lesson.start.review')
         : lesson.percentComplete > 0
-          ? 'Continue'
-          : 'Start reading';
+          ? t('lesson.start.continue')
+          : t('lesson.start.begin');
 
   return chrome(
     <div
@@ -219,11 +221,11 @@ export default function LessonScreen() {
           <div className="mx-auto mt-6 max-w-3xl text-center">
             {/* No Space name: the back link right above already says it. */}
             <p className="text-[13px] tabular-nums text-quiet">
-              Lesson {lesson.order}
+              {t('lesson.number', { order: lesson.order })}
               {pageCount > 0 && (
                 <>
                   <span aria-hidden className="mx-2 text-faint">·</span>
-                  {pageCount} pages
+                  {t('lesson.pages', { count: pageCount })}
                 </>
               )}
             </p>
@@ -239,7 +241,7 @@ export default function LessonScreen() {
               {done && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-success/12 px-2.5 py-[3px] text-[11.5px] font-medium text-success">
                   <Check aria-hidden className="h-3 w-3" />
-                  Completed
+                  {t('lesson.completed')}
                 </span>
               )}
             </div>
@@ -247,7 +249,7 @@ export default function LessonScreen() {
 
           <div className="mt-12">
             {pdfUrl ? (
-              <LessonDeck file={pdfUrl} onOpen={start} onAccent={setAccent} label={`${startLabel}: ${lesson.title}`} />
+              <LessonDeck file={pdfUrl} onOpen={start} onAccent={setAccent} label={t('lesson.openDeck', { action: startLabel, title: lesson.title })} />
             ) : (
               <div
                 className={cn(
@@ -276,7 +278,7 @@ export default function LessonScreen() {
                   className="console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-6 text-[14px] font-medium transition-colors hover:bg-white/[0.09]"
                 >
                   <ListChecks aria-hidden className="h-4 w-4" />
-                  Practice · {lesson.practiceCount}
+                  {t('lesson.practice', { count: lesson.practiceCount })}
                 </Link>
               )}
               {/* A real lecture: a rehearsal written from its own slides. */}
@@ -286,7 +288,7 @@ export default function LessonScreen() {
                   className="console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-6 text-[14px] font-medium transition-colors hover:bg-white/[0.09]"
                 >
                   <Target aria-hidden className="h-4 w-4" />
-                  Rehearse this Lesson
+                  {t('lesson.rehearse')}
                 </Link>
               )}
             </div>
@@ -306,7 +308,7 @@ export default function LessonScreen() {
                   ))}
                 </div>
                 <p className="text-[12.5px] tabular-nums text-quiet">
-                  {cleared} of {lesson.concepts.length} ideas cleared
+                  {t('lesson.cleared', { cleared, count: lesson.concepts.length })}
                 </p>
               </div>
             )}
@@ -315,7 +317,7 @@ export default function LessonScreen() {
             {lesson.material === null && (
               <p className="inline-flex items-center gap-2 text-[13px] text-quiet">
                 <FileWarning aria-hidden className="h-3.5 w-3.5" />
-                The original file was removed. This Lesson still works.
+                {t('lesson.materialRemoved')}
               </p>
             )}
           </div>
@@ -325,7 +327,7 @@ export default function LessonScreen() {
       <div className="relative mx-auto max-w-6xl px-6 lg:px-8">
         {/* ── Ideas: each where it lives in the deck ── */}
         {ideasPending ? (
-          <Row title="The ideas" lede="Grouping the Lesson into the ideas it teaches…">
+          <Row title={t('ideas.title')} lede={t('ideas.grouping')}>
             <div aria-hidden className="space-y-2 md:w-[42%]">
               {[0, 1, 2, 3].map((i) => (
                 <motion.div
@@ -340,12 +342,8 @@ export default function LessonScreen() {
           </Row>
         ) : ideas.length > 0 && pdfUrl ? (
           <Row
-            title="The ideas"
-            lede={
-              live
-                ? 'In the order the Lesson teaches them. Each lights up once a checkpoint or a rehearsal proves it.'
-                : 'In the order the Lesson teaches them. Each lights up on the Space’s map as you clear it.'
-            }
+            title={t('ideas.title')}
+            lede={live ? t('ideas.lede.live') : t('ideas.lede.demo')}
           >
             <IdeaExplorer
               ideas={
@@ -367,7 +365,7 @@ export default function LessonScreen() {
               onPage={(p) => navigate(readerAt(p))}
               onResult={(r) => {
                 if (!teaching) return;
-                saveRehearsal(space.id, `Teach-back · ${teaching.name}`.slice(0, 120), [lesson.id], [
+                saveRehearsal(space.id, t('lesson.teachBackTitle', { idea: teaching.name }).slice(0, 120), [lesson.id], [
                   { lecture_id: lesson.id, page: teaching.first, idea: teaching.name.slice(0, 60), kind: 'teach', correct: r.verdict === 'solid' },
                 ])
                   .then(reloadHistory)
@@ -378,7 +376,7 @@ export default function LessonScreen() {
           </Row>
         ) : (
           lesson.concepts.length > 0 && (
-            <Row title="Ideas in this Lesson" count={lesson.concepts.length}>
+            <Row title={t('ideas.inLesson')} count={lesson.concepts.length}>
               <ul className="flex flex-wrap gap-2">
                 {lesson.concepts.map((c) => {
                   const st = CONCEPT_STATE[c.progress];
@@ -389,7 +387,7 @@ export default function LessonScreen() {
                           anchor level. */}
                       <Link
                         to={`/v4/space/${space.id}/concept/${c.id}`}
-                        aria-label={`${c.name} — ${st.label}`}
+                        aria-label={`${c.name} — ${t(st.label)}`}
                         className={cn(
                           'console-focusable inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[13.5px] transition-colors hover:border-white/30',
                           st.cls,
@@ -408,21 +406,20 @@ export default function LessonScreen() {
 
         {/* ── Tools: the pages Explain answers with something to try ── */}
         {tools.length > 0 && (
-          <Row title="Try it, don’t just read it" lede="Some pages answer with a tool. Each opens in the reader at its page, with Explain beside it.">
+          <Row title={t('tools.title')} lede={t('tools.lede')}>
             <ToolShelf tools={tools} href={(p) => readerAt(p, 'explain')} />
           </Row>
         )}
 
         {/* ── Community, at the Lesson anchor level ── (a real course has no community data yet) */}
         {!live && (
-        <Row title="From the community" count={contributions.length || undefined}>
+        <Row title={t('lesson.community.title')} count={contributions.length || undefined}>
           {contributions.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-white/15 px-6 py-10 text-center">
               <Sparkles aria-hidden className="mx-auto mb-3 h-5 w-5 text-quiet" />
-              <p className="mb-1.5 text-[15px] font-semibold">Nothing here yet</p>
+              <p className="mb-1.5 text-[15px] font-semibold">{t('lesson.community.emptyTitle')}</p>
               <p className="mx-auto max-w-[44ch] text-[14px] leading-relaxed text-quiet">
-                If something in this Lesson finally clicked for you, that explanation will
-                help the next person.
+                {t('lesson.community.emptyBody')}
               </p>
             </div>
           ) : (
@@ -445,7 +442,7 @@ export default function LessonScreen() {
         )}
 
         {/* ── Your notes: private, and the one thing only you can see ── */}
-        <Row title="Your notes" count={myNotes.length || undefined}>
+        <Row title={t('lesson.notes.title')} count={myNotes.length || undefined}>
           <div className="space-y-2.5">
             {myNotes.map((n) => (
               <NoteEditor
@@ -453,11 +450,11 @@ export default function LessonScreen() {
                 value={n.body}
                 onSave={(body) => {
                   updateNote(n.id, body);
-                  setNoteTick((t) => t + 1);
+                  setNoteTick((k) => k + 1);
                 }}
                 onDelete={() => {
                   deleteNote(n.id);
-                  setNoteTick((t) => t + 1);
+                  setNoteTick((k) => k + 1);
                 }}
               />
             ))}
@@ -465,7 +462,7 @@ export default function LessonScreen() {
             {/* Doc 2 Create rule: "New Note — the reader, and in Library." */}
             <NoteEditor
               key={`new-${noteTick}`}
-              placeholder="Private to you, and gathered in your Library."
+              placeholder={t('lesson.notes.placeholder')}
               onSave={(body) => {
                 addNote({
                   lessonId: lesson.id,
@@ -474,13 +471,13 @@ export default function LessonScreen() {
                   spaceId: space.id,
                   spaceName: space.name,
                 });
-                setNoteTick((t) => t + 1);
+                setNoteTick((k) => k + 1);
               }}
             />
 
             {myNotes.length === 0 && (
               <p className="px-1 text-[13px] text-faint">
-                Nothing yet. Notes are private, and only you ever see them.
+                {t('lesson.notes.empty')}
               </p>
             )}
           </div>

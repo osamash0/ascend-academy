@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Compass, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -37,6 +38,7 @@ export function SpaceChipRow({
   selected: string;
   onSelect: (id: string) => void;
 }) {
+  const { t } = useTranslation('v4Spaces');
   const hoverTimer = useRef<number | null>(null);
   const rowRef = useRef<HTMLDivElement>(null);
   const order = [...spaces.map((s) => s.id), DISCOVER_ID];
@@ -75,11 +77,11 @@ export function SpaceChipRow({
 
   return (
     <div className="pb-[34px]">
-      <p className="mb-[14px] text-[13.5px] text-quiet">Your spaces</p>
+      <p className="mb-[14px] text-[13.5px] text-quiet">{t('hub.chips.yours')}</p>
       <div
         ref={rowRef}
         role="listbox"
-        aria-label="Your spaces"
+        aria-label={t('hub.chips.yours')}
         aria-orientation="horizontal"
         tabIndex={0}
         onKeyDown={onKeyDown}
@@ -168,7 +170,7 @@ export function SpaceChipRow({
               </span>
               {s.newSinceLastVisit > 0 && (
                 <span className="sr-only">
-                  {s.newSinceLastVisit} new {s.newSinceLastVisit === 1 ? 'Lesson' : 'Lessons'}
+                  {t('hub.chips.newLessons', { count: s.newSinceLastVisit })}
                 </span>
               )}
             </motion.button>
@@ -205,7 +207,7 @@ export function SpaceChipRow({
           )}
         >
           <Compass aria-hidden className="h-[22px] w-[22px] text-white" />
-          <span className="text-[12.5px] font-semibold text-white">Discover spaces</span>
+          <span className="text-[12.5px] font-semibold text-white">{t('hub.chips.discover')}</span>
         </motion.button>
       </div>
     </div>

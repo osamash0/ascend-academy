@@ -38,6 +38,16 @@ export function formatList(items: string[]): string {
   return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} ${and} ${items[items.length - 1]}`;
 }
 
+/** A moment (an ISO timestamp), as a short date: "14 Oct", "14. Okt." — with the year when asked. */
+export function formatTimestamp(iso: string, withYear = false): string {
+  return new Date(iso).toLocaleDateString(lang(), { day: 'numeric', month: 'short', ...(withYear ? { year: 'numeric' } : {}) });
+}
+
+/** Bytes as megabytes, one decimal: "1.2" — "1,2". */
+export function formatMegabytes(bytes: number): string {
+  return new Intl.NumberFormat(lang(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(bytes / 1_000_000);
+}
+
 export function formatNumber(n: number): string {
   return new Intl.NumberFormat(lang()).format(n);
 }

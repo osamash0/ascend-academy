@@ -63,8 +63,8 @@ export default function ProfileScreen() {
   );
 
   // All four states. `?mock=loading|error` was a no-op on this screen.
-  if (screenState === 'loading') return chrome(<ListSkeleton label="Loading profile" />);
-  if (screenState === 'error') return chrome(<SpacesError what="your profile" />);
+  if (screenState === 'loading') return chrome(<ListSkeleton label="profile" />);
+  if (screenState === 'error') return chrome(<SpacesError what="profile" />);
 
   return chrome(
     <>

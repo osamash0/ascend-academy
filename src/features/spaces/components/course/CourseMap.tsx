@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatList } from '../../i18n/format';
 import type { Light, Mark } from './light';
 import { downstream, layoutStars, starKey, startHere, upstream, type CourseLink, type Star } from './constellation';
 
@@ -42,14 +44,8 @@ const FILL: Record<Light, string> = {
   dark: '#050505',
 };
 
-const WORD: Record<Light, string> = {
-  lit: 'Tested right',
-  fading: 'Fading',
-  weak: 'To revisit',
-  dark: 'Not tested yet',
-};
-
 export function CourseMap({ lectures, marks, links, linksState, readHref }: Props) {
+  const { t } = useTranslation('v4Space');
   const navigate = useNavigate();
   const reduce = useReducedMotion();
   const [focus, setFocus] = useState<string | null>(null);
@@ -84,7 +80,7 @@ export function CourseMap({ lectures, marks, links, linksState, readHref }: Prop
         <svg
           viewBox={`0 0 ${W} ${H + LABEL_H}`}
           role="group"
-          aria-label="Map of this Space's ideas and what builds on what"
+          aria-label={t('map.label')}
           className="block w-full min-w-[720px]"
           onMouseLeave={() => setFocus(null)}
         >
@@ -123,7 +119,7 @@ export function CourseMap({ lectures, marks, links, linksState, readHref }: Prop
                 key={s.key}
                 role="link"
                 tabIndex={0}
-                aria-label={`${s.name}, ${s.lectureTitle}, ${WORD[s.light].toLowerCase()}`}
+                aria-label={t('map.star', { idea: s.name, lesson: s.lectureTitle, light: t(`light.spoken.${s.light}`) })}
                 className="console-focusable cursor-pointer outline-none"
                 onMouseEnter={() => setFocus(s.key)}
                 onFocus={() => setFocus(s.key)}
@@ -194,25 +190,17 @@ export function CourseMap({ lectures, marks, links, linksState, readHref }: Prop
                   {star.lectureTitle}
                   <span aria-hidden className="mx-1.5 text-faint">·</span>
                   <span className={cn(star.light === 'weak' && 'text-destructive', (star.light === 'lit' || star.light === 'fading') && 'text-success')}>
-                    {WORD[star.light]}
+                    {t(`light.${star.light}`)}
                   </span>
                 </p>
               </div>
               {direct.length > 0 ? (
                 <p className="mt-2 text-[13.5px] leading-[1.55] text-quiet">
-                  Builds on{' '}
-                  {direct.map((d, i) =>
-                    d.star ? (
-                      <span key={d.star.key}>
-                        {i > 0 && (i === direct.length - 1 ? ' and ' : ', ')}
-                        <span className={cn('text-foreground', d.star.light === 'weak' && 'text-destructive')}>{d.star.name}</span>
-                      </span>
-                    ) : null,
-                  )}
+                  <BuildsOn names={direct.flatMap((d) => (d.star ? [{ key: d.star.key, name: d.star.name, weak: d.star.light === 'weak' }] : []))} />
                   {direct[0]?.why && <span className="text-faint"> — {direct[0].why}</span>}
                 </p>
               ) : (
-                <p className="mt-2 text-[13.5px] text-quiet">A starting point: it needs nothing earlier in this Space.</p>
+                <p className="mt-2 text-[13.5px] text-quiet">{t('map.start')}</p>
               )}
               {begin && (
                 <button
@@ -220,7 +208,7 @@ export function CourseMap({ lectures, marks, links, linksState, readHref }: Prop
                   onClick={() => open(begin)}
                   className="console-focusable mt-3 inline-flex h-9 items-center gap-2 rounded-full bg-white px-4 text-[13px] font-medium text-background transition-colors"
                 >
-                  Start with {begin.name} — it's {begin.light === 'weak' ? 'red' : 'not tested yet'}
+                  {begin.light === 'weak' ? t('map.beginWeak', { idea: begin.name }) : t('map.beginDark', { idea: begin.name })}
                   <ArrowRight aria-hidden className="h-3.5 w-3.5" />
                 </button>
               )}
@@ -233,15 +221,34 @@ export function CourseMap({ lectures, marks, links, linksState, readHref }: Prop
               exit={{ opacity: 0 }}
               className="px-1 pt-2 text-[13.5px] text-quiet"
             >
-              {linksState === 'loading'
-                ? 'Working out which ideas build on which…'
-                : linksState === 'error'
-                  ? 'The connections between ideas could not be mapped just now — the stars still open their pages.'
-                  : 'Point at an idea to see what it builds on. Press it to read it.'}
+              {linksState === 'loading' ? t('map.loading') : linksState === 'error' ? t('map.failed') : t('map.hint')}
             </motion.p>
           )}
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+/**
+ * "Builds on A, B and C", each name its own colour. The names are joined the
+ * way the language joins a list, then laid back over the joined sentence.
+ */
+function BuildsOn({ names }: { names: { key: string; name: string; weak: boolean }[] }) {
+  const { t } = useTranslation('v4Space');
+  const MARK = '\u0000';
+  const sentence = t('map.buildsOn', { ideas: formatList(names.map((_, i) => `${MARK}${i}${MARK}`)) });
+  return (
+    <>
+      {sentence.split(new RegExp(`${MARK}(\\d+)${MARK}`)).map((part, i) => {
+        if (i % 2 === 0) return part;
+        const n = names[Number(part)];
+        return (
+          <span key={n.key} className={cn('text-foreground', n.weak && 'text-destructive')}>
+            {n.name}
+          </span>
+        );
+      })}
+    </>
   );
 }

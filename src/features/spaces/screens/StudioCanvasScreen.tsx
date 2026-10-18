@@ -558,7 +558,7 @@ export default function StudioCanvasScreen() {
   );
   const frame = (children: React.ReactNode) => root(<div className="mx-auto max-w-3xl p-8">{children}</div>);
   if (state === 'loading') return frame(<ListSkeleton />);
-  if (state === 'error') return frame(<SpacesError what="this Material" />);
+  if (state === 'error') return frame(<SpacesError what="material" />);
   // A real upload still being read has no Lesson to open yet.
   if (item?.opens.kind === 'lesson' && !item.opens.lessonId)
     return frame(
@@ -579,7 +579,7 @@ export default function StudioCanvasScreen() {
   if (item?.opens.kind === 'lesson')
     return <Navigate replace to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}`} />;
   if (!item || !doc || !material)
-    return frame(<NotFound what="Material" backTo="/v4/library" backLabel="Back to Library" />);
+    return frame(<NotFound what="material" back={{ to: "/v4/library", place: "library" }} />);
 
   const peekPanel = (
     <PeekSlot
