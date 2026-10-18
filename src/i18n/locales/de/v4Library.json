@@ -98,7 +98,7 @@
         "placeholder": "In deiner Bibliothek suchen   /"
       },
       "nothing": {
-        "query": "Nichts in deinem Regal heißt „{{q}}“.",
+        "query": "Nichts in deinem Regal passt zu „{{q}}“.",
         "shared": "Noch nichts geteilt. Wenn eine Seite für andere bereit ist, teile sie direkt auf der Seite.",
         "reading": "Nichts mehr zu lesen. Hier ist alles durchgelesen."
       },

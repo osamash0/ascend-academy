@@ -148,6 +148,7 @@ beforeEach(async () => {
   await act(() => i18n.changeLanguage('de'));
 });
 afterEach(async () => {
+  vi.useRealTimers(); // a test that fakes the clock never leaks it into the next
   shelf.__reset();
   localStorage.clear();
   Element.prototype.scrollIntoView = into;
@@ -226,7 +227,7 @@ describe('the One Library shelf, in German', () => {
 
     // A search nothing answers to.
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'zzz' } });
-    expect(await screen.findByText('Nichts in deinem Regal heißt „zzz“.')).toBeInTheDocument();
+    expect(await screen.findByText('Nichts in deinem Regal passt zu „zzz“.')).toBeInTheDocument();
     clean();
   });
 
