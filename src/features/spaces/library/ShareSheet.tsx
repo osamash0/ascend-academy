@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Share2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -19,7 +20,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { shareOutcome, shareSplit, type Role, type ShelfItem } from '../studio/shelf';
-import { shelfActions, shelfSpaceName } from '../data/useShelf';
+import { say } from '../components/course/phrase';
+import { knownSpaceName, shelfActions, shelfSpaceName } from '../data/useShelf';
 import { useMySpaces } from '../data/useSpaces';
 import { Journey } from './Journey';
 import { ABOVE_SELECT_BAR } from './toasts';
@@ -28,12 +30,6 @@ import { ABOVE_SELECT_BAR } from './toasts';
  * Share from the page (One Library spec §5.6). The sheet says what will happen
  * before you press it: choose a Space, read the outcome, then confirm.
  */
-
-const ROLE_SAID: Record<Role, string> = {
-  owner: 'you own it',
-  editor: 'you edit it',
-  member: 'you’re a member',
-};
 
 /**
  * The sheet: "Share {filename}". Controlled, so a cover's menu and the page's button open the same one.
@@ -58,6 +54,7 @@ export function ShareSheet({
   /** Where focus lands on close. The opener may be gone (a menu item), so name the stable one. */
   returnFocus?: () => HTMLElement | null;
 }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'library.shelf' });
   const all = items ?? (item ? [item] : []);
   const one = !items && item ? item : null;
   const { go: shareable, left } = shareSplit(all);
@@ -74,11 +71,11 @@ export function ShareSheet({
     // Only what the store really shared is said to be shared.
     if (one) {
       if (shelfActions.share(one.id, space.id, role, space.mode))
-        toast(outcome.kind === 'draft' ? `Draft in ${space.name}` : `Shared to ${space.name}`);
+        toast(t(outcome.kind === 'draft' ? 'share.toastDraft' : 'share.toastShared', { space: space.name }));
     } else {
       const done = shareable.filter((i) => shelfActions.share(i.id, space.id, role, space.mode)).length;
-      const did = `${done} ${outcome.kind === 'draft' ? `drafted in ${space.name}` : 'shared'}`;
-      toast([did, ...left].join(' · '), ABOVE_SELECT_BAR);
+      const did = outcome.kind === 'draft' ? t('share.drafted', { count: done, space: space.name }) : t('share.done', { count: done });
+      toast([did, ...left.map((p) => say(t, p))].join(' · '), ABOVE_SELECT_BAR);
     }
     onOpenChange(false);
     onShared?.();
@@ -104,20 +101,20 @@ export function ShareSheet({
       >
         <DialogHeader>
           <DialogTitle>
-            {one ? `Share ${one.filename}` : `Share ${all.length} ${all.length === 1 ? 'file' : 'files'}`}
+            {one ? t('share.title', { name: one.filename }) : t('share.titleMany', { count: all.length })}
           </DialogTitle>
-          <DialogDescription>Choose a Space. What happens next is written below before you confirm.</DialogDescription>
+          <DialogDescription>{t('share.intro')}</DialogDescription>
         </DialogHeader>
         {one && <Journey item={one} className="lg:hidden" />}
         {!one && left.length > 0 && (
-          <p className="text-[13.5px] text-quiet">Left as they are: {left.join(' · ')}.</p>
+          <p className="text-[13.5px] text-quiet">{t('share.left', { list: left.map((p) => say(t, p)).join(' · ') })}</p>
         )}
         {state !== 'ready' ? (
-          <p className="text-[14px] text-quiet">Looking for your Spaces…</p>
+          <p className="text-[14px] text-quiet">{t('share.loading')}</p>
         ) : spaces.length === 0 ? (
-          <p className="text-[14px] text-quiet">You aren’t in a Space yet. Join or make one, then share from here.</p>
+          <p className="text-[14px] text-quiet">{t('share.none')}</p>
         ) : (
-          <div role="radiogroup" aria-label="Spaces" className="flex flex-col gap-1.5">
+          <div role="radiogroup" aria-label={t('share.spaces')} className="flex flex-col gap-1.5">
             {spaces.map((s) => (
               <label
                 key={s.id}
@@ -134,13 +131,13 @@ export function ShareSheet({
                   onChange={() => setChosen(s.id)}
                   className="sr-only"
                 />
-                {s.name} · {s.mode === 'open' ? 'Open' : 'Guided'} · {ROLE_SAID[s.viewerRole as Role]}
+                {s.name} · {t(s.mode === 'open' ? 'share.mode.open' : 'share.mode.guided')} · {t(`share.role.${s.viewerRole as Role}`)}
               </label>
             ))}
           </div>
         )}
         <p aria-live="polite" className="min-h-[2.75rem] text-[13.5px] leading-relaxed text-quiet">
-          {outcome && space ? outcome.copy(space.name) : ''}
+          {outcome && space ? say(t, outcome.copy(space.name)) : ''}
         </p>
         <DialogFooter>
           <button
@@ -149,7 +146,7 @@ export function ShareSheet({
             onClick={confirm}
             className="console-focusable h-10 rounded-full bg-foreground px-5 text-[14px] font-medium text-background transition-opacity disabled:opacity-40"
           >
-            {space ? `Share to ${space.name}` : 'Share'}
+            {space ? t('share.confirmTo', { space: space.name }) : t('share.confirm')}
           </button>
         </DialogFooter>
       </DialogContent>
@@ -162,31 +159,30 @@ const BUTTON =
 
 /** The label: "Share", "Draft in {Space}", or "Shared · ♥ 3". */
 function ShareLabel({ item }: { item: ShelfItem }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'library.shelf' });
   const s = item.share;
   if (s.kind === 'private')
     return (
       <>
         <Share2 aria-hidden className="h-3.5 w-3.5 shrink-0" />
-        Share
+        {t('share.button')}
       </>
     );
-  if (s.kind === 'draft') return <span className="truncate">Draft in {shelfSpaceName(s.spaceId)}</span>;
+  if (s.kind === 'draft') return <span className="truncate">{t('share.draftLabel', { space: shelfSpaceName(s.spaceId) })}</span>;
   return (
     <span className="truncate">
-      Shared
+      {t('share.sharedLabel')}
       {s.likes > 0 && (
         <>
           {' · '}
           <span aria-hidden>♥ </span>
           {s.likes}
-          <span className="sr-only">{s.likes === 1 ? ' like' : ' likes'}</span>
+          <span className="sr-only">{t('share.likes', { count: s.likes })}</span>
         </>
       )}
     </span>
   );
 }
-
-const NOT_READY = 'It can be shared once it’s ready.';
 
 /**
  * Everything you can do about where a file lives, in one place, for the
@@ -212,19 +208,20 @@ export function ShareActions({
   home: () => HTMLElement | null;
   children: (share: ShareApi) => ReactNode;
 }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'library.shelf' });
   const [sheet, setSheet] = useState(false);
   const [takeBack, setTakeBack] = useState(false);
   const s = item.share;
-  // The dialog outlives the state change by its exit fade, so remember where it was.
-  const was = useRef('its Space');
-  if (s.kind !== 'private') was.current = shelfSpaceName(s.spaceId);
+  // The dialog outlives the state change by its exit fade, so remember where it was (null: its Space is gone).
+  const was = useRef<string | null>(null);
+  if (s.kind !== 'private') was.current = knownSpaceName(s.spaceId);
   const ready = item.stage === 'ready';
 
   const menuItems = (itemClassName: string, shareIcon?: ReactNode): ReactNode =>
     s.kind === 'private' ? (
       <DropdownMenuItem disabled={!ready} onSelect={() => setSheet(true)} className={itemClassName}>
         {shareIcon}
-        Share
+        {t('share.button')}
       </DropdownMenuItem>
     ) : (
       <>
@@ -234,18 +231,18 @@ export function ShareActions({
             className={itemClassName}
             onSelect={() => {
               shelfActions.publish(item.id);
-              toast(`Shared to ${shelfSpaceName(s.spaceId)}`);
+              toast(t('share.toastShared', { space: shelfSpaceName(s.spaceId) }));
             }}
           >
-            Publish to {shelfSpaceName(s.spaceId)}
+            {t('share.publish', { space: shelfSpaceName(s.spaceId) })}
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem asChild className={itemClassName}>
-            <Link to={`/v4/space/${s.spaceId}`}>Open in {shelfSpaceName(s.spaceId)}</Link>
+            <Link to={`/v4/space/${s.spaceId}`}>{t('share.openIn', { space: shelfSpaceName(s.spaceId) })}</Link>
           </DropdownMenuItem>
         )}
         <DropdownMenuItem className={itemClassName} onSelect={() => setTakeBack(true)}>
-          Take back to only you
+          {t('share.takeBack')}
         </DropdownMenuItem>
       </>
     );
@@ -263,8 +260,10 @@ export function ShareActions({
           }}
         >
           <DialogHeader>
-            <DialogTitle>Take {item.filename} back to only you?</DialogTitle>
-            <DialogDescription>It leaves {was.current}. Your page and your words stay.</DialogDescription>
+            <DialogTitle>{t('share.takeBackTitle', { name: item.filename })}</DialogTitle>
+            <DialogDescription>
+              {was.current ? t('share.takeBackBody', { space: was.current }) : t('share.takeBackBodyNoSpace')}
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <button
@@ -272,18 +271,18 @@ export function ShareActions({
               onClick={() => setTakeBack(false)}
               className="console-focusable h-10 rounded-full border border-border px-5 text-[14px]"
             >
-              Keep it shared
+              {t('share.keepShared')}
             </button>
             <button
               type="button"
               onClick={() => {
                 shelfActions.unshare(item.id);
                 setTakeBack(false);
-                toast('Back to only you');
+                toast(t('share.backToYou'));
               }}
               className="console-focusable h-10 rounded-full bg-foreground px-5 text-[14px] font-medium text-background"
             >
-              Take it back
+              {t('share.takeIt')}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -297,6 +296,8 @@ export function ShareActions({
  * draft or shared. A file not read yet cannot be shared, and says so.
  */
 export function ShareButton({ item }: { item: ShelfItem }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'library.shelf' });
+  const NOT_READY = t('share.notReady');
   const s = item.share;
   // The header button swaps element when the state changes, so find it fresh by its wrapper.
   const wrap = useRef<HTMLSpanElement>(null);

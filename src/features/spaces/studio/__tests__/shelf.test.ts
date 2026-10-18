@@ -44,27 +44,32 @@ describe('shareOutcome', () => {
       for (const mode of ['guided', 'open'] as const) {
         const o = shareOutcome(role, mode);
         expect([o.as, o.kind]).toEqual(['lesson', 'draft']);
-        expect(o.copy('Database Systems')).toBe('It becomes a draft Lesson in Database Systems. Only you and editors see it until you publish.');
+        expect(o.copy('Database Systems')).toEqual({ key: 'share.outcome.draft', params: { space: 'Database Systems' } });
       }
     }
   });
   it('member + open', () => {
     const o = shareOutcome('member', 'open');
     expect([o.as, o.kind]).toEqual(['community-lesson', 'shared']);
-    expect(o.copy('Database Systems')).toBe('Open Space: it joins the path as a Community Lesson, with your name on it.');
+    expect(o.copy('Database Systems')).toEqual({ key: 'share.outcome.open', params: undefined });
   });
   it('member + guided', () => {
     const o = shareOutcome('member', 'guided');
     expect([o.as, o.kind]).toEqual(['contribution', 'shared']);
-    expect(o.copy('Database Systems')).toBe('It arrives as your Contribution, with your name on it. The owner can endorse it into the path.');
+    expect(o.copy('Database Systems')).toEqual({ key: 'share.outcome.contribution', params: undefined });
   });
 });
 
 describe('lifeLine', () => {
   it('omits zeros', () => {
-    expect(lifeLine(item({ progress: prog({ pagesRead: 6, recallKnew: 9, recallTotal: 31, answers: 2, notes: 1 }) }))).toEqual(['Read 6/12', 'Recall 9/31', '2 answers', '1 note']);
+    expect(lifeLine(item({ progress: prog({ pagesRead: 6, recallKnew: 9, recallTotal: 31, answers: 2, notes: 1 }) }))).toEqual([
+      { key: 'life.read', params: { read: 6, total: 12 } },
+      { key: 'life.recall', params: { knew: 9, total: 31 } },
+      { key: 'life.answers', params: { count: 2 } },
+      { key: 'life.notes', params: { count: 1 } },
+    ]);
     expect(lifeLine(item())).toEqual([]);
-    expect(lifeLine(item({ progress: prog({ answers: 1 }) }))).toEqual(['1 answer']);
+    expect(lifeLine(item({ progress: prog({ answers: 1 }) }))).toEqual([{ key: 'life.answers', params: { count: 1 } }]);
   });
 });
 

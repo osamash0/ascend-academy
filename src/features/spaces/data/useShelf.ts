@@ -1,4 +1,5 @@
 import { useMemo, useSyncExternalStore } from 'react';
+import i18n from '@/i18n';
 import type { LoadState } from '../types';
 import * as shelfStore from '../mocks/shelf';
 import { addNote, allNotes, notesVersion, subscribeNotes, updateNote } from '../mocks/notes';
@@ -126,8 +127,16 @@ export const rewriteNote = (id: string, body: string): void => {
 export const contributionForEntry = (entryId: string): Contribution | undefined =>
   myContributionById(entryId.replace(/^lib-con-/, ''));
 
-/** The name a cover gives a Space it is shared or drafted in. */
-export const shelfSpaceName = (spaceId: string): string => spaceById(spaceId)?.name ?? 'a Space';
+/** A Space's own name, or null when it is gone. */
+export const knownSpaceName = (spaceId: string): string | null => spaceById(spaceId)?.name ?? null;
+
+/**
+ * The name a cover gives a Space it is shared or drafted in. A Space that is
+ * gone is "a Space" ("einem Space"): always the dative, so it fits every
+ * phrase that takes this ("Entwurf in …", "In … geteilt").
+ */
+export const shelfSpaceName = (spaceId: string): string =>
+  knownSpaceName(spaceId) ?? i18n.t('library.shelf.aSpace', { ns: 'v4Library' });
 
 export interface Glance {
   /** The page image to show: the cover, or the asked-for page. '' when there is none. */
