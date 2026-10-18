@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { TermState } from '../recall';
 
@@ -30,6 +31,7 @@ export function RecallTerm({
   onReveal(): void;
   onMark(t: 'knew' | 'notYet'): void;
 }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.recall' });
   const reduce = useReducedMotion();
   const id = useId();
   // Derived from the last state this instance saw: only blank → seen is a reveal.
@@ -50,24 +52,24 @@ export function RecallTerm({
     if (!asking) return;
     // Focus follows the reveal: the term's button is gone, so go to the first mark.
     knewRef.current?.focus();
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       // Only pull focus back when it was in the pair that is about to vanish.
       if (pairRef.current?.contains(document.activeElement)) termRef.current?.focus();
       setSeen((s) => (s.fresh ? { ...s, fresh: false } : s));
       setReopened(false);
     }, PAIR_MS);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [asking]);
-  const mark = (t: 'knew' | 'notYet') => {
+  const mark = (verdict: 'knew' | 'notYet') => {
     termRef.current?.focus();
-    onMark(t);
+    onMark(verdict);
   };
 
   if (state === 'blank') {
     return (
       <button
         type="button"
-        aria-label={`Reveal term, page ${page}`}
+        aria-label={t('reveal', { page })}
         data-term-key={termKey}
         onClick={onReveal}
         className="select-none rounded-md bg-[rgb(var(--studio-term)/0.14)] px-0.5 text-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
@@ -91,7 +93,7 @@ export function RecallTerm({
         id={id}
         tabIndex={state === 'seen' && !asking ? 0 : -1}
         role={state === 'seen' && !asking ? 'button' : undefined}
-        aria-label={state === 'seen' && !asking ? `${text}, revealed — mark whether you knew it` : `${text}, revealed`}
+        aria-label={state === 'seen' && !asking ? t('markIt', { text }) : t('revealed', { text })}
         onClick={state === 'seen' && !asking ? () => setReopened(true) : undefined}
         onKeyDown={
           state === 'seen' && !asking
@@ -115,10 +117,10 @@ export function RecallTerm({
         <span ref={pairRef} className="ml-1 inline-flex gap-0.5 align-baseline">
           {/* Described by the term: a screen reader hears what it is asked about. */}
           <button ref={knewRef} type="button" aria-describedby={id} className={pad} onClick={() => mark('knew')}>
-            Knew it
+            {t('knew')}
           </button>
           <button type="button" aria-describedby={id} className={pad} onClick={() => mark('notYet')}>
-            Not yet
+            {t('notYet')}
           </button>
         </span>
       )}

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
 import type { ShelfItem } from '../studio/shelf';
@@ -15,6 +16,7 @@ import { useZoomThrough } from './ZoomThrough';
  * shelf scale. The whole card is one link; the pill is its label, not a button.
  */
 export function ContinueCard({ item }: { item: ShelfItem }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'library.shelf.continue' });
   const reduce = useReducedMotion();
   const page = item.lastPage ?? undefined;
   const { image, lines } = useGlance(item, page);
@@ -34,7 +36,11 @@ export function ContinueCard({ item }: { item: ShelfItem }) {
         rememberOpened(item.id, 'continue');
         zoom?.(e, href, { frame: frameRef.current, src: image });
       }}
-      aria-label={`Continue reading ${item.filename}${page !== undefined ? `, page ${page} of ${item.pageCount}` : ''}`}
+      aria-label={
+        page !== undefined
+          ? t('labelPage', { name: item.filename, page, total: item.pageCount })
+          : t('label', { name: item.filename })
+      }
       className="console-focusable group grid items-center gap-[22px] rounded-[22px] border border-white/[0.09] bg-white/[0.025] p-[18px] transition-colors hover:border-white/[0.16] md:grid-cols-[1.15fr_1fr]"
       onMouseEnter={() => setGlancing(true)}
       onMouseLeave={() => setGlancing(false)}
@@ -79,8 +85,7 @@ export function ContinueCard({ item }: { item: ShelfItem }) {
 
       <div className="min-w-0 px-1 pb-1 md:px-0 md:pb-0">
         <p className="text-[13px] text-quiet">
-          Pick up where you left off
-          {page !== undefined && ` · page ${page} of ${item.pageCount}`}
+          {page !== undefined ? t('leadPage', { page, total: item.pageCount }) : t('lead')}
         </p>
         <h2 className="mt-1.5 truncate text-[22px] font-medium tracking-[-0.01em] text-foreground">
           {item.filename}
@@ -90,7 +95,7 @@ export function ContinueCard({ item }: { item: ShelfItem }) {
         </div>
         <LifeLine item={item} className="mt-3" />
         <span className="mt-5 inline-flex h-10 items-center gap-2 rounded-full bg-white px-[18px] text-[14px] font-semibold text-slate-900">
-          Continue reading
+          {t('action')}
           <ArrowRight aria-hidden className="h-4 w-4" />
         </span>
       </div>

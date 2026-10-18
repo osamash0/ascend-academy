@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Plus, Upload } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { importWillFail, shelfActions } from '../data/useShelf';
 import { inDialog, isTyping } from '../studio/keys';
@@ -91,6 +92,7 @@ export function useBringIn(enabled: boolean, onBrought?: (ids: string[]) => void
 
 /** The full-page veil: a dashed hairline frame and one line. */
 export function DropVeil({ show }: { show: boolean }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'library.shelf.bring' });
   const reduce = useReducedMotion();
   return (
     <AnimatePresence>
@@ -105,7 +107,7 @@ export function DropVeil({ show }: { show: boolean }) {
           transition={{ duration: reduce ? 0.15 : 0.24, ease: FLIGHT_EASE }}
         >
           <div className="flex h-full w-full items-center justify-center rounded-[28px] border border-dashed border-white/40">
-            <p className="text-[22px] font-medium tracking-[-0.02em] text-foreground">Drop to bring it in</p>
+            <p className="text-[22px] font-medium tracking-[-0.02em] text-foreground">{t('veil')}</p>
           </div>
         </motion.div>
       )}
@@ -122,6 +124,7 @@ interface TileProps {
 
 /** A label wrapping the real file input. It is the picker, wherever it sits. */
 export function BringInTile({ inputRef, onFiles, variant }: TileProps) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'library.shelf.bring' });
   return (
     <label
       className={cn(
@@ -136,7 +139,7 @@ export function BringInTile({ inputRef, onFiles, variant }: TileProps) {
         type="file"
         accept=".pdf,.pptx,image/*"
         multiple
-        aria-label="Bring something in"
+        aria-label={t('label')}
         className="sr-only"
         onChange={(e) => {
           onFiles(e.target.files);
@@ -150,12 +153,10 @@ export function BringInTile({ inputRef, onFiles, variant }: TileProps) {
           <Upload aria-hidden className="mb-4 h-6 w-6" />
         )}
         <span className={cn('font-medium text-foreground', variant === 'cell' ? 'text-[15px]' : 'text-[19px]')}>
-          {variant === 'cell' ? 'Bring something in' : 'Bring in your first file'}
+          {variant === 'cell' ? t('cellTitle') : t('emptyTitle')}
         </span>
         <span className={cn(variant === 'empty' && 'mt-1 max-w-[44ch] text-[14.5px] leading-relaxed')}>
-          {variant === 'cell'
-            ? 'PDF, PPTX or a photo — drop it, or click'
-            : 'PDF, PPTX or a photo. It becomes a page you can read, ask and remember.'}
+          {variant === 'cell' ? t('cellHint') : t('emptyHint')}
         </span>
       </span>
     </label>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, useReducedMotion } from 'motion/react';
 import { CheckSquare, Layers, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -42,17 +43,18 @@ import { takeReturnTarget } from '../library/returnFocus';
  * Select (`?select=1`) is the one dense moment, on purpose (spec §5.8).
  */
 
+/** Every word of chrome here is `v4Library:library.shelf.*`. */
 const FILTERS: { key: ShelfFilter; label: string }[] = [
-  { key: 'all', label: 'Everything' },
-  { key: 'reading', label: 'Reading' },
-  { key: 'shared', label: 'Shared' },
-  { key: 'words', label: 'Your words' },
+  { key: 'all', label: 'filter.all' },
+  { key: 'reading', label: 'filter.reading' },
+  { key: 'shared', label: 'filter.shared' },
+  { key: 'words', label: 'filter.words' },
 ];
 
 const SORTS: { key: ShelfSort; label: string }[] = [
-  { key: 'recent', label: 'Recently opened' },
-  { key: 'added', label: 'Added' },
-  { key: 'az', label: 'A–Z' },
+  { key: 'recent', label: 'sort.recent' },
+  { key: 'added', label: 'sort.added' },
+  { key: 'az', label: 'sort.az' },
 ];
 
 /** From this many items up, the shelf offers search, sort and grouping. */
@@ -64,6 +66,7 @@ const asFilter = (v: string | null): ShelfFilter =>
 const LIBRARY_ACCENT = null;
 
 export default function LibraryScreen() {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'library.shelf' });
   const { state, items, continueItem, words } = useShelf();
   /* Read beside the shelf, so both settle together rather than one after the other. */
   const { items: contributions } = useLibrary('contribution');
@@ -111,8 +114,8 @@ export default function LibraryScreen() {
       if (stages.current.get(i.id) === 'developing' && i.stage === 'ready') ready.push(i.filename);
       stages.current.set(i.id, i.stage);
     }
-    if (ready.length) setSaid(ready.map((f) => `${f} is ready`).join('. '));
-  }, [items]);
+    if (ready.length) setSaid(ready.map((file) => t('isReady', { file })).join('. '));
+  }, [items, t]);
 
   /** URL params, set or cleared together (one navigation), leaving the others (mock, …) alone. */
   const setParam = (patch: Record<string, string | null>) =>
@@ -251,7 +254,7 @@ export default function LibraryScreen() {
   );
 
   if (state === 'loading') return chrome(<SpacesSkeleton />);
-  if (state === 'error') return chrome(<SpacesError what="your Library" />);
+  if (state === 'error') return chrome(<SpacesError what="library" />);
 
   const fade = { duration: reduce ? 0.15 : 0.24, ease: FLIGHT_EASE };
   const showContinue = !!continueItem && (filter === 'all' || filter === 'reading') && !q && !selecting;
@@ -262,7 +265,7 @@ export default function LibraryScreen() {
     <ZoomThrough>
       <div className="relative mx-auto max-w-[1120px] px-4 pb-24 pt-10 sm:px-6 lg:px-8">
         <header>
-          <Masthead title="Library" lede="What you brought in, what you made of it, and what you shared." />
+          <Masthead title={t('title')} lede={t('lede')} />
         </header>
 
         {nothing ? (
@@ -273,7 +276,7 @@ export default function LibraryScreen() {
               <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
                 <div
                   role="tablist"
-                  aria-label="Filter"
+                  aria-label={t('filter.label')}
                   className="flex flex-wrap items-center justify-center gap-1.5"
                   onKeyDown={onTabKey}
                 >
@@ -298,7 +301,7 @@ export default function LibraryScreen() {
                           : 'text-quiet hover:bg-white/[0.05] hover:text-foreground',
                       )}
                     >
-                      {f.label}
+                      {t(f.label)}
                       <span className="ml-1.5 tabular-nums text-faint">{counts[f.key]}</span>
                     </button>
                   ))}
@@ -306,7 +309,7 @@ export default function LibraryScreen() {
                 {items.length > 0 && !selecting && (
                   <button ref={pillRef} type="button" onClick={() => enterSelect()} className={ghostPillSm}>
                     <CheckSquare aria-hidden className="h-3.5 w-3.5" />
-                    Select…
+                    {t('select')}
                   </button>
                 )}
               </div>
@@ -321,22 +324,22 @@ export default function LibraryScreen() {
                     <input
                       ref={searchRef}
                       type="search"
-                      aria-label="Search your Library"
-                      placeholder="Search your Library   /"
+                      aria-label={t('search.label')}
+                      placeholder={t('search.placeholder')}
                       value={q}
                       onChange={(e) => setParam({ q: e.target.value || null })}
                       className="console-focusable h-9 w-full rounded-full border border-white/12 bg-white/[0.05] pl-9 pr-4 text-[13.5px] text-foreground placeholder:text-faint"
                     />
                   </label>
                   <select
-                    aria-label="Sort"
+                    aria-label={t('sort.label')}
                     value={sort}
                     onChange={(e) => setSort(e.target.value as ShelfSort)}
                     className="console-focusable h-9 rounded-full border border-white/12 bg-white/[0.05] px-3.5 text-[13px] text-quiet"
                   >
                     {SORTS.map((s) => (
                       <option key={s.key} value={s.key} className="bg-black text-foreground">
-                        {s.label}
+                        {t(s.label)}
                       </option>
                     ))}
                   </select>
@@ -347,7 +350,7 @@ export default function LibraryScreen() {
                     className={cn(ghostPillSm, grouped && 'bg-white/[0.12] text-foreground')}
                   >
                     <Layers aria-hidden className="h-3.5 w-3.5" />
-                    Group by Space
+                    {t('group')}
                   </button>
                 </div>
               )}
@@ -420,6 +423,7 @@ function Shelf({
   pick: (id: string) => { checked: boolean; onToggle: () => void } | undefined;
   onRemove: (id: string) => void;
 }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'library.shelf' });
   const cover = (item: ShelfItem) => (
     <Cover item={item} select={pick(item.id)} onRemove={() => onRemove(item.id)} />
   );
@@ -427,7 +431,7 @@ function Shelf({
     return (
       <section aria-labelledby="your-shelf">
         <h2 id="your-shelf" className="mb-4 text-[20px] font-medium tracking-[-0.02em]">
-          Your shelf
+          {t('heading')}
         </h2>
         <EnterList aria-labelledby="your-shelf" className={GRID}>
           <EnterListItem>{cell}</EnterListItem>
@@ -441,26 +445,27 @@ function Shelf({
   const groups = groupBySpace(items, shelfSpaceName);
   return (
     <div className="space-y-12">
-      {groups.map((g, gi) => (
-        <section key={g.title} aria-label={g.title}>
-          <h2 className="mb-4 text-[20px] font-medium tracking-[-0.02em]">{g.title}</h2>
-          <EnterList aria-label={gi === 0 ? 'Your shelf' : g.title} className={GRID}>
-            {gi === 0 && <EnterListItem>{cell}</EnterListItem>}
-            {g.items.map((item) => (
-              <EnterListItem key={item.id}>{cover(item)}</EnterListItem>
-            ))}
-          </EnterList>
-        </section>
-      ))}
+      {groups.map((g, gi) => {
+        /* A Space is called what it is called; "Only you" is ours to say. */
+        const title = g.private ? t('onlyYou') : g.title;
+        return (
+          <section key={g.title} aria-label={title}>
+            <h2 className="mb-4 text-[20px] font-medium tracking-[-0.02em]">{title}</h2>
+            <EnterList aria-label={gi === 0 ? t('heading') : title} className={GRID}>
+              {gi === 0 && <EnterListItem>{cell}</EnterListItem>}
+              {g.items.map((item) => (
+                <EnterListItem key={item.id}>{cover(item)}</EnterListItem>
+              ))}
+            </EnterList>
+          </section>
+        );
+      })}
     </div>
   );
 }
 
 function NothingHere({ filter, q }: { filter: ShelfFilter; q: string }) {
-  const line = q
-    ? `Nothing on your shelf is called “${q}”.`
-    : filter === 'shared'
-      ? 'Nothing shared yet. When a page is ready for others, share it from the page itself.'
-      : 'Nothing left to read. Everything here is read through.';
+  const { t } = useTranslation('v4Library', { keyPrefix: 'library.shelf' });
+  const line = q ? t('nothing.query', { q }) : filter === 'shared' ? t('nothing.shared') : t('nothing.reading');
   return <p className="mt-8 text-center text-[14px] text-quiet">{line}</p>;
 }

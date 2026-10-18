@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -154,7 +154,15 @@ describe('Select', () => {
   });
 
   it('Share to… never shares a file still being prepared, and names it', async () => {
+    /*
+     * The mock settles a brought-in file to ready after 3.3 s of wall-clock
+     * time, and a loaded machine can run this test past that. Its timers are
+     * made on a fake clock that is then dropped, so they never fire: the file
+     * is still being prepared for exactly as long as the test needs.
+     */
+    vi.useFakeTimers();
     const fresh = shelf.bringIn('Fresh scan.pdf');
+    vi.useRealTimers();
     at();
     const user = userEvent.setup();
     await user.click(await box(/Fresh scan\.pdf/));

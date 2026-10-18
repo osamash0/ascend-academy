@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Check, FileWarning, Loader2, Lock, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Lesson, Space } from '../types';
@@ -25,6 +26,7 @@ interface Props {
 const NEXT = 'var(--stage-accent, hsl(var(--primary)))';
 
 export function LessonRow({ lesson, space, isNext }: Props) {
+  const { t } = useTranslation('v4Space');
   const done = lesson.progress === 'done';
   const unpublished = lesson.state !== 'published';
   const processing = lesson.state === 'processing';
@@ -85,7 +87,11 @@ export function LessonRow({ lesson, space, isNext }: Props) {
           {unpublished && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-[3px] text-[11.5px] font-medium text-quiet">
               {processing ? <Loader2 aria-hidden className="h-2.5 w-2.5 animate-spin" /> : <Lock aria-hidden className="h-2.5 w-2.5" />}
-              {processing ? 'Processing' : lesson.state === 'draft' ? 'Draft' : 'Needs review'}
+              {processing
+                ? t('demo.lessonRow.processing')
+                : lesson.state === 'draft'
+                  ? t('demo.lessonRow.draft')
+                  : t('demo.lessonRow.needsReview')}
             </span>
           )}
         </div>
@@ -106,7 +112,7 @@ export function LessonRow({ lesson, space, isNext }: Props) {
           {lesson.material === null && lesson.state === 'published' && (
             <span className="inline-flex items-center gap-1.5 text-[12.5px] text-faint">
               <FileWarning aria-hidden className="h-3.5 w-3.5" />
-              Source file removed
+              {t('demo.lessonRow.sourceRemoved')}
             </span>
           )}
         </div>
@@ -138,9 +144,14 @@ export function LessonRow({ lesson, space, isNext }: Props) {
       <Link
         to={`/v4/space/${space.id}/lesson/${lesson.id}`}
         className="console-focusable absolute inset-0 rounded-2xl"
-        aria-label={`Lesson ${lesson.order}. ${lesson.title}. By ${lesson.author.name}. ${lesson.percentComplete}% complete.`}
+        aria-label={t('demo.lessonRow.label', {
+          order: lesson.order,
+          title: lesson.title,
+          author: lesson.author.name,
+          percent: lesson.percentComplete,
+        })}
       >
-        <span className="sr-only">Open</span>
+        <span className="sr-only">{t('demo.lessonRow.open')}</span>
       </Link>
 
     </article>

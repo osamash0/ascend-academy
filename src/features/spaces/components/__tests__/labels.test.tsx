@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import i18n from '@/i18n';
 
 /**
  * One phrase, one altitude.
@@ -60,10 +61,13 @@ const labelsOf = (body: string, name: string): Record<string, string> => {
   const literal = body.slice(open + 1, end);
   const out: Record<string, string> = {};
   for (const m of literal.matchAll(/(\w+)\s*:\s*'((?:[^'\\]|\\.)*)'/g)) {
-    out[m[1]] = m[2];
+    /* The maps hold i18n keys since slice 3; the phrase is what English says for it. */
+    out[m[1]] = en(m[2]);
   }
   return out;
 };
+
+const en = i18n.getFixedT('en', 'v4Spaces');
 
 describe('Home never says the same thing at two altitudes', () => {
   const home = read(HOME);

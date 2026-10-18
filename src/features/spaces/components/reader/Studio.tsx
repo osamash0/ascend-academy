@@ -1,6 +1,7 @@
 import { useRef, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { timing } from './Planes';
 import { useSummoned } from './useSummoned';
@@ -38,7 +39,8 @@ interface Props {
 /** The panel's width, and the distance the document steps aside by half. */
 export const STUDIO_WIDTH = 440;
 
-export function Studio({ open, where, page, onClose, children, panel, width = STUDIO_WIDTH, label = 'Studio' }: Props) {
+export function Studio({ open, where, page, onClose, children, panel, width = STUDIO_WIDTH, label }: Props) {
+  const { t } = useTranslation('v4Reader');
   const ref = useRef<HTMLElement>(null);
   useSummoned(open, onClose, ref, { takeFocus: false });
 
@@ -48,7 +50,7 @@ export function Studio({ open, where, page, onClose, children, panel, width = ST
         <motion.aside
           ref={ref}
           tabIndex={-1}
-          aria-label={label}
+          aria-label={label ?? t('studio.name')}
           initial={{ opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 24 }}
@@ -69,11 +71,11 @@ export function Studio({ open, where, page, onClose, children, panel, width = ST
           <div className="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] pl-6 pr-3">
             <p className="flex min-w-0 flex-1 items-baseline gap-2 text-[13px]">
               <span className="truncate font-medium text-foreground">{where}</span>
-              <span className="shrink-0 tabular-nums text-faint">Page {page}</span>
+              <span className="shrink-0 tabular-nums text-faint">{t('studio.page', { page })}</span>
             </p>
             <button
               type="button"
-              aria-label={`Close ${label === 'Studio' ? 'the studio' : label}`}
+              aria-label={label ? t('studio.closeNamed', { name: label }) : t('studio.close')}
               onClick={onClose}
               className="console-focusable flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
             >

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { hasSource } from '../edit';
 import { boxStyle, unionBox, unmappedSourceBlocks } from '../geometry';
@@ -45,6 +46,7 @@ const flight = (i: number) => ({ layout: { duration: FLIGHT_S, ease: FLIGHT_EASE
  * things came from.
  */
 export function OriginalPage({ page, blocks, morph, materialName, onRegion, onInclude, bare }: Props) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas' });
   const [offer, setOffer] = useState<string | null>(null);
   const mapped = blocks.filter(hasSource);
   const missing = unmappedSourceBlocks(page, blocks);
@@ -65,7 +67,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
       data-view="original"
       data-page-anchor={page.page}
       data-inline={bare ? 'true' : undefined}
-      aria-label={`Source page ${page.page}`}
+      aria-label={t('page.sourceSection', { page: page.page })}
       className="scroll-mt-40 lg:scroll-mt-28"
     >
       {!bare && <PageDivider page={page.page} original />}
@@ -75,7 +77,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
       >
         <img
           src={page.imageUrl}
-          alt={`Page ${page.page} of ${materialName}`}
+          alt={t('page.alt', { page: page.page, name: materialName })}
           loading="lazy"
           decoding="async"
           className="absolute inset-0 h-full w-full object-contain"
@@ -119,7 +121,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
                 setOffer(null);
                 onRegion(b.id);
               }}
-              aria-label={`${b.edited ? 'Back to (edited)' : 'Back to'}: ${firstWords(b.markdown)}`}
+              aria-label={t(b.edited ? 'original.backEdited' : 'original.back', { text: firstWords(b.markdown) })}
               style={boxStyle(box)}
               className="absolute z-10 rounded-[4px] outline-none before:absolute before:left-1/2 before:top-1/2 before:h-full before:min-h-6 before:w-full before:min-w-6 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-[hsl(var(--studio-mark)/0.18)] focus-visible:ring-2 focus-visible:ring-ring"
             >
@@ -136,7 +138,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
               )}
               {b.edited && (
                 <span className={cn(PILL, 'absolute -top-5 right-0 py-0.5 font-medium')}>
-                  Edited by you
+                  {t('original.edited')}
                 </span>
               )}
             </motion.button>
@@ -148,12 +150,12 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
           <div className="pointer-events-none absolute right-2 top-2 z-20 flex flex-col items-end gap-1">
             {texts.length > 0 && (
               <span className={cn(PILL, 'py-0.5')}>
-                {texts.length} {texts.length === 1 ? 'part' : 'parts'} not in your version
+                {t('original.parts', { count: texts.length })}
               </span>
             )}
             {figures.length > 0 && (
               <span className={cn(PILL, 'py-0.5')}>
-                {figures.length} {figures.length === 1 ? 'figure' : 'figures'} not in your version
+                {t('original.figures', { count: figures.length })}
               </span>
             )}
           </div>
@@ -171,7 +173,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
           <button
             key={s.id}
             type="button"
-            aria-label={`${offer === s.id ? 'Add to your version' : 'Not in your version'}: ${firstWords(s.text)}`}
+            aria-label={t(offer === s.id ? 'original.add' : 'original.notIn', { text: firstWords(s.text) })}
             onClick={() => (offer === s.id ? onInclude(s.id) : setOffer(s.id))}
             style={boxStyle(s.bbox)}
             className="absolute z-20 rounded-[4px] border-2 border-dashed border-black/35 outline-none transition-colors before:absolute before:left-1/2 before:top-1/2 before:h-full before:min-h-6 before:w-full before:min-w-6 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-ring"
@@ -182,7 +184,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
                 // Near the top of the page there is no room above (the page clips): show it below instead.
                 className={cn(PILL, 'absolute left-0 flex min-h-6 items-center', s.bbox[1] < 0.06 ? 'top-full mt-1' : '-top-6')}
               >
-                Add to your version
+                {t('original.addPill')}
               </span>
             )}
           </button>
@@ -194,7 +196,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
             onClick={() => onRegion(mapped[0].id)}
             className={cn(PILL, 'absolute inset-x-0 bottom-3 mx-auto h-8 w-fit px-4 text-[12px] hover:bg-black/85')}
           >
-            Back to Learn
+            {t('original.backToLearn')}
           </button>
         )}
       </div>

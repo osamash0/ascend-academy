@@ -1,6 +1,12 @@
+import { phrase, type Phrase } from '../components/course/phrase';
+
 /**
  * The shelf's model: one object for everything you bring in.
  * Pure functions only — the store lives in `mocks/shelf.ts`.
+ *
+ * Anything these say is a `Phrase` ({ key, params } in `v4Library`), never a
+ * finished sentence: the screen says it with `t`, so the model stays
+ * language-free and German can order the words its own way.
  */
 
 export type ShareAs = 'lesson' | 'community-lesson' | 'contribution';
@@ -51,37 +57,36 @@ export type Mode = 'guided' | 'open';
 export function shareOutcome(
   role: Role,
   mode: Mode,
-): { as: ShareAs; kind: 'draft' | 'shared'; copy: (space: string) => string } {
+): { as: ShareAs; kind: 'draft' | 'shared'; copy: (space: string) => Phrase } {
   if (role === 'owner' || role === 'editor') {
     return {
       as: 'lesson',
       kind: 'draft',
-      copy: (space) =>
-        `It becomes a draft Lesson in ${space}. Only you and editors see it until you publish.`,
+      copy: (space) => phrase('share.outcome.draft', { space }),
     };
   }
   if (mode === 'open') {
     return {
       as: 'community-lesson',
       kind: 'shared',
-      copy: () => 'Open Space: it joins the path as a Community Lesson, with your name on it.',
+      copy: () => phrase('share.outcome.open'),
     };
   }
   return {
     as: 'contribution',
     kind: 'shared',
-    copy: () =>
-      'It arrives as your Contribution, with your name on it. The owner can endorse it into the path.',
+    copy: () => phrase('share.outcome.contribution'),
   };
 }
 
-export function lifeLine(item: ShelfItem): string[] {
+/** "Read 6/12 · Recall 9/31 · 2 answers · 1 note" as phrases — zeros left out. */
+export function lifeLine(item: ShelfItem): Phrase[] {
   const p = item.progress;
-  const out: string[] = [];
-  if (p.pagesRead > 0) out.push(`Read ${p.pagesRead}/${item.pageCount}`);
-  if (p.recallTotal > 0) out.push(`Recall ${p.recallKnew}/${p.recallTotal}`);
-  if (p.answers > 0) out.push(`${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}`);
-  if (p.notes > 0) out.push(`${p.notes} ${p.notes === 1 ? 'note' : 'notes'}`);
+  const out: Phrase[] = [];
+  if (p.pagesRead > 0) out.push(phrase('life.read', { read: p.pagesRead, total: item.pageCount }));
+  if (p.recallTotal > 0) out.push(phrase('life.recall', { knew: p.recallKnew, total: p.recallTotal }));
+  if (p.answers > 0) out.push(phrase('life.answers', { count: p.answers }));
+  if (p.notes > 0) out.push(phrase('life.notes', { count: p.notes }));
   return out;
 }
 
@@ -108,18 +113,18 @@ export function filterItems(
 
 /**
  * Sharing several at once (Select): only ready, private files go; the rest stay
- * as they are, and `left` names why, e.g. ["1 still being prepared", "1 already in a Space"].
+ * as they are, and `left` names why, e.g. "1 still being prepared", "1 already in a Space".
  */
-export function shareSplit(items: ShelfItem[]): { go: ShelfItem[]; left: string[] } {
+export function shareSplit(items: ShelfItem[]): { go: ShelfItem[]; left: Phrase[] } {
   const go = items.filter((i) => i.stage === 'ready' && i.share.kind === 'private');
   const preparing = items.filter((i) => i.stage === 'developing').length;
   const unread = items.filter((i) => i.stage === 'failed').length;
   const inSpace = items.filter((i) => i.stage === 'ready' && i.share.kind !== 'private').length;
   const left = [
-    preparing && `${preparing} still being prepared`,
-    unread && `${unread} couldn’t be read`,
-    inSpace && `${inSpace} already in a Space`,
-  ].filter((p): p is string => !!p);
+    preparing && phrase('share.preparing', { count: preparing }),
+    unread && phrase('share.unread', { count: unread }),
+    inSpace && phrase('share.inSpace', { count: inSpace }),
+  ].filter((p): p is Phrase => !!p);
   return { go, left };
 }
 
@@ -148,10 +153,14 @@ export function sortItems(
   });
 }
 
-export function groupBySpace(
-  items: ShelfItem[],
-  spaceName: (id: string) => string,
-): { title: string; items: ShelfItem[] }[] {
+/** `private` is the group of what is only yours: its `title` is a stable name, said in the reader's language by the screen. */
+export interface ShelfGroup {
+  title: string;
+  items: ShelfItem[];
+  private?: true;
+}
+
+export function groupBySpace(items: ShelfItem[], spaceName: (id: string) => string): ShelfGroup[] {
   const groups = new Map<string, ShelfItem[]>();
   const priv: ShelfItem[] = [];
   for (const i of items) {
@@ -164,8 +173,8 @@ export function groupBySpace(
   }
   const out = [...groups.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([title, its]) => ({ title, items: its }));
-  if (priv.length) out.push({ title: 'Only you', items: priv });
+    .map(([title, its]): ShelfGroup => ({ title, items: its }));
+  if (priv.length) out.push({ title: 'Only you', items: priv, private: true });
   return out;
 }
 

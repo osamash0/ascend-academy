@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { NAV_TABS, navHref, type NavKey } from './SpacesTopBar';
 import { useGround } from './ground';
@@ -44,9 +45,10 @@ import { useGround } from './ground';
 export function MobileNav({ active }: { active: NavKey }) {
   /* Context crosses the portal, so the bar still knows the screen's ground. */
   const stage = useGround() === 'stage';
+  const { t } = useTranslation('v4Spaces');
   return createPortal(
     <nav
-      aria-label="Main"
+      aria-label={t('nav.main')}
       className={cn(
         'fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around md:hidden',
         'border-t border-white/[0.08] backdrop-blur-xl',
@@ -80,7 +82,7 @@ export function MobileNav({ active }: { active: NavKey }) {
               />
             )}
             <tab.icon aria-hidden className="h-[18px] w-[18px]" />
-            {tab.label}
+            {t(`nav.${tab.key}`)}
           </Link>
         );
       })}

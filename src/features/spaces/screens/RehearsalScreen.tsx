@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowRight, BookOpen, Check, RotateCcw, Sparkles, Target, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Scene, SURFACES } from '../components/Scene';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
@@ -10,6 +11,7 @@ import { grade, type Grade } from '../components/rehearsal/grade';
 import { composeRehearsal, saveRehearsal, useCourse, useRehearsalHistory } from '../data/useReader';
 import { fadingIdeas, type FadingIdea } from '../components/course/today';
 import type { Rehearsal, RehearsalHistory } from '../data/liveRepository';
+import { formatRelativeDays } from '../i18n/format';
 
 /**
  * Exam rehearsal, for a real course.
@@ -28,13 +30,14 @@ import type { Rehearsal, RehearsalHistory } from '../data/liveRepository';
 type Phase =
   | { at: 'setup' }
   | { at: 'composing'; lectures: string[] }
-  | { at: 'failed'; message: string; retry: () => void }
+  | { at: 'failed'; weak: boolean; retry: () => void }
   | { at: 'running'; rehearsal: Rehearsal; index: number; grades: (Grade | null)[] }
   | { at: 'done'; rehearsal: Rehearsal; grades: Grade[]; saved: 'saving' | 'saved' | 'failed' };
 
 const LENGTHS = [5, 8, 12];
 
 export default function RehearsalScreen({ courseId }: { courseId: string }) {
+  const { t } = useTranslation('v4Space');
   const { state, course } = useCourse(courseId);
   const [params] = useSearchParams();
   const reduce = useReducedMotion();
@@ -60,7 +63,7 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
     <Scene surface={SURFACES.rehearsal} motionKey={`rehearse-${courseId}`}>
       <Link
         to={`/v4/space/${courseId}`}
-        aria-label="Leave the rehearsal"
+        aria-label={t('rehearse.leave')}
         className="console-focusable fixed left-4 top-4 z-40 flex h-10 w-10 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
       >
         <X aria-hidden className="h-4 w-4" />
@@ -70,8 +73,8 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
   );
 
   if (state === 'loading') return chrome(<DetailSkeleton />);
-  if (state === 'error') return chrome(<SpacesError what="this Space" />);
-  if (!course) return chrome(<NotFound what="Space" backTo="/v4/spaces" backLabel="Back to Spaces" />);
+  if (state === 'error') return chrome(<SpacesError what="space" />);
+  if (!course) return chrome(<NotFound what="space" back={{ to: '/v4/spaces', place: 'spaces' }} />);
 
   const pageHref = (lectureId: string, page: number) => `/v4/space/${course.id}/lesson/${lectureId}/faces?page=${page}&view=explain`;
 
@@ -82,9 +85,7 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
       .catch(() =>
         setPhase({
           at: 'failed',
-          message: weak.length
-            ? 'Couldn’t write the rehearsal on your weak spots just now. The model may be busy.'
-            : 'Couldn’t write a rehearsal just now. The model may be busy.',
+          weak: weak.length > 0,
           // The same request again — weak spots included — not a fresh setup.
           retry: () => start(lectureIds, weak, n),
         }),
@@ -100,9 +101,9 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
           <Target aria-hidden className="h-4 w-4" />
           {course.title}
         </p>
-        <h1 className="text-[40px] font-medium leading-[1.05] tracking-[-0.03em] sm:text-[56px]">Rehearse for the exam</h1>
+        <h1 className="text-[40px] font-medium leading-[1.05] tracking-[-0.03em] sm:text-[56px]">{t('rehearse.setup.title')}</h1>
         <p className="mt-4 max-w-[54ch] text-[16px] leading-relaxed text-quiet">
-          A short test from your own pages. Every answer points back to the page that teaches it.
+          {t('rehearse.setup.lede')}
         </p>
 
         {history && history.attempts.length > 0 && (
@@ -129,13 +130,13 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
 
         <div className="mt-12">
           <div className="mb-3 flex items-baseline justify-between">
-            <p className="text-[15px] font-medium text-foreground">Lessons</p>
+            <p className="text-[15px] font-medium text-foreground">{t('rehearse.setup.lessons')}</p>
             <button
               type="button"
               onClick={() => setPicked(chosen.length === course.lectures.length ? [] : course.lectures.map((l) => l.id))}
               className="console-focusable rounded-md px-1 text-[13px] text-quiet transition-colors hover:text-foreground"
             >
-              {chosen.length === course.lectures.length ? 'Clear' : 'All'}
+              {chosen.length === course.lectures.length ? t('rehearse.setup.clear') : t('rehearse.setup.all')}
             </button>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -161,8 +162,8 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
         </div>
 
         <div className="mt-10">
-          <p className="mb-3 text-[15px] font-medium text-foreground">Length</p>
-          <div role="radiogroup" aria-label="Number of questions" className="inline-flex rounded-full bg-white/[0.06] p-1">
+          <p className="mb-3 text-[15px] font-medium text-foreground">{t('rehearse.setup.length')}</p>
+          <div role="radiogroup" aria-label={t('rehearse.setup.lengthLabel')} className="inline-flex rounded-full bg-white/[0.06] p-1">
             {LENGTHS.map((n) => (
               <button
                 key={n}
@@ -178,7 +179,7 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
                 {count === n && (
                   <motion.span layoutId="rehearse-length" transition={{ duration: 0.2 }} className="absolute inset-0 rounded-full bg-white" />
                 )}
-                <span className="relative">{n} questions</span>
+                <span className="relative">{t('rehearse.setup.questions', { count: n })}</span>
               </button>
             ))}
           </div>
@@ -186,14 +187,14 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
 
         {phase.at === 'failed' && (
           <div role="alert" className="mt-8 flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/[0.06] px-4 py-3">
-            <p className="flex-1 text-[14px] text-foreground">{phase.message}</p>
+            <p className="flex-1 text-[14px] text-foreground">{phase.weak ? t('rehearse.failed.weak') : t('rehearse.failed.any')}</p>
             <button
               type="button"
               onClick={phase.retry}
               className="console-focusable inline-flex h-9 items-center gap-2 rounded-full bg-white px-4 text-[13.5px] font-medium text-background"
             >
               <RotateCcw aria-hidden className="h-3.5 w-3.5" />
-              Try again
+              {t('rehearse.failed.retry')}
             </button>
           </div>
         )}
@@ -205,7 +206,7 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
           className="console-focusable mt-12 inline-flex h-14 items-center gap-2.5 rounded-full bg-white px-8 text-[16px] font-medium text-background transition-colors disabled:bg-white/[0.12] disabled:text-faint"
         >
           <Sparkles aria-hidden className="h-4 w-4" />
-          Write my rehearsal
+          {t('rehearse.setup.start')}
         </button>
       </div>,
     );
@@ -259,7 +260,7 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
           ))}
         </div>
         <p className="mb-6 text-[13px] tabular-nums text-quiet">
-          Question {index + 1} of {rehearsal.questions.length}
+          {t('rehearse.run.progress', { n: index + 1, total: rehearsal.questions.length })}
         </p>
         <AnimatePresence mode="wait">
           <motion.div
@@ -284,7 +285,7 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
             onClick={next}
             className="console-focusable mt-6 inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[15px] font-medium text-background"
           >
-            {last ? 'See how it went' : 'Next question'}
+            {last ? t('rehearse.run.finish') : t('rehearse.run.next')}
             <ArrowRight aria-hidden className="h-4 w-4" />
           </button>
         )}
@@ -298,11 +299,12 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
 
 /** Waiting, made to feel like something is being written for you — because it is. */
 function Composing({ titles, reduce }: { titles: string[]; reduce: boolean }) {
+  const { t } = useTranslation('v4Space');
   const [i, setI] = useState(0);
   useEffect(() => {
     if (reduce || titles.length < 2) return;
-    const t = setInterval(() => setI((n) => (n + 1) % titles.length), 1600);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setI((n) => (n + 1) % titles.length), 1600);
+    return () => clearInterval(timer);
   }, [titles.length, reduce]);
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center px-6 text-center" role="status">
@@ -312,9 +314,9 @@ function Composing({ titles, reduce }: { titles: string[]; reduce: boolean }) {
         transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
         className="mb-10 h-20 w-20 rounded-full border border-white/[0.08] border-t-white/[0.7]"
       />
-      <p className="text-[28px] font-medium tracking-[-0.02em]">Writing your rehearsal</p>
+      <p className="text-[28px] font-medium tracking-[-0.02em]">{t('rehearse.composing.title')}</p>
       <p className="mt-3 h-6 text-[15px] text-quiet">
-        Reading{' '}
+        {t('rehearse.composing.reading')}{' '}
         <AnimatePresence mode="wait">
           <motion.span
             key={titles[i]}
@@ -328,7 +330,7 @@ function Composing({ titles, reduce }: { titles: string[]; reduce: boolean }) {
           </motion.span>
         </AnimatePresence>
       </p>
-      <p className="mt-10 text-[13px] text-faint">Usually about half a minute.</p>
+      <p className="mt-10 text-[13px] text-faint">{t('rehearse.composing.wait')}</p>
     </div>
   );
 }
@@ -346,6 +348,7 @@ function Debrief({
   onAgain: (lectureIds: string[], weak: string[], n?: number) => void;
   onNew: () => void;
 }) {
+  const { t } = useTranslation('v4Space');
   const { rehearsal, grades } = phase;
   const right = grades.filter((g) => g.correct).length;
   const total = grades.length;
@@ -366,13 +369,23 @@ function Debrief({
   const R = 64;
   const C = 2 * Math.PI * R;
   const verdict =
-    ratio === 1 ? 'Flawless.' : ratio >= 0.75 ? 'Strong — a couple of ideas to tighten.' : ratio >= 0.5 ? 'Getting there.' : 'Worth another pass.';
+    ratio === 1
+      ? t('rehearse.debrief.verdict.flawless')
+      : ratio >= 0.75
+        ? t('rehearse.debrief.verdict.strong')
+        : ratio >= 0.5
+          ? t('rehearse.debrief.verdict.close')
+          : t('rehearse.debrief.verdict.again');
 
   return (
     <div className="mx-auto max-w-3xl px-6 pb-24 pt-20">
       <div className="flex flex-col items-center text-center">
         <p aria-live="polite" className="mb-4 h-5 text-[12.5px] text-faint">
-          {phase.saved === 'saving' ? 'Saving to your history…' : phase.saved === 'saved' ? 'Saved to your history' : 'Couldn’t save this one to your history'}
+          {phase.saved === 'saving'
+            ? t('rehearse.debrief.saving')
+            : phase.saved === 'saved'
+              ? t('rehearse.debrief.saved')
+              : t('rehearse.debrief.saveFailed')}
         </p>
         <svg width={160} height={160} viewBox="0 0 160 160" aria-hidden>
           <circle cx={80} cy={80} r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={10} />
@@ -399,7 +412,7 @@ function Debrief({
         <p className="mt-2 text-[14px] text-quiet">{rehearsal.title}</p>
       </div>
 
-      <section aria-label="By Lesson" className="mt-12 space-y-3">
+      <section aria-label={t('rehearse.debrief.byLesson')} className="mt-12 space-y-3">
         {byLecture.map(([id, s]) => (
           <div key={id} className="flex items-center gap-4">
             <span className="w-40 shrink-0 truncate text-[14px] text-foreground">{rehearsal.lectures[id]}</span>
@@ -419,8 +432,8 @@ function Debrief({
       </section>
 
       {missed.length > 0 && (
-        <section aria-label="Read again" className="mt-12">
-          <h2 className="mb-3 text-[18px] font-medium">Read again</h2>
+        <section aria-label={t('rehearse.debrief.readAgain')} className="mt-12">
+          <h2 className="mb-3 text-[18px] font-medium">{t('rehearse.debrief.readAgain')}</h2>
           <ul className="space-y-2">
             {missed.map((q) => (
               <li key={q.id}>
@@ -432,7 +445,7 @@ function Debrief({
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] text-foreground">{q.idea}</span>
                     <span className="block text-[12.5px] text-quiet">
-                      {rehearsal.lectures[q.lecture_id]} · page {q.page}
+                      {t('rehearse.debrief.where', { lesson: rehearsal.lectures[q.lecture_id], page: q.page })}
                     </span>
                   </span>
                   <ArrowRight aria-hidden className="h-4 w-4 text-faint transition-colors group-hover:text-foreground" />
@@ -457,7 +470,7 @@ function Debrief({
             className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-6 text-[15px] font-medium text-background"
           >
             <Target aria-hidden className="h-4 w-4" />
-            Rehearse my weak spots
+            {t('rehearse.debrief.weakSpots')}
           </button>
         )}
         <button
@@ -466,14 +479,14 @@ function Debrief({
           className="console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/[0.12] px-6 text-[15px] text-foreground transition-colors hover:bg-white/[0.05]"
         >
           <RotateCcw aria-hidden className="h-4 w-4" />
-          New rehearsal
+          {t('rehearse.debrief.new')}
         </button>
         <Link
           to={`/v4/space/${course.id}`}
           className="console-focusable inline-flex h-12 items-center gap-2 rounded-full px-5 text-[15px] text-quiet transition-colors hover:text-foreground"
         >
           {right === total && <Check aria-hidden className="h-4 w-4 text-success" />}
-          Back to {course.title}
+          {t('rehearse.debrief.back', { title: course.title })}
         </Link>
       </div>
     </div>
@@ -494,19 +507,25 @@ function HistoryPanel({
   onRehearseFading: (ideas: FadingIdea[]) => void;
   onRehearseWeak: () => void;
 }) {
+  const { t } = useTranslation('v4Space');
   const recent = [...history.attempts].slice(0, 10).reverse();
   const latest = history.attempts[0];
   const ago = (iso: string) => {
     const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-    return days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+    return formatRelativeDays(-Math.max(0, days));
   };
   return (
-    <section aria-label="Your rehearsals" className="mt-12 rounded-3xl border border-white/[0.08] bg-white/[0.02] p-6">
+    <section aria-label={t('rehearse.history.label')} className="mt-12 rounded-3xl border border-white/[0.08] bg-white/[0.02] p-6">
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div>
-          <p className="text-[15px] font-medium text-foreground">Your rehearsals</p>
+          <p className="text-[15px] font-medium text-foreground">{t('rehearse.history.label')}</p>
           <p className="mt-1 text-[13px] tabular-nums text-quiet">
-            {history.attempts.length} so far · last {latest.score}/{latest.total}, {ago(latest.created_at)}
+            {t('rehearse.history.summary', {
+              count: history.attempts.length,
+              score: latest.score,
+              total: latest.total,
+              when: ago(latest.created_at),
+            })}
           </p>
         </div>
         {/* Scores over time, oldest to newest. */}
@@ -526,7 +545,7 @@ function HistoryPanel({
 
       {history.weak.length > 0 ? (
         <div className="mt-6">
-          <p className="mb-2.5 text-[13px] text-quiet">Ideas you missed last time</p>
+          <p className="mb-2.5 text-[13px] text-quiet">{t('rehearse.history.missedLast')}</p>
           {/* Grouped by lecture, so each lecture is named once. */}
           <div className="space-y-3">
             {[...new Set(history.weak.map((w) => w.lecture_id))].map((lid) => {
@@ -538,11 +557,11 @@ function HistoryPanel({
                     <Link
                       key={`${w.lecture_id}-${w.idea}`}
                       to={pageHref(w.lecture_id, w.page)}
-                      title={`Page ${w.page}`}
+                      title={t('rehearse.history.page', { page: w.page })}
                       className="console-focusable inline-flex h-9 items-center gap-2 rounded-full bg-destructive/[0.1] px-3.5 text-[13px] text-foreground transition-colors hover:bg-destructive/[0.18]"
                     >
                       {w.idea}
-                      {w.missed > 1 && <span className="text-[12px] text-quiet">missed {w.missed}×</span>}
+                      {w.missed > 1 && <span className="text-[12px] text-quiet">{t('rehearse.history.missedTimes', { count: w.missed })}</span>}
                     </Link>
                   ))}
                 </div>
@@ -555,14 +574,14 @@ function HistoryPanel({
             className="console-focusable mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[14px] font-medium text-background"
           >
             <Target aria-hidden className="h-4 w-4" />
-            {history.weak.length === 1 ? 'Rehearse this one' : 'Rehearse these'}
+            {t('rehearse.history.rehearseWeak', { count: history.weak.length })}
           </button>
         </div>
       ) : (
         fading.length === 0 && (
           <p className="mt-6 flex items-center gap-2 text-[13.5px] text-quiet">
             <Check aria-hidden className="h-4 w-4 text-success" />
-            No weak spots: everything you were asked last time, you got right.
+            {t('rehearse.history.noWeak')}
           </p>
         )
       )}
@@ -570,17 +589,17 @@ function HistoryPanel({
       {/* What you knew, but not lately: the light fades after a week. */}
       {fading.length > 0 && (
         <div className="mt-7">
-          <p className="mb-2.5 text-[13px] text-quiet">Fading — right more than a week ago</p>
+          <p className="mb-2.5 text-[13px] text-quiet">{t('rehearse.history.fading')}</p>
           <div className="flex flex-wrap gap-2">
             {fading.map((f) => (
               <Link
                 key={`${f.lectureId}-${f.page}`}
                 to={pageHref(f.lectureId, f.page)}
-                title={`${f.lectureTitle}, page ${f.page}`}
+                title={t('rehearse.history.fadingTitle', { lesson: f.lectureTitle, page: f.page })}
                 className="console-focusable inline-flex h-9 items-center gap-2 rounded-full bg-success/[0.07] px-3.5 text-[13px] text-foreground transition-colors hover:bg-success/[0.14]"
               >
                 {f.name}
-                <span className="text-[12px] tabular-nums text-quiet">{f.days} days</span>
+                <span className="text-[12px] tabular-nums text-quiet">{t('rehearse.history.days', { count: f.days })}</span>
               </Link>
             ))}
           </div>
@@ -593,7 +612,7 @@ function HistoryPanel({
             )}
           >
             <Sparkles aria-hidden className="h-4 w-4" />
-            Refresh these
+            {t('rehearse.history.refresh')}
           </button>
         </div>
       )}

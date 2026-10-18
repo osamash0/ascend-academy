@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -49,6 +50,7 @@ export function SelectBar({
   onClear: () => void;
   onDone: () => void;
 }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'library.shelf.bar' });
   const reduce = useReducedMotion();
   const [sharing, setSharing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -77,7 +79,7 @@ export function SelectBar({
 
   const publish = () => {
     for (const d of drafts) shelfActions.publish(d.id);
-    toast(drafts.length === 1 ? 'Published 1 draft' : `Published ${drafts.length} drafts`, ABOVE_SELECT_BAR);
+    toast(t('published', { count: drafts.length }), ABOVE_SELECT_BAR);
   };
 
   const remove = () => {
@@ -88,10 +90,10 @@ export function SelectBar({
     justRemoved.current = true;
     setConfirming(false);
     onClear();
-    toast(`Removed ${removed.length}`, {
+    toast(t('removed', { n: removed.length }), {
       ...ABOVE_SELECT_BAR,
       action: {
-        label: 'Undo',
+        label: t('undo'),
         onClick: () => {
           for (const r of [...removed].reverse()) shelfActions.restore(r);
         },
@@ -106,7 +108,7 @@ export function SelectBar({
           ref={barRef}
           key="selection"
           role="group"
-          aria-label="Selection"
+          aria-label={t('label')}
           className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-[calc(100%-2rem)] max-w-[760px] items-center gap-1 overflow-x-auto rounded-full border border-white/12 bg-[#0b0b0b]/95 px-2 py-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.55)] backdrop-blur-md"
           initial={reduce ? { opacity: 0 } : { opacity: 0, y: 32 }}
           animate={{ opacity: 1, y: 0 }}
@@ -115,32 +117,32 @@ export function SelectBar({
         >
           <span
             role="status"
-            aria-label="Selection count"
+            aria-label={t('countLabel')}
             aria-live="polite"
             className="shrink-0 px-3 text-[13px] font-medium tabular-nums text-foreground"
           >
-            {n} selected
+            {t('count', { count: n })}
           </span>
           <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-white/12" />
           <button type="button" disabled={n === 0} onClick={() => setSharing(true)} className={PLAIN}>
-            Share to…
+            {t('share')}
           </button>
           <button type="button" disabled={drafts.length === 0} onClick={publish} className={PLAIN}>
-            Publish drafts
+            {t('publish')}
           </button>
           <button type="button" disabled={n === 0} onClick={() => setConfirming(true)} className={PLAIN}>
-            Remove
+            {t('remove')}
           </button>
           <span className="flex-1" />
           <button type="button" disabled={total === 0 || n === total} onClick={onSelectAll} className={QUIET}>
-            Select all
+            {t('all')}
           </button>
           <button
             type="button"
             onClick={onDone}
             className={cn(ACTION, 'bg-foreground text-background hover:opacity-90')}
           >
-            Done
+            {t('done')}
           </button>
 
           <ShareSheet
@@ -161,10 +163,8 @@ export function SelectBar({
               }}
             >
               <DialogHeader>
-                <DialogTitle>Remove {n} from your Library?</DialogTitle>
-                <DialogDescription>
-                  They leave your shelf. You can undo this for a few seconds.
-                </DialogDescription>
+                <DialogTitle>{t('confirmTitle', { n })}</DialogTitle>
+                <DialogDescription>{t('confirmBody')}</DialogDescription>
               </DialogHeader>
               <DialogFooter>
                 <button
@@ -172,14 +172,14 @@ export function SelectBar({
                   onClick={() => setConfirming(false)}
                   className="console-focusable h-10 rounded-full border border-border px-5 text-[14px]"
                 >
-                  Keep them
+                  {t('keep')}
                 </button>
                 <button
                   type="button"
                   onClick={remove}
                   className="console-focusable h-10 rounded-full bg-foreground px-5 text-[14px] font-medium text-background"
                 >
-                  Remove {n}
+                  {t('confirm', { n })}
                 </button>
               </DialogFooter>
             </DialogContent>

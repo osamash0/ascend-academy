@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLanguagePreference } from '@/hooks/useLanguagePreference';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -119,7 +121,47 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+/**
+ * The app's one language setting, the same one the rest of Learnstation and
+ * the server use — so the pages, the AI's answers and the checkpoints all
+ * follow it together. Saved to the profile (and this browser) at once.
+ */
+function LanguageSection() {
+  const { t } = useTranslation('v4Settings');
+  const { language, setLanguage } = useLanguagePreference();
+  const current = (language || 'en').split('-')[0];
+  return (
+    <section className="mb-8" aria-labelledby="settings-language">
+      <h2 id="settings-language" className="mb-1 text-[13px] font-semibold text-muted-foreground">
+        {t('language.title')}
+      </h2>
+      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
+        <div role="radiogroup" aria-labelledby="settings-language" className="flex flex-wrap gap-2">
+          {(['en', 'de'] as const).map((lng) => (
+            <button
+              key={lng}
+              type="button"
+              role="radio"
+              aria-checked={current === lng}
+              lang={lng}
+              onClick={() => setLanguage(lng)}
+              className={cn(
+                'console-focusable h-10 rounded-full px-5 text-[14px] transition-colors',
+                current === lng ? 'bg-white font-medium text-background' : 'bg-white/[0.06] text-foreground hover:bg-white/[0.1]',
+              )}
+            >
+              {t(`language.${lng}`)}
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">{t('language.hint')}</p>
+      </div>
+    </section>
+  );
+}
+
 export default function SettingsScreen() {
+  const { t } = useTranslation('v4Settings');
   const screenState = useScreenState();
   const standing = viewerStanding();
   const [notifyMentions, setNotifyMentions] = useState(true);
@@ -132,12 +174,12 @@ export default function SettingsScreen() {
     return (
       <StudioShell
         icon={SettingsIcon}
-        title="Settings"
+        title={t('title')}
         subtitle={screenState === 'error' ? 'Something went wrong' : 'Loading…'}
         backTo="/v4/profile"
         backLabel="Back to Profile"
       >
-        {screenState === 'error' ? <SpacesError what="your settings" /> : <ListSkeleton />}
+        {screenState === 'error' ? <SpacesError what="settings" /> : <ListSkeleton />}
       </StudioShell>
     );
   }
@@ -145,8 +187,8 @@ export default function SettingsScreen() {
   return (
     <StudioShell
       icon={SettingsIcon}
-      title="Settings"
-      subtitle="Notifications, visibility and your data"
+      title={t('title')}
+      subtitle={t('subtitle')}
       backTo="/v4/profile"
       backLabel="Back to Profile"
     >
@@ -176,9 +218,11 @@ export default function SettingsScreen() {
         Delete button two sections down gets right.
         NEEDS-BACKEND: notification and visibility preferences.
       */}
+      <LanguageSection />
+
       <p className="mb-8 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-[13px] leading-relaxed text-muted-foreground">
-        Nothing on this screen is saved yet. The switches show what will be
-        adjustable; they do not change anything, and they reset when you leave.
+        The language above is saved. The switches below are not yet: they show
+        what will be adjustable, do not change anything, and reset when you leave.
       </p>
 
       <Section title="Notifications">

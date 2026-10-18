@@ -123,3 +123,29 @@ def test_sync_vision_fallback_shapes(monkeypatch):
     monkeypatch.setattr(vision, "openai_client", None)
     assert vision._sync_analyze_vision("x") == vision._FALLBACK_RESULT
     assert vision._sync_analyze_vision("x", prompt_override="p") == {}
+
+
+def test_studio_vision_is_metered_like_slide_vision(monkeypatch):
+    """Studio's photo and scan reads count against the same openai ceiling and
+    leave an llm_calls row, as slide vision does since the receipts work."""
+    from backend.services.ai import orchestrator, vision
+
+    calls = []
+
+    async def account(provider, model, usage, **kw):
+        calls.append((provider, kw.get("feature")))
+
+    async def no_refresh(_chain):
+        return None
+
+    monkeypatch.setattr(orchestrator, "_account_for_call", account)
+    monkeypatch.setattr(vision._rotator, "refresh_from_redis", no_refresh)
+    monkeypatch.setattr(vision, "_sync_analyze_vision_with_usage",
+                        lambda *a: ({"blocks": []}, "openai_vision", None))
+    assert asyncio.run(vision.analyze_image_json("b64", "prompt", "openai")) == {"blocks": []}
+    assert calls == [("openai", "studio_vision")]
+
+    calls.clear()
+    monkeypatch.setattr(vision, "_sync_analyze_vision_with_usage", lambda *a: ({}, None, None))
+    assert asyncio.run(vision.analyze_image_json("b64", "prompt", "openai")) == {}
+    assert calls == [], "nothing is billed when every provider failed"

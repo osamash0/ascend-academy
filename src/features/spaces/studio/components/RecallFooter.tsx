@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 /**
  * The end of the canvas in Recall (Learn, deeper §2.2): how many terms are
  * left to try again, with Try again, and Start over once anything is marked.
@@ -15,20 +17,19 @@ export function RecallFooter({
   onTryAgain(): void;
   onStartOver(): void;
 }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.recall' });
   if (notYet === 0 && !anyMarked) return null;
   return (
     <div className="mt-12 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-quiet">
       {notYet > 0 && (
         <>
-          <p>
-            {notYet} {notYet === 1 ? 'term' : 'terms'} to try again
-          </p>
+          <p>{t('left', { count: notYet })}</p>
           <button
             type="button"
             onClick={onTryAgain}
             className="console-focusable min-h-6 rounded-full bg-[rgb(var(--studio-chip))] px-3 py-1 text-foreground"
           >
-            Try again
+            {t('tryAgain')}
           </button>
         </>
       )}
@@ -38,7 +39,7 @@ export function RecallFooter({
           onClick={onStartOver}
           className="console-focusable min-h-6 rounded-full px-2 py-1 text-faint hover:text-foreground"
         >
-          Start over
+          {t('startOver')}
         </button>
       )}
     </div>

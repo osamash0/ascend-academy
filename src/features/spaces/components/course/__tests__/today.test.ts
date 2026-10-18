@@ -35,8 +35,8 @@ describe('today’s session', () => {
       ['revisit', 'Closure', 32],
       ['refresh', 'FDs', 4],
     ]);
-    expect(steps[1].why).toContain('pages 32–40');
-    expect(steps[2].why).toContain('12 days ago');
+    expect(steps[1].why).toMatchObject({ key: 'plan.today.missed', params: { first: 32, last: 40 } });
+    expect(steps[2].why).toMatchObject({ key: 'plan.today.fading', params: { count: 12 } });
   });
 
   it('on a first visit, just starts at the beginning', () => {
