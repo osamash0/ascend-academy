@@ -98,7 +98,7 @@
         "placeholder": "In deiner Bibliothek suchen   /"
       },
       "nothing": {
-        "query": "Auf deinem Regal heißt nichts „{{q}}“.",
+        "query": "Nichts in deinem Regal heißt „{{q}}“.",
         "shared": "Noch nichts geteilt. Wenn eine Seite für andere bereit ist, teile sie direkt auf der Seite.",
         "reading": "Nichts mehr zu lesen. Hier ist alles durchgelesen."
       },
@@ -121,7 +121,7 @@
       "cover": {
         "more": "Mehr zu {{name}}",
         "remove": "Entfernen…",
-        "retry": "Nochmal versuchen",
+        "retry": "Noch mal versuchen",
         "reading": "Deine Seiten werden gelesen…",
         "writing": "Zusammenfassung wird geschrieben…"
       },
@@ -171,7 +171,7 @@
         "removed": "{{n}} entfernt",
         "undo": "Rückgängig",
         "confirmTitle": "{{n}} aus deiner Bibliothek entfernen?",
-        "confirmBody": "Sie verlassen dein Regal. Du kannst das einige Sekunden lang rückgängig machen.",
+        "confirmBody": "Die Auswahl verlässt dein Regal. Du kannst das einige Sekunden lang rückgängig machen.",
         "keep": "Behalten",
         "confirm": "{{n}} entfernen"
       },
@@ -195,7 +195,7 @@
         },
         "outcome": {
           "draft": "Daraus wird eine Lektion als Entwurf in {{space}}. Nur du und die Bearbeiter:innen sehen sie, bis du sie veröffentlichst.",
-          "open": "Offener Space: Sie kommt als Community-Lektion in den Pfad, mit deinem Namen.",
+          "open": "Offener Space: Es kommt als Community-Lektion in den Pfad, mit deinem Namen.",
           "contribution": "Es kommt als dein Beitrag, mit deinem Namen. Die Inhaber:innen können es in den Pfad empfehlen."
         },
         "confirmTo": "In {{space}} teilen",

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -194,7 +194,14 @@ describe('the One Library shelf, in German', () => {
     const files = ['a.pdf', 'b.pdf', 'c.pdf', 'd.pdf', 'e.pdf', 'f.pdf'].map(
       (n) => new File(['x'], n, { type: 'application/pdf' }),
     );
+    /*
+     * The mock settles a brought-in file after 3.3 s of wall-clock time. These
+     * timers are made on a fake clock that is then dropped, so they never fire:
+     * the files stay developing until the test settles them by hand.
+     */
+    vi.useFakeTimers();
     fireEvent.change(input, { target: { files } });
+    vi.useRealTimers();
     // The six, and the one upload the seed is still preparing.
     expect(await screen.findAllByText('Wird vorbereitet…')).toHaveLength(7);
     expect(screen.getAllByText('Deine Seiten werden gelesen…').length).toBeGreaterThan(0);
@@ -212,14 +219,14 @@ describe('the One Library shelf, in German', () => {
     const [a, b] = shelf.getItems().filter((i) => i.broughtIn).map((i) => i.id).reverse();
     act(() => shelf.settleDeveloping(a, false));
     expect(await screen.findByText('Wir konnten dieses Material nicht lesen')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Nochmal versuchen' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Noch mal versuchen' })).toBeInTheDocument();
     act(() => shelf.settleDeveloping(b, true));
     await waitFor(() => expect(screen.getByRole('status', { name: '' })).toBeInTheDocument());
     clean();
 
     // A search nothing answers to.
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'zzz' } });
-    expect(await screen.findByText('Auf deinem Regal heißt nichts „zzz“.')).toBeInTheDocument();
+    expect(await screen.findByText('Nichts in deinem Regal heißt „zzz“.')).toBeInTheDocument();
     clean();
   });
 
@@ -307,7 +314,7 @@ describe('the One Library shelf, in German', () => {
 
     await user.click(within(bar()).getByRole('button', { name: 'Entfernen' }));
     const confirm = await screen.findByRole('dialog', { name: '1 aus deiner Bibliothek entfernen?' });
-    expect(confirm).toHaveTextContent('Sie verlassen dein Regal. Du kannst das einige Sekunden lang rückgängig machen.');
+    expect(confirm).toHaveTextContent('Die Auswahl verlässt dein Regal. Du kannst das einige Sekunden lang rückgängig machen.');
     expect(within(confirm).getByRole('button', { name: 'Behalten' })).toBeInTheDocument();
     clean();
     await user.click(within(confirm).getByRole('button', { name: '1 entfernen' }));
