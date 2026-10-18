@@ -50,7 +50,11 @@ const said = () => {
   const attrs = [...root.querySelectorAll<HTMLElement>('[aria-label],[title],[placeholder]')].flatMap((el) =>
     ['aria-label', 'title', 'placeholder'].map((a) => el.getAttribute(a) ?? ''),
   );
-  return [root.textContent ?? '', ...attrs].join('\n');
+  /* Text node by text node: `textContent` runs "12 pages" into "Gelesen", hiding the word from a whole-word match. */
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const texts: string[] = [];
+  while (walker.nextNode()) texts.push(walker.currentNode.textContent ?? '');
+  return [...texts, ...attrs].join('\n');
 };
 /* Whole words; a note's own text is not chrome, but none of the demo notes uses these words. */
 const leftover = () => {
