@@ -1,7 +1,6 @@
 import { Fragment, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Check, MoreHorizontal, Share2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,8 +25,10 @@ import { say } from '../components/course/phrase';
  * a separate button so the link stays one target.
  */
 
+type LibraryT = ReturnType<typeof useTranslation<'v4Library'>>['t'];
+
 /** What the chip says, and what the cover's name says after the filename. */
-function stateLabel(t: TFunction<'v4Library'>, item: ShelfItem): string {
+function stateLabel(t: LibraryT, item: ShelfItem): string {
   if (item.stage === 'developing') return t('cover.developing');
   if (item.stage === 'failed') return t('cover.failed');
   const s = item.share;
@@ -36,7 +37,7 @@ function stateLabel(t: TFunction<'v4Library'>, item: ShelfItem): string {
   return t('library.onlyYou');
 }
 
-const coverLabel = (t: TFunction<'v4Library'>, item: ShelfItem, title: string): string =>
+const coverLabel = (t: LibraryT, item: ShelfItem, title: string): string =>
   [title, stateLabel(t, item), ...lifeLine(item).map((p) => say(t, p))].join(', ');
 
 const SMALL_WORDS = new Set(['a', 'an', 'and', 'for', 'in', 'of', 'on', 'the', 'to']);
