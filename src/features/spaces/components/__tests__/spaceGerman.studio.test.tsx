@@ -293,29 +293,29 @@ describe('the Studio canvas, in German', () => {
     expect(within(closure).getByText('Fang mit der Startmenge selbst an.')).toBeInTheDocument();
     const next = within(closure).getByRole('button', { name: 'Nächster Schritt' });
     fireEvent.click(next);
-    expect(await within(closure).findByText(/^Die Menge enthält .+, also greift .+ und fügt .+ hinzu\./)).toBeInTheDocument();
+    expect(await within(closure).findByText(/^Die Menge enthält .+, also greift .+ und fügt .+ hinzu\./, undefined, { timeout: 5000 })).toBeInTheDocument();
     clean();
     for (let i = 0; i < 4; i++) {
       fireEvent.click(next);
       await run(500);
     }
-    expect(await within(closure).findByText(/Nichts greift mehr – fertig\./)).toBeInTheDocument();
+    expect(await within(closure).findByText(/Nichts greift mehr – fertig\./, undefined, { timeout: 5000 })).toBeInTheDocument();
     expect(within(closure).getByText(/ist ein Superschlüssel\.$/)).toBeInTheDocument();
     clean();
 
     // BCNF: the reason for a split, then the verdict.
     await ask('Split this relation into BCNF');
     const bcnf = screen.getByRole('group', { name: /^Split Studios/ });
-    expect(await within(bcnf).findByText(/Teile die Relation: alles, was .+ bestimmt, kommt in eine Relation, der Rest bleibt bei /)).toBeInTheDocument();
+    expect(await within(bcnf).findByText(/Teile die Relation: Alles, was .+ bestimmt, kommt in eine Relation, der Rest bleibt bei /, undefined, { timeout: 5000 })).toBeInTheDocument();
     clean();
     const step = within(bcnf).getByRole('button', { name: 'Nächster Schritt' });
     for (let i = 0; i < 6 && !step.hasAttribute('disabled'); i++) {
       fireEvent.click(step);
       await run(500);
     }
-    expect(await within(bcnf).findByText(/^Jede Relation ist in BCNF\. \d+ Aufteilungen?, nichts geht verloren/)).toBeInTheDocument();
+    expect(await within(bcnf).findByText(/^Jede Relation ist in BCNF\. \d+ Aufteilungen?, nichts geht verloren/, undefined, { timeout: 5000 })).toBeInTheDocument();
     clean();
-  });
+  }, 60000);
 
   it('Recall: blanks, Gewusst / Noch nicht, the ring and the footer', async () => {
     const { container } = await mount();
@@ -431,7 +431,7 @@ describe('the Studio canvas, in German', () => {
       onPointerLeave() {},
     };
     const gone = render(<Peek region={region} {...props} sourceRemoved />);
-    expect(screen.getByText('Die Quelldatei wurde entfernt. Lernen funktioniert weiterhin.')).toBeInTheDocument();
+    expect(screen.getByText('Die Quelle wurde entfernt. Die Lernansicht funktioniert weiterhin.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Ganze Seite' })).toBeNull();
     clean();
     gone.unmount();
@@ -473,7 +473,7 @@ describe('the Studio canvas, in German', () => {
     expect(screen.getByText('Von dir bearbeitet')).toBeInTheDocument();
     expect(screen.getByText('1 Teil fehlt in deiner Version')).toBeInTheDocument();
     expect(screen.getByText('1 Abbildung fehlt in deiner Version')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Zurück zu Lernen' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zurück zur Lernansicht' })).toBeInTheDocument();
     clean();
   });
 

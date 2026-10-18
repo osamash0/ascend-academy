@@ -372,7 +372,7 @@
       },
       "peek": {
         "label": "Quellseite",
-        "removed": "Die Quelldatei wurde entfernt. Lernen funktioniert weiterhin.",
+        "removed": "Die Quelle wurde entfernt. Die Lernansicht funktioniert weiterhin.",
         "failed": "Wir konnten diese Seite nicht laden.",
         "retry": "Noch mal versuchen",
         "caption": "Quelle · {{name}} · Seite {{page}}",
@@ -396,7 +396,7 @@
         "notIn": "Nicht in deiner Version: {{text}}",
         "add": "Zu deiner Version hinzufügen: {{text}}",
         "addPill": "Zu deiner Version hinzufügen",
-        "backToLearn": "Zurück zu Lernen"
+        "backToLearn": "Zurück zur Lernansicht"
       },
       "blocks": {
         "reset": "Zurücksetzen",
@@ -422,7 +422,7 @@
         "step": "Schritt {{at}} von {{count}}",
         "bcnfDone_one": "Jede Relation ist in BCNF. {{count}} Aufteilung, nichts geht verloren: Jede Aufteilung behält die linke Seite der verletzenden FD in beiden Hälften, also ist der Join verlustfrei.",
         "bcnfDone_other": "Jede Relation ist in BCNF. {{count}} Aufteilungen, nichts geht verloren: Jede Aufteilung behält die linke Seite der verletzenden FD in beiden Hälften, also ist der Join verlustfrei.",
-        "bcnfSplit": "In {{relation}} hat <fd>{{fd}}</fd> eine linke Seite, die kein Schlüssel ist. Teile die Relation: alles, was {{lhs}} bestimmt, kommt in eine Relation, der Rest bleibt bei {{lhs}}.",
+        "bcnfSplit": "In {{relation}} hat <fd>{{fd}}</fd> eine linke Seite, die kein Schlüssel ist. Teile die Relation: Alles, was {{lhs}} bestimmt, kommt in eine Relation, der Rest bleibt bei {{lhs}}.",
         "check": "Prüfen",
         "tryAgain": "Noch mal versuchen"
       }
