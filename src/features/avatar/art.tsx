@@ -503,12 +503,16 @@ export function Expression({ mood, animated }: { mood: Mood; animated: boolean }
         <g>
           {blink}
           <circle r={r} fill="white" stroke={INK} strokeWidth="1.4" />
-          <circle cx={dx} cy={dy} r={3.4} fill="#3B3352" />
-          {sparkle ? (
-            <path d={starPath(dx - 1.3, dy - 1.6, 2.2, 0.9, 4)} fill="#fff" />
-          ) : (
-            <circle cx={dx - 1.5} cy={dy - 2.5} r={1.4} fill="white" opacity="0.95" />
-          )}
+          {/* Gaze: a host can steer the pupils with --luna-gx/--luna-gy (-1..1).
+              Unset, they sit exactly where the mood puts them. */}
+          <g style={{ transform: 'translate(calc(var(--luna-gx, 0) * 2.6px), calc(var(--luna-gy, 0) * 2.2px))' }}>
+            <circle cx={dx} cy={dy} r={3.4} fill="#3B3352" />
+            {sparkle ? (
+              <path d={starPath(dx - 1.3, dy - 1.6, 2.2, 0.9, 4)} fill="#fff" />
+            ) : (
+              <circle cx={dx - 1.5} cy={dy - 2.5} r={1.4} fill="white" opacity="0.95" />
+            )}
+          </g>
           {lid && <path d={`M${-r - 0.5} -1.5 L${r + 0.5} -1.5 L${r} ${-r} L${-r} ${-r} Z`} fill="#F3EEE0" stroke={INK} strokeWidth="1.2" strokeLinejoin="round" />}
         </g>
       </g>
