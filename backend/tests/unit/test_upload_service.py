@@ -704,3 +704,19 @@ async def test_process_pdf_lazy_emits_error_on_failure(monkeypatch):
     assert any('"error"' in c and "PDF parsing failed" in c for c in chunks)
     assert not any("lazy exploded" in c for c in chunks)
     assert any('"recoverable": false' in c for c in chunks)
+
+
+async def test_rejection_message_flag_off_is_the_original(monkeypatch):
+    from backend.core.config import settings
+    monkeypatch.setattr(settings, "feature_studio_pages", False)
+    with pytest.raises(ValueError) as e:
+        await upload_service.validate_upload("notes.txt", b"%PDF-1.4 plus filler bytes")
+    assert str(e.value) == "Only PDF and PowerPoint (.pptx) files are supported."
+
+
+async def test_rejection_message_flag_on_mentions_photos(monkeypatch):
+    from backend.core.config import settings
+    monkeypatch.setattr(settings, "feature_studio_pages", True)
+    with pytest.raises(ValueError) as e:
+        await upload_service.validate_upload("notes.txt", b"%PDF-1.4 plus filler bytes")
+    assert str(e.value) == "Only PDF, PowerPoint (.pptx) and photo (JPG, PNG, HEIC) files are supported."

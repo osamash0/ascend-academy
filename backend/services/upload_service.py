@@ -189,6 +189,9 @@ async def validate_upload(filename: Optional[str], content: bytes) -> int:
         return await _validate_pptx(content)
 
     if not lower.endswith(".pdf"):
+        from backend.core.config import settings as _flags
+        if _flags.feature_studio_pages:
+            raise ValueError("Only PDF, PowerPoint (.pptx) and photo (JPG, PNG, HEIC) files are supported.")
         raise ValueError("Only PDF and PowerPoint (.pptx) files are supported.")
 
     # Validate size and magic bytes

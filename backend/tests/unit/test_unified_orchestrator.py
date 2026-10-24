@@ -219,6 +219,9 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     async def set_error(rid, msg):
         rec["errors"].append(msg)
 
+    async def set_page_count(rid, n):
+        rec.setdefault("page_count", []).append(n)
+
     async def fetch_pdf(pdf_hash):
         return b"%PDF-fake"
 
@@ -299,6 +302,7 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     monkeypatch.setattr(uo.repos, "get_or_create_run", get_or_create_run)
     monkeypatch.setattr(uo.repos, "set_status", set_status)
     monkeypatch.setattr(uo.repos, "set_error", set_error)
+    monkeypatch.setattr(uo.repos, "set_page_count", set_page_count)
     monkeypatch.setattr(uo, "_fetch_pdf_bytes", fetch_pdf)
     monkeypatch.setattr(uo, "_extract_pages", lambda pdf, odl=None: pages)
     monkeypatch.setattr(uo, "_synthesize_slide", synth)
@@ -450,6 +454,89 @@ async def test_parse_pdf_unified_happy_path(monkeypatch):
     assert rec["deck_quiz"] == [1]
     assert rec["finalize"] == [("Deck summary.", 3)]
     assert RunStatus.COMPLETED in rec["status"]
+
+
+async def test_parse_pdf_unified_records_page_count_right_after_extraction(monkeypatch):
+    """The shelf reads parse_runs.page_count while lectures.total_slides is
+    still 0, so it must be set as soon as extraction knows the total."""
+    rec, run = _patch_common(monkeypatch)
+    seen_at = []
+
+    async def set_page_count(rid, n):
+        seen_at.append((rid, n, list(rec["lectures"])))
+
+    monkeypatch.setattr(uo.repos, "set_page_count", set_page_count)
+    await _run("h", OWNER, filename="My Deck.pdf")
+    assert len(seen_at) == 1
+    rid, n, lectures_then = seen_at[0]
+    assert (rid, n) == (run.run_id, 3)
+    assert lectures_then == [], "set before the lecture exists, i.e. before any AI work"
+
+
+def _patch_studio(monkeypatch, *, fail=False):
+    import backend.services.parser.studio_pages as studio_pages
+
+    calls = []
+
+    async def build(lecture_id, pdf_bytes, **kw):
+        calls.append(lecture_id)
+        if fail:
+            raise RuntimeError("storage down")
+        return 3
+
+    monkeypatch.setattr(studio_pages, "build_studio_pages", build)
+    return calls
+
+
+async def test_studio_pages_built_for_the_lecture_when_flag_on_and_ai(monkeypatch):
+    from backend.core.config import settings
+
+    rec, run = _patch_common(monkeypatch)
+    monkeypatch.setattr(settings, "feature_studio_pages", True)
+    calls = _patch_studio(monkeypatch)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+    assert calls == [rec["lectures"][0][2]]
+    assert events[-1][0] == "complete"
+
+
+async def test_studio_pages_not_built_with_flag_off(monkeypatch):
+    from backend.core.config import settings
+
+    _patch_common(monkeypatch)
+    monkeypatch.setattr(settings, "feature_studio_pages", False)
+    calls = _patch_studio(monkeypatch)
+    await _run("h", OWNER, filename="Deck.pdf")
+    assert calls == []
+
+
+async def test_studio_pages_not_built_on_demand(monkeypatch):
+    from backend.core.config import settings
+
+    _patch_common(monkeypatch)
+    monkeypatch.setattr(settings, "feature_studio_pages", True)
+    calls = _patch_studio(monkeypatch)
+    await _run("h", OWNER, filename="Deck.pdf", parsing_mode="on_demand")
+    assert calls == []
+
+
+async def test_studio_pages_failure_fails_the_run(monkeypatch):
+    from backend.core.config import settings
+
+    rec, run = _patch_common(monkeypatch)
+    monkeypatch.setattr(settings, "feature_studio_pages", True)
+    calls = _patch_studio(monkeypatch, fail=True)
+    events = []
+
+    async def emit(t, d):
+        events.append((t, d))
+
+    with pytest.raises(RuntimeError):
+        await uo.parse_pdf_unified({}, pdf_hash="h", user_id=OWNER, emit_fn=emit, filename="Deck.pdf")
+    assert len(calls) == 1
+    assert rec["errors"], "run marked failed via repos.set_error"
+    assert RunStatus.COMPLETED not in rec["status"]
+    assert "complete" not in [t for t, _ in events]
+    assert any(t == "error" for t, _ in events)
 
 
 async def test_parse_pdf_unified_survives_skeleton_failure(monkeypatch):

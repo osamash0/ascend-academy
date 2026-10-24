@@ -622,6 +622,10 @@ async def upload_batch_endpoint(
         raw_name = file.filename or "upload.pdf"
         try:
             content = await upload_service.read_upload_capped(file, MAX_FILE_MB)
+            if settings.feature_studio_pages:
+                from backend.services.image_intake import image_to_pdf, is_image
+                if is_image(raw_name):
+                    content, raw_name = await asyncio.to_thread(image_to_pdf, content, raw_name)
             parse_filename = sanitize_filename(raw_name)
             if raw_name.lower().endswith(".pptx"):
                 from backend.services import office_convert

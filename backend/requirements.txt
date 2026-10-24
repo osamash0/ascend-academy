@@ -18,8 +18,9 @@ asyncpg==0.31.0
 # dependency the production image still asks for is a larger change than a
 # security fix should carry on its back.
 pypdf==6.21.2
-PyMuPDF==1.24.0
+PyMuPDF==1.27.1
 Pillow==13.0.0
+pillow-heif==1.8.1
 python-multipart==0.0.31
 ollama==0.6.2
 google-genai==2.12.1

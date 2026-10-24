@@ -87,9 +87,10 @@ def _sync_analyze_vision(
     raw_text: str = "",
     ai_model: str = "groq",
     blueprint_context: str = "",
+    prompt_override: str | None = None,
 ) -> Dict[str, Any]:
     result, _provider, _usage = _sync_analyze_vision_with_usage(
-        b64_image, raw_text, ai_model, blueprint_context,
+        b64_image, raw_text, ai_model, blueprint_context, prompt_override,
     )
     return result
 
@@ -99,11 +100,13 @@ def _sync_analyze_vision_with_usage(
     raw_text: str = "",
     ai_model: str = "groq",
     blueprint_context: str = "",
+    prompt_override: str | None = None,
 ) -> Tuple[Dict[str, Any], Optional[str], Any]:
     """Returns ``(result, provider_id, usage)``; provider_id is None when
-    every leg failed and the neutral fallback was returned."""
-    prompt = SLIDE_VISION_PROMPT
-    if blueprint_context:
+    every leg failed. Then the result is the neutral slide fallback, or ``{}``
+    when a ``prompt_override`` asked for something other than a slide."""
+    prompt = prompt_override or SLIDE_VISION_PROMPT
+    if blueprint_context and not prompt_override:
         prompt += f"\n\nCONTEXT FROM MASTER PLAN:\n{blueprint_context}"
 
     # Build available vision providers in priority order.
@@ -150,7 +153,7 @@ def _sync_analyze_vision_with_usage(
             "No vision provider available: all are unconfigured or disabled "
             "(dead model / billing). Returning the neutral fallback result."
         )
-        return dict(_FALLBACK_RESULT), None, None
+        return ({} if prompt_override else dict(_FALLBACK_RESULT)), None, None
 
     last_exc = None
     for provider in providers:
@@ -202,7 +205,7 @@ def _sync_analyze_vision_with_usage(
             last_exc = exc
 
     logger.error("All vision providers failed: %s", last_exc)
-    return dict(_FALLBACK_RESULT), None, None
+    return ({} if prompt_override else dict(_FALLBACK_RESULT)), None, None
 
 
 async def analyze_slide_vision(
@@ -227,6 +230,27 @@ async def analyze_slide_vision(
         await _account_for_call(
             billing_id, model, usage,
             user_id=None, course_id=None, feature="vision",
+            duration_seconds=time.perf_counter() - started,
+        )
+    return result
+
+
+async def analyze_image_json(b64_image: str, prompt: str, ai_model: str) -> Dict[str, Any]:
+    """Any image + any JSON prompt through the same provider chain as slides,
+    metered the same way (llm_calls row, the fleet's openai ceiling).
+    Returns {} when every provider failed (never the slide fallback shape)."""
+    await _rotator.refresh_from_redis(["openai"])
+    started = time.perf_counter()
+    result, provider, usage = await asyncio.to_thread(
+        _sync_analyze_vision_with_usage, b64_image, "", ai_model, "", prompt,
+    )
+    if provider is not None:
+        from .orchestrator import _account_for_call
+        billing_id = "openai" if provider == "openai_vision" else provider
+        model = OPENAI_VISION_MODEL if provider == "openai_vision" else provider
+        await _account_for_call(
+            billing_id, model, usage,
+            user_id=None, course_id=None, feature="studio_vision",
             duration_seconds=time.perf_counter() - started,
         )
     return result

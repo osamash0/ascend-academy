@@ -27,8 +27,12 @@ FROM python:3.11-slim
 # (poppler-utils / libpoppler-cpp-dev / libgl1 were removed 2026-07-11:
 # grep-verified no code path in the Docker requirement set uses them —
 # they were leftovers from the retired PaddleOCR/Docling-in-image era.)
+# LibreOffice turns .pptx into PDF (real-pages spec §3). ~400 MB, so it is opt-in:
+# build with --build-arg INSTALL_OFFICE=1 for the api and worker image (conversion runs in the API).
+ARG INSTALL_OFFICE=0
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    && if [ "$INSTALL_OFFICE" = "1" ]; then apt-get install -y --no-install-recommends libreoffice-impress; fi \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -m -s /bin/bash appuser
 
