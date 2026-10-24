@@ -114,4 +114,51 @@ describe('Luna column parts', () => {
     expect(screen.getByText('Not quite.')).not.toBeNull();
     expect(screen.getByRole('button', { name: /^Two/ }).getAttribute('aria-pressed')).toBe('true');
   });
+
+  const lunaWith = (state: Partial<typeof initialLuna>, extra: Record<string, unknown> = {}) => ({
+    state: { ...initialLuna, ...state },
+    start: vi.fn(), send: vi.fn(), act: vi.fn(), answerCheck: vi.fn(), wrapUp: vi.fn(), keep: vi.fn(), practise: vi.fn(), close: vi.fn(),
+    ...extra,
+  });
+
+  it('once a session exists you can always say you are done', () => {
+    const wrapUp = vi.fn();
+    const { rerender } = render(
+      <SessionColumn luna={lunaWith({}, { wrapUp }) as never} lessonId="l" onOpenPage={vi.fn()} onClose={vi.fn()} onSpot={vi.fn()} />,
+    );
+    expect(screen.queryByRole('button', { name: 'Done for now' })).toBeNull();
+    rerender(<SessionColumn luna={lunaWith({ sessionId: 's' }, { wrapUp }) as never} lessonId="l" onOpenPage={vi.fn()} onClose={vi.fn()} onSpot={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Done for now' }));
+    expect(wrapUp).toHaveBeenCalledTimes(1);
+    rerender(
+      <SessionColumn
+        luna={lunaWith({ sessionId: 's', wrap: { covered: [], clicked: [], shaky: [] } }, { wrapUp }) as never}
+        lessonId="l" onOpenPage={vi.fn()} onClose={vi.fn()} onSpot={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Done for now' })).toBeNull();
+  });
+
+  it('the plan can be changed: rename and remove open steps, then save in order', () => {
+    const act = vi.fn();
+    render(<SessionColumn luna={lunaWith({ sessionId: 's', plan }, { act }) as never} lessonId="l" onOpenPage={vi.fn()} onClose={vi.fn()} onSpot={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Change plan' }));
+    const inputs = screen.getAllByRole('textbox', { name: /Step/ });
+    expect(inputs.map((i) => (i as HTMLInputElement).value)).toEqual(['Check yourself', 'Spot a 2NF violation']);
+    expect(inputs[0].getAttribute('maxlength')).toBe('60');
+    fireEvent.change(inputs[1], { target: { value: 'Find a partial key' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove step' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Save plan' }));
+    expect(act).toHaveBeenCalledWith('edit_plan', { plan: [{ id: 's3', title: 'Find a partial key' }] });
+    expect(screen.queryByRole('button', { name: 'Save plan' })).toBeNull();
+  });
+
+  it('cancelling a plan edit changes nothing', () => {
+    const act = vi.fn();
+    render(<SessionColumn luna={lunaWith({ sessionId: 's', plan }, { act }) as never} lessonId="l" onOpenPage={vi.fn()} onClose={vi.fn()} onSpot={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Change plan' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(act).not.toHaveBeenCalled();
+    expect(screen.getByText('Check yourself')).not.toBeNull();
+  });
 });

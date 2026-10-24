@@ -1,9 +1,9 @@
 {
   "open": "Study with Luna",
   "offer": { "text": "Want to go through this together?", "yes": "Yes, let's", "no": "Not now" },
-  "column": { "label": "Luna", "close": "Close", "placeholder": "Ask, or tell Luna what you need", "send": "Send", "thinking": "Luna is thinking…", "error": "Something went wrong. Try again in a moment." },
+  "column": { "label": "Luna", "close": "Close", "done": "Done for now", "placeholder": "Ask, or tell Luna what you need", "send": "Send", "thinking": "Luna is thinking…", "error": "Something went wrong. Try again in a moment." },
   "start": { "intro": "Reading on your own works too. I'm here if you want company.", "examFriday": "I have an exam soon", "stuck": "I don't get this page" },
-  "plan": { "label": "Plan", "accept": "Looks good", "change": "Change plan", "skip": "Skip this step", "save": "Save plan", "remove": "Remove step" },
+  "plan": { "label": "Plan", "accept": "Looks good", "change": "Change plan", "skip": "Skip this step", "save": "Save plan", "remove": "Remove step", "cancel": "Cancel", "stepTitle": "Step {{n}}" },
   "move": { "to": "page {{page}}", "announce": "Luna moved to page {{page}}" },
   "check": { "label": "Quick check", "right": "Right.", "wrong": "Not quite." },
   "wrap": {
@@ -23,7 +23,7 @@
   "home": { "unfinished": "Your session with Luna on {{lesson}} is waiting" },
   "memory": {
     "title": "What Luna knows about you",
-    "intro": "Luna keeps a few short notes on how you learn. Only you see them.",
+    "intro": "Luna keeps a few short notes on how you learn. Only you can see and change them. Luna uses them when you study together.",
     "empty": "Nothing yet. Luna learns as you study together.",
     "kinds": { "preference": "How you learn", "shaky": "Still shaky", "strong": "Strong", "goal": "Goal" },
     "faded": "Faded", "edit": "Edit", "save": "Save", "delete": "Delete", "forget": "Forget everything",

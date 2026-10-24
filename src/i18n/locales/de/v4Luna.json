@@ -1,9 +1,9 @@
 {
   "open": "Mit Luna lernen",
   "offer": { "text": "Wollen wir das zusammen durchgehen?", "yes": "Ja, gern", "no": "Gerade nicht" },
-  "column": { "label": "Luna", "close": "Schließen", "placeholder": "Frag oder sag Luna, was du brauchst", "send": "Senden", "thinking": "Luna denkt nach…", "error": "Da ist was schiefgelaufen. Versuch es gleich nochmal." },
+  "column": { "label": "Luna", "close": "Schließen", "done": "Für jetzt fertig", "placeholder": "Frag oder sag Luna, was du brauchst", "send": "Senden", "thinking": "Luna denkt nach…", "error": "Da ist was schiefgelaufen. Versuch es gleich nochmal." },
   "start": { "intro": "Allein lesen geht auch. Ich bin da, wenn du Gesellschaft willst.", "examFriday": "Ich hab bald Prüfung", "stuck": "Ich versteh diese Seite nicht" },
-  "plan": { "label": "Plan", "accept": "Passt so", "change": "Plan ändern", "skip": "Schritt überspringen", "save": "Plan speichern", "remove": "Schritt entfernen" },
+  "plan": { "label": "Plan", "accept": "Passt so", "change": "Plan ändern", "skip": "Schritt überspringen", "save": "Plan speichern", "remove": "Schritt entfernen", "cancel": "Abbrechen", "stepTitle": "Schritt {{n}}" },
   "move": { "to": "Seite {{page}}", "announce": "Luna ist zu Seite {{page}} gegangen" },
   "check": { "label": "Kurzer Check", "right": "Richtig.", "wrong": "Nicht ganz." },
   "wrap": {
@@ -23,7 +23,7 @@
   "home": { "unfinished": "Deine Session mit Luna zu {{lesson}} wartet auf dich" },
   "memory": {
     "title": "Was Luna über dich weiß",
-    "intro": "Luna merkt sich ein paar kurze Notizen dazu, wie du lernst. Nur du siehst sie.",
+    "intro": "Luna merkt sich ein paar kurze Notizen dazu, wie du lernst. Nur du kannst sie sehen und ändern. Luna nutzt sie, wenn ihr zusammen lernt.",
     "empty": "Noch nichts. Luna lernt dazu, während ihr zusammen lernt.",
     "kinds": { "preference": "Wie du lernst", "shaky": "Noch wackelig", "strong": "Sitzt", "goal": "Ziel" },
     "faded": "Verblasst", "edit": "Bearbeiten", "save": "Speichern", "delete": "Löschen", "forget": "Alles vergessen",

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, X } from 'lucide-react';
+import { useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { BlockView } from '../iui/Blocks';
-import type { LunaCheck } from '../../../data/lunaSession';
+import type { LunaCheck, PlanStep } from '../../../data/lunaSession';
 import type { useLunaSession } from '../../../data/useLunaSession';
 import { MoveMark } from './MoveMark';
 import { PlanStrip } from './PlanStrip';
@@ -45,6 +46,55 @@ function Check({ check, onAnswer }: { check: LunaCheck; onAnswer: (correct: bool
   );
 }
 
+const isOpen = (s: PlanStep) => s.status === 'todo' || s.status === 'current';
+
+/** Tap to change the plan: rename or drop the steps still ahead, keep their order. */
+function PlanEditor({
+  plan, onSave, onCancel,
+}: { plan: PlanStep[]; onSave: (steps: { id: string; title: string }[]) => void; onCancel: () => void }) {
+  const { t } = useTranslation('v4Luna');
+  const [steps, setSteps] = useState(() => plan.filter(isOpen).map(({ id, title }) => ({ id, title })));
+  return (
+    <form
+      className="flex flex-col gap-2"
+      aria-label={t('plan.change')}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (steps.length) onSave(steps.map((s) => ({ id: s.id, title: s.title.trim() })));
+      }}
+    >
+      {steps.map((s, i) => (
+        <div key={s.id} className="flex items-center gap-2">
+          <input
+            value={s.title}
+            maxLength={60}
+            aria-label={t('plan.stepTitle', { n: i + 1 })}
+            onChange={(e) => setSteps((all) => all.map((x) => (x.id === s.id ? { ...x, title: e.target.value } : x)))}
+            className="console-focusable flex-1 rounded-full border border-white/15 bg-transparent px-3 py-1 text-[12.5px] outline-none"
+          />
+          <button
+            type="button"
+            aria-label={t('plan.remove')}
+            onClick={() => setSteps((all) => all.filter((x) => x.id !== s.id))}
+            className="console-focusable flex h-6 w-6 items-center justify-center rounded-full text-quiet hover:text-foreground"
+          >
+            <X aria-hidden className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <button type="submit" disabled={!steps.length}
+          className="console-focusable rounded-full bg-white px-3 py-1 text-[12.5px] text-slate-900 disabled:opacity-40">
+          {t('plan.save')}
+        </button>
+        <button type="button" onClick={onCancel} className="console-focusable rounded-full px-2 py-1 text-[12.5px] text-quiet hover:text-foreground">
+          {t('plan.cancel')}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 /** The conversation beside the page. The page stays the centre; this column follows it. */
 export function SessionColumn({
   luna, lessonId, onOpenPage, onClose, onSpot,
@@ -59,12 +109,15 @@ export function SessionColumn({
   const { state } = luna;
   const [draft, setDraft] = useState('');
   const [revisit, setRevisit] = useState(true);
+  const [editing, setEditing] = useState(false);
   const end = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
   const accepted = state.plan.some((s) => s.status !== 'todo');
+  const canEdit = Boolean(state.sessionId) && !state.wrap && !state.busy && state.plan.some(isOpen);
 
   useEffect(() => {
-    end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
-  }, [state.thread.length, state.wrap]);
+    end.current?.scrollIntoView({ block: 'end', behavior: reduceMotion ? 'auto' : 'smooth' });
+  }, [state.thread.length, state.wrap, reduceMotion]);
 
   const submit = () => {
     const text = draft.trim();
@@ -78,18 +131,38 @@ export function SessionColumn({
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-5 pt-5">
         <span className="text-[13px] font-medium">{t('column.label')}</span>
-        <button type="button" onClick={onClose} className="console-focusable text-[12.5px] text-quiet hover:text-foreground">
-          {t('column.close')}
-        </button>
+        <div className="flex items-center gap-3">
+          {state.sessionId && !state.wrap && (
+            <button type="button" onClick={() => void luna.wrapUp()} disabled={state.busy}
+              className="console-focusable text-[12.5px] text-quiet hover:text-foreground disabled:opacity-40">
+              {t('column.done')}
+            </button>
+          )}
+          <button type="button" onClick={onClose} className="console-focusable text-[12.5px] text-quiet hover:text-foreground">
+            {t('column.close')}
+          </button>
+        </div>
       </div>
 
       <div className="px-5 pt-3">
-        <PlanStrip
-          plan={state.plan}
-          accepted={accepted}
-          onAccept={() => void luna.act('accept_plan')}
-          onSkip={() => void luna.act('skip_step')}
-        />
+        {editing && canEdit ? (
+          <PlanEditor
+            plan={state.plan}
+            onCancel={() => setEditing(false)}
+            onSave={(steps) => {
+              setEditing(false);
+              void luna.act('edit_plan', { plan: steps });
+            }}
+          />
+        ) : (
+          <PlanStrip
+            plan={state.plan}
+            accepted={accepted}
+            onAccept={() => void luna.act('accept_plan')}
+            onChange={canEdit ? () => setEditing(true) : undefined}
+            onSkip={() => void luna.act('skip_step')}
+          />
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4" aria-live="polite">
