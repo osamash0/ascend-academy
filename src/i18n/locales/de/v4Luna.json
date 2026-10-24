@@ -1,0 +1,32 @@
+{
+  "open": "Mit Luna lernen",
+  "offer": { "text": "Wollen wir das zusammen durchgehen?", "yes": "Ja, gern", "no": "Gerade nicht" },
+  "column": { "label": "Luna", "close": "Schließen", "placeholder": "Frag oder sag Luna, was du brauchst", "send": "Senden", "thinking": "Luna denkt nach…" },
+  "start": { "intro": "Allein lesen geht auch. Ich bin da, wenn du Gesellschaft willst.", "examFriday": "Ich hab bald Prüfung", "stuck": "Ich versteh diese Seite nicht" },
+  "plan": { "label": "Plan", "accept": "Passt so", "change": "Plan ändern", "skip": "Schritt überspringen", "save": "Plan speichern", "remove": "Schritt entfernen" },
+  "move": { "to": "Seite {{page}}", "announce": "Luna ist zu Seite {{page}} gegangen" },
+  "check": { "label": "Kurzer Check", "right": "Richtig.", "wrong": "Nicht ganz." },
+  "wrap": {
+    "offer": "Abschließen", "title": "Heute mit Luna", "covered": "Durchgenommen", "clicked": "Hat Klick gemacht", "shaky": "Noch wackelig",
+    "keep": "Zusammenfassung behalten", "kept": "In deinem Space gespeichert", "practice": "Übungen daraus machen",
+    "practiceDone_one": "{{count}} Frage hinzugefügt. Sie kommt unter Heute wieder.",
+    "practiceDone_other": "{{count}} Fragen hinzugefügt. Sie kommen unter Heute wieder.",
+    "failed": "Die Zusammenfassung hat gerade nicht geklappt. Versuch es gleich nochmal."
+  },
+  "revisit": {
+    "title": "Vom letzten Mal",
+    "count_one": "{{count}} Frage aus deiner letzten Session",
+    "count_other": "{{count}} Fragen aus deiner letzten Session",
+    "again": "Nochmal", "good": "Sitzt", "done": "Für jetzt alles erledigt."
+  },
+  "space": { "pickUp": "Mit Luna weitermachen", "lastTime": "Letztes Mal: {{goal}}", "shaky_one": "{{count}} Sache noch wackelig", "shaky_other": "{{count}} Sachen noch wackelig", "sessions": "Deine Sessions mit Luna" },
+  "home": { "unfinished": "Deine Session mit Luna zu {{lesson}} wartet auf dich" },
+  "memory": {
+    "title": "Was Luna über dich weiß",
+    "intro": "Luna merkt sich ein paar kurze Notizen dazu, wie du lernst. Nur du siehst sie.",
+    "empty": "Noch nichts. Luna lernt dazu, während ihr zusammen lernt.",
+    "kinds": { "preference": "Wie du lernst", "shaky": "Noch wackelig", "strong": "Sitzt", "goal": "Ziel" },
+    "faded": "Verblasst", "edit": "Bearbeiten", "save": "Speichern", "delete": "Löschen", "forget": "Alles vergessen",
+    "forgetConfirm": "Luna vergisst alles, was sie über dich weiß. Das lässt sich nicht rückgängig machen."
+  }
+}

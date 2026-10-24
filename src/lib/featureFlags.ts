@@ -5,6 +5,7 @@
  * revisit serving them from the backend instead of duplicating per-flag env vars.
  */
 export const FEATURES = {
+  lunaSessions: import.meta.env.VITE_FEATURE_LUNA_SESSIONS === '1',
   reviewEngine: import.meta.env.VITE_FEATURE_REVIEW_ENGINE === '1',
   globalSearch: import.meta.env.VITE_FEATURE_GLOBAL_SEARCH === '1',
   studentUploads: import.meta.env.VITE_FEATURE_STUDENT_UPLOADS === '1',
