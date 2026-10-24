@@ -38,7 +38,7 @@ export type Failed =
   | 'next';
 
 /** What is not there. */
-export type Missing = 'space' | 'lesson' | 'idea' | 'person' | 'material' | 'screen';
+export type Missing = 'space' | 'lesson' | 'idea' | 'person' | 'screen' | 'material';
 
 /** What a list is loading, for a screen reader. */
 export type Loading = 'any' | 'spaces' | 'profile' | 'social' | 'moments' | 'history' | 'rank';

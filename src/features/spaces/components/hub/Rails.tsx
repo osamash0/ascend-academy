@@ -6,8 +6,8 @@ import { cn } from '@/lib/utils';
 import { formatNumber } from '../../i18n/format';
 import { ModeBadge } from '../badges';
 import type { Space } from '../../types';
-import { coverFor, initialFor } from '../../mocks/covers';
-import { membershipOf } from '../../mocks/hub';
+import { coverFor, initialFor } from './covers';
+import { membershipOf } from '../../data/hub';
 import { itemVariants, railVariants } from '../Enter';
 import { PRESS_SPRING } from '../Pressable';
 

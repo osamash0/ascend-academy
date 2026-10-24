@@ -235,7 +235,7 @@ jobs:
           # BOTH requirement sets are audited, and **separately**.
           #
           # `requirements-docker.txt` is a deliberately leaner list — it drops
-          # docling, ollama, fastembed and llama-cloud-services — and it is what
+          # docling, ollama and llama-cloud-services — and it is what
           # the production image is built from. It was never scanned, so the
           # dependency set being checked and the set actually deployed were two
           # different things, and the deployed one had no coverage at all.

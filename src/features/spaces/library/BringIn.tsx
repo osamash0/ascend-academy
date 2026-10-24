@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Plus, Upload } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { importWillFail, shelfActions } from '../data/useShelf';
+import { bringFilesIn, importWillFail, shelfIsDemo } from '../data/useShelf';
 import { inDialog, isTyping } from '../studio/keys';
 import { FLIGHT_EASE } from '../studio/motion';
 
@@ -26,10 +26,9 @@ export function useBringIn(enabled: boolean, onBrought?: (ids: string[]) => void
   const onBroughtRef = useRef(onBrought);
   onBroughtRef.current = onBrought;
 
-  /* The development itself runs in the store (`mocks/shelf.ts`), not in a cover. */
+  /* The development itself runs in a store (demo: timed; live: the real pipeline), not in a cover. */
   const bringFiles = useCallback((files: FileList | File[] | null | undefined) => {
-    const fail = importWillFail();
-    const ids = Array.from(files ?? []).map((f) => shelfActions.bringIn(f.name, undefined, { fail }));
+    const ids = bringFilesIn(Array.from(files ?? []), importWillFail());
     if (ids.length) onBroughtRef.current?.(ids);
   }, []);
 
@@ -137,7 +136,8 @@ export function BringInTile({ inputRef, onFiles, variant }: TileProps) {
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.pptx,image/*"
+        // The real pipeline reads PDFs (its .pptx path needs LibreOffice, which the servers lack).
+        accept={shelfIsDemo() ? '.pdf,.pptx,image/*' : '.pdf'}
         multiple
         aria-label={t('label')}
         className="sr-only"
@@ -156,7 +156,9 @@ export function BringInTile({ inputRef, onFiles, variant }: TileProps) {
           {variant === 'cell' ? t('cellTitle') : t('emptyTitle')}
         </span>
         <span className={cn(variant === 'empty' && 'mt-1 max-w-[44ch] text-[14.5px] leading-relaxed')}>
-          {variant === 'cell' ? t('cellHint') : t('emptyHint')}
+          {variant === 'cell'
+            ? t(shelfIsDemo() ? 'cellHint' : 'cellHintLive')
+            : t(shelfIsDemo() ? 'emptyHint' : 'emptyHintLive')}
         </span>
       </span>
     </label>

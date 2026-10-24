@@ -9,10 +9,11 @@ import { Pressable, PressableLink } from '../components/Pressable';
 import { topicIcon } from '@/lib/topicIcon';
 import { AskBar } from '../components/AskBar';
 import { LessonTile } from '../components/LessonTile';
-import type { HomeItem } from '../mocks/library';
-import { askAcknowledgement, askModel, askSuggestions } from '../mocks/assistant';
+import type { HomeItem } from '../data/home';
+import { askAcknowledgement, askModel, askNow, askSuggestionsNow, type AskAnswer } from '../data/assistant';
+import { liveWorld } from '../data/world';
 import { useHome } from '../data/useSpaces';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Masthead, Sep, Skylight, StageRow, UpNext, ghostPill, stageAccentFor } from '../components/stage';
 import { Scene, SURFACES } from '../components/Scene';
@@ -96,6 +97,7 @@ const greetingKey = () => {
 };
 
 export default function HomeScreen() {
+  const viewer = useViewer();
   const { t } = useTranslation('v4Spaces');
   const navigate = useNavigate();
   const greeting = t(greetingKey(), { name: viewer.name });
@@ -122,6 +124,11 @@ export default function HomeScreen() {
    * marker at all until an Owner switches it on.
    */
   const [asked, setAsked] = useState<string | null>(null);
+  /* Live: what the tutor said. Demo keeps the honest acknowledgement. */
+  const [answer, setAnswer] = useState<
+    { state: 'thinking' } | { state: 'done'; a: AskAnswer } | { state: 'failed' } | null
+  >(null);
+  const live = liveWorld() !== null;
   /* What Luna watches: the ask bar's focus, each keystroke, each send. */
   const [asking, setAsking] = useState(false);
   const [keys, setKeys] = useState(0);
@@ -191,6 +198,32 @@ export default function HomeScreen() {
             {t('home.caughtUp.find')}
           </button>
         </div>
+      </div>,
+    );
+  }
+
+  if (!next && live) {
+    /*
+     * Live, a new account's first step is the catalog. Creating a Space would
+     * make an empty course v4 cannot fill yet (no upload here), and courses
+     * carry no join code — so both of the demo's buttons would lead nowhere
+     * real. They come back when v4 can upload and invite.
+     */
+    return chrome(
+      <div className="relative mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-6 text-center">
+        <h1 className="mb-4 text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[56px]">
+          {greeting}
+        </h1>
+        <p className="mb-8 max-w-[46ch] text-[15.5px] leading-[1.75] text-quiet">
+          {t('home.empty.liveBody')}
+        </p>
+        <Pressable
+          type="button"
+          onClick={() => navigate('/v4/spaces')}
+          className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900"
+        >
+          {t('home.empty.find')}
+        </Pressable>
       </div>,
     );
   }
@@ -271,11 +304,10 @@ export default function HomeScreen() {
       </section>
 
       {/*
-        The prompt, and an honest non-answer.
-
-        `askAcknowledgement` names the question back rather than inventing a
-        reply — see `mocks/assistant.ts`. Wiring later means replacing that one
-        call, not rebuilding this.
+        The prompt. Live, the grounded course tutor answers from the material
+        in the Space you are working in, with its sources as Lesson pages
+        (data/assistant.ts → POST /v4/ask). In demo there is no tutor, so
+        `askAcknowledgement` names the question back rather than invent a reply.
       */}
       <div
         className="mt-10"
@@ -287,20 +319,56 @@ export default function HomeScreen() {
       >
         <AskBar
           placeholder={t('home.askPlaceholder')}
-          suggestions={askSuggestions}
+          suggestions={askSuggestionsNow()}
           model={askModel}
           onSubmit={(q) => {
             setAsked(q);
             setSent((n) => n + 1);
+            if (!live) return;
+            setAnswer({ state: 'thinking' });
+            askNow(q)
+              .then((a) => setAnswer({ state: 'done', a }))
+              .catch(() => setAnswer({ state: 'failed' }));
           }}
         />
-        {asked && (
+        {asked && !live && (
           <p
             role="status"
             className="mx-auto mt-3 max-w-2xl rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-[13px] leading-6 text-quiet"
           >
             {askAcknowledgement(asked)}
           </p>
+        )}
+        {asked && live && answer && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mx-auto mt-3 max-w-2xl rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-4 text-[14px] leading-6"
+          >
+            {answer.state === 'thinking' && <p className="text-quiet">{t('home.answer.thinking')}</p>}
+            {answer.state === 'failed' && (
+              <p className="text-quiet">{t('home.answer.failed')}</p>
+            )}
+            {answer.state === 'done' && (
+              <>
+                {answer.a.spaceName && <p className="mb-1.5 text-[12px] text-quiet">{t('home.answer.from', { space: answer.a.spaceName })}</p>}
+                <p className="whitespace-pre-line text-foreground">{answer.a.reply}</p>
+                {answer.a.citations.length > 0 && answer.a.spaceId && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {answer.a.citations.map((c) => (
+                      <Link
+                        key={`${c.lessonId}-${c.page}`}
+                        to={`/v4/space/${answer.a.spaceId}/lesson/${c.lessonId}/faces?page=${c.page}`}
+                        className="console-focusable rounded-full bg-white/[0.06] px-3 py-1 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.1] hover:text-foreground"
+                      >
+                        {t('home.answer.citation', { lesson: c.lessonTitle ?? t('home.answer.lesson'), page: c.page })}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
 

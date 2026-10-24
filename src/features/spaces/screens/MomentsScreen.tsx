@@ -1,8 +1,8 @@
 import { ArrowLeft, Award } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { viewer } from '../mocks/people';
-import { moments } from '../mocks/moments';
+import { useViewer } from '../data/viewer';
+import { momentsNow as moments } from '../data/record';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { Skylight } from '../components/stage';
@@ -53,6 +53,7 @@ const formatWhen = (iso: string, lang: string) =>
   });
 
 export default function MomentsScreen() {
+  const viewer = useViewer();
   const { t, i18n } = useTranslation('v4People');
   const screenState = useScreenState();
   const all = moments();

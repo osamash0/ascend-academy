@@ -138,7 +138,9 @@
         "cellHint": "PDF, PPTX or a photo — drop it, or click",
         "emptyTitle": "Bring in your first file",
         "emptyHint": "PDF, PPTX or a photo. It becomes a page you can read, ask and remember.",
-        "veil": "Drop to bring it in"
+        "veil": "Drop to bring it in",
+        "cellHintLive": "A PDF — drop it, or click",
+        "emptyHintLive": "A PDF. It becomes a Lesson only you can see — read it, ask it, practise it."
       },
       "words": {
         "title": "Your words",
@@ -173,7 +175,11 @@
         "confirmTitle": "Remove {{n}} from your Library?",
         "confirmBody": "They leave your shelf. You can undo this for a few seconds.",
         "keep": "Keep them",
-        "confirm": "Remove {{n}}"
+        "confirm": "Remove {{n}}",
+        "confirmBodyLive_one": "Its Lesson goes too, with your progress and practice. Your notes stay. You can undo this for a few seconds — after that it is for good.",
+        "confirmBodyLive_other": "Their Lessons go too, with your progress and practice. Your notes stay. You can undo this for a few seconds — after that it is for good.",
+        "stillReading_one": "{{count}} still being read will stay.",
+        "stillReading_other": "{{count}} still being read will stay."
       },
       "share": {
         "title": "Share {{name}}",
@@ -237,7 +243,10 @@
         "done": "done",
         "now": "now",
         "todo": "not yet"
-      }
+      },
+      "ledeLive": "What you brought in, and your words from every Lesson.",
+      "ledeWords": "Your words, from every Lesson.",
+      "wordsEmpty": "Notes you write in a Lesson gather here, each one a tap from the page it was written on."
     }
   },
   "studio": {
@@ -425,6 +434,13 @@
         "bcnfSplit": "In {{relation}}, <fd>{{fd}}</fd> has a left side that is not a key. Split it: everything {{lhs}} decides goes to one relation, the rest stays with {{lhs}}.",
         "check": "Check",
         "tryAgain": "Try again"
+      },
+      "reading": {
+        "title": "Still being read",
+        "failedTitle": "This file could not be read",
+        "body": "{{filename}} opens as a Lesson as soon as it has been read. It takes a minute or two.",
+        "failedBody": "Nothing was made from it. Try bringing it in again, or another copy of it.",
+        "back": "Back to Library"
       }
     }
   }

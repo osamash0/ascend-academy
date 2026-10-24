@@ -94,6 +94,40 @@ def test_match_slides_scoped_excludes_other_courses(
     assert lec_b not in rows
 
 
+def test_match_slides_scoped_finds_embeddings_stored_by_pdf_hash(
+    db_conn, make_user, make_lecture, make_course
+):
+    """The parser and the backfill store embeddings by pdf_hash with no
+    lecture_id; the scoped search used to be blind to every one of them
+    (migration 20261014000000). Two in-scope uploads of one PDF return the
+    slide once, and an archived copy elsewhere never leaks in."""
+    prof = make_user(role="professor")
+    course, other = make_course(prof, "SWT"), make_course(prof, "Old SWT")
+    lec, dup, archived_copy = make_lecture(prof, "Versions"), make_lecture(prof, "Versions again"), make_lecture(prof, "x")
+    pdf = f"hash-{uuid.uuid4().hex}"
+    _set_course(db_conn, lec, course)
+    _set_course(db_conn, dup, course)
+    _set_course(db_conn, archived_copy, other)
+    with db_conn.cursor() as cur:
+        cur.execute("UPDATE lectures SET pdf_hash = %s WHERE id = ANY(%s)",
+                    (pdf, [str(lec), str(dup), str(archived_copy)]))
+        for i in (0, 1):
+            cur.execute(
+                "INSERT INTO slide_embeddings (id, lecture_id, slide_index, embedding, content_hash, pdf_hash) "
+                "VALUES (%s, NULL, %s, %s::vector, %s, %s)",
+                (str(uuid.uuid4()), i, _vec(0.3), str(uuid.uuid4()), pdf),
+            )
+        cur.execute(
+            "SELECT lecture_id, course_id, slide_index FROM match_slides_scoped(%s::vector, %s, 0.0, 10)",
+            (_vec(0.3), [str(course)]),
+        )
+        rows = cur.fetchall()
+
+    assert sorted(r[2] for r in rows) == [0, 1]  # each slide once
+    assert {r[1] for r in rows} == {course}
+    assert {r[0] for r in rows} <= {lec, dup}
+
+
 def test_match_slides_scoped_excludes_archived_lecture(
     db_conn, make_user, make_lecture, make_course, make_slide_embedding
 ):

@@ -138,7 +138,9 @@
         "cellHint": "PDF, PPTX oder ein Foto – hier ablegen oder klicken",
         "emptyTitle": "Dein erstes Material hinzufügen",
         "emptyHint": "PDF, PPTX oder ein Foto. Daraus wird eine Seite zum Lesen, Fragen und Merken.",
-        "veil": "Zum Hinzufügen hier ablegen"
+        "veil": "Zum Hinzufügen hier ablegen",
+        "cellHintLive": "Ein PDF – hier ablegen oder klicken",
+        "emptyHintLive": "Ein PDF. Daraus wird eine Lektion, die nur du siehst – zum Lesen, Fragen und Üben."
       },
       "words": {
         "title": "Deine Worte",
@@ -173,7 +175,11 @@
         "confirmTitle": "{{n}} aus deiner Bibliothek entfernen?",
         "confirmBody": "Die Auswahl verlässt dein Regal. Du kannst das einige Sekunden lang rückgängig machen.",
         "keep": "Behalten",
-        "confirm": "{{n}} entfernen"
+        "confirm": "{{n}} entfernen",
+        "confirmBodyLive_one": "Die Lektion dazu geht auch, mit deinem Fortschritt und deinen Übungen. Deine Notizen bleiben. Du kannst das einige Sekunden lang rückgängig machen – danach ist es endgültig.",
+        "confirmBodyLive_other": "Die Lektionen dazu gehen auch, mit deinem Fortschritt und deinen Übungen. Deine Notizen bleiben. Du kannst das einige Sekunden lang rückgängig machen – danach ist es endgültig.",
+        "stillReading_one": "{{count}}, das noch gelesen wird, bleibt.",
+        "stillReading_other": "{{count}}, die noch gelesen werden, bleiben."
       },
       "share": {
         "title": "{{name}} teilen",
@@ -237,7 +243,10 @@
         "done": "erledigt",
         "now": "jetzt",
         "todo": "noch nicht"
-      }
+      },
+      "ledeLive": "Was du hinzugefügt hast, und deine Worte aus jeder Lektion.",
+      "ledeWords": "Deine Worte, aus jeder Lektion.",
+      "wordsEmpty": "Notizen, die du in einer Lektion schreibst, sammeln sich hier – jede nur einen Tipp von der Seite entfernt, auf der sie entstand."
     }
   },
   "studio": {
@@ -425,6 +434,13 @@
         "bcnfSplit": "In {{relation}} hat <fd>{{fd}}</fd> eine linke Seite, die kein Schlüssel ist. Teile die Relation: Alles, was {{lhs}} bestimmt, kommt in eine Relation, der Rest bleibt bei {{lhs}}.",
         "check": "Prüfen",
         "tryAgain": "Noch mal versuchen"
+      },
+      "reading": {
+        "title": "Wird noch gelesen",
+        "failedTitle": "Das konnten wir nicht lesen",
+        "body": "{{filename}} öffnet sich als Lektion, sobald es gelesen ist. Das dauert ein, zwei Minuten.",
+        "failedBody": "Daraus ist nichts entstanden. Füg es noch einmal hinzu, oder eine andere Kopie davon.",
+        "back": "Zurück zur Bibliothek"
       }
     }
   }

@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Trans, useTranslation } from 'react-i18next';
 import type { Space } from '../types';
-import { publishedLessonsForSpace } from '../mocks/lessons';
 import { FOLD_THRESHOLD, MAP_PALETTE } from './SpaceMap';
+import { publishedLessonsForSpace } from '../data/world';
 
 /**
  * Ascent — the cross-Space journey.
