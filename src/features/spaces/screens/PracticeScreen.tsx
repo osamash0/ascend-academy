@@ -5,13 +5,13 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Check, CornerDownLeft, RotateCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Pressable } from '../components/Pressable';
-import { spaceById } from '../mocks/spaces';
-import { visibleLesson } from '../mocks/lessons';
-import { gradeAnswer, practiceForLesson, type PracticeQuestion } from '../mocks/practice';
+import { gradeAnswer, submitAnswer, usePracticeQuestions, type PracticeQuestion } from '../data/practice';
+import { isLive } from '../data/useReader';
 import { Scene, SURFACES } from '../components/Scene';
 import { ghostPill, stageAccentFor, stageCard } from '../components/stage';
 import { useScreenState } from '../data/useSpaces';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
+import { spaceById, visibleLesson } from '../data/world';
 
 /**
  * Practice for one Lesson.
@@ -35,9 +35,10 @@ import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
  *     shows why, and a guard enforces that every question carries one.
  *   • **Hands stay on the keys.** 1–4 answers, Enter moves on, Escape leaves.
  *
- * And what it refuses: scoring you. The light goes nowhere — it grants
- * nothing, feeds no standing and clears nothing on the map (Abi, 2026-08-31).
- * It is a place to be wrong safely.
+ * And what it refuses: scoring you. The light goes nowhere — it feeds no
+ * standing and clears nothing on the map (Abi, 2026-08-31). It is a place to
+ * be wrong safely. Live, the server logs each attempt and grants a question's
+ * XP once, the first time it is right — the same rule as the reader's plane.
  */
 
 type Mark = 'pending' | 'held' | 'second' | 'again' | 'missed';
@@ -70,7 +71,11 @@ export default function PracticeScreen() {
     () => (space && lessonId ? visibleLesson(space, lessonId) : undefined),
     [space, lessonId],
   );
-  const questions = useMemo(() => (lessonId ? practiceForLesson(lessonId) : []), [lessonId]);
+  // Live: the lecture's real quiz questions, and every answer is recorded on
+  // the server (the attempt, and XP once per question — as in the reader).
+  const live = isLive(spaceId, lessonId);
+  const practice = usePracticeQuestions(lessonId, live);
+  const questions = practice.questions;
   const accent = space ? stageAccentFor(space.name.length) : null;
 
   const firstTurns = useMemo<Turn[]>(
@@ -123,6 +128,7 @@ export default function PracticeScreen() {
     (choice: string) => {
       if (!turn || picked) return;
       setPicked(choice);
+      if (live && lessonId) submitAnswer(lessonId, turn.q.id, choice).catch(() => {});
       const right = choice === turn.q.correctAnswer;
       if (right) setFlash((n) => n + 1);
       setMarks((m) => ({
@@ -134,7 +140,7 @@ export default function PracticeScreen() {
         setTurns((ts) => [...ts, { q: turn.q, choices: reorder(turn.choices), second: true }]);
       }
     },
-    [turn, picked],
+    [turn, picked, live, lessonId],
   );
 
   const advance = useCallback(() => {
@@ -183,8 +189,8 @@ export default function PracticeScreen() {
   );
 
   // All four states, on every screen.
-  if (screenState === 'loading') return chrome(<DetailSkeleton />);
-  if (screenState === 'error') return chrome(<SpacesError what="practice" />);
+  if (screenState === 'loading' || practice.state === 'loading') return chrome(<DetailSkeleton />);
+  if (screenState === 'error' || practice.state === 'error') return chrome(<SpacesError what="practice" />);
 
   if (!space || !lesson)
     return chrome(

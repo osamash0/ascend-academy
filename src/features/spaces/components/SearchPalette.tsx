@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { BookOpen, CornerDownLeft, Orbit, Search, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { hitCount, search, type Hit } from '../mocks/search';
+import { hitCount, search, type Hit } from '../data/search';
 
 /**
  * ⌘K — one global search.
@@ -16,7 +16,7 @@ import { hitCount, search, type Hit } from '../mocks/search';
  *      destination; opening one leaves the palette. Search is a jump tool, not
  *      a browse surface, and a preview pane would quietly make it the latter.
  *   4. It searches **only what you can already see** — enforced in
- *      `mocks/search.ts` rather than by hiding rows here, so a draft cannot
+ *      `data/search.ts` rather than by hiding rows here, so a draft cannot
  *      leak through the search box.
  */
 

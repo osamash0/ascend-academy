@@ -163,6 +163,7 @@
       "saving": "Saving to your history…",
       "saved": "Saved to your history",
       "saveFailed": "Couldn’t save this one to your history",
+      "unkept": "Rehearsals of your own files are not kept yet",
       "verdict": {
         "flawless": "Flawless.",
         "strong": "Strong — a couple of ideas to tighten.",

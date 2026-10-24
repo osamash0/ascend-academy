@@ -4,9 +4,7 @@ import { useReducedMotion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { spaceById } from '../mocks/spaces';
-import { adjacentLessons, visibleLesson } from '../mocks/lessons';
-import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
+import { addNote, deleteNote, notesForLesson, updateNote } from '../data/notes';
 import { Scene, SURFACES } from '../components/Scene';
 import { LessonPager } from '../components/LessonPager';
 import { NoteEditor } from '../components/NoteEditor';
@@ -20,6 +18,8 @@ import { SelectionAsk } from '../components/reader/SelectionAsk';
 import { SourceView } from '../components/reader/SourceView';
 import { TutorPanel } from '../components/reader/TutorPanel';
 import type { Turn } from '../components/reader/TutorPanel';
+import { adjacentLessons, liveWorld, spaceById, visibleLesson } from '../data/world';
+import { useReadingProgress } from '../data/reading';
 
 /**
  * Reading a Lesson.
@@ -271,6 +271,7 @@ export default function ReaderScreen() {
    * a workaround for having put the state in the wrong place.
    */
   const [page, setPage] = useState(1);
+  useReadingProgress(lessonId, page, liveWorld() !== null);
 
   /*
    * A sentence carried out of the text and into the tutor's composer.

@@ -7,8 +7,7 @@ pydantic-settings==2.14.2
 python-dotenv==1.2.2
 asyncpg==0.31.0
 # 6.19.0: clears PYSEC-2026-4153..4160, fixed across 6.17.0-6.19.0 (earlier:
-# 6.16.1 cleared CVE-2026-84309/84310/84311; 6.21.2 clears the CVE-2026-1137xx/1155xx
-# set of 2026-10). Each round has turned CI's SCA
+# 6.16.1 cleared CVE-2026-84309/84310/84311). Each round has turned CI's SCA
 # job red on `main` for days.
 #
 # Worth knowing: nothing under `backend/` imports pypdf, and no installed
@@ -47,7 +46,6 @@ markitdown[pptx]==0.1.6   # native PPTX → per-slide markdown import (markitdow
 # and 1 litellm advisory (PYSEC-2026-4190..4196, CVE-2026-105748,
 # PYSEC-2026-4066), which failed CI's SCA job on every run.
 arq==0.28.0
-fastembed==0.8.0
 
 openai==2.35.0
 sentry-sdk==2.66.0

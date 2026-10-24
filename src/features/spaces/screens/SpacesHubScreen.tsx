@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Trans, useTranslation } from 'react-i18next';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { formatNumber } from '../i18n/format';
 import {
   actionFor,
@@ -16,8 +16,8 @@ import {
   worthALook,
   spaceOfTheWeek,
   type SpaceSort,
-} from '../mocks/hub';
-import { archivedForViewer } from '../mocks/hub';
+} from '../data/hub';
+import { archivedForViewer } from '../data/hub';
 import { Archive } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Pressable } from '../components/Pressable';
@@ -68,6 +68,7 @@ import { ListSkeleton, SpacesError } from '../components/states';
  */
 
 export default function SpacesHubScreen() {
+  const viewer = useViewer();
   const { t } = useTranslation('v4Spaces');
   const screenState = useScreenState();
   const [selected, setSelected] = useState(() => hubInitialSelection());

@@ -36,8 +36,10 @@ const everyContribution = [
 ];
 
 const SCREEN = join(process.cwd(), 'src/features/spaces/screens/PersonScreen.tsx');
-const source = () =>
-  readFileSync(SCREEN, 'utf8')
+/* Where a person's published list is assembled, now that it serves demo and live. */
+const PEOPLE = join(process.cwd(), 'src/features/spaces/data/people.ts');
+const source = (file: string = SCREEN) =>
+  readFileSync(file, 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
     .replace(/^\s*\/\/.*$/gm, '');
@@ -104,16 +106,17 @@ describe('the Person page does not keep its own copy of the rules', () => {
      * now been found short of `linalgContributions` — `myPublished`,
      * `coherence.test`, `contributionsForLesson`'s old index, and this screen,
      * where it meant Ferreira's two Linear Algebra pieces were missing from
-     * her own page under a heading that counts them.
+     * her own page under a heading that counts them. The list is built in
+     * data/people.ts now, so that is the file held to it.
      */
-    const src = source();
+    const src = source(PEOPLE);
     for (const group of [
       'normalizationContributions',
       'spaceContributions',
       'linalgContributions',
       'conceptContributions',
     ]) {
-      expect(src, `PersonScreen never looks at ${group}`).toContain(group);
+      expect(src, `data/people.ts never looks at ${group}`).toContain(group);
     }
   });
 });

@@ -21,8 +21,8 @@ import {
  * not assembled — so each is checked: German, no raw key, no English frame.
  */
 
-const FAILED: Failed[] = ['spaces', 'space', 'lesson', 'idea', 'practice', 'person', 'library', 'work', 'profile', 'settings', 'people', 'moments', 'history', 'rank', 'next'];
-const MISSING: Missing[] = ['space', 'lesson', 'idea', 'person', 'screen'];
+const FAILED: Failed[] = ['spaces', 'space', 'lesson', 'idea', 'practice', 'person', 'library', 'material', 'work', 'profile', 'settings', 'people', 'moments', 'history', 'rank', 'next'];
+const MISSING: Missing[] = ['space', 'lesson', 'idea', 'person', 'material', 'screen'];
 const LOADING: Loading[] = ['any', 'spaces', 'profile', 'social', 'moments', 'history', 'rank'];
 
 const ENGLISH = /Couldn|isn’t here|Try again|Back to|Loading|No Spaces|Create your|Join with|Search everywhere|No public/;
@@ -59,6 +59,19 @@ describe('the states, in German', () => {
     expect(screen.getByRole('link', { name: 'Zurück zu den Spaces' })).toBeInTheDocument();
     expect(text()).not.toMatch(ENGLISH);
     expect(text()).not.toMatch(RAW);
+  });
+
+  it('a Material is "das Material" in both', () => {
+    const { unmount } = render(<SpacesError what="material" onRetry={() => {}} />);
+    expect(screen.getByText('Dieses Material konnte nicht geladen werden')).toBeInTheDocument();
+    unmount();
+    render(
+      <MemoryRouter>
+        <NotFound what="material" back={{ to: '/v4/library', place: 'library' }} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Dieses Material gibt es hier nicht')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Zurück zur Bibliothek' })).toBeInTheDocument();
   });
 
   it('the way back can name the Space', () => {

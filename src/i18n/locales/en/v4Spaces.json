@@ -65,6 +65,7 @@
       "practice": "Couldn’t load this practice",
       "person": "Couldn’t load this profile",
       "library": "Couldn’t load your Library",
+      "material": "Couldn’t load this Material",
       "work": "Couldn’t load your work",
       "profile": "Couldn’t load your profile",
       "settings": "Couldn’t load your settings",
@@ -82,6 +83,7 @@
       "idea": "That idea isn’t here",
       "person": "That person isn’t here",
       "screen": "That screen isn’t here",
+      "material": "That Material isn’t here",
       "body": "It may have been removed, or the link may be wrong. Nothing of yours is affected."
     },
     "back": {
@@ -175,7 +177,16 @@
     "empty": {
       "body": "Nothing to pick up yet. Start a Space for something you’re learning, or join one with a code from someone else.",
       "create": "Create a Space",
-      "join": "Join with a code"
+      "join": "Join with a code",
+      "liveBody": "Nothing to pick up yet. Find a Space for something you’re learning — joining takes one tap, and its first Lesson is waiting inside.",
+      "find": "Find a Space"
+    },
+    "answer": {
+      "thinking": "Reading your material…",
+      "failed": "Couldn’t reach the tutor just now. Ask again in a moment.",
+      "from": "From {{space}}",
+      "citation": "{{lesson}} · page {{page}}",
+      "lesson": "Lesson"
     }
   },
   "hub": {
@@ -387,5 +398,11 @@
     "hint": "Saves when you click away · Esc to cancel",
     "delete": "Delete this note",
     "done": "Done"
+  },
+  "join": {
+    "join": "Join",
+    "joining": "Joining…",
+    "failed": "Couldn’t join just now. Nothing changed — try again.",
+    "inside": "Inside"
   }
 }

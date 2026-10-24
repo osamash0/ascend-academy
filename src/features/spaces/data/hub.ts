@@ -1,6 +1,13 @@
+/*
+ * The Spaces hub's selectors, over the viewer's world (demo or live).
+ *
+ * Moved here from mocks/hub.ts, unchanged except for where Spaces come from:
+ * these are rules about Spaces, not fixtures, and they must hold for real
+ * courses exactly as they did for the fixture world.
+ */
 import type { Space } from '../types';
-import { allSpaces, visibleSpaces } from './spaces';
-import { publishedLessonsForSpace } from './lessons';
+import { allSpaces, visibleSpaces } from './world';
+import { publishedLessonsForSpace } from './world';
 
 /**
  * The Spaces hub — what each rail holds, and what the hero's one button says.
@@ -201,4 +208,4 @@ export const hubInitialSelection = (): string => {
 
 /** Any Space the hero might show, whether or not you are a member. */
 export const hubSpaceById = (id: string): Space | undefined =>
-  visibleSpaces().find((s) => s.id === id) ?? allSpaces.find((s) => s.id === id);
+  visibleSpaces().find((s) => s.id === id) ?? allSpaces().find((s) => s.id === id);
