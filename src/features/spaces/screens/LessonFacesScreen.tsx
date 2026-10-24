@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Smartphone, Sun, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -43,6 +43,12 @@ import { PracticePlane } from '../components/reader/PracticePlane';
 import { ReadingFace } from '../components/reader/ReadingFace';
 import { Spine } from '../components/reader/Spine';
 import { Studio } from '../components/reader/Studio';
+import { lunaEnabled } from '../data/lunaSession';
+import { useLunaSession } from '../data/useLunaSession';
+import { SessionColumn } from '../components/reader/luna/SessionColumn';
+import { LunaMark } from '../components/reader/luna/LunaMark';
+import { useLunaConductor } from '../components/reader/luna/useLunaConductor';
+import { markOffered, shouldOffer } from '../components/reader/luna/lunaOffer';
 import { Spotlight } from '../components/reader/Spotlight';
 import { LessonToc } from '../components/reader/LessonToc';
 import { ExplainPanel } from '../components/reader/iui/ExplainPanel';
@@ -109,6 +115,7 @@ const VIEWS: { id: View; label: 'page' | 'explain' | 'text' }[] = [
 
 export default function LessonFacesScreen() {
   const { t: tr } = useTranslation('v4Reader');
+  const { t: tl } = useTranslation('v4Luna');
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
   const { state, space, lesson, prev, next } = useReaderLesson(spaceId, lessonId);
   const content = useReaderContent(spaceId, lessonId);
@@ -300,6 +307,23 @@ export default function LessonFacesScreen() {
     },
     [sections, engage],
   );
+
+  /* Luna: a study session beside the page. Live only; nothing renders without it. */
+  const navigate = useNavigate();
+  const lunaOn = lunaEnabled(spaceId, lessonId);
+  const [lunaOpen, setLunaOpen] = useState(() => params.get('luna') === '1');
+  const [lunaOffer, setLunaOffer] = useState(false);
+  /* Explain and text dock in the same place: whichever opens, Luna steps aside. */
+  if (studio && lunaOpen) setLunaOpen(false);
+  const conductor = useLunaConductor({ lessonId: lessonId ?? '', spaceId: spaceId ?? '', goToPage, setSpot, navigate });
+  const pdfPageRef = useRef(pdfPage);
+  pdfPageRef.current = pdfPage;
+  const luna = useLunaSession({
+    spaceId: spaceId ?? '',
+    lessonId: lessonId ?? '',
+    onMove: conductor.onMove,
+    readingAt: useCallback(() => pdfPageRef.current, []),
+  });
   const turnPage = useCallback(
     (by: number) => onPdfPage(Math.min(Math.max(1, pdfPage + by), numPages || 1)),
     [onPdfPage, pdfPage, numPages],
@@ -560,6 +584,18 @@ export default function LessonFacesScreen() {
       return null;
     });
   }, []);
+  /* Luna offers, once a day, on a missed checkpoint or on reading into the next idea. */
+  const offerLuna = useCallback(() => {
+    if (!lunaOn || lunaOpen || !lessonId || !shouldOffer(lessonId)) return;
+    markOffered(lessonId);
+    setLunaOffer(true);
+  }, [lunaOn, lunaOpen, lessonId]);
+  const chapterIndex = ideaRanges.filter((c) => c.first <= pdfPage).length - 1;
+  const lastChapter = useRef(chapterIndex);
+  useEffect(() => {
+    if (lastChapter.current >= 0 && chapterIndex === lastChapter.current + 1) offerLuna();
+    lastChapter.current = chapterIndex;
+  }, [chapterIndex, offerLuna]);
   /* What lights each idea on the strip: past rehearsals and checkpoints, then this visit's. */
   const ideaLights = useMemo(() => {
     const base = lessonId ? lightIdeas(lessonId, ideaRanges.map((c) => ({ first_page: c.first })), history?.marks ?? []) : [];
@@ -783,7 +819,7 @@ export default function LessonFacesScreen() {
     </div>
   );
 
-  const docked = studio && panel;
+  const docked = (studio || (lunaOn && lunaOpen)) && panel;
   /* The panel's width beside the page: half-ish, never cramped, never vast. */
   const panelWidth = Math.round(Math.min(680, Math.max(440, vw * 0.42)));
   /* The full contents only when pinned; otherwise the spine's hairline index. */
@@ -888,6 +924,31 @@ export default function LessonFacesScreen() {
 
       {/* How to look at the page: alone, explained, or as text. */}
       <motion.div {...fade} className="absolute top-5 z-[41] flex items-center gap-2" style={{ right: docked ? panelWidth + 20 : 20 }}>
+      {lunaOn && !lunaOpen && (
+        <div className={cn('flex items-center gap-2 rounded-full p-1', overPage)}>
+          {lunaOffer && (
+            <>
+              <span className="pl-2 text-[12.5px] text-quiet">{tl('offer.text')}</span>
+              <button type="button" onClick={() => { setLunaOffer(false); setView('slide'); setLunaOpen(true); }}
+                className="console-focusable h-8 rounded-full bg-white px-3 text-[12.5px] text-slate-900">
+                {tl('offer.yes')}
+              </button>
+              <button type="button" onClick={() => setLunaOffer(false)}
+                className="console-focusable h-8 rounded-full px-2 text-[12.5px] text-quiet hover:text-foreground">
+                {tl('offer.no')}
+              </button>
+            </>
+          )}
+          {!lunaOffer && (
+            <button type="button" onClick={() => { setView('slide'); setLunaOpen(true); }}
+              aria-label={tl('open')} title={tl('open')}
+              className="console-focusable flex h-8 items-center gap-2 rounded-full px-3 text-[12.5px] text-quiet hover:text-foreground">
+              <LunaMark />
+              <span className="hidden sm:inline">{tl('open')}</span>
+            </button>
+          )}
+        </div>
+      )}
       {/* The page's own settings: the contents kept open, and night paper. */}
       <div className={cn('flex rounded-full p-1', overPage)}>
         {canPin && (
@@ -1129,6 +1190,7 @@ export default function LessonFacesScreen() {
         load={() => fetchCheckpoint(lesson.id, offer?.first ?? 1, offer?.last ?? 1, offer?.name ?? '')}
         pageHref={(p) => `/v4/space/${space.id}/lesson/${lesson.id}/faces?page=${p}`}
         onDone={(outcome) => {
+          if (outcome.correct < outcome.total) offerLuna();
           if (!offer) return;
           setChecked((c) => ({ ...c, [offer.id]: outcome.correct === outcome.total ? 'lit' : 'weak' }));
           saveRehearsal(
@@ -1242,6 +1304,27 @@ export default function LessonFacesScreen() {
           articleClassName="pb-[40vh] pl-14 pr-7 pt-9 [&_li]:text-[16px] [&_ol]:text-[16px] [&_p]:text-[16px] [&_ul]:text-[16px] [&_p]:leading-[1.65]"
         />
       </Studio>
+
+      {lunaOn && (
+        <Studio
+          open={lunaOpen}
+          label={tl('column.label')}
+          where={lesson.title}
+          page={pdfPage}
+          onClose={() => setLunaOpen(false)}
+          panel={panel}
+          width={panelWidth}
+        >
+          <SessionColumn
+            luna={luna}
+            lessonId={lesson.id}
+            onOpenPage={(lectureId, page, spot) => conductor.onMove({ lecture_id: lectureId, page, spot })}
+            onClose={() => setLunaOpen(false)}
+            onSpot={setSpot}
+          />
+          <p className="sr-only" aria-live="polite">{conductor.announce}</p>
+        </Studio>
+      )}
 
       <PracticePlane
         open={bench === 'practice'}
