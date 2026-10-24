@@ -54,12 +54,29 @@ class CallLog(list):
     dropped: int = 0
 
 
+@dataclass
+class ParseBudget:
+    """Arc 9: one parse's spend-cap state. Mutable and shared BY REFERENCE with
+    every child context (like ``calls``), so a refusal seen in any Task of the
+    parse is visible to the pipeline even when the step that saw it swallowed
+    the error. ``enforce`` is decided once per parse from
+    settings.llm_parse_budget_enforce; ``exceeded`` latches the first refusal."""
+
+    enforce: bool
+    exceeded: bool = False
+
+
 @dataclass(frozen=True)
 class LLMCallContext:
     run_id: Optional[str] = None
     slide_indices: Optional[Tuple[int, ...]] = None
     prompt_name: Optional[str] = None
     calls: Optional[List[ServedCall]] = None
+    # Arc 9: the parse's uploader and course. orchestrator._account_for_call
+    # bills a call to them when the call site passed no user_id/course_id.
+    user_id: Optional[str] = None
+    course_id: Optional[str] = None
+    budget: Optional[ParseBudget] = None
 
 
 _CURRENT: ContextVar[LLMCallContext] = ContextVar("llm_call_context", default=LLMCallContext())

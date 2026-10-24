@@ -7,6 +7,8 @@ Usage:
     settings.groq_api_key
 """
 from pathlib import Path
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import AliasChoices, Field, model_validator
 
@@ -179,6 +181,17 @@ class Settings(BaseSettings):
     # user_id through every feature). 0 disables the cap.
     llm_monthly_user_cost_cap_usd: float = Field(
         alias="LLM_MONTHLY_USER_COST_CAP_USD", default=2.0
+    )
+    # Arc 9: which parses the per-user monthly cap above can REFUSE. Every
+    # parse's LLM calls are attributed to its uploader (llm_calls.user_id and
+    # the Redis running total) whatever this says; it only decides gating.
+    #   "students" (default) - private "My Materials" uploads and any upload
+    #                          by a user whose user_roles role is student
+    #                          (role lookup failure enforces: fail safe)
+    #   "all"                - every parse, professors included
+    #   "off"                - attribute, never refuse
+    llm_parse_budget_enforce: Literal["students", "all", "off"] = Field(
+        alias="LLM_PARSE_BUDGET_ENFORCE", default="students"
     )
 
     # ─── AI eval harness / prompt logging (Roadmap Foundation 10x, P1-3) ───────
