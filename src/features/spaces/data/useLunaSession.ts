@@ -1,5 +1,5 @@
 // src/features/spaces/data/useLunaSession.ts
-import { useCallback, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import i18n from '@/i18n';
 import type { ExplainBlock } from '../components/reader/iui/spec';
 import {
@@ -8,6 +8,7 @@ import {
   type LunaEvent,
   type LunaMove,
   type LunaSessionRow,
+  type LunaTurnRow,
   type LunaWrap,
   type PlanStep,
   type TurnBody,
@@ -20,6 +21,8 @@ export type ThreadItem =
 
 export interface LunaState {
   sessionId: string | null;
+  /** The session's own Lesson; the reader may have followed Luna somewhere else. */
+  lectureId: string | null;
   plan: PlanStep[];
   thread: ThreadItem[];
   busy: boolean;
@@ -31,11 +34,12 @@ export interface LunaState {
 }
 
 export const initialLuna: LunaState = {
-  sessionId: null, plan: [], thread: [], busy: false, error: null, offerWrap: false, wrap: null, kept: false, practiceAdded: null,
+  sessionId: null, lectureId: null, plan: [], thread: [], busy: false, error: null, offerWrap: false, wrap: null, kept: false, practiceAdded: null,
 };
 
 type Action =
   | { type: 'started'; session: LunaSessionRow; say: string }
+  | { type: 'hydrated'; session: LunaSessionRow; turns: LunaTurnRow[] }
   | { type: 'learner'; id: string; text: string }
   | { type: 'event'; id: string; event: LunaEvent }
   | { type: 'busy'; busy: boolean }
@@ -45,14 +49,42 @@ type Action =
   | { type: 'practised'; added: number }
   | { type: 'reset' };
 
+/** Stored turns back into the column's thread: what was said, where Luna went. */
+function threadFromTurns(turns: LunaTurnRow[]): { thread: ThreadItem[]; offerWrap: boolean } {
+  const thread: ThreadItem[] = [];
+  let offerWrap = false;
+  for (const turn of turns) {
+    const c = turn.content ?? {};
+    if (turn.role === 'learner' && c.text) thread.push({ kind: 'learner', id: turn.id, text: c.text });
+    else if (turn.role === 'move' && c.lecture_id && c.page)
+      thread.push({ kind: 'move', id: turn.id, move: { lecture_id: c.lecture_id, page: c.page, ...(c.spot ? { spot: c.spot } : {}) } });
+    else if (turn.role === 'luna') {
+      thread.push({ kind: 'luna', id: turn.id, md: c.say ?? '', blocks: c.blocks ?? [], check: c.check ?? null });
+      offerWrap = Boolean(c.offer_wrap);
+    }
+  }
+  return { thread, offerWrap };
+}
+
 export function lunaReducer(state: LunaState, action: Action): LunaState {
   switch (action.type) {
     case 'started':
       return {
         ...initialLuna,
         sessionId: action.session.id,
+        lectureId: action.session.lecture_id,
         plan: action.session.plan,
         thread: [{ kind: 'luna', id: 'start', md: action.say, blocks: [], check: null }],
+      };
+    case 'hydrated':
+      return {
+        ...initialLuna,
+        sessionId: action.session.id,
+        lectureId: action.session.lecture_id,
+        plan: action.session.plan,
+        wrap: action.session.wrap,
+        kept: action.session.kept,
+        ...threadFromTurns(action.turns),
       };
     case 'learner':
       return { ...state, error: null, thread: [...state.thread, { kind: 'learner', id: action.id, text: action.text }] };
@@ -104,6 +136,8 @@ export function useLunaSession(opts: {
   lessonId: string;
   onMove: (m: LunaMove) => void;
   readingAt: () => number;
+  /** Luna is on and the column is open. Nothing is fetched otherwise. */
+  active: boolean;
 }) {
   const [state, dispatch] = useReducer(lunaReducer, initialLuna);
   const ref = useRef(state);
@@ -111,7 +145,29 @@ export function useLunaSession(opts: {
   const abort = useRef<AbortController | null>(null);
   // Set synchronously: `ref.current.busy` only changes on render, so two calls in one tick would both pass it.
   const inFlight = useRef(false);
-  const { onMove, readingAt } = opts;
+  const { onMove, readingAt, active, spaceId, lessonId } = opts;
+  const lessonRef = useRef(lessonId);
+  lessonRef.current = lessonId;
+
+  /* Pick up where you left off: an active session for this Lesson resumes, never a new one. */
+  useEffect(() => {
+    if (!active || !spaceId || !lessonId || ref.current.sessionId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const latest = (await lunaApi.sessions(spaceId)).sessions[0];
+        if (cancelled || !latest || latest.status !== 'active' || latest.lecture_id !== lessonId) return;
+        const out = await lunaApi.get(latest.id);
+        if (cancelled || ref.current.sessionId) return;
+        dispatch({ type: 'hydrated', session: out.session, turns: out.turns });
+      } catch {
+        /* nothing to resume is the same as a fresh start */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [active, spaceId, lessonId]);
 
   const run = useCallback(
     async (body: Omit<TurnBody, 'client_turn_id' | 'reading_at'>, echo?: string) => {
@@ -124,7 +180,9 @@ export function useLunaSession(opts: {
       const controller = new AbortController();
       abort.current = controller;
       try {
-        await lunaApi.turn(sid, { ...body, client_turn_id: id, reading_at: readingAt() }, (event) => {
+        // Where the reader is only means something inside the session's own Lesson.
+        const here = lessonRef.current === ref.current.lectureId ? { reading_at: readingAt() } : {};
+        await lunaApi.turn(sid, { ...body, client_turn_id: id, ...here }, (event) => {
           if (controller.signal.aborted) return;
           if (event.type === 'move') onMove(event.data);
           dispatch({ type: 'event', id, event: normaliseEvent(event) });

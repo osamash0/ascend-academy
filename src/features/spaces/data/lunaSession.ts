@@ -53,6 +53,22 @@ export interface LunaSessionRow {
   turn_count: number;
   updated_at: string;
 }
+/** A stored turn, as GET /sessions/{id} returns it; content depends on the role. */
+export interface LunaTurnRow {
+  id: string;
+  role: 'learner' | 'luna' | 'move';
+  content: {
+    text?: string;
+    say?: string;
+    blocks?: ExplainBlock[];
+    check?: LunaCheck | null;
+    offer_wrap?: boolean;
+    lecture_id?: string;
+    page?: number;
+    spot?: string;
+  };
+  created_at: string;
+}
 export type LunaEvent =
   | { type: 'move'; data: LunaMove }
   | { type: 'say'; data: { md: string } }
@@ -154,6 +170,8 @@ export const lunaApi = {
     ),
   keep: async (id: string) => (await client()).post<{ kept: true }>(await q(`${root}/sessions/${id}/keep`), {}),
   practice: async (id: string) => (await client()).post<{ added: number }>(await q(`${root}/sessions/${id}/practice`), {}),
+  get: async (id: string) =>
+    (await client()).get<{ session: LunaSessionRow; turns: LunaTurnRow[] }>(await q(`${root}/sessions/${id}`)),
   sessions: async (spaceId: string) =>
     (await client()).get<{ sessions: LunaSessionRow[] }>(await q(`${root}/sessions?space_id=${encodeURIComponent(spaceId)}`)),
   memory: async () => (await client()).get<{ memory: MemoryLine[] }>(await q(`${root}/memory`)),

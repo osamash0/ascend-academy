@@ -326,6 +326,7 @@ export default function LessonFacesScreen() {
     lessonId: lessonId ?? '',
     onMove: conductor.onMove,
     readingAt: useCallback(() => pdfPageRef.current, []),
+    active: lunaOn && lunaOpen,
   });
   const turnPage = useCallback(
     (by: number) => onPdfPage(Math.min(Math.max(1, pdfPage + by), numPages || 1)),
