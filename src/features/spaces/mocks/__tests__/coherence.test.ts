@@ -9,7 +9,10 @@ import {
   linalgContributions,
 } from '../contributions';
 import { conceptContributions } from '../concepts';
-import { impactRows } from '../library';
+import { libraryItems } from '../library';
+
+/** Your published contributions as Library lists them (`lib-con-<id>`). */
+const contributionRows = () => libraryItems().filter((i) => i.kind === 'contribution');
 import { viewer } from '../people';
 
 /**
@@ -155,7 +158,7 @@ describe('a Lesson never advertises work it does not have', () => {
 describe('Library and the Space screens agree about your work', () => {
   it('counts every contribution the viewer published, at all three anchor levels', () => {
     /*
-     * `myContributions` and `impactRows` read `spaceContributions` and
+     * `myContributions` (and the old impact rows) read `spaceContributions` and
      * `normalizationContributions` and silently dropped `conceptContributions`
      * — so ⌘K would find a contribution that Library denied existed.
      */
@@ -164,15 +167,15 @@ describe('Library and the Space screens agree about your work', () => {
     const byConcept = mine.filter((c) => c.anchor.level === 'concept');
     expect(byConcept.length, 'no Concept-anchored fixture to catch the regression').
       toBeGreaterThan(0);
-    expect(impactRows()).toHaveLength(mine.length);
+    expect(contributionRows()).toHaveLength(mine.length);
   });
 
   it('resolves each anchor to its real Lesson rather than assuming one', () => {
     // Library hardcoded 'Normalization' / 's-dbs' for any lesson anchor, in
     // three places. Any contribution outside that Lesson was mislabelled.
-    for (const row of impactRows()) {
+    for (const row of contributionRows()) {
       if (row.orphaned) continue;
-      const c = everyContribution.find((x) => x.id === row.id);
+      const c = everyContribution.find((x) => `lib-con-${x.id}` === row.id);
       if (c?.anchor.level !== 'lesson') continue;
       const found = locateLesson(c.anchor.lessonId);
       expect(row.lessonTitle).toBe(found?.lesson.title);

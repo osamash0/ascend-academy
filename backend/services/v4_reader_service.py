@@ -30,6 +30,7 @@ from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 from backend.core.database import get_db_connection, run_sync, supabase_admin
 from backend.services.cache import get_cache, set_cache
 from backend.services.localization_service import get_lecture_content_for_locale
+from backend.services.v4_personal import TITLE as PERSONAL_TITLE, is_personal, space_lectures
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,8 @@ async def can_view_lecture(lecture_id: UUID, user_id: str) -> bool:
 
 
 async def can_view_course(course_id: UUID, user_id: str) -> bool:
+    if is_personal(course_id, user_id):
+        return True  # your own uploads' Space; see v4_personal
     async with await get_db_connection() as conn:
         return bool(
             await conn.fetchval(
@@ -124,18 +127,22 @@ async def preferred_language(user_id: str) -> str:
 # ─── course ──────────────────────────────────────────────────────────────
 
 
-async def get_course(course_id: UUID) -> dict[str, Any]:
+async def get_course(course_id: UUID, user_id: Optional[str] = None) -> dict[str, Any]:
+    """A course and its lectures — or, for its owner, the Space of their own uploads."""
     async with await get_db_connection() as conn:
         course = await conn.fetchrow(
             "SELECT id, title, description, color, professor_id FROM courses WHERE id = $1", course_id
         )
+        if not course and is_personal(course_id, user_id):
+            course = {"id": course_id, "title": PERSONAL_TITLE, "description": None, "color": None,
+                      "professor_id": course_id}
         if not course:
             raise HTTPException(status_code=404, detail="Course not found.")
         lectures = await conn.fetch(
-            """
+            f"""
             SELECT l.id, l.title, l.total_slides, l.created_at
             FROM lectures l
-            WHERE l.course_id = $1 AND COALESCE(l.is_archived, false) = false
+            WHERE {space_lectures("$1")} AND COALESCE(l.is_archived, false) = false
             ORDER BY l.created_at ASC
             """,
             course_id,
@@ -818,7 +825,7 @@ async def ask_page(
 POSTER_BUCKET = "lecture-posters"
 
 
-async def course_map(course_id: UUID) -> dict[str, Any]:
+async def course_map(course_id: UUID, user_id: Optional[str] = None) -> dict[str, Any]:
     """Each lecture with its poster and — where they are already known — its ideas.
 
     Ideas are read from the cache only; a lecture whose ideas were never
@@ -826,10 +833,11 @@ async def course_map(course_id: UUID) -> dict[str, Any]:
     Posters, not PDFs: a poster is a small WebP of page 1, a PDF is the whole
     deck (the 2026-08 egress incident was exactly this).
     """
-    course = await get_course(course_id)
+    course = await get_course(course_id, user_id)
     async with await get_db_connection() as conn:
         rows = await conn.fetch(
-            "SELECT id, poster_url, content_revision FROM lectures WHERE course_id = $1", course_id
+            f"SELECT l.id, l.poster_url, l.content_revision FROM lectures l WHERE {space_lectures('$1')}",
+            course_id,
         )
     extra = {str(r["id"]): r for r in rows}
 
@@ -846,7 +854,17 @@ async def course_map(course_id: UUID) -> dict[str, Any]:
         return {
             **lec,
             "poster": poster,
-            "ideas": [{"name": i["name"], "first_page": min(i["slide_indices"]) + 1} for i in ideas]
+            # A concept linked to the lecture as a whole has no page to jump to,
+            # so it has no place on the map. One of those used to take the
+            # whole Space down: min() of an empty list.
+            "ideas": sorted(
+                (
+                    {"name": i["name"], "first_page": min(i["slide_indices"]) + 1}
+                    for i in ideas
+                    if i.get("slide_indices")
+                ),
+                key=lambda i: i["first_page"],
+            )
             if isinstance(ideas, list)
             else None,
         }
@@ -901,13 +919,13 @@ async def find_in_course(
             if not tsq:
                 return []
             rows = await conn.fetch(
-                """
+                f"""
                 WITH doc AS (
                   SELECT s.lecture_id, s.slide_number, s.title, s.content_text, l.title AS lecture_title,
                          setweight(to_tsvector('english', coalesce(s.title, '')), 'A') ||
                          setweight(to_tsvector('english', coalesce(s.content_text, '')), 'C') AS v
                   FROM slides s JOIN lectures l ON l.id = s.lecture_id
-                  WHERE l.course_id = $1 AND COALESCE(l.is_archived, false) = false
+                  WHERE {space_lectures("$1")} AND COALESCE(l.is_archived, false) = false
                     AND ($4::uuid IS NULL OR l.id <> $4::uuid)
                 )
                 SELECT lecture_id, lecture_title, slide_number, title,

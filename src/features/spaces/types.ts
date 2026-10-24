@@ -162,6 +162,11 @@ export interface Space {
 
   /** ISO timestamp, used by the "last active" sort. */
   lastActiveAt: string;
+  /**
+   * Your own Space of the files you brought in (live only). Its id is yours;
+   * only you see it, and it has no Members, Manage or rehearsals.
+   */
+  personal?: boolean;
 }
 
 /** A file someone uploaded. Deleting it never breaks its Lesson. */

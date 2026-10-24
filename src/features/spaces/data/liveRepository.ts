@@ -4,6 +4,10 @@
  */
 import i18n from '@/i18n';
 import type { ExplainAnswer } from '../components/reader/iui/spec';
+import type { Note, Person } from '../types';
+import type { PracticeQuestion } from '../mocks/practice';
+import type { Upload, World } from './world';
+import type { AskAnswer } from './assistant';
 
 /** A course, read as the reader's Space: its lectures in order. */
 export interface ReaderCourse {
@@ -150,6 +154,10 @@ export interface ReaderLecture {
 export interface V4Transport {
   get<T>(path: string): Promise<T>;
   post<T>(path: string, body: unknown): Promise<T>;
+  patch<T>(path: string, body: unknown): Promise<T>;
+  delete<T>(path: string): Promise<T>;
+  /** A multipart POST (a file). Optional: only bringing files in needs it. */
+  upload?<T>(path: string, form: FormData): Promise<T>;
 }
 
 const root = '/api/v1/v4';
@@ -157,9 +165,55 @@ const idPath = (id: string) => encodeURIComponent(id);
 
 export function createLiveRepository(http: V4Transport) {
   return {
+    /* The signed-in person (`/v4/me`, FEATURE_V4). */
+    me: () => http.get<Person>(`${root}/me`),
+    /* Everything the core loop renders: the viewer, their Spaces and Lessons (`/v4/world`). */
+    world: () => http.get<World>(`${root}/world`),
+    /* Bring a file in: a private lecture in your personal Space (FEATURE_STUDENT_UPLOADS). */
+    bringIn: (file: File) => {
+      if (!http.upload) return Promise.reject(new Error('This transport cannot send files.'));
+      const form = new FormData();
+      form.append('file', file);
+      return http.upload<{ status: 'queued' | 'duplicate'; run_id?: string; lecture_id?: string }>(
+        `${root}/uploads`,
+        form,
+      );
+    },
+    /* Your uploads, as the shelf shows them — polled while one develops. */
+    uploads: () => http.get<{ uploads: Upload[] }>(`${root}/uploads`),
+    /* Remove an upload for good: its Lesson (lecture id) or a failed run (run id). */
+    removeUpload: (id: string) => http.delete<{ removed: true }>(`${root}/uploads/${idPath(id)}`),
+    /* Home's ask bar: the grounded course tutor. */
+    ask: (question: string) => http.post<AskAnswer>(`${root}/ask`, { question }),
+    /* Accept or decline a friend request addressed to you. */
+    answerFriendRequest: (personId: string, verdict: 'accept' | 'decline') =>
+      http.post<{ ok: true }>(`${root}/friends/${idPath(personId)}/${verdict}`, {}),
+    /* Private notes. The server answers with the stored note (real id, kept names). */
+    addNote: (body: string, lessonId: string | null) =>
+      http.post<Note>(`${root}/notes`, lessonId ? { body, lesson_id: lessonId } : { body }),
+    updateNote: (id: string, body: string) => http.patch<Note>(`${root}/notes/${idPath(id)}`, { body }),
+    deleteNote: (id: string) => http.delete<{ deleted: true }>(`${root}/notes/${idPath(id)}`),
+    /* Mark every notification read. */
+    markNotificationsRead: () => http.post<{ marked: number }>(`${root}/notifications/read-all`, {}),
+    /* Join an open Space (enrol in its course). Idempotent. */
+    joinSpace: (id: string) => http.post<{ joined: true }>(`${root}/spaces/${idPath(id)}/join`, {}),
     /* The reader, on real courses and lectures (`/v4/reader`, FEATURE_V4_READER). */
     readerCourse: (id: string) => http.get<ReaderCourse>(`${root}/reader/courses/${idPath(id)}`),
     readerLecture: (id: string) => http.get<ReaderLecture>(`${root}/reader/lectures/${idPath(id)}`),
+    /** The page just left, and how long it was open. Writes progress, visits, streak. */
+    recordReading: (id: string, page: number, seconds: number) =>
+      http.post<{ pagesRead: number; percentComplete: number }>(`${root}/reader/lectures/${idPath(id)}/progress`, {
+        page,
+        seconds,
+      }),
+    /** The lecture's real quiz questions, as PracticeQuestions. */
+    practice: (id: string) => http.get<{ questions: PracticeQuestion[] }>(`${root}/reader/lectures/${idPath(id)}/practice`),
+    /** Graded on the server; logs a quiz_attempt and grants XP once per question. */
+    answerPractice: (id: string, questionId: string, answer: string) =>
+      http.post<{ correct: boolean; correctAnswer: string; explanation: string; xp: number }>(
+        `${root}/reader/lectures/${idPath(id)}/practice/answer`,
+        { question_id: questionId, answer },
+      ),
     readerIdeas: (id: string) => http.get<{ concepts: ReaderConcept[] }>(`${root}/reader/lectures/${idPath(id)}/ideas`),
     explainPage: (id: string, page: number) =>
       http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/explain`, {}),
@@ -204,7 +258,12 @@ export async function loadLiveRepository(): Promise<LiveRepository> {
     throw new Error('Live v4 data is not enabled.');
   }
   const { apiClient } = await import('@/lib/apiClient');
-  return createLiveRepository(withLanguage(apiClient));
+  return createLiveRepository(
+    withLanguage({
+      ...apiClient,
+      upload: <T,>(path: string, form: FormData) => apiClient.upload(path, form).then((r) => r.json() as Promise<T>),
+    }),
+  );
 }
 
 /*
@@ -217,5 +276,8 @@ function withLanguage(http: V4Transport): V4Transport {
   return {
     get: <T>(path: string) => http.get<T>(tag(path)),
     post: <T>(path: string, body: unknown) => http.post<T>(tag(path), body),
+    patch: <T>(path: string, body: unknown) => http.patch<T>(tag(path), body),
+    delete: <T>(path: string) => http.delete<T>(tag(path)),
+    upload: http.upload ? <T>(path: string, form: FormData) => http.upload!<T>(tag(path), form) : undefined,
   };
 }

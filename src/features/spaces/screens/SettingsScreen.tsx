@@ -6,8 +6,8 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Download, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { viewer } from '../mocks/people';
-import { viewerStanding } from '../mocks/library';
+import { useViewer } from '../data/viewer';
+import { standingNow } from '../data/standing';
 import { StudioShell } from '../components/StudioShell';
 import { ListSkeleton, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
@@ -162,9 +162,10 @@ function LanguageSection() {
 }
 
 export default function SettingsScreen() {
+  const viewer = useViewer();
   const { t } = useTranslation('v4Settings');
   const screenState = useScreenState();
-  const standing = viewerStanding();
+  const standing = standingNow();
   const [notifyMentions, setNotifyMentions] = useState(true);
   const [notifyEndorsed, setNotifyEndorsed] = useState(true);
   const [notifyNewLessons, setNotifyNewLessons] = useState(false);

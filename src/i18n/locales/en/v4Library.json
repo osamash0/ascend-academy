@@ -66,6 +66,187 @@
         "body": "Share a summary, a worked example or a set of practice questions with a Space. Whatever you publish lands here, with how it landed."
       },
       "toSpaces": "Go to your Spaces"
+    },
+    "shelf": {
+      "title": "Library",
+      "lede": "What you brought in, what you made of it, and what you shared.",
+      "heading": "Your shelf",
+      "onlyYou": "Only you",
+      "aSpace": "a Space",
+      "sample": "Sample pages",
+      "ready": "ready",
+      "isReady": "{{file}} is ready",
+      "pages_one": "{{count}} page",
+      "pages_other": "{{count}} pages",
+      "filter": {
+        "label": "Filter",
+        "all": "Everything",
+        "reading": "Reading",
+        "shared": "Shared",
+        "words": "Your words"
+      },
+      "sort": {
+        "label": "Sort",
+        "recent": "Recently opened",
+        "added": "Added",
+        "az": "A–Z"
+      },
+      "select": "Select…",
+      "group": "Group by Space",
+      "search": {
+        "label": "Search your Library",
+        "placeholder": "Search your Library   /"
+      },
+      "nothing": {
+        "query": "Nothing on your shelf is called “{{q}}”.",
+        "shared": "Nothing shared yet. When a page is ready for others, share it from the page itself.",
+        "reading": "Nothing left to read. Everything here is read through."
+      },
+      "state": {
+        "developing": "Developing…",
+        "failed": "Couldn’t read this file",
+        "draft": "Draft in {{space}}",
+        "shared": "Shared in {{space}}",
+        "private": "Only you"
+      },
+      "life": {
+        "read": "Read {{read}}/{{total}}",
+        "recall": "Recall {{knew}}/{{total}}",
+        "answers_one": "{{count}} answer",
+        "answers_other": "{{count}} answers",
+        "notes_one": "{{count}} note",
+        "notes_other": "{{count}} notes"
+      },
+      "endorsed": "Endorsed",
+      "cover": {
+        "more": "More for {{name}}",
+        "remove": "Remove…",
+        "retry": "Try again",
+        "reading": "Reading your pages…",
+        "writing": "Writing your summary…"
+      },
+      "continue": {
+        "lead": "Pick up where you left off",
+        "leadPage": "Pick up where you left off · page {{page}} of {{total}}",
+        "label": "Continue reading {{name}}",
+        "labelPage": "Continue reading {{name}}, page {{page}} of {{total}}",
+        "action": "Continue reading"
+      },
+      "bring": {
+        "label": "Bring something in",
+        "cellTitle": "Bring something in",
+        "cellHint": "PDF, PPTX or a photo — drop it, or click",
+        "emptyTitle": "Bring in your first file",
+        "emptyHint": "PDF, PPTX or a photo. It becomes a page you can read, ask and remember.",
+        "veil": "Drop to bring it in",
+        "cellHintLive": "A PDF — drop it, or click",
+        "emptyHintLive": "A PDF. It becomes a Lesson only you can see — read it, ask it, practise it."
+      },
+      "words": {
+        "title": "Your words",
+        "lede": "Every note and every answer you asked for, each one still attached to its page.",
+        "newNote": "New note",
+        "placeholder": "Write it down while it is fresh…",
+        "empty": "Nothing written yet. Notes you write and answers you ask for gather here.",
+        "note": "Note",
+        "answer": "Answer",
+        "itsLesson": "its Lesson",
+        "yourPage": "Your page",
+        "unfiled": "Not filed in a Space yet",
+        "page": "page {{page}}",
+        "needsHome": "Needs a new home",
+        "orphan": "The Lesson this was attached to was removed. Your work is safe, and it keeps its likes — but it has nowhere to open until it is given a new home.",
+        "rehome": "Find it a new home"
+      },
+      "bar": {
+        "label": "Selection",
+        "countLabel": "Selection count",
+        "count_one": "{{count}} selected",
+        "count_other": "{{count}} selected",
+        "share": "Share to…",
+        "publish": "Publish drafts",
+        "remove": "Remove",
+        "all": "Select all",
+        "done": "Done",
+        "published_one": "Published {{count}} draft",
+        "published_other": "Published {{count}} drafts",
+        "removed": "Removed {{n}}",
+        "undo": "Undo",
+        "confirmTitle": "Remove {{n}} from your Library?",
+        "confirmBody": "They leave your shelf. You can undo this for a few seconds.",
+        "keep": "Keep them",
+        "confirm": "Remove {{n}}",
+        "confirmBodyLive_one": "Its Lesson goes too, with your progress and practice. Your notes stay. You can undo this for a few seconds — after that it is for good.",
+        "confirmBodyLive_other": "Their Lessons go too, with your progress and practice. Your notes stay. You can undo this for a few seconds — after that it is for good.",
+        "stillReading_one": "{{count}} still being read will stay.",
+        "stillReading_other": "{{count}} still being read will stay."
+      },
+      "share": {
+        "title": "Share {{name}}",
+        "titleMany_one": "Share {{count}} file",
+        "titleMany_other": "Share {{count}} files",
+        "intro": "Choose a Space. What happens next is written below before you confirm.",
+        "left": "Left as they are: {{list}}.",
+        "loading": "Looking for your Spaces…",
+        "none": "You aren’t in a Space yet. Join or make one, then share from here.",
+        "spaces": "Spaces",
+        "mode": {
+          "open": "Open",
+          "guided": "Guided"
+        },
+        "role": {
+          "owner": "you own it",
+          "editor": "you edit it",
+          "member": "you’re a member"
+        },
+        "outcome": {
+          "draft": "It becomes a draft Lesson in {{space}}. Only you and editors see it until you publish.",
+          "open": "Open Space: it joins the path as a Community Lesson, with your name on it.",
+          "contribution": "It arrives as your Contribution, with your name on it. The owner can endorse it into the path."
+        },
+        "confirmTo": "Share to {{space}}",
+        "confirm": "Share",
+        "toastDraft": "Draft in {{space}}",
+        "toastShared": "Shared to {{space}}",
+        "done_one": "{{count}} shared",
+        "done_other": "{{count}} shared",
+        "drafted_one": "{{count}} drafted in {{space}}",
+        "drafted_other": "{{count}} drafted in {{space}}",
+        "preparing_one": "{{count}} still being prepared",
+        "preparing_other": "{{count}} still being prepared",
+        "unread_one": "{{count}} couldn’t be read",
+        "unread_other": "{{count}} couldn’t be read",
+        "inSpace_one": "{{count}} already in a Space",
+        "inSpace_other": "{{count}} already in a Space",
+        "button": "Share",
+        "draftLabel": "Draft in {{space}}",
+        "sharedLabel": "Shared",
+        "likes_one": " like",
+        "likes_other": " likes",
+        "notReady": "It can be shared once it’s ready.",
+        "publish": "Publish to {{space}}",
+        "openIn": "Open in {{space}}",
+        "takeBack": "Take back to only you",
+        "takeBackTitle": "Take {{name}} back to only you?",
+        "takeBackBody": "It leaves {{space}}. Your page and your words stay.",
+        "takeBackBodyNoSpace": "It leaves its Space. Your page and your words stay.",
+        "keepShared": "Keep it shared",
+        "takeIt": "Take it back",
+        "backToYou": "Back to only you"
+      },
+      "journey": {
+        "label": "Where this page is",
+        "brought": "Brought in",
+        "understood": "Understood",
+        "shared": "Shared",
+        "landed": "Landed",
+        "done": "done",
+        "now": "now",
+        "todo": "not yet"
+      },
+      "ledeLive": "What you brought in, and your words from every Lesson.",
+      "ledeWords": "Your words, from every Lesson.",
+      "wordsEmpty": "Notes you write in a Lesson gather here, each one a tap from the page it was written on."
     }
   },
   "studio": {
@@ -119,6 +300,148 @@
       "emptyTitle": "Nothing published yet",
       "emptyBody": "Share a summary, a worked example or a set of practice questions with a Space, and it will show up here with how it landed.",
       "needsNewHome": "Needs a new home"
+    },
+    "canvas": {
+      "back": "Back to Library",
+      "breadcrumb": "Breadcrumb",
+      "library": "Library",
+      "sample": "Sample pages in this preview",
+      "themeLight": "Use light theme",
+      "themeDark": "Use dark theme",
+      "updates": "Canvas updates",
+      "view": {
+        "learn": "Learn",
+        "source": "Source",
+        "show": "Show source",
+        "showingLearn": "Showing Learn",
+        "showingSource": "Showing the source"
+      },
+      "recall": {
+        "toggle": "Recall",
+        "needsLearn": "Recall works in Learn",
+        "ring": "Recall, page {{page}}: {{knew}} of {{total}} known",
+        "reveal": "Reveal term, page {{page}}",
+        "revealed": "{{text}}, revealed",
+        "markIt": "{{text}}, revealed — mark whether you knew it",
+        "knew": "Knew it",
+        "notYet": "Not yet",
+        "left_one": "{{count}} term to try again",
+        "left_other": "{{count}} terms to try again",
+        "tryAgain": "Try again",
+        "startOver": "Start over"
+      },
+      "hint": {
+        "source": "Rest on a paragraph to see the source, press S, or ask below · R to recall",
+        "noOriginal": "Use ← → to move between pages, or ask below · R to recall",
+        "backOn": "Back on page {{page}}"
+      },
+      "composer": {
+        "label": "Ask about this Material",
+        "placeholder": "Ask about this Material…",
+        "ask": "Ask",
+        "answering": "Answering…",
+        "unknown": "In this preview I can answer a few questions about this Material — try one of these:",
+        "removed": "Answer removed",
+        "undo": "Undo",
+        "below": "Added below ↓"
+      },
+      "answer": {
+        "added": "Answer added under: {{where}} (for: {{question}})",
+        "addedEnd": "Answer added under: the end (for: {{question}})",
+        "from": "From your question",
+        "remove": "Remove this answer"
+      },
+      "rail": {
+        "label": "Pages of this Material",
+        "heading": "Pages",
+        "notes": "Your notes",
+        "page": "Page {{page}}"
+      },
+      "pager": {
+        "label": "Page",
+        "previous": "Previous page",
+        "next": "Next page"
+      },
+      "page": {
+        "divider": "page {{page}}",
+        "dividerSource": "page {{page}} · source",
+        "section": "Page {{page}}",
+        "notes": "Your notes",
+        "sourceSection": "Source page {{page}}",
+        "marker": "p.{{page}}",
+        "showSource": "Show the source, page {{page}}",
+        "alt": "Page {{page}} of {{name}}"
+      },
+      "depth": {
+        "label": "Depth for page {{page}}",
+        "gist": "Gist",
+        "summary": "Summary",
+        "full": "Full",
+        "page": "Page"
+      },
+      "peek": {
+        "label": "Source page",
+        "removed": "The source file was removed. Learn keeps working.",
+        "failed": "Couldn’t load this page.",
+        "retry": "Try again",
+        "caption": "Source · {{name}} · page {{page}}",
+        "pin": "Pin",
+        "fullPage": "Full page",
+        "close": "Close"
+      },
+      "full": {
+        "title": "{{name}} · page {{page}}",
+        "description": "The source page, with the selected spot outlined.",
+        "zoom": "Zoom"
+      },
+      "original": {
+        "back": "Back to: {{text}}",
+        "backEdited": "Back to (edited): {{text}}",
+        "edited": "Edited by you",
+        "parts_one": "{{count}} part not in your version",
+        "parts_other": "{{count}} parts not in your version",
+        "figures_one": "{{count}} figure not in your version",
+        "figures_other": "{{count}} figures not in your version",
+        "notIn": "Not in your version: {{text}}",
+        "add": "Add to your version: {{text}}",
+        "addPill": "Add to your version",
+        "backToLearn": "Back to Learn"
+      },
+      "blocks": {
+        "reset": "Reset",
+        "pick": "Pick a left and a right side",
+        "broken": "Broken by rows {{a}} and {{b}}",
+        "holds": "Holds on these rows",
+        "roleLeft": "{{name}}: left side",
+        "roleRight": "{{name}}: right side",
+        "roleNone": "{{name}}: not in the dependency",
+        "tagLeft": "left",
+        "tagRight": "right",
+        "cell": "Row {{row}}, {{column}}",
+        "addRow": "Row",
+        "startWith": "Start with",
+        "begin": "Begin with the start set itself.",
+        "pickOne": "Pick at least one attribute to start from.",
+        "fired": "{{lhs}} is inside the set, so {{fd}} fires and adds {{added}}.",
+        "done": "Nothing else fires — done.",
+        "superkey": "{{start}} is a superkey.",
+        "notKey": "Not a key: it never reaches {{rest}}.",
+        "previousStep": "Previous step",
+        "nextStep": "Next step",
+        "step": "Step {{at}} of {{count}}",
+        "bcnfDone_one": "Every relation is in BCNF. {{count}} split, nothing lost: each split keeps the violating FD’s left side in both halves, so the join is lossless.",
+        "bcnfDone_other": "Every relation is in BCNF. {{count}} splits, nothing lost: each split keeps the violating FD’s left side in both halves, so the join is lossless.",
+        "bcnfSplit": "In {{relation}}, <fd>{{fd}}</fd> has a left side that is not a key. Split it: everything {{lhs}} decides goes to one relation, the rest stays with {{lhs}}.",
+        "check": "Check",
+        "tryAgain": "Try again"
+      },
+      "reading": {
+        "title": "Still being read",
+        "failedTitle": "This file could not be read",
+        "body": "{{filename}} opens as a Lesson as soon as it has been read. It takes a minute or two.",
+        "failedBody": "Nothing was made from it. Try bringing it in again, or another copy of it.",
+        "back": "Back to Library"
+      }
     }
   }
 }

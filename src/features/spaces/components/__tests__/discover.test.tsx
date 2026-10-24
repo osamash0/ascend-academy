@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import SpacesHubScreen from '../../screens/SpacesHubScreen';
-import { jumpBackIn, popularNow, worthALook } from '../../mocks/hub';
+import { jumpBackIn, popularNow, worthALook } from '../../data/hub';
 import { visibleSpaces } from '../../mocks/spaces';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

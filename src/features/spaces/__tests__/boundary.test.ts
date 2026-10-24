@@ -65,6 +65,8 @@ const ALLOWED = [
   /^motion\/react$/,
   /^lucide-react$/,
   /^sonner$/,
+  // Studio's one Markdown renderer (spec 3.4). Pure rendering, sanitises by default, no network.
+  /^streamdown$/,
   /^vitest$/,
   /^node:/,
   /^@testing-library\//,
@@ -73,6 +75,12 @@ const ALLOWED = [
   /^@\/lib\/topicIcon$/,
   /^@\/components\/ui\//,
   /^@\/components\/console$/,
+  /*
+   * The app's route constants: pure strings, no data, no network. For the few
+   * hand-offs to a room v4 does not have yet — a real Space is managed in the
+   * existing manager (uploads, publishing), so live Manage sends you there.
+   */
+  /^@\/lib\/routes$/,
   /*
    * The two faces of a Lesson. `@/components/pdf` wraps react-pdf (the
    * Material as uploaded); `@/components/markdown` wraps react-markdown (the

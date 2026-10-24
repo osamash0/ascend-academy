@@ -2,16 +2,16 @@ import { ArrowLeft, Flame } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import {
   currentRun,
   daysStudied,
   lastStudied,
   longestRun,
   recentWeeks,
-  studyDays,
-  TODAY,
-} from '../mocks/history';
+  studyDaysNow,
+  todayNow,
+} from '../data/record';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { Skylight } from '../components/stage';
@@ -57,6 +57,7 @@ import { formatDate, formatTimestamp } from '../i18n/format';
 const formatShort = (iso: string) => formatTimestamp(`${iso}T12:00:00Z`);
 
 export default function HistoryScreen() {
+  const viewer = useViewer();
   const { t } = useTranslation('v4People');
   const screenState = useScreenState();
   const run = currentRun();
@@ -65,7 +66,7 @@ export default function HistoryScreen() {
   const last = lastStudied();
   const weeks = recentWeeks();
   /** Newest first — the recent past is what anyone came here to read. */
-  const days = [...studyDays].sort((a, b) => b.date.localeCompare(a.date));
+  const days = [...studyDaysNow()].sort((a, b) => b.date.localeCompare(a.date));
 
   const chrome = (body: React.ReactNode) => (
     // Profile's rooms share its stage and its neutral light (monochrome brand).
@@ -111,7 +112,7 @@ export default function HistoryScreen() {
             </p>
             {last && (
               <p className="mt-2 text-[13px] text-faint">
-                {last === TODAY ? t('history.today') : t('history.last', { day: formatDate(last, 'long') })}
+                {last === todayNow() ? t('history.today') : t('history.last', { day: formatDate(last, 'long') })}
               </p>
             )}
           </header>

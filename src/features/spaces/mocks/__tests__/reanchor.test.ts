@@ -8,7 +8,7 @@ import {
   reanchoredLessonId,
   resetReanchors,
 } from '../reanchor';
-import { impactRows, libraryItems, myContributionById } from '../library';
+import { libraryItems, myContributionById } from '../library';
 import { linalgContributions, normalizationContributions, spaceContributions } from '../contributions';
 import { conceptContributions } from '../concepts';
 import { lessonsForSpace, locateLesson, publishedLessonsForSpace } from '../lessons';
@@ -170,15 +170,6 @@ describe('one move, visible everywhere', () => {
     expect(after!.orphaned, 'the Library row still warns').toBe(false);
     expect(after!.lessonTitle, 'the row does not name its new Lesson').toBe(l.title);
     expect(after!.href, 'the row still does not open anywhere').toContain(`/lesson/${l.id}`);
-  });
-
-  it('updates the Studio impact row', () => {
-    const c = anOrphan();
-    expect(impactRows().find((r) => r.id === c.id)?.orphaned).toBe(true);
-    reanchor(c, aTarget().id, null);
-    const row = impactRows().find((r) => r.id === c.id);
-    expect(row?.orphaned, 'the impact view still says it needs a new home').toBe(false);
-    expect(row?.lessonTitle).toBe(aTarget().title);
   });
 
   it('updates search', () => {

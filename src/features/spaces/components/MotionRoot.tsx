@@ -1,5 +1,6 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { LiveGate } from '../data/viewer';
 
 /**
  * The one `MotionConfig` for the whole v4 namespace.
@@ -62,6 +63,8 @@ export function MotionRoot() {
         stay mounted. Switching tab should feel like turning a page, not
         arriving somewhere.
       */}
+      {/* Outside the keyed fade, so the viewer resolves once per visit, not per screen. */}
+      <LiveGate>
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={screenKey(pathname)}
@@ -73,6 +76,7 @@ export function MotionRoot() {
           <Outlet />
         </motion.div>
       </AnimatePresence>
+      </LiveGate>
     </MotionConfig>
   );
 }

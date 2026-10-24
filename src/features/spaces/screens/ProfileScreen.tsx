@@ -2,12 +2,10 @@ import { Flame, Heart, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { libraryItems, viewerStanding } from '../mocks/library';
-import { moments } from '../mocks/moments';
-import { standingFor } from '../mocks/rank';
-import { currentRun } from '../mocks/history';
-import { viewer } from '../mocks/people';
-import { visibleSpaces } from '../mocks/spaces';
+import { myPublishedNow } from '../data/library';
+import { standingNow } from '../data/standing';
+import { currentRun, momentsNow as moments, standingFor } from '../data/record';
+import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Avatar, RankRing } from '../components/Avatar';
 import { Scene, SURFACES } from '../components/Scene';
@@ -15,6 +13,7 @@ import { useScreenState } from '../data/useSpaces';
 import { ListSkeleton, SpacesError } from '../components/states';
 import { AscentMap, ascentSpaces } from '../components/AscentMap';
 import { Sep, Skylight, StageRow, ghostPillSm, stageCard } from '../components/stage';
+import { visibleSpaces } from '../data/world';
 import { formatNumber } from '../i18n/format';
 
 /**
@@ -35,6 +34,7 @@ import { formatNumber } from '../i18n/format';
 
 
 export default function ProfileScreen() {
+  const viewer = useViewer();
   const { t } = useTranslation('v4People');
   const screenState = useScreenState();
   /*
@@ -45,12 +45,12 @@ export default function ProfileScreen() {
    * rank independently, and the local `XP_IN_RANK = 250` drove a progress bar
    * on a fourth curve that matched none of them.
    */
-  const { xp } = viewerStanding();
+  const { xp } = standingNow();
   const { rank, toNext, pct } = standingFor(xp);
   const streak = currentRun();
 
   const allMoments = moments();
-  const published = libraryItems().filter((i) => i.kind === 'contribution');
+  const published = myPublishedNow();
   const likesReceived = published.reduce((n, i) => n + (i.likeCount ?? 0), 0);
 
   // Profile stands on the stage. You are not a subject, so the light is the
@@ -115,8 +115,8 @@ export default function ProfileScreen() {
         <div className="mx-auto mt-14 grid max-w-2xl grid-cols-3 divide-x divide-white/[0.08]">
           {[
             { key: 'streak', to: '/v4/profile/history', n: streak, label: t('profile.figures.streak', { count: streak }), icon: Flame },
-            { key: 'published', to: '/v4/library/impact', n: published.length, label: t('profile.figures.published'), icon: Sparkles },
-            { key: 'likes', to: '/v4/library/impact', n: likesReceived, label: t('profile.figures.likes', { count: likesReceived }), icon: Heart },
+            { key: 'published', to: '/v4/library?f=shared', n: published.length, label: t('profile.figures.published'), icon: Sparkles },
+            { key: 'likes', to: '/v4/library?f=shared', n: likesReceived, label: t('profile.figures.likes', { count: likesReceived }), icon: Heart },
           ].map((f) => (
             <Link
               key={f.key}

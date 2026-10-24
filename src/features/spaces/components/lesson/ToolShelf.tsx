@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowUpRight, Calculator, Columns2, GitFork, ListOrdered, Table2, Workflow } from 'lucide-react';
-import type { LessonTool } from '../../mocks/explain';
+import type { LessonTool } from '../../data/tools';
 
 /**
  * What you can try in this Lesson, not just read.

@@ -163,6 +163,7 @@
       "saving": "Wird in deinem Verlauf gespeichert …",
       "saved": "In deinem Verlauf gespeichert",
       "saveFailed": "Wir konnten diesen Durchlauf nicht in deinem Verlauf speichern",
+      "unkept": "Durchläufe mit deinen eigenen Dateien werden noch nicht gespeichert",
       "verdict": {
         "flawless": "Alles richtig.",
         "strong": "Stark. Ein, zwei Ideen noch festigen.",

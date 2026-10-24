@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { libraryItems, impactRows, resolveContributionAnchor } from '../library';
+import { libraryItems, resolveContributionAnchor } from '../library';
 import {
   linalgContributions,
   normalizationContributions,
@@ -97,9 +97,6 @@ describe('every orphan the fixtures carry can name its Space', () => {
     for (const item of libraryItems().filter((i) => i.orphaned)) {
       expect(item.spaceId.trim(), `Library row "${item.title}" has no Space`).not.toBe('');
       expect(item.spaceName.trim(), `Library row "${item.title}" has no Space name`).not.toBe('');
-    }
-    for (const row of impactRows().filter((r) => r.orphaned)) {
-      expect(row.spaceId.trim(), `impact row "${row.title}" has no Space`).not.toBe('');
     }
   });
 });
