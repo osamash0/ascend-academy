@@ -89,6 +89,14 @@ export function lunaReducer(state: LunaState, action: Action): LunaState {
 const errorText = (err: unknown) =>
   (err as { detail?: string }).detail || i18n.t('v4Luna:column.error');
 
+/** A stream `error` event must never carry an empty message. */
+export function normaliseEvent(event: LunaEvent): LunaEvent {
+  if (event.type === 'error' && !event.data.detail) {
+    return { type: 'error', data: { detail: i18n.t('v4Luna:column.error') } };
+  }
+  return event;
+}
+
 const newId = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 
 export function useLunaSession(opts: {
@@ -101,25 +109,33 @@ export function useLunaSession(opts: {
   const ref = useRef(state);
   ref.current = state;
   const abort = useRef<AbortController | null>(null);
+  // Set synchronously: `ref.current.busy` only changes on render, so two calls in one tick would both pass it.
+  const inFlight = useRef(false);
   const { onMove, readingAt } = opts;
 
   const run = useCallback(
     async (body: Omit<TurnBody, 'client_turn_id' | 'reading_at'>, echo?: string) => {
       const sid = ref.current.sessionId;
-      if (!sid || ref.current.busy) return;
+      if (!sid || ref.current.busy || inFlight.current) return;
+      inFlight.current = true;
       const id = newId();
       if (echo) dispatch({ type: 'learner', id, text: echo });
       dispatch({ type: 'busy', busy: true });
-      abort.current = new AbortController();
+      const controller = new AbortController();
+      abort.current = controller;
       try {
         await lunaApi.turn(sid, { ...body, client_turn_id: id, reading_at: readingAt() }, (event) => {
+          if (controller.signal.aborted) return;
           if (event.type === 'move') onMove(event.data);
-          dispatch({ type: 'event', id, event });
-        }, abort.current.signal);
+          dispatch({ type: 'event', id, event: normaliseEvent(event) });
+        }, controller.signal);
       } catch (err) {
-        dispatch({ type: 'failed', detail: errorText(err) });
+        if ((err as Error).name !== 'AbortError' && abort.current === controller) {
+          dispatch({ type: 'failed', detail: errorText(err) });
+        }
       } finally {
-        if (ref.current.busy) dispatch({ type: 'busy', busy: false });
+        inFlight.current = false;
+        if (abort.current === controller && ref.current.busy) dispatch({ type: 'busy', busy: false });
       }
     },
     [onMove, readingAt],
@@ -127,6 +143,8 @@ export function useLunaSession(opts: {
 
   const start = useCallback(
     async (opener: string) => {
+      if (inFlight.current) return;
+      inFlight.current = true;
       dispatch({ type: 'busy', busy: true });
       try {
         const out = await lunaApi.start({ space_id: opts.spaceId, lecture_id: opts.lessonId, page: readingAt(), opener });
@@ -134,6 +152,8 @@ export function useLunaSession(opts: {
         if (opener) dispatch({ type: 'learner', id: 'opener', text: opener });
       } catch (err) {
         dispatch({ type: 'failed', detail: errorText(err) });
+      } finally {
+        inFlight.current = false;
       }
     },
     [opts.spaceId, opts.lessonId, readingAt],
@@ -141,7 +161,8 @@ export function useLunaSession(opts: {
 
   const wrapUp = useCallback(async () => {
     const sid = ref.current.sessionId;
-    if (!sid) return;
+    if (!sid || inFlight.current) return;
+    inFlight.current = true;
     dispatch({ type: 'busy', busy: true });
     try {
       const out = await lunaApi.wrap(sid);
@@ -149,6 +170,8 @@ export function useLunaSession(opts: {
       dispatch({ type: 'busy', busy: false });
     } catch (err) {
       dispatch({ type: 'failed', detail: errorText(err) });
+    } finally {
+      inFlight.current = false;
     }
   }, []);
 
@@ -160,15 +183,25 @@ export function useLunaSession(opts: {
     answerCheck: (question: string, correct: boolean) => run({ action: 'continue', check_result: { question, correct } }),
     wrapUp,
     keep: async () => {
-      if (ref.current.sessionId && (await lunaApi.keep(ref.current.sessionId))) dispatch({ type: 'kept' });
+      try {
+        if (ref.current.sessionId && (await lunaApi.keep(ref.current.sessionId))) dispatch({ type: 'kept' });
+      } catch (err) {
+        dispatch({ type: 'failed', detail: errorText(err) });
+      }
     },
     practise: async () => {
       if (!ref.current.sessionId) return;
-      const out = await lunaApi.practice(ref.current.sessionId);
-      dispatch({ type: 'practised', added: out.added });
+      try {
+        const out = await lunaApi.practice(ref.current.sessionId);
+        dispatch({ type: 'practised', added: out.added });
+      } catch (err) {
+        dispatch({ type: 'failed', detail: errorText(err) });
+      }
     },
     close: () => {
       abort.current?.abort();
+      abort.current = null;
+      inFlight.current = false;
       dispatch({ type: 'reset' });
     },
   };

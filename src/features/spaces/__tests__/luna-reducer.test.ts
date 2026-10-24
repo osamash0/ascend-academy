@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialLuna, lunaReducer } from '../data/useLunaSession';
+import { initialLuna, lunaReducer, normaliseEvent } from '../data/useLunaSession';
 import type { PlanStep } from '../data/lunaSession';
 
 const step = (id: string, status: PlanStep['status']): PlanStep => ({
@@ -36,5 +36,12 @@ describe('lunaReducer', () => {
     expect(s.busy).toBe(false);
     expect(s.error).toBe('I lost my thread.');
     expect(s.thread).toHaveLength(1);
+  });
+
+  it('an error event with no detail still says something', () => {
+    const event = normaliseEvent({ type: 'error', data: { detail: '' } });
+    const s = lunaReducer(initialLuna, { type: 'event', id: 't1', event });
+    expect(s.error).toBeTruthy();
+    expect(normaliseEvent({ type: 'error', data: { detail: 'x' } })).toEqual({ type: 'error', data: { detail: 'x' } });
   });
 });
