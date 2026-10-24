@@ -220,3 +220,28 @@ def test_spec_covers_every_production_user_column():
         ("xp_events", "user_id"), ("api_tokens", "user_id"), ("course_access", "user_id"),
     }
     assert acc.uncovered(prod) == []
+
+
+@pytest.mark.asyncio
+async def test_exports_luna_sessions_turns_memory_and_owned_cards(admin):
+    admin({
+        "luna_sessions": [{"id": "ls1", "user_id": UID}, {"id": "ls2", "user_id": OTHER}],
+        "luna_turns": [{"id": "lt1", "user_id": UID}, {"id": "lt2", "user_id": OTHER}],
+        "learner_memory": [{"id": "lm1", "user_id": UID}, {"id": "lm2", "user_id": OTHER}],
+        "review_cards": [{"id": "rc1", "owner_id": UID}, {"id": "rc2", "owner_id": None}],
+    })
+    out = await acc.export_user_data(UID)
+    assert [r["id"] for r in out["luna_sessions"]] == ["ls1"]
+    assert [r["id"] for r in out["luna_turns"]] == ["lt1"]
+    assert [r["id"] for r in out["learner_memory"]] == ["lm1"]
+    assert [r["id"] for r in out["review_cards"]] == ["rc1"]
+
+
+@pytest.mark.asyncio
+async def test_review_cards_without_owner_id_column_is_tolerated(admin):
+    """Before the luna migration is applied, review_cards has no owner_id (42703)."""
+    fake = admin({"review_cards": [{"id": "rc1"}], "profiles": [{"id": "p", "user_id": UID}]})
+    fake.missing_columns.add(("review_cards", "owner_id"))
+    out = await acc.export_user_data(UID)
+    assert out["review_cards"] == []
+    assert out["profiles"] == [{"id": "p", "user_id": UID}]

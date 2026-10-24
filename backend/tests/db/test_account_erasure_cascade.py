@@ -212,6 +212,57 @@ def test_cascade_removes_private_student_upload(conn):
         assert cur.fetchone()[0] == 0, "private student upload survived account deletion"
 
 
+def test_cascade_removes_luna_sessions_turns_memory_and_owned_cards(conn):
+    """Luna study sessions (20261025000000): a learner's sessions, turns,
+    memory lines and the practice cards they own all go with the account;
+    the professor's lecture and its shared cards stay."""
+    uid, prof_id = str(uuid.uuid4()), str(uuid.uuid4())
+    lecture_id, sid = str(uuid.uuid4()), str(uuid.uuid4())
+    owned_card, shared_card = str(uuid.uuid4()), str(uuid.uuid4())
+    with conn.cursor() as cur:
+        for user, role in ((uid, "student"), (prof_id, "professor")):
+            cur.execute(
+                "INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES (%s, %s, jsonb_build_object('role', %s::text))",
+                (user, f"{user}@test.local", role),
+            )
+        cur.execute(
+            "INSERT INTO lectures (id, title, professor_id, pdf_hash) VALUES (%s, 'L', %s, 'hash-luna')",
+            (lecture_id, prof_id),
+        )
+        cur.execute(
+            "INSERT INTO luna_sessions (id, user_id, space_id, lecture_id) VALUES (%s, %s, 's', %s)",
+            (sid, uid, lecture_id),
+        )
+        cur.execute(
+            "INSERT INTO luna_turns (session_id, user_id, client_turn_id, role, content) VALUES (%s, %s, %s, 'learner', '{}'::jsonb)",
+            (sid, uid, str(uuid.uuid4())),
+        )
+        cur.execute(
+            "INSERT INTO learner_memory (user_id, kind, text, source_session_id) VALUES (%s, 'goal', 'pass', %s)",
+            (uid, sid),
+        )
+        for card, owner, h in ((owned_card, uid, "hash-luna-owned"), (shared_card, None, "hash-luna-shared")):
+            cur.execute(
+                """
+                INSERT INTO review_cards (id, lecture_id, source_type, front, back, content_hash, owner_id)
+                VALUES (%s, %s, 'luna_session', '{}'::jsonb, '{}'::jsonb, %s, %s)
+                """,
+                (card, lecture_id, h, owner),
+            )
+
+        cur.execute("DELETE FROM auth.users WHERE id = %s", (uid,))
+
+        for table in ("luna_sessions", "luna_turns", "learner_memory"):
+            cur.execute(f"SELECT count(*) FROM {table} WHERE user_id = %s", (uid,))
+            assert cur.fetchone()[0] == 0, f"{table} survived account deletion"
+        cur.execute("SELECT count(*) FROM review_cards WHERE id = %s", (owned_card,))
+        assert cur.fetchone()[0] == 0, "owned review card survived account deletion"
+        cur.execute("SELECT count(*) FROM review_cards WHERE id = %s", (shared_card,))
+        assert cur.fetchone()[0] == 1, "shared card was over-deleted"
+        cur.execute("SELECT count(*) FROM lectures WHERE id = %s", (lecture_id,))
+        assert cur.fetchone()[0] == 1, "professor's lecture was over-deleted"
+
+
 def test_slide_embeddings_has_no_migration_tracked_cascade(conn):
     """Documents the P0-3 gap this erasure code works around: on a database
     built from ``supabase/migrations/`` alone (no out-of-band

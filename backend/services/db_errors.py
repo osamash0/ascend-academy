@@ -18,6 +18,11 @@ MISSING_COLUMN_CODES = frozenset({"42703"})
 #   (it cascades via tutor_sessions' FK instead). Verified read-only 2026-10-11.
 USER_ID_OPTIONAL_TABLES = frozenset({"tutor_messages"})
 
+# (table, column) pairs that arrive with a migration applied by hand, so an
+# environment may not have them yet. Only these may be missing (42703).
+#   review_cards.owner_id: added by 20261025000000_luna_sessions.sql.
+OPTIONAL_COLUMNS = frozenset({("review_cards", "owner_id")})
+
 
 def _code(e: BaseException) -> str | None:
     code = getattr(e, "code", None)
@@ -33,8 +38,11 @@ def is_missing_column(e: BaseException) -> bool:
 
 
 def is_tolerable_absence(e: BaseException, table: str, column: str) -> bool:
-    """A table absent in this environment, or tutor_messages without user_id."""
+    """A table absent in this environment, tutor_messages without user_id,
+    or a column from OPTIONAL_COLUMNS not migrated here yet."""
     if is_missing_table(e):
         return True
-    return (column == "user_id" and table in USER_ID_OPTIONAL_TABLES
-            and is_missing_column(e))
+    if not is_missing_column(e):
+        return False
+    return ((column == "user_id" and table in USER_ID_OPTIONAL_TABLES)
+            or (table, column) in OPTIONAL_COLUMNS)
