@@ -20,9 +20,7 @@ import { Masthead, Sep, Skylight, StageRow, UpNext, ghostPill, stageAccentFor } 
 import { Scene, SURFACES } from '../components/Scene';
 import { JoinSpaceDialog, NewSpaceDialog } from '../components/SpaceDialogs';
 import { SpacesError, SpacesSkeleton } from '../components/states';
-import { FEATURES } from '@/lib/featureFlags';
-import { dataMode } from '../data/liveRepository';
-import { lunaApi } from '../data/lunaSession';
+import { lunaApi, lunaLive } from '../data/lunaSession';
 
 /**
  * Home — "what do I do now?"
@@ -100,14 +98,6 @@ const greetingKey = () => {
   return 'home.greeting.evening';
 };
 
-function lunaLive(): boolean {
-  try {
-    return dataMode(import.meta.env.VITE_V4_DATA_MODE) === 'live';
-  } catch {
-    return false;
-  }
-}
-
 export default function HomeScreen() {
   const viewer = useViewer();
   const { t } = useTranslation('v4Spaces');
@@ -143,7 +133,7 @@ export default function HomeScreen() {
   const live = liveWorld() !== null;
   /* A Luna session left open in the Space of the next Lesson. Live only. */
   const nextSpaceId = next?.spaceId;
-  const lunaGate = FEATURES.lunaSessions && lunaLive();
+  const lunaGate = lunaLive();
   const [waiting, setWaiting] = useState<{ lectureId: string } | null>(null);
   const { t: tLuna } = useTranslation('v4Luna');
   /* The session row carries a Lesson id, not its title — name it only when Home already knows it. */

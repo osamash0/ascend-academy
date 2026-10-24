@@ -16,19 +16,8 @@ import { Sep, Skylight, StageRow, ghostPillSm, stageCard } from '../components/s
 import { visibleSpaces } from '../data/world';
 import { formatNumber } from '../i18n/format';
 import { momentText } from '../data/phrases';
-import { FEATURES } from '@/lib/featureFlags';
-import { dataMode } from '../data/liveRepository';
+import { lunaLive } from '../data/lunaSession';
 import { LunaMemoryCard } from '../components/LunaMemoryCard';
-
-/** Luna's memory is real only against the backend; a typo in the mode reads as demo. */
-function lunaMemoryShown(): boolean {
-  if (!FEATURES.lunaSessions) return false;
-  try {
-    return dataMode(import.meta.env.VITE_V4_DATA_MODE) === 'live';
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Profile — "how far have I come?"
@@ -194,11 +183,7 @@ export default function ProfileScreen() {
           </ul>
         </StageRow>
 
-        {lunaMemoryShown() && (
-          <div className="mt-20">
-            <LunaMemoryCard />
-          </div>
-        )}
+        {lunaLive() && <LunaMemoryCard />}
       </div>
     </>,
   );

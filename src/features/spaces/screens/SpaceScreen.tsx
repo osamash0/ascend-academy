@@ -411,9 +411,7 @@ export default function SpaceScreen({
       {tab === 'overview' && (
         <>
           {lunaEnabled(space.id, space.id) && (
-            <div className="mt-12">
-              <LunaSpaceRow spaceId={space.id} />
-            </div>
+            <LunaSpaceRow spaceId={space.id} />
           )}
           <StageRow
             id="path-heading"

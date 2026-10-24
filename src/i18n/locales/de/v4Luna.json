@@ -27,6 +27,7 @@
     "empty": "Noch nichts. Luna lernt dazu, während ihr zusammen lernt.",
     "kinds": { "preference": "Wie du lernst", "shaky": "Noch wackelig", "strong": "Sitzt", "goal": "Ziel" },
     "faded": "Verblasst", "edit": "Bearbeiten", "save": "Speichern", "delete": "Löschen", "forget": "Alles vergessen",
+    "error": "Das hat nicht geklappt. Versuch es gleich nochmal.",
     "forgetConfirm": "Luna vergisst alles, was sie über dich weiß. Das lässt sich nicht rückgängig machen."
   }
 }

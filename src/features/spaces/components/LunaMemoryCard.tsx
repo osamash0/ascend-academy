@@ -9,6 +9,7 @@ export function LunaMemoryCard() {
   const { t } = useTranslation('v4Luna');
   const [lines, setLines] = useState<MemoryLine[] | null>(null);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     lunaApi.memory().then((r) => setLines(r.memory)).catch(() => setLines([]));
@@ -19,12 +20,17 @@ export function LunaMemoryCard() {
     if (!editing) return;
     const text = editing.text.trim().slice(0, 80);
     if (!text) return;
-    const next = await lunaApi.editMemory(editing.id, text);
-    setLines(lines.map((l) => (l.id === next.id ? next : l)));
-    setEditing(null);
+    try {
+      const next = await lunaApi.editMemory(editing.id, text);
+      setLines((cur) => (cur ?? []).map((l) => (l.id === next.id ? next : l)));
+      setEditing(null);
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    }
   };
   return (
-    <section aria-label={t('memory.title')} className="flex flex-col gap-3">
+    <section aria-label={t('memory.title')} className="mt-20 flex flex-col gap-3">
       <h2 className="text-[16px] font-medium">{t('memory.title')}</h2>
       <p className="text-[13px] text-quiet">{t('memory.intro')}</p>
       {lines.length === 0 ? (
@@ -53,8 +59,13 @@ export function LunaMemoryCard() {
                 </button>
               )}
               <button type="button" onClick={async () => {
-                await lunaApi.deleteMemory(l.id);
-                setLines((cur) => (cur ?? []).filter((x) => x.id !== l.id));
+                try {
+                  await lunaApi.deleteMemory(l.id);
+                  setLines((cur) => (cur ?? []).filter((x) => x.id !== l.id));
+                  setFailed(false);
+                } catch {
+                  setFailed(true);
+                }
               }} className="console-focusable text-[12.5px] text-quiet hover:text-foreground">
                 {t('memory.delete')}
               </button>
@@ -62,11 +73,17 @@ export function LunaMemoryCard() {
           ))}
         </ul>
       )}
+      {failed && <p role="alert" className="text-[12.5px] text-quiet">{t('memory.error')}</p>}
       {lines.length > 0 && (
         <button type="button" onClick={async () => {
           if (!window.confirm(t('memory.forgetConfirm'))) return;
-          await lunaApi.forgetAll();
-          setLines([]);
+          try {
+            await lunaApi.forgetAll();
+            setLines([]);
+            setFailed(false);
+          } catch {
+            setFailed(true);
+          }
         }} className="console-focusable self-start text-[12.5px] text-quiet underline hover:text-foreground">
           {t('memory.forget')}
         </button>
@@ -84,10 +101,10 @@ export function LunaSpaceRow({ spaceId }: { spaceId: string }) {
   }, [spaceId]);
   const last = sessions[0];
   const kept = sessions.filter((s) => s.kept && s.wrap);
-  if (!last) return null;
+  if (!last || (!last.lecture_id && kept.length === 0)) return null;
   const shaky = last.wrap?.shaky.length ?? 0;
   return (
-    <section className="flex flex-col gap-3">
+    <section className="mt-12 flex flex-col gap-3">
       {last.lecture_id && (
         <Link to={`/v4/space/${spaceId}/lesson/${last.lecture_id}/faces?luna=1`}
           className="console-focusable flex flex-col rounded-2xl border border-white/10 px-4 py-3 hover:border-white/25">

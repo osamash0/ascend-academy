@@ -27,6 +27,7 @@
     "empty": "Nothing yet. Luna learns as you study together.",
     "kinds": { "preference": "How you learn", "shaky": "Still shaky", "strong": "Strong", "goal": "Goal" },
     "faded": "Faded", "edit": "Edit", "save": "Save", "delete": "Delete", "forget": "Forget everything",
+    "error": "That didn't work. Try again in a moment.",
     "forgetConfirm": "Luna will forget everything she knows about you. This can't be undone."
   }
 }

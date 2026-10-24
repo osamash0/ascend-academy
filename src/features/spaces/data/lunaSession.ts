@@ -2,6 +2,7 @@
 import type { ExplainBlock } from '../components/reader/iui/spec';
 import i18n from '@/i18n';
 import { isLive } from './useReader';
+import { dataMode } from './liveRepository';
 
 /**
  * Luna study sessions — the API and its event stream.
@@ -107,6 +108,16 @@ export function parseSse(chunk: string, carry: string): { events: LunaEvent[]; c
 
 export function lunaEnabled(spaceId?: string, lessonId?: string): boolean {
   return import.meta.env.VITE_FEATURE_LUNA_SESSIONS === '1' && isLive(spaceId, lessonId);
+}
+
+/** Luna is on and the data is real — for screens that have no Space or Lesson ids yet. */
+export function lunaLive(): boolean {
+  if (import.meta.env.VITE_FEATURE_LUNA_SESSIONS !== '1') return false;
+  try {
+    return dataMode(import.meta.env.VITE_V4_DATA_MODE) === 'live';
+  } catch {
+    return false;
+  }
 }
 
 const root = '/api/v1/v4/luna';

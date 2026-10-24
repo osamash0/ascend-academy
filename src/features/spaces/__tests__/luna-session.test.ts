@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { lunaEnabled, parseSse } from '../data/lunaSession';
+import { lunaEnabled, lunaLive, parseSse } from '../data/lunaSession';
 
 describe('parseSse', () => {
   it('reads complete events and carries a partial one to the next chunk', () => {
@@ -23,6 +23,22 @@ describe('lunaEnabled', () => {
     vi.stubEnv('VITE_V4_DATA_MODE', 'live');
     expect(lunaEnabled('space-dbs', 'lesson-1')).toBe(false);
     expect(lunaEnabled('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002')).toBe(true);
+    vi.unstubAllEnvs();
+  });
+});
+
+describe('lunaLive', () => {
+  it('needs the flag and live data, and treats a mode typo as off', () => {
+    vi.stubEnv('VITE_FEATURE_LUNA_SESSIONS', '1');
+    vi.stubEnv('VITE_V4_DATA_MODE', 'live');
+    expect(lunaLive()).toBe(true);
+    vi.stubEnv('VITE_V4_DATA_MODE', 'demo');
+    expect(lunaLive()).toBe(false);
+    vi.stubEnv('VITE_V4_DATA_MODE', 'liv');
+    expect(lunaLive()).toBe(false);
+    vi.stubEnv('VITE_V4_DATA_MODE', 'live');
+    vi.stubEnv('VITE_FEATURE_LUNA_SESSIONS', '');
+    expect(lunaLive()).toBe(false);
     vi.unstubAllEnvs();
   });
 });
