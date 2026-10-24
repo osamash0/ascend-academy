@@ -405,6 +405,9 @@
     "join": "Join",
     "joining": "Joining…",
     "failed": "Couldn’t join just now. Nothing changed — try again.",
-    "inside": "Inside"
+    "inside": "Inside",
+    "toOpen": "Join to open {{title}}.",
+    "members_one": "<b>{{n}}</b> member",
+    "members_other": "<b>{{n}}</b> members"
   }
 }
