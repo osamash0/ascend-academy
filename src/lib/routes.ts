@@ -63,3 +63,14 @@ export const AdminRoutes = {
   DASHBOARD: '/admin/dashboard',
   LAUNCH: '/admin/launch',
 } as const;
+
+/**
+ * Each role's own landing page. Every "you can't be here" redirect goes here,
+ * so an admin or professor is never dropped onto the student dashboard. An
+ * unknown role (the lookup failed) goes to /dashboard, which says so.
+ */
+export const homeForRole = (role: string | null | undefined): string => {
+  if (role === 'professor') return ProfessorRoutes.DASHBOARD;
+  if (role === 'admin') return AdminRoutes.DASHBOARD;
+  return StudentRoutes.HOME;
+};
