@@ -20,6 +20,9 @@ import { Masthead, Sep, Skylight, StageRow, UpNext, ghostPill, stageAccentFor } 
 import { Scene, SURFACES } from '../components/Scene';
 import { JoinSpaceDialog, NewSpaceDialog } from '../components/SpaceDialogs';
 import { SpacesError, SpacesSkeleton } from '../components/states';
+import { FEATURES } from '@/lib/featureFlags';
+import { dataMode } from '../data/liveRepository';
+import { lunaApi } from '../data/lunaSession';
 
 /**
  * Home — "what do I do now?"
@@ -97,6 +100,14 @@ const greetingKey = () => {
   return 'home.greeting.evening';
 };
 
+function lunaLive(): boolean {
+  try {
+    return dataMode(import.meta.env.VITE_V4_DATA_MODE) === 'live';
+  } catch {
+    return false;
+  }
+}
+
 export default function HomeScreen() {
   const viewer = useViewer();
   const { t } = useTranslation('v4Spaces');
@@ -130,6 +141,30 @@ export default function HomeScreen() {
     { state: 'thinking' } | { state: 'done'; a: AskAnswer } | { state: 'failed' } | null
   >(null);
   const live = liveWorld() !== null;
+  /* A Luna session left open in the Space of the next Lesson. Live only. */
+  const nextSpaceId = next?.spaceId;
+  const lunaGate = FEATURES.lunaSessions && lunaLive();
+  const [waiting, setWaiting] = useState<{ lectureId: string } | null>(null);
+  const { t: tLuna } = useTranslation('v4Luna');
+  /* The session row carries a Lesson id, not its title — name it only when Home already knows it. */
+  const waitingLesson = waiting
+    ? [next, ...feed, ...recent].find((i) => i?.lessonId === waiting.lectureId)?.lessonTitle ?? null
+    : null;
+  useEffect(() => {
+    if (!lunaGate || !nextSpaceId) return;
+    let alive = true;
+    lunaApi
+      .sessions(nextSpaceId)
+      .then((r) => {
+        const last = r.sessions[0];
+        if (!alive || !last || last.status !== 'active' || !last.lecture_id) return setWaiting(null);
+        setWaiting({ lectureId: last.lecture_id });
+      })
+      .catch(() => alive && setWaiting(null));
+    return () => {
+      alive = false;
+    };
+  }, [lunaGate, nextSpaceId]);
   /* What Luna watches: the ask bar's focus, each keystroke, each send. */
   const [asking, setAsking] = useState(false);
   const [keys, setKeys] = useState(0);
@@ -415,9 +450,19 @@ export default function HomeScreen() {
       </div>
 
       {/* Everything else, still Lesson-level. Never a Space card. */}
-      {feed.length > 0 && (
-        <StageRow id="feed-heading" title={t('home.alsoToday')} count={feed.length}>
+      {(feed.length > 0 || waitingLesson) && (
+        <StageRow id="feed-heading" title={t('home.alsoToday')} count={feed.length + (waitingLesson ? 1 : 0)}>
           <ul className="space-y-2.5">
+            {waitingLesson && next && (
+              <li>
+                <Link
+                  to={`/v4/space/${next.spaceId}/lesson/${waiting!.lectureId}/faces?luna=1`}
+                  className="console-focusable flex items-center gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-4 text-[15px] font-semibold transition-colors hover:border-white/[0.16] hover:bg-white/[0.05]"
+                >
+                  {tLuna('home.unfinished', { lesson: waitingLesson })}
+                </Link>
+              </li>
+            )}
             {feed.map((item) => {
               const Icon = REASON_ICON[item.reason];
               return (
