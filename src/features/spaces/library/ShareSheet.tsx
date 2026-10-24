@@ -155,7 +155,7 @@ export function ShareSheet({
 }
 
 const BUTTON =
-  'console-focusable flex h-9 max-w-[16rem] items-center gap-1.5 rounded-full border border-[rgb(var(--studio-hairline))] px-3.5 text-[13px] font-medium text-foreground transition-colors hover:bg-[rgb(var(--studio-chip))]';
+  'console-focusable flex h-9 min-w-0 max-w-[16rem] items-center gap-1.5 rounded-full border border-[rgb(var(--studio-hairline))] px-3.5 text-[13px] font-medium text-foreground transition-colors hover:bg-[rgb(var(--studio-chip))]';
 
 /** The label: "Share", "Draft in {Space}", or "Shared · ♥ 3". */
 function ShareLabel({ item }: { item: ShelfItem }) {
@@ -171,10 +171,15 @@ function ShareLabel({ item }: { item: ShelfItem }) {
   if (s.kind === 'draft') return <span className="truncate">{t('share.draftLabel', { space: shelfSpaceName(s.spaceId) })}</span>;
   return (
     <span className="truncate">
-      {t('share.sharedLabel')}
+      {/*
+        On a phone the page's top bar has no room for the word as well
+        ("Geteilt · ♥ 3" pushed the whole page to 413px at 375): there the
+        heart and count say it, and screen readers still hear the word.
+      */}
+      <span className={s.likes > 0 ? 'sr-only sm:not-sr-only' : undefined}>{t('share.sharedLabel')}</span>
       {s.likes > 0 && (
         <>
-          {' · '}
+          <span className="sr-only sm:not-sr-only">{' · '}</span>
           <span aria-hidden>♥ </span>
           {s.likes}
           <span className="sr-only">{t('share.likes', { count: s.likes })}</span>
