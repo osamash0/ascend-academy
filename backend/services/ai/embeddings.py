@@ -170,7 +170,17 @@ async def generate_embeddings(text: str) -> List[float]:
             duration_seconds=time.perf_counter() - started,
         )
         return values
-    return await asyncio.to_thread(_sync_generate_embeddings, text)
+    started = time.perf_counter()
+    values = await asyncio.to_thread(_sync_generate_embeddings, text)
+    # Same accounting tail as the OpenAI path: without it every embedding in
+    # `multi` mode was invisible to llm_calls, metrics and the parse receipt.
+    from .orchestrator import _account_for_call
+    await _account_for_call(
+        "gemini", GEMINI_EMBEDDING_MODEL, None,
+        user_id=None, course_id=None, feature="embedding",
+        duration_seconds=time.perf_counter() - started,
+    )
+    return values
 
 
 async def batch_generate_embeddings(
