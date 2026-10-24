@@ -33,6 +33,17 @@ from backend.schemas.learning_events import ReviewGraded
 from backend.services.review.scheduler import ReviewState, schedule
 
 logger = logging.getLogger(__name__)
+
+# Lazily activate a card for a student only when they may see it: a shared
+# card (no owner) or their own. Owned cards (Luna sessions) are private, and
+# /queue would otherwise reveal one activated by a forged id.
+ACTIVATE_IF_VISIBLE_SQL = """
+    INSERT INTO review_schedule (user_id, card_id, due_at, stability, difficulty, reps, lapses, state)
+    SELECT $1, rc.id, $3, 0, 2.5, 0, 0, 'new' FROM review_cards rc
+    WHERE rc.id = $2 AND (rc.owner_id IS NULL OR rc.owner_id = $1)
+    ON CONFLICT (user_id, card_id) DO NOTHING
+"""
+
 router = APIRouter(prefix="/review", tags=["review"])
 
 DEFAULT_NEW_CARD_CAP = 20
@@ -63,6 +74,7 @@ async def _activate_new_cards(conn, user_id: str, cap: int, now: datetime) -> No
         JOIN assignment_enrollments ae ON ae.assignment_id = al.assignment_id
         WHERE ae.user_id = $1
           AND rc.hidden_at IS NULL
+          AND rc.owner_id IS NULL
           AND NOT EXISTS (
               SELECT 1 FROM review_schedule rs WHERE rs.user_id = $1 AND rs.card_id = rc.id
           )
@@ -178,14 +190,7 @@ async def grade_card(
             # Card was never activated for this student (or a forged id) —
             # lazily activate it now rather than 404, so a client that races
             # ahead of /queue still succeeds.
-            await conn.execute(
-                """
-                INSERT INTO review_schedule (user_id, card_id, due_at, stability, difficulty, reps, lapses, state)
-                VALUES ($1, $2, $3, 0, 2.5, 0, 0, 'new')
-                ON CONFLICT (user_id, card_id) DO NOTHING
-                """,
-                user_id, card_uuid, now,
-            )
+            await conn.execute(ACTIVATE_IF_VISIBLE_SQL, user_id, card_uuid, now)
             row = await conn.fetchrow(
                 "SELECT * FROM review_schedule WHERE user_id = $1 AND card_id = $2",
                 user_id, card_uuid,
@@ -379,7 +384,7 @@ async def list_lecture_cards(
             """
             SELECT id, source_type, front, back, concept_id, hidden_at, created_at
             FROM review_cards
-            WHERE lecture_id = $1
+            WHERE lecture_id = $1 AND owner_id IS NULL
             ORDER BY created_at
             """,
             lecture_uuid,
