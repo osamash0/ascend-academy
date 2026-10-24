@@ -206,3 +206,47 @@ async def test_ownership_lock_and_cap_are_checked_before_streaming():
     store.sessions[sid]["turn_count"] = svc.MAX_TURNS
     events = await _events(await svc.open_turn(store, user_id=U, session_id=sid, **kw))
     assert events == [("end", {"turn_count": svc.MAX_TURNS, "offer_wrap": True})]
+
+
+async def test_a_stream_that_is_never_iterated_still_releases_the_lock():
+    store = FakeStore()
+    sid = await _started(store, scripted(PLAN_REPLY))
+    stream = await svc.open_turn(store, user_id=U, session_id=sid, client_turn_id=str(uuid.uuid4()), text="hi", action=None,
+                                 plan_edit=None, reading_at=None, check_result=None, locale="en", ai=scripted(), load=fake_load)
+    assert sid in store.locked
+    await stream.aclose()
+    await stream.aclose()
+    assert sid not in store.locked
+
+
+async def test_a_failure_while_preparing_a_turn_is_a_gentle_error():
+    store = FakeStore()
+    sid = await _started(store, scripted(PLAN_REPLY))
+
+    async def broken_load(lecture_id, locale, around):
+        raise RuntimeError("db down")
+
+    events = await _events(await svc.open_turn(store, user_id=U, session_id=sid, client_turn_id=str(uuid.uuid4()), text="hi",
+                                               action=None, plan_edit=None, reading_at=None, check_result=None,
+                                               locale="en", ai=scripted(), load=broken_load))
+    assert events == [("error", {"detail": svc.FALLBACK["en"]})] and sid not in store.locked
+
+
+async def test_the_wrap_offer_survives_a_replay():
+    store = FakeStore()
+    ai = scripted(PLAN_REPLY, {"say": "Good place to stop.", "offer_wrap": True})
+    sid = await _started(store, ai)
+    kw = dict(user_id=U, session_id=sid, client_turn_id=str(uuid.uuid4()), text="hi", action=None, plan_edit=None,
+              reading_at=None, check_result=None, locale="en", ai=ai, load=fake_load)
+    first = await _events(await svc.open_turn(store, **kw))
+    again = await _events(await svc.open_turn(store, **kw))
+    assert first[-1][1]["offer_wrap"] is True and again[-1][1]["offer_wrap"] is True
+
+
+async def test_the_reserved_turn_id_is_refused():
+    store = FakeStore()
+    sid = await _started(store, scripted(PLAN_REPLY))
+    with pytest.raises(svc.LunaError) as e:
+        await svc.open_turn(store, user_id=U, session_id=sid, client_turn_id=str(uuid.UUID(int=0)), text="hi", action=None,
+                            plan_edit=None, reading_at=None, check_result=None, locale="en", ai=scripted(), load=fake_load)
+    assert e.value.status == 400
