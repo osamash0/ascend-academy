@@ -68,6 +68,11 @@ PROMPT_VERSIONS: Dict[str, str] = {
     "INTENT_CLASSIFIER_PROMPT": "v1",           # was ai/ask_data.py + ai/ask_professor.py (duplicated)
     "PROFESSOR_CHAT_SYSTEM_PROMPT": "v1",       # was ai/ask_professor.py:_build_chat_prompt
     "ASK_LUNA_PROMPT": "v1",                    # ai/ask_luna.py — hint-first tutor that answers with curated widgets
+    # Luna study sessions (backend/services/luna/prompts.py).
+    "LUNA_PLAN_PROMPT": "v1",
+    "LUNA_TURN_PROMPT": "v1",
+    "LUNA_WRAP_PROMPT": "v1",
+    "LUNA_PRACTICE_PROMPT": "v1",
 }
 
 
