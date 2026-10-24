@@ -15,6 +15,8 @@ const read = (p: string) =>
     .replace(/^\s*\/\/.*$/gm, '');
 
 const settings = read('screens/SettingsScreen.tsx');
+/* The words live in the locale file now; the source names their keys. */
+const en = JSON.parse(readFileSync(join(process.cwd(), 'src/i18n/locales/en/v4Settings.json'), 'utf8')).sections;
 
 describe('Settings', () => {
   it('returns to Profile, the destination that owns "you"', () => {
@@ -38,7 +40,9 @@ describe('Settings', () => {
   });
 
   it('never wires a destructive action against mock data', () => {
-    const del = settings.slice(settings.indexOf('Delete your account'));
+    expect(en.data.delete.label).toBe('Delete your account');
+    const del = settings.slice(settings.indexOf("t('sections.data.delete.label')"));
+    expect(del.length).toBeLessThan(settings.length);
     expect(del).toContain('disabled');
     expect(del).not.toContain('onClick');
   });
@@ -50,8 +54,12 @@ describe('Settings', () => {
 
   it('describes what each switch costs, not just what it is', () => {
     // Every Toggle takes a description; none may be empty.
-    const descriptions = settings.match(/description="[^"]*"/g) ?? [];
-    expect(descriptions.length).toBeGreaterThanOrEqual(5);
-    for (const d of descriptions) expect(d.length).toBeGreaterThan(30);
+    const keys = [...settings.matchAll(/description=\{t\('sections\.([\w.]+)'\)\}/g)].map((m) => m[1]);
+    expect(keys.length).toBeGreaterThanOrEqual(5);
+    for (const k of keys) {
+      const d = k.split('.').reduce((o: Record<string, unknown>, part) => o[part] as Record<string, unknown>, en) as unknown as string;
+      expect(typeof d).toBe('string');
+      expect(d.length).toBeGreaterThan(30);
+    }
   });
 });
