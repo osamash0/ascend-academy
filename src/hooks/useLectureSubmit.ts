@@ -161,34 +161,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
       setLoading(true);
 
       try {
-        let pdfUrl: string | null = null;
         const lectureId = safeGetUUID();
-
-        if (pdfFile) {
-          const filePath = `lectures/${lectureId}/${pdfFile.name}`;
-          const { error: uploadError } = await supabase.storage
-            .from('lecture-pdfs')
-            .upload(filePath, pdfFile, {
-              contentType: 'application/pdf',
-              upsert: true,
-              // Source PDFs are immutable at a given path (a replacement upserts
-              // in place). The default of 3600s sent repeat viewers back to
-              // origin every hour, which inflated egress.
-              cacheControl: '31536000',
-            });
-
-          if (uploadError) {
-            toast({
-              title: 'PDF Upload Failed',
-              description: 'Could not upload PDF to storage. Please check Supabase Storage RLS policies.',
-              variant: 'destructive',
-            });
-            throw uploadError;
-          }
-          // Store only the storage path (not a public URL) — the bucket is private.
-          // Authenticated signed URLs are generated on demand when the PDF must be accessed.
-          pdfUrl = filePath;
-        }
 
         const isStudent = user?.app_metadata?.role === 'student';
         const insertPayload: any = {
@@ -196,7 +169,9 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
           title,
           description,
           total_slides: slides.length,
-          pdf_url: pdfUrl,
+          // Filled in after the upload: storage writes to lecture-pdfs are
+          // owner-only and need this row to exist first (20261024020000).
+          pdf_url: null,
           course_id: courseId ?? null,
         };
 
@@ -221,6 +196,39 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
           .single();
 
         if (lectureError) throw lectureError;
+
+        if (pdfFile) {
+          const filePath = `lectures/${lectureId}/${pdfFile.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from('lecture-pdfs')
+            .upload(filePath, pdfFile, {
+              contentType: 'application/pdf',
+              upsert: true,
+              // Source PDFs are immutable at a given path (a replacement upserts
+              // in place). The default of 3600s sent repeat viewers back to
+              // origin every hour, which inflated egress.
+              cacheControl: '31536000',
+            });
+
+          if (uploadError) {
+            // Nothing half-made: drop the row we just created for this upload.
+            await supabase.from('lectures').delete().eq('id', lectureId);
+            toast({
+              title: 'PDF Upload Failed',
+              description: 'Could not upload PDF to storage. Please try again.',
+              variant: 'destructive',
+            });
+            throw uploadError;
+          }
+          // Store only the storage path — the bucket is private and PDFs are
+          // read through short-lived signed URLs (lectureService.resolvePdfUrl).
+          const { error: pdfUrlError } = await supabase
+            .from('lectures')
+            .update({ pdf_url: filePath })
+            .eq('id', lectureId);
+          if (pdfUrlError) throw pdfUrlError;
+          lecture.pdf_url = filePath;
+        }
 
         // Backfill lecture_id on the embeddings written during PDF parsing
         // so the AI tutor can scope retrieval by lecture.  Best-effort:
