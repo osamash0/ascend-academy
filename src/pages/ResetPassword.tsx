@@ -65,10 +65,10 @@ export default function ResetPassword() {
 
   const validate = (): string | null => {
     if (password.length < 8) {
-      return t('resetPassword.errorTooShort', { defaultValue: 'Password must be at least 8 characters.' });
+      return t('resetPassword.errorTooShort');
     }
     if (password !== confirm) {
-      return t('resetPassword.errorMismatch', { defaultValue: 'Passwords do not match.' });
+      return t('resetPassword.errorMismatch');
     }
     return null;
   };
@@ -87,7 +87,7 @@ export default function ResetPassword() {
       if (updateError) {
         toast({
           variant: 'destructive',
-          title: t('resetPassword.failedTitle', { defaultValue: 'Could not reset password' }),
+          title: t('resetPassword.failedTitle'),
           description: updateError.message,
         });
         return;
@@ -96,14 +96,14 @@ export default function ResetPassword() {
       // End the recovery session so the user logs in fresh with the new password.
       await supabase.auth.signOut();
       toast({
-        title: t('resetPassword.successTitle', { defaultValue: 'Password updated' }),
-        description: t('resetPassword.successDesc', { defaultValue: 'You can now sign in with your new password.' }),
+        title: t('resetPassword.successTitle'),
+        description: t('resetPassword.successDesc'),
       });
       setTimeout(() => navigate('/auth'), 1500);
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: t('resetPassword.failedTitle', { defaultValue: 'Could not reset password' }),
+        title: t('resetPassword.failedTitle'),
         description: err instanceof Error ? err.message : String(err),
       });
     } finally {
@@ -131,13 +131,13 @@ export default function ResetPassword() {
             <Lock className="w-5 h-5 text-black" />
           </div>
           <h1 className="text-xl font-bold">
-            {t('resetPassword.title', { defaultValue: 'Set a new password' })}
+            {t('resetPassword.title')}
           </h1>
         </div>
 
         {status === 'verifying' && (
           <p className="text-sm text-muted-foreground">
-            {t('resetPassword.verifying', { defaultValue: 'Verifying your reset link…' })}
+            {t('resetPassword.verifying')}
           </p>
         )}
 
@@ -146,15 +146,12 @@ export default function ResetPassword() {
             <div className="flex items-start gap-3 text-sm text-muted-foreground">
               <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
               <p>
-                {t('resetPassword.invalid', {
-                  defaultValue:
-                    'This reset link is invalid or has expired. Request a new password reset email from the sign-in page.',
-                })}
+                {t('resetPassword.invalid')}
               </p>
             </div>
             <Button variant="outline" className="w-full" onClick={() => navigate('/auth')}>
               <ArrowLeft className="w-4 h-4 mr-2" />
-              {t('resetPassword.backToSignIn', { defaultValue: 'Back to sign in' })}
+              {t('resetPassword.backToSignIn')}
             </Button>
           </div>
         )}
@@ -162,7 +159,7 @@ export default function ResetPassword() {
         {status === 'done' && (
           <div className="flex items-start gap-3 text-sm text-muted-foreground">
             <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-            <p>{t('resetPassword.successDesc', { defaultValue: 'Password updated. Redirecting to sign in…' })}</p>
+            <p>{t('resetPassword.redirecting')}</p>
           </div>
         )}
 
@@ -170,7 +167,7 @@ export default function ResetPassword() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="new-password">
-                {t('resetPassword.newPassword', { defaultValue: 'New password' })}
+                {t('resetPassword.newPassword')}
               </Label>
               <div className="relative">
                 <Input
@@ -185,7 +182,7 @@ export default function ResetPassword() {
                   type="button"
                   tabIndex={-1}
                   onClick={() => setShowPassword((s) => !s)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? t('resetPassword.hidePassword') : t('resetPassword.showPassword')}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -194,7 +191,7 @@ export default function ResetPassword() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-password">
-                {t('resetPassword.confirmPassword', { defaultValue: 'Confirm new password' })}
+                {t('resetPassword.confirmPassword')}
               </Label>
               <Input
                 id="confirm-password"
@@ -208,8 +205,8 @@ export default function ResetPassword() {
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={submitting || !password || !confirm}>
               {submitting
-                ? t('resetPassword.updating', { defaultValue: 'Updating…' })
-                : t('resetPassword.submit', { defaultValue: 'Update password' })}
+                ? t('resetPassword.updating')
+                : t('resetPassword.submit')}
             </Button>
           </form>
         )}

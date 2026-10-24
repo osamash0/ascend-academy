@@ -110,7 +110,33 @@
     "name": "Moments",
     "title": "The firsts",
     "lede": "The first time each thing happened to you here. Nothing on this page is a score, and there is nothing to collect — these are just the days something changed.",
-    "empty": "Nothing yet. Finish a Lesson and the first one lands here."
+    "empty": "Nothing yet. Finish a Lesson and the first one lands here.",
+    "items": {
+      "lesson": {
+        "title": "Your first Lesson",
+        "detail": "You finished your first Lesson."
+      },
+      "contribution": {
+        "title": "Your first contribution",
+        "detail": "You published “{{title}}”."
+      },
+      "liked": {
+        "title": "Someone found your work useful",
+        "detail": "“{{title}}” was liked by another member."
+      },
+      "endorsed": {
+        "title": "An Owner endorsed your work",
+        "detail": "An Owner endorsed “{{title}}”."
+      },
+      "used": {
+        "title": "Someone learned from what you made",
+        "detail": "Someone completed your practice set."
+      },
+      "space": {
+        "title": "You made a Space",
+        "detail": "You created “{{name}}”."
+      }
+    }
   },
   "history": {
     "eyebrow": "Study history",

@@ -110,7 +110,33 @@
     "name": "Momente",
     "title": "Die ersten Male",
     "lede": "Wann dir hier etwas zum ersten Mal passiert ist. Nichts auf dieser Seite ist eine Punktzahl, und es gibt nichts zu sammeln. Es sind einfach die Tage, an denen sich etwas verändert hat.",
-    "empty": "Noch nichts. Schließ eine Lektion ab, dann landet hier der erste Moment."
+    "empty": "Noch nichts. Schließ eine Lektion ab, dann landet hier der erste Moment.",
+    "items": {
+      "lesson": {
+        "title": "Deine erste Lektion",
+        "detail": "Du hast deine erste Lektion abgeschlossen."
+      },
+      "contribution": {
+        "title": "Dein erster Beitrag",
+        "detail": "Du hast „{{title}}“ veröffentlicht."
+      },
+      "liked": {
+        "title": "Jemand fand deine Arbeit hilfreich",
+        "detail": "„{{title}}“ hat einem anderen Mitglied gefallen."
+      },
+      "endorsed": {
+        "title": "Ein Owner hat deine Arbeit empfohlen",
+        "detail": "Ein Owner hat „{{title}}“ empfohlen."
+      },
+      "used": {
+        "title": "Jemand hat mit deinem Material gelernt",
+        "detail": "Jemand hat dein Übungsset abgeschlossen."
+      },
+      "space": {
+        "title": "Du hast einen Space erstellt",
+        "detail": "Du hast „{{name}}“ erstellt."
+      }
+    }
   },
   "history": {
     "eyebrow": "Lernverlauf",

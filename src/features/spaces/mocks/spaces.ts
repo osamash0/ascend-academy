@@ -56,7 +56,7 @@ export const databaseSystems: Space = {
   lessonsDone: 0,
   newSinceLastVisit: 2,
   online: 34,
-  lastActivity: 'Chidi shared a cheat sheet in Normalization',
+  lastActivity: { key: 'v4Spaces:hub.activity.sharedCheatSheet', values: { name: 'Chidi', lesson: 'Normalization' } },
   lastActiveAt: '2026-08-29T18:40:00Z',
 };
 
@@ -88,7 +88,7 @@ export const cryptography: Space = {
   lessonsDone: 0,
   newSinceLastVisit: 0,
   online: 11,
-  lastActivity: 'Jonas promoted your write-up',
+  lastActivity: { key: 'v4Spaces:hub.activity.promotedYours', values: { name: 'Jonas' } },
   lastActiveAt: '2026-08-27T09:15:00Z',
 };
 
@@ -124,7 +124,7 @@ export const linearAlgebra: Space = {
   draftsPending: 2,
   membersActiveThisWeek: 2,
   online: 2,
-  lastActivity: 'Inês added a determinant diagram',
+  lastActivity: { key: 'v4Spaces:hub.activity.addedDeterminantDiagram', values: { name: 'Inês' } },
   lastActiveAt: '2026-08-30T20:05:00Z',
 };
 
@@ -156,7 +156,7 @@ export const numericsProcessing: Space = {
   draftsPending: 6,
   membersActiveThisWeek: 1,
   online: 1,
-  lastActivity: 'You have 6 drafts waiting',
+  lastActivity: { key: 'v4Spaces:hub.activity.draftsWaiting', values: { count: 6 } },
   lastActiveAt: '2026-08-30T22:44:00Z',
 };
 
@@ -186,7 +186,7 @@ export const statistics: Space = {
   lessonsDone: 4,
   newSinceLastVisit: 0,
   online: 0,
-  lastActivity: 'Archived in March',
+  lastActivity: { key: 'v4Spaces:hub.activity.archivedMarch' },
   lastActiveAt: '2026-03-11T16:00:00Z',
 };
 
@@ -281,7 +281,7 @@ export const discreteStructures: Space = {
   lessonsDone: 3,
   newSinceLastVisit: 0,
   online: 7,
-  lastActivity: 'You finished the path',
+  lastActivity: { key: 'v4Spaces:hub.activity.finishedPath' },
   lastActiveAt: '2026-08-24T11:00:00Z',
 };
 

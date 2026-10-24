@@ -11,6 +11,7 @@ import { AskBar } from '../components/AskBar';
 import { LessonTile } from '../components/LessonTile';
 import type { HomeItem } from '../data/home';
 import { askAcknowledgement, askModel, askNow, askSuggestionsNow, type AskAnswer } from '../data/assistant';
+import { say } from '../data/phrases';
 import { liveWorld } from '../data/world';
 import { useHome } from '../data/useSpaces';
 import { useViewer } from '../data/viewer';
@@ -333,7 +334,7 @@ export default function HomeScreen() {
       >
         <AskBar
           placeholder={t('home.askPlaceholder')}
-          suggestions={askSuggestionsNow()}
+          suggestions={askSuggestionsNow().map((p) => say(t, p))}
           model={askModel}
           onSubmit={(q) => {
             setAsked(q);
@@ -350,7 +351,7 @@ export default function HomeScreen() {
             role="status"
             className="mx-auto mt-3 max-w-2xl rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-[13px] leading-6 text-quiet"
           >
-            {askAcknowledgement(asked)}
+            {say(t, askAcknowledgement(asked))}
           </p>
         )}
         {asked && live && answer && (

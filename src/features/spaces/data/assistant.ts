@@ -1,6 +1,7 @@
 import { askSuggestions as fixtureSuggestions } from '../mocks/assistant';
 import { homeFromWorld } from './home';
 import { liveWorld } from './world';
+import type { Phrase } from './phrases';
 
 export { askAcknowledgement, askModel } from '../mocks/assistant';
 
@@ -26,14 +27,15 @@ export async function askNow(question: string): Promise<AskAnswer> {
  * Lesson they are on and a Space they are in — so the bar never suggests
  * quizzing someone on a course they have never seen.
  */
-export function askSuggestionsNow(): readonly string[] {
+export function askSuggestionsNow(): readonly Phrase[] {
   const world = liveWorld();
   if (!world) return fixtureSuggestions;
   const home = homeFromWorld(world);
   const space = world.spaces.find((s) => s.viewerRole !== null && s.state === 'active');
-  return [
-    'What should I review first?',
-    home.next ? `Explain ${home.next.lessonTitle} more simply` : null,
-    space ? `Quiz me on ${space.name}` : null,
-  ].filter((s): s is string => s !== null);
+  const asks: (Phrase | null)[] = [
+    { key: 'v4Spaces:home.ask.reviewFirst' },
+    home.next ? { key: 'v4Spaces:home.ask.explainSimply', values: { lesson: home.next.lessonTitle } } : null,
+    space ? { key: 'v4Spaces:home.ask.quizMe', values: { space: space.name } } : null,
+  ];
+  return asks.filter((s): s is Phrase => s !== null);
 }
