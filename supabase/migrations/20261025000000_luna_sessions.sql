@@ -62,7 +62,18 @@ CREATE INDEX IF NOT EXISTS learner_memory_user_idx ON public.learner_memory (use
 -- Practice made in a session: the same engine, an owner.
 ALTER TABLE public.review_cards ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS review_cards_owner_idx ON public.review_cards (owner_id) WHERE owner_id IS NOT NULL;
-ALTER TABLE public.review_cards DROP CONSTRAINT IF EXISTS review_cards_source_type_check;
+DO $$
+DECLARE c record;
+BEGIN
+  FOR c IN
+    SELECT conname FROM pg_constraint
+    WHERE conrelid = 'public.review_cards'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%source_type%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.review_cards DROP CONSTRAINT %I', c.conname);
+  END LOOP;
+END $$;
 ALTER TABLE public.review_cards ADD CONSTRAINT review_cards_source_type_check
   CHECK (source_type IN ('quiz_question', 'concept_qa', 'concept_cloze', 'luna_session'));
 
@@ -70,11 +81,30 @@ ALTER TABLE public.review_cards ADD CONSTRAINT review_cards_source_type_check
 DROP POLICY IF EXISTS "review_cards_student_enrolled" ON public.review_cards;
 CREATE POLICY "review_cards_student_enrolled" ON public.review_cards
   FOR SELECT USING (
-    owner_id IS NULL AND EXISTS (
+    hidden_at IS NULL AND owner_id IS NULL AND EXISTS (
       SELECT 1 FROM public.assignment_lectures al
       JOIN public.assignment_enrollments ae ON ae.assignment_id = al.assignment_id
       WHERE al.lecture_id = review_cards.lecture_id
         AND ae.user_id = auth.uid()
+    )
+  );
+-- Two older policies would otherwise expose an owned card to the lecture's
+-- professor (read/update/delete) and to the lecture's student owner.
+DROP POLICY IF EXISTS "review_cards_professor_owns_lecture" ON public.review_cards;
+CREATE POLICY "review_cards_professor_owns_lecture" ON public.review_cards
+  FOR ALL USING (
+    owner_id IS NULL AND EXISTS (
+      SELECT 1 FROM public.lectures l
+      WHERE l.id = review_cards.lecture_id
+        AND l.professor_id = auth.uid()
+    )
+  );
+DROP POLICY IF EXISTS "review_cards_private_owner" ON public.review_cards;
+CREATE POLICY "review_cards_private_owner" ON public.review_cards
+  FOR SELECT USING (
+    owner_id IS NULL AND EXISTS (
+      SELECT 1 FROM public.lectures l
+      WHERE l.id = review_cards.lecture_id AND l.student_owner_id = auth.uid()
     )
   );
 DROP POLICY IF EXISTS "review_cards_owner" ON public.review_cards;

@@ -104,3 +104,88 @@ def test_anon_has_no_grant(db_conn):
         for table in ("luna_sessions", "luna_turns", "learner_memory"):
             cur.execute("SELECT has_table_privilege('anon', %s, 'SELECT')", (f"public.{table}",))
             assert cur.fetchone()[0] is False, table
+
+
+def _enrol(cur, prof, lecture, student) -> None:
+    aid = uuid.uuid4()
+    cur.execute("INSERT INTO public.assignments (id, title, professor_id, due_at) VALUES (%s, 'A', %s, now())", (str(aid), str(prof)))
+    cur.execute("INSERT INTO public.assignment_lectures (assignment_id, lecture_id) VALUES (%s, %s)", (str(aid), str(lecture)))
+    cur.execute("INSERT INTO public.assignment_enrollments (assignment_id, user_id) VALUES (%s, %s)", (str(aid), str(student)))
+
+
+def test_lectures_professor_cannot_read_or_touch_an_owned_card(db_conn, make_user, make_lecture):
+    a, prof = make_user(), make_user(role="professor")
+    lecture = make_lecture(prof)
+    with db_conn.cursor() as cur:
+        _, card = _seed(cur, a, lecture)
+        _as_user(cur, prof)
+        cur.execute("SELECT count(*) FROM public.review_cards WHERE id = %s", (str(card),))
+        assert cur.fetchone()[0] == 0
+        cur.execute("UPDATE public.review_cards SET hidden_at = now() WHERE id = %s", (str(card),))
+        assert cur.rowcount == 0
+        cur.execute("DELETE FROM public.review_cards WHERE id = %s", (str(card),))
+        assert cur.rowcount == 0
+        _reset(cur)
+
+
+def test_lectures_student_owner_cannot_read_someone_elses_owned_card(db_conn, make_user):
+    a, b = make_user(), make_user()
+    lecture = uuid.uuid4()
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO public.lectures (id, title, professor_id, student_owner_id, visibility, total_slides) "
+            "VALUES (%s, 'Private', NULL, %s, 'private_student', 1)",
+            (str(lecture), str(b)),
+        )
+        _, card = _seed(cur, a, lecture)
+        _as_user(cur, b)
+        cur.execute("SELECT count(*) FROM public.review_cards WHERE id = %s", (str(card),))
+        assert cur.fetchone()[0] == 0
+        _reset(cur)
+
+
+def test_hidden_shared_card_stays_hidden_from_enrolled_students(db_conn, make_user, make_lecture):
+    b, prof = make_user(), make_user(role="professor")
+    lecture = make_lecture(prof)
+    card = uuid.uuid4()
+    with db_conn.cursor() as cur:
+        cur.execute(
+            """INSERT INTO public.review_cards (id, lecture_id, source_type, front, back, content_hash)
+               VALUES (%s, %s, 'quiz_question', '{"question":"q"}'::jsonb, '{"correct":0}'::jsonb, %s)""",
+            (str(card), str(lecture), uuid.uuid4().hex),
+        )
+        _enrol(cur, prof, lecture, b)
+        _as_user(cur, b)
+        cur.execute("SELECT count(*) FROM public.review_cards WHERE id = %s", (str(card),))
+        assert cur.fetchone()[0] == 1
+        _reset(cur)
+        cur.execute("UPDATE public.review_cards SET hidden_at = now() WHERE id = %s", (str(card),))
+        _as_user(cur, b)
+        cur.execute("SELECT count(*) FROM public.review_cards WHERE id = %s", (str(card),))
+        assert cur.fetchone()[0] == 0
+        _reset(cur)
+
+
+def test_learner_cannot_insert_turns_or_memory_or_touch_anothers_memory(db_conn, make_user, make_lecture):
+    a, b, prof = make_user(), make_user(), make_user(role="professor")
+    lecture = make_lecture(prof)
+    with db_conn.cursor() as cur:
+        sid, _ = _seed(cur, a, lecture)
+        _as_user(cur, b)
+        cur.execute("UPDATE public.learner_memory SET text = 'x'")
+        assert cur.rowcount == 0
+        cur.execute("DELETE FROM public.learner_memory")
+        assert cur.rowcount == 0
+        _reset(cur)
+    for sql, params in (
+        ("INSERT INTO public.luna_turns (session_id, user_id, client_turn_id, role, content) VALUES (%s, %s, %s, 'learner', '{}'::jsonb)",
+         (str(sid), str(b), str(uuid.uuid4()))),
+        ("INSERT INTO public.learner_memory (user_id, kind, text) VALUES (%s, 'goal', 'x')", (str(b),)),
+    ):
+        with db_conn.cursor() as cur:
+            _as_user(cur, b)
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                cur.execute(sql, params)
+        db_conn.rollback()
+        with db_conn.cursor() as cur:
+            _reset(cur)
