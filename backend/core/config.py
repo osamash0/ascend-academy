@@ -118,6 +118,9 @@ class Settings(BaseSettings):
     feature_student_uploads: bool = Field(alias="FEATURE_STUDENT_UPLOADS", default=False)
     # The v4 Lesson reader on real courses/lectures. Needs no v4 schema.
     feature_v4_reader: bool = Field(alias="FEATURE_V4_READER", default=False)
+    # v4 on real data beyond the reader: the viewer, Spaces, Home, Library
+    # (/api/v1/v4/*). Pair with the frontend's VITE_V4_DATA_MODE=live.
+    feature_v4: bool = Field(alias="FEATURE_V4", default=False)
     # Monthly cap on private uploads per student; quota is the monetization seam.
     student_upload_monthly_limit: int = Field(alias="STUDENT_UPLOAD_MONTHLY_LIMIT", default=5)
 

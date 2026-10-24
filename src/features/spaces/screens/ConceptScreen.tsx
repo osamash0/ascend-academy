@@ -6,16 +6,15 @@ import { cn } from '@/lib/utils';
 import { gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
 import type { ConceptProgress } from '../types';
-import { spaceById } from '../mocks/spaces';
-import { visibleLessonsForSpace } from '../mocks/lessons';
-import { visibleContributions } from '../mocks/engagement';
-import { conceptById, contributionsForConcept } from '../mocks/concepts';
-import { viewer } from '../mocks/people';
+import { visibleContributions } from '../data/contributions';
+import { conceptById, contributionsForConcept } from '../data/concepts';
+import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { useScreenState } from '../data/useSpaces';
 import { ContributionCard } from '../components/ContributionCard';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
+import { liveWorld, spaceById, visibleLessonsForSpace } from '../data/world';
 
 /**
  * One Concept — "a single idea inside a Lesson" (Doc 1). The map's planet.
@@ -43,11 +42,13 @@ const STATE_CLS: Record<ConceptProgress, string> = {
 };
 
 export default function ConceptScreen() {
+  const viewer = useViewer();
   const { t } = useTranslation('v4Space');
   const screenState = useScreenState();
   const { spaceId, conceptId } = useParams<{ spaceId: string; conceptId: string }>();
   const space = spaceId ? spaceById(spaceId) : undefined;
-  const concept = conceptId ? conceptById(conceptId) : undefined;
+  const concept = conceptId ? conceptById(conceptId, spaceId) : undefined;
+  const live = liveWorld() !== null;
 
   const lessons = useMemo(() => {
     if (!space || !concept) return [];
@@ -206,7 +207,10 @@ export default function ConceptScreen() {
           </section>
         )}
 
-        {/* Concept-level community — Doc 1's third anchor. */}
+        {/* Concept-level community — Doc 1's third anchor. Live has no
+            contributions yet, and an empty section asking for one nobody can
+            post is a promise the screen cannot keep. */}
+        {!live && (
         <section className="mt-10">
           <h2 className="mb-1 text-[14px] font-medium text-origin-community">
             {t('concept.community.title')}
@@ -240,6 +244,7 @@ export default function ConceptScreen() {
             </div>
           )}
         </section>
+        )}
       </div>
     </div>,
     concept.name.length,

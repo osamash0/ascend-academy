@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { formatNumber } from '../i18n/format';
 import { isStarred, starCount, toggleStar } from '../mocks/engagement';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import type { Grounding, Origin, Person, Space, SpaceMode, Visibility } from '../types';
 import { Avatar } from './Avatar';
 
@@ -192,7 +192,8 @@ export function ClassificationChips({
     ...(levels.length ? [levels[levels.length - 1].value] : []),
     space.classification.domain,
     ...levels.slice(0, -1).map((l) => l.value),
-  ].slice(0, max);
+    // Real courses carry no classification yet; an empty chip says nothing.
+  ].filter(Boolean).slice(0, max);
 
   if (!chips.length) return null;
 
@@ -235,6 +236,7 @@ export function AuthorLine({
   linkToProfile?: boolean;
   className?: string;
 }) {
+  const viewer = useViewer();
   const body = (
     <>
       {/* One avatar component everywhere — see Avatar.tsx. */}

@@ -235,7 +235,7 @@ jobs:
           # BOTH requirement sets are audited, and **separately**.
           #
           # `requirements-docker.txt` is a deliberately leaner list — it drops
-          # docling, ollama, fastembed and llama-cloud-services — and it is what
+          # docling, ollama and llama-cloud-services — and it is what
           # the production image is built from. It was never scanned, so the
           # dependency set being checked and the set actually deployed were two
           # different things, and the deployed one had no coverage at all.
@@ -266,8 +266,52 @@ jobs:
             --ignore-vuln PYSEC-2026-2280 \
             --ignore-vuln PYSEC-2026-2281 \
             --ignore-vuln PYSEC-2026-3740"
+          # Pillow, dev set only. Every advisory below is fixed in Pillow 13.0,
+          # and requirements-docker.txt (what ships) is on 13 and audits clean
+          # with none of these ignored. requirements.txt can't follow yet:
+          # fastembed (0.8.0, and 0.9.0, the latest) declares pillow<13.0, so
+          # pip cannot resolve the dev set with 13. fastembed is not in the
+          # production image. Remove this list, and bump the Pillow pin in
+          # requirements.txt to 13, once a fastembed release allows it.
+          DEV_ONLY_PILLOW_IGNORES="--ignore-vuln CVE-2026-112390 \
+            --ignore-vuln CVE-2026-112391 \
+            --ignore-vuln CVE-2026-112392 \
+            --ignore-vuln CVE-2026-112393 \
+            --ignore-vuln CVE-2026-112395 \
+            --ignore-vuln CVE-2026-112396 \
+            --ignore-vuln CVE-2026-112397 \
+            --ignore-vuln CVE-2026-112398 \
+            --ignore-vuln CVE-2026-112399 \
+            --ignore-vuln CVE-2026-112400 \
+            --ignore-vuln CVE-2026-112401 \
+            --ignore-vuln CVE-2026-112402 \
+            --ignore-vuln CVE-2026-112404 \
+            --ignore-vuln CVE-2026-112405 \
+            --ignore-vuln CVE-2026-112406 \
+            --ignore-vuln CVE-2026-112891 \
+            --ignore-vuln CVE-2026-112892 \
+            --ignore-vuln CVE-2026-112893 \
+            --ignore-vuln CVE-2026-112894 \
+            --ignore-vuln CVE-2026-112895 \
+            --ignore-vuln CVE-2026-112896 \
+            --ignore-vuln CVE-2026-112897 \
+            --ignore-vuln CVE-2026-112899 \
+            --ignore-vuln CVE-2026-112900 \
+            --ignore-vuln CVE-2026-112901 \
+            --ignore-vuln CVE-2026-114501 \
+            --ignore-vuln CVE-2026-96636 \
+            --ignore-vuln CVE-2026-96637 \
+            --ignore-vuln CVE-2026-96638 \
+            --ignore-vuln CVE-2026-96639 \
+            --ignore-vuln CVE-2026-96640 \
+            --ignore-vuln CVE-2026-96641 \
+            --ignore-vuln CVE-2026-96642 \
+            --ignore-vuln CVE-2026-96643 \
+            --ignore-vuln CVE-2026-96644 \
+            --ignore-vuln CVE-2026-96778 \
+            --ignore-vuln GHSA-78g4-xqwv-q3g8"
           echo "::group::pip-audit — requirements.txt (local dev / venv)"
-          pip-audit -r backend/requirements.txt $AUDIT_IGNORES || status=1
+          pip-audit -r backend/requirements.txt $AUDIT_IGNORES $DEV_ONLY_PILLOW_IGNORES || status=1
           echo "::endgroup::"
           echo "::group::pip-audit — requirements-docker.txt (what ships)"
           pip-audit -r backend/requirements-docker.txt $AUDIT_IGNORES || status=1

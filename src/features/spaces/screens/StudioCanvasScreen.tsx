@@ -6,8 +6,7 @@ import { ChevronLeft, Moon, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { ListSkeleton, NotFound, SpacesError } from '../components/states';
-import { useAsk } from '../data/useAsk';
-import { nextSuggestions } from '../mocks/studio-answers';
+import { nextSuggestions, useAsk } from '../data/useAsk';
 import { useCanvas } from '../data/useSpaces';
 import { shelfActions, shelfSpaceName, useShelfCanvas, useShelfItem } from '../data/useShelf';
 import { Journey } from '../library/Journey';
@@ -563,6 +562,21 @@ export default function StudioCanvasScreen() {
   const frame = (children: React.ReactNode) => root(<div className="mx-auto max-w-3xl p-8">{children}</div>);
   if (state === 'loading') return frame(<ListSkeleton />);
   if (state === 'error') return frame(<SpacesError what="material" />);
+  // A real upload still being read has no Lesson to open yet.
+  if (item?.opens.kind === 'lesson' && !item.opens.lessonId)
+    return frame(
+      <div className="py-24 text-center">
+        <p className="text-[17px] font-semibold">
+          {item.stage === 'failed' ? t('reading.failedTitle') : t('reading.title')}
+        </p>
+        <p className="mx-auto mt-2 max-w-[44ch] text-[14.5px] leading-relaxed opacity-70">
+          {item.stage === 'failed' ? t('reading.failedBody') : t('reading.body', { filename: item.filename })}
+        </p>
+        <Link to="/v4/library" className="mt-6 inline-block text-[14px] underline underline-offset-4">
+          {t('reading.back')}
+        </Link>
+      </div>,
+    );
   if (item?.opens.kind === 'lesson')
     return <Navigate replace to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}`} />;
   if (!item || !doc || !material)

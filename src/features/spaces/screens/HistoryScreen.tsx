@@ -1,22 +1,24 @@
 import { ArrowLeft, Flame } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import {
   currentRun,
   daysStudied,
   lastStudied,
   longestRun,
   recentWeeks,
-  studyDays,
-  TODAY,
-} from '../mocks/history';
+  studyDaysNow,
+  todayNow,
+} from '../data/record';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { Skylight } from '../components/stage';
 import { EnterGroup, EnterItem, EnterList, EnterListItem } from '../components/Enter';
 import { useScreenState } from '../data/useSpaces';
 import { ListSkeleton, SpacesError } from '../components/states';
+import { formatDate, formatTimestamp } from '../i18n/format';
 
 /**
  * Study history — "which days did I actually work?"
@@ -51,22 +53,12 @@ import { ListSkeleton, SpacesError } from '../components/states';
  * Learn mode: a record of you, calm and browsable.
  */
 
-const formatDay = (iso: string) =>
-  new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    timeZone: 'UTC',
-  });
-
-const formatShort = (iso: string) =>
-  new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  });
+/** A calendar day as "Oct 14" / "14. Okt." — read at noon UTC so no time zone moves it a day. */
+const formatShort = (iso: string) => formatTimestamp(`${iso}T12:00:00Z`);
 
 export default function HistoryScreen() {
+  const viewer = useViewer();
+  const { t } = useTranslation('v4People');
   const screenState = useScreenState();
   const run = currentRun();
   const best = longestRun();
@@ -74,7 +66,7 @@ export default function HistoryScreen() {
   const last = lastStudied();
   const weeks = recentWeeks();
   /** Newest first — the recent past is what anyone came here to read. */
-  const days = [...studyDays].sort((a, b) => b.date.localeCompare(a.date));
+  const days = [...studyDaysNow()].sort((a, b) => b.date.localeCompare(a.date));
 
   const chrome = (body: React.ReactNode) => (
     // Profile's rooms share its stage and its neutral light (monochrome brand).
@@ -97,7 +89,7 @@ export default function HistoryScreen() {
         className="console-focusable inline-flex items-center gap-2 rounded-full text-[13.5px] text-quiet transition-colors hover:text-foreground"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" />
-        Profile
+        {t('v4Spaces:nav.profile')}
       </Link>
 
       <EnterGroup>
@@ -105,10 +97,10 @@ export default function HistoryScreen() {
           <header className="mt-6">
             <p className="flex items-center gap-2 text-[13px] font-medium text-quiet">
               <Flame aria-hidden className="h-4 w-4" />
-              Study history
+              {t('history.eyebrow')}
             </p>
             <h1 className="mt-3 text-5xl font-medium tracking-[-0.035em] tabular-nums">
-              {run} {run === 1 ? 'day' : 'days'} running
+              {t('history.run', { count: run })}
             </h1>
             <p className="mt-3 text-[15px] text-quiet">
               {/*
@@ -116,11 +108,11 @@ export default function HistoryScreen() {
                 number on Profile and was simply false whenever an earlier run
                 had been longer — which it had.
               */}
-              Longest so far, {best} {best === 1 ? 'day' : 'days'} · {total} days studied in all
+              {t('history.longest', { count: best })} · {t('history.total', { count: total })}
             </p>
             {last && (
               <p className="mt-2 text-[13px] text-faint">
-                {last === TODAY ? 'Including today.' : `Last on ${formatDay(last)}.`}
+                {last === todayNow() ? t('history.today') : t('history.last', { day: formatDate(last, 'long') })}
               </p>
             )}
           </header>
@@ -128,7 +120,7 @@ export default function HistoryScreen() {
 
         <EnterItem>
           <section className="mt-9">
-            <h2 className="text-[15px] font-semibold">The last six weeks</h2>
+            <h2 className="text-[15px] font-semibold">{t('history.weeks')}</h2>
             <div className="mt-4 flex flex-col gap-1.5">
               {weeks.map((week) => (
                 <div key={week[0].date} className="flex gap-1.5">
@@ -140,7 +132,7 @@ export default function HistoryScreen() {
                     ) : (
                       <div
                         key={d.date}
-                        title={`${formatShort(d.date)} — ${d.studied ? 'studied' : 'no study'}`}
+                        title={t(d.studied ? 'history.studied' : 'history.notStudied', { day: formatShort(d.date) })}
                         className={cn(
                           'h-7 w-7 rounded-[7px] border',
                           d.studied
@@ -159,14 +151,13 @@ export default function HistoryScreen() {
               rewards long days — the second progression again, in CSS.
             */}
             <p className="mt-3 text-[12.5px] text-faint">
-              A filled square is a day you studied. Nothing here counts toward XP or your
-              Rank.
+              {t('history.legend')}
             </p>
           </section>
         </EnterItem>
 
         <EnterItem>
-          <h2 className="mt-10 text-[15px] font-semibold">Every day you studied</h2>
+          <h2 className="mt-10 text-[15px] font-semibold">{t('history.every')}</h2>
         </EnterItem>
       </EnterGroup>
 

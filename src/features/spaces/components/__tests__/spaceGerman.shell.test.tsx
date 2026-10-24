@@ -16,6 +16,7 @@ import { notifications } from '../../mocks/notifications';
  */
 
 const ENGLISH_CHROME = [
+  'Rank',
   'Home',
   'Library',
   'Social',

@@ -28,7 +28,6 @@ DOCKER = BACKEND / "requirements-docker.txt"
 # Packages in requirements.txt but deliberately absent from the prod image.
 ONLY_IN_FULL: dict[str, str] = {
     # Documented in requirements-docker.txt's header.
-    "fastembed": "parser v3/v4 only (lazy import)",
     "llama-cloud-services": "parser v3/v4 only (lazy import)",
     "ollama": "local LLM runner, unreachable inside Docker",
     "paddleocr": "dead code, removed from ocr_fallback.py",

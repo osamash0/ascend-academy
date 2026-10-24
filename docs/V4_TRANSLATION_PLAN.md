@@ -1,6 +1,6 @@
 # Translating v4 — plan
 
-*2026-10-11. Scope: everything a reader sees in `src/features/spaces` (the v4 app: Home, Spaces, the Space page, the reader, rehearsal, Library/Studio, Social, Profile, Settings). Status: decisions taken (Abi, 2026-10-11: "go with your recommendations") — the words are in `docs/V4_GLOSSARY.md`. **Slices 0–4 done**; slice 5 next.*
+*2026-10-11. Scope: everything a reader sees in `src/features/spaces` (the v4 app: Home, Spaces, the Space page, the reader, rehearsal, Library/Studio, Social, Profile, Settings). Status: decisions taken (Abi, 2026-10-11: "go with your recommendations") — the words are in `docs/V4_GLOSSARY.md`. **All slices done (0–6)**: v4 is German for German readers, and `npm run lint` keeps it so.*
 
 ## Where we are
 
@@ -41,18 +41,21 @@ House rules that are already decided (`docs/BRAND_VOICE.md`, "German register"):
 | **2** ✓ | **Space page** — Today, exam plan + runway, map, journey, search, rehearsal, Lesson page | ~180 (done: 299 v4Space keys + badges and the Lesson pager in v4Spaces) | plan reasons read naturally in German (via `{key, params}`) — the planners return phrases (`components/course/phrase.ts`); four `spaceGerman.*.test.tsx` files render the live Space page, the map, the runway, rehearsal, the Lesson page and the demo Space page in German. Still English there: the shared states' sentences (`states.tsx` weaves an English `what` — slice 3 redesigns them as whole sentences per screen, since German needs the noun's gender) and the top bar |
 | **3** ✓ | **Home, Spaces hub, top bar, mobile nav, states, dialogs** | ~200 (done: 351 keys — also the Space manage screen, idea and practice pages, and the older `/read` reader) | every empty, error and loading state in German — `states.tsx` now takes *which* thing (`what="lesson"`) and picks a whole sentence, since German needs the noun's gender; `spaceGerman.states.test.tsx` renders every one. Still English: the Home ask box's suggestion chips (demo assistant data) |
 | **4** ✓ | **Library + Studio** | ~170 (done: 81 keys) | `spaceGerman.library` and `spaceGerman.studio` render the Library, every filter, and every Studio view in German; dates and sizes via `format.ts` (`formatTimestamp`, `formatMegabytes`) |
-| **5** | **Social, Profile, Person, Rank, Moments, Settings, History** | ~250 | — |
-| **6** | Guards (below) switched from warn to fail | — | CI fails on a new hard-coded string |
+| **5** ✓ | **Social, Profile, Person, Rank, Moments, Settings, History** | ~250 (done: 114 keys) | `spaceGerman.social`, `.profile` and `.settings` render each in German; the rank label (`mocks/rank.ts` `rankLabel`) is said when shown, so the top bar reads „Rang 1“ |
+| **6** ✓ | Guards (below), failing from the start | — | CI fails on a new hard-coded string — `npm run lint:v4` |
 
 Slices 1 and 2 are where a German student actually spends their time; if only two ship this month, ship those.
 
 ## Guards — so it stays translated
 
-- **No literal strings in v4 JSX:** an ESLint rule scoped to `src/features/spaces` (`i18next/no-literal-string`, JSX text + `aria-label` / `title` / `placeholder`), warn during slices 1–5, fail after.
-- **Parity** — already enforced; the new namespaces join it automatically.
-- **German vocabulary:** extend `check-vocabulary.mjs` to read the v4 `de` files and ban *Kurs, Vorlesung, Folie*, *Dozent* without `:in`, and *Sie* as address.
-- **A German render test per room:** render each screen after `i18n.changeLanguage('de')` and assert no raw keys and none of a short list of English sentinel words in visible text.
-- **The AI side follows the same register:** `write_in()` tells German prompts *du, never Sie*, gender-inclusive forms, no exclamation marks (the first German run said "Ordnen Sie …"; fixed on PR #83).
+All run in CI through `npm run lint` and the test suite.
+
+- **No words written into v4 JSX** — `scripts/check-v4-strings.mjs` (`npm run lint:v4`). It parses every `.tsx` under `src/features/spaces` (not `__tests__`, not `mocks`) with the TypeScript compiler and fails on any JSX text, `aria-label`, `title`, `placeholder`, `alt`, `label`, `aria-description` or `aria-valuetext` written as a literal. Not words: text without letters (`·`, `/ 82`), a lone lowercase identifier (`label="spaces"` is a key), and the loanwords in its `ALLOWED` list (Space, XP, Studio, …). A deliberate exception carries `i18n-ignore` on its line or the line above, with the reason. *Chosen over an ESLint plugin: no new dependency, and it reads the real syntax tree, so comments and class names can never trip it.*
+- **German vocabulary and register** — the same script reads every `de/v4*.json` and fails on *Folie, Vorlesung, Kurs, Konzept, Student(en)*, *Dozent* without `:in`, a formal *Sie / Ihnen / Ihr* mid-sentence (at a sentence's start it is "they" or the informal plural, and allowed), and exclamation marks.
+- **Parity** — `scripts/check-i18n-parity.cjs` (`npm run lint:i18n`): every key in both languages.
+- **The guard is tested** — `src/features/spaces/__tests__/v4Strings.test.ts` writes files that must fail it and files that must pass, so a change that quietly stops it catching anything fails first.
+- **A German render test per room** — `components/__tests__/readerGerman.test.tsx` and `spaceGerman.*.test.tsx` (plan, lesson, rehearse, demo, states, shell, home, dialogs, practice, library, studio, social, profile, settings) render each screen after `i18n.changeLanguage('de')` and fail on raw keys or the room's English phrases.
+- **The AI side follows the same register** — `write_in()` tells German prompts *du, never Sie*, gender-inclusive forms, no exclamation marks.
 
 ## Effort and order
 

@@ -17,9 +17,9 @@ asyncpg==0.31.0
 # `requirements-docker.txt` separately pins `pypdf>=3.0,<6.0`; dropping a
 # dependency the production image still asks for is a larger change than a
 # security fix should carry on its back.
-pypdf==6.19.0
+pypdf==6.21.2
 PyMuPDF==1.27.1
-Pillow==12.3.0
+Pillow==13.0.0
 pillow-heif==1.8.1
 python-multipart==0.0.31
 ollama==0.6.2
@@ -47,7 +47,6 @@ markitdown[pptx]==0.1.6   # native PPTX → per-slide markdown import (markitdow
 # and 1 litellm advisory (PYSEC-2026-4190..4196, CVE-2026-105748,
 # PYSEC-2026-4066), which failed CI's SCA job on every run.
 arq==0.28.0
-fastembed==0.8.0
 
 openai==2.35.0
 sentry-sdk==2.66.0

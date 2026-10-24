@@ -11,6 +11,7 @@ import { grade, type Grade } from '../components/rehearsal/grade';
 import { composeRehearsal, saveRehearsal, useCourse, useRehearsalHistory } from '../data/useReader';
 import { fadingIdeas, type FadingIdea } from '../components/course/today';
 import type { Rehearsal, RehearsalHistory } from '../data/liveRepository';
+import { spaceById } from '../data/world';
 import { formatRelativeDays } from '../i18n/format';
 
 /**
@@ -32,7 +33,7 @@ type Phase =
   | { at: 'composing'; lectures: string[] }
   | { at: 'failed'; weak: boolean; retry: () => void }
   | { at: 'running'; rehearsal: Rehearsal; index: number; grades: (Grade | null)[] }
-  | { at: 'done'; rehearsal: Rehearsal; grades: Grade[]; saved: 'saving' | 'saved' | 'failed' };
+  | { at: 'done'; rehearsal: Rehearsal; grades: Grade[]; saved: 'saving' | 'saved' | 'failed' | 'unkept' };
 
 const LENGTHS = [5, 8, 12];
 
@@ -226,6 +227,8 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
     const next = () => {
       if (!last) return setPhase({ ...phase, index: index + 1 });
       const done = grades as Grade[];
+      // Your own uploads have no course to keep a history under (yet): say so, do not try.
+      if (spaceById(course.id)?.personal) return setPhase({ at: 'done', rehearsal, grades: done, saved: 'unkept' });
       setPhase({ at: 'done', rehearsal, grades: done, saved: 'saving' });
       /* Into your history: what each question tested, and whether it was right. */
       saveRehearsal(
@@ -385,7 +388,9 @@ function Debrief({
             ? t('rehearse.debrief.saving')
             : phase.saved === 'saved'
               ? t('rehearse.debrief.saved')
-              : t('rehearse.debrief.saveFailed')}
+              : phase.saved === 'unkept'
+                ? t('rehearse.debrief.unkept')
+                : t('rehearse.debrief.saveFailed')}
         </p>
         <svg width={160} height={160} viewBox="0 0 160 160" aria-hidden>
           <circle cx={80} cy={80} r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={10} />

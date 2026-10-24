@@ -2,8 +2,7 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { PracticeQuestion } from '../../mocks/practice';
-import { gradeAnswer } from '../../mocks/practice';
+import { gradeAnswer, type PracticeQuestion, type ServerGrade } from '../../data/practice';
 import { Pressable } from '../Pressable';
 import { Plane } from './Planes';
 import { useSummoned } from './useSummoned';
@@ -16,10 +15,11 @@ import { useSummoned } from './useSummoned';
  * back. So leaving practice is the same gesture as switching faces, which is
  * the point — one motion, one meaning.
  *
- * The questions and the grading are the Lesson's practice bank, unchanged
- * (`mocks/practice.ts`). Nothing here awards anything: practice inside the
- * reader is rehearsal, and what it does to the map is the open question the
- * reader has always refused to answer on its own.
+ * The questions are the Lesson's practice bank — the fixtures in demo, the
+ * lecture's real quiz questions live (`data/practice.ts`). Feedback is
+ * immediate and local; `onAnswer` (live only) is where the answer *counts*:
+ * the server grades it again, logs the attempt and grants XP once per
+ * question. The XP line appears only when the server says it was granted.
  */
 
 interface Props {
@@ -27,14 +27,16 @@ interface Props {
   lessonTitle: string;
   questions: PracticeQuestion[];
   onClose: () => void;
+  onAnswer?: (q: PracticeQuestion, answer: string) => Promise<ServerGrade>;
 }
 
-export function PracticePlane({ open, lessonTitle, questions, onClose }: Props) {
+export function PracticePlane({ open, lessonTitle, questions, onClose, onAnswer }: Props) {
   const { t } = useTranslation('v4Reader');
   const ref = useRef<HTMLElement>(null);
   const [i, setI] = useState(0);
   const [chosen, setChosen] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
+  const [xp, setXp] = useState(0);
   useSummoned(open, onClose, ref);
 
   if (!open) return null;
@@ -42,9 +44,21 @@ export function PracticePlane({ open, lessonTitle, questions, onClose }: Props) 
   const graded = checked && q && chosen !== null ? gradeAnswer(q, chosen) : null;
   const last = i === questions.length - 1;
 
+  const check = () => {
+    setChecked(true);
+    if (onAnswer && q && chosen !== null) {
+      onAnswer(q, chosen)
+        .then((g) => setXp(g.xp))
+        .catch(() => {
+          /* The grade on screen stands; only the server's record of it was lost. */
+        });
+    }
+  };
+
   const next = () => {
     setChosen(null);
     setChecked(false);
+    setXp(0);
     if (last) onClose();
     else setI((n) => n + 1);
   };
@@ -126,13 +140,18 @@ export function PracticePlane({ open, lessonTitle, questions, onClose }: Props) 
                   {graded.explanation}
                 </p>
               )}
+              {xp > 0 && (
+                <p aria-live="polite" className="mt-2 text-[13px] tabular-nums text-success">
+                  +{xp} XP
+                </p>
+              )}
 
               <div className="mt-6 flex justify-end">
                 {!checked ? (
                   <button
                     type="button"
                     disabled={chosen === null}
-                    onClick={() => setChecked(true)}
+                    onClick={check}
                     className="console-focusable inline-flex h-10 items-center rounded-full bg-white px-5 text-[14px] font-semibold text-slate-900 disabled:bg-white/[0.10] disabled:text-quiet"
                   >
                     {t('practice.check')}
