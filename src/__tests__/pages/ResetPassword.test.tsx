@@ -30,16 +30,13 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => navigateMock };
 });
 
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string, opts: any) => opts?.defaultValue || key }),
-  I18nextProvider: ({ children }: any) => <>{children}</>,
-}));
 
 vi.mock('@/components/LanguageToggle', () => ({
   LanguageToggle: () => <div data-testid="lang-toggle" />,
 }));
 
 import ResetPassword from '@/pages/ResetPassword';
+import i18n from '@/i18n';
 
 function renderPage() {
   return render(
@@ -49,7 +46,8 @@ function renderPage() {
   );
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  await i18n.changeLanguage('en');
   supabaseMock.reset();
   vi.clearAllMocks();
   toastMock.mockClear();

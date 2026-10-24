@@ -1,4 +1,5 @@
 import type { Person } from '../types';
+import type { Phrase } from '../data/phrases';
 import { ferreira, lindqvist, okonkwo, weber } from './people';
 
 /**
@@ -43,6 +44,11 @@ export interface AppNotification {
   target: NotificationTarget;
   /** Who caused it, where a person did. Drives the avatar. */
   actor?: Person;
+  /**
+   * The two lines as translation keys, where we write the sentence ourselves.
+   * `title` and `message` stay the stored text, as the column holds it.
+   */
+  phrase?: { title: Phrase; message: Phrase };
 }
 
 export const notifications: AppNotification[] = [
@@ -54,6 +60,13 @@ export const notifications: AppNotification[] = [
     read: false,
     created_at: '2026-08-31T08:40:00Z',
     actor: lindqvist,
+    phrase: {
+      title: { key: 'v4Spaces:notifications.items.endorsed.title', values: { name: 'Åsa' } },
+      message: {
+        key: 'v4Spaces:notifications.items.endorsed.message',
+        values: { title: 'Mnemonic for the normal forms', space: 'Database Systems' },
+      },
+    },
     target: { kind: 'lesson', lessonId: 'l-s-dbs-4', spaceName: 'Database Systems' },
   },
   {
@@ -65,6 +78,10 @@ export const notifications: AppNotification[] = [
     created_at: '2026-08-31T07:10:00Z',
     actor: okonkwo,
     target: { kind: 'person', person: okonkwo },
+    phrase: {
+      title: { key: 'v4Spaces:notifications.items.friendRequest.title', values: { name: 'Chidi' } },
+      message: { key: 'v4Spaces:notifications.items.friendRequest.message', values: { count: 1 } },
+    },
   },
   {
     id: 'n-3',
@@ -74,6 +91,13 @@ export const notifications: AppNotification[] = [
     read: false,
     created_at: '2026-08-30T19:05:00Z',
     target: { kind: 'lesson', lessonId: 'l-s-dbs-3', spaceName: 'Database Systems' },
+    phrase: {
+      title: { key: 'v4Spaces:notifications.items.newLessons.title', values: { count: 2 } },
+      message: {
+        key: 'v4Spaces:notifications.items.newLessons.message',
+        values: { lessons: 'Relational Design, Normalization', space: 'Database Systems' },
+      },
+    },
   },
   {
     id: 'n-4',
@@ -83,6 +107,10 @@ export const notifications: AppNotification[] = [
     read: true,
     created_at: '2026-08-30T14:20:00Z',
     actor: ferreira,
+    phrase: {
+      title: { key: 'v4Spaces:notifications.items.used.title' },
+      message: { key: 'v4Spaces:notifications.items.used.message', values: { title: '20 normalization questions' } },
+    },
     target: { kind: 'lesson', lessonId: 'l-s-dbs-4', spaceName: 'Database Systems' },
   },
   {
@@ -98,6 +126,10 @@ export const notifications: AppNotification[] = [
     read: true,
     created_at: '2026-08-29T20:10:00Z',
     target: { kind: 'profile' },
+    phrase: {
+      title: { key: 'v4Spaces:notifications.items.contributor.title' },
+      message: { key: 'v4Spaces:notifications.items.contributor.message' },
+    },
   },
   {
     /*
@@ -119,6 +151,10 @@ export const notifications: AppNotification[] = [
     read: true,
     created_at: '2026-08-28T11:30:00Z',
     actor: weber,
+    phrase: {
+      title: { key: 'v4Spaces:notifications.items.promoted.title', values: { name: 'Jonas' } },
+      message: { key: 'v4Spaces:notifications.items.promoted.message', values: { space: 'Advanced Topics in Cryptography' } },
+    },
     target: {
       kind: 'lesson',
       lessonId: 'l-s-crypto-13',
@@ -130,6 +166,10 @@ export const notifications: AppNotification[] = [
     title: 'Four days running',
     message: 'You have studied four days in a row.',
     type: 'streak',
+    phrase: {
+      title: { key: 'v4Spaces:notifications.items.streak.title', values: { count: 4 } },
+      message: { key: 'v4Spaces:notifications.items.streak.message', values: { count: 4 } },
+    },
     read: true,
     created_at: '2026-08-29T18:00:00Z',
     target: { kind: 'profile' },

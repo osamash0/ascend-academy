@@ -1,3 +1,5 @@
+import type { Phrase } from '../data/phrases';
+
 /**
  * What Luna offers to be asked, on Home.
  *
@@ -15,10 +17,10 @@
  */
 
 /** Offered under the bar. Three at most — a wall of chips is a menu, not a hint. */
-export const askSuggestions: readonly string[] = [
-  'What should I review first?',
-  'Explain Basics more simply',
-  'Quiz me on Database Systems',
+export const askSuggestions: readonly Phrase[] = [
+  { key: 'v4Spaces:home.ask.reviewFirst' },
+  { key: 'v4Spaces:home.ask.explainSimply', values: { lesson: 'Basics' } },
+  { key: 'v4Spaces:home.ask.quizMe', values: { space: 'Database Systems' } },
 ];
 
 /** Named, not chosen. The picker belongs in Settings, where it already lives. */
@@ -32,5 +34,7 @@ export const askModel = 'auto';
  * indistinguishable from a wrong one. Until there is a backend, the honest
  * response is to name the question and admit it cannot answer yet.
  */
-export const askAcknowledgement = (question: string) =>
-  `Not wired up yet — I can’t answer “${question}” until the assistant is connected.`;
+export const askAcknowledgement = (question: string): Phrase => ({
+  key: 'v4Spaces:home.ask.notWired',
+  values: { question },
+});

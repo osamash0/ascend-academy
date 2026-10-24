@@ -9,6 +9,7 @@ import { Skylight } from '../components/stage';
 import { EnterGroup, EnterItem, EnterList, EnterListItem } from '../components/Enter';
 import { useScreenState } from '../data/useSpaces';
 import { ListSkeleton, SpacesError } from '../components/states';
+import { momentText } from '../data/phrases';
 
 /**
  * Moments — the first time each thing happened.
@@ -115,7 +116,7 @@ export default function MomentsScreen() {
               className="rounded-2xl border border-white/[0.08] bg-white/[0.035] px-5 py-4"
             >
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h2 className="text-[15px] font-semibold">{m.title}</h2>
+                <h2 className="text-[15px] font-semibold">{momentText(t, m).title}</h2>
                 {/*
                   A Space carries no creation date, so this one has no day. Left
                   off rather than guessed — the orphan row's invented Space is
@@ -127,7 +128,7 @@ export default function MomentsScreen() {
                   </span>
                 )}
               </div>
-              <p className="mt-1.5 text-[14px] leading-relaxed text-quiet">{m.detail}</p>
+              <p className="mt-1.5 text-[14px] leading-relaxed text-quiet">{momentText(t, m).detail}</p>
             </EnterListItem>
           ))}
         </EnterList>

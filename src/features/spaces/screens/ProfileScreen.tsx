@@ -15,6 +15,7 @@ import { AscentMap, ascentSpaces } from '../components/AscentMap';
 import { Sep, Skylight, StageRow, ghostPillSm, stageCard } from '../components/stage';
 import { visibleSpaces } from '../data/world';
 import { formatNumber } from '../i18n/format';
+import { momentText } from '../data/phrases';
 
 /**
  * Profile — "how far have I come?"
@@ -173,8 +174,8 @@ export default function ProfileScreen() {
                 key={m.id}
                 className={cn(stageCard, 'px-4 py-3.5')}
               >
-                <p className="text-[14.5px] font-semibold">{m.title}</p>
-                <p className="mt-1 text-[13px] text-quiet">{m.detail}</p>
+                <p className="text-[14.5px] font-semibold">{momentText(t, m).title}</p>
+                <p className="mt-1 text-[13px] text-quiet">{momentText(t, m).detail}</p>
               </li>
             ))}
           </ul>

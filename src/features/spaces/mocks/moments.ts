@@ -1,6 +1,7 @@
 import { libraryItems } from './library';
 import { createdByViewer } from './spaces';
 import { xpEvents, type XpSource } from './rank';
+import type { Phrase } from '../data/phrases';
 
 /**
  * Moments — the first time each thing happened to you.
@@ -61,7 +62,14 @@ export interface Moment {
    * fabricated `'s-dbs'` all over again. The screen renders it without a date.
    */
   at: string | null;
+  /** Title and sentence as translation keys; `title` and `detail` stay the English. */
+  phrase?: { title: Phrase; detail: Phrase };
 }
+
+const K = 'v4People:moments.items';
+
+/** The words inside “…” in a ledger label, which are a title and stay as written. */
+const quoted = (label: string) => /“(.+)”/.exec(label)?.[1] ?? null;
 
 /** The earliest XP event of a given kind, or `null` if it never happened. */
 const firstBySource = (source: XpSource) =>
@@ -101,6 +109,7 @@ export const moments = (): Moment[] => {
       // a moment is something you read.
       detail: `${firstLearning.label.replace(/^Finished\s+/, 'You finished ')}.`,
       at: firstLearning.at,
+      phrase: { title: { key: `${K}.lesson.title` }, detail: { key: `${K}.lesson.detail` } },
     });
   }
 
@@ -114,6 +123,10 @@ export const moments = (): Moment[] => {
       title: 'Your first contribution',
       detail: `You published “${item.title}”.`,
       at: firstContribution,
+      phrase: {
+        title: { key: `${K}.contribution.title` },
+        detail: { key: `${K}.contribution.detail`, values: { title: item.title } },
+      },
     });
   }
 
@@ -124,6 +137,10 @@ export const moments = (): Moment[] => {
       title: 'Someone found your work useful',
       detail: firstLiked.label.replace(/ was liked$/, ' was liked by another member.'),
       at: firstLiked.at,
+      phrase: {
+        title: { key: `${K}.liked.title` },
+        detail: { key: `${K}.liked.detail`, values: { title: quoted(firstLiked.label) ?? '' } },
+      },
     });
   }
 
@@ -134,6 +151,10 @@ export const moments = (): Moment[] => {
       title: 'An Owner endorsed your work',
       detail: `${firstEndorsed.label}.`,
       at: firstEndorsed.at,
+      phrase: {
+        title: { key: `${K}.endorsed.title` },
+        detail: { key: `${K}.endorsed.detail`, values: { title: quoted(firstEndorsed.label) ?? '' } },
+      },
     });
   }
 
@@ -144,6 +165,7 @@ export const moments = (): Moment[] => {
       title: 'Someone learned from what you made',
       detail: `${firstUsed.label}.`,
       at: firstUsed.at,
+      phrase: { title: { key: `${K}.used.title` }, detail: { key: `${K}.used.detail` } },
     });
   }
 
@@ -155,6 +177,10 @@ export const moments = (): Moment[] => {
       detail: `You created “${mine.name}”.`,
       // No Space carries a creation date. Undated beats invented.
       at: null,
+      phrase: {
+        title: { key: `${K}.space.title` },
+        detail: { key: `${K}.space.detail`, values: { name: mine.name } },
+      },
     });
   }
 

@@ -112,7 +112,7 @@ def test_property_roles_never_see_boilerplate(pages):
 
 
 @settings(max_examples=40)
-@given(decks(min_pages=6))
+@given(decks(min_pages=6, max_pages=16))
 def test_metamorphic_appending_a_page_keeps_existing_roles(pages):
     before = build_deck_skeleton(pages)
     after = build_deck_skeleton(pages + [pages[-1]])

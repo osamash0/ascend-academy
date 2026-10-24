@@ -8,6 +8,7 @@ import { ModeBadge } from '../badges';
 import type { Space } from '../../types';
 import { coverFor, initialFor } from './covers';
 import { membershipOf } from '../../data/hub';
+import { say } from '../../data/phrases';
 import { itemVariants, railVariants } from '../Enter';
 import { PRESS_SPRING } from '../Pressable';
 
@@ -154,7 +155,7 @@ export function WideCard({ space }: { space: Space }) {
     >
       <Link
         to={`/v4/space/${space.id}`}
-        aria-label={`${space.name}${space.lastActivity ? `. ${space.lastActivity}` : ''}`}
+        aria-label={`${space.name}${space.lastActivity ? `. ${say(t, space.lastActivity)}` : ''}`}
         className={cn(
           'console-focusable group relative block w-[300px] overflow-hidden rounded-[14px] sm:w-[380px]',
           CARD_OUTLINE,
@@ -200,7 +201,7 @@ export function WideCard({ space }: { space: Space }) {
           <span className="mb-1 block text-[16.5px] font-semibold">{space.name}</span>
           {space.lastActivity && (
             <span className="block truncate text-[12.5px] text-quiet">
-              {space.lastActivity}
+              {say(t, space.lastActivity)}
             </span>
           )}
         </span>
