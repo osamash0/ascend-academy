@@ -19,6 +19,7 @@ import { useViewer } from '../data/viewer';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { AppNotification, NotificationKind } from '../data/notifications';
 import { groupedByDay, markAllRead, unreadCount } from '../data/notifications';
+import { notificationText } from '../data/phrases';
 
 /**
  * Notifications.
@@ -95,6 +96,7 @@ function Row({
 }) {
   const viewer = useViewer();
   const { t } = useTranslation('v4Spaces');
+  const text = notificationText(t, n);
   const Icon = KIND_ICON[n.type];
 
   return (
@@ -137,10 +139,10 @@ function Row({
 
       <span className="min-w-0 flex-1">
         <span className="block text-[14px] font-semibold leading-snug text-foreground">
-          {n.title}
+          {text.title}
         </span>
         <span className="mt-0.5 block text-[13px] leading-relaxed text-quiet">
-          {n.message}
+          {text.message}
         </span>
       </span>
 

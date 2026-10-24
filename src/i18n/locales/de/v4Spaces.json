@@ -120,6 +120,48 @@
     "empty": {
       "title": "Noch nichts da",
       "body": "Wenn jemand deine Arbeit likt oder empfiehlt, siehst du es hier. Genauso, wenn ein Space, in dem du bist, etwas veröffentlicht."
+    },
+    "items": {
+      "levelUp": {
+        "title": "Stufe {{level}}",
+        "message": "Du hast Stufe {{level}} erreicht."
+      },
+      "materialAdded": {
+        "title": "Material zu deinem Space hinzugefügt",
+        "message": "{{file}} ist bereit zum Lernen."
+      },
+      "endorsed": {
+        "title": "{{name}} hat deine Arbeit empfohlen",
+        "message": "„{{title}}“ ist in {{space}} jetzt als empfohlen markiert."
+      },
+      "friendRequest": {
+        "title": "{{name}} möchte mit dir befreundet sein",
+        "message_one": "Ihr teilt {{count}} Space.",
+        "message_other": "Ihr teilt {{count}} Spaces."
+      },
+      "newLessons": {
+        "title_one": "{{count}} neue Lektion",
+        "title_other": "{{count}} neue Lektionen",
+        "message": "{{lessons}}: neu in {{space}}."
+      },
+      "used": {
+        "title": "Dein Übungsset wurde genutzt",
+        "message": "Jemand hat „{{title}}“ abgeschlossen. Das bringt XP."
+      },
+      "contributor": {
+        "title": "Abzeichen erhalten: Mitwirkend",
+        "message": "Du hast deinen ersten Beitrag in einem Space veröffentlicht."
+      },
+      "promoted": {
+        "title": "{{name}} hat deinen Beitrag in den Pfad aufgenommen",
+        "message": "Er ist jetzt Teil des Pfads in {{space}}, mit deinem Namen."
+      },
+      "streak": {
+        "title_one": "{{count}} Tag am Stück",
+        "title_other": "{{count}} Tage am Stück",
+        "message_one": "Du hast {{count}} Tag in Folge gelernt.",
+        "message_other": "Du hast {{count}} Tage in Folge gelernt."
+      }
     }
   },
   "search": {
@@ -189,6 +231,12 @@
       "from": "Aus {{space}}",
       "citation": "{{lesson}} · Seite {{page}}",
       "lesson": "Lektion"
+    },
+    "ask": {
+      "reviewFirst": "Was soll ich zuerst wiederholen?",
+      "explainSimply": "Erklär mir {{lesson}} einfacher",
+      "quizMe": "Frag mich zu {{space}} ab",
+      "notWired": "Noch nicht angeschlossen: Auf „{{question}}“ kann ich erst antworten, wenn der Assistent verbunden ist."
     }
   },
   "hub": {
@@ -273,6 +321,15 @@
       "newLessons_one": "{{count}} neue Lektion",
       "newLessons_other": "{{count}} neue Lektionen",
       "discover": "Spaces entdecken"
+    },
+    "activity": {
+      "sharedCheatSheet": "{{name}} hat einen Spickzettel in {{lesson}} geteilt",
+      "promotedYours": "{{name}} hat deinen Beitrag in den Pfad aufgenommen",
+      "addedDeterminantDiagram": "{{name}} hat ein Diagramm zur Determinante hinzugefügt",
+      "draftsWaiting_one": "{{count}} Entwurf wartet auf dich",
+      "draftsWaiting_other": "{{count}} Entwürfe warten auf dich",
+      "archivedMarch": "Im März archiviert",
+      "finishedPath": "Du hast den Pfad abgeschlossen"
     }
   },
   "tiles": {
@@ -409,5 +466,127 @@
     "toOpen": "Tritt bei, um {{title}} zu öffnen.",
     "members_one": "<b>{{n}}</b> Mitglied",
     "members_other": "<b>{{n}}</b> Mitglieder"
+  },
+  "achievements": {
+    "welcomeAboard": {
+      "name": "Willkommen an Bord",
+      "description": "Deine allererste Seite geöffnet."
+    },
+    "identitySet": {
+      "name": "Profil steht",
+      "description": "Anzeigenamen und Profilfoto gewählt."
+    },
+    "verifiedScholar": {
+      "name": "Bestätigt",
+      "description": "Deine Uni-E-Mail bestätigt."
+    },
+    "firstQuiz": {
+      "name": "Erstes Quiz geschafft",
+      "description": "Dein erstes Quiz zu einer Lektion abgeschlossen."
+    },
+    "perfectScore": {
+      "name": "Volle Punktzahl",
+      "description": "100 % in einem Quiz zu einer Lektion."
+    },
+    "flawlessFive": {
+      "name": "Fünfmal fehlerfrei",
+      "description": "100 % in fünf Lektionen."
+    },
+    "quizMaster": {
+      "name": "Quiz-Profi",
+      "description": "50 Fragen richtig beantwortet."
+    },
+    "sharpshooter": {
+      "name": "Treffsicher",
+      "description": "250 Fragen richtig beantwortet."
+    },
+    "onFire": {
+      "name": "In Fahrt",
+      "description": "Fünf richtige Antworten in Folge."
+    },
+    "unstoppable": {
+      "name": "Nicht zu bremsen",
+      "description": "Zehn richtige Antworten in Folge."
+    },
+    "firstSteps": {
+      "name": "Erste Schritte",
+      "description": "Deine erste Lektion abgeschlossen."
+    },
+    "bookworm": {
+      "name": "Bücherwurm",
+      "description": "Fünf Lektionen abgeschlossen."
+    },
+    "graduate": {
+      "name": "Absolvent",
+      "description": "Zehn Lektionen abgeschlossen."
+    },
+    "scholar": {
+      "name": "Gelehrt",
+      "description": "Fünfundzwanzig Lektionen abgeschlossen."
+    },
+    "courseConqueror": {
+      "name": "Space gemeistert",
+      "description": "Einen ganzen Space abgeschlossen."
+    },
+    "polymath": {
+      "name": "Universalgelehrt",
+      "description": "Drei ganze Spaces abgeschlossen."
+    },
+    "gettingStarted": {
+      "name": "Gut gestartet",
+      "description": "Drei Tage am Stück gelernt."
+    },
+    "consistent": {
+      "name": "Beständig",
+      "description": "Sieben Tage am Stück gelernt."
+    },
+    "dedicated": {
+      "name": "Engagiert",
+      "description": "Dreißig Tage am Stück gelernt."
+    },
+    "curiousMind": {
+      "name": "Neugierig",
+      "description": "Dem KI-Tutor deine erste Frage gestellt."
+    },
+    "inquisitive": {
+      "name": "Wissbegierig",
+      "description": "Dem KI-Tutor zwanzig Fragen gestellt."
+    },
+    "quickThinker": {
+      "name": "Schnell im Kopf",
+      "description": "Deinen ersten Verständnischeck gemacht."
+    },
+    "checkpointChampion": {
+      "name": "Check-Profi",
+      "description": "Fünfundzwanzig Verständnischecks gemacht."
+    },
+    "voiceHeard": {
+      "name": "Gehört",
+      "description": "Feedback geteilt, damit wir besser werden."
+    },
+    "level5": {
+      "name": "Stufe 5",
+      "description": "Stufe 5 erreicht."
+    },
+    "level10": {
+      "name": "Stufe 10",
+      "description": "Stufe 10 erreicht."
+    },
+    "level25": {
+      "name": "Stufe 25",
+      "description": "Stufe 25 erreicht."
+    },
+    "examReady": {
+      "name": "Prüfungsbereit",
+      "description": "80 % oder mehr in einer Probeklausur."
+    },
+    "streak5": {
+      "name": "Fünf in Folge",
+      "description": "Fünf richtige Antworten in Folge."
+    },
+    "streak10": {
+      "name": "Zehn in Folge",
+      "description": "Zehn richtige Antworten in Folge."
+    }
   }
 }

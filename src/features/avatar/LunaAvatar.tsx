@@ -4,7 +4,9 @@
  * Paint order (back → front): backdrop, aura (back), suit body + patch,
  * helmet + face + expression, gear, aura (front), companion.
  *
- * `variant="head"` crops to the helmet for chips and lists; the companion
+ * `variant="head"` crops to the helmet for chips and lists; `variant="face"`
+ * crops closer still, for bylines and rows where the avatar is 20–36 px and
+ * anything around the helmet would only blur; the companion
  * still orbits, so even a 36px avatar carries its owner's little buddy.
  */
 import { useId, useMemo } from 'react';
@@ -36,7 +38,7 @@ function isDark(hex: string): boolean {
 export interface LunaAvatarProps {
   loadout?: Partial<Loadout>;
   mood?: Mood;
-  variant?: 'full' | 'head';
+  variant?: 'full' | 'head' | 'face';
   /** Rendered width in px. */
   size?: number;
   animated?: boolean;
@@ -69,8 +71,8 @@ export function LunaAvatar({
   const suitFill = suit.color2 ? `url(#${uid}-suit)` : suit.color;
   const visorStroke = visor.color2 ? `url(#${uid}-visor)` : visor.color;
 
-  const head = variant === 'head';
-  const viewBox = head ? '24 0 112 112' : '0 -8 160 188';
+  const head = variant === 'head' || variant === 'face';
+  const viewBox = variant === 'face' ? '34 14 92 92' : head ? '24 0 112 112' : '0 -8 160 188';
   const height = head ? size : (size * 188) / 160;
   const orbit = head
     ? { cx: 80, cy: 60, rx: 50, ry: 14 }

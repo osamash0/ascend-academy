@@ -120,6 +120,48 @@
     "empty": {
       "title": "Nothing yet",
       "body": "When someone likes or endorses your work, or a Space you are in publishes something, it turns up here."
+    },
+    "items": {
+      "levelUp": {
+        "title": "Level {{level}}",
+        "message": "You reached level {{level}}."
+      },
+      "materialAdded": {
+        "title": "Material added to your Space",
+        "message": "{{file}} is ready to study."
+      },
+      "endorsed": {
+        "title": "{{name}} endorsed your work",
+        "message": "“{{title}}” is now marked endorsed in {{space}}."
+      },
+      "friendRequest": {
+        "title": "{{name}} wants to be friends",
+        "message_one": "You share {{count}} Space.",
+        "message_other": "You share {{count}} Spaces."
+      },
+      "newLessons": {
+        "title_one": "{{count}} new Lesson",
+        "title_other": "{{count}} new Lessons",
+        "message": "{{lessons}}: new in {{space}}."
+      },
+      "used": {
+        "title": "Your practice set was used",
+        "message": "Someone completed “{{title}}”. That earns XP."
+      },
+      "contributor": {
+        "title": "Badge earned: Contributor",
+        "message": "You published your first contribution to a Space."
+      },
+      "promoted": {
+        "title": "{{name}} promoted your write-up",
+        "message": "It is now part of the path in {{space}}, credited to you."
+      },
+      "streak": {
+        "title_one": "{{count}} day running",
+        "title_other": "{{count}} days running",
+        "message_one": "You have studied {{count}} day in a row.",
+        "message_other": "You have studied {{count}} days in a row."
+      }
     }
   },
   "search": {
@@ -189,6 +231,12 @@
       "from": "From {{space}}",
       "citation": "{{lesson}} · page {{page}}",
       "lesson": "Lesson"
+    },
+    "ask": {
+      "reviewFirst": "What should I review first?",
+      "explainSimply": "Explain {{lesson}} more simply",
+      "quizMe": "Quiz me on {{space}}",
+      "notWired": "Not wired up yet — I can’t answer “{{question}}” until the assistant is connected."
     }
   },
   "hub": {
@@ -273,6 +321,15 @@
       "newLessons_one": "{{count}} new Lesson",
       "newLessons_other": "{{count}} new Lessons",
       "discover": "Discover spaces"
+    },
+    "activity": {
+      "sharedCheatSheet": "{{name}} shared a cheat sheet in {{lesson}}",
+      "promotedYours": "{{name}} promoted your write-up",
+      "addedDeterminantDiagram": "{{name}} added a determinant diagram",
+      "draftsWaiting_one": "You have {{count}} draft waiting",
+      "draftsWaiting_other": "You have {{count}} drafts waiting",
+      "archivedMarch": "Archived in March",
+      "finishedPath": "You finished the path"
     }
   },
   "tiles": {
@@ -409,5 +466,127 @@
     "toOpen": "Join to open {{title}}.",
     "members_one": "<b>{{n}}</b> member",
     "members_other": "<b>{{n}}</b> members"
+  },
+  "achievements": {
+    "welcomeAboard": {
+      "name": "Welcome Aboard",
+      "description": "Opened your very first page."
+    },
+    "identitySet": {
+      "name": "Identity Set",
+      "description": "Chose a display name and a profile photo."
+    },
+    "verifiedScholar": {
+      "name": "Verified Scholar",
+      "description": "Verified your university email."
+    },
+    "firstQuiz": {
+      "name": "First Quiz Completed",
+      "description": "Completed your first Lesson quiz."
+    },
+    "perfectScore": {
+      "name": "Perfect Score",
+      "description": "Scored 100% on a Lesson quiz."
+    },
+    "flawlessFive": {
+      "name": "Flawless Five",
+      "description": "Scored 100% on five Lessons."
+    },
+    "quizMaster": {
+      "name": "Quiz Master",
+      "description": "Answered 50 questions correctly."
+    },
+    "sharpshooter": {
+      "name": "Sharpshooter",
+      "description": "Answered 250 questions correctly."
+    },
+    "onFire": {
+      "name": "On Fire",
+      "description": "Five correct answers in a row."
+    },
+    "unstoppable": {
+      "name": "Unstoppable",
+      "description": "Ten correct answers in a row."
+    },
+    "firstSteps": {
+      "name": "First Steps",
+      "description": "Completed your first Lesson."
+    },
+    "bookworm": {
+      "name": "Bookworm",
+      "description": "Completed five Lessons."
+    },
+    "graduate": {
+      "name": "Graduate",
+      "description": "Completed ten Lessons."
+    },
+    "scholar": {
+      "name": "Scholar",
+      "description": "Completed twenty-five Lessons."
+    },
+    "courseConqueror": {
+      "name": "Space Conqueror",
+      "description": "Finished an entire Space."
+    },
+    "polymath": {
+      "name": "Polymath",
+      "description": "Finished three full Spaces."
+    },
+    "gettingStarted": {
+      "name": "Getting Started",
+      "description": "Kept a three-day study streak."
+    },
+    "consistent": {
+      "name": "Consistent",
+      "description": "Kept a seven-day study streak."
+    },
+    "dedicated": {
+      "name": "Dedicated",
+      "description": "Kept a thirty-day study streak."
+    },
+    "curiousMind": {
+      "name": "Curious Mind",
+      "description": "Asked the AI tutor your first question."
+    },
+    "inquisitive": {
+      "name": "Inquisitive",
+      "description": "Asked the AI tutor twenty questions."
+    },
+    "quickThinker": {
+      "name": "Quick Thinker",
+      "description": "Did your first comprehension check."
+    },
+    "checkpointChampion": {
+      "name": "Checkpoint Champion",
+      "description": "Did twenty-five comprehension checks."
+    },
+    "voiceHeard": {
+      "name": "Voice Heard",
+      "description": "Shared feedback to help us improve."
+    },
+    "level5": {
+      "name": "Level 5 Scholar",
+      "description": "Reached level 5."
+    },
+    "level10": {
+      "name": "Level 10 Expert",
+      "description": "Reached level 10."
+    },
+    "level25": {
+      "name": "Level 25 Legend",
+      "description": "Reached level 25."
+    },
+    "examReady": {
+      "name": "Exam Ready",
+      "description": "Scored 80% or higher on a mock exam."
+    },
+    "streak5": {
+      "name": "5 Streak Master",
+      "description": "Five correct answers in a row."
+    },
+    "streak10": {
+      "name": "10 Streak Champion",
+      "description": "Ten correct answers in a row."
+    }
   }
 }

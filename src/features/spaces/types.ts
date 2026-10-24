@@ -13,6 +13,8 @@
  *                 has grounding switched off, render no marker at all.
  */
 
+import type { Phrase } from './data/phrases';
+
 /** A person. Every piece of content carries one — anonymous content is not allowed. */
 export interface Person {
   id: string;
@@ -142,7 +144,7 @@ export interface Space {
    * NEEDS-BACKEND: `newSinceLastVisit` counts Lessons but says nothing about
    * what changed, and the rail's whole job is to remind you why you were here.
    */
-  lastActivity?: string;
+  lastActivity?: Phrase;
   /** The viewer's progress across the path, 0–100. */
   viewerProgress: number;
 
