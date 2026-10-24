@@ -109,7 +109,7 @@ export default function LibraryScreen() {
     ) : variant === 'empty' ? (
       /* Live: nothing to bring in here yet, so no tile that pretends to take a file. */
       <p className="mx-auto mt-16 max-w-[44ch] text-center text-[15px] leading-relaxed text-quiet">
-        Notes you write in a Lesson gather here, each one a tap from the page it was written on.
+        {t('wordsEmpty')}
       </p>
     ) : null;
 

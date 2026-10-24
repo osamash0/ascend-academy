@@ -74,7 +74,6 @@
       "history": "Dein Lernverlauf konnte nicht geladen werden",
       "rank": "Dein Rang konnte nicht geladen werden",
       "next": "Dein nächster Schritt konnte nicht geladen werden",
-      "material": "Dieses Material konnte nicht geladen werden",
       "body": "Die Verbindung ist unterwegs abgebrochen. Von deinen Sachen ist nichts verloren.",
       "retry": "Noch mal versuchen"
     },
@@ -181,6 +180,13 @@
       "join": "Mit Code beitreten",
       "liveBody": "Noch gibt es nichts zum Weitermachen. Such dir einen Space für etwas, das du lernst – beitreten geht mit einem Tipp, und die erste Lektion wartet schon.",
       "find": "Space finden"
+    },
+    "answer": {
+      "thinking": "Dein Material wird gelesen…",
+      "failed": "Der Tutor ist gerade nicht erreichbar. Frag gleich noch einmal.",
+      "from": "Aus {{space}}",
+      "citation": "{{lesson}} · Seite {{page}}",
+      "lesson": "Lektion"
     }
   },
   "hub": {
@@ -392,5 +398,11 @@
     "hint": "Speichert, wenn du woanders klickst · Esc zum Abbrechen",
     "delete": "Diese Notiz löschen",
     "done": "Fertig"
+  },
+  "join": {
+    "join": "Beitreten",
+    "joining": "Beitritt läuft…",
+    "failed": "Beitreten hat gerade nicht geklappt. Nichts hat sich geändert – versuch es noch einmal.",
+    "inside": "Darin"
   }
 }

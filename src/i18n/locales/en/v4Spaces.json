@@ -74,7 +74,6 @@
       "history": "Couldn’t load your study history",
       "rank": "Couldn’t load your rank",
       "next": "Couldn’t load your next thing",
-      "material": "Couldn’t load this Material",
       "body": "The connection dropped on the way. Nothing of yours is lost.",
       "retry": "Try again"
     },
@@ -181,6 +180,13 @@
       "join": "Join with a code",
       "liveBody": "Nothing to pick up yet. Find a Space for something you’re learning — joining takes one tap, and its first Lesson is waiting inside.",
       "find": "Find a Space"
+    },
+    "answer": {
+      "thinking": "Reading your material…",
+      "failed": "Couldn’t reach the tutor just now. Ask again in a moment.",
+      "from": "From {{space}}",
+      "citation": "{{lesson}} · page {{page}}",
+      "lesson": "Lesson"
     }
   },
   "hub": {
@@ -392,5 +398,11 @@
     "hint": "Saves when you click away · Esc to cancel",
     "delete": "Delete this note",
     "done": "Done"
+  },
+  "join": {
+    "join": "Join",
+    "joining": "Joining…",
+    "failed": "Couldn’t join just now. Nothing changed — try again.",
+    "inside": "Inside"
   }
 }

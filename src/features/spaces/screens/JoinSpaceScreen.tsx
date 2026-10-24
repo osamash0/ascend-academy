@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BookOpen } from 'lucide-react';
 import { Scene, SURFACES } from '../components/Scene';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -18,6 +19,7 @@ import { publishedLessonsForSpace, spaceById } from '../data/world';
  * members only, as everywhere else.
  */
 export default function JoinSpaceScreen({ spaceId }: { spaceId: string }) {
+  const { t } = useTranslation('v4Spaces');
   const viewer = useViewer();
   const refreshWorld = useRefreshWorld();
   const space = spaceById(spaceId);
@@ -66,15 +68,15 @@ export default function JoinSpaceScreen({ spaceId }: { spaceId: string }) {
         disabled={joining}
         className="console-focusable mt-8 inline-flex h-12 items-center gap-2 rounded-full bg-white px-8 text-[14px] font-semibold text-slate-900 disabled:opacity-60"
       >
-        {joining ? 'Joining…' : 'Join'}
+        {joining ? t('join.joining') : t('join.join')}
       </Pressable>
       {failed && (
         <p role="alert" className="mt-3 text-[13px] text-destructive">
-          Couldn’t join just now. Nothing changed — try again.
+          {t('join.failed')}
         </p>
       )}
 
-      <h2 className="mt-14 text-[13px] font-medium text-quiet">Inside</h2>
+      <h2 className="mt-14 text-[13px] font-medium text-quiet">{t('join.inside')}</h2>
       <ol className="mt-4 space-y-1">
         {lessons.map((l) => (
           <li key={l.id} className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px]">

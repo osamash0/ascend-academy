@@ -422,7 +422,7 @@ export default function LessonFacesScreen() {
     const onKey = (e: KeyboardEvent) => {
       if (bench || e.metaKey || e.ctrlKey || e.altKey) return;
       const el = e.target instanceof Element ? e.target : null;
-      if (el?.closest('input, textarea, [contenteditable="true"], [aria-label="Studio"]')) return;
+      if (el?.closest('input, textarea, [contenteditable="true"], [data-studio="text"]')) return;
       const by =
         e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'PageUp' ? -1 : 0;
       const step = view === 'slide' ? (e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0) : 0;

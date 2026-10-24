@@ -345,13 +345,13 @@ export default function HomeScreen() {
             aria-live="polite"
             className="mx-auto mt-3 max-w-2xl rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-4 text-[14px] leading-6"
           >
-            {answer.state === 'thinking' && <p className="text-quiet">Reading your material…</p>}
+            {answer.state === 'thinking' && <p className="text-quiet">{t('home.answer.thinking')}</p>}
             {answer.state === 'failed' && (
-              <p className="text-quiet">Couldn’t reach the tutor just now. Ask again in a moment.</p>
+              <p className="text-quiet">{t('home.answer.failed')}</p>
             )}
             {answer.state === 'done' && (
               <>
-                {answer.a.spaceName && <p className="mb-1.5 text-[12px] text-quiet">From {answer.a.spaceName}</p>}
+                {answer.a.spaceName && <p className="mb-1.5 text-[12px] text-quiet">{t('home.answer.from', { space: answer.a.spaceName })}</p>}
                 <p className="whitespace-pre-line text-foreground">{answer.a.reply}</p>
                 {answer.a.citations.length > 0 && answer.a.spaceId && (
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -361,7 +361,7 @@ export default function HomeScreen() {
                         to={`/v4/space/${answer.a.spaceId}/lesson/${c.lessonId}/faces?page=${c.page}`}
                         className="console-focusable rounded-full bg-white/[0.06] px-3 py-1 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.1] hover:text-foreground"
                       >
-                        {c.lessonTitle ?? 'Lesson'} · page {c.page}
+                        {t('home.answer.citation', { lesson: c.lessonTitle ?? t('home.answer.lesson'), page: c.page })}
                       </Link>
                     ))}
                   </div>

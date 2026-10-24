@@ -245,7 +245,8 @@
         "todo": "noch nicht"
       },
       "ledeLive": "Was du hinzugefügt hast, und deine Worte aus jeder Lektion.",
-      "ledeWords": "Deine Worte, aus jeder Lektion."
+      "ledeWords": "Deine Worte, aus jeder Lektion.",
+      "wordsEmpty": "Notizen, die du in einer Lektion schreibst, sammeln sich hier – jede nur einen Tipp von der Seite entfernt, auf der sie entstand."
     }
   },
   "studio": {
