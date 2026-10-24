@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { firstWords } from '../text';
 import { ProgressRing } from './ProgressRing';
@@ -13,11 +14,14 @@ interface Props {
 }
 
 /** A page's name in the rail: its first heading, else its first words. */
-function labelFor(g: PageGroup): string {
-  if (g.page === 0) return 'Your notes';
+/** `useTranslation` already bound to `studio.canvas`. */
+type Say = (key: 'rail.notes' | 'rail.page', params?: { page: number }) => string;
+
+function labelFor(g: PageGroup, t: Say): string {
+  if (g.page === 0) return t('rail.notes');
   const heading = g.blocks.find((b) => /^#{1,6}\s/.test(b.markdown));
   const text = (heading ?? g.blocks[0])?.markdown ?? '';
-  return firstWords(text, 8) || `Page ${g.page}`;
+  return firstWords(text, 8) || t('rail.page', { page: g.page });
 }
 
 /**
@@ -26,10 +30,11 @@ function labelFor(g: PageGroup): string {
  * progress bar.
  */
 export function PageRail({ groups, current, onPage, progress }: Props) {
-  const entries = useMemo(() => groups.map((g) => ({ page: g.page, key: `${g.materialId}-${g.page}`, label: labelFor(g) })), [groups]);
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas' });
+  const entries = useMemo(() => groups.map((g) => ({ page: g.page, key: `${g.materialId}-${g.page}`, label: labelFor(g, t) })), [groups, t]);
   return (
-    <nav aria-label="Pages of this Material" className="w-full">
-      <p className="mb-3 text-[12.5px] font-medium text-faint">Pages</p>
+    <nav aria-label={t('rail.label')} className="w-full">
+      <p className="mb-3 text-[12.5px] font-medium text-faint">{t('rail.heading')}</p>
       <ol className="space-y-0.5">
         {entries.map((e) => {
           const here = e.page === current;

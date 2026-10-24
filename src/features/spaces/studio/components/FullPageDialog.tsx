@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { boxStyle } from '../geometry';
@@ -19,16 +20,17 @@ export function FullPageDialog({
   materialName: string;
   theme: StudioTheme;
 }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas' });
   const [zoom, setZoom] = useState<(typeof ZOOMS)[number]>(1);
   const { page, box } = region;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="studio-surface max-w-5xl rounded-2xl border-[rgb(var(--studio-hairline))]" data-theme={theme}>
         <DialogTitle className="text-[15px] font-medium tracking-[-0.01em]">
-          {materialName} · page {page.page}
+          {t('full.title', { name: materialName, page: page.page })}
         </DialogTitle>
-        <DialogDescription className="sr-only">The source page, with the selected spot outlined.</DialogDescription>
-        <div className="flex w-fit gap-1 rounded-full bg-[rgb(var(--studio-chip))] p-1" role="group" aria-label="Zoom">
+        <DialogDescription className="sr-only">{t('full.description')}</DialogDescription>
+        <div className="flex w-fit gap-1 rounded-full bg-[rgb(var(--studio-chip))] p-1" role="group" aria-label={t('full.zoom')}>
           {ZOOMS.map((z) => (
             <button
               key={z}
@@ -57,7 +59,7 @@ export function FullPageDialog({
             >
               <img
                 src={page.imageUrl}
-                alt={`Page ${page.page} of ${materialName}`}
+                alt={t('page.alt', { page: page.page, name: materialName })}
                 className="absolute inset-0 h-full w-full object-contain"
               />
               {box && (

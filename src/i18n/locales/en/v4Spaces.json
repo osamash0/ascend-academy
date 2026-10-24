@@ -74,6 +74,7 @@
       "history": "Couldn’t load your study history",
       "rank": "Couldn’t load your rank",
       "next": "Couldn’t load your next thing",
+      "material": "Couldn’t load this Material",
       "body": "The connection dropped on the way. Nothing of yours is lost.",
       "retry": "Try again"
     },

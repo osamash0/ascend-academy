@@ -1,4 +1,5 @@
 import { motion, useReducedMotion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { CanvasView } from '../useMorph';
 
@@ -14,10 +15,9 @@ interface Props {
   onToggle(): void;
 }
 
-const VIEWS = [
-  { id: 'clean', label: 'Learn' },
-  { id: 'original', label: 'Source' },
-] as const;
+const VIEWS = ['clean', 'original'] as const;
+/** The face's name is `v4Library:studio.canvas.view.*`, under its own key. */
+const NAME = { clean: 'learn', original: 'source' } as const;
 
 /**
  * Clean | Original — spec §4.2. Press-and-hold is a quick look; a tap stays.
@@ -26,6 +26,7 @@ const VIEWS = [
  * track), but it stays one `switch`: two faces of one Material, one control.
  */
 export function MorphSwitch({ view, shown, onPressStart, onPressEnd, onPressCancel, onToggle }: Props) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.view' });
   const original = view === 'original';
   const reduce = useReducedMotion();
   return (
@@ -37,7 +38,7 @@ export function MorphSwitch({ view, shown, onPressStart, onPressEnd, onPressCanc
         type="button"
         role="switch"
         aria-checked={original}
-        aria-label="Show source"
+        aria-label={t('show')}
         onPointerDown={(e) => {
           if (e.button !== 0) return;
           e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -55,10 +56,10 @@ export function MorphSwitch({ view, shown, onPressStart, onPressEnd, onPressCanc
         className="console-focusable relative flex select-none rounded-full bg-[rgb(var(--studio-chip))] p-1"
       >
         {VIEWS.map((v) => {
-          const on = shown === v.id;
+          const on = shown === v;
           return (
             <span
-              key={v.id}
+              key={v}
               className={cn(
                 'relative flex h-8 items-center rounded-full px-4 text-[13px] transition-colors',
                 on ? 'text-background' : 'text-quiet hover:text-foreground',
@@ -71,13 +72,13 @@ export function MorphSwitch({ view, shown, onPressStart, onPressEnd, onPressCanc
                   className="absolute inset-0 rounded-full bg-foreground"
                 />
               )}
-              <span className="relative">{v.label}</span>
+              <span className="relative">{t(NAME[v])}</span>
             </span>
           );
         })}
       </button>
       <span className="sr-only" aria-live="polite">
-        {original ? 'Showing the source' : 'Showing Learn'}
+        {original ? t('showingSource') : t('showingLearn')}
       </span>
     </div>
   );

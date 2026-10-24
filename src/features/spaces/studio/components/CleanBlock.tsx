@@ -1,5 +1,6 @@
 import { memo, useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Markdown } from './Markdown';
 import {
@@ -54,6 +55,7 @@ export const CleanBlock = memo(function CleanBlock({
   block, page, index, count, morph, flying, lowConfidence, active, flash, markerDisabled, glow = false, theme = 'dark', recall = null,
   onPointerEnter, onPointerLeave, onOpenPeek, onClosePeek,
 }: Props) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.page' });
   const sourced = hasSource(block);
   const gist = block.origin === 'summary' && block.gist;
   const reduce = useReducedMotion();
@@ -121,16 +123,16 @@ export const CleanBlock = memo(function CleanBlock({
       {sourced &&
         (markerDisabled ? (
           <span className="absolute -left-14 top-1.5 w-11 text-right text-[11px] tabular-nums text-faint">
-            p.{page}
+            {t('marker', { page })}
           </span>
         ) : (
           <button
             type="button"
             onClick={() => onOpenPeek(block.id)}
-            aria-label={`Show the source, page ${page}`}
+            aria-label={t('showSource', { page })}
             className="absolute -left-14 top-1 min-h-6 w-11 rounded-full bg-[rgb(var(--studio-chip))] text-[11px] tabular-nums text-quiet opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:bg-transparent [@media(hover:none)]:text-faint [@media(hover:none)]:opacity-100"
           >
-            p.{page}
+            {t('marker', { page })}
           </button>
         ))}
       <motion.div

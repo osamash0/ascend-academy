@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, Moon, Sun } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { ListSkeleton, NotFound, SpacesError } from '../components/states';
 import { nextSuggestions, useAsk } from '../data/useAsk';
@@ -38,9 +39,6 @@ import { firstWords } from '../studio/text';
 import type { CanvasDoc, GeneratedBlock, SourcePage } from '../studio/types';
 import '../studio/studio-surface.css';
 
-const HINT = 'Rest on a paragraph to see the source, press S, or ask below.';
-const HINT_NO_ORIGINAL = 'Use ← → to move between pages, or ask below.';
-const HINT_RECALL = ' · R to recall';
 /** How long "Back on page N" stands in for the hint. */
 const BACK_ON_MS = 4000;
 
@@ -55,6 +53,7 @@ const BACK_ON_MS = 4000;
  * anchor page, the open Peek) so nothing is lost when a panel unmounts.
  */
 export default function StudioCanvasScreen() {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas' });
   const { materialId } = useParams<{ materialId: string }>();
   const { state: shelfState, item } = useShelfItem(materialId);
   const canvasId = item?.opens.kind === 'canvas' ? item.opens.canvasId : undefined;
@@ -216,8 +215,8 @@ export default function StudioCanvasScreen() {
   }, [onCanvas, itemId]);
   useEffect(() => {
     if (backOn === null) return;
-    const t = setTimeout(() => setBackOn(null), BACK_ON_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setBackOn(null), BACK_ON_MS);
+    return () => clearTimeout(timer);
   }, [backOn]);
 
   /*
@@ -254,13 +253,13 @@ export default function StudioCanvasScreen() {
 
   useEffect(() => {
     if (!flying) return;
-    const t = setTimeout(() => setFlying(false), FLIGHT_S * 1000 + 300);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setFlying(false), FLIGHT_S * 1000 + 300);
+    return () => clearTimeout(timer);
   }, [flying, morph.shown]);
   useEffect(() => {
     if (!flashId) return;
-    const t = setTimeout(() => setFlashId(null), 1200);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setFlashId(null), 1200);
+    return () => clearTimeout(timer);
   }, [flashId]);
   useEffect(() => () => clearTimeout(backTimer.current), []);
 
@@ -375,7 +374,7 @@ export default function StudioCanvasScreen() {
     const id = focusAfterRestore.current;
     if (!id) return;
     focusAfterRestore.current = null;
-    document.querySelector<HTMLElement>(`[data-block-id="${id}"] button[aria-label="Remove this answer"]`)?.focus();
+    document.querySelector<HTMLElement>(`[data-block-id="${id}"] button[data-remove-answer]`)?.focus();
   }, [doc]);
   /** The composer input, if you asked from it: it is disabled while answering, so focus goes back after. */
   const refocus = useRef<HTMLElement | null>(null);
@@ -439,7 +438,11 @@ export default function StudioCanvasScreen() {
         setGlowId(anchorId);
       }
     });
-    say(`Answer added under: ${anchorBlock ? firstWords(anchorBlock.markdown) : 'the end'} (for: ${question})`);
+    say(
+      anchorBlock
+        ? t('answer.added', { where: firstWords(anchorBlock.markdown), question })
+        : t('answer.addedEnd', { question }),
+    );
   };
 
   /* Leaving Learn ends any growth: on the way back the answer is simply there. */
@@ -564,22 +567,20 @@ export default function StudioCanvasScreen() {
     return frame(
       <div className="py-24 text-center">
         <p className="text-[17px] font-semibold">
-          {item.stage === 'failed' ? 'This file could not be read' : 'Still being read'}
+          {item.stage === 'failed' ? t('reading.failedTitle') : t('reading.title')}
         </p>
         <p className="mx-auto mt-2 max-w-[44ch] text-[14.5px] leading-relaxed opacity-70">
-          {item.stage === 'failed'
-            ? 'Nothing was made from it. Try bringing it in again, or another copy of it.'
-            : `${item.filename} opens as a Lesson as soon as it has been read. It takes a minute or two.`}
+          {item.stage === 'failed' ? t('reading.failedBody') : t('reading.body', { filename: item.filename })}
         </p>
         <Link to="/v4/library" className="mt-6 inline-block text-[14px] underline underline-offset-4">
-          Back to Library
+          {t('reading.back')}
         </Link>
       </div>,
     );
   if (item?.opens.kind === 'lesson')
     return <Navigate replace to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}`} />;
   if (!item || !doc || !material)
-    return frame(<NotFound what="material" back={{ to: "/v4/library", place: "library" }} />);
+    return frame(<NotFound what="material" back={{ to: '/v4/library', place: 'library' }} />);
 
   const peekPanel = (
     <PeekSlot
@@ -605,19 +606,19 @@ export default function StudioCanvasScreen() {
         <div className="relative flex min-h-[88px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-5">
           <Link
             to="/v4/library"
-            aria-label="Back to Library"
+            aria-label={t('back')}
             className="console-focusable order-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-[rgb(var(--studio-chip))] hover:text-foreground"
           >
             <ChevronLeft aria-hidden className="h-5 w-5" />
           </Link>
           <div className="order-3 w-full min-w-0 text-center xl:pointer-events-none xl:absolute xl:inset-x-[27rem] xl:top-1/2 xl:order-2 xl:w-auto xl:-translate-y-1/2">
             <div className="flex min-w-0 items-baseline justify-center gap-2">
-              <nav aria-label="Breadcrumb" className="flex shrink-0 items-baseline gap-2">
+              <nav aria-label={t('breadcrumb')} className="flex shrink-0 items-baseline gap-2">
                 <Link
                   to="/v4/library"
                   className="console-focusable pointer-events-auto rounded text-[14px] text-quiet hover:text-foreground"
                 >
-                  Library
+                  {t('library')}
                 </Link>
                 <span aria-hidden className="text-faint">·</span>
               </nav>
@@ -625,7 +626,7 @@ export default function StudioCanvasScreen() {
                 {item.filename}
               </h1>
             </div>
-            {item.sample && <p className="mt-1 truncate text-[12.5px] text-faint">Sample pages in this preview</p>}
+            {item.sample && <p className="mt-1 truncate text-[12.5px] text-faint">{t('sample')}</p>}
           </div>
           <div className="order-2 ml-auto flex items-center gap-2 xl:order-3">
             <button
@@ -634,7 +635,7 @@ export default function StudioCanvasScreen() {
               onClick={recall.stored.toggle}
               aria-pressed={recall.stored.state.on}
               disabled={original}
-              title={original ? 'Recall works in Learn' : undefined}
+              title={original ? t('recall.needsLearn') : undefined}
               className={cn(
                 'console-focusable h-9 rounded-full px-3.5 text-[13px] transition-colors disabled:cursor-not-allowed disabled:opacity-40',
                 recall.stored.state.on
@@ -642,12 +643,12 @@ export default function StudioCanvasScreen() {
                   : 'text-faint hover:bg-[rgb(var(--studio-chip))] hover:text-foreground',
               )}
             >
-              Recall
+              {t('recall.toggle')}
             </button>
             <button
               type="button"
               onClick={toggleTheme}
-              aria-label={theme === 'dark' ? 'Use light theme' : 'Use dark theme'}
+              aria-label={theme === 'dark' ? t('themeLight') : t('themeDark')}
               className="console-focusable flex h-9 w-9 items-center justify-center rounded-full text-faint transition-colors hover:bg-[rgb(var(--studio-chip))] hover:text-foreground"
             >
               {theme === 'dark' ? <Sun aria-hidden className="h-4 w-4" /> : <Moon aria-hidden className="h-4 w-4" />}
@@ -757,10 +758,12 @@ export default function StudioCanvasScreen() {
           notice={notice}
           hint={
             backOn !== null
-              ? `Back on page ${backOn}`
+              ? t('hint.backOn', { page: backOn })
               : engaged
                 ? null
-                : (material.sourceRemoved ? HINT_NO_ORIGINAL : HINT).replace(/\.$/, '') + HINT_RECALL
+                : material.sourceRemoved
+                  ? t('hint.noOriginal')
+                  : t('hint.source')
           }
           onAsk={onAsk}
           pager={
@@ -776,7 +779,7 @@ export default function StudioCanvasScreen() {
           }
         />
       </div>
-      <p role="status" aria-live="polite" aria-label="Canvas updates" className="sr-only">
+      <p role="status" aria-live="polite" aria-label={t('updates')} className="sr-only">
         {announce}
       </p>
 

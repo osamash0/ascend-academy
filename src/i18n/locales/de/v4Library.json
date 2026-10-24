@@ -66,6 +66,186 @@
         "body": "Teil eine Zusammenfassung, ein durchgerechnetes Beispiel oder Übungsfragen mit einem Space. Was du veröffentlichst, erscheint hier. Und du siehst, wie es ankam."
       },
       "toSpaces": "Zu deinen Spaces"
+    },
+    "shelf": {
+      "title": "Bibliothek",
+      "lede": "Was du hinzugefügt, daraus gemacht und geteilt hast.",
+      "heading": "Dein Regal",
+      "onlyYou": "Nur du",
+      "aSpace": "einem Space",
+      "sample": "Beispielseiten",
+      "ready": "bereit",
+      "isReady": "{{file}} ist bereit",
+      "pages_one": "{{count}} Seite",
+      "pages_other": "{{count}} Seiten",
+      "filter": {
+        "label": "Filter",
+        "all": "Alles",
+        "reading": "Am Lesen",
+        "shared": "Geteilt",
+        "words": "Deine Worte"
+      },
+      "sort": {
+        "label": "Sortieren",
+        "recent": "Zuletzt geöffnet",
+        "added": "Hinzugefügt",
+        "az": "A–Z"
+      },
+      "select": "Auswählen…",
+      "group": "Nach Space gruppieren",
+      "search": {
+        "label": "In deiner Bibliothek suchen",
+        "placeholder": "In deiner Bibliothek suchen   /"
+      },
+      "nothing": {
+        "query": "Nichts in deinem Regal passt zu „{{q}}“.",
+        "shared": "Noch nichts geteilt. Wenn eine Seite für andere bereit ist, teile sie direkt auf der Seite.",
+        "reading": "Nichts mehr zu lesen. Hier ist alles durchgelesen."
+      },
+      "state": {
+        "developing": "Wird vorbereitet…",
+        "failed": "Wir konnten dieses Material nicht lesen",
+        "draft": "Entwurf in {{space}}",
+        "shared": "Geteilt in {{space}}",
+        "private": "Nur du"
+      },
+      "life": {
+        "read": "Gelesen {{read}}/{{total}}",
+        "recall": "Gewusst {{knew}}/{{total}}",
+        "answers_one": "{{count}} Antwort",
+        "answers_other": "{{count}} Antworten",
+        "notes_one": "{{count}} Notiz",
+        "notes_other": "{{count}} Notizen"
+      },
+      "endorsed": "Empfohlen",
+      "cover": {
+        "more": "Mehr zu {{name}}",
+        "remove": "Entfernen…",
+        "retry": "Noch mal versuchen",
+        "reading": "Deine Seiten werden gelesen…",
+        "writing": "Zusammenfassung wird geschrieben…"
+      },
+      "continue": {
+        "lead": "Mach da weiter, wo du aufgehört hast",
+        "leadPage": "Mach da weiter, wo du aufgehört hast · Seite {{page}} von {{total}}",
+        "label": "Weiterlesen: {{name}}",
+        "labelPage": "Weiterlesen: {{name}}, Seite {{page}} von {{total}}",
+        "action": "Weiterlesen"
+      },
+      "bring": {
+        "label": "Etwas hinzufügen",
+        "cellTitle": "Etwas hinzufügen",
+        "cellHint": "PDF, PPTX oder ein Foto – hier ablegen oder klicken",
+        "emptyTitle": "Dein erstes Material hinzufügen",
+        "emptyHint": "PDF, PPTX oder ein Foto. Daraus wird eine Seite zum Lesen, Fragen und Merken.",
+        "veil": "Zum Hinzufügen hier ablegen",
+        "cellHintLive": "Ein PDF – hier ablegen oder klicken",
+        "emptyHintLive": "Ein PDF. Daraus wird eine Lektion, die nur du siehst – zum Lesen, Fragen und Üben."
+      },
+      "words": {
+        "title": "Deine Worte",
+        "lede": "Jede Notiz und jede Antwort, nach der du gefragt hast, weiterhin an ihrer Seite.",
+        "newNote": "Neue Notiz",
+        "placeholder": "Schreib es auf, solange es frisch ist …",
+        "empty": "Noch nichts geschrieben. Notizen und Antworten, nach denen du fragst, sammeln sich hier.",
+        "note": "Notiz",
+        "answer": "Antwort",
+        "itsLesson": "Zur Lektion",
+        "yourPage": "Deine Seite",
+        "unfiled": "Noch in keinem Space abgelegt",
+        "page": "Seite {{page}}",
+        "needsHome": "Braucht einen neuen Platz",
+        "orphan": "Die Lektion, an der das hing, wurde entfernt. Deine Arbeit ist sicher und behält ihre Likes. Öffnen lässt sie sich aber erst wieder, wenn sie ein neues Zuhause hat.",
+        "rehome": "Neues Zuhause finden"
+      },
+      "bar": {
+        "label": "Auswahl",
+        "countLabel": "Anzahl der Auswahl",
+        "count_one": "{{count}} ausgewählt",
+        "count_other": "{{count}} ausgewählt",
+        "share": "Teilen in…",
+        "publish": "Entwürfe veröffentlichen",
+        "remove": "Entfernen",
+        "all": "Alle auswählen",
+        "done": "Fertig",
+        "published_one": "{{count}} Entwurf veröffentlicht",
+        "published_other": "{{count}} Entwürfe veröffentlicht",
+        "removed": "{{n}} entfernt",
+        "undo": "Rückgängig",
+        "confirmTitle": "{{n}} aus deiner Bibliothek entfernen?",
+        "confirmBody": "Die Auswahl verlässt dein Regal. Du kannst das einige Sekunden lang rückgängig machen.",
+        "keep": "Behalten",
+        "confirm": "{{n}} entfernen",
+        "confirmBodyLive_one": "Die Lektion dazu geht auch, mit deinem Fortschritt und deinen Übungen. Deine Notizen bleiben. Du kannst das einige Sekunden lang rückgängig machen – danach ist es endgültig.",
+        "confirmBodyLive_other": "Die Lektionen dazu gehen auch, mit deinem Fortschritt und deinen Übungen. Deine Notizen bleiben. Du kannst das einige Sekunden lang rückgängig machen – danach ist es endgültig.",
+        "stillReading_one": "{{count}}, das noch gelesen wird, bleibt.",
+        "stillReading_other": "{{count}}, die noch gelesen werden, bleiben."
+      },
+      "share": {
+        "title": "{{name}} teilen",
+        "titleMany_one": "{{count}} Material teilen",
+        "titleMany_other": "{{count}} Materialien teilen",
+        "intro": "Wähl einen Space. Was dann passiert, steht unten, bevor du bestätigst.",
+        "left": "Bleiben unverändert: {{list}}.",
+        "loading": "Deine Spaces werden gesucht …",
+        "none": "Du bist noch in keinem Space. Tritt einem bei oder lege einen an, dann kannst du von hier aus teilen.",
+        "spaces": "Spaces",
+        "mode": {
+          "open": "Offen",
+          "guided": "Geführt"
+        },
+        "role": {
+          "owner": "er gehört dir",
+          "editor": "du bearbeitest ihn",
+          "member": "du bist Mitglied"
+        },
+        "outcome": {
+          "draft": "Daraus wird eine Lektion als Entwurf in {{space}}. Nur du und die Bearbeiter:innen sehen sie, bis du sie veröffentlichst.",
+          "open": "Offener Space: Es kommt als Community-Lektion in den Pfad, mit deinem Namen.",
+          "contribution": "Es kommt als dein Beitrag, mit deinem Namen. Die Inhaber:innen können es in den Pfad empfehlen."
+        },
+        "confirmTo": "In {{space}} teilen",
+        "confirm": "Teilen",
+        "toastDraft": "Entwurf in {{space}}",
+        "toastShared": "In {{space}} geteilt",
+        "done_one": "{{count}} geteilt",
+        "done_other": "{{count}} geteilt",
+        "drafted_one": "{{count}} als Entwurf in {{space}}",
+        "drafted_other": "{{count}} als Entwurf in {{space}}",
+        "preparing_one": "{{count}} wird noch vorbereitet",
+        "preparing_other": "{{count}} werden noch vorbereitet",
+        "unread_one": "{{count}} konnte nicht gelesen werden",
+        "unread_other": "{{count}} konnten nicht gelesen werden",
+        "inSpace_one": "{{count}} ist schon in einem Space",
+        "inSpace_other": "{{count}} sind schon in einem Space",
+        "button": "Teilen",
+        "draftLabel": "Entwurf in {{space}}",
+        "sharedLabel": "Geteilt",
+        "likes_one": " Like",
+        "likes_other": " Likes",
+        "notReady": "Du kannst es teilen, sobald es bereit ist.",
+        "publish": "In {{space}} veröffentlichen",
+        "openIn": "In {{space}} öffnen",
+        "takeBack": "Wieder nur für dich",
+        "takeBackTitle": "{{name}} zurücknehmen?",
+        "takeBackBody": "Es verlässt {{space}}. Deine Seite und deine Worte bleiben.",
+        "takeBackBodyNoSpace": "Es verlässt seinen Space. Deine Seite und deine Worte bleiben.",
+        "keepShared": "Geteilt lassen",
+        "takeIt": "Zurücknehmen",
+        "backToYou": "Wieder nur für dich"
+      },
+      "journey": {
+        "label": "Wo diese Seite steht",
+        "brought": "Hinzugefügt",
+        "understood": "Verstanden",
+        "shared": "Geteilt",
+        "landed": "Angekommen",
+        "done": "erledigt",
+        "now": "jetzt",
+        "todo": "noch nicht"
+      },
+      "ledeLive": "Was du hinzugefügt hast, und deine Worte aus jeder Lektion.",
+      "ledeWords": "Deine Worte, aus jeder Lektion."
     }
   },
   "studio": {
@@ -119,6 +299,148 @@
       "emptyTitle": "Noch nichts veröffentlicht",
       "emptyBody": "Teile eine Zusammenfassung, ein durchgerechnetes Beispiel oder Übungsfragen mit einem Space. Dann erscheint es hier, zusammen mit dem, was daraus geworden ist.",
       "needsNewHome": "Braucht einen neuen Platz"
+    },
+    "canvas": {
+      "back": "Zurück zur Bibliothek",
+      "breadcrumb": "Navigationspfad",
+      "library": "Bibliothek",
+      "sample": "Beispielseiten in dieser Vorschau",
+      "themeLight": "Helles Design verwenden",
+      "themeDark": "Dunkles Design verwenden",
+      "updates": "Änderungen an deiner Version",
+      "view": {
+        "learn": "Lernen",
+        "source": "Quelle",
+        "show": "Quelle zeigen",
+        "showingLearn": "Lernansicht wird angezeigt",
+        "showingSource": "Quelle wird angezeigt"
+      },
+      "recall": {
+        "toggle": "Abrufen",
+        "needsLearn": "Abrufen funktioniert in der Lernansicht",
+        "ring": "Abrufen, Seite {{page}}: {{knew}} von {{total}} gewusst",
+        "reveal": "Begriff aufdecken, Seite {{page}}",
+        "revealed": "{{text}}, aufgedeckt",
+        "markIt": "{{text}}, aufgedeckt – markiere, ob du ihn gewusst hast",
+        "knew": "Gewusst",
+        "notYet": "Noch nicht",
+        "left_one": "{{count}} Begriff zum Wiederholen",
+        "left_other": "{{count}} Begriffe zum Wiederholen",
+        "tryAgain": "Noch mal versuchen",
+        "startOver": "Von vorn beginnen"
+      },
+      "hint": {
+        "source": "Verweil auf einem Absatz, um die Quelle zu sehen, drück S oder frag unten · R zum Abrufen",
+        "noOriginal": "Mit ← → wechselst du die Seite, oder frag unten · R zum Abrufen",
+        "backOn": "Wieder auf Seite {{page}}"
+      },
+      "composer": {
+        "label": "Frag etwas zu diesem Material",
+        "placeholder": "Frag etwas zu diesem Material…",
+        "ask": "Fragen",
+        "answering": "Antwort wird geschrieben…",
+        "unknown": "In dieser Vorschau kann ich ein paar Fragen zu diesem Material beantworten – probier eine davon:",
+        "removed": "Antwort entfernt",
+        "undo": "Rückgängig",
+        "below": "Unten hinzugefügt ↓"
+      },
+      "answer": {
+        "added": "Antwort unter „{{where}}“ hinzugefügt (zu: {{question}})",
+        "addedEnd": "Antwort am Ende hinzugefügt (zu: {{question}})",
+        "from": "Aus deiner Frage",
+        "remove": "Antwort entfernen"
+      },
+      "rail": {
+        "label": "Seiten dieses Materials",
+        "heading": "Seiten",
+        "notes": "Deine Notizen",
+        "page": "Seite {{page}}"
+      },
+      "pager": {
+        "label": "Seite",
+        "previous": "Vorherige Seite",
+        "next": "Nächste Seite"
+      },
+      "page": {
+        "divider": "Seite {{page}}",
+        "dividerSource": "Seite {{page}} · Quelle",
+        "section": "Seite {{page}}",
+        "notes": "Deine Notizen",
+        "sourceSection": "Quellseite {{page}}",
+        "marker": "S. {{page}}",
+        "showSource": "Quelle zeigen, Seite {{page}}",
+        "alt": "Seite {{page}} von {{name}}"
+      },
+      "depth": {
+        "label": "Tiefe für Seite {{page}}",
+        "gist": "Kern",
+        "summary": "Zusammenfassung",
+        "full": "Volltext",
+        "page": "Seite"
+      },
+      "peek": {
+        "label": "Quellseite",
+        "removed": "Die Quelle wurde entfernt. Die Lernansicht funktioniert weiterhin.",
+        "failed": "Wir konnten diese Seite nicht laden.",
+        "retry": "Noch mal versuchen",
+        "caption": "Quelle · {{name}} · Seite {{page}}",
+        "pin": "Anheften",
+        "fullPage": "Ganze Seite",
+        "close": "Schließen"
+      },
+      "full": {
+        "title": "{{name}} · Seite {{page}}",
+        "description": "Die Quellseite, die ausgewählte Stelle ist umrandet.",
+        "zoom": "Zoom"
+      },
+      "original": {
+        "back": "Zurück zu: {{text}}",
+        "backEdited": "Zurück zu (bearbeitet): {{text}}",
+        "edited": "Von dir bearbeitet",
+        "parts_one": "{{count}} Teil fehlt in deiner Version",
+        "parts_other": "{{count}} Teile fehlen in deiner Version",
+        "figures_one": "{{count}} Abbildung fehlt in deiner Version",
+        "figures_other": "{{count}} Abbildungen fehlen in deiner Version",
+        "notIn": "Nicht in deiner Version: {{text}}",
+        "add": "Zu deiner Version hinzufügen: {{text}}",
+        "addPill": "Zu deiner Version hinzufügen",
+        "backToLearn": "Zurück zur Lernansicht"
+      },
+      "blocks": {
+        "reset": "Zurücksetzen",
+        "pick": "Wähl eine linke und eine rechte Seite",
+        "broken": "Verletzt durch die Zeilen {{a}} und {{b}}",
+        "holds": "Gilt für diese Zeilen",
+        "roleLeft": "{{name}}: linke Seite",
+        "roleRight": "{{name}}: rechte Seite",
+        "roleNone": "{{name}}: nicht in der Abhängigkeit",
+        "tagLeft": "links",
+        "tagRight": "rechts",
+        "cell": "Zeile {{row}}, {{column}}",
+        "addRow": "Zeile",
+        "startWith": "Starte mit",
+        "begin": "Fang mit der Startmenge selbst an.",
+        "pickOne": "Wähl mindestens ein Attribut als Start.",
+        "fired": "Die Menge enthält {{lhs}}, also greift {{fd}} und fügt {{added}} hinzu.",
+        "done": "Nichts greift mehr – fertig.",
+        "superkey": "Die Menge {{start}} ist ein Superschlüssel.",
+        "notKey": "Kein Schlüssel: {{rest}} wird nie erreicht.",
+        "previousStep": "Vorheriger Schritt",
+        "nextStep": "Nächster Schritt",
+        "step": "Schritt {{at}} von {{count}}",
+        "bcnfDone_one": "Jede Relation ist in BCNF. {{count}} Aufteilung, nichts geht verloren: Jede Aufteilung behält die linke Seite der verletzenden FD in beiden Hälften, also ist der Join verlustfrei.",
+        "bcnfDone_other": "Jede Relation ist in BCNF. {{count}} Aufteilungen, nichts geht verloren: Jede Aufteilung behält die linke Seite der verletzenden FD in beiden Hälften, also ist der Join verlustfrei.",
+        "bcnfSplit": "In {{relation}} hat <fd>{{fd}}</fd> eine linke Seite, die kein Schlüssel ist. Teile die Relation: Alles, was {{lhs}} bestimmt, kommt in eine Relation, der Rest bleibt bei {{lhs}}.",
+        "check": "Prüfen",
+        "tryAgain": "Noch mal versuchen"
+      },
+      "reading": {
+        "title": "Wird noch gelesen",
+        "failedTitle": "Das konnten wir nicht lesen",
+        "body": "{{filename}} öffnet sich als Lektion, sobald es gelesen ist. Das dauert ein, zwei Minuten.",
+        "failedBody": "Daraus ist nichts entstanden. Füg es noch einmal hinzu, oder eine andere Kopie davon.",
+        "back": "Zurück zur Bibliothek"
+      }
     }
   }
 }

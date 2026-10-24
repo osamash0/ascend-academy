@@ -1,8 +1,7 @@
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { DEPTHS, type Depth } from '../depth';
-
-const LABEL: Record<Depth, string> = { gist: 'Gist', summary: 'Summary', full: 'Full', page: 'Page' };
 
 /**
  * How deep this page reads (Learn deeper spec §3.3): four dots on a hairline at
@@ -20,6 +19,7 @@ export function DepthDial({
   options: Depth[];
   onChange(d: Depth, all: boolean): void;
 }) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.depth' });
   const refs = useRef<Partial<Record<Depth, HTMLButtonElement | null>>>({});
   const offered = DEPTHS.filter((d) => options.includes(d));
 
@@ -47,7 +47,7 @@ export function DepthDial({
   return (
     <span
       role="radiogroup"
-      aria-label={`Depth for page ${page}`}
+      aria-label={t('label', { page })}
       onKeyDown={onKeyDown}
       className="group/dial relative flex items-center"
     >
@@ -55,7 +55,7 @@ export function DepthDial({
         aria-hidden
         className="pointer-events-none absolute right-full mr-1 whitespace-nowrap text-[11px] text-faint opacity-0 transition-opacity duration-150 group-focus-within/dial:opacity-100 group-hover/dial:opacity-100"
       >
-        {LABEL[value]}
+        {t(value)}
       </span>
       <span aria-hidden className="pointer-events-none absolute inset-x-3 top-1/2 h-px bg-[rgb(var(--studio-hairline))]" />
       {DEPTHS.map((d) => {
@@ -71,7 +71,7 @@ export function DepthDial({
             data-depth={d}
             role="radio"
             aria-checked={on}
-            aria-label={LABEL[d]}
+            aria-label={t(d)}
             disabled={!can}
             tabIndex={on ? 0 : -1}
             onClick={(e) => onChange(d, e.shiftKey)}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowUp } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { inDialog, isTyping } from '../keys';
 
@@ -30,6 +31,7 @@ const fade = { initial: { opacity: 0, y: 4 }, animate: { opacity: 1, y: 0 }, exi
  * "Added below". `/` jumps in, unless you're typing or in a dialog.
  */
 export function Composer({ answering, suggestions, showSuggestions, notice, hint, pager, onAsk }: Props) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas' });
   const [value, setValue] = useState('');
   const input = useRef<HTMLInputElement>(null);
   const undo = useRef<HTMLButtonElement>(null);
@@ -74,16 +76,16 @@ export function Composer({ answering, suggestions, showSuggestions, notice, hint
         <AnimatePresence initial={false} mode="popLayout">
           {notice?.kind === 'unknown' ? (
             <motion.p key="unknown" {...fade} className="pointer-events-auto text-center text-[12.5px] text-quiet">
-              In this preview I can answer a few questions about this Material — try one of these:
+              {t('composer.unknown')}
             </motion.p>
           ) : notice?.kind === 'removed' ? (
             <motion.div key="removed" {...fade} className="pointer-events-auto flex items-center gap-2 text-[12.5px] text-quiet">
-              Answer removed
-              <button ref={undo} type="button" onClick={notice.onUndo} className={chip}>Undo</button>
+              {t('composer.removed')}
+              <button ref={undo} type="button" onClick={notice.onUndo} className={chip}>{t('composer.undo')}</button>
             </motion.div>
           ) : notice?.kind === 'below' ? (
             <motion.button key="below" type="button" {...fade} onClick={notice.onJump} className={chip}>
-              Added below ↓
+              {t('composer.below')}
             </motion.button>
           ) : hint ? (
             <motion.p key="hint" {...fade} className="pointer-events-auto hidden text-center text-[12px] text-quiet sm:block">
@@ -116,8 +118,8 @@ export function Composer({ answering, suggestions, showSuggestions, notice, hint
           value={value}
           onChange={(e) => setValue(e.target.value)}
           disabled={answering}
-          aria-label="Ask about this Material"
-          placeholder="Ask about this Material…"
+          aria-label={t('composer.label')}
+          placeholder={t('composer.placeholder')}
           className="min-w-0 flex-1 bg-transparent text-[14px] text-foreground outline-none placeholder:text-faint disabled:opacity-60"
         />
         <button
@@ -125,7 +127,7 @@ export function Composer({ answering, suggestions, showSuggestions, notice, hint
           disabled={answering}
           className="console-focusable flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-foreground px-3.5 text-[13px] font-semibold text-background disabled:opacity-60"
         >
-          {answering ? 'Answering…' : <><ArrowUp aria-hidden className="h-3.5 w-3.5" />Ask</>}
+          {answering ? t('composer.answering') : <><ArrowUp aria-hidden className="h-3.5 w-3.5" />{t('composer.ask')}</>}
         </button>
         <div className="ml-1 hidden border-l border-[rgb(var(--studio-hairline))] pl-1 sm:flex">{pager}</div>
       </form>
