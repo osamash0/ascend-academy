@@ -64,8 +64,8 @@ export default function ResetPassword() {
   }, []);
 
   const validate = (): string | null => {
-    if (password.length < 6) {
-      return t('resetPassword.errorTooShort', { defaultValue: 'Password must be at least 6 characters.' });
+    if (password.length < 8) {
+      return t('resetPassword.errorTooShort', { defaultValue: 'Password must be at least 8 characters.' });
     }
     if (password !== confirm) {
       return t('resetPassword.errorMismatch', { defaultValue: 'Passwords do not match.' });

@@ -160,4 +160,24 @@ describe("Settings page (smoke)", () => {
       expect(supabaseMock.data.notification_preferences.rows[0].lifecycle_nudges_enabled).toBe(false);
     });
   });
+  it("asks for at least 8 characters for a new password", async () => {
+    useAuthMock.mockReturnValue({
+      user: { id: "u1", email: "x@x.com" },
+      profile: {
+        id: "p1", user_id: "u1", email: "x@x.com", full_name: "Pat User", display_name: "Pat",
+        avatar_url: null, total_xp: 0, current_level: 1, current_streak: 0, best_streak: 0,
+      },
+      role: "student",
+      loading: false,
+      signOut: vi.fn(),
+      refreshProfile: vi.fn(),
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<Settings />, { initialEntries: ["/settings?tab=security"] });
+    await user.type(screen.getByLabelText(/^current password$/i), "old-pass");
+    await user.type(screen.getByLabelText(/^new password$/i), "1234567");
+    await user.type(screen.getByLabelText(/^confirm password$/i), "1234567");
+    expect(screen.getByText(/at least 8 characters/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /change password/i })).toBeDisabled();
+  });
 });

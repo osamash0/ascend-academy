@@ -97,15 +97,23 @@ describe("Auth page, sign-in mode", () => {
     expect(toastFn).not.toHaveBeenCalled();
   });
 
-  it("checks the email and the password length before calling the server", async () => {
+  it("checks the email before calling the server, and asks for a password", async () => {
     const user = userEvent.setup();
     mount("/auth");
     await user.type(screen.getByLabelText(/email address/i), "nope");
-    await user.type(passwordField(), "123");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
     expect(await screen.findByText(/doesn't look right/i)).toBeInTheDocument();
-    expect(screen.getByText(/^at least 6 characters\.$/i)).toBeInTheDocument();
+    expect(screen.getByText(/enter your password/i)).toBeInTheDocument();
     expect(signIn).not.toHaveBeenCalled();
+  });
+
+  it("lets an existing shorter password through at sign-in", async () => {
+    const user = userEvent.setup();
+    mount("/auth");
+    await user.type(screen.getByLabelText(/email address/i), "old@b.de");
+    await user.type(passwordField(), "abc123");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await waitFor(() => expect(signIn).toHaveBeenCalledWith("old@b.de", "abc123"));
   });
 });
 
@@ -136,11 +144,23 @@ describe("Auth page, sign-up mode", () => {
     expect(screen.getByTestId("where").textContent).toBe("/auth?next=%2Fcourse%2Fabc");
   });
 
+  it("asks for at least 8 characters for a new password", async () => {
+    const user = userEvent.setup();
+    mount("/auth?mode=signup");
+    expect(screen.getByText(/^at least 8 characters$/i)).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/email address/i), "new@b.de");
+    await user.type(passwordField(), "secret1");
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: /create account/i }));
+    expect(await screen.findByText(/^at least 8 characters\.$/i)).toBeInTheDocument();
+    expect(signUp).not.toHaveBeenCalled();
+  });
+
   it("asks for consent before creating the account", async () => {
     const user = userEvent.setup();
     mount("/auth?mode=signup");
     await user.type(screen.getByLabelText(/email address/i), "new@b.de");
-    await user.type(passwordField(), "secret1");
+    await user.type(passwordField(), "secret12");
     await user.click(screen.getByRole("button", { name: /create account/i }));
     expect(await screen.findByText(/agree to the privacy policy first/i)).toBeInTheDocument();
     expect(signUp).not.toHaveBeenCalled();
@@ -150,10 +170,10 @@ describe("Auth page, sign-up mode", () => {
     const user = userEvent.setup();
     mount("/auth?mode=signup");
     await user.type(screen.getByLabelText(/email address/i), "new@b.de");
-    await user.type(passwordField(), "secret1");
+    await user.type(passwordField(), "secret12");
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: /create account/i }));
-    await waitFor(() => expect(signUp).toHaveBeenCalledWith("new@b.de", "secret1"));
+    await waitFor(() => expect(signUp).toHaveBeenCalledWith("new@b.de", "secret12"));
     expect(await screen.findByText("first-run", {}, { timeout: 3000 })).toBeInTheDocument();
   });
 
@@ -162,7 +182,7 @@ describe("Auth page, sign-up mode", () => {
     const user = userEvent.setup();
     mount("/auth?mode=signup");
     await user.type(screen.getByLabelText(/email address/i), "new@b.de");
-    await user.type(passwordField(), "secret1");
+    await user.type(passwordField(), "secret12");
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: /create account/i }));
     expect(await screen.findByRole("heading", { name: /check your inbox/i })).toBeInTheDocument();

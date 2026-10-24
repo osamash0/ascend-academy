@@ -78,7 +78,9 @@ export default function Auth() {
 
   const schema = z.object({
     email: z.string().email(t('errors.email')),
-    password: z.string().min(6, t('errors.password')),
+    // New passwords need 8 characters (decided 2026-10-24). Sign-in only asks
+    // for one, so accounts made under the old 6-character rule still get in.
+    password: signingUp ? z.string().min(8, t('errors.password')) : z.string().min(1, t('errors.passwordRequired')),
   });
 
   const setMode = (next: Mode) => {
