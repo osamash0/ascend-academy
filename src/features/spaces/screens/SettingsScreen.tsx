@@ -173,6 +173,7 @@ export default function SettingsScreen() {
   const [notifyNewLessons, setNotifyNewLessons] = useState(false);
   const [publicProfile, setPublicProfile] = useState(true);
   const [showActivity, setShowActivity] = useState(false);
+  const live = dataMode(import.meta.env.VITE_V4_DATA_MODE) === 'live';
 
   if (screenState === 'loading' || screenState === 'error') {
     return (
@@ -214,63 +215,66 @@ export default function SettingsScreen() {
       </div>
 
       {/*
-        Said once, plainly, rather than a marker on every row.
         The five switches below move and nothing behind them exists — no store,
-        no persistence, so navigating away and back resets them. That is the
-        same class of claim this screen's own docblock argues against, and the
-        switches had neither a note nor the `disabled` + reason treatment the
-        Delete button two sections down gets right.
+        no persistence, so navigating away and back resets them. The demo says
+        so once, plainly. Live, real people would read them as settings (two
+        are privacy settings), so they are not shown at all until they are
+        stored and honoured.
         NEEDS-BACKEND: notification and visibility preferences.
       */}
       <LanguageSection />
 
-      <p className="mb-8 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-[13px] leading-relaxed text-muted-foreground">
-        {t('sections.notice')}
-      </p>
+      {!live && (
+        <>
+          <p className="mb-8 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-[13px] leading-relaxed text-muted-foreground">
+            {t('sections.notice')}
+          </p>
 
-      <Section title={t('sections.notifications.title')}>
-        <Toggle
-          id="notify-replies"
-          label={t('sections.notifications.replies.label')}
-          description={t('sections.notifications.replies.hint')}
-          value={notifyMentions}
-          onChange={setNotifyMentions}
-        />
-        <Toggle
-          id="notify-endorsed"
-          label={t('sections.notifications.endorsed.label')}
-          description={t('sections.notifications.endorsed.hint')}
-          value={notifyEndorsed}
-          onChange={setNotifyEndorsed}
-        />
-        <Toggle
-          id="notify-new-lessons"
-          label={t('sections.notifications.newLessons.label')}
-          description={t('sections.notifications.newLessons.hint')}
-          value={notifyNewLessons}
-          onChange={setNotifyNewLessons}
-        />
-      </Section>
+          <Section title={t('sections.notifications.title')}>
+            <Toggle
+              id="notify-replies"
+              label={t('sections.notifications.replies.label')}
+              description={t('sections.notifications.replies.hint')}
+              value={notifyMentions}
+              onChange={setNotifyMentions}
+            />
+            <Toggle
+              id="notify-endorsed"
+              label={t('sections.notifications.endorsed.label')}
+              description={t('sections.notifications.endorsed.hint')}
+              value={notifyEndorsed}
+              onChange={setNotifyEndorsed}
+            />
+            <Toggle
+              id="notify-new-lessons"
+              label={t('sections.notifications.newLessons.label')}
+              description={t('sections.notifications.newLessons.hint')}
+              value={notifyNewLessons}
+              onChange={setNotifyNewLessons}
+            />
+          </Section>
 
-      <Section title={t('sections.visibility.title')}>
-        <Toggle
-          id="public-profile"
-          label={t('sections.visibility.publicProfile.label')}
-          description={t('sections.visibility.publicProfile.hint')}
-          value={publicProfile}
-          onChange={setPublicProfile}
-        />
-        <Toggle
-          id="show-activity"
-          label={t('sections.visibility.activity.label')}
-          description={t('sections.visibility.activity.hint')}
-          value={showActivity}
-          onChange={setShowActivity}
-        />
-      </Section>
+          <Section title={t('sections.visibility.title')}>
+            <Toggle
+              id="public-profile"
+              label={t('sections.visibility.publicProfile.label')}
+              description={t('sections.visibility.publicProfile.hint')}
+              value={publicProfile}
+              onChange={setPublicProfile}
+            />
+            <Toggle
+              id="show-activity"
+              label={t('sections.visibility.activity.label')}
+              description={t('sections.visibility.activity.hint')}
+              value={showActivity}
+              onChange={setShowActivity}
+            />
+          </Section>
+        </>
+      )}
 
       <Section title={t('sections.data.title')}>
-        {dataMode(import.meta.env.VITE_V4_DATA_MODE) === 'live' ? (
+        {live ? (
           <LiveAccountData />
         ) : (
           <>

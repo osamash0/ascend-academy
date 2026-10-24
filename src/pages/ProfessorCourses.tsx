@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BookOpen, Plus, Loader2, Trash2, Pencil, ChevronRight, Archive, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,17 @@ export default function ProfessorCourses() {
     setEditing(null);
     setOpen(true);
   };
+
+  // `?new=1` arrives from v4's "New Space": open the create dialog straight
+  // away, then drop the flag so a reload or Back does not open it again.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get('new') !== '1') return;
+    openCreate();
+    const next = new URLSearchParams(searchParams);
+    next.delete('new');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const openEdit = (c: Course) => {
     setEditing(c);

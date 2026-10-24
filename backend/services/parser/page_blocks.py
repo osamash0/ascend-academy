@@ -18,9 +18,20 @@ PUA = re.compile("[\ue000-\uf8ff]")  # icon-font bullets in some exports
 HEADING_RATIO = 1.35
 HEADING_MAX_CHARS = 120
 FOOTER_TOP = 0.9
+FOOTER_MAX_SIZE = 0.85  # and set smaller than the page's body text: a slide's last bullet is not a footer
 FIGURE_MAX_AREA = 0.6  # larger = page background
 FIGURE_MIN_AREA = 0.002  # smaller = a logo
 IMAGE_ONLY_CHARS = 25
+# Images that are not figures a reader would miss (LS-005: Source view
+# outlined empty grey space, duplicates and covered text as "not in your
+# version", and covered text leaked into the clean version).
+PAGE_EDGE = 0.999        # a box reaching this far touches the page's edge
+COVERED = 0.8            # this much of a block under a later panel = hidden
+SAME_FIGURE = 0.9        # this much of one figure inside another = the same figure
+LOGO_BAND = 0.2          # small images ending above this line are logos ...
+LOGO_MAX_AREA = 0.03     # ... when no bigger than this
+FLAT_DPI = 36            # a cheap render, only for pages that have a panel
+FLAT_STDDEV = 6.0        # grey levels: below this, nothing shows in a region
 
 
 class PageBlocks(TypedDict):
@@ -78,15 +89,64 @@ def _norm_box(b, w: float, h: float) -> List[float]:
     return [c(x0 / w), c(y0 / h), c(x1 / w), c(y1 / h)]
 
 
+def _inside(a: List[float], b: List[float]) -> float:
+    """How much of box a lies inside box b, 0..1."""
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    area = _area(a)
+    return (ix * iy) / area if area else 0.0
+
+
+def _flat(gray: Any, box: List[float]) -> bool:
+    """Nothing visible in this region of the rendered page: one flat tone.
+
+    Panels are not always opaque (a translucent arrow lets the text under it
+    show), and the PDF does not say which, so look instead of assuming."""
+    W, H = gray.width, gray.height
+    x0, y0 = int(box[0] * W), int(box[1] * H)
+    x1, y1 = max(x0 + 1, int(box[2] * W)), max(y0 + 1, int(box[3] * H))
+    data = gray.samples
+    vals = [data[y * W + x] for y in range(y0, min(y1, H)) for x in range(x0, min(x1, W))]
+    return len(vals) < 2 or statistics.pstdev(vals) < FLAT_STDDEV
+
+
+def _is_panel(box: List[float]) -> bool:
+    """An image running off the page's bottom edge and one side: a backdrop, a
+    decorative shape or a pasted-over panel (slides exported from animation
+    builds keep their reveal masks), not a figure."""
+    return box[3] >= PAGE_EDGE and (box[2] >= PAGE_EDGE or box[0] <= 1 - PAGE_EDGE)
+
+
 def extract_blocks(page: Any, page_no: int) -> PageBlocks:
-    """All source blocks of one PyMuPDF page, normalised to 0..1, top-left origin."""
+    """All source blocks of one PyMuPDF page, normalised to 0..1, top-left origin.
+
+    Dropped: page backgrounds and logos, panels, duplicate images, and anything
+    a panel painted later covers so that nothing of it shows (it is not on the
+    page a reader sees, so it is neither "missing from your version" nor part
+    of it).
+    """
     w, h = page.rect.width, page.rect.height
     raw = page.get_text("dict")["blocks"]
+    # Paint order is block order: a panel covers what came before it.
+    panels = [(i, _norm_box(b["bbox"], w, h)) for i, b in enumerate(raw)
+              if b["type"] == 1 and _is_panel(_norm_box(b["bbox"], w, h))]
+    figures: List[List[float]] = []
+    gray = None
+    if panels:
+        import fitz  # PyMuPDF; only needed when a panel may hide something
+        gray = page.get_pixmap(dpi=FLAT_DPI, colorspace=fitz.csGRAY, alpha=False)
     sizes = [
         s["size"] for b in raw if b["type"] == 0
         for l in b["lines"] for s in l["spans"] if s["text"].strip()
     ]
     heading_size = statistics.median(sizes) * HEADING_RATIO if sizes else 999.0
+    # Body text is measured above the footer band; with none there, anything
+    # at the bottom is a footer.
+    body = [
+        s["size"] for b in raw if b["type"] == 0 and b["bbox"][1] / h < FOOTER_TOP
+        for l in b["lines"] for s in l["spans"] if s["text"].strip()
+    ]
+    body_size = statistics.median(body) if body else float("inf")
 
     blocks: List[Dict[str, Any]] = []
     markdown: Dict[str, str] = {}
@@ -97,10 +157,18 @@ def extract_blocks(page: Any, page_no: int) -> PageBlocks:
         box = _norm_box(b["bbox"], w, h)
         if box[2] <= box[0] or box[3] <= box[1]:
             continue
+        if (gray is not None and any(j > i and _inside(box, pbox) >= COVERED for j, pbox in panels)
+                and _flat(gray, box)):
+            continue  # painted over: not on the page a reader sees
         if b["type"] == 1:
             area = (box[2] - box[0]) * (box[3] - box[1])
-            if area > FIGURE_MAX_AREA or area < FIGURE_MIN_AREA:
+            if area > FIGURE_MAX_AREA or area < FIGURE_MIN_AREA or _is_panel(box):
                 continue
+            if box[3] <= LOGO_BAND and area <= LOGO_MAX_AREA:
+                continue
+            if any(_inside(box, f) >= SAME_FIGURE or _inside(f, box) >= SAME_FIGURE for f in figures):
+                continue
+            figures.append(box)
             blocks.append({"id": bid, "page": page_no, "bbox": box, "kind": "figure",
                            "text": "", "readingOrder": i})
             continue
@@ -112,10 +180,15 @@ def extract_blocks(page: Any, page_no: int) -> PageBlocks:
         blocks.append({"id": bid, "page": page_no, "bbox": box, "kind": kind,
                        "text": text, "readingOrder": i})
         markdown[bid] = md
-        if box[1] >= FOOTER_TOP:
+        if box[1] >= FOOTER_TOP and _max_size(b) < body_size * FOOTER_MAX_SIZE:
             footers.append(bid)  # running footers are never summarised, so they don't count as page text
         else:
             text_chars += len(text)
+    # A box with the page's own text inside it is that text's frame (a
+    # callout, a coloured band), not a figure missing from anyone's version.
+    texts = [b["bbox"] for b in blocks if b["kind"] != "figure"]
+    blocks = [b for b in blocks
+              if b["kind"] != "figure" or not any(_inside(t, b["bbox"]) >= COVERED for t in texts)]
     return {"width": w, "height": h, "blocks": blocks, "markdown": markdown,
             "footers": footers, "text_chars": text_chars}
 
