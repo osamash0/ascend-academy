@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { FolderInput, Plus, Unlink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { LibraryItem } from '../types';
@@ -18,10 +19,11 @@ import { SHELF_TONE } from './tone';
  * Lesson was removed wait under "Needs a new home" with their re-anchor.
  */
 
-const KIND_LABEL: Record<WordEntry['kind'], string> = {
-  note: 'Note',
-  written: 'Note',
-  answer: 'Answer',
+/** `words.kind.<…>`: a note written in the Library and one written on a page are both a note. */
+const KIND_KEY: Record<WordEntry['kind'], 'note' | 'answer'> = {
+  note: 'note',
+  written: 'note',
+  answer: 'answer',
 };
 
 /** Markdown read as plain lines: the row is a glimpse, the page has the rest. */
@@ -44,22 +46,21 @@ export function YourWords({
   /** After a re-anchor: the store changed outside React, so the screen re-reads. */
   onMoved: () => void;
 }) {
+  const { t } = useTranslation('v4Library');
   /** Writing a new note. Unanchored: it belongs to no Lesson until you put it in one. */
   const [composing, setComposing] = useState(false);
   /** The orphan being re-filed, if the dialog is open. */
   const [reanchoring, setReanchoring] = useState<LibraryItem | null>(null);
-  const filename = (id: string | null) => items.find((i) => i.id === id)?.filename ?? 'Your page';
+  const filename = (id: string | null) => items.find((i) => i.id === id)?.filename ?? t('words.yourPage');
 
   return (
     <section aria-labelledby="your-words" className="mx-auto max-w-3xl">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id="your-words" className="text-[24px] font-medium tracking-[-0.02em]">
-            Your words
+            {t('words.title')}
           </h2>
-          <p className="mt-1 text-[13.5px] text-quiet">
-            Every note and every answer you asked for, each one still attached to its page.
-          </p>
+          <p className="mt-1 text-[13.5px] text-quiet">{t('words.lede')}</p>
         </div>
         <Pressable
           type="button"
@@ -68,7 +69,7 @@ export function YourWords({
           className={cn(whitePillSm, 'shrink-0')}
         >
           <Plus aria-hidden className="h-4 w-4" />
-          New note
+          {t('words.newNote')}
         </Pressable>
       </div>
 
@@ -76,7 +77,7 @@ export function YourWords({
         <div className="mt-6">
           <NoteEditor
             autoOpen
-            placeholder="Write it down while it is fresh…"
+            placeholder={t('words.placeholder')}
             onSave={(body) => {
               writeNote(body);
               setComposing(false);
@@ -86,9 +87,7 @@ export function YourWords({
       )}
 
       {words.length === 0 && !composing ? (
-        <p className="mt-8 text-[14px] text-quiet">
-          Nothing written yet. Notes you write and answers you ask for gather here.
-        </p>
+        <p className="mt-8 text-[14px] text-quiet">{t('words.empty')}</p>
       ) : (
         <ul className="mt-6 space-y-5">
           {words.map((w) => {
@@ -102,18 +101,18 @@ export function YourWords({
                 )}
               >
                 <p className="text-[12px] text-faint">
-                  {KIND_LABEL[w.kind]} ·{' '}
+                  {t(`words.kind.${KIND_KEY[w.kind]}`)} ·{' '}
                   {w.href ? (
                     <Link
                       to={w.href}
                       className="console-focusable rounded text-quiet underline-offset-4 hover:text-foreground hover:underline"
                     >
-                      {place || 'its Lesson'}
+                      {place || t('words.itsLesson')}
                     </Link>
                   ) : (
-                    'Not filed in a Space yet'
+                    t('words.unfiled')
                   )}
-                  {w.page !== null && ` · page ${w.page}`}
+                  {w.page !== null && ` · ${t('words.page', { page: w.page })}`}
                 </p>
                 {w.kind === 'answer' && (
                   <p className="mt-1 text-[14.5px] font-medium text-foreground">{w.title}</p>
@@ -134,7 +133,7 @@ export function YourWords({
       {orphans.length > 0 && (
         <section aria-labelledby="needs-a-home" className="mt-14">
           <h3 id="needs-a-home" className="text-[17px] font-medium">
-            Needs a new home
+            {t('words.orphan.title')}
           </h3>
           <ul className="mt-4 space-y-3">
             {orphans.map((o) => (
@@ -144,8 +143,7 @@ export function YourWords({
                   {o.spaceName && <p className="mt-0.5 text-[13px] text-quiet">{o.spaceName}</p>}
                   <p className="mt-2 flex items-start gap-2 text-[13px] leading-relaxed text-quiet">
                     <Unlink aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-                    The Lesson this was attached to was removed. Your work is safe, and it keeps
-                    its likes — but it has nowhere to open until it is given a new home.
+                    {t('words.orphan.body')}
                   </p>
                   <Pressable
                     type="button"
@@ -153,7 +151,7 @@ export function YourWords({
                     className="console-focusable mt-3 inline-flex h-9 items-center gap-1.5 rounded-full bg-white/[0.10] px-4 text-[13px] font-semibold text-foreground hover:bg-white/[0.16]"
                   >
                     <FolderInput aria-hidden className="h-3.5 w-3.5" />
-                    Find it a new home
+                    {t('words.orphan.rehome')}
                   </Pressable>
                 </article>
               </li>

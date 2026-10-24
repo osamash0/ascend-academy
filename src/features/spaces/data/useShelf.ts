@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import i18n from '@/i18n';
 import type { LoadState } from '../types';
 import * as shelfStore from '../mocks/shelf';
 import { addNote, allNotes, notesVersion, subscribeNotes, updateNote } from './notes';
@@ -71,7 +72,7 @@ function wordsNow(items: ShelfItem[], canvases: ReadonlyMap<string, CanvasDoc>):
           id: b.id,
           itemId: item.id,
           page,
-          title: b.origin === 'generated' ? b.askedAs : 'My note',
+          title: b.origin === 'generated' ? b.askedAs : i18n.t('v4Library:words.myNote'),
           body: b.markdown,
           at: doc.updatedAt,
           href: `/v4/library/m/${item.id}#b-${b.id}`,
@@ -240,7 +241,7 @@ export const contributionForEntry = (entryId: string): Contribution | undefined 
   myContributionById(entryId.replace(/^lib-con-/, ''));
 
 /** The name a cover gives a Space it is shared or drafted in. */
-export const shelfSpaceName = (spaceId: string): string => spaceById(spaceId)?.name ?? 'a Space';
+export const shelfSpaceName = (spaceId: string): string => spaceById(spaceId)?.name ?? i18n.t('v4Library:library.aSpace');
 
 export interface Glance {
   /** The page image to show: the cover, or the asked-for page. '' when there is none. */

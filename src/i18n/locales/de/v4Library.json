@@ -1,124 +1,197 @@
 {
-  "_about": "v4: Bibliothek und Studio",
+  "_about": "v4: Bibliothek – das Regal, seine Cover, Deine Worte, Auswählen und Teilen",
   "library": {
     "title": "Bibliothek",
-    "lede": "Deine Notizen, deine Uploads und die Arbeit, die du veröffentlicht hast – an einem Ort.",
-    "studio": {
-      "label": "Studio",
-      "uploads": "Uploads",
-      "drafts": "Entwürfe",
-      "impact": "Wie deine Arbeit ankam",
-      "pending_one": "{{count}} wird noch vorbereitet",
-      "pending_other": "{{count}} werden noch vorbereitet"
+    "lede": {
+      "demo": "Was du hinzugefügt hast, was du daraus gemacht hast, und was du geteilt hast.",
+      "live": "Was du hinzugefügt hast, und deine Worte aus jeder Lektion.",
+      "wordsOnly": "Deine Worte, aus jeder Lektion."
     },
-    "heading": "Alles, was du gemacht hast",
+    "wordsOnlyEmpty": "Notizen, die du in einer Lektion schreibst, sammeln sich hier – jede einen Tipp von der Seite entfernt, auf der sie entstanden ist.",
     "filter": {
       "label": "Filter",
       "all": "Alles",
-      "note": "Notizen",
-      "material": "Uploads",
-      "contribution": "Veröffentlicht"
+      "reading": "Zu lesen",
+      "shared": "Geteilt",
+      "words": "Deine Worte"
     },
-    "kind": {
-      "note": "Notiz",
-      "material": "Upload",
-      "contribution": "Veröffentlicht"
+    "selectPill": "Auswählen …",
+    "search": {
+      "label": "Deine Bibliothek durchsuchen",
+      "placeholder": "Deine Bibliothek durchsuchen   /"
     },
-    "newNote": "Neue Notiz",
-    "unfiled": "Noch in keinem Space abgelegt",
-    "notPublished": "Noch nicht veröffentlicht",
-    "size": "{{size}} MB",
-    "orphan": {
-      "body": "Die Lektion, an der das hing, wurde entfernt. Deine Arbeit ist sicher und behält ihre Likes. Öffnen lässt sie sich aber erst wieder, wenn sie ein neues Zuhause hat.",
-      "rehome": "Neues Zuhause finden"
+    "sort": {
+      "label": "Sortieren",
+      "recent": "Zuletzt geöffnet",
+      "added": "Hinzugefügt",
+      "az": "A–Z"
     },
-    "open": {
-      "label": "Öffnen",
-      "note": {
-        "inSpace": "Notiz „{{title}}“ in {{space}} öffnen",
-        "plain": "Notiz „{{title}}“ öffnen"
-      },
-      "material": {
-        "inSpace": "Upload „{{title}}“ in {{space}} öffnen",
-        "plain": "Upload „{{title}}“ öffnen"
-      },
-      "contribution": {
-        "inSpace": "Veröffentlichten Beitrag „{{title}}“ in {{space}} öffnen",
-        "plain": "Veröffentlichten Beitrag „{{title}}“ öffnen"
-      }
+    "groupBySpace": "Nach Space gruppieren",
+    "shelf": "Dein Regal",
+    "onlyYou": "Nur du",
+    "nothing": {
+      "search": "Nichts in deinem Regal heißt „{{q}}“.",
+      "shared": "Noch nichts geteilt. Wenn eine Seite für andere bereit ist, teil sie direkt von der Seite aus.",
+      "reading": "Nichts mehr zu lesen. Hier ist alles durchgelesen."
     },
-    "empty": {
-      "all": {
-        "title": "Noch nichts hier",
-        "body": "Alles, was du schreibst, hochlädst oder veröffentlichst, erscheint hier. Gesammelt aus jedem Space, in dem du bist.",
-        "cta": "Schreib deine erste Notiz"
-      },
-      "note": {
-        "title": "Noch keine Notizen",
-        "body": "Notizen sind privat. Schreib eine beim Lesen, dann wartet sie hier – neben all deinen anderen Notizen."
-      },
-      "material": {
-        "title": "Noch nichts hochgeladen",
-        "body": "Lade Material in einem Space hoch, dann entsteht daraus eine Lektion. Die Datei bleibt deine und erscheint hier."
-      },
-      "contribution": {
-        "title": "Noch nichts veröffentlicht",
-        "body": "Teil eine Zusammenfassung, ein durchgerechnetes Beispiel oder Übungsfragen mit einem Space. Was du veröffentlichst, erscheint hier. Und du siehst, wie es ankam."
-      },
-      "toSpaces": "Zu deinen Spaces"
+    "isReady": "{{file}} ist bereit",
+    "aSpace": "einem Space"
+  },
+  "bringIn": {
+    "veil": "Loslassen zum Hinzufügen",
+    "label": "Etwas hinzufügen",
+    "first": "Füg deine erste Datei hinzu",
+    "hint": {
+      "demoCell": "PDF, PPTX oder ein Foto – hier ablegen oder klicken",
+      "demoEmpty": "PDF, PPTX oder ein Foto. Daraus wird eine Seite, die du lesen, befragen und dir merken kannst.",
+      "liveCell": "Ein PDF – hier ablegen oder klicken",
+      "liveEmpty": "Ein PDF. Daraus wird eine Lektion, die nur du siehst – lies sie, frag sie, übe mit ihr."
     }
   },
-  "studio": {
-    "views": {
-      "uploads": "Uploads verwalten",
-      "drafts": "Deine Entwürfe",
-      "impact": "Wie deine Arbeit ankam"
-    },
-    "loading": "Wird geladen …",
-    "failed": "Etwas ist schiefgelaufen",
-    "selected_one": "{{count}} ausgewählt",
-    "selected_other": "{{count}} ausgewählt",
-    "selectRow": "Diese Zeile auswählen",
-    "publish": "Veröffentlichen",
-    "delete": "Löschen",
+  "continue": {
+    "label": "{{file}} weiterlesen",
+    "labelAt": "{{file}} weiterlesen, Seite {{page}} von {{total}}",
+    "eyebrow": "Weiter, wo du aufgehört hast",
+    "eyebrowAt": "Weiter, wo du aufgehört hast · Seite {{page}} von {{total}}",
+    "cta": "Weiterlesen"
+  },
+  "cover": {
+    "developing": "Wird vorbereitet …",
+    "failed": "Diese Datei ließ sich nicht lesen",
+    "draftIn": "Entwurf in {{space}}",
+    "sharedIn": "Geteilt in {{space}}",
+    "ready": "bereit",
+    "endorsed": "Empfohlen",
+    "pages_one": "{{count}} Seite",
+    "pages_other": "{{count}} Seiten",
+    "sample": "Beispielseiten",
+    "writing": "Deine Zusammenfassung entsteht …",
+    "reading": "Deine Seiten werden gelesen …",
+    "more": "Mehr zu {{file}}",
+    "remove": "Entfernen …",
+    "retry": "Noch einmal versuchen"
+  },
+  "life": {
+    "read": "Gelesen {{read}}/{{total}}",
+    "recall": "Gewusst {{knew}}/{{total}}",
+    "answers_one": "{{count}} Antwort",
+    "answers_other": "{{count}} Antworten",
+    "notes_one": "{{count}} Notiz",
+    "notes_other": "{{count}} Notizen"
+  },
+  "journey": {
+    "label": "Wo diese Seite steht",
+    "brought": "Hinzugefügt",
+    "understood": "Verstanden",
+    "shared": "Geteilt",
+    "landed": "Angekommen",
+    "state": {
+      "done": "erledigt",
+      "now": "jetzt",
+      "todo": "noch nicht"
+    }
+  },
+  "select": {
+    "group": "Auswahl",
+    "countLabel": "Anzahl ausgewählt",
+    "count_one": "{{count}} ausgewählt",
+    "count_other": "{{count}} ausgewählt",
+    "shareTo": "Teilen in …",
+    "publishDrafts": "Entwürfe veröffentlichen",
+    "remove": "Entfernen",
+    "all": "Alle auswählen",
+    "done": "Fertig",
+    "published_one": "{{count}} Entwurf veröffentlicht",
+    "published_other": "{{count}} Entwürfe veröffentlicht",
+    "removed_one": "{{count}} entfernt",
+    "removed_other": "{{count}} entfernt",
     "undo": "Rückgängig",
-    "open": "{{title}} in {{space}} öffnen",
-    "toast": {
-      "published_one": "{{count}} Eintrag veröffentlicht",
-      "published_other": "{{count}} Einträge veröffentlicht",
-      "deleted_one": "{{count}} Eintrag gelöscht",
-      "deleted_other": "{{count}} Einträge gelöscht"
+    "confirm": {
+      "title_one": "{{count}} aus deiner Bibliothek entfernen?",
+      "title_other": "{{count}} aus deiner Bibliothek entfernen?",
+      "demo": "Sie verschwinden aus deinem Regal. Ein paar Sekunden lang kannst du das rückgängig machen.",
+      "live_one": "Die Lektion dazu geht mit, samt deinem Fortschritt und deinen Übungen. Deine Notizen bleiben. Ein paar Sekunden lang kannst du das rückgängig machen – danach ist es endgültig.",
+      "live_other": "Die Lektionen dazu gehen mit, samt deinem Fortschritt und deinen Übungen. Deine Notizen bleiben. Ein paar Sekunden lang kannst du das rückgängig machen – danach ist es endgültig.",
+      "stillReading_one": "{{count}} Datei wird noch gelesen und bleibt.",
+      "stillReading_other": "{{count}} Dateien werden noch gelesen und bleiben.",
+      "keep": "Behalten",
+      "remove_one": "{{count}} entfernen",
+      "remove_other": "{{count}} entfernen"
+    }
+  },
+  "share": {
+    "role": {
+      "owner": "gehört dir",
+      "editor": "du bearbeitest ihn",
+      "member": "du bist Mitglied"
     },
-    "size": "{{mb}} MB",
-    "uploads": {
-      "subtitle_one": "{{count}} Material in deinen Spaces",
-      "subtitle_other": "{{count}} Materialien in deinen Spaces",
-      "intro": "Dein hochgeladenes Material im Original. Wenn du etwas davon löschst, bleibt die Lektion daraus intakt. Sie funktioniert weiter und zeigt an, dass die Quelle entfernt wurde.",
-      "published": "Sie sind jetzt in ihren Spaces sichtbar.",
-      "deleted": "Die Lektionen daraus funktionieren weiter.",
-      "emptyTitle": "Noch nichts hochgeladen",
-      "emptyBody": "Lade Material in einem Space hoch. Daraus entsteht von selbst eine Lektion.",
-      "working": "In Arbeit",
-      "ready": "Bereit"
+    "mode": {
+      "open": "Offen",
+      "guided": "Geführt"
     },
-    "drafts": {
-      "subtitle_one": "{{count}} unveröffentlichte Lektion aus all deinen Spaces",
-      "subtitle_other": "{{count}} unveröffentlichte Lektionen aus all deinen Spaces",
-      "intro": "Nur du siehst sie. Entwürfe und Lektionen, die noch verarbeitet werden, bleiben bis zur Veröffentlichung privat. Nur hier siehst du deine aus allen Spaces auf einmal.",
-      "published": "Sie stehen jetzt in ihren Pfaden.",
-      "emptyTitle": "Keine Entwürfe",
-      "emptyBody": "Alles, was du angefangen hast, ist veröffentlicht. Nichts wartet auf dich.",
-      "processing": "In Arbeit",
-      "needsReview": "Zu prüfen",
-      "draft": "Entwurf"
+    "title": "{{file}} teilen",
+    "titleMany_one": "{{count}} Datei teilen",
+    "titleMany_other": "{{count}} Dateien teilen",
+    "description": "Wähl einen Space. Was dann passiert, steht unten, bevor du bestätigst.",
+    "leftAsTheyAre": "Bleiben, wie sie sind: {{list}}.",
+    "looking": "Deine Spaces werden gesucht …",
+    "noSpaces": "Du bist noch in keinem Space. Tritt einem bei oder erstell einen, dann teil von hier aus.",
+    "spaces": "Spaces",
+    "shareTo": "In {{space}} teilen",
+    "share": "Teilen",
+    "sharedTo": "In {{space}} geteilt",
+    "doneDraft_one": "{{count}} als Entwurf in {{space}}",
+    "doneDraft_other": "{{count}} als Entwurf in {{space}}",
+    "doneShared_one": "{{count}} geteilt",
+    "doneShared_other": "{{count}} geteilt",
+    "outcome": {
+      "draft": "Es wird ein Lektionsentwurf in {{space}}. Bis du veröffentlichst, sehen ihn nur du und die Bearbeiter:innen.",
+      "community": "Offener Space: Es kommt als Community-Lektion in den Pfad, mit deinem Namen daran.",
+      "contribution": "Es kommt als dein Beitrag an, mit deinem Namen daran. Die Inhaberin oder der Inhaber kann ihn in den Pfad empfehlen."
     },
-    "impact": {
-      "subtitle_one": "{{count}} veröffentlichter Beitrag",
-      "subtitle_other": "{{count}} veröffentlichte Beiträge",
-      "intro": "Jeder Beitrag, den du veröffentlicht hast, und was daraus geworden ist. Likes stehen bei jedem Eintrag einzeln. Sie zeigen, was anderen geholfen hat, und ergeben nie eine Punktzahl.",
-      "emptyTitle": "Noch nichts veröffentlicht",
-      "emptyBody": "Teile eine Zusammenfassung, ein durchgerechnetes Beispiel oder Übungsfragen mit einem Space. Dann erscheint es hier, zusammen mit dem, was daraus geworden ist.",
-      "needsNewHome": "Braucht einen neuen Platz"
+    "left": {
+      "preparing_one": "{{count}} wird noch vorbereitet",
+      "preparing_other": "{{count}} werden noch vorbereitet",
+      "unread_one": "{{count}} ließ sich nicht lesen",
+      "unread_other": "{{count}} ließen sich nicht lesen",
+      "inSpace_one": "{{count}} schon in einem Space",
+      "inSpace_other": "{{count}} schon in einem Space"
+    },
+    "shared": "Geteilt",
+    "likes_one": "Like",
+    "likes_other": "Likes",
+    "notReady": "Teilen geht, sobald es fertig ist.",
+    "publishTo": "In {{space}} veröffentlichen",
+    "openIn": "In {{space}} öffnen",
+    "takeBack": "Wieder nur für dich",
+    "itsSpace": "seinem Space",
+    "takeBackDialog": {
+      "title": "{{file}} wieder nur für dich?",
+      "body": "Es wird aus {{space}} entfernt. Deine Seite und deine Worte bleiben.",
+      "keep": "Geteilt lassen",
+      "confirm": "Zurücknehmen"
+    },
+    "backToYou": "Wieder nur für dich"
+  },
+  "words": {
+    "title": "Deine Worte",
+    "lede": "Jede Notiz und jede Antwort, nach der du gefragt hast – jede noch an ihrer Seite.",
+    "newNote": "Neue Notiz",
+    "placeholder": "Schreib es auf, solange es frisch ist …",
+    "empty": "Noch nichts geschrieben. Notizen, die du schreibst, und Antworten, nach denen du fragst, sammeln sich hier.",
+    "kind": {
+      "note": "Notiz",
+      "answer": "Antwort"
+    },
+    "yourPage": "Deine Seite",
+    "itsLesson": "ihre Lektion",
+    "unfiled": "Noch in keinem Space abgelegt",
+    "page": "Seite {{page}}",
+    "myNote": "Meine Notiz",
+    "orphan": {
+      "title": "Braucht ein neues Zuhause",
+      "body": "Die Lektion, an der das hing, wurde entfernt. Deine Arbeit ist sicher und behält ihre Likes. Öffnen lässt sie sich aber erst wieder, wenn sie ein neues Zuhause hat.",
+      "rehome": "Neues Zuhause finden"
     }
   }
 }
