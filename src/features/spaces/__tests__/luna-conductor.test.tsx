@@ -28,6 +28,18 @@ describe('useLunaConductor', () => {
     act(() => result.current.onMove({ lecture_id: 'l2', page: 3, spot: 'join' }));
     expect(navigate).toHaveBeenCalledWith('/v4/space/s1/lesson/l2/faces?page=3&spot=join&luna=1');
   });
+
+  it('a move without words clears the light here, and carries no spot into another Lesson', () => {
+    const setSpot = vi.fn();
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useLunaConductor({ lessonId: 'l1', spaceId: 's1', goToPage: vi.fn(), setSpot, navigate }),
+    );
+    act(() => result.current.onMove({ lecture_id: 'l1', page: 4 }));
+    expect(setSpot).toHaveBeenCalledWith(null);
+    act(() => result.current.onMove({ lecture_id: 'l2', page: 7 }));
+    expect(navigate).toHaveBeenCalledWith('/v4/space/s1/lesson/l2/faces?page=7&luna=1');
+  });
 });
 
 describe('the gentle offer', () => {

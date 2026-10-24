@@ -237,12 +237,15 @@ export default function LessonFacesScreen() {
     /* `ready`: the pager mounts a render after the bundle, once there is an anchor. */
   }, [ready]);
 
+  /* Luna's offer to study together; it belongs to the Lesson it was made in. */
+  const [lunaOffer, setLunaOffer] = useState(false);
   /* Reset when the Lesson changes — React's documented way, during render. */
   const [readingId, setReadingId] = useState(lessonId);
   if (readingId !== lessonId) {
     setReadingId(lessonId);
     setView('slide');
-    setSpot(null);
+    /* A way in at words and a page (a search hit, a Luna move) holds across the change. */
+    setSpot(askedSpot?.slice(0, 120) || null);
     setBeat(-1);
     setAnchor(null);
     setEngaged(false);
@@ -252,7 +255,8 @@ export default function LessonFacesScreen() {
     setTurns([]);
     setAccent(null);
     setFound(null);
-    setPdfPage(1);
+    setPdfPage(askedPage ?? 1);
+    setLunaOffer(false);
   }
 
   const engage = useCallback(() => setEngaged(true), []);
@@ -312,7 +316,6 @@ export default function LessonFacesScreen() {
   const navigate = useNavigate();
   const lunaOn = lunaEnabled(spaceId, lessonId);
   const [lunaOpen, setLunaOpen] = useState(() => params.get('luna') === '1');
-  const [lunaOffer, setLunaOffer] = useState(false);
   /* Explain and text dock in the same place: whichever opens, Luna steps aside. */
   if (studio && lunaOpen) setLunaOpen(false);
   const conductor = useLunaConductor({ lessonId: lessonId ?? '', spaceId: spaceId ?? '', goToPage, setSpot, navigate });
