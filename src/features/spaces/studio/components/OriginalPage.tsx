@@ -71,6 +71,25 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
       className="scroll-mt-40 lg:scroll-mt-28"
     >
       {!bare && <PageDivider page={page.page} original />}
+      {/*
+        What got lost, said once per page — never a label on every running
+        header and footer. Above the page, not on it: on the page it covered
+        the slide's own corner (its logo, its title).
+      */}
+      {(figures.length > 0 || texts.length > 0) && (
+        <div className="mb-1.5 flex flex-wrap justify-end gap-1">
+          {texts.length > 0 && (
+            <span className={cn(PILL, 'py-0.5')}>
+              {t('original.parts', { count: texts.length })}
+            </span>
+          )}
+          {figures.length > 0 && (
+            <span className={cn(PILL, 'py-0.5')}>
+              {t('original.figures', { count: figures.length })}
+            </span>
+          )}
+        </div>
+      )}
       <div
         className={cn('relative overflow-hidden rounded-xl bg-[hsl(var(--studio-paper))]', PAGE_SHADOW)}
         style={{ aspectRatio: `${page.width} / ${page.height}` }}
@@ -145,21 +164,6 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
           );
         })}
 
-        {/* What got lost, said once per page — never a label on every running header and footer. */}
-        {(figures.length > 0 || texts.length > 0) && (
-          <div className="pointer-events-none absolute right-2 top-2 z-20 flex flex-col items-end gap-1">
-            {texts.length > 0 && (
-              <span className={cn(PILL, 'py-0.5')}>
-                {t('original.parts', { count: texts.length })}
-              </span>
-            )}
-            {figures.length > 0 && (
-              <span className={cn(PILL, 'py-0.5')}>
-                {t('original.figures', { count: figures.length })}
-              </span>
-            )}
-          </div>
-        )}
         {figures.map((s) => (
           <div
             key={s.id}
