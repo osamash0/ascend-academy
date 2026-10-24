@@ -18,7 +18,11 @@ import {
   type SpaceSort,
 } from '../data/hub';
 import { archivedForViewer } from '../data/hub';
-import { Archive } from 'lucide-react';
+import { Archive, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ProfessorRoutes } from '@/lib/routes';
+import { NewSpaceDialog } from '../components/SpaceDialogs';
+import { dataMode } from '../data/liveRepository';
 import { cn } from '@/lib/utils';
 import { Pressable } from '../components/Pressable';
 import { useScreenState } from '../data/useSpaces';
@@ -90,6 +94,18 @@ export default function SpacesHubScreen() {
   const popular = useMemo(() => popularNow(), []);
   const archived = useMemo(() => archivedForViewer(), []);
   const [sort, setSort] = useState<SpaceSort>('active');
+  const [newOpen, setNewOpen] = useState(false);
+  const navigate = useNavigate();
+  /*
+   * Create lives where your Spaces are listed. Live, a Space is a course,
+   * and courses are made in the existing manager (as Manage already hands
+   * off there), so New Space opens its create dialog; the demo keeps its
+   * own dialog.
+   */
+  const newSpace = () =>
+    dataMode(import.meta.env.VITE_V4_DATA_MODE) === 'live'
+      ? navigate(`${ProfessorRoutes.COURSES}?new=1`)
+      : setNewOpen(true);
   const sortedMine = useMemo(() => sortSpaces(mine, sort), [mine, sort]);
   const fresh = useMemo(() => newThisWeek(), []);
   const featured = useMemo(() => spaceOfTheWeek(), []);
@@ -302,7 +318,16 @@ export default function SpacesHubScreen() {
             eight and vanishes at seven is a moving target in a row whose job
             is to be the one stable thing on the page.
           */}
-          <div className={cn('flex items-center justify-end gap-1', GUTTER)}>
+          {/* No GUTTER here: the section already has it, and twice put New Space a gutter right of "Your Spaces". */}
+          <div className="flex items-center justify-end gap-1">
+            <Pressable
+              type="button"
+              onClick={newSpace}
+              className="console-focusable mr-auto flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1 text-[12.5px] font-semibold text-slate-900"
+            >
+              <Plus aria-hidden className="h-3.5 w-3.5" />
+              {t('hub.legacy.newSpace')}
+            </Pressable>
             {(['active', 'name'] as const).map((by) => (
               <Pressable
                 key={by}
@@ -322,6 +347,7 @@ export default function SpacesHubScreen() {
             ))}
           </div>
           <SpaceChipRow spaces={sortedMine} selected={selected} onSelect={setSelected} />
+          <NewSpaceDialog open={newOpen} onOpenChange={setNewOpen} />
         </section>
 
         {/*
