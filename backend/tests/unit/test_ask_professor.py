@@ -83,3 +83,21 @@ def test_teaching_overview_summarizes_active_lectures():
 
 def test_suggested_questions_present():
     assert len(ask_professor.list_suggested_questions()) == 5
+
+
+async def test_chat_failure_reply_never_echoes_the_exception(monkeypatch):
+    """The fallback reply used to embed ``Debug Error: {type}: {str(e)}`` —
+    provider error bodies and budget figures went straight to the chat."""
+    monkeypatch.setattr(ask_professor, "_build_professor_context", lambda token, pid: {})
+
+    async def _boom(prompt, ai_model="cerebras", **kwargs):
+        raise RuntimeError("monthly budget 4.20 USD exceeded at api.openai.com")
+
+    monkeypatch.setattr(ask_professor, "generate_text", _boom)
+    reply = await ask_professor.chat_professor_data(
+        professor_id="p1", messages=[{"role": "user", "content": "how are my students doing?"}], token="t",
+    )
+    assert "Debug Error" not in reply
+    assert "RuntimeError" not in reply
+    assert "4.20" not in reply
+    assert reply.strip()

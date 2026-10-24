@@ -195,3 +195,20 @@ def _afn(return_value):
     async def _fn(*_a, **_k):
         return return_value
     return _fn
+
+
+def test_regenerate_title_works_without_patching_the_title_symbol(app, professor_user, patch_supabase, monkeypatch):
+    """Stub the provider layer only. Every other test patches
+    ``generate_slide_title`` itself, which is how a sync-lambda-awaited bug
+    stayed invisible."""
+    from backend.services.ai import orchestrator
+
+    async def _fake_generate_text(prompt, ai_model="cerebras", **kwargs):
+        return '{"title": "Newton\'s Three Laws"}'
+
+    monkeypatch.setattr(orchestrator, "generate_text", _fake_generate_text)
+    _seed_one_slide(patch_supabase, owner="00000000-0000-0000-0000-000000000001")
+    app.dependency_overrides[verify_token] = lambda: professor_user
+    r = TestClient(app).post("/api/ai/slides/S1/regenerate-title", json={}, headers=H)
+    assert r.status_code == 200, r.text
+    assert patch_supabase.tables["slides"][0]["title"] == "Newton's Three Laws"

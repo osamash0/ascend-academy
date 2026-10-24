@@ -430,3 +430,34 @@ class TestRetryRun:
         assert kwargs["parsing_mode"] == "on_demand"
         assert kwargs["batch_id"] == str(run.batch_id)
         assert kwargs["course_id"] == str(run.course_id)
+
+
+class TestParseRawErrorDetail:
+    def test_parse_raw_422_does_not_echo_the_exception(self, app, professor_user, monkeypatch):
+        """``detail=str(e)`` leaked parser internals (paths, library errors)."""
+        from fastapi.testclient import TestClient
+
+        from backend.core.auth_middleware import require_creator
+        from backend.services import upload_service
+
+        async def _read(file, max_mb):
+            return b"%PDF-1.4 fake"
+
+        async def _validate(filename, content):
+            return None
+
+        async def _explode(content, filename, parser):
+            raise RuntimeError("fitz failed on /tmp/worker-7/secret.pdf: xref table corrupt")
+
+        monkeypatch.setattr(upload_service, "read_upload_capped", _read)
+        monkeypatch.setattr(upload_service, "validate_upload", _validate)
+        monkeypatch.setattr(upload_service, "extract_raw_pages", _explode)
+        app.dependency_overrides[require_creator] = lambda: professor_user
+        r = TestClient(app).post(
+            "/api/v1/upload/parse-raw",
+            files={"file": ("deck.pdf", b"%PDF-1.4 fake", "application/pdf")},
+            headers={"Authorization": "Bearer x"},
+        )
+        assert r.status_code == 422
+        assert "secret.pdf" not in r.text
+        assert "xref" not in r.text

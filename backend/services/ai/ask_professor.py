@@ -616,7 +616,9 @@ async def chat_professor_data(
         )
     except Exception as e:
         logger.error("ask_professor chat failed: %s", e, exc_info=True)
-        return f"Sorry — I couldn't answer that just now. Debug Error: {type(e).__name__}: {str(e)}"
+        # Never echo the exception: provider bodies and budget figures are
+        # for the log line above, not the chat.
+        return "Sorry — I couldn't answer that just now. Please try again in a moment."
     return (reply or "").strip() or "I'm not sure how to answer that from your data. Try asking about completion, quiz scores, or where students are struggling."
 
 

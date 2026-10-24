@@ -139,3 +139,17 @@ class TestTokenCache:
         assert stored["color"] == "red"
         assert stored["issued_on"] == "2026-05-02"
         assert sorted(stored["tags"]) == ["a", "b"]
+
+
+class TestBlocklistFailsClosed:
+    async def test_redis_outage_raises_instead_of_allowing(self, monkeypatch):
+        """A revoked token must not become valid again just because Redis is
+        unreachable. The check used to log a warning and return False."""
+        from backend.core import redis as redis_module
+
+        def _down():
+            raise ConnectionError("redis unreachable")
+
+        monkeypatch.setattr(redis_module, "get_redis_client", _down)
+        with pytest.raises(cache.BlocklistUnavailable):
+            await cache.is_token_blocklisted("some-token")

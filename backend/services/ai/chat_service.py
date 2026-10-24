@@ -6,6 +6,19 @@ from backend.services import chat_memory
 
 logger = logging.getLogger(__name__)
 
+LECTURE_AUTH_COLUMNS = "id, professor_id, pdf_hash, visibility, student_owner_id"
+
+
+def _assert_lecture_visible(row: Dict[str, Any], user_id: str, user_role: Optional[str]) -> None:
+    """Mirror of the RLS rule ``lecture_visible_to_caller`` plus the
+    professor-owns-it rule: a ``private_student`` upload is only readable by
+    its owner; a professor may only chat against their own lectures."""
+    if user_role == "professor" and row.get("professor_id") != user_id:
+        raise PermissionError("Not your lecture.")
+    if row.get("visibility") == "private_student" and row.get("student_owner_id") != user_id:
+        raise PermissionError("This material is private.")
+
+
 async def process_chat_request(
     user_id: str,
     user_role: Optional[str],
@@ -24,7 +37,7 @@ async def process_chat_request(
 
     if lecture_id or pdf_hash:
         try:
-            q = supabase_admin.table("lectures").select("id, professor_id, pdf_hash")
+            q = supabase_admin.table("lectures").select(LECTURE_AUTH_COLUMNS)
             if lecture_id:
                 q = q.eq("id", lecture_id)
             else:
@@ -34,8 +47,7 @@ async def process_chat_request(
             if not rows:
                 raise FileNotFoundError("Lecture not found.")
             row = rows[0]
-            if user_role == "professor" and row.get("professor_id") != user_id:
-                raise PermissionError("Not your lecture.")
+            _assert_lecture_visible(row, user_id, user_role)
             safe_lecture_id = row.get("id")
             safe_pdf_hash = row.get("pdf_hash")
         except (FileNotFoundError, PermissionError):
@@ -56,14 +68,13 @@ async def process_chat_request(
         if session_lecture_id and not safe_lecture_id:
             safe_lecture_id = session_lecture_id
             try:
-                q = supabase_admin.table("lectures").select("id, professor_id, pdf_hash").eq("id", safe_lecture_id)
+                q = supabase_admin.table("lectures").select(LECTURE_AUTH_COLUMNS).eq("id", safe_lecture_id)
                 res = q.limit(1).execute()
                 rows = res.data or []
                 if not rows:
                     raise FileNotFoundError("Lecture not found.")
                 row = rows[0]
-                if user_role == "professor" and row.get("professor_id") != user_id:
-                    raise PermissionError("Not your lecture.")
+                _assert_lecture_visible(row, user_id, user_role)
                 safe_pdf_hash = row.get("pdf_hash")
             except (FileNotFoundError, PermissionError):
                 raise

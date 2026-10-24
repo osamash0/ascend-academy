@@ -14,7 +14,16 @@ class _AuthRes:
 
 @pytest.fixture
 def patched_auth(monkeypatch, patch_supabase):
-    """Point both the cache layer AND the auth middleware at the same fake."""
+    """Point both the cache layer AND the auth middleware at the same fake.
+
+    Also hands the blocklist an in-memory Redis: since the revocation check
+    fails closed, a test without any Redis would get 503 on every token.
+    """
+    from backend.core import redis as redis_module
+    from backend.tests.fake_redis import FakeRedis
+
+    shared = FakeRedis()
+    monkeypatch.setattr(redis_module, "get_redis_client", lambda: shared)
     monkeypatch.setattr(
         auth_middleware, "supabase_admin", patch_supabase, raising=True
     )
@@ -210,3 +219,47 @@ async def test_require_role_db_failure_is_not_fatal(monkeypatch):
     )
     checker = auth_middleware.require_role("professor")
     assert await checker(user=user) is user
+
+
+async def test_verify_token_503_when_blocklist_unavailable(monkeypatch, patched_auth):
+    """Fail closed: when the revocation list cannot be consulted, refuse with a
+    retryable 503 rather than letting a possibly revoked token through."""
+    async def _unavailable(token):
+        raise cache_module.BlocklistUnavailable("redis down")
+
+    monkeypatch.setattr(cache_module, "is_token_blocklisted", _unavailable)
+    # The token itself is valid (cached) — only its revocation state is unknown.
+    await cache_module.store_cached_token(
+        "maybe-revoked", {"id": "u1", "email": "u1@test.local", "app_metadata": {"role": "student"}}
+    )
+
+    creds = SimpleNamespace(credentials="maybe-revoked")
+    with pytest.raises(Exception) as exc:
+        await auth_middleware.verify_token(credentials=creds)
+    assert getattr(exc.value, "status_code", None) == 503
+
+
+async def test_invalid_token_is_still_401_when_blocklist_unavailable(monkeypatch, patched_auth):
+    """A Redis outage must not upgrade garbage tokens to 503: only a token
+    that verifies but cannot be proven un-revoked is refused with 503."""
+    async def _unavailable(token):
+        raise cache_module.BlocklistUnavailable("redis down")
+
+    monkeypatch.setattr(cache_module, "is_token_blocklisted", _unavailable)
+
+    class _Resp:
+        status_code = 401
+
+        def json(self):
+            return {}
+
+    class _Client:
+        async def get(self, *a, **k):
+            return _Resp()
+
+    monkeypatch.setattr(auth_middleware, "get_auth_http_client", lambda: _Client())
+
+    creds = SimpleNamespace(credentials="garbage")
+    with pytest.raises(Exception) as exc:
+        await auth_middleware.verify_token(credentials=creds)
+    assert getattr(exc.value, "status_code", None) == 401

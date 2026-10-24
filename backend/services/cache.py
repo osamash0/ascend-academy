@@ -144,19 +144,31 @@ async def invalidate_cached_token(token: str) -> None:
     except Exception as e:
         logger.warning("Failed to invalidate token cache in PG: %s", e)
 
+class BlocklistUnavailable(RuntimeError):
+    """The revocation list could not be consulted (Redis down/unreachable).
+
+    Callers must fail closed: a token that may have been revoked at logout or
+    on a role change must not be accepted just because the store is unreachable.
+    """
+
+
 async def is_token_blocklisted(token: str) -> bool:
-    """Check if a token has been blocklisted in Redis after logout."""
+    """Check if a token has been blocklisted in Redis after logout.
+
+    Raises ``BlocklistUnavailable`` instead of returning ``False`` when Redis
+    cannot answer — the old fail-open behaviour re-validated revoked tokens
+    for the length of any Redis outage.
+    """
     if not token:
         return False
     key = _hash_token(token)
     try:
         from backend.core.redis import get_redis_client
         redis_client = get_redis_client()
-        if await redis_client.get(f"blocklist:{key}"):
-            return True
+        return bool(await redis_client.get(f"blocklist:{key}"))
     except Exception as e:
-        logger.warning("Redis blocklist check failed: %s", e)
-    return False
+        logger.error("Redis blocklist check failed; refusing token: %s", e)
+        raise BlocklistUnavailable(str(e)) from e
 
 
 async def purge_expired_backend_cache() -> int:

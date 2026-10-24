@@ -668,7 +668,11 @@ def _build_context(user_id: str, now: datetime, client=None) -> UserContext:
             lifecycle_nudges_enabled = preference.get("lifecycle_nudges_enabled", True) is not False
             in_app_enabled = preference.get("in_app_enabled", True) is not False
     except Exception as e:
-        logger.warning("Failed to load notification preferences for %s: %s", user_id, e)
+        # Fail closed: if we cannot read the preference we must not assume
+        # consent — treat the user as opted out for this run.
+        logger.error("Failed to load notification preferences for %s; skipping: %s", user_id, e)
+        lifecycle_nudges_enabled = False
+        in_app_enabled = False
 
     return UserContext(
         user_id=user_id,
