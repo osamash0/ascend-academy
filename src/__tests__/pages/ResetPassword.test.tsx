@@ -91,14 +91,14 @@ describe('ResetPassword', () => {
     await user.type(screen.getByLabelText(/Confirm new password/i), '123');
     await user.click(screen.getByRole('button', { name: /Update password/i }));
     
-    expect(await screen.findByText(/Password must be at least 6 characters/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Password must be at least 8 characters/i)).toBeInTheDocument();
     expect(supabaseMock.auth.updateUser).not.toHaveBeenCalled();
 
     // Mismatch
     await user.clear(screen.getByLabelText(/^New password/i));
     await user.clear(screen.getByLabelText(/Confirm new password/i));
-    await user.type(screen.getByLabelText(/^New password/i), '123456');
-    await user.type(screen.getByLabelText(/Confirm new password/i), '1234567');
+    await user.type(screen.getByLabelText(/^New password/i), '12345678');
+    await user.type(screen.getByLabelText(/Confirm new password/i), '123456789');
     await user.click(screen.getByRole('button', { name: /Update password/i }));
 
     expect(await screen.findByText(/Passwords do not match/i)).toBeInTheDocument();
@@ -146,8 +146,8 @@ describe('ResetPassword', () => {
       expect(screen.getByLabelText(/^New password/i)).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText(/^New password/i), '123456');
-    await user.type(screen.getByLabelText(/Confirm new password/i), '123456');
+    await user.type(screen.getByLabelText(/^New password/i), '12345678');
+    await user.type(screen.getByLabelText(/Confirm new password/i), '12345678');
 
     await user.click(screen.getByRole('button', { name: /Update password/i }));
 
