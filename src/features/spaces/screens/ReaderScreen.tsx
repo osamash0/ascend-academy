@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useReducedMotion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { spaceById } from '../mocks/spaces';
-import { adjacentLessons, visibleLesson } from '../mocks/lessons';
-import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
+import { addNote, deleteNote, notesForLesson, updateNote } from '../data/notes';
 import { Scene, SURFACES } from '../components/Scene';
 import { LessonPager } from '../components/LessonPager';
 import { NoteEditor } from '../components/NoteEditor';
@@ -19,6 +18,8 @@ import { SelectionAsk } from '../components/reader/SelectionAsk';
 import { SourceView } from '../components/reader/SourceView';
 import { TutorPanel } from '../components/reader/TutorPanel';
 import type { Turn } from '../components/reader/TutorPanel';
+import { adjacentLessons, liveWorld, spaceById, visibleLesson } from '../data/world';
+import { useReadingProgress } from '../data/reading';
 
 /**
  * Reading a Lesson.
@@ -210,6 +211,7 @@ function useRailIsAPanel() {
 const INERT = { inert: '' } as unknown as React.HTMLAttributes<HTMLDivElement>;
 
 export default function ReaderScreen() {
+  const { t } = useTranslation('v4Reader');
   const screenState = useScreenState();
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
   const space = spaceId ? spaceById(spaceId) : undefined;
@@ -269,6 +271,7 @@ export default function ReaderScreen() {
    * a workaround for having put the state in the wrong place.
    */
   const [page, setPage] = useState(1);
+  useReadingProgress(lessonId, page, liveWorld() !== null);
 
   /*
    * A sentence carried out of the text and into the tutor's composer.
@@ -391,16 +394,15 @@ export default function ReaderScreen() {
     return chrome(
       <>
         <ReaderExit to={exitTo} />
-        <SpacesError what="this Lesson" />
+        <SpacesError what="lesson" />
       </>,
     );
 
   if (!space || !lesson)
     return chrome(
       <NotFound
-        what="Lesson"
-        backTo={space ? `/v4/space/${space.id}` : '/v4/spaces'}
-        backLabel={space ? `Back to ${space.name}` : 'Back to Spaces'}
+        what="lesson"
+        back={space ? { to: `/v4/space/${space.id}`, space: space.name } : { to: '/v4/spaces', place: 'spaces' }}
       />,
     );
 
@@ -452,7 +454,7 @@ export default function ReaderScreen() {
       className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14.5px] font-semibold text-slate-900"
     >
       <ListChecks aria-hidden className="h-4 w-4" />
-      Practise what you just read
+      {t('screen.practiseRead')}
     </PressableLink>
   );
   const backLink = passages.length === 0 && (
@@ -460,7 +462,7 @@ export default function ReaderScreen() {
       to={back}
       className="console-focusable inline-flex h-12 items-center rounded-full border border-white/12 bg-white/[0.04] px-6 text-[14px] font-medium"
     >
-      Back to the Lesson
+      {t('screen.backToLesson')}
     </Link>
   );
   const whatNext =
@@ -558,7 +560,7 @@ export default function ReaderScreen() {
       */}
       <NoteEditor
         key={`new-${noteTick}`}
-        placeholder="Private to you, and gathered in your Library."
+        placeholder={t('screen.notes.placeholder')}
         onSave={(body) => {
           addNote({
             lessonId: lesson.id,
@@ -573,7 +575,7 @@ export default function ReaderScreen() {
 
       {myNotes.length === 0 && (
         <p className="px-1 text-[13px] text-faint">
-          Nothing yet. Notes are private, and only you ever see them.
+          {t('screen.notes.empty')}
         </p>
       )}
     </div>
@@ -755,7 +757,7 @@ export default function ReaderScreen() {
         <div className="mb-6">
           <h1 className="text-[15px] font-semibold">{lesson.title}</h1>
           <p className="mt-0.5 text-[12.5px] text-faint">
-            The Material this Lesson was built from
+            {t('read.materialCaption')}
           </p>
         </div>
         <SourceView
@@ -790,16 +792,15 @@ export default function ReaderScreen() {
   if (passages.length === 0) {
     return readerChrome(
       <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center px-6 pt-14 text-center">
-        <p className="mb-2 text-[17px] font-semibold">Not written yet</p>
+        <p className="mb-2 text-[17px] font-semibold">{t('read.unwritten.title')}</p>
         <p className="mb-7 max-w-[46ch] text-[14.5px] leading-relaxed text-quiet">
-          {lesson.title} has its ideas and its practice, but the text itself has not
-          been written yet.
+          {t('read.unwritten.body', { lesson: lesson.title })}
         </p>
         <Link
           to={back}
           className="console-focusable inline-flex h-11 items-center rounded-full border border-white/12 bg-white/[0.04] px-6 text-[14px] font-medium"
         >
-          Back to the Lesson
+          {t('screen.backToLesson')}
         </Link>
       </div>,
     );

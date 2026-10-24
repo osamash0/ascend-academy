@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 import type { LectureConcept, LocalizedLectureBundle } from '@/types/domain';
 import type { Lesson, LoadState, Space } from '../types';
 import type { ExplainAnswer } from '../components/reader/iui/spec';
@@ -19,6 +21,7 @@ import {
   type RehearsalResult,
 } from './liveRepository';
 import { useLesson, useLessonContent, type LessonContentResult, type LessonResult } from './useSpaces';
+import { liveWorld } from './world';
 
 /**
  * The reader's data, demo or real.
@@ -107,6 +110,9 @@ export function spaceFromCourse(c: ReaderCourse): Space {
 
 function lessonFrom(c: ReaderCourse, l: ReaderCourse['lectures'][number], concepts: ReaderConcept[] = []): Lesson {
   const owner = { id: `course-${c.id}`, name: c.author ?? 'Course team', avatarUrl: null };
+  // What the world knows about this Lesson for this viewer: their progress
+  // and the size of its practice bank. Absent outside a loaded world.
+  const known = liveWorld()?.lessons.find((x) => x.id === l.id);
   return {
     id: l.id,
     spaceId: c.id,
@@ -116,9 +122,8 @@ function lessonFrom(c: ReaderCourse, l: ReaderCourse['lectures'][number], concep
     origin: 'official',
     author: owner,
     grounding: 'grounded',
-    // Progress is not read yet: say nothing rather than invent some.
-    progress: 'not-started',
-    percentComplete: 0,
+    progress: known?.progress ?? 'not-started',
+    percentComplete: known?.percentComplete ?? 0,
     concepts: concepts.map((k) => ({ id: k.concept_id, name: k.name, progress: 'untouched' })),
     material: {
       id: `material-${l.id}`,
@@ -129,7 +134,7 @@ function lessonFrom(c: ReaderCourse, l: ReaderCourse['lectures'][number], concep
       sourceRemoved: false,
     },
     contributionCount: 0,
-    practiceCount: 0,
+    practiceCount: known?.practiceCount ?? 0,
   };
 }
 
@@ -151,6 +156,15 @@ function bundleFrom(r: ReaderLecture): LocalizedLectureBundle {
 /* ─── hooks ───────────────────────────────────────────────────────────── */
 
 /** The Lesson and its Space, demo or real — `useLesson`'s shape either way. */
+/**
+ * The language the app is showing. Requests carry it (see `withLanguage`), so
+ * anything a hook fetched in one language is fetched again after a switch.
+ */
+function useLang(): string {
+  const { i18n: inst } = useTranslation();
+  return (inst.language || 'en').split('-')[0];
+}
+
 export function useReaderLesson(spaceId: string | undefined, lessonId: string | undefined): LessonResult {
   const live = isLive(spaceId, lessonId);
   const demo = useLesson(live ? undefined : spaceId, live ? undefined : lessonId);
@@ -194,6 +208,7 @@ export function useReaderLesson(spaceId: string | undefined, lessonId: string | 
 /** What the Lesson is made of — `useLessonContent`'s shape, demo or real. */
 export function useReaderContent(spaceId: string | undefined, lessonId: string | undefined): LessonContentResult {
   const live = isLive(spaceId, lessonId);
+  const lang = useLang();
   const demo = useLessonContent(live ? undefined : lessonId);
   const [state, setState] = useState<LessonContentResult>({ state: 'loading', bundle: null, concepts: [], pdfUrl: null });
 
@@ -246,7 +261,7 @@ export function useReaderContent(spaceId: string | undefined, lessonId: string |
     return () => {
       alive = false;
     };
-  }, [live, lessonId]);
+  }, [live, lessonId, lang]);
 
   return live ? state : demo;
 }
@@ -271,6 +286,7 @@ export function useExplain(
   enabled = true,
 ): ExplainResult {
   const live = isLive(spaceId, lessonId);
+  const lang = useLang();
   const [result, setResult] = useState<ExplainResult>({ state: 'loading', answer: null, fallback: false });
   const { title, markdown } = source;
 
@@ -278,13 +294,13 @@ export function useExplain(
     if (!live || !lessonId || !enabled) return;
     let alive = true;
     setResult({ state: 'loading', answer: null, fallback: false });
-    once(answers, `${lessonId}:${page}`, async () => (await loadLiveRepository()).explainPage(lessonId, page))
+    once(answers, `${lessonId}:${page}:${lang}`, async () => (await loadLiveRepository()).explainPage(lessonId, page))
       .then((a) => alive && setResult({ state: 'ready', answer: a, fallback: false }))
       .catch(() => alive && setResult({ state: 'ready', answer: composeFromText(title, markdown), fallback: true }));
     return () => {
       alive = false;
     };
-  }, [live, lessonId, page, title, markdown, enabled]);
+  }, [live, lessonId, page, title, markdown, enabled, lang]);
 
   if (!live) return { state: 'ready', answer: explainFor(lessonId ?? '', page, source), fallback: false };
   return result;
@@ -450,7 +466,7 @@ export async function composeRehearsal(
  */
 const checkpoints = new Map<string, Promise<Checkpoint>>();
 export function fetchCheckpoint(lectureId: string, first: number, last: number, idea: string): Promise<Checkpoint> {
-  const key = `${lectureId}:${first}-${last}`;
+  const key = `${lectureId}:${first}-${last}:${(i18n.language || 'en').split('-')[0]}`;
   let p = checkpoints.get(key);
   if (!p) {
     p = Promise.race([

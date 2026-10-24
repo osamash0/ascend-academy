@@ -1,0 +1,131 @@
+{
+  "_about": "v4: Soziales, Profil, Person, Rang, Momente",
+  "social": {
+    "lede": "Die Leute, mit denen du lernst.",
+    "standing": {
+      "behind": "{{xp}} XP hinter {{name}}",
+      "top": "Niemand vor dir",
+      "showBehind": "Platz {{position}} in der Rangliste, {{xp}} XP hinter {{name}}. Rangliste anzeigen.",
+      "showTop": "Ganz oben in der Rangliste. Rangliste anzeigen.",
+      "you": "Du"
+    },
+    "tabs": {
+      "ranking": "Rangliste",
+      "friends": "Freund:innen · {{n}}",
+      "requests": "Anfragen · {{n}}"
+    },
+    "ranking": {
+      "about": "Nach XP sortiert. XP gibt es fürs Lernen und für Arbeit von dir, die anderen geholfen hat."
+    },
+    "sharedSpaces_one": "{{count}} gemeinsamer Space",
+    "sharedSpaces_other": "{{count}} gemeinsame Spaces",
+    "friends": {
+      "emptyTitle": "Noch keine Freund:innen",
+      "emptyBody": "Such nach Leuten in den Spaces, in denen du schon bist. Ihr lernt dasselbe.",
+      "view": "Profil ansehen",
+      "viewLabel": "Profil von {{name}} ansehen",
+      "find": "Leute finden"
+    },
+    "requests": {
+      "emptyTitle": "Keine Anfragen",
+      "emptyBody": "Gerade wartet nichts auf dich.",
+      "accept": "Annehmen",
+      "acceptLabel": "Anfrage von {{name}} annehmen",
+      "declineLabel": "Anfrage von {{name}} ablehnen",
+      "accepted": "Du und {{name}} seid jetzt befreundet.",
+      "declined": "Anfrage abgelehnt"
+    }
+  },
+  "person": {
+    "rank": "Rang {{n}}",
+    "noRank": "Noch kein Rang",
+    "friends": "Befreundet",
+    "shared": "Spaces, in denen ihr beide seid",
+    "published": "Veröffentlicht",
+    "nothingPublished": "{{name}} hat in euren gemeinsamen Spaces nichts veröffentlicht.",
+    "likes": "Likes",
+    "needsNewHome": "Braucht einen neuen Platz"
+  },
+  "profile": {
+    "ringLabel": "Rang {{rank}}. Noch {{toNext}} XP bis zum nächsten Rang.",
+    "toGo": "noch {{toNext}}",
+    "figures": {
+      "streak_one": "Tag in Folge",
+      "streak_other": "Tage in Folge",
+      "published": "veröffentlicht",
+      "likes_one": "Like",
+      "likes_other": "Likes"
+    },
+    "journey": {
+      "title": "Dein Weg",
+      "lede": "Jeder Space, in dem du bist, der älteste zuerst. Die Höhe zeigt, wie weit du gekommen bist."
+    },
+    "moments": {
+      "lede": "Wann etwas zum ersten Mal passiert ist. Nichts, was du vervollständigen musst.",
+      "all": "Alle Momente"
+    }
+  },
+  "rank": {
+    "eyebrow": "Rang",
+    "title": "Rang {{rank}}",
+    "standing": "{{xp}} XP · noch {{toNext}} bis Rang {{next}}",
+    "progressLabel": "Fortschritt in Rang {{rank}}",
+    "through": "{{into}} von {{span}} XP in diesem Rang",
+    "gate": {
+      "title": "XP gibt es fürs Nützlichsein",
+      "body": "XP bekommst du fürs Lernen. Und für Arbeit von dir, die jemandem gefallen hat, die die Inhaberin oder der Inhaber empfohlen hat oder die jemand genutzt hat. Veröffentlichen allein bringt nichts. Sonst käme man am schnellsten nach oben, indem man ständig etwas postet, und die Spaces würden voller Rauschen.",
+      "whoCounts": "Likes von Leuten, die in diesem Space noch nichts gelernt haben, zählen für den Beitrag, bringen aber kein XP. Deine eigene Arbeit kannst du nicht liken."
+    },
+    "bySource": "Woher dein XP kommt",
+    "sources": {
+      "learning": {
+        "label": "Lernen",
+        "meaning": "Lektionen und Übungen abschließen, in jedem Space."
+      },
+      "liked": {
+        "label": "Von jemandem geliked",
+        "meaning": "Jemand fand einen Beitrag von dir nützlich."
+      },
+      "endorsed": {
+        "label": "Von der Inhaberin oder dem Inhaber empfohlen",
+        "meaning": "Die Inhaberin oder der Inhaber hat deine Arbeit als vertrauenswürdig markiert."
+      },
+      "used": {
+        "label": "Von jemandem genutzt",
+        "meaning": "Jemand hat eine Übung abgeschlossen, die du geschrieben hast."
+      },
+      "milestone": {
+        "label": "Meilenstein",
+        "meaning": "Dein erster Beitrag. Einmal überhaupt, nicht einmal pro Space."
+      }
+    },
+    "events": "Alles, was XP gebracht hat",
+    "ahead": "Was vor dir liegt",
+    "here": "Du bist hier",
+    "fromStart": "von Anfang an",
+    "xp": "{{xp}} XP",
+    "name": "Rang {{n}}"
+  },
+  "moments": {
+    "name": "Momente",
+    "title": "Die ersten Male",
+    "lede": "Wann dir hier etwas zum ersten Mal passiert ist. Nichts auf dieser Seite ist eine Punktzahl, und es gibt nichts zu sammeln. Es sind einfach die Tage, an denen sich etwas verändert hat.",
+    "empty": "Noch nichts. Schließ eine Lektion ab, dann landet hier der erste Moment."
+  },
+  "history": {
+    "eyebrow": "Lernverlauf",
+    "run_one": "{{count}} Tag in Folge",
+    "run_other": "{{count}} Tage in Folge",
+    "longest_one": "Bisher am längsten: {{count}} Tag",
+    "longest_other": "Bisher am längsten: {{count}} Tage",
+    "total_one": "{{count}} Lerntag insgesamt",
+    "total_other": "{{count}} Lerntage insgesamt",
+    "today": "Heute mitgezählt.",
+    "last": "Zuletzt am {{day}}.",
+    "weeks": "Die letzten sechs Wochen",
+    "studied": "{{day}} – gelernt",
+    "notStudied": "{{day}} – nicht gelernt",
+    "legend": "Ein gefülltes Feld ist ein Tag, an dem du gelernt hast. Nichts hiervon zählt für XP oder deinen Rang.",
+    "every": "Jeder Tag, an dem du gelernt hast"
+  }
+}

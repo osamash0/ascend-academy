@@ -153,35 +153,38 @@
       "try": "Try it"
     },
     "tabs": {
-      "original": "Original",
-      "explore": "Explore",
-      "learn": "Learn",
+      "page": "Page",
+      "explain": "Explain",
+      "ask": "Ask",
       "practise": "Practise"
     },
     "slide": {
-      "kicker": "Databases · 03",
-      "title": "Normalization: Functional Dependencies",
-      "b1": "A functional dependency X → Y holds on R iff any two tuples that agree on X also agree on Y",
-      "b2": "Armstrong's axioms: reflexivity, augmentation, transitivity (sound & complete)",
-      "b3": "Closure X⁺ := set of all attributes functionally determined by X",
-      "b4": "A transitive dependency A → B → C with B non-key ⇒ update anomalies",
-      "b5": "3NF: no non-key attribute transitively dependent on a candidate key",
+      "kicker": "Microeconomics · 14",
+      "title": "Market equilibrium: demand, supply and price",
+      "b1": "Demand curve: quantity demanded falls as price rises, Qd = a − bP (ceteris paribus)",
+      "b2": "Supply curve: quantity supplied rises with price, Qs = c + dP",
+      "b3": "Equilibrium price P* where Qd = Qs; no excess demand, no excess supply",
+      "b4": "A shift in supply (harvest, input costs, technology) moves P* along the demand curve",
+      "b5": "Shortage at P < P* ⇒ price rises; surplus at P > P* ⇒ price falls",
+      "chart": "P / Q",
       "page": "p. 14"
     },
-    "read": {
-      "title": "When one fact decides another",
-      "p1": "Same X, same Y. That’s a dependency: X → Y.",
-      "p2": "A chain like key → B → C lets a table contradict itself."
-    },
     "ask": {
-      "tool": "Closure",
-      "hint": "Tap one",
-      "result": "computed, not guessed"
+      "q": "Why does a bad harvest make bread expensive?",
+      "a": "Less grain means less bread at every price. At the old price more people want bread than there is, so bakers raise it until buyers and loaves match again.",
+      "cite": "p. 14",
+      "placeholder": "Ask about this page"
     },
     "prove": {
-      "q": "Customer → City. Which form breaks first?",
-      "right": "Right. Split City out.",
-      "wrong": "Look at what decides City."
+      "q": "A frost kills half the coffee crop. The price…",
+      "options": [
+        "Falls",
+        "Stays",
+        "Rises"
+      ],
+      "right": "Right. Fewer bags at every price.",
+      "wrong": "Think about the queue at the old price.",
+      "cite": "p. 14"
     },
     "lights": {
       "title": "Every subject has its own light.",
@@ -194,6 +197,49 @@
     "close": {
       "title": "Start with one PDF.",
       "start": "Start learning"
+    },
+    "luna": {
+      "page": "Page 14.",
+      "explain": "Explain it.",
+      "ask": "Ask it.",
+      "practise": "Your turn."
+    },
+    "explain": {
+      "headline": "A price is where buyers and sellers stop arguing",
+      "format": "Parts to explore",
+      "parts": [
+        {
+          "label": "Demand",
+          "body": "The cheaper something is, the more people want it.",
+          "spot": "quantity demanded falls as price rises"
+        },
+        {
+          "label": "Supply",
+          "body": "The pricier it is, the more sellers show up.",
+          "spot": "quantity supplied rises with price"
+        },
+        {
+          "label": "Where they meet",
+          "body": "At one price nobody is left waiting. That’s the market price.",
+          "spot": "no excess demand, no excess supply"
+        }
+      ],
+      "stepsTitle": "When a harvest fails",
+      "steps": [
+        {
+          "label": "Less to sell",
+          "body": "Fewer goods at every price."
+        },
+        {
+          "label": "Shortage",
+          "body": "At the old price, buyers outnumber sellers."
+        },
+        {
+          "label": "Price rises",
+          "body": "Sellers raise it until the queue is gone."
+        }
+      ],
+      "tap": "Tap a part — it lights up on the page"
     }
   }
 }

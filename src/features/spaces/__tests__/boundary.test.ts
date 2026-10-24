@@ -65,6 +65,8 @@ const ALLOWED = [
   /^motion\/react$/,
   /^lucide-react$/,
   /^sonner$/,
+  // Studio's one Markdown renderer (spec 3.4). Pure rendering, sanitises by default, no network.
+  /^streamdown$/,
   /^vitest$/,
   /^node:/,
   /^@testing-library\//,
@@ -73,6 +75,12 @@ const ALLOWED = [
   /^@\/lib\/topicIcon$/,
   /^@\/components\/ui\//,
   /^@\/components\/console$/,
+  /*
+   * The app's route constants: pure strings, no data, no network. For the few
+   * hand-offs to a room v4 does not have yet — a real Space is managed in the
+   * existing manager (uploads, publishing), so live Manage sends you there.
+   */
+  /^@\/lib\/routes$/,
   /*
    * The two faces of a Lesson. `@/components/pdf` wraps react-pdf (the
    * Material as uploaded); `@/components/markdown` wraps react-markdown (the
@@ -97,6 +105,16 @@ const ALLOWED = [
   // The viewer's loadout as plain context (filled by App from outside the seal).
   /^@\/features\/avatar\/viewerLoadout$/,
   /^@\/features\/avatar\/types$/,
+  /*
+   * Language. `react-i18next` and the shared registry `@/i18n` are pure (no
+   * data, no network). `useLanguagePreference` is the one deliberate
+   * exception: it saves the choice to the user's profile, and it is the app's
+   * single language setting — the same one the server reads to pick the
+   * language of AI answers. A v4 copy of it would let the two drift apart.
+   */
+  /^react-i18next$/,
+  /^@\/i18n$/,
+  /^@\/hooks\/useLanguagePreference$/,
   // Anything inside this namespace.
   /^\.{1,2}\//,
 ];

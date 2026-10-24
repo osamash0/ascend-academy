@@ -1739,3 +1739,39 @@ async def test_usage_fold_failure_still_writes_the_receipt(monkeypatch):
     (receipt,) = rec["receipts"]
     assert receipt["llm_usage"] is None
     assert "served_by" not in receipt["slide_provenance"][0]
+
+
+
+async def test_a_file_without_text_is_titled_from_its_name_not_by_the_model(monkeypatch):
+    """A photo or scan has no text layer: asking the model for a title from
+    nothing produced "Introduction to Machine Learning" for a photo of notes
+    on integrity constraints (2026-10-16). The file name is the honest title."""
+    from backend.services.parser import synthesis
+
+    rec, run = _patch_common(monkeypatch, pages=["", "   "])
+    calls = []
+
+    async def meta(*a, **k):
+        calls.append(a)
+        return {"title": "Introduction to Machine Learning", "summary": "Invented."}
+
+    monkeypatch.setattr(synthesis, "analyze_lecture_meta", meta)
+    await _run("h-photo", OWNER, filename="integrity-notes.pdf")
+    assert calls == []
+    assert rec["lectures"][0][0] == uo._clean_title("integrity-notes.pdf")
+
+
+async def test_a_file_with_text_still_asks_the_model_for_its_title(monkeypatch):
+    from backend.services.parser import synthesis
+
+    rec, run = _patch_common(monkeypatch, pages=["Functional dependencies and keys, explained."])
+    calls = []
+
+    async def meta(*a, **k):
+        calls.append(a)
+        return {"title": "Functional Dependencies", "summary": "S."}
+
+    monkeypatch.setattr(synthesis, "analyze_lecture_meta", meta)
+    await _run("h-text", OWNER, filename="03.pdf")
+    assert len(calls) == 1
+    assert rec["lectures"][0][0] == "Functional Dependencies"

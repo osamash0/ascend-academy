@@ -287,6 +287,15 @@ async def generate_deck_quiz_endpoint(
     student player can render slide-jump chips for every linked slide.
     """
     slides = _load_deck_or_403(lecture_id, user)
+    return await build_and_persist_deck_quiz(lecture_id, slides, body.ai_model)
+
+
+async def build_and_persist_deck_quiz(
+    lecture_id: str, slides: List[dict], ai_model: str,
+) -> Dict[str, Any]:
+    """Generate a cross-slide quiz for ``slides`` (ordered by slide_number)
+    and persist it. Shared by the endpoint above (after its ownership check)
+    and backend/scripts/launch_catalog.py. Raises HTTPException on failure."""
     if not slides:
         raise HTTPException(status_code=400, detail="Deck has no slides.")
 
@@ -305,13 +314,13 @@ async def generate_deck_quiz_endpoint(
         # Prefer a real deck summary so the cross-slide prompt has a
         # high-signal handle on the deck rather than dumping every
         # slide's body into a single prompt.
-        summary = await generate_deck_summary(deck_text[:12000], ai_model=body.ai_model)
+        summary = await generate_deck_summary(deck_text[:12000], ai_model=ai_model)
     except Exception as e:
         logger.warning("Deck summary failed (using truncated raw text): %s", e)
         summary = deck_text[:4000]
 
     try:
-        quiz = await generate_deck_quiz(summary, ai_model=body.ai_model)
+        quiz = await generate_deck_quiz(summary, ai_model=ai_model)
     except Exception as e:
         logger.error("generate_deck_quiz failed for lecture %s: %s", lecture_id, e)
         raise HTTPException(status_code=502, detail="AI deck quiz generation failed.")

@@ -1,13 +1,11 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useInView, useReducedMotion } from 'motion/react';
-import { ArrowRight, Check, Sparkles, X } from 'lucide-react';
+import { ArrowRight, Check, CornerDownLeft, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const LunaAvatar = lazy(() =>
-  import('@/features/avatar/LunaAvatar').then((m) => ({ default: m.LunaAvatar })),
-);
+import { HOP_MS, LunaGuide, type GuideReaction } from './LunaGuide';
 
 /**
  * The landing page's first screen IS the product (Abi, 2026-10-10).
@@ -16,8 +14,16 @@ const LunaAvatar = lazy(() =>
  * fifth to a quarter of the words on a page get read), and the edtech pages
  * that work let you *do* something before you sign up (Brilliant's hero
  * problems, Duolingo's "play first"). So: a headline you can take in at a
- * glance, one line, and a live page that changes in place — Original,
- * Explore, Learn, Practise. It plays itself until the visitor takes over.
+ * glance, one line, and a live page that changes in place. It plays itself
+ * until the visitor takes over, with Luna showing the way.
+ *
+ * Honesty rule (Abi, 2026-10-16: "demo stuff that we really provide"): the
+ * four views are the reader's real faces — the Page itself, Explain (the
+ * tutor's answer in its real block shapes: a headline, parts that light up
+ * their words on the page, steps), Ask (a question about the page, answered
+ * with a citation) and Practise (a question tied to its source page). No
+ * invented views, no hand-built toys. The topic is one every visitor already
+ * knows — supply and demand — so nothing is new but the product.
  *
  * The page is AUTHORED, not a real professor's deck (copyright, and 5.5 MB per
  * visitor). Brand is monochrome; the only colour is the page's own light.
@@ -26,187 +32,236 @@ const LunaAvatar = lazy(() =>
 export const ACCENT = '#10b981';
 const tint = (c: string, pct: number) => `color-mix(in srgb, ${c} ${pct}%, transparent)`;
 
-/* ─────────────────────────── Original: the dense page ─────────────────────────── */
+/* ─────────────────────────── Page: the dense slide ─────────────────────────── */
 
-export function Slide({ className }: { className?: string }) {
+const BULLETS = ['b1', 'b2', 'b3', 'b4', 'b5'] as const;
+
+/** A bullet with a phrase lit — the reader's "spot": the words a part is about. */
+function Lit({ text, spot }: { text: string; spot: string | null }) {
+  const i = spot ? text.indexOf(spot) : -1;
+  if (i < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, i)}
+      <mark className="rounded-[2px] px-[0.15em] text-inherit transition-colors duration-300" style={{ background: tint(ACCENT, 38) }}>
+        {spot}
+      </mark>
+      {text.slice(i + spot!.length)}
+    </>
+  );
+}
+
+/** Supply meets demand: the slide's small chart. Lit with the part being explained. */
+function Chart({ spot }: { spot: 'demand' | 'supply' | 'meet' | null }) {
+  const on = (k: string) => (spot === k ? ACCENT : '#1f3b4d');
+  return (
+    <svg viewBox="0 0 100 70" className="w-full">
+      <path d="M8 62 H96" stroke="#1f3b4d" strokeWidth="1" />
+      <path d="M8 62 V4" stroke="#1f3b4d" strokeWidth="1" />
+      <path d="M16 10 L88 56" stroke={on('demand')} strokeWidth={spot === 'demand' ? 3 : 1.8} fill="none" />
+      <path d="M16 56 L88 10" stroke={on('supply')} strokeWidth={spot === 'supply' ? 3 : 1.8} fill="none" />
+      <circle cx="52" cy="33" r={spot === 'meet' ? 4.5 : 2.6} fill={on('meet')} />
+      <text x="90" y="54" fontSize="6" fill="#1f3b4d">D</text>
+      <text x="90" y="12" fontSize="6" fill="#1f3b4d">S</text>
+      <text x="44" y="29" fontSize="5.5" fill="#1f3b4d">P*</text>
+    </svg>
+  );
+}
+
+export function Slide({ className, spot = null, chart = null }: { className?: string; spot?: string | null; chart?: 'demand' | 'supply' | 'meet' | null }) {
   const { t } = useTranslation('landing');
   return (
     <div
       className={cn(
-        'relative aspect-[16/10] w-full overflow-hidden rounded-[10px] bg-[#f7f7f4] text-[#1c1c1c]',
+        'relative aspect-[16/10] w-full overflow-hidden rounded-[10px] bg-[#f7f7f4] text-[#1c1c1c] [container-type:inline-size]',
         className,
       )}
     >
       <div className="absolute inset-x-0 top-0 h-[6%]" style={{ background: '#1f3b4d' }} />
       <div className="flex h-full flex-col px-[5.5%] pb-[4%] pt-[9%]">
-        <p className="text-[clamp(6px,0.75vw,10px)] font-semibold uppercase tracking-[0.12em] text-[#1f3b4d]/70">
-          {t('story.slide.kicker')}
-        </p>
-        <p className="mt-[1.2%] text-[clamp(10px,1.45vw,21px)] font-bold leading-tight">{t('story.slide.title')}</p>
+        <p className="text-[1.25cqw] font-semibold uppercase tracking-[0.12em] text-[#1f3b4d]/70">{t('story.slide.kicker')}</p>
+        <p className="mt-[1.2%] text-[2.45cqw] font-bold leading-tight">{t('story.slide.title')}</p>
         <div className="mt-[1.5%] h-px w-full bg-[#1f3b4d]/25" />
         <div className="mt-[3%] grid flex-1 grid-cols-[1.55fr_1fr] gap-[4%]">
-          <ul className="space-y-[2.2%] text-[clamp(5.5px,0.78vw,11.5px)] leading-[1.35]">
-            {(['b1', 'b2', 'b3', 'b4', 'b5'] as const).map((k) => (
+          <ul className="space-y-[2.2%] text-[1.32cqw] leading-[1.35]">
+            {BULLETS.map((k) => (
               <li key={k} className="flex gap-[3%]">
                 <span className="mt-[0.45em] h-[0.4em] w-[0.4em] shrink-0 rounded-full bg-[#1f3b4d]" />
-                <span>{t(`story.slide.${k}`)}</span>
+                <span>
+                  <Lit text={t(`story.slide.${k}`)} spot={spot} />
+                </span>
               </li>
             ))}
           </ul>
-          <div className="self-start overflow-hidden rounded-[4px] border border-[#1f3b4d]/30 text-[clamp(5px,0.68vw,10px)]">
-            <div className="grid grid-cols-3 bg-[#1f3b4d] px-[6%] py-[3%] font-semibold text-white">
-              <span>OrderId</span>
-              <span>Customer</span>
-              <span>City</span>
-            </div>
-            {[
-              ['101', 'Ada', 'Bonn'],
-              ['102', 'Ada', 'Bonn'],
-              ['103', 'Lin', 'Köln'],
-              ['104', 'Ada', 'Berlin'],
-            ].map((r, i) => (
-              <div key={r[0]} className={cn('grid grid-cols-3 px-[6%] py-[3%]', i % 2 && 'bg-[#1f3b4d]/[0.06]')}>
-                {r.map((c, j) => (
-                  <span key={j} className={cn(i === 3 && j === 2 && 'font-semibold text-[#b42318]')}>
-                    {c}
-                  </span>
-                ))}
-              </div>
-            ))}
+          <div className="self-start rounded-[4px] border border-[#1f3b4d]/30 p-[3%]">
+            <Chart spot={chart} />
+            <p className="mt-[2%] text-center text-[1.05cqw] text-[#1c1c1c]/60">{t('story.slide.chart')}</p>
           </div>
         </div>
-        <p className="mt-auto self-end text-[clamp(5px,0.62vw,9px)] text-[#1c1c1c]/50">{t('story.slide.page')}</p>
+        <p className="mt-auto self-end text-[1.05cqw] text-[#1c1c1c]/50">{t('story.slide.page')}</p>
       </div>
     </div>
   );
 }
 
-/* ─────────────────────────── Learn: the same page, readable ─────────────────────────── */
+/* ─────────────────────────── Explain: the tutor's answer, as the reader shows it ─────────────────────────── */
 
-function LearnView() {
+type Part = { label: string; body: string; spot: string };
+type Step = { label: string; body: string };
+const PART_CHART = ['demand', 'supply', 'meet'] as const;
+
+function ExplainView({ auto, onTouch }: { auto: boolean; onTouch: () => void }) {
   const { t } = useTranslation('landing');
-  return (
-    <div className="flex h-full flex-col justify-center px-[8%]">
-      <h3 className="text-[clamp(22px,3vw,40px)] font-medium leading-[1.1] tracking-[-0.03em] text-white">
-        {t('story.read.title')}
-      </h3>
-      <p className="mt-[3%] text-[clamp(14px,1.6vw,21px)] leading-[1.5] text-white/75">{t('story.read.p1')}</p>
-      <p className="mt-[1.5%] text-[clamp(14px,1.6vw,21px)] leading-[1.5] text-white/75">
-        <span className="rounded px-1" style={{ background: tint(ACCENT, 25), color: '#fff' }}>
-          {t('story.read.p2')}
-        </span>
-      </p>
-      {/* The original is never lost: the dense page, small, in the corner. */}
-      <div className="absolute bottom-[6%] right-[5%] w-[22%] opacity-70">
-        <Slide className="rounded-[6px]" />
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────── Explore: a tool that computes ─────────────────────────── */
-
-const ATTRS = ['OrderId', 'Customer', 'City'] as const;
-type Attr = (typeof ATTRS)[number];
-const FDS: [Attr, Attr][] = [
-  ['OrderId', 'Customer'],
-  ['Customer', 'City'],
-];
-
-/** Attribute closure, for real — the tool cannot say anything it did not compute. */
-export function closure(start: Attr): Set<Attr> {
-  const out = new Set<Attr>([start]);
-  let grew = true;
-  while (grew) {
-    grew = false;
-    for (const [a, b] of FDS)
-      if (out.has(a) && !out.has(b)) {
-        out.add(b);
-        grew = true;
-      }
-  }
-  return out;
-}
-
-function ExploreView({ onTouch }: { onTouch: () => void }) {
-  const { t } = useTranslation('landing');
-  const [start, setStart] = useState<Attr>('OrderId');
-  const lit = useMemo(() => closure(start), [start]);
-  return (
-    <div className="flex h-full flex-col items-center justify-center px-[6%]">
-      <p className="inline-flex items-center gap-2 text-[13px] text-white/50">
-        <Sparkles aria-hidden className="h-3.5 w-3.5" style={{ color: ACCENT }} />
-        {t('story.ask.tool')} · {t('story.ask.hint')}
-      </p>
-      <div className="mt-[6%] flex w-full max-w-[560px] items-center">
-        {ATTRS.map((a, i) => (
-          <div key={a} className="flex flex-1 items-center last:flex-none">
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.94 }}
-              onClick={() => {
-                onTouch();
-                setStart(a);
-              }}
-              aria-pressed={start === a}
-              className="rounded-full border px-[clamp(10px,1.4vw,20px)] py-[clamp(6px,0.9vw,12px)] text-[clamp(12px,1.3vw,17px)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              style={
-                lit.has(a)
-                  ? { borderColor: tint(ACCENT, 60), background: tint(ACCENT, start === a ? 32 : 14), color: '#fff' }
-                  : { borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.4)' }
-              }
-            >
-              {a}
-            </motion.button>
-            {i < ATTRS.length - 1 && (
-              <motion.div
-                aria-hidden
-                className="mx-2 h-px flex-1"
-                initial={false}
-                animate={{ opacity: lit.has(ATTRS[i]) && lit.has(ATTRS[i + 1]) ? 1 : 0.15 }}
-                style={{ background: ACCENT }}
-              />
-            )}
-          </div>
-        ))}
-      </div>
-      <motion.p
-        key={start}
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mt-[7%] font-mono text-[clamp(14px,1.7vw,22px)] text-white"
-      >
-        {start}⁺ = {'{ '}
-        {ATTRS.filter((a) => lit.has(a)).join(', ')}
-        {' }'}
-      </motion.p>
-      <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-white/45">
-        <Check aria-hidden className="h-3.5 w-3.5" style={{ color: ACCENT }} />
-        {t('story.ask.result')}
-      </p>
-    </div>
-  );
-}
-
-/* ─────────────────────────── Practise ─────────────────────────── */
-
-function PractiseView({ auto, onTouch }: { auto: boolean; onTouch: () => void }) {
-  const { t } = useTranslation('landing');
-  const [picked, setPicked] = useState<string | null>(null);
+  const parts = t('story.explain.parts', { returnObjects: true }) as Part[];
+  const steps = t('story.explain.steps', { returnObjects: true }) as Step[];
+  const [open, setOpen] = useState(0);
+  // Playing itself: Luna walks the parts, one every beat.
   useEffect(() => {
     if (!auto) return;
-    const id = window.setTimeout(() => setPicked((p) => p ?? '3NF'), 1100);
+    const id = window.setInterval(() => setOpen((o) => Math.min(o + 1, parts.length - 1)), 1050);
+    return () => window.clearInterval(id);
+  }, [auto, parts.length]);
+  const part = parts[open];
+  return (
+    <div className="grid h-full grid-cols-1 content-center gap-[4%] px-[6%] sm:grid-cols-[1.1fr_1fr] sm:items-center sm:px-[5%]">
+      <div>
+        <p className="text-[clamp(10px,1.4cqw,13px)] font-medium uppercase tracking-[0.14em] text-white/40">{t('story.explain.format')}</p>
+        <h3 className="mt-[2%] text-[clamp(17px,3cqw,32px)] font-medium leading-[1.12] tracking-[-0.02em] text-white [text-wrap:balance]">
+          {t('story.explain.headline')}
+        </h3>
+        <div className="mt-[5%] flex flex-wrap gap-[clamp(6px,1cqw,10px)]">
+          {parts.map((p, i) => (
+            <motion.button
+              key={p.label}
+              type="button"
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                onTouch();
+                setOpen(i);
+              }}
+              aria-pressed={open === i}
+              className="rounded-full border px-[clamp(10px,1.8cqw,18px)] py-[clamp(5px,0.9cqw,9px)] text-[clamp(12px,1.6cqw,16px)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              style={
+                open === i
+                  ? { borderColor: tint(ACCENT, 60), background: tint(ACCENT, 22), color: '#fff' }
+                  : { borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)' }
+              }
+            >
+              {p.label}
+            </motion.button>
+          ))}
+        </div>
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={open}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="mt-[3.5%] min-h-[2.6em] text-[clamp(13px,1.9cqw,19px)] leading-[1.45] text-white/80"
+          >
+            {part.body}
+          </motion.p>
+        </AnimatePresence>
+        <ol className="mt-[4%] hidden space-y-[1.2%] border-t border-white/10 pt-[3%] text-[clamp(11px,1.5cqw,15px)] text-white/60 sm:block">
+          <li className="mb-[1.5%] text-[clamp(10px,1.3cqw,12px)] font-medium uppercase tracking-[0.14em] text-white/35">{t('story.explain.stepsTitle')}</li>
+          {steps.map((s, i) => (
+            <li key={s.label} className="flex gap-2">
+              <span className="w-[1.2em] shrink-0 text-white/35">{i + 1}</span>
+              <span>
+                <span className="text-white/85">{s.label}.</span> {s.body}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+      {/* The page stays beside the answer, and the part's words light up on it. */}
+      <div className="relative mx-auto w-[88%] sm:w-auto">
+        <Slide className="rounded-[8px] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)]" spot={part.spot} chart={PART_CHART[open] ?? null} />
+        <p className="mt-2 hidden text-center text-[clamp(10px,1.3cqw,12px)] text-white/35 sm:block">{t('story.explain.tap')}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────── Ask: a question about the page, answered with a citation ─────────────────────────── */
+
+function AskView({ auto }: { auto: boolean }) {
+  const { t } = useTranslation('landing');
+  const q = t('story.ask.q');
+  const [typed, setTyped] = useState(auto ? 0 : q.length);
+  const [answered, setAnswered] = useState(!auto);
+  useEffect(() => {
+    if (!auto) return;
+    const type = window.setInterval(() => setTyped((n) => (n < q.length ? n + 1 : n)), 28);
+    const reply = window.setTimeout(() => setAnswered(true), q.length * 28 + 650);
+    return () => {
+      window.clearInterval(type);
+      window.clearTimeout(reply);
+    };
+  }, [auto, q.length]);
+  return (
+    <div className="flex h-full flex-col items-center justify-center px-[8%]">
+      <div className="flex w-full max-w-[70cqw] items-center gap-3 rounded-full border border-white/12 bg-white/[0.05] px-[clamp(14px,2.2cqw,22px)] py-[clamp(10px,1.5cqw,16px)] text-[clamp(14px,2cqw,20px)] text-white">
+        <span className="min-h-[1.4em] flex-1">
+          {typed === 0 ? <span className="text-white/35">{t('story.ask.placeholder')}</span> : q.slice(0, typed)}
+          {typed < q.length && <span className="ml-px inline-block h-[1.1em] w-[2px] translate-y-[0.2em] animate-pulse bg-white/80" />}
+        </span>
+        <CornerDownLeft aria-hidden className="h-[1.1em] w-[1.1em] shrink-0 text-white/40" />
+      </div>
+      <div className="mt-[4%] min-h-[6em] w-full max-w-[70cqw]">
+        <AnimatePresence>
+          {answered && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+              <p className="text-[clamp(14px,2.1cqw,21px)] leading-[1.5] text-white/85">{t('story.ask.a')}</p>
+              <span
+                data-testid="ask-cite"
+                className="mt-[2.5%] inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[clamp(11px,1.4cqw,13px)] font-medium"
+                style={{ borderColor: tint(ACCENT, 50), color: ACCENT }}
+              >
+                <Check aria-hidden className="h-3 w-3" />
+                {t('story.ask.cite')}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────── Practise: a question tied to its page ─────────────────────────── */
+
+const RIGHT = 2; // "Rises"
+
+function PractiseView({
+  auto,
+  onTouch,
+  onAnswer,
+}: {
+  auto: boolean;
+  onTouch: () => void;
+  onAnswer: (right: boolean) => void;
+}) {
+  const { t } = useTranslation('landing');
+  const options = t('story.prove.options', { returnObjects: true }) as string[];
+  const [picked, setPicked] = useState<number | null>(null);
+  useEffect(() => {
+    if (!auto) return;
+    const id = window.setTimeout(() => setPicked((p) => p ?? RIGHT), 1100);
     return () => window.clearTimeout(id);
   }, [auto]);
-  const right = picked === '3NF';
+  const right = picked === RIGHT;
+  useEffect(() => {
+    if (picked !== null) onAnswer(picked === RIGHT);
+  }, [picked]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="flex h-full flex-col items-center justify-center px-[8%] text-center">
-      <p className="text-[clamp(17px,2.2vw,28px)] font-medium leading-snug tracking-[-0.02em] text-white">
+      <p className="[text-wrap:balance] text-[clamp(19px,3.6cqw,38px)] font-medium leading-[1.15] tracking-[-0.02em] text-white">
         {t('story.prove.q')}
       </p>
-      <div className="mt-[5%] grid w-full max-w-[520px] grid-cols-3 gap-3">
-        {['2NF', '3NF', 'BCNF'].map((o) => {
-          const sel = picked === o;
+      <div className="mt-[6%] grid w-full max-w-[66cqw] grid-cols-3 gap-[clamp(8px,1.6cqw,16px)]">
+        {options.map((o, i) => {
+          const sel = picked === i;
           return (
             <motion.button
               key={o}
@@ -214,15 +269,15 @@ function PractiseView({ auto, onTouch }: { auto: boolean; onTouch: () => void })
               whileTap={{ scale: 0.95 }}
               onClick={() => {
                 onTouch();
-                setPicked(o);
+                setPicked(i);
               }}
               className={cn(
-                'h-[clamp(40px,4.6vw,56px)] rounded-xl border text-[clamp(14px,1.4vw,17px)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white',
+                'h-[clamp(44px,8cqw,80px)] rounded-2xl border text-[clamp(15px,2.5cqw,24px)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white',
                 !sel && 'border-white/12 text-white/80 hover:bg-white/[0.05]',
               )}
               style={
                 sel
-                  ? o === '3NF'
+                  ? i === RIGHT
                     ? { borderColor: tint(ACCENT, 70), background: tint(ACCENT, 22), color: '#fff' }
                     : { borderColor: 'rgba(244,63,94,0.6)', background: 'rgba(244,63,94,0.14)', color: '#fff' }
                   : undefined
@@ -233,34 +288,26 @@ function PractiseView({ auto, onTouch }: { auto: boolean; onTouch: () => void })
           );
         })}
       </div>
-      <div className="mt-[4%] h-6">
+      <div className="mt-[4%] h-[clamp(24px,3.4cqw,34px)]">
         <AnimatePresence mode="wait">
-          {picked && (
+          {picked !== null && (
             <motion.p
               key={picked}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="inline-flex items-center gap-2 text-[15px] text-white/80"
+              className="inline-flex items-center gap-2 text-[clamp(15px,2.1cqw,20px)] text-white/80"
             >
-              {right ? (
-                <Check aria-hidden className="h-4 w-4" style={{ color: ACCENT }} />
-              ) : (
-                <X aria-hidden className="h-4 w-4 text-rose-400" />
-              )}
+              {right ? <Check aria-hidden className="h-4 w-4" style={{ color: ACCENT }} /> : <X aria-hidden className="h-4 w-4 text-rose-400" />}
               {right ? t('story.prove.right') : t('story.prove.wrong')}
+              {right && (
+                <span className="rounded-full border px-2 py-0.5 text-[0.75em] font-medium" style={{ borderColor: tint(ACCENT, 50), color: ACCENT }}>
+                  {t('story.prove.cite')}
+                </span>
+              )}
             </motion.p>
           )}
         </AnimatePresence>
-      </div>
-      <div className="mt-[3%] flex gap-1.5" aria-hidden>
-        {[1, 1, 0, right ? 1 : 0].map((ok, i) => (
-          <motion.span
-            key={i}
-            className="h-1 w-8 rounded-full"
-            animate={{ background: ok ? ACCENT : 'rgba(255,255,255,0.15)' }}
-          />
-        ))}
       </div>
     </div>
   );
@@ -268,24 +315,39 @@ function PractiseView({ auto, onTouch }: { auto: boolean; onTouch: () => void })
 
 /* ─────────────────────────── The live page ─────────────────────────── */
 
-const VIEWS = ['original', 'explore', 'learn', 'practise'] as const;
+const VIEWS = ['page', 'explain', 'ask', 'practise'] as const;
 type View = (typeof VIEWS)[number];
-const DWELL = 3400;
+const DWELL = 4600;
 
 function LivePage() {
   const { t } = useTranslation('landing');
   const reduce = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { amount: 0.4 });
-  const [view, setView] = useState<View>('original');
+  const seen = useInView(ref, { amount: 0.15, once: true });
+  const [view, setView] = useState<View>('page');
+  // The tab Luna stands on. While the page plays itself she hops to the next
+  // tab first, and the page turns as she lands — she is why it changes.
+  const [lunaAt, setLunaAt] = useState<View>('page');
+  const [reaction, setReaction] = useState<GuideReaction | null>(null);
   const [touched, setTouched] = useState(false);
   const playing = !touched && !reduce && inView;
   const touch = () => setTouched(true);
+  const show = (v: View) => {
+    setLunaAt(v);
+    setView(v);
+  };
 
   useEffect(() => {
     if (!playing) return;
-    const id = window.setTimeout(() => setView((v) => VIEWS[(VIEWS.indexOf(v) + 1) % VIEWS.length]), DWELL);
-    return () => window.clearTimeout(id);
+    const next = VIEWS[(VIEWS.indexOf(view) + 1) % VIEWS.length];
+    const hop = window.setTimeout(() => setLunaAt(next), DWELL - HOP_MS);
+    const turn = window.setTimeout(() => setView(next), DWELL);
+    return () => {
+      window.clearTimeout(hop);
+      window.clearTimeout(turn);
+    };
   }, [playing, view]);
 
   return (
@@ -299,6 +361,7 @@ function LivePage() {
 
       {/* Views — a play bar, like stories: it fills while the page plays itself. */}
       <div
+        ref={tabsRef}
         role="tablist"
         aria-label={t('story.hero.try')}
         className="relative mx-auto flex w-fit items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1 backdrop-blur"
@@ -312,7 +375,7 @@ function LivePage() {
               aria-selected={on}
               onClick={() => {
                 touch();
-                setView(v);
+                show(v);
               }}
               className={cn(
                 'relative h-9 overflow-hidden rounded-full px-[clamp(10px,1.6vw,18px)] text-[13.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white',
@@ -340,10 +403,11 @@ function LivePage() {
             </button>
           );
         })}
+        <LunaGuide tabs={tabsRef} at={lunaAt} view={view} touched={touched} arrived={seen} reaction={reaction} />
       </div>
 
       {/* The page. Every view is the same page — it changes in place. */}
-      <div className="relative mt-5 aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0b] shadow-[0_50px_140px_-30px_rgba(0,0,0,0.95)]">
+      <div className="relative mt-5 aspect-[4/5] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0b] [container-type:inline-size] sm:aspect-[16/10] shadow-[0_50px_140px_-30px_rgba(0,0,0,0.95)]">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div
             key={view}
@@ -353,28 +417,22 @@ function LivePage() {
             exit={{ opacity: 0, scale: 1.01, filter: 'blur(10px)' }}
             transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           >
-            {view === 'original' && (
+            {view === 'page' && (
               <div className="flex h-full items-center justify-center p-[3%]">
                 <Slide className="shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)]" />
               </div>
             )}
-            {view === 'learn' && <LearnView />}
-            {view === 'explore' && <ExploreView onTouch={touch} />}
-            {view === 'practise' && <PractiseView auto={!touched} onTouch={touch} />}
+            {view === 'explain' && <ExplainView auto={!touched} onTouch={touch} />}
+            {view === 'ask' && <AskView auto={!touched} />}
+            {view === 'practise' && (
+              <PractiseView
+                auto={!touched}
+                onTouch={touch}
+                onAnswer={(right) => setReaction({ kind: right ? 'right' : 'wrong', n: Date.now() })}
+              />
+            )}
           </motion.div>
         </AnimatePresence>
-      </div>
-
-      {/* Luna keeps you company. Decoration only. */}
-      <div aria-hidden className="pointer-events-none absolute -bottom-10 -left-12 hidden sm:block">
-        <Suspense fallback={null}>
-          <motion.div
-            animate={reduce ? undefined : { y: [0, -8, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            <LunaAvatar size={120} showBackdrop={false} animated={!reduce} />
-          </motion.div>
-        </Suspense>
       </div>
     </div>
   );
@@ -429,7 +487,7 @@ export function Hero() {
       </div>
 
       <motion.div
-        className="relative mt-12"
+        className="relative mt-24 sm:mt-32"
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.25, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}

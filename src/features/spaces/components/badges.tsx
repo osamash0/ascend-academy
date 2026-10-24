@@ -1,9 +1,11 @@
 import { BookOpen, Check, Link2, Lock, Quote, Star, Users } from 'lucide-react';
 import { useReducer } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { formatNumber } from '../i18n/format';
 import { isStarred, starCount, toggleStar } from '../mocks/engagement';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import type { Grounding, Origin, Person, Space, SpaceMode, Visibility } from '../types';
 import { Avatar } from './Avatar';
 
@@ -30,6 +32,7 @@ const CHIP =
  * Colour alone never carries this: the word is always present.
  */
 export function OriginBadge({ origin, className }: { origin: Origin; className?: string }) {
+  const { t } = useTranslation('v4Spaces');
   const official = origin === 'official';
   return (
     <span
@@ -41,7 +44,7 @@ export function OriginBadge({ origin, className }: { origin: Origin; className?:
         className,
       )}
     >
-      {official ? 'Official' : 'Community'}
+      {official ? t('badges.official') : t('badges.community')}
     </span>
   );
 }
@@ -69,6 +72,7 @@ export function GroundingMarker({
   isTruthSet?: boolean;
   className?: string;
 }) {
+  const { t } = useTranslation('v4Spaces');
   if (!spaceGroundingEnabled || isTruthSet) return null;
 
   // Internally nullable: null means the check has not run. Once grounding is
@@ -85,14 +89,10 @@ export function GroundingMarker({
         className,
       )}
       // Says nothing about correctness — quality judgment stays human.
-      title={
-        grounded
-          ? 'Traces back to this Space’s source material.'
-          : 'No supporting passage found. Not a judgement of correctness.'
-      }
+      title={grounded ? t('badges.groundedHint') : t('badges.notGroundedHint')}
     >
       {grounded ? <Quote aria-hidden className="h-2.5 w-2.5" /> : null}
-      {grounded ? 'Grounded' : 'Not grounded'}
+      {grounded ? t('badges.grounded') : t('badges.notGrounded')}
     </span>
   );
 }
@@ -101,6 +101,7 @@ export function GroundingMarker({
 
 /** Guided or Open — who may publish Lessons into the path. */
 export function ModeBadge({ mode, className }: { mode: SpaceMode; className?: string }) {
+  const { t } = useTranslation('v4Spaces');
   const guided = mode === 'guided';
   return (
     <span
@@ -109,31 +110,29 @@ export function ModeBadge({ mode, className }: { mode: SpaceMode; className?: st
         guided ? 'bg-mode-guided/12 text-mode-guided' : 'bg-mode-open/12 text-mode-open',
         className,
       )}
-      title={
-        guided
-          ? 'Only the Owner and Editors publish into the path.'
-          : 'Every Member can publish Lessons into the path.'
-      }
+      title={guided ? t('badges.guidedHint') : t('badges.openHint')}
     >
-      {guided ? 'Guided' : 'Open'}
+      {guided ? t('badges.guided') : t('badges.open')}
     </span>
   );
 }
 
 /* ── Visibility ─────────────────────────────────────────────────── */
 
-const VISIBILITY: Record<Visibility, { label: string; icon: typeof Lock }> = {
-  private: { label: 'Private', icon: Lock },
-  invite: { label: 'Invite', icon: Link2 },
-  public: { label: 'Public', icon: Users },
+/* Labels live in v4Spaces as `badges.visibility.<visibility>`. */
+const VISIBILITY: Record<Visibility, typeof Lock> = {
+  private: Lock,
+  invite: Link2,
+  public: Users,
 };
 
 export function VisibilityBadge({ visibility, className }: { visibility: Visibility; className?: string }) {
-  const { label, icon: Icon } = VISIBILITY[visibility];
+  const { t } = useTranslation('v4Spaces');
+  const Icon = VISIBILITY[visibility];
   return (
     <span className={cn(CHIP, 'bg-white/[0.06] text-label', className)}>
       <Icon aria-hidden className="h-2.5 w-2.5" />
-      {label}
+      {t(`badges.visibility.${visibility}`)}
     </span>
   );
 }
@@ -142,13 +141,14 @@ export function VisibilityBadge({ visibility, className }: { visibility: Visibil
 
 /** Owner marked it good. Stays community-authored, stays in its section. */
 export function EndorsedBadge({ className }: { className?: string }) {
+  const { t } = useTranslation('v4Spaces');
   return (
     <span
       className={cn(CHIP, 'bg-success/12 text-success', className)}
-      title="Endorsed by the Owner. Still community-authored."
+      title={t('badges.endorsedHint')}
     >
       <Check aria-hidden className="h-2.5 w-2.5" />
-      Endorsed
+      {t('badges.endorsed')}
     </span>
   );
 }
@@ -192,7 +192,8 @@ export function ClassificationChips({
     ...(levels.length ? [levels[levels.length - 1].value] : []),
     space.classification.domain,
     ...levels.slice(0, -1).map((l) => l.value),
-  ].slice(0, max);
+    // Real courses carry no classification yet; an empty chip says nothing.
+  ].filter(Boolean).slice(0, max);
 
   if (!chips.length) return null;
 
@@ -235,6 +236,7 @@ export function AuthorLine({
   linkToProfile?: boolean;
   className?: string;
 }) {
+  const viewer = useViewer();
   const body = (
     <>
       {/* One avatar component everywhere — see Avatar.tsx. */}
@@ -285,6 +287,7 @@ export function StarButton({
    * nothing. Taking the id instead of a callback makes the unwired version
    * impossible to write.
    */
+  const { t } = useTranslation('v4Spaces');
   const [, force] = useReducer((n: number) => n + 1, 0);
   const starred = isStarred(spaceId);
   const count = starCount(spaceId);
@@ -300,13 +303,9 @@ export function StarButton({
       disabled={disabled}
       aria-pressed={starred}
       aria-label={
-        disabled
-          ? `${count} stars. You can’t star your own Space.`
-          : starred
-            ? `Starred. ${count} stars. Tap to remove.`
-            : `Star this Space. ${count} stars.`
+        disabled ? t('badges.star.own', { count }) : starred ? t('badges.star.starred', { count }) : t('badges.star.star', { count })
       }
-      title={disabled ? 'You can’t star your own Space.' : undefined}
+      title={disabled ? t('badges.star.ownHint') : undefined}
       className={cn(
         'console-focusable inline-flex h-9 items-center gap-2 rounded-full border px-3.5',
         'text-[13px] font-bold tabular-nums transition-colors',
@@ -318,7 +317,7 @@ export function StarButton({
       )}
     >
       <Star aria-hidden className={cn('h-3.5 w-3.5', starred && 'fill-star')} />
-      {count.toLocaleString()}
+      {formatNumber(count)}
     </button>
   );
 }
@@ -326,10 +325,11 @@ export function StarButton({
 /* ── Lesson count ───────────────────────────────────────────────── */
 
 export function LessonCount({ count, className }: { count: number; className?: string }) {
+  const { t } = useTranslation('v4Spaces');
   return (
     <span className={cn('inline-flex items-center gap-1.5 text-[13px] text-quiet tabular-nums', className)}>
       <BookOpen aria-hidden className="h-3.5 w-3.5" />
-      {count} {count === 1 ? 'Lesson' : 'Lessons'}
+      {t('badges.lessons', { count })}
     </span>
   );
 }

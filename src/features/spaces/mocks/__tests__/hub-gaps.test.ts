@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { archivedForViewer, myHubSpaces, sortSpaces } from '../hub';
+import { archivedForViewer, myHubSpaces, sortSpaces } from '../../data/hub';
 import { visibleSpaces } from '../spaces';
 
 /**

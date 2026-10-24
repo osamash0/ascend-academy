@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { BookOpen, CornerDownLeft, Orbit, Search, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { hitCount, search, type Hit } from '../mocks/search';
+import { hitCount, search, type Hit } from '../data/search';
 
 /**
  * ⌘K — one global search.
@@ -15,15 +16,16 @@ import { hitCount, search, type Hit } from '../mocks/search';
  *      destination; opening one leaves the palette. Search is a jump tool, not
  *      a browse surface, and a preview pane would quietly make it the latter.
  *   4. It searches **only what you can already see** — enforced in
- *      `mocks/search.ts` rather than by hiding rows here, so a draft cannot
+ *      `data/search.ts` rather than by hiding rows here, so a draft cannot
  *      leak through the search box.
  */
 
+/* Grouped by object type: Spaces, Lessons, Ideas, From the community — `search.group.*`. */
 const GROUPS = [
-  { key: 'spaces' as const, label: 'Spaces', icon: Orbit },
-  { key: 'lessons' as const, label: 'Lessons', icon: BookOpen },
-  { key: 'concepts' as const, label: 'Ideas', icon: Sparkles },
-  { key: 'contributions' as const, label: 'From the community', icon: Sparkles },
+  { key: 'spaces' as const, label: 'search.group.spaces', icon: Orbit },
+  { key: 'lessons' as const, label: 'search.group.lessons', icon: BookOpen },
+  { key: 'concepts' as const, label: 'search.group.ideas', icon: Sparkles },
+  { key: 'contributions' as const, label: 'search.group.community', icon: Sparkles },
 ];
 
 export function SearchPalette({
@@ -34,6 +36,7 @@ export function SearchPalette({
   onOpenChange: (v: boolean) => void;
 }) {
   const navigate = useNavigate();
+  const { t } = useTranslation('v4Spaces');
   const [q, setQ] = useState('');
   const results = useMemo(() => search(q), [q]);
   const total = hitCount(results);
@@ -106,15 +109,15 @@ export function SearchPalette({
         {/* Radix requires a title, and without one the dialog is announced as
             an unnamed "dialog". Visually hidden: the placeholder is the on-screen
             label, and a placeholder is not an accessible name. */}
-        <DialogTitle className="sr-only">Search</DialogTitle>
+        <DialogTitle className="sr-only">{t('search.title')}</DialogTitle>
         <div className="flex items-center gap-3 border-b border-white/[0.08] px-4">
           <Search aria-hidden className="h-4 w-4 shrink-0 text-quiet" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onInputKey}
-            placeholder="Search Spaces, Lessons and ideas…"
-            aria-label="Search Spaces, Lessons and ideas"
+            placeholder={t('search.placeholder')}
+            aria-label={t('search.label')}
             // Combobox semantics, so ↑/↓ and the highlight mean something to a
             // screen reader. Without these the arrow keys moved a cursor that
             // was announced to nobody and Enter acted on it.
@@ -137,23 +140,23 @@ export function SearchPalette({
           {q.trim() === ''
             ? ''
             : total === 0
-              ? 'No results'
-              : `${total} ${total === 1 ? 'result' : 'results'}`}
+              ? t('search.none')
+              : t('search.count', { count: total })}
         </p>
 
         <div
           id="v4-search-results"
           role="listbox"
-          aria-label="Search results"
+          aria-label={t('search.results')}
           className="max-h-[24rem] overflow-y-auto p-2"
         >
           {!q.trim() ? (
             <p className="px-3 py-8 text-center text-[13.5px] text-quiet">
-              Type to search what you can already see — your Spaces, and public ones.
+              {t('search.hint')}
             </p>
           ) : total === 0 ? (
             <p className="px-3 py-8 text-center text-[13.5px] text-quiet">
-              Nothing matches “{q.trim()}”.
+              {t('search.noMatch', { query: q.trim() })}
             </p>
           ) : (
             GROUPS.map((g) => {
@@ -161,7 +164,7 @@ export function SearchPalette({
               if (!hits.length) return null;
               return (
                 <div key={g.key} className="mb-1">
-                  <p className="px-3 pb-1 pt-2 text-[12px] text-faint">{g.label}</p>
+                  <p className="px-3 pb-1 pt-2 text-[12px] text-faint">{t(g.label)}</p>
                   {hits.map((hit) => {
                     running += 1;
                     const active = running === cursor;

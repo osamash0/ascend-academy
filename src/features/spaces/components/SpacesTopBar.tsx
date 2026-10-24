@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import {
   BookOpen,
   ChevronDown,
@@ -20,7 +21,8 @@ import { NotificationPanel } from './NotificationPanel';
 import { SearchPalette, useSearchPalette } from './SearchPalette';
 import { MobileNav } from './MobileNav';
 import { useGround } from './ground';
-import { viewerStanding } from '../mocks/library';
+import { standingNow } from '../data/standing';
+import { formatNumber } from '../i18n/format';
 import type { Person } from '../types';
 
 /**
@@ -53,20 +55,21 @@ export type NavKey = 'home' | 'spaces' | 'library' | 'social' | 'profile';
 export const navHref = (key: NavKey): string =>
   key === 'spaces' ? '/v4/spaces' : `/v4/${key}`;
 
-export const NAV_TABS: { key: NavKey; label: string; icon: typeof Home }[] = [
-  { key: 'home', label: 'Home', icon: Home },
-  { key: 'spaces', label: 'Spaces', icon: Orbit },
-  { key: 'library', label: 'Library', icon: BookOpen },
-  { key: 'social', label: 'Social', icon: Users },
-  { key: 'profile', label: 'Profile', icon: Compass },
+/* The label is `v4Spaces:nav.<key>` — said at render, in the reader's language. */
+export const NAV_TABS: { key: NavKey; icon: typeof Home }[] = [
+  { key: 'home', icon: Home },
+  { key: 'spaces', icon: Orbit },
+  { key: 'library', icon: BookOpen },
+  { key: 'social', icon: Users },
+  { key: 'profile', icon: Compass },
 ];
 
 interface Props {
   active: NavKey;
   viewer: Person;
   /**
-   * Mock progression — the real values come from the XP engine later.
-   * Defaults read `viewerStanding()` so the bar and Social cannot disagree.
+   * Defaults read `standingNow()` — the XP ledger live, the fixture
+   * leaderboard in demo — so the bar and Social cannot disagree.
    */
   rank?: string;
   xp?: number;
@@ -76,11 +79,12 @@ interface Props {
 export function SpacesTopBar({
   active,
   viewer,
-  rank = viewerStanding().rank,
-  xp = viewerStanding().xp,
+  rank = standingNow().rank,
+  xp = standingNow().xp,
   onNavigate,
 }: Props) {
   const navigate = useNavigate();
+  const { t } = useTranslation('v4Spaces');
   /*
    * The bar owns the palette rather than each screen passing an `onSearch`.
    * ⌘K is global by definition — threading a callback through nine screens
@@ -137,7 +141,7 @@ export function SpacesTopBar({
         <Pressable
           type="button"
           onClick={() => go('home')}
-          aria-label="Home"
+          aria-label={t('nav.home')}
           className="console-focusable flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-primary shadow-glow-primary"
         >
           <Layers aria-hidden className="h-5 w-5 text-primary-foreground" />
@@ -146,7 +150,7 @@ export function SpacesTopBar({
         <button
           type="button"
           onClick={() => go('profile')}
-          aria-label="Open account menu"
+          aria-label={t('nav.account')}
           className="console-focusable group -mx-1.5 hidden min-w-0 items-center gap-3 rounded-[16px] px-1.5 py-1 transition-colors hover:bg-white/5 md:flex"
         >
           <Avatar person={viewer} size="lg" isViewer className="shadow-glow-primary" />
@@ -162,7 +166,7 @@ export function SpacesTopBar({
             <span className="flex items-center gap-1.5 text-xs font-bold text-quiet tabular-nums">
               <span className="text-primary">{rank}</span>
               <span aria-hidden className="text-decor">·</span>
-              <span>{xp.toLocaleString()} XP</span>
+              <span>{t('nav.xp', { xp: formatNumber(xp) })}</span>
             </span>
           </span>
         </button>
@@ -175,7 +179,7 @@ export function SpacesTopBar({
         destinations at the bottom. Two navigation controls on one screen is
         two things that have to agree about which tab is active.
       */}
-      <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
+      <nav aria-label={t('nav.main')} className="hidden items-center gap-1 md:flex">
         {NAV_TABS.map((tab) => {
           const isActive = tab.key === active;
           return (
@@ -183,7 +187,7 @@ export function SpacesTopBar({
               key={tab.key}
               type="button"
               onClick={() => go(tab.key)}
-              aria-label={tab.label}
+              aria-label={t(`nav.${tab.key}`)}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
                 'console-focusable relative flex items-center gap-2 rounded-full px-3 py-2 text-sm font-bold transition-colors lg:px-4',
@@ -198,7 +202,7 @@ export function SpacesTopBar({
                 />
               )}
               <tab.icon className="relative z-10 h-4 w-4" />
-              <span className="relative z-10 hidden lg:inline">{tab.label}</span>
+              <span className="relative z-10 hidden lg:inline">{t(`nav.${tab.key}`)}</span>
             </button>
           );
         })}
@@ -209,11 +213,11 @@ export function SpacesTopBar({
         <button
           type="button"
           onClick={() => setSearchOpen(true)}
-          aria-label="Search"
+          aria-label={t('nav.search')}
           className="console-focusable flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-quiet transition hover:bg-white/10 hover:text-foreground"
         >
           <Search aria-hidden className="h-3.5 w-3.5" />
-          <span className="hidden lg:inline">Ask anything</span>
+          <span className="hidden lg:inline">{t('nav.ask')}</span>
           <kbd className="hidden rounded border border-white/10 bg-white/5 px-1 text-[10px] font-semibold lg:inline">
             ⌘K
           </kbd>
@@ -235,7 +239,7 @@ export function SpacesTopBar({
         <button
           type="button"
           onClick={() => navigate('/v4/settings')}
-          aria-label="Settings"
+          aria-label={t('nav.settings')}
           className="console-focusable flex h-9 w-9 items-center justify-center rounded-full text-quiet transition hover:bg-white/10 hover:text-foreground"
         >
           <Settings aria-hidden className="h-5 w-5" />
@@ -249,8 +253,8 @@ export function SpacesTopBar({
         <button
           type="button"
           disabled
-          title="Not wired in this design build"
-          aria-label="Sign out — not wired in this design build"
+          title={t('nav.notWired')}
+          aria-label={t('nav.signOut')}
           className="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-full text-quiet opacity-45"
         >
           <LogOut aria-hidden className="h-5 w-5" />

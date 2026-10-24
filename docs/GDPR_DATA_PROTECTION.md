@@ -62,6 +62,9 @@ writing the export contains, one key per table:
   `material_sources`, `parse_runs`, `upload_quotas`, `llm_calls`,
   `lectures` (professor- or student-owned), `worksheets_uploaded`.
 - Social: `friend_requests` (both sides).
+- Notes: `notes` (v4 reader notes).
+- Account classification: `internal_account_overrides` (the row about you;
+  `set_by`, the admin who set it, is not exported).
 - AI tutor: `tutor_sessions` and their `tutor_messages`.
 - Production-only, when present: `api_tokens` (without `token_hash`),
   `course_access`.
@@ -69,7 +72,8 @@ writing the export contains, one key per table:
 Not exported: derived lecture content (slides, quiz questions, embeddings) is
 not a per-person row and is not in the export; `learning_events_legacy_20260721`
 (a rollback copy duplicated in `learning_events`) and `account_erasure_jobs`
-(erasure bookkeeping) are excluded on purpose (`EXPORT_EXCLUSIONS`).
+(erasure bookkeeping) and `internal_account_overrides.set_by` (an admin audit
+trail) are excluded on purpose (`EXPORT_EXCLUSIONS`).
 
 ## 3. Right to erasure (Art. 17)
 

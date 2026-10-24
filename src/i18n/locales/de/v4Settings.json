@@ -1,0 +1,64 @@
+{
+  "title": "Einstellungen",
+  "subtitle": "Sprache, Benachrichtigungen, Sichtbarkeit und deine Daten",
+  "language": {
+    "title": "Sprache",
+    "hint": "Seiten, Antworten und Checkpoints folgen dieser Sprache. Titel von Lektionen bleiben in ihrer Originalsprache.",
+    "en": "English",
+    "de": "Deutsch"
+  },
+  "sections": {
+    "status": {
+      "loading": "Wird geladen …",
+      "failed": "Etwas ist schiefgelaufen",
+      "back": "Zurück zum Profil"
+    },
+    "account": {
+      "standing": "{{rank}} · {{xp}} XP",
+      "edit": "Im Profil bearbeiten"
+    },
+    "notice": "Die Sprache oben wird gespeichert. Die Schalter darunter noch nicht. Sie zeigen, was du später einstellen kannst, ändern aber nichts und springen zurück, wenn du die Seite verlässt.",
+    "notifications": {
+      "title": "Benachrichtigungen",
+      "replies": {
+        "label": "Wenn dir jemand antwortet",
+        "hint": "Eine Antwort auf deinen Beitrag oder eine Erwähnung mit deinem Namen."
+      },
+      "endorsed": {
+        "label": "Wenn deine Arbeit empfohlen wird",
+        "hint": "Jemand, der den Space pflegt, hat deinen Beitrag als vertrauenswürdig markiert."
+      },
+      "newLessons": {
+        "label": "Neue Lektionen in deinen markierten Spaces",
+        "hint": "Standardmäßig aus. Ein aktiver Space kann mehrere pro Woche veröffentlichen. Genau das macht aus einem nützlichen Posteingang Rauschen."
+      }
+    },
+    "visibility": {
+      "title": "Wer dich sehen kann",
+      "publicProfile": {
+        "label": "Öffentliches Profil",
+        "hint": "Dein Name, dein Rang und deine veröffentlichten Beiträge sind für alle sichtbar, mit denen du einen Space teilst. Wenn du das ausschaltest, bleibt bereits Veröffentlichtes trotzdem stehen."
+      },
+      "activity": {
+        "label": "Zeigen, was ich gerade lese",
+        "hint": "Mitglieder eines Space sehen, welche Lektionen du offen hast. Standardmäßig aus – niemand möchte beobachtet werden."
+      }
+    },
+    "data": {
+      "title": "Deine Daten",
+      "export": {
+        "label": "Alles exportieren",
+        "hint": "Deine Notizen, Beiträge und Uploads als ein Archiv. Nichts davon ist hier eingesperrt.",
+        "action": "Exportieren",
+        "notWired": "Noch nicht angebunden",
+        "notWiredHint": "Der Export ist entworfen, aber in dieser Version noch nicht gebaut."
+      },
+      "delete": {
+        "label": "Konto löschen",
+        "hint": "Entfernt deine Notizen und Uploads. Beiträge, die du in einem Space veröffentlicht hast, bleiben ohne deinen Namen stehen. Sie zu löschen würde Lücken in Lektionen reißen, auf die sich andere verlassen.",
+        "action": "Löschen"
+      }
+    },
+    "motion": "Bewegung folgt deiner Systemeinstellung für reduzierte Bewegung – bei animierten Übergängen wie bei Hover-Effekten. Hier gibt es keinen Schalter, weil es nichts gibt, dem er widersprechen könnte."
+  }
+}

@@ -1,0 +1,152 @@
+import { memo, useMemo, useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
+import { Markdown } from './Markdown';
+import {
+  FLASH_FRAMES, FLIGHT_EASE, FLIGHT_S, GLOW_FADE_S, STAGGER_S, TEXT_FADE_S, glowColors,
+} from '../motion';
+import { hasSource } from '../edit';
+import type { CanvasBlock } from '../types';
+import type { BlockRecall } from './CanvasPage';
+
+interface Props {
+  block: CanvasBlock;
+  page: number;
+  /** Position within its page, for the reverse stagger on the way back. */
+  index: number;
+  count: number;
+  /**
+   * On the anchor page: this block carries `layoutId` and flies to/from its
+   * spot on the original. Only the anchor page's blocks are layout nodes, so
+   * a re-render elsewhere (hover, pin-follow, flash) never measures the rest.
+   * The caller keys the block by this flag: Motion registers a `layoutId`
+   * once, at mount, so changing it requires a remount.
+   */
+  morph: boolean;
+  /** True on the anchor page right after a switch: the text fades in after landing. */
+  flying: boolean;
+  lowConfidence: boolean;
+  active: boolean;
+  flash: boolean;
+  /** The source file was removed: the marker stays as text, it leads nowhere. */
+  markerDisabled: boolean;
+  /** Living Learn: a glow on the paragraph that a question just wove in (wired in Task 7). */
+  glow?: boolean;
+  /** The glow's teal depends on the ground it sits on. */
+  theme?: 'light' | 'dark';
+  /** Recall mode, summary blocks only: key terms render as blanks you reveal. */
+  recall?: BlockRecall | null;
+  onPointerEnter(blockId: string, pointerType: string): void;
+  onPointerLeave(): void;
+  onOpenPeek(blockId: string): void;
+  onClosePeek(): void;
+}
+
+/**
+ * One block of your version.
+ *
+ * Only a block with a source (extracted or summary) has a place on the original, so only it gets a
+ * page marker, a hover-intent and Space-to-peek. The marker is a real button
+ * — the touch and keyboard way in — and on hover-capable screens it shows on
+ * hover or focus to keep the margin quiet.
+ */
+export const CleanBlock = memo(function CleanBlock({
+  block, page, index, count, morph, flying, lowConfidence, active, flash, markerDisabled, glow = false, theme = 'dark', recall = null,
+  onPointerEnter, onPointerLeave, onOpenPeek, onClosePeek,
+}: Props) {
+  const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.page' });
+  const sourced = hasSource(block);
+  const gist = block.origin === 'summary' && block.gist;
+  const reduce = useReducedMotion();
+  const flies = sourced && morph;
+  /* Once glowed, the glow fades out instead of vanishing; before that, no inline box styles at all. */
+  const [glowed, setGlowed] = useState(false);
+  if (glow && !glowed) setGlowed(true);
+  const { on: GLOW_ON, off: GLOW_OFF } = glowColors(theme);
+  const termRecall = useMemo(
+    () => (recall ? { blockId: block.id, page, get: recall.get, onReveal: recall.onReveal, onMark: recall.onMark } : undefined),
+    [recall, block.id, page],
+  );
+  return (
+    <motion.div
+      data-block-id={block.id}
+      data-extracted={sourced ? 'true' : 'false'}
+      data-gist={gist ? 'true' : undefined}
+      data-morph={flies ? 'true' : undefined}
+      data-flash={flash ? 'true' : undefined}
+      data-glow={glow ? 'true' : undefined}
+      tabIndex={sourced ? 0 : undefined}
+      // In Recall the paragraph is a quiz: resting on it must not cover the term with Peek (the marker still opens it).
+      onPointerEnter={(e) => sourced && !recall && onPointerEnter(block.id, e.pointerType)}
+      // Touch fires pointerleave after every tap; only a mouse really leaves.
+      onPointerLeave={(e) => sourced && e.pointerType !== 'touch' && e.pointerType !== 'pen' && onPointerLeave()}
+      onKeyDown={(e) => {
+        // Only the paragraph's own keys: a button inside it (a blank, Knew it, the marker) keeps Space and Esc.
+        if (!sourced || e.target !== e.currentTarget) return;
+        if (e.key === ' ') {
+          e.preventDefault();
+          onOpenPeek(block.id);
+        } else if (e.key === 'Escape') {
+          onClosePeek();
+        }
+      }}
+      layoutId={flies ? `morph-${block.id}` : undefined}
+      animate={
+        flash
+          ? { backgroundColor: FLASH_FRAMES }
+          : reduce
+            ? undefined
+            : glow
+              ? { boxShadow: `0 0 0 8px ${GLOW_ON}`, backgroundColor: GLOW_ON }
+              : glowed
+                ? {
+                    boxShadow: `0 0 0 8px ${GLOW_OFF}`,
+                    backgroundColor: GLOW_OFF,
+                    // Hand the box back to the classes (the active tint, the focus ring) once faded.
+                    transitionEnd: { boxShadow: '', backgroundColor: '' },
+                  }
+                : undefined
+      }
+      transition={{
+        layout: { duration: FLIGHT_S, ease: FLIGHT_EASE, delay: (count - 1 - index) * STAGGER_S },
+        backgroundColor: flash ? { duration: 1.2, times: [0, 0.6, 1] } : { duration: glow ? 0.3 : GLOW_FADE_S },
+        boxShadow: { duration: glow ? 0.3 : GLOW_FADE_S },
+      }}
+      className={cn(
+        'group relative -mx-3 rounded-lg px-3 py-1 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
+        active && 'bg-[hsl(var(--studio-mark)/0.14)]',
+        block.origin === 'written' && 'rounded-l-none border-l-2 border-primary/40',
+        gist && 'studio-gist',
+      )}
+    >
+      {sourced &&
+        (markerDisabled ? (
+          <span className="absolute -left-14 top-1.5 w-11 text-right text-[11px] tabular-nums text-faint">
+            {t('marker', { page })}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onOpenPeek(block.id)}
+            aria-label={t('showSource', { page })}
+            className="absolute -left-14 top-1 min-h-6 w-11 rounded-full bg-[rgb(var(--studio-chip))] text-[11px] tabular-nums text-quiet opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:bg-transparent [@media(hover:none)]:text-faint [@media(hover:none)]:opacity-100"
+          >
+            {t('marker', { page })}
+          </button>
+        ))}
+      <motion.div
+        initial={flies && flying && !reduce ? { opacity: 0 } : false}
+        animate={{ opacity: 1 }}
+        transition={{ delay: FLIGHT_S * 0.6, duration: TEXT_FADE_S }}
+      >
+        <Markdown
+          className={cn(lowConfidence && 'underline decoration-dotted decoration-muted-foreground underline-offset-4')}
+          recall={termRecall}
+        >
+          {block.markdown}
+        </Markdown>
+      </motion.div>
+    </motion.div>
+  );
+});

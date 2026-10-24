@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowUp, ArrowUpRight, Quote, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { askTutor, type TutorCitation, type TutorReply } from '../../mocks/tutor';
+import { askTutor, type TutorCitation, type TutorReply } from '../../data/tutor';
 import type { Lesson } from '../../types';
 
 /**
@@ -49,7 +50,14 @@ import type { Lesson } from '../../types';
  * open question in Doc 1 and a panel must not answer one.
  */
 
-/** Openers for somebody who does not yet know what to ask. */
+/**
+ * Openers for somebody who does not yet know what to ask.
+ *
+ * The panel renders (and asks) the translated copy from `QUICK_PROMPT_KEYS`;
+ * `QUICK_PROMPTS` is the English copy of the same three, kept for callers that
+ * need the words themselves (the tests ask the demo tutor with them).
+ */
+const QUICK_PROMPT_KEYS = ['tutor.quick.simpler', 'tutor.quick.example', 'tutor.quick.why'] as const;
 export const QUICK_PROMPTS = ['Explain more simply', 'Concrete example', 'Why does this matter?'];
 
 interface Props {
@@ -114,6 +122,7 @@ export function TutorPanel({
   mintTurnId,
   landable: landableProp,
 }: Props) {
+  const { t } = useTranslation('v4Reader');
   const [draft, setDraft] = useState('');
 
   const busy = turns.some((t) => t.status === 'pending');
@@ -199,7 +208,7 @@ export function TutorPanel({
       {groundingEnabled && (
         <p className="flex items-start gap-1.5 border-b border-white/[0.06] px-4 py-2.5 text-[11.5px] leading-[1.45] text-faint">
           <Quote aria-hidden className="mt-[3px] h-2.5 w-2.5 shrink-0" />
-          Grounded — answers draw on this Space&rsquo;s Lessons and name where they came from.
+          {t('tutor.grounded')}
         </p>
       )}
 
@@ -212,15 +221,14 @@ export function TutorPanel({
       <div ref={thread} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {turns.length === 0 ? (
           <p className="px-1 text-[13px] leading-[1.55] text-faint">
-            Ask about anything in this Lesson — or select a sentence in the text and start from
-            there.
+            {t('tutor.empty')}
           </p>
         ) : (
-          turns.map((t) => (
-            <div key={t.id} className="mb-6 last:mb-0">
-              {t.quote && (
+          turns.map((turn) => (
+            <div key={turn.id} className="mb-6 last:mb-0">
+              {turn.quote && (
                 <p className="mb-2 border-l-2 border-white/[0.14] pl-3 text-[12.5px] italic leading-[1.5] text-faint">
-                  &ldquo;{t.quote}&rdquo;
+                  {t('tutor.quote', { quote: turn.quote })}
                 </p>
               )}
 
@@ -231,8 +239,8 @@ export function TutorPanel({
                 question is still one addressable string.
               */}
               <p className="rounded-2xl bg-white/[0.05] px-3.5 py-2.5 text-[13.5px] leading-[1.55] text-foreground">
-                <span className="sr-only">You asked: </span>
-                <span>{t.question}</span>
+                <span className="sr-only">{t('tutor.youAsked')}</span>
+                <span>{turn.question}</span>
               </p>
 
               {/*
@@ -249,34 +257,34 @@ export function TutorPanel({
                 is what this is for.
               */}
               <div aria-live="polite" className="mt-2.5">
-                {t.status === 'pending' && (
-                  <p className="px-1 text-[12.5px] text-faint">Thinking…</p>
+                {turn.status === 'pending' && (
+                  <p className="px-1 text-[12.5px] text-faint">{t('tutor.thinking')}</p>
                 )}
 
-                {t.status === 'error' && (
+                {turn.status === 'error' && (
                   <div className="px-1">
                     <p className="text-[12.5px] leading-[1.5] text-quiet">
-                      That answer did not come back.
+                      {t('tutor.failed')}
                     </p>
                     <button
                       type="button"
-                      onClick={() => retry(t)}
+                      onClick={() => retry(turn)}
                       className="console-focusable mt-1.5 rounded-full border border-white/[0.10] bg-white/[0.04] px-3 py-1 text-[12px] font-medium text-foreground transition-colors hover:bg-white/[0.08]"
                     >
-                      Try again
+                      {t('tutor.retry')}
                     </button>
                   </div>
                 )}
 
-                {t.status === 'done' && t.reply && (
+                {turn.status === 'done' && turn.reply && (
                   <>
                     <p className="px-1 text-[14px] leading-[1.65] text-foreground">
-                      <span className="sr-only">Answer: </span>
-                      <span>{t.reply.text}</span>
+                      <span className="sr-only">{t('tutor.answer')}</span>
+                      <span>{turn.reply.text}</span>
                     </p>
-                    {t.reply.citations.length > 0 && (
+                    {turn.reply.citations.length > 0 && (
                       <div className="mt-2.5 flex flex-wrap gap-1.5 px-1">
-                        {t.reply.citations.map((c) =>
+                        {turn.reply.citations.map((c) =>
                           landable(c) ? (
                             <button
                               key={c.label}
@@ -326,11 +334,11 @@ export function TutorPanel({
         {pendingQuote && (
           <div className="mb-2.5 flex items-start gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2">
             <p className="line-clamp-3 min-w-0 flex-1 text-[12px] italic leading-[1.45] text-quiet">
-              &ldquo;{pendingQuote}&rdquo;
+              {t('tutor.quote', { quote: pendingQuote })}
             </p>
             <button
               type="button"
-              aria-label="Drop the selected sentence"
+              aria-label={t('tutor.dropQuote')}
               onClick={onQuoteConsumed}
               className="console-focusable -mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-faint transition-colors hover:bg-white/[0.06] hover:text-foreground"
             >
@@ -340,17 +348,20 @@ export function TutorPanel({
         )}
 
         <div className="flex flex-wrap gap-1.5">
-          {QUICK_PROMPTS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              disabled={busy}
-              onClick={() => ask(p)}
-              className="console-focusable rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-[5px] text-[12px] text-quiet transition-colors hover:bg-white/[0.07] hover:text-foreground disabled:text-faint disabled:hover:bg-white/[0.03]"
-            >
-              {p}
-            </button>
-          ))}
+          {QUICK_PROMPT_KEYS.map((k) => {
+            const p = t(k);
+            return (
+              <button
+                key={k}
+                type="button"
+                disabled={busy}
+                onClick={() => ask(p)}
+                className="console-focusable rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-[5px] text-[12px] text-quiet transition-colors hover:bg-white/[0.07] hover:text-foreground disabled:text-faint disabled:hover:bg-white/[0.03]"
+              >
+                {p}
+              </button>
+            );
+          })}
         </div>
 
         <form
@@ -364,13 +375,13 @@ export function TutorPanel({
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            aria-label="Ask about this Lesson"
-            placeholder="Ask about this Lesson"
+            aria-label={t('tutor.composer')}
+            placeholder={t('tutor.composer')}
             className="console-focusable h-10 min-w-0 flex-1 rounded-full border border-white/[0.10] bg-white/[0.04] px-4 text-[13.5px] text-foreground outline-none placeholder:text-faint"
           />
           <button
             type="submit"
-            aria-label="Send"
+            aria-label={t('tutor.send')}
             disabled={busy || draft.trim().length === 0}
             className="console-focusable flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-900 disabled:bg-white/[0.10] disabled:text-quiet"
           >

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { coverFor, initialFor, SLATE_COVER } from '../../mocks/covers';
+import { coverFor, initialFor, SLATE_COVER } from './covers';
 
 /**
  * The hero's cover art, full-bleed and fixed behind everything.

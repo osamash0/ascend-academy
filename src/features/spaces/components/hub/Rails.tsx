@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Check, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
+import { formatNumber } from '../../i18n/format';
 import { ModeBadge } from '../badges';
 import type { Space } from '../../types';
-import { coverFor, initialFor } from '../../mocks/covers';
-import { actionFor, membershipOf } from '../../mocks/hub';
+import { coverFor, initialFor } from './covers';
+import { membershipOf } from '../../data/hub';
 import { itemVariants, railVariants } from '../Enter';
 import { PRESS_SPRING } from '../Pressable';
 
@@ -65,6 +67,7 @@ const CARD_OUTLINE =
 
 /** A rail's heading, with the optional "See all". */
 function RailHead({ title, to }: { title: string; to?: string }) {
+  const { t } = useTranslation('v4Spaces');
   return (
     <div className={cn('mb-[18px] flex items-baseline justify-between', GUTTER)}>
       <h3 className="text-[18px] font-semibold">{title}</h3>
@@ -73,7 +76,7 @@ function RailHead({ title, to }: { title: string; to?: string }) {
           to={to}
           className="console-focusable rounded text-[13.5px] text-quiet transition-colors hover:text-foreground"
         >
-          See all
+          {t('hub.cards.seeAll')}
         </Link>
       )}
     </div>
@@ -132,6 +135,7 @@ export function Rail({
  * and why the cover gets the whole card.
  */
 export function WideCard({ space }: { space: Space }) {
+  const { t } = useTranslation('v4Spaces');
   return (
     <motion.div
       variants={itemVariants}
@@ -176,7 +180,7 @@ export function WideCard({ space }: { space: Space }) {
 
         {space.newSinceLastVisit > 0 && (
           <span className="absolute left-3 top-3 z-[2] rounded-full bg-[#57d98a]/90 px-[10px] py-[3px] text-[11.5px] font-semibold text-[#06130b]">
-            new activity
+            {t('hub.cards.newActivity')}
           </span>
         )}
 
@@ -188,7 +192,7 @@ export function WideCard({ space }: { space: Space }) {
         {space.online !== undefined && space.online > 0 && (
           <span className="absolute right-[14px] top-[14px] z-[2] flex items-center gap-1.5 text-[11.5px] text-quiet">
             <i aria-hidden className="h-[7px] w-[7px] rounded-full bg-[#57d98a]" />
-            {space.online} online
+            {t('hub.cards.online', { count: space.online, n: formatNumber(space.online) })}
           </span>
         )}
 
@@ -208,7 +212,7 @@ export function WideCard({ space }: { space: Space }) {
 /* ── 2. Banner — "Space of the week" ───────────────────────────── */
 
 export function FeatureBanner({ space }: { space: Space }) {
-  const action = actionFor(membershipOf(space));
+  const { t } = useTranslation('v4Spaces');
   return (
     <motion.div
       variants={railVariants}
@@ -242,7 +246,7 @@ export function FeatureBanner({ space }: { space: Space }) {
               eyebrow from its size and weight.
             */}
             <p className="mb-[10px] text-[12.5px] font-semibold tracking-[0.2px] text-quiet">
-              Space of the week
+              {t('hub.cards.ofTheWeek')}
             </p>
             {/* Weight 300, like the hero. The banner is the hero's echo. */}
             <h3 className="mb-2 text-[30px] font-light tracking-[-0.3px]">{space.name}</h3>
@@ -256,7 +260,7 @@ export function FeatureBanner({ space }: { space: Space }) {
               advertisement — so the featured Space is always one you could
               join, and the label comes from the same state machine as the hero.
             */}
-            <HubPill to={`/v4/space/${space.id}`} label={action.label} small />
+            <HubPill to={`/v4/space/${space.id}`} label={t(`hub.action.${membershipOf(space)}`)} small />
           </div>
         </div>
       </motion.div>
@@ -274,6 +278,7 @@ export function FeatureBanner({ space }: { space: Space }) {
  * section split, no reordering — membership is a property of a card.
  */
 export function StandardCard({ space }: { space: Space }) {
+  const { t } = useTranslation('v4Spaces');
   const isMember = space.viewerRole !== null;
   const isPrivate = space.visibility !== 'public';
   return (
@@ -308,7 +313,7 @@ export function StandardCard({ space }: { space: Space }) {
               ) : (
                 <Lock aria-hidden className="h-3 w-3 text-white" />
               )}
-              <span className="sr-only">{isMember ? 'You are a member' : 'Invite only'}</span>
+              <span className="sr-only">{isMember ? t('hub.cards.youAreMember') : t('hub.cards.inviteOnly')}</span>
             </span>
           )}
         </motion.div>
@@ -317,8 +322,8 @@ export function StandardCard({ space }: { space: Space }) {
         </span>
         <span className="mx-0.5 flex items-center gap-2 text-[13px] text-quiet transition-colors group-hover:text-foreground">
           <span className="truncate">
-            {space.memberCount.toLocaleString()} members
-            {isPrivate && ' · invite only'}
+            {t('hub.cards.members', { count: space.memberCount, n: formatNumber(space.memberCount) })}
+            {isPrivate && ` · ${t('hub.cards.inviteOnlyShort')}`}
           </span>
           {/*
             Guided or Open, on the card.
@@ -339,6 +344,7 @@ export function StandardCard({ space }: { space: Space }) {
 /* ── 4. Compact tile — "New this week" ─────────────────────────── */
 
 export function CompactCard({ space }: { space: Space }) {
+  const { t } = useTranslation('v4Spaces');
   return (
     <motion.div variants={itemVariants} className="flex-none">
       <Link
@@ -359,7 +365,7 @@ export function CompactCard({ space }: { space: Space }) {
         <span className="min-w-0">
           <span className="block truncate text-[14px] font-medium">{space.name}</span>
           <span className="mt-0.5 block text-[12.5px] text-quiet">
-            {space.memberCount.toLocaleString()} members
+            {t('hub.cards.members', { count: space.memberCount, n: formatNumber(space.memberCount) })}
           </span>
         </span>
         {/*
@@ -371,7 +377,7 @@ export function CompactCard({ space }: { space: Space }) {
           aria-hidden
           className="ml-auto flex-none rounded-full border border-white/30 px-4 py-1.5 text-[12.5px] font-semibold transition-colors group-hover:border-transparent group-hover:bg-white/[0.14]"
         >
-          Join
+          {t('hub.action.joinable')}
         </span>
       </Link>
     </motion.div>
@@ -408,6 +414,7 @@ export function HubPill({
   disabled?: boolean;
   small?: boolean;
 }) {
+  const { t } = useTranslation('v4Spaces');
   const cls = cn(
     'inline-flex items-center justify-center rounded-full font-semibold backdrop-blur-[14px]',
     small ? 'px-7 py-[11px] text-[14px]' : 'px-10 py-[14px] text-[15px]',
@@ -418,7 +425,7 @@ export function HubPill({
 
   if (disabled) {
     return (
-      <span className={cls} aria-disabled title="You have asked to join. Waiting on the Owner.">
+      <span className={cls} aria-disabled title={t('hub.cards.pending')}>
         {label}
       </span>
     );

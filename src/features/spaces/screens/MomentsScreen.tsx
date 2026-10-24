@@ -1,7 +1,8 @@
 import { ArrowLeft, Award } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { viewer } from '../mocks/people';
-import { moments } from '../mocks/moments';
+import { useTranslation } from 'react-i18next';
+import { useViewer } from '../data/viewer';
+import { momentsNow as moments } from '../data/record';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { Skylight } from '../components/stage';
@@ -42,8 +43,9 @@ import { ListSkeleton, SpacesError } from '../components/states';
  * Learn mode: a record of you, calm and browsable.
  */
 
-const formatWhen = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, {
+/** A full date in the app's language, never the browser's: "14 October 2026", "14. Oktober 2026". */
+const formatWhen = (iso: string, lang: string) =>
+  new Date(iso).toLocaleDateString(lang, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -51,6 +53,8 @@ const formatWhen = (iso: string) =>
   });
 
 export default function MomentsScreen() {
+  const viewer = useViewer();
+  const { t, i18n } = useTranslation('v4People');
   const screenState = useScreenState();
   const all = moments();
 
@@ -65,8 +69,8 @@ export default function MomentsScreen() {
     </Scene>
   );
 
-  if (screenState === 'loading') return chrome(<ListSkeleton label="Loading your moments" />);
-  if (screenState === 'error') return chrome(<SpacesError what="your moments" />);
+  if (screenState === 'loading') return chrome(<ListSkeleton label="moments" />);
+  if (screenState === 'error') return chrome(<SpacesError what="moments" />);
 
   return chrome(
     <div className="relative mx-auto max-w-3xl px-6 pb-24 pt-8 lg:px-8">
@@ -75,7 +79,7 @@ export default function MomentsScreen() {
         className="console-focusable inline-flex items-center gap-2 rounded-full text-[13.5px] text-quiet transition-colors hover:text-foreground"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" />
-        Profile
+        {t('v4Spaces:nav.profile')}
       </Link>
 
       <EnterGroup>
@@ -83,19 +87,17 @@ export default function MomentsScreen() {
           <header className="mt-6">
             <p className="flex items-center gap-2 text-[13px] font-medium text-quiet">
               <Award aria-hidden className="h-4 w-4" />
-              Moments
+              {t('moments.name')}
             </p>
             <h1 className="mt-3 text-5xl font-medium tracking-[-0.035em]">
-              The firsts
+              {t('moments.title')}
             </h1>
             {/*
               No count. `3/6` was the second progression — a total implies the
               rest are owed, and a thing you can be behind on is a currency.
             */}
             <p className="mt-3 max-w-[52ch] text-[15px] leading-relaxed text-quiet">
-              The first time each thing happened to you here. Nothing on this page is a
-              score, and there is nothing to collect — these are just the days something
-              changed.
+              {t('moments.lede')}
             </p>
           </header>
         </EnterItem>
@@ -103,7 +105,7 @@ export default function MomentsScreen() {
 
       {all.length === 0 ? (
         <p className="mt-10 text-[14px] text-quiet">
-          Nothing yet. Finish a Lesson and the first one lands here.
+          {t('moments.empty')}
         </p>
       ) : (
         <EnterList whenVisible className="mt-9 space-y-2.5">
@@ -121,7 +123,7 @@ export default function MomentsScreen() {
                 */}
                 {m.at && (
                   <span className="text-[12.5px] text-faint tabular-nums">
-                    {formatWhen(m.at)}
+                    {formatWhen(m.at, (i18n.language || 'en').split('-')[0])}
                   </span>
                 )}
               </div>

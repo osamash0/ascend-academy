@@ -2,13 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import LibraryScreen from '../../screens/LibraryScreen';
-import LibraryStudioScreen from '../../screens/LibraryStudioScreen';
 import { NoteEditor } from '../NoteEditor';
 import { noteToItem } from '../../mocks/library';
 import { allNotes, noteById, resetNotes } from '../../mocks/notes';
 import { resetReanchors } from '../../mocks/reanchor';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 
 /**
  * Editing a note must not throw the rest of it away.
@@ -50,7 +47,8 @@ afterEach(() => {
  */
 const renderLibrary = async () => {
   const r = render(
-    <MemoryRouter>
+    // Notes live under the shelf's "Your words" filter (One Library §5.7).
+    <MemoryRouter initialEntries={['/v4/library?f=words']}>
       <LibraryScreen />
     </MemoryRouter>,
   );
@@ -220,10 +218,12 @@ describe('one action, offered once', () => {
     ).toBe(1);
   });
 
-  it('offers exactly one way to write when there is nothing yet', async () => {
+  it('offers no write control twice when the Library is empty', async () => {
     /*
-     * `?mock=empty` is how the empty state is reachable — `useLibrary` reads it
-     * off the URL, so this drives the real branch rather than a stubbed prop.
+     * One Library: an empty Library is one calm invitation to bring a file in
+     * (spec §5.1), so the old empty state's "Write your first note" moved to
+     * Your words' "New note". What still holds is the rule: never the same
+     * action twice. `?mock=empty` drives the real branch.
      */
     const url = new URL(window.location.href);
     url.searchParams.set('mock', 'empty');
@@ -234,14 +234,12 @@ describe('one action, offered once', () => {
           <LibraryScreen />
         </MemoryRouter>,
       );
-      await waitFor(() => expect(writeControls().length).toBeGreaterThan(0), { timeout: 3000 });
-      const controls = writeControls();
-      expect(
-        controls.length,
-        `${controls.length} controls for one action: ${controls.map((c) => c.textContent?.trim()).join(' / ')}`,
-      ).toBe(1);
-      // And it is the empty state's invitation, not the toolbar pill.
-      expect(controls[0].textContent).toMatch(/write/i);
+      await waitFor(() => expect(screen.getByText(/Bring in your first file/)).toBeTruthy(), {
+        timeout: 3000,
+      });
+      // Nothing written and nothing brought in: the invitation is the only action, so no write control at all.
+      expect(writeControls()).toHaveLength(0);
+      expect(screen.getAllByText(/Bring in your first file/)).toHaveLength(1);
     } finally {
       url.searchParams.delete('mock');
       window.history.replaceState({}, '', url);
@@ -281,222 +279,6 @@ describe('an unfiled note says so', () => {
   });
 });
 
-describe('Library Studio only has the screens it has', () => {
-  /*
-   * `/v4/library/:view` fell through to the impact screen for any unknown
-   * value, so a typo rendered "How your work landed" with its real title and
-   * real rows. A wrong screen that looks right is worse than an error, because
-   * there is nothing to notice — and this route takes a free-text segment.
-   */
-  const renderStudio = async (view: string) => {
-    const r = render(
-      <MemoryRouter initialEntries={[`/v4/library/${view}`]}>
-        <Routes>
-          <Route path="/v4/library/:view" element={<LibraryStudioScreen />} />
-        </Routes>
-      </MemoryRouter>,
-    );
-    await waitFor(() => expect(document.body.textContent).toBeTruthy());
-    return r;
-  };
-
-  for (const view of ['uploads', 'drafts', 'impact']) {
-    it(`renders the ${view} screen`, async () => {
-      const { unmount } = await renderStudio(view);
-      await waitFor(() =>
-        expect(document.body.textContent, `${view} did not render`).not.toMatch(/isn’t here/),
-      );
-      unmount();
-    });
-  }
-
-  /*
-   * Realistic wrong values: a stale link, a plural, the wrong case, and the
-   * string "undefined", which is what a missing variable interpolated into a
-   * template URL actually produces. `../uploads` is deliberately not here —
-   * the router resolves it before it ever reaches the param, so it tests
-   * react-router rather than this screen.
-   */
-  for (const bogus of ['not-a-real-view', 'impacts', 'Impact', 'undefined']) {
-    it(`refuses "${bogus}" instead of quietly showing another screen`, async () => {
-      const { unmount } = await renderStudio(bogus);
-      await waitFor(() => {
-        /*
-         * The *heading* is the claim about which screen you are on — checked
-         * there rather than across the whole body, because the not-found
-         * subtitle deliberately lists the three real screen names to orient
-         * someone who has just mistyped one. Matching the body flagged that
-         * as the bug it was describing.
-         */
-        expect(
-          screen.getByRole('heading', { level: 1 }).textContent,
-          `"${bogus}" rendered a real screen`,
-        ).not.toMatch(/How your work landed|Manage uploads|Your drafts/);
-        // And none of the three screens' own content is on the page.
-        expect(
-          document.body.textContent,
-          `"${bogus}" leaked a real screen's rows`,
-        ).not.toMatch(/published contributions|files across your Spaces|unpublished across/);
-        expect(document.body.textContent, `"${bogus}" gave no not-found state`).toMatch(
-          /isn’t here/,
-        );
-      });
-      unmount();
-    });
-  }
-});
-
-describe('Library Studio lets you reach the work it lists', () => {
-  /*
-   * "Your drafts" listed rows reading "Needs review" with nothing to click, so
-   * the screen named work waiting on you and offered no way to do it. Uploads
-   * were the same, except an `href` to the Lesson was already computed on every
-   * material item and simply unused.
-   *
-   * Impact rows are deliberately exempt: an `ImpactRow` carries no `lessonId`
-   * and there is no per-contribution route, so there is nothing to link to yet.
-   * Asserted below so the exemption stays a decision rather than an oversight.
-   */
-  const studio = async (view: string) => {
-    const r = render(
-      <MemoryRouter initialEntries={[`/v4/library/${view}`]}>
-        <Routes>
-          <Route path="/v4/library/:view" element={<LibraryStudioScreen />} />
-        </Routes>
-      </MemoryRouter>,
-    );
-    await waitFor(() =>
-      expect(document.querySelectorAll('a[href^="/v4/"]').length + 1).toBeGreaterThan(0),
-    );
-    return r;
-  };
-
-  const titleLinks = () =>
-    [...document.querySelectorAll('a[href*="/lesson/"]')].map((a) => a.getAttribute('href')!);
-
-  for (const view of ['uploads', 'drafts']) {
-    it(`links every ${view} row to its Lesson`, async () => {
-      const { unmount } = await studio(view);
-      await waitFor(() => {
-        const rows = document.querySelectorAll('input[type="checkbox"]').length;
-        expect(rows, `${view} rendered no rows, so this proves nothing`).toBeGreaterThan(0);
-      });
-      const links = titleLinks();
-      expect(links.length, `${view} has rows but no way into any of them`).toBeGreaterThan(0);
-      for (const href of links) expect(href).toMatch(/^\/v4\/space\/[^/]+\/lesson\/[^/]+$/);
-      unmount();
-    });
-  }
-
-  it('reaches a draft that says it needs review', async () => {
-    const { unmount } = await studio('drafts');
-    await waitFor(() => expect(document.body.textContent).toMatch(/Needs review|Draft/));
-    /*
-     * The specific dead end: a row whose pill says "Needs review" cannot be
-     * selected — publishing it is not the answer — so a link is the only way
-     * it is reachable at all.
-     */
-    if (/Needs review/.test(document.body.textContent ?? '')) {
-      const row = [...document.querySelectorAll('div')].find(
-        (d) => /Needs review/.test(d.textContent ?? '') && d.querySelector('a[href*="/lesson/"]'),
-      );
-      expect(row, 'a "Needs review" draft has no way in').toBeTruthy();
-    }
-    unmount();
-  });
-
-  it('never covers the row with the title link', () => {
-    /*
-     * A source check, because no render test can catch this: happy-dom has no
-     * layout and no hit-testing, so `fireEvent.click` reaches the checkbox
-     * however completely a sibling covers it. I wrote the click test below
-     * first and it passed with `absolute inset-0 z-10` on the link — a guard
-     * that cannot fail for the reason it names.
-     *
-     * Library's cards legitimately use a row-filling overlay; a Studio row
-     * cannot, because it owns a checkbox.
-     */
-    const src = readFileSync(
-      join(process.cwd(), 'src/features/spaces/screens/LibraryStudioScreen.tsx'),
-      'utf8',
-    ).replace(/\/\*[\s\S]*?\*\//g, '');
-    const rowTitle = src.slice(src.indexOf('function RowTitle'));
-    const body = rowTitle.slice(0, rowTitle.indexOf('\n}'));
-    expect(body, 'the title link covers the row and will eat checkbox clicks').not.toMatch(
-      /absolute[^"']*inset-0|inset-0[^"']*absolute/,
-    );
-  });
-
-  it('keeps selection working', async () => {
-    const { unmount } = await studio('uploads');
-    await waitFor(() =>
-      expect(document.querySelectorAll('input[type="checkbox"]').length).toBeGreaterThan(0),
-    );
-    const box = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    expect(box.checked).toBe(false);
-    fireEvent.click(box);
-    await waitFor(() => expect((document.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBe(true));
-    // And the toolbar noticed, so the row's own handler ran.
-    expect(document.body.textContent).toMatch(/1 selected/);
-    unmount();
-  });
-
-  it('leaves impact rows unlinked, on purpose', async () => {
-    const { unmount } = await studio('impact');
-    await waitFor(() => expect(document.body.textContent).toMatch(/published contributions/));
-    expect(
-      titleLinks().length,
-      'impact rows gained a Lesson link — if there is now a destination, drop this guard',
-    ).toBe(0);
-    unmount();
-  });
-});
-
-describe('a dense list reads down its columns', () => {
-  /*
-   * The drafts view puts a checkbox only on rows that can be published, and
-   * omitting it shifted everything after it left by its width — so the order
-   * numbers sat at two different x positions depending on whether a row
-   * happened to be publishable. Measured in the browser: 281 vs 299.
-   *
-   * Asserted structurally rather than by measurement, because happy-dom has no
-   * layout: every row must have the same number of leading slots, which is
-   * what the reserved spacer provides. Same reasoning as the overlay guard
-   * above — where a render test cannot see the property, check the structure
-   * that produces it.
-   */
-  it('gives every drafts row the same leading slots', async () => {
-    const { unmount } = render(
-      <MemoryRouter initialEntries={['/v4/library/drafts']}>
-        <Routes>
-          <Route path="/v4/library/:view" element={<LibraryStudioScreen />} />
-        </Routes>
-      </MemoryRouter>,
-    );
-    await waitFor(() =>
-      expect(document.querySelectorAll('a[href*="/lesson/"]').length).toBeGreaterThan(0),
-    );
-
-    const rows = [...document.querySelectorAll('a[href*="/lesson/"]')]
-      .map((a) => a.closest('div[class*="rounded-xl"]'))
-      .filter((r): r is HTMLElement => !!r);
-
-    expect(rows.length, 'no drafts rows found — this guard is vacuous').toBeGreaterThan(1);
-    // The list must actually mix selectable and unselectable rows, or the
-    // misalignment this guards against could not occur.
-    const withBox = rows.filter((r) => r.querySelector('input[type="checkbox"]')).length;
-    expect(withBox, 'every row is selectable — no shift is possible').toBeGreaterThan(0);
-    expect(withBox, 'no row is unselectable — no shift is possible').toBeLessThan(rows.length);
-
-    const counts = rows.map((r) => r.children.length);
-    expect(
-      new Set(counts).size,
-      `rows have different numbers of columns (${counts.join(', ')}) — the missing checkbox shifts the row`,
-    ).toBe(1);
-    unmount();
-  });
-});
-
 describe('Library can re-home an orphan', () => {
   /*
    * The row said "pick a new place for it" and nothing in the product picked
@@ -513,7 +295,7 @@ describe('Library can re-home an orphan', () => {
 
   const openLibrary = async () => {
     const r = render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/v4/library?f=words']}>
         <LibraryScreen />
       </MemoryRouter>,
     );
@@ -530,46 +312,22 @@ describe('Library can re-home an orphan', () => {
     unmount();
   });
 
-  it('does not put the action on a settled row', async () => {
+  it('offers the action only on orphan rows', async () => {
+    /*
+     * "Needs a new home" lists orphans only, so there are no settled rows
+     * beside them any more; what must hold is that every move action sits on
+     * an orphan, one each.
+     */
     const { unmount } = await openLibrary();
-    const settled = [...document.querySelectorAll('article')].filter(
-      (a) => !/was removed/.test(a.textContent ?? ''),
+    const orphans = [...document.querySelectorAll('article')].filter((a) =>
+      /was removed/.test(a.textContent ?? ''),
     );
-    expect(settled.length, 'no settled rows to check against').toBeGreaterThan(0);
-    for (const row of settled) {
-      expect(
-        row.querySelector('button'),
-        'a settled row offers a move it does not need',
-      ).toBeNull();
+    const buttons = screen.queryAllByRole('button', { name: /Find it a new home/i });
+    expect(buttons.length).toBe(orphans.length);
+    for (const b of buttons) {
+      expect(orphans.some((o) => o.contains(b)), 'a move action outside an orphan row').toBe(true);
     }
     unmount();
-  });
-
-  it('is not buried under the row link', () => {
-    /*
-     * Source-checked, because happy-dom has no layout: `fireEvent.click`
-     * reaches a button however completely the row's `absolute inset-0` anchor
-     * covers it. The click test below would pass with the stacking broken.
-     */
-    /*
-     * Comments stripped first. The JSX above this control carries a comment
-     * explaining why it needs `relative z-10`, and the first version of this
-     * guard scanned the raw text — so deleting the class from the className
-     * left the *explanation* in the window and the guard went green. Every
-     * other source guard in this suite strips comments for exactly this
-     * reason; this one had to learn it too.
-     */
-    const src = readFileSync(
-      join(process.cwd(), 'src/features/spaces/screens/LibraryScreen.tsx'),
-      'utf8',
-    )
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-      .replace(/^\s*\/\/.*$/gm, '');
-    const at = src.indexOf('Find it a new home');
-    expect(at, 'the action is gone — retarget this guard').toBeGreaterThan(-1);
-    const control = src.slice(Math.max(0, at - 700), at);
-    expect(control, 'the re-home action sits under the row overlay').toMatch(/relative z-10/);
   });
 
   it('moves it, and the row stops warning', async () => {

@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from backend.core.auth_middleware import _user_id, verify_token
 from backend.core.rate_limit import limiter
 from backend.services import v4_reader_service as service
+from backend.services.v4_personal import is_personal
 
 router = APIRouter(prefix="/v4/reader", tags=["v4-reader"])
 
@@ -22,6 +23,19 @@ def _uid(user: Any) -> str:
     if not uid:
         raise HTTPException(status_code=401, detail="Sign in to read.")
     return uid
+
+
+async def _lang(request: Request, uid: str) -> str:
+    """The language the app is showing (`?lang=`), else the profile's.
+
+    The app sends it with every request, so switching languages answers in
+    the new one at once instead of after the profile write lands. Anything
+    but a supported locale falls back to the profile.
+    """
+    asked = request.query_params.get("lang")
+    if asked in service.LANGUAGE_NAMES:
+        return asked
+    return await service.preferred_language(uid)
 
 
 async def _lecture_access(lecture_id: UUID, user: Any) -> str:
@@ -37,14 +51,14 @@ async def reader_course(request: Request, course_id: UUID, user: Any = Depends(v
     uid = _uid(user)
     if not await service.can_view_course(course_id, uid):
         raise HTTPException(status_code=404, detail="Course not found.")
-    return await service.get_course(course_id)
+    return await service.get_course(course_id, uid)
 
 
 @router.get("/lectures/{lecture_id}")
 @limiter.limit("60/minute")
 async def reader_lecture(request: Request, lecture_id: UUID, user: Any = Depends(verify_token)):
     uid = await _lecture_access(lecture_id, user)
-    return await service.get_lecture(lecture_id, await service.preferred_language(uid))
+    return await service.get_lecture(lecture_id, await _lang(request, uid))
 
 
 @router.get("/lectures/{lecture_id}/ideas")
@@ -63,7 +77,61 @@ async def reader_explain(
     user: Any = Depends(verify_token),
 ):
     uid = await _lecture_access(lecture_id, user)
-    return await service.explain_page(lecture_id, page, user_id=uid, locale=await service.preferred_language(uid))
+    return await service.explain_page(lecture_id, page, user_id=uid, locale=await _lang(request, uid))
+
+
+class _Reading(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    page: int = Field(ge=1, le=2000)
+    #: Time spent on the page being left; under 2 s it is not counted as read.
+    seconds: float = Field(ge=0, le=6 * 3600)
+
+
+@router.post("/lectures/{lecture_id}/progress")
+@limiter.limit("240/minute")
+async def reader_progress(
+    request: Request,
+    lecture_id: UUID,
+    body: _Reading,
+    user: Any = Depends(verify_token),
+):
+    """The page the reader just left. Writes the rows the old reader writes —
+    progress, visits, streak, a slide_view event — so v4 reading counts."""
+    from backend.services.v4_reading_service import record_reading
+
+    uid = await _lecture_access(lecture_id, user)
+    return await record_reading(lecture_id, uid, body.page, body.seconds)
+
+
+@router.get("/lectures/{lecture_id}/practice")
+@limiter.limit("60/minute")
+async def reader_practice(request: Request, lecture_id: UUID, user: Any = Depends(verify_token)):
+    """The lecture's real quiz questions, as v4 PracticeQuestions."""
+    from backend.services.v4_practice_service import questions_for
+
+    await _lecture_access(lecture_id, user)
+    return {"questions": await questions_for(lecture_id)}
+
+
+class _Answer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    question_id: UUID
+    answer: str = Field(min_length=1, max_length=2000)
+
+
+@router.post("/lectures/{lecture_id}/practice/answer")
+@limiter.limit("120/minute")
+async def reader_practice_answer(
+    request: Request,
+    lecture_id: UUID,
+    body: _Answer,
+    user: Any = Depends(verify_token),
+):
+    """Grade on the server, log a quiz_attempt, and grant XP once per question."""
+    from backend.services.v4_practice_service import answer
+
+    uid = await _lecture_access(lecture_id, user)
+    return await answer(lecture_id, uid, body.question_id, body.answer)
 
 
 class _Turn(BaseModel):
@@ -94,7 +162,7 @@ async def reader_ask(
         body.question,
         [t.model_dump() for t in body.thread],
         user_id=uid,
-        locale=await service.preferred_language(uid),
+        locale=await _lang(request, uid),
     )
 
 
@@ -104,7 +172,7 @@ async def reader_course_map(request: Request, course_id: UUID, user: Any = Depen
     uid = _uid(user)
     if not await service.can_view_course(course_id, uid):
         raise HTTPException(status_code=404, detail="Course not found.")
-    return await service.course_map(course_id)
+    return await service.course_map(course_id, uid)
 
 
 @router.get("/courses/{course_id}/find")
@@ -145,7 +213,7 @@ async def reader_rehearsal(request: Request, body: RehearsalBody, course_id: UUI
         body.count,
         weak_ideas=[w[:60] for w in body.weak_ideas],
         user_id=uid,
-        locale=await service.preferred_language(uid),
+        locale=await _lang(request, uid),
     )
 
 
@@ -168,7 +236,7 @@ async def reader_checkpoint(request: Request, body: CheckpointBody, lecture_id: 
         body.last,
         body.idea,
         user_id=uid,
-        locale=await service.preferred_language(uid),
+        locale=await _lang(request, uid),
     )
 
 
@@ -193,7 +261,7 @@ async def reader_teach_back(request: Request, body: TeachBody, lecture_id: UUID,
         body.idea,
         body.explanation,
         user_id=uid,
-        locale=await service.preferred_language(uid),
+        locale=await _lang(request, uid),
     )
 
 
@@ -230,7 +298,9 @@ async def reader_save_rehearsal(request: Request, body: AttemptBody, course_id: 
     from backend.services.v4_rehearsal_service import save_attempt
 
     uid = _uid(user)
-    if not await service.can_view_course(course_id, uid):
+    # Attempts are kept per course (v4_rehearsal_attempts.course_id → courses),
+    # and the personal Space has no course row: its rehearsals are not kept yet.
+    if is_personal(course_id, uid) or not await service.can_view_course(course_id, uid):
         raise HTTPException(status_code=404, detail="Course not found.")
     return await save_attempt(
         course_id, uid, body.title, body.lecture_ids, [r.model_dump(mode="json") for r in body.results]

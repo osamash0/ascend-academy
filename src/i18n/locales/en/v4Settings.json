@@ -1,0 +1,64 @@
+{
+  "title": "Settings",
+  "subtitle": "Language, notifications, visibility and your data",
+  "language": {
+    "title": "Language",
+    "hint": "Pages, answers and checkpoints follow this language. Lesson titles stay in their original language.",
+    "en": "English",
+    "de": "Deutsch"
+  },
+  "sections": {
+    "status": {
+      "loading": "Loading…",
+      "failed": "Something went wrong",
+      "back": "Back to Profile"
+    },
+    "account": {
+      "standing": "{{rank}} · {{xp}} XP",
+      "edit": "Edit on Profile"
+    },
+    "notice": "The language above is saved. The switches below are not yet: they show what will be adjustable, do not change anything, and reset when you leave.",
+    "notifications": {
+      "title": "Notifications",
+      "replies": {
+        "label": "When someone replies to you",
+        "hint": "A reply to your contribution, or a mention by name."
+      },
+      "endorsed": {
+        "label": "When your work is endorsed",
+        "hint": "Someone who maintains the Space marked your contribution as trustworthy."
+      },
+      "newLessons": {
+        "label": "New Lessons in Spaces you have starred",
+        "hint": "Off by default. A busy Space can publish several a week, and this is the one that turns a useful inbox into noise."
+      }
+    },
+    "visibility": {
+      "title": "Who can see you",
+      "publicProfile": {
+        "label": "Public profile",
+        "hint": "Your name, rank and published contributions are visible to anyone in a Space you share. Turning this off does not retract work you have already published."
+      },
+      "activity": {
+        "label": "Show what I am reading",
+        "hint": "Lets members of a Space see which Lessons you have open. Off by default — nobody asked to be watched."
+      }
+    },
+    "data": {
+      "title": "Your data",
+      "export": {
+        "label": "Export everything",
+        "hint": "Your notes, contributions and uploads as one archive. Nothing here is locked in.",
+        "action": "Export",
+        "notWired": "Not wired yet",
+        "notWiredHint": "Export is designed but not built in this version."
+      },
+      "delete": {
+        "label": "Delete your account",
+        "hint": "Removes your notes and uploads. Contributions you published to a Space stay, unattributed — deleting them would tear holes in Lessons other people rely on.",
+        "action": "Delete"
+      }
+    },
+    "motion": "Motion follows your system setting for reduced motion — both the animated transitions and the hover effects. There is no switch here because there is nothing for it to disagree with."
+  }
+}

@@ -116,6 +116,9 @@ def patch_admin_deps(monkeypatch, fake_supabase, patch_supabase, admin_user):
             # parsed Python object — admin.py's list_users does
             # json.loads(r["roles"]), so the fixture must match that shape.
             "roles": '["student"]',
+            # Always selected (NULL before migration 20261013000000).
+            "is_internal": True,
+            "internal_reason": "seed / simulated users",
         }
     ]
     events_mock = [

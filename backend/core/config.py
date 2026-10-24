@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     feedback_email_to: str = Field(alias="FEEDBACK_EMAIL_TO", default="admin@learnstation.edu")
 
     # ─── LLM Providers ─────────────────────────────────────────────────────────
+    # "openai_only" routes every AI call to OpenAI (see orchestrator.py,
+    # AI_PROVIDER_MODE); "multi" keeps the free-tier failover chains.
+    ai_provider_mode: str = Field(alias="AI_PROVIDER_MODE", default="multi")
     groq_api_key: str = Field(alias="GROQ_API_KEY", default="")
     gemini_api_key: str = Field(alias="GEMINI_API_KEY", default="")
     google_api_key: str = Field(alias="GOOGLE_API_KEY", default="")
@@ -117,6 +120,9 @@ class Settings(BaseSettings):
     feature_student_uploads: bool = Field(alias="FEATURE_STUDENT_UPLOADS", default=False)
     # The v4 Lesson reader on real courses/lectures. Needs no v4 schema.
     feature_v4_reader: bool = Field(alias="FEATURE_V4_READER", default=False)
+    # v4 on real data beyond the reader: the viewer, Spaces, Home, Library
+    # (/api/v1/v4/*). Pair with the frontend's VITE_V4_DATA_MODE=live.
+    feature_v4: bool = Field(alias="FEATURE_V4", default=False)
     # Monthly cap on private uploads per student; quota is the monetization seam.
     student_upload_monthly_limit: int = Field(alias="STUDENT_UPLOAD_MONTHLY_LIMIT", default=5)
 
@@ -174,7 +180,7 @@ class Settings(BaseSettings):
     # user_id — most orchestrator call sites don't yet (fast-follow to thread
     # user_id through every feature). 0 disables the cap.
     llm_monthly_user_cost_cap_usd: float = Field(
-        alias="LLM_MONTHLY_USER_COST_CAP_USD", default=5.0
+        alias="LLM_MONTHLY_USER_COST_CAP_USD", default=2.0
     )
     # Arc 9: which parses the per-user monthly cap above can REFUSE. Every
     # parse's LLM calls are attributed to its uploader (llm_calls.user_id and
@@ -207,6 +213,11 @@ class Settings(BaseSettings):
             raise ValueError(
                 "SUPABASE_URL and SUPABASE_KEY must be set in the .env file"
             )
+        # openai_only: the parser's text and vision hints must name openai too,
+        # or upload.py would label jobs with a provider that is never called.
+        if self.ai_provider_mode.strip().lower() == "openai_only":
+            self.parser_llm_model = "openai"
+            self.vision_model = "openai"
         # Fall back to the cache Redis when a dedicated queue Redis isn't set,
         # so single-instance dev/test environments boot unchanged.
         if not self.redis_queue_url:

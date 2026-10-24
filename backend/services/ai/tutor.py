@@ -26,6 +26,8 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
+from backend.services.llm_client import LLMBudgetExceededError
+
 from .orchestrator import generate_text
 from .prompts import COURSE_TUTOR_SOCRATIC_PROMPT, TUTOR_SOCRATIC_PROMPT
 from .retrieval import retrieve_relevant_slides, DEFAULT_THRESHOLD
@@ -152,6 +154,7 @@ async def chat_with_lecture(
     pdf_hash: Optional[str] = None,
     current_slide_index: Optional[int] = None,
     response_language: str = "en",
+    user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Grounded Socratic tutor.
 
@@ -208,7 +211,9 @@ async def chat_with_lecture(
     )
 
     try:
-        reply = await generate_text(prompt, ai_model)
+        reply = await generate_text(prompt, ai_model, user_id=user_id, feature="lecture_tutor")
+    except LLMBudgetExceededError:
+        return {"reply": _BUDGET_REPLY, "citations": [], "budget_exceeded": True}
     except Exception as e:
         logger.error("Socratic chat failed: %s", e)
         return {
@@ -219,6 +224,13 @@ async def chat_with_lecture(
     citations = _extract_citations(reply, retrieved)
     return {"reply": reply, "citations": citations}
 
+
+# Shown instead of a fake "connection trouble" message when a student has used
+# this month's AI allowance (LLM_MONTHLY_USER_COST_CAP_USD).
+_BUDGET_REPLY = (
+    "You've used this month's tutor allowance. It resets at the start of next "
+    "month — until then, your slides, quizzes and reviews all still work."
+)
 
 _SOURCE_CITATION_RE = re.compile(r"\[Source\s+(\d+)\]", re.IGNORECASE)
 
@@ -300,6 +312,7 @@ async def chat_with_course(
     *,
     threshold: float = DEFAULT_THRESHOLD,
     allow_ungrounded: bool = False,
+    user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Course-wide grounded tutor ("Ask anything").
 
@@ -358,7 +371,9 @@ async def chat_with_course(
     )
 
     try:
-        reply = await generate_text(prompt, ai_model)
+        reply = await generate_text(prompt, ai_model, user_id=user_id, feature="course_tutor")
+    except LLMBudgetExceededError:
+        return {"reply": _BUDGET_REPLY, "citations": [], "grounded": grounded, "budget_exceeded": True}
     except Exception as e:
         logger.error("Course tutor chat failed: %s", e)
         return {

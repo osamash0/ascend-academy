@@ -1,19 +1,21 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { Check, Search, UserPlus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { leaderboard } from '../mocks/library';
 
 /** Your row on the board — what the "Where you stand" cell opens. */
 const STANDING_ROW_ID = 'your-standing';
 import {
   acceptRequest,
+  leaderboardNow,
   currentFriends,
   currentRequests,
   declineRequest,
-} from '../mocks/social';
-import { viewer } from '../mocks/people';
+  type RankedPerson,
+} from '../data/social';
+import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { useScreenState } from '../data/useSpaces';
@@ -21,6 +23,7 @@ import { ListSkeleton, SpacesError } from '../components/states';
 import { AuthorLine } from '../components/badges';
 import { Avatar } from '../components/Avatar';
 import { Masthead, Sep, Skylight, ghostPillSm, stageCard, whitePillSm } from '../components/stage';
+import { formatNumber } from '../i18n/format';
 
 /**
  * Social — "who else, and how am I doing?"
@@ -40,6 +43,8 @@ import { Masthead, Sep, Skylight, ghostPillSm, stageCard, whitePillSm } from '..
 type Tab = 'ranking' | 'friends' | 'requests';
 
 export default function SocialScreen() {
+  const viewer = useViewer();
+  const { t } = useTranslation('v4People');
   const screenState = useScreenState();
   /*
    * Accepting or declining mutates a store outside React, so a tick re-reads
@@ -49,6 +54,7 @@ export default function SocialScreen() {
    */
   const [socialTick, setSocialTick] = useState(0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  const leaderboard = leaderboardNow();
   const friends = useMemo(() => currentFriends(), [socialTick]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const friendRequests = useMemo(() => currentRequests(), [socialTick]);
@@ -72,6 +78,7 @@ export default function SocialScreen() {
   const ahead = leaderboard[myPosition - 2];
   /** You, and whoever is either side of you on the board. */
   const neighbours = leaderboard.slice(Math.max(0, myPosition - 2), myPosition + 1);
+  const gap = ahead ? formatNumber(ahead.xp - (me?.xp ?? 0)) : '';
 
   // Social stands on the stage. People are not a subject, so the light is
   // the brand's — neutral white — never a colour (monochrome brand).
@@ -86,15 +93,15 @@ export default function SocialScreen() {
   );
 
   // All four states. `?mock=loading|error` was a no-op on this screen.
-  if (screenState === 'loading') return chrome(<ListSkeleton label="Loading social" />);
-  if (screenState === 'error') return chrome(<SpacesError what="your people" />);
+  if (screenState === 'loading') return chrome(<ListSkeleton label="social" />);
+  if (screenState === 'error') return chrome(<SpacesError what="people" />);
 
   return chrome(
     <>
 
       <div className="relative mx-auto max-w-5xl px-6 pb-24 pt-10 lg:px-8">
         <header>
-          <Masthead title="Social" lede="The people you’re learning alongside." />
+          <Masthead title={t('v4Spaces:nav.social')} lede={t('social.lede')} />
         </header>
 
         {/*
@@ -110,8 +117,8 @@ export default function SocialScreen() {
           onClick={showMyStanding}
           aria-label={
             ahead
-              ? `Number ${myPosition} on the board, ${(ahead.xp - (me?.xp ?? 0)).toLocaleString()} XP behind ${ahead.person.name}. Show the board.`
-              : `Top of the board. Show the board.`
+              ? t('social.standing.showBehind', { position: myPosition, xp: gap, name: ahead.person.name })
+              : t('social.standing.showTop')
           }
           className="console-focusable group mx-auto mt-14 block w-full max-w-2xl rounded-3xl px-6 py-8 text-left transition-colors hover:bg-white/[0.03]"
         >
@@ -120,17 +127,17 @@ export default function SocialScreen() {
             <span className="font-medium text-foreground">#{myPosition}</span>
             <Sep />
             {ahead
-              ? `${(ahead.xp - (me?.xp ?? 0)).toLocaleString()} XP behind ${ahead.person.name}`
-              : 'Nobody ahead of you'}
+              ? t('social.standing.behind', { xp: gap, name: ahead.person.name })
+              : t('social.standing.top')}
           </p>
         </button>
 
-        <div role="tablist" aria-label="Social" className="mt-16 flex flex-wrap items-center justify-center gap-1.5">
+        <div role="tablist" aria-label={t('v4Spaces:nav.social')} className="mt-16 flex flex-wrap items-center justify-center gap-1.5">
           {(
             [
-              ['ranking', 'Ranking'],
-              ['friends', `Friends · ${friends.length}`],
-              ['requests', `Requests · ${friendRequests.length}`],
+              ['ranking', t('social.tabs.ranking')],
+              ['friends', t('social.tabs.friends', { n: friends.length })],
+              ['requests', t('social.tabs.requests', { n: friendRequests.length })],
             ] as [Tab, string][]
           ).map(([key, label]) => (
             <button
@@ -153,8 +160,7 @@ export default function SocialScreen() {
         {tab === 'ranking' && (
           <section className="mt-8">
             <p className="mb-4 text-[13.5px] text-faint">
-              Ranked by XP — earned from learning, and from work of yours that other
-              people found useful.
+              {t('social.ranking.about')}
             </p>
             <ol className="space-y-1.5">
               {leaderboard.map((r, i) => (
@@ -185,12 +191,12 @@ export default function SocialScreen() {
                         on every line was the same word ten times. */}
                     {r.sharedSpaces > 0 && (
                       <p className="mt-1 text-[12.5px] text-faint tabular-nums">
-                        {r.sharedSpaces} {r.sharedSpaces === 1 ? 'Space' : 'Spaces'} in common
+                        {t('social.sharedSpaces', { count: r.sharedSpaces })}
                       </p>
                     )}
                   </div>
                   <span className="shrink-0 text-[14px] font-semibold text-quiet tabular-nums">
-                    {r.xp.toLocaleString()} XP
+                    {t('v4Spaces:nav.xp', { xp: formatNumber(r.xp) })}
                   </span>
                 </li>
               ))}
@@ -202,8 +208,8 @@ export default function SocialScreen() {
           <section className="mt-8">
             {friends.length === 0 ? (
               <Empty
-                title="No friends yet"
-                body="Find people in the Spaces you’re already in — you’re learning the same things."
+                title={t('social.friends.emptyTitle')}
+                body={t('social.friends.emptyBody')}
               />
             ) : (
               <ul className="space-y-1.5">
@@ -215,10 +221,10 @@ export default function SocialScreen() {
                     <AuthorLine person={p} />
                     <Link
                       to={`/v4/person/${p.id}`}
-                      aria-label={`View ${p.name}'s profile`}
+                      aria-label={t('social.friends.viewLabel', { name: p.name })}
                       className={cn(ghostPillSm, 'shrink-0')}
                     >
-                      View profile
+                      {t('social.friends.view')}
                     </Link>
                   </li>
                 ))}
@@ -237,7 +243,7 @@ export default function SocialScreen() {
               className="console-focusable mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 text-[14px] font-medium text-quiet transition-colors hover:border-white/30 hover:text-foreground"
             >
               <Search aria-hidden className="h-4 w-4" />
-              Find people
+              {t('social.friends.find')}
             </button>
           </section>
         )}
@@ -245,7 +251,7 @@ export default function SocialScreen() {
         {tab === 'requests' && (
           <section className="mt-8">
             {friendRequests.length === 0 ? (
-              <Empty title="No requests" body="Nothing waiting for you right now." />
+              <Empty title={t('social.requests.emptyTitle')} body={t('social.requests.emptyBody')} />
             ) : (
               <ul className="space-y-1.5">
                 {friendRequests.map((r) => (
@@ -256,7 +262,7 @@ export default function SocialScreen() {
                     <div className="min-w-0">
                       <AuthorLine person={r.person} />
                       <p className="mt-1 text-[12.5px] text-faint tabular-nums">
-                        {r.sharedSpaces} {r.sharedSpaces === 1 ? 'Space' : 'Spaces'} in common
+                        {t('social.sharedSpaces', { count: r.sharedSpaces })}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
@@ -265,13 +271,13 @@ export default function SocialScreen() {
                         onClick={() => {
                           acceptRequest(r.person.id);
                           setSocialTick((n) => n + 1);
-                          toast(`${r.person.name} is now a friend`);
+                          toast(t('social.requests.accepted', { name: r.person.name }));
                         }}
-                        aria-label={`Accept ${r.person.name}`}
+                        aria-label={t('social.requests.acceptLabel', { name: r.person.name })}
                         className={whitePillSm}
                       >
                         <Check aria-hidden className="h-3.5 w-3.5" />
-                        Accept
+                        {t('social.requests.accept')}
                       </button>
                       <button
                         type="button"
@@ -279,9 +285,9 @@ export default function SocialScreen() {
                           declineRequest(r.person.id);
                           setSocialTick((n) => n + 1);
                           // Declining is quiet on purpose: they are not told.
-                          toast('Request declined');
+                          toast(t('social.requests.declined'));
                         }}
-                        aria-label={`Decline ${r.person.name}`}
+                        aria-label={t('social.requests.declineLabel', { name: r.person.name })}
                         className="console-focusable flex h-9 w-9 items-center justify-center rounded-full border border-white/12 text-quiet transition-colors hover:bg-white/[0.08]"
                       >
                         <X aria-hidden className="h-4 w-4" />
@@ -312,7 +318,8 @@ function Empty({ title, body }: { title: string; body: string }) {
  * The board, as a place: you and your neighbours on one track, spaced by XP.
  * Distance is the gap — nobody has to read a number to see it.
  */
-function RaceLine({ around }: { around: typeof leaderboard }) {
+function RaceLine({ around }: { around: RankedPerson[] }) {
+  const { t } = useTranslation('v4People');
   const xs = around.map((r) => r.xp);
   const lo = Math.min(...xs);
   const hi = Math.max(...xs);
@@ -333,7 +340,7 @@ function RaceLine({ around }: { around: typeof leaderboard }) {
             className={cn(r.isViewer ? 'ring-2 ring-white' : 'opacity-70')}
           />
           <span className={cn('mt-2 whitespace-nowrap text-[12px] tabular-nums', r.isViewer ? 'text-foreground' : 'text-faint')}>
-            {r.isViewer ? 'You' : r.person.name.split(' ')[0]}
+            {r.isViewer ? t('social.standing.you') : r.person.name.split(' ')[0]}
           </span>
         </div>
       ))}

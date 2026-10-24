@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -50,6 +51,7 @@ export function ReanchorDialog({
   onOpenChange: (v: boolean) => void;
   onMoved?: () => void;
 }) {
+  const { t } = useTranslation('v4Spaces');
   const [chosen, setChosen] = useState<string | null>(null);
   const targets = reanchorTargets(spaceId);
 
@@ -68,8 +70,8 @@ export function ReanchorDialog({
      */
     const moved = reanchor(contribution, chosen, viewerRole);
     if (!moved) {
-      toast('Could not move it', {
-        description: 'That Lesson is no longer available. Nothing was changed.',
+      toast(t('reanchor.failed'), {
+        description: t('reanchor.failedHint'),
       });
       onOpenChange(false);
       return;
@@ -77,8 +79,11 @@ export function ReanchorDialog({
     const lesson = targets.find((l) => l.id === chosen);
     onOpenChange(false);
     onMoved?.();
-    toast('Moved', {
-      description: `“${contribution.title}” now sits in ${lesson?.title ?? 'its new Lesson'}.`,
+    toast(t('reanchor.moved'), {
+      description: t('reanchor.movedHint', {
+        title: contribution.title,
+        lesson: lesson?.title ?? t('reanchor.newLesson'),
+      }),
     });
   };
 
@@ -86,11 +91,9 @@ export function ReanchorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-[20px] font-semibold">Find it a new home</DialogTitle>
+          <DialogTitle className="text-[20px] font-semibold">{t('reanchor.title')}</DialogTitle>
           <DialogDescription className="text-[14px] leading-relaxed text-quiet">
-            The Lesson “{contribution.title}” was attached to is gone. Pick another one in{' '}
-            {spaceName} and it will sit there instead, with its likes and its endorsement
-            intact.
+            {t('reanchor.description', { title: contribution.title, space: spaceName })}
           </DialogDescription>
         </DialogHeader>
 
@@ -101,13 +104,12 @@ export function ReanchorDialog({
            * saying so is more use than an inert control.
            */
           <p className="py-6 text-[14px] leading-relaxed text-quiet">
-            {spaceName} has no published Lessons to move this into yet. Your work stays
-            where it is, and nothing is lost — try again once a Lesson is published.
+            {t('reanchor.empty', { space: spaceName })}
           </p>
         ) : (
           <div
             role="radiogroup"
-            aria-label="Lessons"
+            aria-label={t('reanchor.lessons')}
             className="max-h-[46vh] space-y-2 overflow-y-auto py-2"
           >
             {targets.map((l) => {
@@ -151,16 +153,16 @@ export function ReanchorDialog({
             onClick={() => onOpenChange(false)}
             className="console-focusable h-10 rounded-full px-4 text-[13.5px] font-medium text-quiet hover:text-foreground"
           >
-            Cancel
+            {t('reanchor.cancel')}
           </Pressable>
           <Pressable
             type="button"
             onClick={confirm}
             disabled={!chosen}
-            title={chosen ? undefined : 'Pick a Lesson first'}
+            title={chosen ? undefined : t('reanchor.pickFirst')}
             className="console-focusable h-10 rounded-full bg-white px-5 text-[13.5px] font-semibold text-slate-900 disabled:opacity-40"
           >
-            Move it here
+            {t('reanchor.confirm')}
           </Pressable>
         </div>
       </DialogContent>

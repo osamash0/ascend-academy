@@ -255,9 +255,6 @@ export const libraryItems = (): LibraryItem[] => libraryItemsWith(notes);
 export const itemsOfKind = (kind: LibraryItem['kind']) =>
   libraryItems().filter((i) => i.kind === kind);
 
-/** Studio: uploads still processing or sitting as drafts, across every Space. */
-export const pendingUploads = () => libraryItems().filter((i) => i.pending);
-
 /* ── Home ─────────────────────────────────────────────────────────
    Doc 2: "Home is your next action, assembled across every Space." It ranks
    across all Spaces and answers "the one thing"; the Spaces list shows
@@ -354,7 +351,13 @@ export const leaderboard: RankedPerson[] = [
     sharedSpaces: allSpaces.filter((s) => s.viewerRole !== null).length,
     isViewer: true,
   },
-].map((r) => ({ ...r, rank: rankLabel(r.xp) }));
+].map((r) => ({
+  ...r,
+  /* Read when shown, not when this module loads — so it is in the language the app is showing now. */
+  get rank() {
+    return rankLabel(r.xp);
+  },
+}));
 
 /**
  * The viewer's own standing — one source for it.
@@ -389,91 +392,6 @@ export const friends = [lindqvist, ferreira];
  * the three locked rules they broke. The word "badge" now means one thing in
  * this codebase, which is what `components/badges.tsx` already meant by it.
  */
-
-/* ── Library · Studio ─────────────────────────────────────────────
-   Doc 2: "Studio screens hang off Library; Library itself stays Learn. Dense
-   work opens *from* it as its own screen: manage uploads, review your drafts
-   across every Space, see how your contributions landed."
-
-   All three are author-filtered, exactly like Library. The difference is mode,
-   not scope: Library is calm and browsable, these are dense and operational. */
-
-export interface DraftRow {
-  lessonId: string;
-  title: string;
-  spaceId: string;
-  spaceName: string;
-  /** 'draft' or 'processing' — both are unpublished and yours alone to see. */
-  state: LessonState;
-  order: number;
-  updatedAt: string;
-}
-
-/**
- * Every unpublished Lesson you authored, across every Space.
- *
- * This is the one surface where drafts from different Spaces sit together.
- * Rule 1 still holds — nobody else can see these; they are visible here
- * *because* the viewer is their author.
- */
-export const draftsAcrossSpaces = (): DraftRow[] =>
-  allSpaces
-    .flatMap((s) =>
-      lessonsForSpace(s.id)
-        .filter((l) => l.state !== 'published' && l.author.id === viewer.id)
-        .map((l) => ({
-          lessonId: l.id,
-          title: l.title,
-          spaceId: s.id,
-          spaceName: s.name,
-          state: l.state,
-          order: l.order,
-          updatedAt: s.lastActiveAt,
-        })),
-    )
-    .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
-
-export interface ImpactRow {
-  id: string;
-  title: string;
-  spaceId: string;
-  spaceName: string;
-  lessonTitle?: string;
-  likeCount: number;
-  endorsed: boolean;
-  orphaned: boolean;
-  createdAt: string;
-}
-
-/**
- * How your work landed. Doc 1 promises authors "see which of their work
- * landed"; this is where that promise is kept.
- *
- * Likes are reported as a fact about each contribution, never summed into a
- * score — Doc 1 rule 7 forbids a second progression beside XP.
- */
-export const impactRows = (): ImpactRow[] =>
-  myPublished()
-    .map((c) => {
-      const at = resolveContributionAnchor(anchorFor(c), c.id);
-      return {
-        id: c.id,
-        title: c.title,
-        // Same rule as the Library row above: named, never linked, never
-        // invented.
-        spaceId: at.spaceId,
-        spaceName: at.spaceId ? spaceName(at.spaceId) : null,
-        lessonTitle: at.lessonTitle,
-        likeCount: c.likeCount,
-        endorsed: c.endorsed,
-        orphaned: isOrphaned(c),
-        createdAt: c.createdAt,
-      };
-    })
-    .sort((a, b) => b.likeCount - a.likeCount);
-
-/** Everything you uploaded, across every Space. */
-export const uploadRows = () => libraryItems().filter((i) => i.kind === 'material');
 
 /**
  * Which hero Home shows.

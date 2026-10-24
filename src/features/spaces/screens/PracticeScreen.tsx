@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Check, CornerDownLeft, RotateCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Pressable } from '../components/Pressable';
-import { spaceById } from '../mocks/spaces';
-import { visibleLesson } from '../mocks/lessons';
-import { gradeAnswer, practiceForLesson, type PracticeQuestion } from '../mocks/practice';
+import { gradeAnswer, submitAnswer, usePracticeQuestions, type PracticeQuestion } from '../data/practice';
+import { isLive } from '../data/useReader';
 import { Scene, SURFACES } from '../components/Scene';
 import { ghostPill, stageAccentFor, stageCard } from '../components/stage';
 import { useScreenState } from '../data/useSpaces';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
+import { spaceById, visibleLesson } from '../data/world';
 
 /**
  * Practice for one Lesson.
@@ -34,9 +35,10 @@ import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
  *     shows why, and a guard enforces that every question carries one.
  *   • **Hands stay on the keys.** 1–4 answers, Enter moves on, Escape leaves.
  *
- * And what it refuses: scoring you. The light goes nowhere — it grants
- * nothing, feeds no standing and clears nothing on the map (Abi, 2026-08-31).
- * It is a place to be wrong safely.
+ * And what it refuses: scoring you. The light goes nowhere — it feeds no
+ * standing and clears nothing on the map (Abi, 2026-08-31). It is a place to
+ * be wrong safely. Live, the server logs each attempt and grants a question's
+ * XP once, the first time it is right — the same rule as the reader's plane.
  */
 
 type Mark = 'pending' | 'held' | 'second' | 'again' | 'missed';
@@ -60,6 +62,7 @@ const withEmphasis = (text: string) =>
 const reorder = (choices: string[]) => [...choices.slice(1), choices[0]];
 
 export default function PracticeScreen() {
+  const { t } = useTranslation('v4Space');
   const screenState = useScreenState();
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
   const navigate = useNavigate();
@@ -68,7 +71,11 @@ export default function PracticeScreen() {
     () => (space && lessonId ? visibleLesson(space, lessonId) : undefined),
     [space, lessonId],
   );
-  const questions = useMemo(() => (lessonId ? practiceForLesson(lessonId) : []), [lessonId]);
+  // Live: the lecture's real quiz questions, and every answer is recorded on
+  // the server (the attempt, and XP once per question — as in the reader).
+  const live = isLive(spaceId, lessonId);
+  const practice = usePracticeQuestions(lessonId, live);
+  const questions = practice.questions;
   const accent = space ? stageAccentFor(space.name.length) : null;
 
   const firstTurns = useMemo<Turn[]>(
@@ -121,6 +128,7 @@ export default function PracticeScreen() {
     (choice: string) => {
       if (!turn || picked) return;
       setPicked(choice);
+      if (live && lessonId) submitAnswer(lessonId, turn.q.id, choice).catch(() => {});
       const right = choice === turn.q.correctAnswer;
       if (right) setFlash((n) => n + 1);
       setMarks((m) => ({
@@ -132,7 +140,7 @@ export default function PracticeScreen() {
         setTurns((ts) => [...ts, { q: turn.q, choices: reorder(turn.choices), second: true }]);
       }
     },
-    [turn, picked],
+    [turn, picked, live, lessonId],
   );
 
   const advance = useCallback(() => {
@@ -181,15 +189,14 @@ export default function PracticeScreen() {
   );
 
   // All four states, on every screen.
-  if (screenState === 'loading') return chrome(<DetailSkeleton />);
-  if (screenState === 'error') return chrome(<SpacesError what="this practice" />);
+  if (screenState === 'loading' || practice.state === 'loading') return chrome(<DetailSkeleton />);
+  if (screenState === 'error' || practice.state === 'error') return chrome(<SpacesError what="practice" />);
 
   if (!space || !lesson)
     return chrome(
       <NotFound
-        what="Lesson"
-        backTo={space ? `/v4/space/${space.id}` : '/v4/spaces'}
-        backLabel={space ? `Back to ${space.name}` : 'Back to Spaces'}
+        what="lesson"
+        back={space ? { to: `/v4/space/${space.id}`, space: space.name } : { to: '/v4/spaces', place: 'spaces' }}
       />,
     );
 
@@ -199,13 +206,13 @@ export default function PracticeScreen() {
     return chrome(
       <div className="relative mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center px-6 text-center">
         <Sky accent={accent} level={0} flash={0} />
-        <p className="mb-2 text-[17px] font-semibold">No practice here yet</p>
+        <p className="mb-2 text-[17px] font-semibold">{t('practiceScreen.empty.title')}</p>
         <p className="mb-7 text-[14.5px] leading-relaxed text-quiet">
-          Nothing has been written for {lesson.title} so far.
+          {t('practiceScreen.empty.body', { lesson: lesson.title })}
         </p>
         <Link to={backToLesson} className={ghostPill}>
           <ArrowLeft aria-hidden className="h-4 w-4" />
-          Back to the Lesson
+          {t('practiceScreen.backToLesson')}
         </Link>
       </div>,
     );
@@ -218,18 +225,12 @@ export default function PracticeScreen() {
   if (done) {
     const firstTime = markList.filter((m) => m === 'held').length;
     const stillMissed = questions.filter((q) => marks[q.id] === 'missed');
-    const verdict =
-      firstTime === questions.length
-        ? { title: 'Every one held.', lede: 'Nothing to go back to. The explanations are still there whenever you want them.' }
-        : stillMissed.length === 0
-          ? {
-              title: 'Held, on a second look.',
-              lede: 'What you missed came back and held. That second try is where most of it sticks.',
-            }
-          : {
-              title: 'Nearly there.',
-              lede: 'These still slip. Read why once more — then try again, while it is fresh.',
-            };
+    const verdictKey =
+      firstTime === questions.length ? 'allHeld' : stillMissed.length === 0 ? 'heldSecond' : 'nearly';
+    const verdict = {
+      title: t(`practiceScreen.verdict.${verdictKey}.title`),
+      lede: t(`practiceScreen.verdict.${verdictKey}.lede`),
+    };
 
     return chrome(
       <div className="relative mx-auto flex min-h-[78vh] max-w-xl flex-col items-center justify-center px-6 py-16 text-center">
@@ -261,10 +262,10 @@ export default function PracticeScreen() {
             className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-black"
           >
             <RotateCw aria-hidden className="h-4 w-4" />
-            Again
+            {t('practiceScreen.again')}
           </Pressable>
           <Link to={backToLesson} className={ghostPill}>
-            Back to the Lesson
+            {t('practiceScreen.backToLesson')}
           </Link>
         </div>
       </div>,
@@ -283,7 +284,7 @@ export default function PracticeScreen() {
       <div className="relative mb-12 flex items-center gap-4">
         <Link
           to={backToLesson}
-          aria-label="Leave practice"
+          aria-label={t('practiceScreen.leave')}
           className="console-focusable flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
         >
           <X aria-hidden className="h-4 w-4" />
@@ -291,7 +292,7 @@ export default function PracticeScreen() {
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] text-quiet">
             {lesson.title}
-            {turn.second && <span className="text-foreground"> · Second look</span>}
+            {turn.second && <span className="text-foreground"> · {t('practiceScreen.secondLook')}</span>}
           </p>
           <Lights
             marks={markList}
@@ -367,13 +368,13 @@ export default function PracticeScreen() {
                     */}
                     {reveal && isAnswer && (
                       <>
-                        <span className="sr-only">Correct answer</span>
+                        <span className="sr-only">{t('practiceScreen.correctAnswer')}</span>
                         <Check aria-hidden className="h-4 w-4 shrink-0 text-success" />
                       </>
                     )}
                     {reveal && chosen && !isAnswer && (
                       <>
-                        <span className="sr-only">Your answer, incorrect</span>
+                        <span className="sr-only">{t('practiceScreen.wrongAnswer')}</span>
                         <X aria-hidden className="h-4 w-4 shrink-0 text-destructive" />
                       </>
                     )}
@@ -408,13 +409,15 @@ export default function PracticeScreen() {
                   className={cn(stageCard, 'console-focusable mt-6 p-5')}
                 >
                   <p className="mb-1.5 text-[13px] font-medium text-quiet">
-                    {graded.correct
-                      ? turn.second
-                        ? 'Right — it held'
-                        : 'Right'
-                      : turn.second
-                        ? 'Not yet'
-                        : 'Not quite — this one comes back'}
+                    {t(
+                      graded.correct
+                        ? turn.second
+                          ? 'practiceScreen.feedback.rightHeld'
+                          : 'practiceScreen.feedback.right'
+                        : turn.second
+                          ? 'practiceScreen.feedback.notYet'
+                          : 'practiceScreen.feedback.comesBack',
+                    )}
                   </p>
                   <p className="text-[15px] leading-relaxed text-foreground">{withEmphasis(graded.explanation)}</p>
                 </div>
@@ -424,7 +427,7 @@ export default function PracticeScreen() {
                   onClick={advance}
                   className="console-focusable mt-5 flex h-12 w-full items-center justify-center gap-2.5 rounded-full bg-white text-[14.5px] font-semibold text-black"
                 >
-                  {isLast ? 'See how it went' : 'Next question'}
+                  {isLast ? t('practiceScreen.seeHow') : t('practiceScreen.next')}
                   <CornerDownLeft aria-hidden className="h-3.5 w-3.5 opacity-40" />
                 </Pressable>
               </motion.div>
@@ -491,17 +494,18 @@ function Lights({
   size?: 'sm' | 'lg';
   className?: string;
 }) {
+  const { t } = useTranslation('v4Space');
   const c = accent ?? '#ffffff';
   const held = marks.filter((m) => m === 'held' || m === 'second').length;
   const settled = marks.filter((m) => m === 'held' || m === 'second' || m === 'missed').length;
   return (
     <div
       role="progressbar"
-      aria-label="Progress through this practice"
+      aria-label={t('practiceScreen.progress.label')}
       aria-valuemin={0}
       aria-valuemax={marks.length}
       aria-valuenow={settled}
-      aria-valuetext={`${held} of ${marks.length} held`}
+      aria-valuetext={t('practiceScreen.progress.value', { held, total: marks.length })}
       className={cn('flex items-center gap-1.5', className)}
     >
       {marks.map((m, i) => {

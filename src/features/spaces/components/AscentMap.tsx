@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { Trans, useTranslation } from 'react-i18next';
 import type { Space } from '../types';
-import { publishedLessonsForSpace } from '../mocks/lessons';
 import { FOLD_THRESHOLD, MAP_PALETTE } from './SpaceMap';
+import { publishedLessonsForSpace } from '../data/world';
 
 /**
  * Ascent — the cross-Space journey.
@@ -61,6 +62,7 @@ interface Placed {
 }
 
 export function AscentMap({ spaces }: { spaces: Space[] }) {
+  const { t } = useTranslation('v4Spaces');
   const navigate = useNavigate();
 
   const placed: Placed[] = useMemo(() => {
@@ -93,7 +95,7 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
   if (!placed.length) {
     return (
       <p className="rounded-2xl border border-dashed border-white/12 px-6 py-10 text-center text-[14px] text-quiet">
-        Nothing to light yet. Your journey fills in as you work through a Space.
+        {t('ascent.empty')}
       </p>
     );
   }
@@ -147,16 +149,27 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
 
       <div className="relative">
         <p className="mb-2 text-[14px] text-quiet">
-          <span className="font-semibold tabular-nums text-foreground">{clearedSpaces}</span>
-          <span className="tabular-nums"> / {placed.length}</span> Spaces cleared
+          <Trans
+            t={t}
+            i18nKey="ascent.cleared"
+            values={{ cleared: clearedSpaces, total: placed.length }}
+            components={{
+              b: <span className="font-semibold tabular-nums text-foreground" />,
+              n: <span className="tabular-nums" />,
+            }}
+          />
           <span className="text-faint">
             {' · '}
-            <span className="tabular-nums">
-              {lessonsDone}/{lessonsTotal}
-            </span>{' '}
-            Lessons
+            <Trans
+              t={t}
+              i18nKey="ascent.lessons"
+              values={{ done: lessonsDone, total: lessonsTotal }}
+              components={{ n: <span className="tabular-nums" /> }}
+            />
           </span>
-          {folded > 0 && <span className="text-faint"> · {folded} further folded</span>}
+          {folded > 0 && (
+            <span className="text-faint"> · {t('ascent.folded', { count: folded })}</span>
+          )}
         </p>
 
         {/* Same reason as the per-Space map: legible, then scrollable. */}
@@ -172,7 +185,12 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
             some flatten the whole map to its label.
           */
           role="group"
-          aria-label={`Your journey: ${clearedSpaces} of ${placed.length} Spaces cleared, ${lessonsDone} of ${lessonsTotal} Lessons.`}
+          aria-label={t('ascent.label', {
+            cleared: clearedSpaces,
+            total: placed.length,
+            done: lessonsDone,
+            lessons: lessonsTotal,
+          })}
         >
           <defs>
             <radialGradient id="am-halo-gold">
@@ -217,7 +235,7 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                     open();
                   }
                 }}
-                aria-label={`${p.space.name}. ${p.done} of ${p.total} Lessons cleared.`}
+                aria-label={t('ascent.node', { name: p.space.name, done: p.done, total: p.total })}
                 /*
                   `console-focusable` rather than `outline-none`. The previous
                   version removed the outline and replaced it with a 6% white
@@ -262,7 +280,7 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                   fill="transparent"
                   className="transition-[fill] group-hover:fill-white/[0.035] group-focus-visible:fill-white/[0.06]"
                 />
-                <title>{`${p.space.name} — ${p.done} of ${p.total} Lessons cleared`}</title>
+                <title>{t('ascent.nodeTitle', { name: p.space.name, done: p.done, total: p.total })}</title>
 
                 {/* Earned light. Only a cleared Space emits it. */}
                 {p.light > 0 && (

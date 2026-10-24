@@ -1,5 +1,6 @@
 import { Flame, PartyPopper, Play, Plus, RotateCw, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { LunaHero } from '@/features/avatar/LunaHero';
 import { useViewerLoadout } from '@/features/avatar/viewerLoadout';
@@ -8,10 +9,11 @@ import { Pressable, PressableLink } from '../components/Pressable';
 import { topicIcon } from '@/lib/topicIcon';
 import { AskBar } from '../components/AskBar';
 import { LessonTile } from '../components/LessonTile';
-import type { HomeItem } from '../mocks/library';
-import { askAcknowledgement, askModel, askSuggestions } from '../mocks/assistant';
+import type { HomeItem } from '../data/home';
+import { askAcknowledgement, askModel, askNow, askSuggestionsNow, type AskAnswer } from '../data/assistant';
+import { liveWorld } from '../data/world';
 import { useHome } from '../data/useSpaces';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Masthead, Sep, Skylight, StageRow, UpNext, ghostPill, stageAccentFor } from '../components/stage';
 import { Scene, SURFACES } from '../components/Scene';
@@ -52,10 +54,10 @@ import { SpacesError, SpacesSkeleton } from '../components/states';
  * job is to be "the one thing".
  */
 const REASON_LABEL: Record<HomeItem['reason'], string> = {
-  continue: 'In progress',
-  next: 'Up next',
-  review: 'Due for review',
-  new: 'New since you were here',
+  continue: 'home.reason.continue',
+  next: 'home.reason.next',
+  review: 'home.reason.review',
+  new: 'home.reason.new',
 };
 
 /**
@@ -67,9 +69,10 @@ const REASON_LABEL: Record<HomeItem['reason'], string> = {
  * first and gains a hero voice only if it earns one.
  */
 const HERO_LABEL: Partial<Record<HomeItem['reason'], string>> = {
-  continue: 'Pick up where you left off',
+  continue: 'home.heroContinue',
 };
 
+/* Both tables hold keys; the screen says them in the reader's language. */
 const heroLabel = (reason: HomeItem['reason']) => HERO_LABEL[reason] ?? REASON_LABEL[reason];
 
 const REASON_ICON: Record<HomeItem['reason'], typeof Play> = {
@@ -84,16 +87,20 @@ const REASON_ICON: Record<HomeItem['reason'], typeof Play> = {
  * every screen, and the streak is said once, in the greeting.
  */
 
-const greeting = () => {
+/** Which greeting the hour calls for — a key, said whole with the name in it. */
+const greetingKey = () => {
   const h = new Date().getHours();
-  if (h < 5) return 'Still up';
-  if (h < 12) return 'Good morning';
-  if (h < 18) return 'Good afternoon';
-  return 'Good evening';
+  if (h < 5) return 'home.greeting.night';
+  if (h < 12) return 'home.greeting.morning';
+  if (h < 18) return 'home.greeting.afternoon';
+  return 'home.greeting.evening';
 };
 
 export default function HomeScreen() {
+  const viewer = useViewer();
+  const { t } = useTranslation('v4Spaces');
   const navigate = useNavigate();
+  const greeting = t(greetingKey(), { name: viewer.name });
   const { state, kind, next, feed, recent, streakDays } = useHome();
   const [newOpen, setNewOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -117,6 +124,11 @@ export default function HomeScreen() {
    * marker at all until an Owner switches it on.
    */
   const [asked, setAsked] = useState<string | null>(null);
+  /* Live: what the tutor said. Demo keeps the honest acknowledgement. */
+  const [answer, setAnswer] = useState<
+    { state: 'thinking' } | { state: 'done'; a: AskAnswer } | { state: 'failed' } | null
+  >(null);
+  const live = liveWorld() !== null;
   /* What Luna watches: the ask bar's focus, each keystroke, each send. */
   const [asking, setAsking] = useState(false);
   const [keys, setKeys] = useState(0);
@@ -144,7 +156,7 @@ export default function HomeScreen() {
   );
 
   if (state === 'loading') return chrome(<SpacesSkeleton />);
-  if (state === 'error') return chrome(<SpacesError what="your next thing" />);
+  if (state === 'error') return chrome(<SpacesError what="next" />);
 
   // Brand-new account: nothing to continue. One action, join or create — and
   // this is the only place Home may point at Spaces rather than a Lesson,
@@ -155,11 +167,10 @@ export default function HomeScreen() {
       <div className="relative mx-auto max-w-3xl px-6 pb-24 pt-20 text-center lg:px-8">
         <PartyPopper aria-hidden className="mx-auto mb-6 h-9 w-9 text-xp" />
         <h1 className="text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[56px]">
-          You are caught up, {viewer.name}
+          {t('home.caughtUp.title', { name: viewer.name })}
         </h1>
         <p className="mx-auto mt-3 max-w-[46ch] text-[15.5px] leading-[1.75] text-quiet">
-          Everything in your Spaces is done. Nothing is waiting — come back when
-          something new is published, or go back over what you have already cleared.
+          {t('home.caughtUp.body')}
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           {/* Reviewing means reopening something you have finished. With
@@ -177,16 +188,42 @@ export default function HomeScreen() {
             className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900"
           >
             <RotateCw aria-hidden className="h-4 w-4" />
-            Review something
+            {t('home.caughtUp.review')}
           </Pressable>
           <button
             type="button"
             onClick={() => navigate('/v4/spaces')}
             className={ghostPill}
           >
-            Find another Space
+            {t('home.caughtUp.find')}
           </button>
         </div>
+      </div>,
+    );
+  }
+
+  if (!next && live) {
+    /*
+     * Live, a new account's first step is the catalog. Creating a Space would
+     * make an empty course v4 cannot fill yet (no upload here), and courses
+     * carry no join code — so both of the demo's buttons would lead nowhere
+     * real. They come back when v4 can upload and invite.
+     */
+    return chrome(
+      <div className="relative mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-6 text-center">
+        <h1 className="mb-4 text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[56px]">
+          {greeting}
+        </h1>
+        <p className="mb-8 max-w-[46ch] text-[15.5px] leading-[1.75] text-quiet">
+          {t('home.empty.liveBody')}
+        </p>
+        <Pressable
+          type="button"
+          onClick={() => navigate('/v4/spaces')}
+          className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900"
+        >
+          {t('home.empty.find')}
+        </Pressable>
       </div>,
     );
   }
@@ -195,11 +232,10 @@ export default function HomeScreen() {
     return chrome(
       <div className="relative mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-6 text-center">
         <h1 className="mb-4 text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[56px]">
-          {greeting()}, {viewer.name}
+          {greeting}
         </h1>
         <p className="mb-8 max-w-[46ch] text-[15.5px] leading-[1.75] text-quiet">
-          Nothing to pick up yet. Start a Space for something you’re learning, or join one
-          with a code from someone else.
+          {t('home.empty.body')}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Pressable
@@ -208,14 +244,14 @@ export default function HomeScreen() {
             className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900"
           >
             <Plus aria-hidden className="h-4 w-4" />
-            Create a Space
+            {t('home.empty.create')}
           </Pressable>
           <button
             type="button"
             onClick={() => setJoinOpen(true)}
             className={ghostPill}
           >
-            Join with a code
+            {t('home.empty.join')}
           </button>
         </div>
         <NewSpaceDialog open={newOpen} onOpenChange={setNewOpen} />
@@ -251,28 +287,27 @@ export default function HomeScreen() {
           className="mt-4"
           eyebrow={
             <>
-              {greeting()}, {viewer.name}
+              {greeting}
               {/* The streak, said once, where you are greeted — it was a
                   bento cell repeating a number the Profile also shows. */}
               {streakDays > 0 && (
                 <>
                   <Sep />
                   <Flame aria-hidden className="mb-0.5 mr-1 inline h-3.5 w-3.5 text-streak" />
-                  {streakDays} {streakDays === 1 ? 'day' : 'days'} in a row
+                  {t('home.streak', { count: streakDays })}
                 </>
               )}
             </>
           }
-          title={<span id="home-greeting">What should we focus on?</span>}
+          title={<span id="home-greeting">{t('home.focus')}</span>}
         />
       </section>
 
       {/*
-        The prompt, and an honest non-answer.
-
-        `askAcknowledgement` names the question back rather than inventing a
-        reply — see `mocks/assistant.ts`. Wiring later means replacing that one
-        call, not rebuilding this.
+        The prompt. Live, the grounded course tutor answers from the material
+        in the Space you are working in, with its sources as Lesson pages
+        (data/assistant.ts → POST /v4/ask). In demo there is no tutor, so
+        `askAcknowledgement` names the question back rather than invent a reply.
       */}
       <div
         className="mt-10"
@@ -283,21 +318,57 @@ export default function HomeScreen() {
         onKeyDownCapture={() => setKeys((k) => k + 1)}
       >
         <AskBar
-          placeholder="Ask about your Spaces, Lessons or practice…"
-          suggestions={askSuggestions}
+          placeholder={t('home.askPlaceholder')}
+          suggestions={askSuggestionsNow()}
           model={askModel}
           onSubmit={(q) => {
             setAsked(q);
             setSent((n) => n + 1);
+            if (!live) return;
+            setAnswer({ state: 'thinking' });
+            askNow(q)
+              .then((a) => setAnswer({ state: 'done', a }))
+              .catch(() => setAnswer({ state: 'failed' }));
           }}
         />
-        {asked && (
+        {asked && !live && (
           <p
             role="status"
             className="mx-auto mt-3 max-w-2xl rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-[13px] leading-6 text-quiet"
           >
             {askAcknowledgement(asked)}
           </p>
+        )}
+        {asked && live && answer && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mx-auto mt-3 max-w-2xl rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-4 text-[14px] leading-6"
+          >
+            {answer.state === 'thinking' && <p className="text-quiet">{t('home.answer.thinking')}</p>}
+            {answer.state === 'failed' && (
+              <p className="text-quiet">{t('home.answer.failed')}</p>
+            )}
+            {answer.state === 'done' && (
+              <>
+                {answer.a.spaceName && <p className="mb-1.5 text-[12px] text-quiet">{t('home.answer.from', { space: answer.a.spaceName })}</p>}
+                <p className="whitespace-pre-line text-foreground">{answer.a.reply}</p>
+                {answer.a.citations.length > 0 && answer.a.spaceId && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {answer.a.citations.map((c) => (
+                      <Link
+                        key={`${c.lessonId}-${c.page}`}
+                        to={`/v4/space/${answer.a.spaceId}/lesson/${c.lessonId}/faces?page=${c.page}`}
+                        className="console-focusable rounded-full bg-white/[0.06] px-3 py-1 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.1] hover:text-foreground"
+                      >
+                        {t('home.answer.citation', { lesson: c.lessonTitle ?? t('home.answer.lesson'), page: c.page })}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
 
@@ -316,17 +387,21 @@ export default function HomeScreen() {
         <UpNext
           to={`/v4/space/${next.spaceId}/lesson/${next.lessonId}`}
           number={next.lessonOrder}
-          kicker={`${next.spaceName}${next.percentComplete > 0 ? ` · ${next.percentComplete}% read` : ` · ${heroLabel(next.reason)}`}`}
+          kicker={`${next.spaceName} · ${
+            next.percentComplete > 0
+              ? t('home.percentRead', { percent: next.percentComplete })
+              : t(heroLabel(next.reason))
+          }`}
           title={next.lessonTitle}
           percent={next.percentComplete}
           accent={accent ?? '#ffffff'}
-          verb={next.percentComplete > 0 ? 'Continue' : 'Start'}
+          verb={next.percentComplete > 0 ? t('home.continue') : t('home.start')}
         />
       </div>
 
       {/* Everything else, still Lesson-level. Never a Space card. */}
       {feed.length > 0 && (
-        <StageRow id="feed-heading" title="Also today" count={feed.length}>
+        <StageRow id="feed-heading" title={t('home.alsoToday')} count={feed.length}>
           <ul className="space-y-2.5">
             {feed.map((item) => {
               const Icon = REASON_ICON[item.reason];
@@ -337,13 +412,13 @@ export default function HomeScreen() {
                       <Icon aria-hidden className="h-4 w-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[12.5px] text-faint">{REASON_LABEL[item.reason]}</p>
+                      <p className="text-[12.5px] text-faint">{t(REASON_LABEL[item.reason])}</p>
                       <h3 className="mt-0.5 truncate text-[15.5px] font-semibold">
                         {item.lessonTitle}
                       </h3>
                       {/* Context, not an entry point. */}
                       <p className="mt-0.5 text-[13px] text-quiet">
-                        {item.spaceName} · Lesson {item.lessonOrder}
+                        {t('home.lessonIn', { space: item.spaceName, order: item.lessonOrder })}
                       </p>
                     </div>
                     <span
@@ -361,9 +436,14 @@ export default function HomeScreen() {
                     <Link
                       to={`/v4/space/${item.spaceId}/lesson/${item.lessonId}`}
                       className="console-focusable absolute inset-0 rounded-2xl"
-                      aria-label={`${REASON_LABEL[item.reason]}: ${item.lessonTitle}, Lesson ${item.lessonOrder} in ${item.spaceName}`}
+                      aria-label={t('home.feedLabel', {
+                        reason: t(REASON_LABEL[item.reason]),
+                        title: item.lessonTitle,
+                        order: item.lessonOrder,
+                        space: item.spaceName,
+                      })}
                     >
-                      <span className="sr-only">Open</span>
+                      <span className="sr-only">{t('home.open')}</span>
                     </Link>
                   </article>
                 </li>
@@ -373,7 +453,7 @@ export default function HomeScreen() {
         </StageRow>
       )}
       {unseenRecent.length > 0 && (
-        <StageRow id="recent-heading" title="Recently viewed">
+        <StageRow id="recent-heading" title={t('home.recent')}>
           {/* A rail, like the Spaces rows — and Lesson-level, like everything
               else on Home. Excludes whatever "Continue" already offers. */}
           <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -393,7 +473,11 @@ export default function HomeScreen() {
                 <PressableLink
                   key={r.lessonId}
                   to={`/v4/space/${r.spaceId}/lesson/${r.lessonId}`}
-                  aria-label={`${r.lessonTitle}, Lesson ${r.lessonOrder} in ${r.spaceName}`}
+                  aria-label={t('home.recentLabel', {
+                    title: r.lessonTitle,
+                    order: r.lessonOrder,
+                    space: r.spaceName,
+                  })}
                   className="console-focusable block h-[150px] w-[13.5rem] shrink-0 rounded-2xl text-left"
                 >
                   {/*

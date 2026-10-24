@@ -42,8 +42,11 @@ QUERY_EMBED_CACHE_TTL_SECONDS = 600
 
 
 def _query_embed_cache_key(query: str) -> str:
+    # The model is part of the key: a vector cached under one embedding model
+    # is meaningless against slides embedded by another (provider switch).
+    from backend.services.ai.embeddings import EMBEDDING_MODEL
     digest = hashlib.sha256(query.strip().encode("utf-8")).hexdigest()
-    return f"query_embed:{digest}"
+    return f"query_embed:{EMBEDDING_MODEL}:{digest}"
 
 
 async def _get_cached_query_embedding(query: str) -> Optional[List[float]]:

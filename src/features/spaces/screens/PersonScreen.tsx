@@ -1,20 +1,14 @@
 import { useMemo } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { people, viewer } from '../mocks/people';
-import { spaceById } from '../mocks/spaces';
-import {
-  linalgContributions,
-  normalizationContributions,
-  sharedSpaceIds,
-  spaceContributions,
-} from '../mocks/contributions';
-import { conceptContributions } from '../mocks/concepts';
-import { leaderboard, resolveContributionAnchor } from '../mocks/library';
-import { likeCount, visibleContributions } from '../mocks/engagement';
-import { anchorFor, isOrphaned } from '../mocks/reanchor';
-import { isFriend } from '../mocks/social';
+import { useViewer } from '../data/viewer';
+import { personNow, publishedByNow, sharedSpaceIdsNow, standingOfNow } from '../data/people';
+import { anchorFor, isOrphaned, likeCount, resolveContributionAnchor } from '../data/contributions';
+import { isFriend } from '../data/social';
+import { standingFor } from '../data/record';
+import { formatNumber } from '../i18n/format';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { useScreenState } from '../data/useSpaces';
@@ -22,6 +16,7 @@ import { Avatar } from '../components/Avatar';
 import { EndorsedBadge } from '../components/badges';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { Masthead, Sep, Skylight, StageRow, backLink, ghostPillSm, stageCard, stageCardHover } from '../components/stage';
+import { spaceById } from '../data/world';
 
 /**
  * Someone else's public profile.
@@ -40,40 +35,21 @@ import { Masthead, Sep, Skylight, StageRow, backLink, ghostPillSm, stageCard, st
  */
 
 export default function PersonScreen() {
+  const viewer = useViewer();
+  const { t } = useTranslation('v4People');
   const screenState = useScreenState();
   const { personId } = useParams<{ personId: string }>();
-  const person = people.find((p) => p.id === personId);
+  const person = personId ? personNow(personId) : undefined;
 
-  const standing = leaderboard.find((r) => r.person.id === personId);
+  const standing = personId ? standingOfNow(personId) : undefined;
 
-  /** Everything they published, at any anchor level. */
+  /**
+   * Everything they published, at any anchor level — public means published,
+   * so hidden work never shows here (data/people.ts). Most-liked first, with
+   * likes read from the store so a like made elsewhere reorders this list.
+   */
   const published = useMemo(
-    () =>
-      // Public means published. Hidden work belongs to its author and to the
-      // people who maintain the Space, never to a passing visitor — so this
-      // asks with no role, which is the strictest answer `visibleContributions`
-      // gives. Written out longhand here was the seventh copy of that rule.
-      visibleContributions(
-        [
-          ...normalizationContributions,
-          ...spaceContributions,
-          /*
-           * `linalgContributions` was missing. Every list of "all the
-           * contributions" in this codebase has been assembled by hand, and
-           * this is the fourth one found short of the same group — so Inês
-           * Ferreira's two Linear Algebra pieces were absent from her own
-           * page, on a screen whose heading counts what she has published.
-           */
-          ...linalgContributions,
-          ...conceptContributions,
-        ].filter((c) => c.author.id === personId),
-        null,
-      )
-        // Likes come from the store, not the fixture. Reading `c.likeCount`
-        // meant a like made on a Lesson screen never showed here, and could
-        // never reorder this list — the mistake `ContributionCard` names in
-        // its own comment, made again on a newer screen.
-        .sort((a, b) => likeCount(b.id) - likeCount(a.id)),
+    () => (personId ? publishedByNow(personId).sort((a, b) => likeCount(b.id) - likeCount(a.id)) : []),
     [personId],
   );
 
@@ -88,7 +64,7 @@ export default function PersonScreen() {
   const shared = useMemo(
     () =>
       personId
-        ? sharedSpaceIds(viewer.id, personId)
+        ? sharedSpaceIdsNow(viewer.id, personId)
             .map((id) => spaceById(id))
             .filter((s): s is NonNullable<typeof s> => Boolean(s))
         : [],
@@ -110,10 +86,10 @@ export default function PersonScreen() {
   // All four states, on every screen. `?mock=loading|error` used to be a
   // no-op here, so these two had never been seen.
   if (screenState === 'loading') return chrome(<DetailSkeleton />);
-  if (screenState === 'error') return chrome(<SpacesError what="this profile" />);
+  if (screenState === 'error') return chrome(<SpacesError what="person" />);
 
   if (!person) {
-    return chrome(<NotFound what="person" backTo="/v4/social" backLabel="Back to Social" />);
+    return chrome(<NotFound what="person" back={{ to: '/v4/social', place: 'social' }} />);
   }
 
   /*
@@ -131,7 +107,7 @@ export default function PersonScreen() {
     <div className="relative mx-auto max-w-3xl px-6 pb-24 pt-6 lg:px-8">
       <Link to="/v4/social" className={backLink}>
         <ArrowLeft aria-hidden className="h-4 w-4" />
-        Social
+        {t('v4Spaces:nav.social')}
       </Link>
 
       {/* The face sits centred above the masthead, the way Profile's does. */}
@@ -143,17 +119,18 @@ export default function PersonScreen() {
             <>
               {standing ? (
                 <>
-                  {standing.rank}
+                  {/* The mock's `rank` is an English label; the number is what it says. */}
+                  {t('person.rank', { n: standingFor(standing.xp).rank })}
                   <Sep />
-                  {standing.xp.toLocaleString()} XP
+                  {t('v4Spaces:nav.xp', { xp: formatNumber(standing.xp) })}
                 </>
               ) : (
-                'No rank yet'
+                t('person.noRank')
               )}
               {isFriend(person.id) && (
                 <>
                   <Sep />
-                  Friends
+                  {t('person.friends')}
                 </>
               )}
             </>
@@ -164,7 +141,7 @@ export default function PersonScreen() {
 
       {/* Named, not tiled — Social shows people, never Space cards. */}
       {shared.length > 0 && (
-        <StageRow id="person-shared" title="Spaces you are both in" count={shared.length}>
+        <StageRow id="person-shared" title={t('person.shared')} count={shared.length}>
           <ul className="flex flex-wrap gap-2">
             {shared.map((s) => (
               <li key={s.id}>
@@ -182,12 +159,12 @@ export default function PersonScreen() {
 
       <StageRow
         id="person-published"
-        title="What they have published"
+        title={t('person.published')}
         count={published.length > 0 ? published.length : undefined}
       >
         {published.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-white/12 px-5 py-9 text-center text-[14px] text-quiet">
-            {person.name} hasn’t published anything in a Space you share.
+            {t('person.nothingPublished', { name: person.name })}
           </p>
         ) : (
           <ul className="space-y-2.5">
@@ -227,7 +204,7 @@ export default function PersonScreen() {
                     <Heart aria-hidden className="h-3.5 w-3.5" />
                     {likeCount(c.id)}
                     {/* A bare number announced as "148" says nothing. */}
-                    <span className="sr-only">likes</span>
+                    <span className="sr-only">{t('person.likes')}</span>
                   </span>
                 </>
               );
@@ -255,7 +232,7 @@ export default function PersonScreen() {
                     <div className={cn(cls, 'border-dashed opacity-80')}>
                       {row}
                       {isOrphaned(c) && (
-                        <span className="shrink-0 text-[12px] text-quiet">Needs a new home</span>
+                        <span className="shrink-0 text-[12px] text-quiet">{t('person.needsNewHome')}</span>
                       )}
                     </div>
                   )}

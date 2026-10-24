@@ -45,7 +45,11 @@ describe('Practice is private', () => {
 
   it('always offers a way out', () => {
     // A focus surface with no exit is a trap, not a mode.
-    expect(practice).toContain('Leave practice');
+    // The words live in the locale files now; the source names their key.
+    expect(practice).toContain("t('practiceScreen.leave')");
+    expect(readFileSync(join(process.cwd(), 'src/i18n/locales/en/v4Space.json'), 'utf8')).toContain(
+      '"leave": "Leave practice"',
+    );
   });
 });
 
@@ -66,8 +70,11 @@ describe('search is a jump tool, not a browse surface', () => {
   });
 
   it('groups by object type', () => {
-    for (const label of ['Spaces', 'Lessons', 'Ideas']) {
-      expect(palette).toContain(label);
+    /* The group names live in the translations; the palette carries their keys. */
+    const words = JSON.parse(readFileSync(join(process.cwd(), 'src/i18n/locales/en/v4Spaces.json'), 'utf8'));
+    for (const [key, label] of [['spaces', 'Spaces'], ['lessons', 'Lessons'], ['ideas', 'Ideas']]) {
+      expect(palette).toContain(`'search.group.${key}'`);
+      expect(words.search.group[key]).toBe(label);
     }
   });
 

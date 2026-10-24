@@ -8,13 +8,15 @@ import {
   discoverSpaces,
   joinedByViewer,
   spaceById,
-} from '../mocks/spaces';
+  liveWorld,
+} from './world';
+import { homeFromWorld } from './home';
 import {
   adjacentLessons,
   lessonsForSpace,
   publishedLessonsForSpace,
   visibleLesson,
-} from '../mocks/lessons';
+} from './world';
 import { lessonContent } from '../mocks/content';
 import {
   contributionsForLesson,
@@ -26,12 +28,13 @@ import {
   homeFeed,
   libraryItemsWith,
   nextAction,
-  pendingUploads,
   recentlyViewed,
 } from '../mocks/library';
-import { allNotes } from '../mocks/notes';
+import { allNotes } from './notes';
 import { currentRun } from '../mocks/history';
 import type { HeroKind, HomeItem, RecentItem } from '../mocks/library';
+import { canvasById, materialById, pagesFor } from '../mocks/studio-canvas';
+import type { CanvasDoc, SourcePage, StudioMaterial } from '../studio/types';
 
 /**
  * The data seam.
@@ -66,10 +69,20 @@ export function useScenario(): Scenario {
   return scenario;
 }
 
-/** Mimics a network round-trip so skeletons are actually exercised. */
+/**
+ * Mimics a network round-trip so skeletons are actually exercised.
+ *
+ * Live, the world was loaded once by LiveGate before this screen rendered, so
+ * there is no round trip to mimic: an unforced scenario is ready at once.
+ */
 function useSettled(scenario: Scenario, delay = 600): LoadState {
-  const [state, setState] = useState<LoadState>('loading');
+  const instant = liveWorld() !== null && scenario === 'ready';
+  const [state, setState] = useState<LoadState>(instant ? 'ready' : 'loading');
   useEffect(() => {
+    if (instant) {
+      setState('ready');
+      return;
+    }
     if (scenario === 'loading') {
       setState('loading');
       return;
@@ -81,7 +94,7 @@ function useSettled(scenario: Scenario, delay = 600): LoadState {
       );
     }, delay);
     return () => clearTimeout(id);
-  }, [scenario, delay]);
+  }, [scenario, delay, instant]);
   return state;
 }
 
@@ -110,6 +123,27 @@ export interface MySpaces {
   archived: Space[];
 }
 
+export interface MySpacesResult {
+  state: LoadState;
+  /** Spaces the viewer can bring a page into (any role, not archived), the newest first. */
+  spaces: Space[];
+}
+
+/** The Spaces the viewer belongs to: where a page can be shared. */
+export function useMySpaces(): MySpacesResult {
+  // The sheet is opened by a person on a page that has already settled: no second wait.
+  const scenario = useScenario();
+  return {
+    state: scenario,
+    spaces:
+      scenario !== 'ready'
+        ? []
+        : [...createdThisSessionSpaces(), ...createdByViewer(), ...joinedByViewer()].filter(
+            (s) => s.viewerRole !== null && s.state !== 'archived',
+          ),
+  };
+}
+
 export interface SpacesResult {
   state: LoadState;
   mine: MySpaces;
@@ -126,11 +160,11 @@ export function useSpaces(): SpacesResult {
     state,
     mine: {
       // Anything made this session leads, because you just made it.
-      created: empty ? [] : [...createdThisSessionSpaces(), ...createdByViewer],
-      joined: empty ? [] : joinedByViewer,
-      archived: empty ? [] : archivedSpaces,
+      created: empty ? [] : [...createdThisSessionSpaces(), ...createdByViewer()],
+      joined: empty ? [] : joinedByViewer(),
+      archived: empty ? [] : archivedSpaces(),
     },
-    discover: empty ? [] : discoverSpaces,
+    discover: empty ? [] : discoverSpaces(),
   };
 }
 
@@ -196,8 +230,6 @@ export interface LibraryResult {
   state: LoadState;
   items: LibraryItem[];
   notes: Note[];
-  /** Studio: uploads still processing or sitting as drafts, across Spaces. */
-  pending: LibraryItem[];
 }
 
 /**
@@ -217,13 +249,14 @@ export function useLibrary(kind?: LibraryItem['kind']): LibraryResult {
    * the one surface Doc 2 says notes are *written* in.
    */
   const currentNotes = ready ? allNotes() : [];
-  const all = ready ? libraryItemsWith(currentNotes) : [];
+  // Live, only your notes are real: contributions and Materials are fixtures.
+  const composed = ready ? libraryItemsWith(currentNotes) : [];
+  const all = liveWorld() ? composed.filter((i) => i.kind === 'note') : composed;
   const items = kind ? all.filter((i) => i.kind === kind) : all;
   return {
     state: ready && items.length === 0 ? 'empty' : state,
     items,
     notes: currentNotes,
-    pending: ready ? pendingUploads() : [],
   };
 }
 
@@ -253,6 +286,18 @@ export function useHome(): HomeResult {
    * states are switchable. They are as real as the happy path.
    */
   const forced = new URLSearchParams(window.location.search).get('mock');
+  const world = liveWorld();
+  if (world) {
+    const home = homeFromWorld(world);
+    return {
+      state,
+      kind: home.kind,
+      next: ready ? home.next : null,
+      feed: ready ? home.feed : [],
+      recent: ready ? home.recent : [],
+      streakDays: ready ? home.streakDays : 0,
+    };
+  }
   const kind =
     forced === 'onboard'
       ? 'onboard'
@@ -269,6 +314,39 @@ export function useHome(): HomeResult {
     // Derived. This was a literal `4` that Profile also held independently,
     // so Home and Profile could disagree about the same run and both look right.
     streakDays: ready ? currentRun() : 0,
+  };
+}
+
+/* ── Studio canvas ────────────────────────────────────────────────────── */
+
+export interface CanvasResult {
+  state: LoadState;
+  canvas: CanvasDoc | null;
+  pages: SourcePage[];
+  material: StudioMaterial | null;
+  spaceName: string | null;
+}
+
+/** One Studio canvas and the source pages behind it. Unknown id → `empty`, like `useSpace`. */
+export function useCanvas(canvasId: string | undefined): CanvasResult {
+  const state = useSettled(useScenario());
+  // Canvases are fixtures; a real account has none yet (see `useShelf`).
+  const canvas = canvasId && !liveWorld() ? canvasById(canvasId) ?? null : null;
+  if (state !== 'ready' || !canvas) {
+    return {
+      state: !canvas && state === 'ready' ? 'empty' : state,
+      canvas: null,
+      pages: [],
+      material: null,
+      spaceName: null,
+    };
+  }
+  return {
+    state,
+    canvas,
+    pages: pagesFor(canvas.materialIds),
+    material: materialById(canvas.materialIds[0]) ?? null,
+    spaceName: canvas.spaceId ? spaceById(canvas.spaceId)?.name ?? null : null,
   };
 }
 

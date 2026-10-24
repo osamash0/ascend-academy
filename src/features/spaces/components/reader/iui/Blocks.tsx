@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { Trans, useTranslation } from 'react-i18next';
 import { ArrowRight, Check, ChevronLeft, ChevronRight, Plus, RotateCcw, X } from 'lucide-react';
 import { Prose } from '@/components/markdown';
 import { cn } from '@/lib/utils';
@@ -123,6 +124,7 @@ function Explore({
   block: Extract<ExplainBlock, { type: 'explore' }>;
   onSpot: (words: string | null) => void;
 }) {
+  const { t } = useTranslation('v4Reader');
   const [on, setOn] = useState<string>('all');
   const part = block.parts.find((p) => p.id === on) ?? null;
   const choose = (id: string) => {
@@ -173,7 +175,7 @@ function Explore({
             group={block.title}
             value={on}
             onChange={choose}
-            items={[{ id: 'all', label: 'All' }, ...block.parts.map((p) => ({ id: p.id, label: p.label }))]}
+            items={[{ id: 'all', label: t('blocks.explore.all') }, ...block.parts.map((p) => ({ id: p.id, label: p.label }))]}
           />
         </div>
       )}
@@ -238,6 +240,7 @@ function Compare({ block }: { block: Extract<ExplainBlock, { type: 'compare' }> 
 type Role = 'l' | 'r' | null;
 
 function FdTable({ block }: { block: Extract<ExplainBlock, { type: 'fdTable' }> }) {
+  const { t } = useTranslation('v4Reader');
   const [rows, setRows] = useState(block.rows);
   const [roles, setRoles] = useState<Record<string, Role>>(() =>
     Object.fromEntries(
@@ -271,7 +274,7 @@ function FdTable({ block }: { block: Extract<ExplainBlock, { type: 'fdTable' }> 
           className="console-focusable -mt-3 flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
         >
           <RotateCcw aria-hidden className="h-3.5 w-3.5" />
-          Reset
+          {t('blocks.fd.reset')}
         </button>
       </div>
 
@@ -286,7 +289,7 @@ function FdTable({ block }: { block: Extract<ExplainBlock, { type: 'fdTable' }> 
               : 'hsl(var(--success) / 0.12)',
         }}
       >
-        <span className="font-mono text-[14px] text-foreground">{ready ? fdText(fd) : 'Pick a left and a right side'}</span>
+        <span className="font-mono text-[14px] text-foreground">{ready ? fdText(fd) : t('blocks.fd.pickSides')}</span>
         {ready && (
           <motion.span
             key={bad.length ? 'no' : 'yes'}
@@ -297,8 +300,8 @@ function FdTable({ block }: { block: Extract<ExplainBlock, { type: 'fdTable' }> 
           >
             {bad.length ? <X aria-hidden className="h-3.5 w-3.5" /> : <Check aria-hidden className="h-3.5 w-3.5" />}
             {bad.length
-              ? `Broken by rows ${bad[0][0] + 1} and ${bad[0][1] + 1}`
-              : 'Holds on these rows'}
+              ? t('blocks.fd.broken', { a: bad[0][0] + 1, b: bad[0][1] + 1 })
+              : t('blocks.fd.holds')}
           </motion.span>
         )}
       </div>
@@ -313,7 +316,7 @@ function FdTable({ block }: { block: Extract<ExplainBlock, { type: 'fdTable' }> 
                   <button
                     type="button"
                     onClick={() => cycle(c)}
-                    aria-label={`${c}: ${roles[c] === 'l' ? 'left side' : roles[c] === 'r' ? 'right side' : 'not in the dependency'}`}
+                    aria-label={t(`blocks.fd.role.${roles[c] === 'l' ? 'left' : roles[c] === 'r' ? 'right' : 'none'}`, { column: c })}
                     className={cn(
                       'console-focusable flex h-8 w-full items-center gap-1.5 rounded-lg px-2 font-medium transition-colors',
                       roles[c] ? 'bg-white/[0.08] text-foreground' : 'text-quiet hover:bg-white/[0.05]',
@@ -325,7 +328,7 @@ function FdTable({ block }: { block: Extract<ExplainBlock, { type: 'fdTable' }> 
                         className="ml-auto rounded px-1.5 text-[11px] text-background"
                         style={{ background: roles[c] === 'l' ? 'rgba(255,255,255,0.75)' : ACCENT }}
                       >
-                        {roles[c] === 'l' ? 'left' : 'right'}
+                        {roles[c] === 'l' ? t('blocks.fd.left') : t('blocks.fd.right')}
                       </span>
                     )}
                   </button>
@@ -345,7 +348,7 @@ function FdTable({ block }: { block: Extract<ExplainBlock, { type: 'fdTable' }> 
                   <td key={ci} className="border-b border-white/[0.05] p-1">
                     <input
                       value={v}
-                      aria-label={`Row ${ri + 1}, ${block.columns[ci]}`}
+                      aria-label={t('blocks.fd.cell', { row: ri + 1, column: block.columns[ci] })}
                       onChange={(e) =>
                         setRows((rs) => rs.map((r, i) => (i === ri ? r.map((x, j) => (j === ci ? e.target.value : x)) : r)))
                       }
@@ -366,7 +369,7 @@ function FdTable({ block }: { block: Extract<ExplainBlock, { type: 'fdTable' }> 
           className="console-focusable flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-white/[0.06] px-3 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.1] hover:text-foreground"
         >
           <Plus aria-hidden className="h-3.5 w-3.5" />
-          Row
+          {t('blocks.fd.addRow')}
         </button>
       </div>
     </Card>
@@ -394,11 +397,12 @@ function AttrChip({ name, state }: { name: string; state: 'in' | 'new' | 'out' }
 }
 
 function Stepper({ at, count, onAt }: { at: number; count: number; onAt: (n: number) => void }) {
+  const { t } = useTranslation('v4Reader');
   return (
     <div className="flex items-center gap-2">
       <button
         type="button"
-        aria-label="Previous step"
+        aria-label={t('blocks.stepper.previous')}
         disabled={at === 0}
         onClick={() => onAt(at - 1)}
         className="console-focusable flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06] text-quiet transition-colors hover:bg-white/[0.1] hover:text-foreground disabled:opacity-30"
@@ -415,11 +419,11 @@ function Stepper({ at, count, onAt }: { at: number; count: number; onAt: (n: num
         ))}
       </div>
       <span className="text-[12.5px] tabular-nums text-quiet">
-        Step {at + 1} of {count}
+        {t('blocks.stepper.position', { at: at + 1, count })}
       </span>
       <button
         type="button"
-        aria-label="Next step"
+        aria-label={t('blocks.stepper.next')}
         disabled={at >= count - 1}
         onClick={() => onAt(at + 1)}
         className="console-focusable flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06] text-quiet transition-colors hover:bg-white/[0.1] hover:text-foreground disabled:opacity-30"
@@ -431,6 +435,7 @@ function Stepper({ at, count, onAt }: { at: number; count: number; onAt: (n: num
 }
 
 function Closure({ block }: { block: Extract<ExplainBlock, { type: 'closure' }> }) {
+  const { t } = useTranslation('v4Reader');
   const [start, setStart] = useState<string[]>(block.start);
   const steps = useMemo(() => closureSteps(start, block.fds), [start, block.fds]);
   const [at, setAt] = useState(0);
@@ -446,7 +451,7 @@ function Closure({ block }: { block: Extract<ExplainBlock, { type: 'closure' }> 
   return (
     <Card>
       <CardTitle>{block.title}</CardTitle>
-      <p className="mb-2 text-[13px] text-quiet">Start with</p>
+      <p className="mb-2 text-[13px] text-quiet">{t('blocks.closure.startWith')}</p>
       <div className="mb-4 flex flex-wrap gap-1.5">
         {block.attrs.map((a) => {
           const on = start.includes(a);
@@ -513,16 +518,22 @@ function Closure({ block }: { block: Extract<ExplainBlock, { type: 'closure' }> 
           >
             {at === 0
               ? start.length
-                ? 'Begin with the start set itself.'
-                : 'Pick at least one attribute to start from.'
+                ? t('blocks.closure.begin')
+                : t('blocks.closure.pickStart')
               : step.fired
-                ? `${step.fired.lhs.join(', ')} is inside the set, so ${fdText(step.fired)} fires and adds ${step.added.join(', ')}.`
+                ? t('blocks.closure.fires', {
+                    lhs: step.fired.lhs.join(', '),
+                    fd: fdText(step.fired),
+                    added: step.added.join(', '),
+                  })
                 : ''}
             {done && at > 0 && (
               <span className="text-foreground">
                 {' '}
-                Nothing else fires — done.{' '}
-                {isKey ? `${start.join(', ')} is a superkey.` : `Not a key: it never reaches ${block.attrs.filter((x) => !result.includes(x)).join(', ')}.`}
+                {t('blocks.closure.done')}{' '}
+                {isKey
+                  ? t('blocks.closure.superkey', { set: start.join(', ') })
+                  : t('blocks.closure.notKey', { missing: block.attrs.filter((x) => !result.includes(x)).join(', ') })}
               </span>
             )}
           </motion.p>
@@ -561,6 +572,7 @@ function RelationCard({ r, state }: { r: Relation; state: 'ok' | 'split' | 'new'
 }
 
 function Bcnf({ block }: { block: Extract<ExplainBlock, { type: 'bcnf' }> }) {
+  const { t } = useTranslation('v4Reader');
   const steps = useMemo(() => bcnfSteps(block.relation, block.fds), [block.relation, block.fds]);
   const [at, setAt] = useState(0);
   const step = steps[at];
@@ -612,14 +624,20 @@ function Bcnf({ block }: { block: Extract<ExplainBlock, { type: 'bcnf' }> }) {
         >
           {done ? (
             <span className="text-foreground">
-              Every relation is in BCNF. {steps.length - 1} split{steps.length === 2 ? '' : 's'}, nothing lost — each split
-              keeps the violating FD’s left side in both halves, so the join is lossless.
+              {t('blocks.bcnf.done', { count: steps.length - 1 })}
             </span>
           ) : (
             <>
-              In {next.split!.from.name}, <span className="font-mono text-foreground">{fdText(next.split!.by)}</span> has a
-              left side that is not a key. Split it: everything {next.split!.by.lhs.join(', ')} decides goes to one relation,
-              the rest stays with {next.split!.by.lhs.join(', ')}.
+              <Trans
+                t={t}
+                i18nKey="blocks.bcnf.split"
+                values={{
+                  relation: next.split!.from.name,
+                  fd: fdText(next.split!.by),
+                  lhs: next.split!.by.lhs.join(', '),
+                }}
+                components={{ fd: <span className="font-mono text-foreground" /> }}
+              />
             </>
           )}
         </motion.p>
@@ -632,10 +650,11 @@ function Bcnf({ block }: { block: Extract<ExplainBlock, { type: 'bcnf' }> }) {
 /* ----------------------------------------------------------------- check */
 
 function CheckBlock({ block }: { block: Extract<ExplainBlock, { type: 'check' }> }) {
+  const { t } = useTranslation('v4Reader');
   const [picked, setPicked] = useState<number | null>(null);
   return (
     <Card>
-      <CardTitle>Check yourself</CardTitle>
+      <CardTitle>{t('blocks.check.title')}</CardTitle>
       <p className="mb-3 text-[15px] leading-[1.5] text-foreground">
         <Inline text={block.question} />
       </p>
@@ -698,7 +717,7 @@ function CheckBlock({ block }: { block: Extract<ExplainBlock, { type: 'check' }>
           className="console-focusable mt-2 flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
         >
           <RotateCcw aria-hidden className="h-3.5 w-3.5" />
-          Try again
+          {t('blocks.check.retry')}
         </button>
       )}
     </Card>

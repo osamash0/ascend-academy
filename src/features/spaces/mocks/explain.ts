@@ -1,5 +1,6 @@
 import type { ExplainAnswer, ExplainBlock } from '../components/reader/iui/spec';
 import type { FD } from '../components/reader/iui/fd';
+import i18n from '@/i18n';
 import { beatsFromMarkdown } from '../components/reader/beats';
 
 /**
@@ -356,21 +357,22 @@ const AUTHORED: [number[], ExplainAnswer][] = [
 
 /* ------------------------------------------------------------- composing */
 
-/** An answer for any page, from its own parsed text. */
+/** An answer for any page, from its own parsed text — in the reader's language, around the page's own words. */
 export function composeFromText(title: string, markdown: string): ExplainAnswer {
+  const t = (key: string, params?: Record<string, unknown>) => i18n.t(`v4Reader:explain.composed.${key}`, params);
   const beats = beatsFromMarkdown(markdown);
   const blocks: ExplainBlock[] =
     beats.length >= 2
       ? [
           {
             type: 'explore',
-            title: 'On this page',
-            intro: `${beats.length} points. Pick one to find it on the page.`,
+            title: t('onPage'),
+            intro: t('points', { count: beats.length }),
             parts: beats.map((b, i) => ({ id: String(i), label: b.label, body: b.text, spot: b.text })),
           },
         ]
-      : [{ type: 'text', md: markdown.trim() || 'This page is mostly a picture — there is no text on it to explain.' }];
-  return { title, format: beats.length >= 2 ? 'Parts to explore' : 'Just text', blocks };
+      : [{ type: 'text', md: markdown.trim() || t('picture') }];
+  return { title, format: beats.length >= 2 ? t('parts') : t('plain'), blocks };
 }
 
 /** The authored answer for a page, or null where Explain would compose one. */

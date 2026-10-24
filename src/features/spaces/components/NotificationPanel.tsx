@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import {
   Bell,
   BookOpen,
@@ -12,11 +13,12 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import i18n from '@/i18n';
 import { Avatar } from './Avatar';
-import { viewer } from '../mocks/people';
+import { useViewer } from '../data/viewer';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { AppNotification, NotificationKind } from '../mocks/notifications';
-import { groupedByDay, markAllRead, unreadCount } from '../mocks/notifications';
+import type { AppNotification, NotificationKind } from '../data/notifications';
+import { groupedByDay, markAllRead, unreadCount } from '../data/notifications';
 
 /**
  * Notifications.
@@ -64,6 +66,26 @@ const itemVariants = {
   shown: { opacity: 1, y: 0 },
 };
 
+/**
+ * The day a group of notifications belongs to, in the reader's language.
+ *
+ * The fixture labels its days in English ("Today", "Yesterday", "29 August")
+ * — the words are the chrome's, not the notification's, so they are said
+ * here. Calendar days are formatted at noon UTC so no time zone can move one.
+ */
+function useDayLabel() {
+  const { t } = useTranslation('v4Spaces');
+  return (label: string, day: string) => {
+    if (label === 'Today') return t('notifications.today');
+    if (label === 'Yesterday') return t('notifications.yesterday');
+    return new Date(`${day}T12:00:00Z`).toLocaleDateString((i18n.language || 'en').split('-')[0], {
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'UTC',
+    });
+  };
+}
+
 function Row({
   n,
   onOpen,
@@ -71,6 +93,8 @@ function Row({
   n: AppNotification;
   onOpen: (n: AppNotification) => void;
 }) {
+  const viewer = useViewer();
+  const { t } = useTranslation('v4Spaces');
   const Icon = KIND_ICON[n.type];
 
   return (
@@ -121,7 +145,7 @@ function Row({
       </span>
 
       {!n.read && (
-        <span aria-label="Unread" className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+        <span aria-label={t('notifications.unreadDot')} className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
       )}
     </motion.button>
   );
@@ -129,6 +153,8 @@ function Row({
 
 export function NotificationPanel() {
   const navigate = useNavigate();
+  const { t } = useTranslation('v4Spaces');
+  const dayLabel = useDayLabel();
   const [open, setOpen] = useState(false);
   // Local mirror so marking read re-renders; the fixture is the source.
   const [, force] = useState(0);
@@ -153,7 +179,7 @@ export function NotificationPanel() {
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+          aria-label={unread > 0 ? t('notifications.unread', { count: unread }) : t('notifications.title')}
           className="console-focusable relative flex h-9 w-9 items-center justify-center rounded-full text-quiet transition hover:bg-white/10 hover:text-foreground"
         >
           <Bell aria-hidden className="h-5 w-5" />
@@ -172,7 +198,7 @@ export function NotificationPanel() {
         className="w-[24rem] border-white/[0.10] bg-[#0b1018]/95 p-0 backdrop-blur-xl"
       >
         <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
-          <p className="text-[14.5px] font-semibold">Notifications</p>
+          <p className="text-[14.5px] font-semibold">{t('notifications.title')}</p>
           {unread > 0 && (
             <button
               type="button"
@@ -182,7 +208,7 @@ export function NotificationPanel() {
               }}
               className="console-focusable rounded-md px-1 text-[12.5px] text-quiet transition-colors hover:text-foreground"
             >
-              Mark all read
+              {t('notifications.markAllRead')}
             </button>
           )}
         </div>
@@ -204,10 +230,9 @@ export function NotificationPanel() {
               className="px-6 py-12 text-center"
             >
               <Bell aria-hidden className="mx-auto mb-3 h-5 w-5 text-quiet" />
-              <p className="text-[14.5px] font-semibold">Nothing yet</p>
+              <p className="text-[14.5px] font-semibold">{t('notifications.empty.title')}</p>
               <p className="mt-1 text-[13px] leading-relaxed text-quiet">
-                When someone likes or endorses your work, or a Space you are in publishes
-                something, it turns up here.
+                {t('notifications.empty.body')}
               </p>
             </motion.div>
           ) : (
@@ -221,7 +246,9 @@ export function NotificationPanel() {
             >
               {groups.map((g) => (
                 <div key={g.label} className="mb-1">
-                  <p className="px-3 pb-1 pt-2 text-[12px] text-faint">{g.label}</p>
+                  <p className="px-3 pb-1 pt-2 text-[12px] text-faint">
+                    {dayLabel(g.label, g.items[0].created_at.slice(0, 10))}
+                  </p>
                   {g.items.map((n) => (
                     <Row key={n.id} n={n} onOpen={openTarget} />
                   ))}

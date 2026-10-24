@@ -1,6 +1,7 @@
 import { useReducer, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Trans, useTranslation } from 'react-i18next';
 import {
   Archive,
   FolderInput,
@@ -12,9 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Role, SpaceMode } from '../types';
-import { canDelete, spaceById } from '../mocks/spaces';
-import { membersForSpace, orphansForSpace } from '../mocks/contributions';
-import { viewer } from '../mocks/people';
+import { membersForSpace, orphansForSpace } from '../data/contributions';
 import { StudioAction, StudioPill, StudioShell } from '../components/StudioShell';
 import { ListSkeleton, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
@@ -22,6 +21,7 @@ import { JoinCodeBlock } from '../components/SpaceDialogs';
 import { AuthorLine } from '../components/badges';
 import { ReanchorDialog } from '../components/ReanchorDialog';
 import type { Contribution } from '../types';
+import { canDelete, liveWorld, managerHref, spaceById } from '../data/world';
 
 /**
  * Manage a Space — the Owner's Studio screen.
@@ -37,11 +37,6 @@ import type { Contribution } from '../types';
  */
 
 const ROLE_ORDER: Role[] = ['owner', 'editor', 'member'];
-const ROLE_LABEL: Record<Role, string> = {
-  owner: 'Owner',
-  editor: 'Editor',
-  member: 'Member',
-};
 
 function Section({
   title,
@@ -62,6 +57,8 @@ function Section({
 }
 
 export default function SpaceManageScreen() {
+  const { t } = useTranslation('v4Space');
+  const roleLabel = (r: Role) => t(`manage.roles.${r}`);
   const screenState = useScreenState();
   const { spaceId } = useParams<{ spaceId: string }>();
   const navigate = useNavigate();
@@ -84,20 +81,18 @@ export default function SpaceManageScreen() {
     return (
       <StudioShell
         icon={Settings2}
-        title="Manage"
-        subtitle={screenState === 'error' ? 'Something went wrong' : 'Loading…'}
+        title={t('manage.title')}
+        subtitle={screenState === 'error' ? t('manage.failed') : t('manage.loading')}
       >
-        {screenState === 'error' ? <SpacesError what="this Space" /> : <ListSkeleton />}
+        {screenState === 'error' ? <SpacesError what="space" /> : <ListSkeleton />}
       </StudioShell>
     );
   }
 
   if (!space) {
     return (
-      <StudioShell icon={Settings2} title="Manage" subtitle="Space not found">
-        <p className="text-sm text-muted-foreground">
-          That Space does not exist, or you cannot reach it.
-        </p>
+      <StudioShell icon={Settings2} title={t('manage.title')} subtitle={t('manage.notFound')}>
+        <p className="text-sm text-muted-foreground">{t('manage.notFoundHint')}</p>
       </StudioShell>
     );
   }
@@ -106,25 +101,30 @@ export default function SpaceManageScreen() {
   // rather than a screen full of controls that would fail.
   if (space.viewerRole !== 'owner') {
     return (
-      <StudioShell icon={ShieldAlert} title="Manage" subtitle={space.name}>
+      <StudioShell icon={ShieldAlert} title={t('manage.title')} subtitle={space.name}>
         <div className="depth-card flex flex-col items-center gap-3 p-12 text-center">
           <ShieldAlert aria-hidden className="h-9 w-9 text-muted-foreground/50" />
-          <p className="text-sm font-semibold text-foreground">This isn’t your Space</p>
+          <p className="text-sm font-semibold text-foreground">{t('manage.notYours')}</p>
           <p className="max-w-[46ch] text-sm text-muted-foreground">
-            {space.owner.name} owns {space.name}. Only the Owner can change its settings
-            or its Members.
+            {t('manage.notYoursHint', { owner: space.owner.name, space: space.name })}
           </p>
           <button
             type="button"
             onClick={() => navigate(`/v4/space/${space.id}`)}
             className="console-focusable mt-2 h-9 rounded-lg border border-white/12 bg-white/[0.04] px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-white/[0.08]"
           >
-            Back to the Space
+            {t('manage.back')}
           </button>
         </div>
       </StudioShell>
     );
   }
+
+  // A real course is managed where its lectures are uploaded and published —
+  // the course manager already does all of it, for professors and students.
+  // These controls would only change the fixtures.
+  // Your own uploads are looked after in Library, where you brought them in.
+  if (liveWorld()) return <Navigate replace to={space.personal ? '/v4/library' : managerHref(space.id)} />;
 
   const members = membersForSpace(space.id);
   const orphans = orphansForSpace(space.id);
@@ -133,19 +133,19 @@ export default function SpaceManageScreen() {
   return (
     <StudioShell
       icon={Settings2}
-      title="Manage Space"
+      title={t('manage.titleSpace')}
       subtitle={space.name}
       actions={
-        <StudioAction tone="emerald" onClick={() => toast.success('Changes saved')}>
-          Save changes
+        <StudioAction tone="emerald" onClick={() => toast.success(t('manage.saved'))}>
+          {t('manage.save')}
         </StudioAction>
       }
     >
-      <Section title="Details">
+      <Section title={t('manage.details.title')}>
         <div className="space-y-4">
           <div>
             <label htmlFor="m-name" className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-              Name
+              {t('manage.details.name')}
             </label>
             <input
               id="m-name"
@@ -156,7 +156,7 @@ export default function SpaceManageScreen() {
           </div>
           <div>
             <label htmlFor="m-desc" className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-              Description
+              {t('manage.details.description')}
             </label>
             <textarea
               id="m-desc"
@@ -170,8 +170,8 @@ export default function SpaceManageScreen() {
       </Section>
 
       <Section
-        title="Who can publish"
-        blurb="Switching is lossless: it changes only who may publish from now on. Every Lesson keeps its place, its author and everyone's progress."
+        title={t('manage.mode.title')}
+        blurb={t('manage.mode.blurb')}
       >
         <div className="flex flex-wrap gap-2">
           {(['guided', 'open'] as SpaceMode[]).map((m) => (
@@ -181,11 +181,8 @@ export default function SpaceManageScreen() {
               aria-pressed={mode === m}
               onClick={() => {
                 setMode(m);
-                toast(`Now ${m === 'guided' ? 'Guided' : 'Open'}`, {
-                  description:
-                    m === 'guided'
-                      ? 'Only you and your Editors publish Lessons from now on.'
-                      : 'Every Member can publish Lessons from now on.',
+                toast(t('manage.mode.now', { mode: t(`v4Spaces:badges.${m}`) }), {
+                  description: t(`manage.mode.${m}Hint`),
                 });
               }}
               className={cn(
@@ -195,15 +192,15 @@ export default function SpaceManageScreen() {
                   : 'border-white/12 bg-white/[0.03] text-muted-foreground hover:bg-white/[0.06]',
               )}
             >
-              {m}
+              {t(`v4Spaces:badges.${m}`)}
             </button>
           ))}
         </div>
       </Section>
 
       <Section
-        title="Source of truth"
-        blurb="Off by default. Turning it on nominates published Lessons as the reference, and everything else in the Space then shows whether it traces back to them. It never blocks anything — it labels."
+        title={t('manage.grounding.title')}
+        blurb={t('manage.grounding.blurb')}
       >
         <div className="space-y-2">
           <label className="flex max-w-2xl cursor-pointer items-center gap-3 rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-3">
@@ -217,10 +214,8 @@ export default function SpaceManageScreen() {
               className="h-4 w-4 accent-primary"
             />
             <span className="text-sm">
-              <span className="font-semibold text-foreground">Show grounding</span>
-              <span className="ml-2 text-muted-foreground">
-                Mark what traces back to this Space’s material.
-              </span>
+              <span className="font-semibold text-foreground">{t('manage.grounding.show')}</span>
+              <span className="ml-2 text-muted-foreground">{t('manage.grounding.showHint')}</span>
             </span>
           </label>
 
@@ -239,10 +234,8 @@ export default function SpaceManageScreen() {
               className="h-4 w-4 accent-primary"
             />
             <span className="text-sm">
-              <span className="font-semibold text-foreground">Grounded content only</span>
-              <span className="ml-2 text-muted-foreground">
-                Keep the path to material that traces back. Needs grounding on.
-              </span>
+              <span className="font-semibold text-foreground">{t('manage.grounding.strict')}</span>
+              <span className="ml-2 text-muted-foreground">{t('manage.grounding.strictHint')}</span>
             </span>
           </label>
         </div>
@@ -261,8 +254,8 @@ export default function SpaceManageScreen() {
       */}
       {orphans.length > 0 && (
         <Section
-          title="Needs a new home"
-          blurb="The Lesson these were attached to was deleted. They are still here and still count — give each one a Lesson, or leave them and their authors can."
+          title={t('manage.orphans.title')}
+          blurb={t('manage.orphans.blurb')}
         >
           <div className="space-y-2">
             {orphans.map((c) => (
@@ -278,7 +271,7 @@ export default function SpaceManageScreen() {
                 </div>
                 <StudioAction onClick={() => setRehoming(c)}>
                   <FolderInput aria-hidden className="h-4 w-4" />
-                  Find it a home
+                  {t('manage.orphans.rehome')}
                 </StudioAction>
               </div>
             ))}
@@ -287,8 +280,8 @@ export default function SpaceManageScreen() {
       )}
 
       <Section
-        title="Members"
-        blurb="Editors can add and edit content. Members learn, and can always contribute."
+        title={t('manage.members.title')}
+        blurb={t('manage.members.blurb')}
       >
         <div className="mb-4 space-y-2">
           {members.map((m) => (
@@ -303,30 +296,38 @@ export default function SpaceManageScreen() {
                 {m.progress}%
               </span>
               {m.role === 'owner' ? (
-                <StudioPill tone="ready">Owner</StudioPill>
+                <StudioPill tone="ready">{roleLabel('owner')}</StudioPill>
               ) : (
                 <>
                   <select
-                    aria-label={`Role for ${m.person.name}`}
+                    aria-label={t('manage.members.roleFor', { name: m.person.name })}
                     defaultValue={m.role}
                     onChange={(e) =>
-                      toast.success(`${m.person.name} is now ${ROLE_LABEL[e.target.value as Role]}`)
+                      toast.success(
+                        t('manage.members.roleChanged', {
+                          name: m.person.name,
+                          role: roleLabel(e.target.value as Role),
+                        }),
+                      )
                     }
                     className="console-focusable h-8 rounded-lg border border-white/12 bg-white/[0.05] px-2 text-xs font-semibold text-foreground outline-none"
                   >
                     {ROLE_ORDER.filter((r) => r !== 'owner').map((r) => (
                       <option key={r} value={r}>
-                        {ROLE_LABEL[r]}
+                        {roleLabel(r)}
                       </option>
                     ))}
                   </select>
                   <button
                     type="button"
-                    aria-label={`Remove ${m.person.name}`}
+                    aria-label={t('manage.members.remove', { name: m.person.name })}
                     onClick={() =>
-                      toast(`Removed ${m.person.name}`, {
-                        description: 'Their contributions and credit stay in the Space.',
-                        action: { label: 'Undo', onClick: () => toast.success('Restored') },
+                      toast(t('manage.members.removed', { name: m.person.name }), {
+                        description: t('manage.members.removedHint'),
+                        action: {
+                          label: t('manage.members.undo'),
+                          onClick: () => toast.success(t('manage.members.restored')),
+                        },
                       })
                     }
                     className="console-focusable flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
@@ -339,7 +340,7 @@ export default function SpaceManageScreen() {
           ))}
           {members.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              Only you so far. Share the code below to bring people in.
+              {t('manage.members.alone')}
             </p>
           )}
         </div>
@@ -347,22 +348,26 @@ export default function SpaceManageScreen() {
         <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
           <p className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
             <Users aria-hidden className="h-4 w-4" />
-            Invite with a code
+            {t('manage.invite.title')}
           </p>
-          <p className="mb-3 text-sm text-muted-foreground">
-            Anyone with this joins directly. There is no approval step.
-          </p>
+          <p className="mb-3 text-sm text-muted-foreground">{t('manage.invite.blurb')}</p>
           <JoinCodeBlock spaceId={space.id} />
         </div>
       </Section>
 
       <Section
-        title="Archive"
-        blurb="Archived is read-only. Progress is kept and nothing is lost, but it earns no XP and drops to the bottom of your Spaces."
+        title={t('manage.archive.title')}
+        blurb={t('manage.archive.blurb')}
       >
-        <StudioAction onClick={() => toast('Space archived', { description: `${space.name} is now read-only.` })}>
+        <StudioAction
+          onClick={() =>
+            toast(t('manage.archive.done'), {
+              description: t('manage.archive.doneHint', { space: space.name }),
+            })
+          }
+        >
           <Archive aria-hidden className="h-4 w-4" />
-          Archive this Space
+          {t('manage.archive.action')}
         </StudioAction>
       </Section>
 
@@ -385,16 +390,19 @@ export default function SpaceManageScreen() {
       <section className="mt-12 rounded-xl border border-destructive/25 bg-destructive/[0.04] p-5">
         <h2 className="mb-1 flex items-center gap-2 text-[15px] font-semibold text-destructive">
           <Trash2 aria-hidden className="h-4 w-4" />
-          Delete this Space
+          {t('manage.delete.title')}
         </h2>
         <p className="mb-4 max-w-[70ch] text-sm leading-6 text-muted-foreground">
-          Every Lesson, every contribution and everyone’s progress goes with it. This
-          cannot be undone. Type <span className="font-semibold text-foreground">{space.name}</span>{' '}
-          to confirm.
+          <Trans
+            t={t}
+            i18nKey="manage.delete.blurb"
+            values={{ space: space.name }}
+            components={{ name: <span className="font-semibold text-foreground" /> }}
+          />
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <input
-            aria-label="Type the Space name to confirm deletion"
+            aria-label={t('manage.delete.confirmLabel')}
             value={confirmName}
             onChange={(e) => setConfirmName(e.target.value)}
             placeholder={space.name}
@@ -404,7 +412,7 @@ export default function SpaceManageScreen() {
             type="button"
             disabled={!deletable}
             onClick={() => {
-              toast.error(`Deleted ${space.name}`);
+              toast.error(t('manage.delete.done', { space: space.name }));
               navigate('/v4/spaces');
             }}
             className={cn(
@@ -415,7 +423,7 @@ export default function SpaceManageScreen() {
             )}
           >
             <Trash2 aria-hidden className="h-4 w-4" />
-            Delete permanently
+            {t('manage.delete.action')}
           </button>
         </div>
       </section>

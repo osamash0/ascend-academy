@@ -30,6 +30,7 @@ if os.environ.get("SENTRY_DSN"):
 from backend.api.v1.analytics import router as analytics_router
 from backend.api.v1.auth import router as auth_router
 from backend.api.v1.admin import router as admin_router
+from backend.api.v1.launch_control import router as launch_control_router
 from backend.api.v1.upload import router as upload_router
 from backend.api.v1.ai_content import router as ai_router
 from backend.api.v1.mind_map import router as mind_map_router
@@ -69,7 +70,9 @@ async def lifespan(app: FastAPI):
     from backend.core.database import init_db_pool, close_db_pool
     from backend.core.redis import init_redis, close_redis
     from backend.core.auth_middleware import get_auth_http_client, close_auth_http_client
-    
+    from backend.services.ai.orchestrator import assert_provider_mode
+
+    assert_provider_mode()
     await init_db_pool()
     await init_redis()
     get_auth_http_client()
@@ -236,6 +239,7 @@ v1_router = APIRouter(prefix="/api/v1")
 v1_router.include_router(auth_router)
 v1_router.include_router(analytics_router)
 v1_router.include_router(admin_router)
+v1_router.include_router(launch_control_router)
 v1_router.include_router(upload_router)
 v1_router.include_router(ai_router)
 v1_router.include_router(mind_map_router)
@@ -269,6 +273,10 @@ if settings.feature_student_uploads:
 if settings.feature_v4_reader:
     from backend.api.v1.v4_reader import router as v4_reader_router
     v1_router.include_router(v4_reader_router)
+
+if settings.feature_v4:
+    from backend.api.v1.v4_spaces import router as v4_spaces_router
+    v1_router.include_router(v4_spaces_router)
 
 # Ask Luna (hint-first tutor with curated widgets) — off by default; FEATURE_ASK_LUNA=1 to enable.
 if settings.feature_ask_luna:

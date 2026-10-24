@@ -5,7 +5,6 @@
 #   ollama                    — local LLM runner, unreachable inside Docker
 #   docling                   — lazy import, parser v3/v4 only (brings in easyocr,
 #                               huggingface_hub, scipy, rtree — adds 30+ min to build)
-#   fastembed                 — lazy import, parser v3/v4 only
 #   llama-cloud-services      — lazy import, parser v3/v4 only
 #
 # Use PARSER_VERSION=5 (the default) or 2 when running this image —
@@ -29,7 +28,7 @@ asyncpg>=0.29,<0.31
 # a 5.x that is vulnerable by definition. This file is what the production
 # image installs and it was never audited, so that went unnoticed the whole
 # time requirements.txt was being kept clean.
-pypdf>=6.16.1,<7.0
+pypdf>=6.21.2,<7.0
 PyMuPDF==1.24.0
 # Floor raised from 9.5, cap from <12.0: the old range resolved to 11.3.0,
 # which carries 25 advisories (PYSEC-2026-2249 through -3496), every one of
@@ -40,7 +39,7 @@ PyMuPDF==1.24.0
 # Second instance of this pattern here, after pypdf: a `<next-major` cap keeps
 # a floating range on the wrong side of a security fix that landed in the next
 # major. Worth a look at the other caps in this file before one of them bites.
-Pillow>=12.3.0,<13.0
+Pillow>=13.0.0,<14.0
 python-multipart>=0.0.9,<0.1
 google-genai>=0.3,<2.0
 groq>=0.9,<1.0
