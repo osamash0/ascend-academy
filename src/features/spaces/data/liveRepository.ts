@@ -241,6 +241,10 @@ export function createLiveRepository(http: V4Transport) {
         question,
         thread,
       }),
+    /* Your complete record (GDPR Art. 20): every table the server exports, not what the browser can read. */
+    exportAccount: () => http.get<unknown>('/api/auth/export-data'),
+    /* Server-side erasure of the account and everything in it. No browser fallback: a failure is a failure. */
+    deleteAccount: () => http.post<{ files?: string }>('/api/auth/delete-account', {}),
   };
 }
 

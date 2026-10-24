@@ -106,7 +106,8 @@
     "search": "Suchen",
     "settings": "Einstellungen",
     "notWired": "In diesem Design-Build noch nicht angebunden",
-    "signOut": "Abmelden – in diesem Design-Build noch nicht angebunden"
+    "signOut": "Abmelden – in diesem Design-Build noch nicht angebunden",
+    "signOutLive": "Abmelden"
   },
   "notifications": {
     "title": "Benachrichtigungen",

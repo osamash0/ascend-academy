@@ -230,5 +230,11 @@
     "lede": "Der Link ist vielleicht alt oder die Seite ist umgezogen. Alles andere ist da, wo du es gelassen hast.",
     "home": "Zur Startseite",
     "back": "Zurück"
+  },
+  "accountUnavailable": {
+    "title": "Dein Konto konnte nicht geladen werden",
+    "body": "Du bist angemeldet, aber wir konnten nicht erkennen, was für ein Konto das ist. Nichts ist verloren. Versuch es noch einmal, oder melde dich ab und wieder an.",
+    "retry": "Noch mal versuchen",
+    "signOut": "Abmelden"
   }
 }
