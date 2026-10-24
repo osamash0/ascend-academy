@@ -51,7 +51,7 @@ VALID_PAYLOADS: dict[str, dict] = {
     },
     "ai_tutor_query": {
         "lectureId": "L1", "slideId": "sl1", "slideTitle": "Intro", "sessionId": "s1",
-        "query": "What is a derivative?", "response": "It's a rate of change.",
+        "query": "What is a derivative?",
         "timestamp": "2026-07-20T00:00:00Z",
     },
     "micro_quiz_attempt": {
@@ -142,3 +142,17 @@ async def test_insert_event_rejects_malformed_payload(fake_supabase):
     with pytest.raises(ValidationError):
         await event_repo.insert_event(fake_supabase, "u-1", "slide_view", {"lectureId": "L1"})
     assert not fake_supabase.tables.get("learning_events")
+
+
+def test_ai_tutor_query_no_longer_accepts_the_model_reply():
+    """Audit Q-B-F4: the answer text was stored forever next to the question
+    (and is reproducible from the lecture anyway). The schema now refuses it
+    so a client cannot quietly reintroduce it."""
+    import pydantic
+
+    from backend.schemas.learning_events import validate_event
+
+    payload = {"lectureId": "L1", "sessionId": "s1", "query": "why?", "timestamp": "2026-10-24T00:00:00Z"}
+    validate_event("ai_tutor_query", payload)
+    with pytest.raises(pydantic.ValidationError):
+        validate_event("ai_tutor_query", {**payload, "response": "because"})

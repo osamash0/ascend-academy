@@ -127,7 +127,9 @@ class AiTutorQuery(_EventPayload):
     slideTitle: str | None = None
     sessionId: str
     query: str
-    response: str | None = None
+    # No `response`: the model's reply is derivable from the lesson and was
+    # being kept forever next to the question (audit Q-B-F4). extra="forbid"
+    # on the base turns any attempt to send it into a validation error.
     timestamp: str
 
 
