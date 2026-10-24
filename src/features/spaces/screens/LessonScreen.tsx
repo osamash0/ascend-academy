@@ -165,22 +165,33 @@ export default function LessonScreen() {
     `/v4/space/${space.id}/lesson/${lesson.id}/faces?page=${page}${view ? `&view=${view}` : ''}`;
   const resumePage = ideas.find((i) => i.concept.id === firstConcept?.id)?.firstPage ?? 1;
 
+  /*
+   * Where the main button goes, decided once, so its words can't promise
+   * something else. A Lesson with no material and no text used to say
+   * "Weiterlesen" and open an idea page with nothing to read (LS-006).
+   */
+  const startTo: 'reader' | 'passages' | 'idea' | 'practice' =
+    pdfUrl && sections.length ? 'reader' : lesson.passages?.length ? 'passages' : firstConcept ? 'idea' : 'practice';
   const start = () =>
-    pdfUrl && sections.length
+    startTo === 'reader'
       ? navigate(readerAt(mark && mark.page > 1 ? mark.page : lesson.percentComplete > 0 ? resumePage : 1))
-      : lesson.passages?.length
+      : startTo === 'passages'
         ? navigate(`/v4/space/${space.id}/lesson/${lesson.id}/read`)
-        : firstConcept
+        : startTo === 'idea' && firstConcept
           ? navigate(`/v4/space/${space.id}/concept/${firstConcept.id}`)
           : navigate(`/v4/space/${space.id}/lesson/${lesson.id}/practice`);
   const startLabel =
-    mark && mark.page > 1 && pdfUrl
-      ? t('lesson.start.continueAt', { page: mark.page })
-      : done
-        ? t('lesson.start.review')
-        : lesson.percentComplete > 0
-          ? t('lesson.start.continue')
-          : t('lesson.start.begin');
+    startTo === 'idea'
+      ? t('lesson.start.ideas')
+      : startTo === 'practice'
+        ? t('lesson.start.practise')
+        : mark && mark.page > 1 && pdfUrl
+          ? t('lesson.start.continueAt', { page: mark.page })
+          : done
+            ? t('lesson.start.review')
+            : lesson.percentComplete > 0
+              ? t('lesson.start.continue')
+              : t('lesson.start.begin');
 
   return chrome(
     <div

@@ -317,6 +317,16 @@ export function useHome(): HomeResult {
   };
 }
 
+/**
+ * Home's "continue": the one answer to "where was I?". A Space's own Weiter
+ * card asks this first, so the two never name different Lessons (LS-007:
+ * Home said Basics while Database Systems said Introduction).
+ */
+export function resumeItem(): HomeItem | null {
+  const world = liveWorld();
+  return world ? homeFromWorld(world).next : nextAction;
+}
+
 /* ── Studio canvas ────────────────────────────────────────────────────── */
 
 export interface CanvasResult {

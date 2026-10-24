@@ -628,7 +628,7 @@ export default function StudioCanvasScreen() {
             </div>
             {item.sample && <p className="mt-1 truncate text-[12.5px] text-faint">{t('sample')}</p>}
           </div>
-          <div className="order-2 ml-auto flex items-center gap-2 xl:order-3">
+          <div className="order-2 ml-auto flex min-w-0 items-center gap-1 sm:gap-2 xl:order-3">
             <button
               ref={recall.toggleRef}
               type="button"
@@ -637,7 +637,7 @@ export default function StudioCanvasScreen() {
               disabled={original}
               title={original ? t('recall.needsLearn') : undefined}
               className={cn(
-                'console-focusable h-9 rounded-full px-3.5 text-[13px] transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                'console-focusable h-9 rounded-full px-2.5 text-[13px] transition-colors disabled:cursor-not-allowed disabled:opacity-40 sm:px-3.5',
                 recall.stored.state.on
                   ? 'bg-[rgb(var(--studio-chip))] text-foreground'
                   : 'text-faint hover:bg-[rgb(var(--studio-chip))] hover:text-foreground',
