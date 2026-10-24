@@ -9,6 +9,17 @@ from supabase_auth.errors import AuthApiError
 
 from backend.services import erasure as er
 
+
+@pytest.fixture(autouse=True)
+def _chat_memory_redis(monkeypatch):
+    """run_job purges the subject's tutor sessions from Redis before the DB
+    pass; give it an in-memory store so tests without Redis keep working."""
+    from backend.services import chat_memory
+    from backend.tests.fake_redis import FakeRedis
+    shared = FakeRedis()
+    # chat_memory binds get_redis_client at import time, so patch it there.
+    monkeypatch.setattr(chat_memory, "get_redis_client", lambda: shared)
+
 UID = "11111111-1111-1111-1111-111111111111"
 OTHER = "22222222-2222-2222-2222-222222222222"
 
@@ -49,6 +60,11 @@ class FakeTable:
     def in_(self, c, vs):
         self.store.in_calls.append((self.name, self.op, len(vs)))
         self.f.append(lambda r: r.get(c) in vs)
+        return self
+
+    def contains(self, c, obj):
+        """PostgREST `cs` on a jsonb column: every key/value of obj is in the row's value."""
+        self.f.append(lambda r: isinstance(r.get(c), dict) and all(r[c].get(k) == v for k, v in obj.items()))
         return self
 
     def insert(self, row):
@@ -488,3 +504,56 @@ async def test_drain_compares_timestamps_not_strings():
     c.tables[er.JOBS][0]["created_at"] = "2000-01-01T00:00:00Z"
     out = await er.drain(client=c)
     assert out["cancelled"] == 1 and c.tables[er.JOBS] == []
+
+
+# ── audit week 2: stores the cascade never reached ────────────────────────────
+
+@pytest.mark.asyncio
+async def test_executor_scrubs_dead_letter_rows_that_name_the_subject():
+    """dead_letter_jobs has no FK: a failed parse job keeps user_id and the
+    filename inside its kwargs JSONB forever unless erasure deletes it."""
+    c = owner_world()
+    c.tables["dead_letter_jobs"] = [
+        {"id": "d1", "function_name": "parse_pdf_unified", "kwargs": {"user_id": UID, "filename": "mine.pdf"}},
+        {"id": "d2", "function_name": "parse_pdf_unified", "kwargs": {"user_id": OTHER, "filename": "theirs.pdf"}},
+        {"id": "d3", "function_name": "refresh_mv", "kwargs": {}},
+    ]
+    job = await er.create_job(await er.build_erasure_manifest(UID, client=c), client=c)
+    c.auth_users.discard(UID)
+    await er.mark_ready(job, client=c)
+    assert await er.run_job(job, client=c) is True
+    assert [r["id"] for r in c.tables["dead_letter_jobs"]] == ["d2", "d3"]
+
+
+@pytest.mark.asyncio
+async def test_run_job_purges_the_subjects_chat_memory(monkeypatch):
+    """Tutor conversations live in Redis under user_sessions:{uid}; the DB
+    cascade never touches them."""
+    purged = []
+
+    async def _purge(uid):
+        purged.append(uid)
+        return 2
+
+    monkeypatch.setattr(er.chat_memory, "purge_user_sessions", _purge)
+    c = owner_world()
+    job = await er.create_job(await er.build_erasure_manifest(UID, client=c), client=c)
+    c.auth_users.discard(UID)
+    await er.mark_ready(job, client=c)
+    assert await er.run_job(job, client=c) is True
+    assert purged == [UID]
+
+
+@pytest.mark.asyncio
+async def test_chat_memory_purge_failure_leaves_the_job_pending(monkeypatch):
+    async def _purge(uid):
+        raise RuntimeError("redis down")
+
+    monkeypatch.setattr(er.chat_memory, "purge_user_sessions", _purge)
+    c = owner_world()
+    job = await er.create_job(await er.build_erasure_manifest(UID, client=c), client=c)
+    c.auth_users.discard(UID)
+    await er.mark_ready(job, client=c)
+    assert await er.run_job(job, client=c) is False
+    row = c.tables[er.JOBS][0]
+    assert row["attempts"] == 1 and "redis down" in row["last_error"]

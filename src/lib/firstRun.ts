@@ -4,7 +4,7 @@
  * Pure on purpose: the route guards in App.tsx are thin wrappers around these,
  * so the whole matrix (role × onboarded × v4) is tested without a router.
  */
-import { AdminRoutes, ProfessorRoutes, StudentRoutes, V4Routes } from '@/lib/routes';
+import { StudentRoutes, V4Routes, homeForRole } from '@/lib/routes';
 
 type Role = 'student' | 'professor' | 'admin' | null;
 type FirstRunProfile = { has_completed_activation_onboarding: boolean } | null;
@@ -23,16 +23,19 @@ export function postAuthDestination({
   role,
   profile,
   v4First,
+  next,
 }: {
   role: Role;
   profile: FirstRunProfile;
   v4First: boolean;
+  /** A path inside the app that sign-in interrupted, already checked with `safeNextPath`. */
+  next?: string | null;
 }): string {
-  if (role === 'professor') return ProfessorRoutes.DASHBOARD;
-  if (role === 'admin') return AdminRoutes.DASHBOARD;
+  // First run before anything else, even before a shared link.
   if (needsFirstRun(role, profile)) return StudentRoutes.ONBOARDING;
+  if (next) return next;
   if (v4First && role === 'student' && profile) return V4Routes.HOME;
-  return StudentRoutes.HOME;
+  return homeForRole(role);
 }
 
 /**

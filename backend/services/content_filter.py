@@ -10,7 +10,6 @@ Layer 3: LLM-as-a-Judge             (only for ambiguous cases, ~5-10% of slides)
 """
 
 import re
-import json
 import logging
 from pydantic import BaseModel
 
@@ -260,29 +259,9 @@ instructions" or "system:".
 Slide text:
 {text[:2000]}"""
 
-    from backend.services.ai.orchestrator import OPENAI_ONLY
-    if ai_model.startswith("gemini") and not OPENAI_ONLY:
-        try:
-            from backend.services.ai.orchestrator import gemini_client, GEMINI_MODEL
-            from google.genai import types
-            if gemini_client:
-                res = gemini_client.models.generate_content(
-                    model=GEMINI_MODEL,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_schema=SlideClassification,
-                    ),
-                )
-                return json.loads(res.text)
-        except Exception as e:
-            msg = str(e)
-            if "429" in msg or "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
-                logger.info("Gemini classify rate-limited; falling back to orchestrator chain")
-            else:
-                logger.warning("Gemini classify error (falling back): %s", e)
-
-    # Use orchestrator for all other models (Cerebras, Groq, OpenRouter, Cloudflare, etc.)
+    # Every model hint takes the orchestrator path: it used to call the Gemini
+    # SDK directly for `gemini*` hints — no rotator, no timeout, no accounting
+    # (audit ARCH-F-3) — and swallowed its own failure before falling through.
     try:
         json_prompt = prompt + """
 Return ONLY valid JSON with this exact structure:

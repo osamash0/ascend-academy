@@ -42,6 +42,15 @@ describe('postAuthDestination', () => {
   ] as const)('role %s, profile %o, v4First %s → %s', (role, profile, v4First, expected) => {
     expect(postAuthDestination({ role, profile, v4First })).toBe(expected);
   });
+
+  it('goes where a shared link was heading once first run is behind them', () => {
+    expect(postAuthDestination({ role: 'student', profile: done, v4First: true, next: '/course/abc' })).toBe('/course/abc');
+    expect(postAuthDestination({ role: 'professor', profile: done, v4First: false, next: '/course/abc' })).toBe('/course/abc');
+  });
+
+  it('still sends a new student to first run first, even with a shared link', () => {
+    expect(postAuthDestination({ role: 'student', profile: fresh, v4First: true, next: '/course/abc' })).toBe('/onboarding');
+  });
 });
 
 describe('firstRunExit', () => {

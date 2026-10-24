@@ -23,6 +23,8 @@ import { MobileNav } from './MobileNav';
 import { useGround } from './ground';
 import { standingNow } from '../data/standing';
 import { formatNumber } from '../i18n/format';
+import { dataMode } from '../data/liveRepository';
+import { useSessionActions, type SessionActions } from '../data/session';
 import type { Person } from '../types';
 
 /**
@@ -85,6 +87,7 @@ export function SpacesTopBar({
 }: Props) {
   const navigate = useNavigate();
   const { t } = useTranslation('v4Spaces');
+  const session = useSessionActions();
   /*
    * The bar owns the palette rather than each screen passing an `onSearch`.
    * ⌘K is global by definition — threading a callback through nine screens
@@ -245,24 +248,53 @@ export function SpacesTopBar({
           <Settings aria-hidden className="h-5 w-5" />
         </button>
         {/*
-          NEEDS-BACKEND: signing out ends a session, and this namespace has
-          none. It stays visible because its absence would misrepresent the
-          chrome, and says plainly that it is not wired rather than looking
-          like a button that silently failed.
+          Live, v4 sits behind sign-in, so this ends the real session. The demo
+          has no session to end: there the button stays visible (its absence
+          would misrepresent the chrome) and says plainly that it is not wired,
+          rather than looking like a button that silently failed.
         */}
-        <button
-          type="button"
-          disabled
-          title={t('nav.notWired')}
-          aria-label={t('nav.signOut')}
-          className="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-full text-quiet opacity-45"
-        >
-          <LogOut aria-hidden className="h-5 w-5" />
-        </button>
+        {dataMode(import.meta.env.VITE_V4_DATA_MODE) === 'live' && session ? (
+          <LiveSignOut session={session} />
+        ) : (
+          <button
+            type="button"
+            disabled
+            title={t('nav.notWired')}
+            aria-label={t('nav.signOut')}
+            className="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-full text-quiet opacity-45"
+          >
+            <LogOut aria-hidden className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       <SearchPalette open={searchOpen} onOpenChange={setSearchOpen} />
       <MobileNav active={active} />
     </header>
+  );
+}
+
+function LiveSignOut({ session }: { session: SessionActions }) {
+  const { t } = useTranslation('v4Spaces');
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await session.signOut();
+        } finally {
+          navigate('/', { replace: true });
+        }
+      }}
+      aria-label={t('nav.signOutLive')}
+      title={t('nav.signOutLive')}
+      className="console-focusable flex h-9 w-9 items-center justify-center rounded-full text-quiet transition hover:bg-white/10 hover:text-foreground disabled:opacity-45"
+    >
+      <LogOut aria-hidden className="h-5 w-5" />
+    </button>
   );
 }

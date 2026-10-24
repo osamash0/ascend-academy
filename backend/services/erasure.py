@@ -26,6 +26,7 @@ from supabase_auth.errors import AuthApiError
 
 from backend.core.database import supabase_admin
 from backend.services.db_errors import is_tolerable_absence
+from backend.services import chat_memory
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +156,8 @@ _CHUNK = 100
 # cascades them, so the executor deletes them explicitly. api_tokens and
 # course_access exist only in production; a table absent there is skipped.
 NO_FK_USER_TABLES = ("api_tokens", "course_access", "learning_events_daily_rollup", "tutor_messages")
+# (table, jsonb column) pairs whose payload carries a user_id key but no FK.
+JSONB_USER_TABLES = (("dead_letter_jobs", "kwargs"),)
 
 
 def _now() -> str:
@@ -236,29 +239,44 @@ def _execute(c, m: ErasureManifest) -> None:
             # db_errors.USER_ID_OPTIONAL_TABLES) is skipped; anything else retries.
             if not is_tolerable_absence(e, table, "user_id"):
                 raise ErasureError(f"{table}: {e}") from e
+    # dead_letter_jobs keeps a failed job's kwargs (user_id, filename) as JSONB
+    # with no FK column, so neither the cascade nor the loop above reaches it.
+    for table, column in JSONB_USER_TABLES:
+        try:
+            c.table(table).delete().contains(column, {"user_id": m.subject_id}).execute()
+        except Exception as e:
+            if not is_tolerable_absence(e, table, column):
+                raise ErasureError(f"{table}: {e}") from e
 
 
 async def run_job(job_id: str, client=None) -> bool:
     c = _client(client)
 
-    def _run() -> bool:
+    def _load() -> dict[str, Any] | None:
         rows = c.table(JOBS).select("*").eq("id", job_id).execute().data
-        if not rows:
-            return True
-        job = rows[0]
-        try:
-            _execute(c, ErasureManifest.from_json(job["manifest"]))
-        except Exception as e:
-            c.table(JOBS).update({
-                "attempts": int(job.get("attempts") or 0) + 1,
-                "last_error": str(e)[:500], "updated_at": _now(),
-            }).eq("id", job_id).execute()
-            logger.error("erasure job %s not finished: %s", job_id, e)
-            return False
-        c.table(JOBS).delete().eq("id", job_id).execute()
-        return True
+        return rows[0] if rows else None
 
-    return await run_in_threadpool(_run)
+    def _record_failure(job: dict[str, Any], e: Exception) -> None:
+        c.table(JOBS).update({
+            "attempts": int(job.get("attempts") or 0) + 1,
+            "last_error": str(e)[:500], "updated_at": _now(),
+        }).eq("id", job_id).execute()
+
+    job = await run_in_threadpool(_load)
+    if job is None:
+        return True
+    m = ErasureManifest.from_json(job["manifest"])
+    try:
+        # Tutor conversations live in Redis, outside every DB cascade. Purged
+        # first (idempotent) so a DB-side failure retries the whole thing.
+        await chat_memory.purge_user_sessions(m.subject_id)
+        await run_in_threadpool(_execute, c, m)
+    except Exception as e:
+        await run_in_threadpool(_record_failure, job, e)
+        logger.error("erasure job %s not finished: %s", job_id, e)
+        return False
+    await run_in_threadpool(lambda: c.table(JOBS).delete().eq("id", job_id).execute())
+    return True
 
 
 async def drain(client=None, limit: int = 20) -> dict[str, int]:

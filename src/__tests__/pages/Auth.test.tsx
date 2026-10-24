@@ -10,7 +10,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
 
 vi.mock("@/integrations/supabase/client", async () => {
@@ -50,10 +50,15 @@ const baseAuth = {
   refreshProfile: vi.fn(),
 };
 
+function Where() {
+  const l = useLocation();
+  return <div data-testid="where">{l.pathname + l.search}</div>;
+}
+
 function mount(entry: string) {
   return renderWithProviders(
     <Routes>
-      <Route path="/auth" element={<Auth />} />
+      <Route path="/auth" element={<><Auth /><Where /></>} />
       <Route path="/onboarding" element={<div>first-run</div>} />
     </Routes>,
     { initialEntries: [entry] },
@@ -119,6 +124,16 @@ describe("Auth page, sign-up mode", () => {
     await user.click(screen.getByRole("button", { name: /create one/i }));
     expect(await screen.findByRole("heading", { name: /start here/i })).toBeInTheDocument();
     expect(screen.getByRole("checkbox")).toBeInTheDocument();
+  });
+
+  it("keeps a shared link's return path when switching modes", async () => {
+    const user = userEvent.setup();
+    mount("/auth?next=%2Fcourse%2Fabc");
+    await user.click(screen.getByRole("button", { name: /create one/i }));
+    expect(screen.getByTestId("where").textContent).toMatch(/mode=signup/);
+    expect(screen.getByTestId("where").textContent).toMatch(/next=%2Fcourse%2Fabc/);
+    await user.click(await screen.findByRole("button", { name: /^sign in$/i }));
+    expect(screen.getByTestId("where").textContent).toBe("/auth?next=%2Fcourse%2Fabc");
   });
 
   it("asks for consent before creating the account", async () => {

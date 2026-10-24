@@ -72,3 +72,27 @@ export const V4Routes = {
   LIBRARY: '/v4/library',
   SPACES: '/v4/spaces',
 } as const;
+
+/**
+ * Each role's own landing page. Every "you can't be here" redirect goes here,
+ * so an admin or professor is never dropped onto the student dashboard. An
+ * unknown role (the lookup failed) goes to /dashboard, which says so.
+ */
+export const homeForRole = (role: string | null | undefined): string => {
+  if (role === 'professor') return ProfessorRoutes.DASHBOARD;
+  if (role === 'admin') return AdminRoutes.DASHBOARD;
+  return StudentRoutes.HOME;
+};
+
+/**
+ * A `?next=` worth following after sign-in: a path inside this app. Anything
+ * else (another origin, a protocol-relative `//host`, a `/\host` trick, the
+ * auth page itself) is dropped, so the parameter can never send anyone
+ * off-site or round in a circle.
+ */
+export const safeNextPath = (next: string | null | undefined): string | null => {
+  if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) return null;
+  const path = next.split(/[?#]/)[0];
+  if (path === PublicRoutes.AUTH || path.startsWith(`${PublicRoutes.AUTH}/`)) return null;
+  return next;
+};

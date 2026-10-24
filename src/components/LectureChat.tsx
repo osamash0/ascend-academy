@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { buildTutorQueryEvent } from '@/lib/tutorEvents';
 import { useTranslation } from 'react-i18next';
 import { useAiModel, type AiModelChoice } from '@/hooks/use-ai-model';
 import { useAuth } from '@/lib/auth';
@@ -206,15 +207,13 @@ export function LectureChat({
 
             // Fire-and-forget analytics
             if (user) {
-                logLearningEvent(user.id, 'ai_tutor_query', {
+                logLearningEvent(user.id, 'ai_tutor_query', buildTutorQueryEvent({
                     lectureId: lectureId ?? window.location.pathname.split('/').pop(),
                     slideId,
                     slideTitle,
                     sessionId,
                     query: userMsg,
-                    response: aiResponseText,
-                    timestamp: new Date().toISOString(),
-                }).catch(err => console.error('Failed to log AI tutor query event:', err));
+                })).catch(err => console.error('Failed to log AI tutor query event:', err));
                 // Sweep AI-tutor badges (Curious Mind / Inquisitive).
                 gamification.evaluate();
             }

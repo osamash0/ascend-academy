@@ -82,7 +82,11 @@ export default function Auth() {
   });
 
   const setMode = (next: Mode) => {
-    setParams(next === 'signup' ? { mode: 'signup' } : {}, { replace: true });
+    // Touch only `mode`: a shared link's `?next=` must survive the switch.
+    const updated = new URLSearchParams(params);
+    if (next === 'signup') updated.set('mode', 'signup');
+    else updated.delete('mode');
+    setParams(updated, { replace: true });
     setErrors({});
     setForgot('idle');
   };

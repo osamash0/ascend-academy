@@ -14,29 +14,37 @@
   },
   "privacy": {
     "title": "Datenschutzerklärung",
-    "lastUpdated": "Stand: März 2026",
+    "lastUpdated": "Stand: Oktober 2026",
     "section1Title": "1. Verantwortlicher",
     "section1Body": "[Vor- und Nachname]\n[Straße und Hausnummer]\n[PLZ und Ort]\nE-Mail:",
     "section2Title": "2. Welche Daten wir erheben",
     "section2Intro": "Wenn Sie Learnstation nutzen, verarbeiten wir folgende personenbezogene Daten:",
     "section2Items": [
-      "<bold>Kontodaten:</bold> E-Mail-Adresse, Passwort (verschlüsselt gespeichert), vollständiger Name (optional), Avatar-URL.",
-      "<bold>Lernfortschritt:</bold> Abgeschlossene Folien, Quizergebnisse, XP-Punkte, Level, Streaks und Auszeichnungen.",
-      "<bold>Lern-Events:</bold> Betrachtungsdauer von Folien, Quizantworten mit Zeitstempel und Selbsteinschätzung des Verständnisses.",
-      "<bold>Nutzungsdaten:</bold> Browser-Typ (nur über Supabase-Standard-Logs)."
+      "<bold>Kontodaten:</bold> E-Mail-Adresse, Passwort (verschlüsselt gespeichert), Name (optional), Hochschule und Studiengang (optional), Profilbild (optional), bevorzugte Sprache.",
+      "<bold>Lernfortschritt:</bold> gelesene Seiten, Quizergebnisse, XP, Level, Streaks und Auszeichnungen.",
+      "<bold>Lern-Events:</bold> Lesedauer pro Seite, Quizantworten mit Zeitstempel und Selbsteinschätzung des Verständnisses.",
+      "<bold>Was Sie schreiben:</bold> Fragen an den KI-Tutor und der Gesprächsverlauf, Ihre geschriebenen Erklärungen beim Üben, Suchanfragen, Notizen und Feedback-Nachrichten.",
+      "<bold>Hochgeladene Dokumente:</bold> die Dateien, der daraus extrahierte Text sowie die daraus erzeugten Zusammenfassungen und Fragen.",
+      "<bold>Soziale Daten:</bold> Freundschaften und Freundschaftsanfragen sowie Ihre Sichtbarkeit in der Rangliste.",
+      "<bold>Technische Daten:</bold> IP-Adresse, Browser-Typ und aufgerufene Seiten in Server-Logs und Fehlerberichten, die nur kurz aufbewahrt werden."
     ],
     "section3Title": "3. Zweck und Rechtsgrundlage",
     "section3Items": [
-      "<bold>Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO):</bold> Kontodaten und Lernfortschritt sind erforderlich, um die Kernfunktionalität der Plattform bereitzustellen.",
-      "<bold>Berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO):</bold> Lern-Events werden zur Verbesserung der Lehre und Identifizierung schwieriger Inhalte durch Dozenten erhoben."
+      "<bold>Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO):</bold> Kontodaten, Lernfortschritt, Ihre Uploads und die KI-Funktionen (Zusammenfassungen, Fragen, Tutor-Antworten) sind erforderlich, um den Dienst bereitzustellen, für den Sie sich registriert haben.",
+      "<bold>Berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO):</bold> Lern-Events werden erhoben, um die Lehre zu verbessern und den Personen, die einen Space pflegen, zu zeigen, wo Lernende Schwierigkeiten haben; Server-Logs und Fehlerberichte dienen dem sicheren und zuverlässigen Betrieb."
     ],
     "section4Title": "4. Auftragsverarbeiter",
     "section4Items": [
-      "<bold>Supabase Inc.</bold> — Authentifizierung, Datenbank und Dateispeicherung. Datenspeicherung auf Servern in der EU (je nach Projektkonfiguration).",
-      "<bold>Ollama (lokal)</bold> — KI-gestützte Zusammenfassungen und Quizfragen werden lokal auf dem Server verarbeitet. Es werden keine Daten an externe KI-Dienste gesendet."
+      "<bold>Supabase Inc.</bold> — Anmeldung, Datenbank und Dateispeicherung.",
+      "<bold>Hetzner Online GmbH (Deutschland)</bold> — Hosting des Anwendungsservers.",
+      "<bold>KI-Anbieter</bold> — zur Erzeugung von Zusammenfassungen, Fragen und Tutor-Antworten werden der Text Ihrer Dokumente, Ihre Fragen und Ihr Gesprächsverlauf an <bold>OpenAI</bold> übermittelt. Je nach Serverkonfiguration können <bold>Groq</bold>, <bold>Google (Gemini)</bold>, <bold>Cloudflare</bold>, <bold>Mistral</bold> und <bold>OpenRouter</bold> als Ausweichanbieter für denselben Zweck genutzt werden. Ihr Name und Ihre E-Mail-Adresse sind nicht Teil dieser Anfragen.",
+      "<bold>LlamaIndex (LlamaParse)</bold> — wenn diese Verarbeitungs-Engine ausgewählt ist, werden hochgeladene Dokumente zur Textextraktion dorthin übermittelt.",
+      "<bold>Microsoft (Edge Text-to-Speech)</bold> — beim Vorlesen wird Text übermittelt, um Sprachausgabe zu erzeugen.",
+      "<bold>Sentry (Functional Software, Inc.)</bold> — Fehlerüberwachung. Fehlerberichte enthalten technische Angaben zum Fehler (Browser, Seite, Gerät); identifizierende Felder werden vor dem Versand entfernt. Es findet keine Sitzungsaufzeichnung statt.",
+      "<bold>Resend, Inc.</bold> — Transaktions-E-Mails, zum Beispiel wenn Sie Feedback senden."
     ],
     "section5Title": "5. Speicherdauer",
-    "section5Body": "Ihre Daten werden so lange gespeichert, wie Ihr Konto aktiv ist. Nach Löschung des Kontos werden alle personenbezogenen Daten innerhalb von 30 Tagen gelöscht.",
+    "section5Body": "Ihre Daten werden so lange gespeichert, wie Ihr Konto aktiv ist. Nach Löschung des Kontos werden alle personenbezogenen Daten innerhalb von 30 Tagen gelöscht. Gespräche mit dem KI-Tutor und Lern-Events werden gespeichert, solange Ihr Konto besteht. Server-Logs und Fehlerberichte werden nur kurz aufbewahrt.",
     "section6Title": "6. Ihre Rechte",
     "section6Intro": "Nach der DSGVO haben Sie folgende Rechte:",
     "section6Items": [
@@ -47,9 +55,9 @@
       "<bold>Beschwerderecht:</bold> Sie haben das Recht, sich bei einer Datenschutz-Aufsichtsbehörde zu beschweren."
     ],
     "section7Title": "7. Cookies und lokale Speicherung",
-    "section7Body": "Learnstation verwendet <bold>keine Tracking-Cookies</bold> und keine Drittanbieter-Analyse-Tools (kein Google Analytics, kein Facebook Pixel). Zur Sitzungsverwaltung wird ausschließlich der lokale Speicher des Browsers (localStorage) verwendet.",
+    "section7Body": "Learnstation verwendet <bold>keine Tracking-Cookies</bold> und keine Werbe-Tracker (kein Google Analytics, kein Facebook Pixel). Zur Sitzungsverwaltung und für Einstellungen wird ausschließlich der lokale Speicher des Browsers (localStorage) verwendet. Die Fehlerüberwachung (siehe Auftragsverarbeiter) erhält technische Fehlerdaten ohne Sitzungsaufzeichnung.",
     "section8Title": "8. Drittlandübermittlung",
-    "section8Body": "Supabase kann Daten auf Servern in den USA verarbeiten. In diesem Fall gelten die EU-Standardvertragsklauseln (SCCs) als Schutzgarantie gemäß Art. 46 DSGVO.",
+    "section8Body": "Einige der oben genannten Auftragsverarbeiter haben ihren Sitz in den USA oder können Daten dort verarbeiten (Supabase, OpenAI, Groq, Google, Cloudflare, Mistral, OpenRouter, LlamaIndex, Microsoft, Sentry, Resend). Für diese Übermittlungen gelten die EU-Standardvertragsklauseln (SCCs) bzw. das EU-U.S. Data Privacy Framework als Schutzgarantien gemäß Art. 46 DSGVO.",
     "backHome": "← Zurück zur Startseite"
   }
 }

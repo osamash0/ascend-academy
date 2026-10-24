@@ -230,5 +230,11 @@
     "lede": "The link may be old, or the page has moved. Everything else is right where you left it.",
     "home": "Take me home",
     "back": "Go back"
+  },
+  "accountUnavailable": {
+    "title": "We couldn't load your account",
+    "body": "You're signed in, but we couldn't tell what kind of account this is. Nothing is lost. Try again, or sign out and back in.",
+    "retry": "Try again",
+    "signOut": "Sign out"
   }
 }

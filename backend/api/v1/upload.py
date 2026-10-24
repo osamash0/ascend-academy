@@ -127,6 +127,22 @@ async def _assert_owns_course(course_id: str, user_id: Any) -> None:
         raise HTTPException(status_code=403, detail="You do not own this course.")
 
 
+async def _student_quota_claim(user_id: str) -> Dict[str, Any]:
+    """Claim one monthly-quota slot for a student's private upload (same RPC
+    as /materials/upload). Looked up at call time so tests can stub it."""
+    from backend.services import materials_service
+    return await materials_service._increment_quota(str(user_id))
+
+
+async def _claim_student_quota_or_403(user_id: str) -> None:
+    quota = await _student_quota_claim(user_id)
+    if not quota["allowed"]:
+        raise HTTPException(
+            status_code=403,
+            detail=f"You've used all {quota['quota_limit']} uploads for this month. Upgrade for more.",
+        )
+
+
 @router.post("/parse-pdf-stream")
 @limiter.limit("5/minute")
 async def parse_pdf_stream_endpoint(
@@ -224,6 +240,12 @@ async def parse_pdf_stream_endpoint(
             yield f"data: {json.dumps({'type': 'complete', 'total': total})}\n\n"
 
         return StreamingResponse(cached_stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    # A student's private upload claims one slot of the monthly quota, exactly
+    # as /materials/upload does — this route used to skip it, so the per-user
+    # spend control could be bypassed by uploading here instead.
+    if visibility == "private_student":
+        await _claim_student_quota_or_403(user_id)
 
     # Backpressure: a cache miss means we're about to enqueue a real parse job.
     # Reject up front when the queue is already saturated so the client gets an
@@ -503,7 +525,8 @@ async def parse_raw_endpoint(
         return await upload_service.extract_raw_pages(content, filename, parser)
     except Exception as e:
         logger.error("parse-raw failed: %s", e)
-        raise HTTPException(status_code=422, detail=str(e))
+        # Parser internals (paths, library errors) belong in the log, not the response.
+        raise HTTPException(status_code=422, detail="The file could not be parsed.")
 
 @router.get("/diagnostics/{pdf_hash}")
 @limiter.limit("30/minute")
@@ -683,6 +706,15 @@ async def upload_batch_endpoint(
             None,
         )
         try:
+            if visibility == "private_student":
+                quota = await _student_quota_claim(user_id)
+                if not quota["allowed"]:
+                    results.append({
+                        "filename": raw_name, "pdf_hash": pdf_hash, "run_id": None,
+                        "status": "failed",
+                        "error": f"You've used all {quota['quota_limit']} uploads for this month.",
+                    })
+                    continue
             await upload_service.upload_pdf_to_storage(pdf_hash, content)
             # Must match what unified_orchestrator computes for the same
             # upload, or its re-fetch creates a second parse_runs row instead

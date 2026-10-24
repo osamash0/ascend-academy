@@ -2299,4 +2299,18 @@ async def generate_slide_quiz(text: str, ai_model: str = "cerebras") -> Dict[str
 _llm_generate_text = _llm_generate_text_sync
 generate_summary   = generate_deck_summary
 generate_quiz      = generate_slide_quiz
-generate_slide_title = lambda t: process_slide_batch(t).get("title", "Untitled")
+
+
+async def generate_slide_title(text: str, ai_model: str = "cerebras") -> str:
+    """Short title for one slide. Async on purpose: this used to be a sync
+    lambda over ``process_slide_batch`` that both callers ``await``-ed, so
+    ``/ai/suggest-title`` and ``/ai/slides/{id}/regenerate-title`` raised
+    ``TypeError`` after a blocking provider call on the event loop."""
+    raw = await generate_text(
+        "Give this lecture slide a short, specific title (at most 8 words). "
+        'Return JSON only: {"title": "..."}\n\n' + text,
+        ai_model=ai_model, json_mode=True, feature="slide_title",
+    )
+    parsed = parse_json_response(raw)
+    title = parsed.get("title") if isinstance(parsed, dict) else None
+    return str(title).strip() if title else "Untitled"

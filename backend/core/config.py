@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     # non-evicting policy (noeviction) with AOF so queued jobs are never dropped.
     # Defaults to redis_url when unset so single-Redis dev keeps working.
     redis_queue_url: str = Field(alias="REDIS_QUEUE_URL", default="")
+    # slowapi storage for rate-limit counters. Empty = this process's memory
+    # (fine for tests and single-worker dev). Prod points it at the cache
+    # Redis so limits hold across uvicorn workers (backend/core/rate_limit.py).
+    rate_limit_storage_uri: str = Field(alias="RATE_LIMIT_STORAGE_URI", default="")
     parser_version: str = Field(alias="PARSER_VERSION", default="5")
     # Vision-capable model the unified pipeline (PARSER_VERSION=5) uses for
     # image/scanned/diagram slides so they get real OCR/vision content instead

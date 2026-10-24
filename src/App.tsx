@@ -2,18 +2,18 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 import { ConsoleLayout } from "@/components/console";
 import { useLanguagePreference } from "@/hooks/useLanguagePreference";
 
-import { lazy, Suspense, Component, useRef, type ReactNode } from "react";
+import { lazy, Suspense, Component, useMemo, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 
-import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes, AdminRoutes } from "@/lib/routes";
+import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes, homeForRole, safeNextPath } from "@/lib/routes";
 import { needsFirstRun, postAuthDestination } from "@/lib/firstRun";
 import { SocialProvider } from "@/features/social/store";
 import { ConfettiCanvas } from "@/components/ConfettiCanvas";
@@ -22,6 +22,7 @@ import { FEATURES } from "@/lib/featureFlags";
 import { GearUnlockWatcher } from "@/features/avatar/GearUnlockWatcher";
 import { ViewerLoadoutBridge } from "@/features/avatar/ViewerLoadoutBridge";
 import { MotionRoot } from "@/features/spaces/components/MotionRoot";
+import { SessionActionsContext } from "@/features/spaces/data/session";
 import { CanvasRedirect as LibraryCanvasRedirect, To as LibraryTo } from "@/features/spaces/studio/LibraryRedirects";
 
 function LanguagePreferenceBootstrap({ children }: { children: ReactNode }) {
@@ -172,8 +173,44 @@ const V4_ENABLED =
  */
 const V4_FIRST = V4_ENABLED && V4_LIVE;
 
+/**
+ * Signed in, but the role lookup settled without a role (a timeout, or more
+ * than one user_roles row). No page can be chosen honestly, and student
+ * onboarding would refuse the account and send it straight back here — the
+ * redirect loop this replaces. Say what happened and offer the two ways out.
+ */
+function AccountUnavailable() {
+  const { t } = useTranslation('common');
+  const { signOut } = useAuth();
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-6">
+      <div className="flex max-w-md flex-col items-center gap-4 text-center">
+        <h1 className="text-lg font-bold text-foreground">{t('accountUnavailable.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('accountUnavailable.body')}</p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            {t('accountUnavailable.retry')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground"
+          >
+            {t('accountUnavailable.signOut')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
   const { user, role, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -184,7 +221,10 @@ export function ProtectedRoute({ children, allowedRoles }: { children: React.Rea
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    // Remember where they were going: a shared course or exam link should
+    // still be where they land once they have signed in.
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/auth?next=${next}`} replace />;
   }
 
   // R7 fix: fail closed. `loading` (sessionLoading || roleLoading) is false
@@ -195,7 +235,7 @@ export function ProtectedRoute({ children, allowedRoles }: { children: React.Rea
   // same redirect used for any other unauthorized role, rather than skipping
   // the check and letting the route render for an unknown role.
   if (allowedRoles && !allowedRoles.includes(role ?? '')) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={homeForRole(role)} replace />;
   }
 
   return <>{children}</>;
@@ -203,6 +243,7 @@ export function ProtectedRoute({ children, allowedRoles }: { children: React.Rea
 
 export function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, role, profile, loading } = useAuth();
+  const [params] = useSearchParams();
 
   if (loading) {
     return (
@@ -213,7 +254,14 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
-    return <Navigate to={postAuthDestination({ role, profile, v4First: V4_FIRST })} replace />;
+    // First run for a new student; then where sign-in interrupted them, if it
+    // is a path inside the app; then v4 Home or their role's own home.
+    return (
+      <Navigate
+        to={postAuthDestination({ role, profile, v4First: V4_FIRST, next: safeNextPath(params.get("next")) })}
+        replace
+      />
+    );
   }
 
   return <>{children}</>;
@@ -250,11 +298,10 @@ export function OnboardingRoute() {
 export function StudentDashboardRoute() {
   const { role } = useAuth();
 
-  if (role === 'professor') {
-    return <Navigate to={ProfessorRoutes.DASHBOARD} replace />;
-  }
-  if (role === 'admin') {
-    return <Navigate to={AdminRoutes.DASHBOARD} replace />;
+  if (!role) return <AccountUnavailable />;
+
+  if (role !== 'student') {
+    return <Navigate to={homeForRole(role)} replace />;
   }
 
   return (
@@ -764,6 +811,17 @@ function AppRoutes() {
   );
 }
 
+/**
+ * Gives the sealed v4 namespace the one session action it needs (signing out)
+ * without letting it import auth. Only while someone is signed in: no session,
+ * nothing to end, and v4 says so.
+ */
+function SessionActionsBridge({ children }: { children: ReactNode }) {
+  const { user, signOut } = useAuth();
+  const value = useMemo(() => (user ? { signOut } : null), [user, signOut]);
+  return <SessionActionsContext.Provider value={value}>{children}</SessionActionsContext.Provider>;
+}
+
 const App = () => {
 
   return (
@@ -782,7 +840,9 @@ const App = () => {
                     {/* Lives beside the provider (needs the router; the provider doesn't). */}
                     <GearUnlockWatcher />
                     <ViewerLoadoutBridge>
-                      <AppRoutes />
+                      <SessionActionsBridge>
+                        <AppRoutes />
+                      </SessionActionsBridge>
                     </ViewerLoadoutBridge>
                   </GamificationProvider>
                 </SocialProvider>

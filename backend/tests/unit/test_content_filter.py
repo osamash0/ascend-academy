@@ -109,3 +109,38 @@ class TestLlmClassifyPromptInjectionLabel:
         # Quoted verbatim, not mutated/escaped — this is a classifier, not
         # a place that needs to strip/neutralize the text, just not obey it.
         assert injection_phrase in prompt
+
+
+class TestClassifierGoesThroughTheOrchestrator:
+    """Audit ARCH-F-3: the slide classifier called the Gemini SDK directly for
+    `gemini*` model hints — no rotator, no timeout, no accounting. Every
+    model hint must now take the orchestrator path."""
+
+    def test_gemini_hint_does_not_touch_the_sdk_client(self, monkeypatch):
+        from backend.services import content_filter
+        from backend.services.ai import orchestrator
+
+        attempted = []
+
+        class _Recording:
+            class models:
+                @staticmethod
+                def generate_content(**kwargs):
+                    attempted.append(kwargs.get("model"))
+                    raise RuntimeError("direct Gemini SDK call")
+
+        monkeypatch.setattr(orchestrator, "gemini_client", _Recording())
+        monkeypatch.setattr(orchestrator, "OPENAI_ONLY", False)
+        calls = []
+
+        def _sync(prompt, ai_model="cerebras"):
+            calls.append(ai_model)
+            return '{"classification": "educational", "confidence": 0.9, "reason": "dense"}'
+
+        monkeypatch.setattr(content_filter, "_llm_generate_text_sync", _sync)
+        out = content_filter._llm_classify_slide("A dense educational slide about joins.", ai_model="gemini-2.0-flash")
+        assert out["classification"] == "educational"
+        assert calls == ["gemini-2.0-flash"]
+        # The old branch swallowed its own exception and fell through, so a
+        # raising sentinel alone proves nothing — the SDK must not be touched.
+        assert attempted == []

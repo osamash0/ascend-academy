@@ -65,6 +65,14 @@ def pipeline(monkeypatch):
     monkeypatch.setattr(upload_api.upload_service, "validate_upload", fake_validate)
     monkeypatch.setattr(upload_api, "get_cached_parse", fake_cache)
     monkeypatch.setattr(upload_api.upload_service, "process_pdf_stream", fake_stream)
+
+    # A student's private upload claims a monthly-quota slot before the
+    # stream; the real claim is a SECURITY DEFINER RPC over asyncpg.
+    async def fake_quota(user_id):
+        return {"allowed": True, "uploads_used": 1, "quota_limit": 5}
+
+    from backend.services import materials_service
+    monkeypatch.setattr(materials_service, "_increment_quota", fake_quota)
     return {"reached": reached, "reads": reads}
 
 

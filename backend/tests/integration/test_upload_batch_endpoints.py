@@ -430,3 +430,133 @@ class TestRetryRun:
         assert kwargs["parsing_mode"] == "on_demand"
         assert kwargs["batch_id"] == str(run.batch_id)
         assert kwargs["course_id"] == str(run.course_id)
+
+
+class TestParseRawErrorDetail:
+    def test_parse_raw_422_does_not_echo_the_exception(self, app, professor_user, monkeypatch):
+        """``detail=str(e)`` leaked parser internals (paths, library errors)."""
+        from fastapi.testclient import TestClient
+
+        from backend.core.auth_middleware import require_creator
+        from backend.services import upload_service
+
+        async def _read(file, max_mb):
+            return b"%PDF-1.4 fake"
+
+        async def _validate(filename, content):
+            return None
+
+        async def _explode(content, filename, parser):
+            raise RuntimeError("fitz failed on /tmp/worker-7/secret.pdf: xref table corrupt")
+
+        monkeypatch.setattr(upload_service, "read_upload_capped", _read)
+        monkeypatch.setattr(upload_service, "validate_upload", _validate)
+        monkeypatch.setattr(upload_service, "extract_raw_pages", _explode)
+        app.dependency_overrides[require_creator] = lambda: professor_user
+        r = TestClient(app).post(
+            "/api/v1/upload/parse-raw",
+            files={"file": ("deck.pdf", b"%PDF-1.4 fake", "application/pdf")},
+            headers={"Authorization": "Bearer x"},
+        )
+        assert r.status_code == 422
+        assert "secret.pdf" not in r.text
+        assert "xref" not in r.text
+
+
+class TestStudentQuotaOnUploadRoutes:
+    """Audit Q-C-F-4: /upload/batch and /upload/parse-pdf-stream accept
+    students (visibility private_student) but never claimed a slot of the
+    monthly upload quota — only /materials/upload did. Unlimited parse jobs
+    per student defeated the per-user spend control."""
+
+    STUDENT_ID = "00000000-0000-0000-0000-000000000002"
+
+    def _student_client(self, app, monkeypatch, fake_arq_pool, fake_storage, allowed: bool):
+        from backend.core.auth_middleware import require_creator, verify_token
+        from backend.services import materials_service
+        from backend.tests.conftest import _user
+
+        student = _user("student", self.STUDENT_ID)
+        app.dependency_overrides[require_creator] = lambda: student
+        app.dependency_overrides[verify_token] = lambda: student
+
+        async def fake_validate(filename, content):
+            return 3
+
+        monkeypatch.setattr(upload_api.upload_service, "validate_upload", fake_validate)
+
+        async def fake_get_or_create_run(pdf_hash, lecture_id, pipeline_version, **kwargs):
+            return _make_run(pdf_hash=pdf_hash, user_id=UUID(self.STUDENT_ID),
+                             pipeline_version=pipeline_version, filename=kwargs.get("filename"))
+
+        monkeypatch.setattr(repos_module, "get_or_create_run", fake_get_or_create_run)
+
+        claims = []
+
+        async def fake_increment(user_id):
+            claims.append(user_id)
+            return {"allowed": allowed, "uploads_used": 5, "quota_limit": 5}
+
+        monkeypatch.setattr(materials_service, "_increment_quota", fake_increment)
+        from fastapi.testclient import TestClient
+        return TestClient(app), claims
+
+    def test_batch_claims_one_slot_per_accepted_file(self, app, patch_supabase, fake_arq_pool, fake_storage, monkeypatch):
+        client, claims = self._student_client(app, monkeypatch, fake_arq_pool, fake_storage, allowed=True)
+        r = client.post(
+            "/api/upload/batch",
+            files=[("files", ("a.pdf", b"%PDF-1.4 a", "application/pdf")),
+                   ("files", ("b.pdf", b"%PDF-1.4 b", "application/pdf"))],
+            data={"parsing_mode": "ai"}, headers={"Authorization": "Bearer x"},
+        )
+        assert r.status_code == 200, r.text
+        assert claims == [self.STUDENT_ID, self.STUDENT_ID]
+        assert len(fake_arq_pool) == 2
+
+    def test_batch_file_is_refused_when_quota_is_exhausted(self, app, patch_supabase, fake_arq_pool, fake_storage, monkeypatch):
+        client, claims = self._student_client(app, monkeypatch, fake_arq_pool, fake_storage, allowed=False)
+        r = client.post(
+            "/api/upload/batch",
+            files=[("files", ("a.pdf", b"%PDF-1.4 a", "application/pdf"))],
+            data={"parsing_mode": "ai"}, headers={"Authorization": "Bearer x"},
+        )
+        assert r.status_code == 200, r.text
+        entry = r.json()["files"][0]
+        assert entry["status"] == "failed"
+        assert "quota" in entry["error"].lower() or "uploads" in entry["error"].lower()
+        assert fake_arq_pool == []
+
+    def test_stream_upload_is_403_when_quota_is_exhausted(self, app, patch_supabase, fake_arq_pool, fake_storage, monkeypatch):
+        client, claims = self._student_client(app, monkeypatch, fake_arq_pool, fake_storage, allowed=False)
+        r = client.post(
+            "/api/upload/parse-pdf-stream",
+            files={"file": ("a.pdf", b"%PDF-1.4 a", "application/pdf")},
+            data={"parsing_mode": "ai"}, headers={"Authorization": "Bearer x"},
+        )
+        assert r.status_code == 403, r.text
+        assert claims == [self.STUDENT_ID]
+        assert fake_arq_pool == []
+
+    def test_professor_uploads_never_touch_the_quota(self, app_client, patch_supabase, fake_arq_pool, fake_storage, monkeypatch):
+        from backend.services import materials_service
+
+        async def fake_validate(filename, content):
+            return 3
+
+        monkeypatch.setattr(upload_api.upload_service, "validate_upload", fake_validate)
+
+        async def fake_get_or_create_run(pdf_hash, lecture_id, pipeline_version, **kwargs):
+            return _make_run(pdf_hash=pdf_hash, filename=kwargs.get("filename"))
+
+        monkeypatch.setattr(repos_module, "get_or_create_run", fake_get_or_create_run)
+
+        async def _never(user_id):
+            raise AssertionError("quota must not be claimed for a professor")
+
+        monkeypatch.setattr(materials_service, "_increment_quota", _never)
+        r = app_client.post(
+            "/api/upload/batch",
+            files=[("files", ("a.pdf", b"%PDF-1.4 a", "application/pdf"))],
+            data={"parsing_mode": "ai"},
+        )
+        assert r.status_code == 200, r.text

@@ -13,6 +13,8 @@ import { ListSkeleton, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
 import { Avatar } from '../components/Avatar';
 import { formatNumber } from '../i18n/format';
+import { dataMode } from '../data/liveRepository';
+import { LiveAccountData } from '../components/LiveAccountData';
 
 /**
  * Settings — a Studio screen hanging off Profile.
@@ -268,61 +270,67 @@ export default function SettingsScreen() {
       </Section>
 
       <Section title={t('sections.data.title')}>
-        <div className="flex items-start justify-between gap-6 border-b border-white/[0.06] py-4">
-          <div className="min-w-0">
-            <p className="text-[14.5px] font-semibold text-foreground">{t('sections.data.export.label')}</p>
-            <p className="mt-0.5 max-w-[62ch] text-[13px] leading-relaxed text-muted-foreground">
-              {t('sections.data.export.hint')}
-            </p>
+        {dataMode(import.meta.env.VITE_V4_DATA_MODE) === 'live' ? (
+          <LiveAccountData />
+        ) : (
+          <>
+          <div className="flex items-start justify-between gap-6 border-b border-white/[0.06] py-4">
+            <div className="min-w-0">
+              <p className="text-[14.5px] font-semibold text-foreground">{t('sections.data.export.label')}</p>
+              <p className="mt-0.5 max-w-[62ch] text-[13px] leading-relaxed text-muted-foreground">
+                {t('sections.data.export.hint')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                // It promised "It arrives by email when it is ready", which is a
+                // delivery mechanism this build does not have. The button still
+                // responds — silence would read as a failure — but it says only
+                // what is true.
+                toast(t('sections.data.export.notWired'), {
+                  description: t('sections.data.export.notWiredHint'),
+                })
+              }
+              className="console-focusable inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-white/12 px-4 text-[13px] font-medium transition-colors hover:bg-white/[0.06]"
+            >
+              <Download aria-hidden className="h-4 w-4" />
+              {t('sections.data.export.action')}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() =>
-              // It promised "It arrives by email when it is ready", which is a
-              // delivery mechanism this build does not have. The button still
-              // responds — silence would read as a failure — but it says only
-              // what is true.
-              toast(t('sections.data.export.notWired'), {
-                description: t('sections.data.export.notWiredHint'),
-              })
-            }
-            className="console-focusable inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-white/12 px-4 text-[13px] font-medium transition-colors hover:bg-white/[0.06]"
-          >
-            <Download aria-hidden className="h-4 w-4" />
-            {t('sections.data.export.action')}
-          </button>
-        </div>
 
-        <div className="flex items-start justify-between gap-6 py-4">
-          <div className="min-w-0">
-            <p className="text-[14.5px] font-semibold text-foreground">{t('sections.data.delete.label')}</p>
-            <p className="mt-0.5 max-w-[62ch] text-[13px] leading-relaxed text-muted-foreground">
-              {t('sections.data.delete.hint')}
-            </p>
+          <div className="flex items-start justify-between gap-6 py-4">
+            <div className="min-w-0">
+              <p className="text-[14.5px] font-semibold text-foreground">{t('sections.data.delete.label')}</p>
+              <p className="mt-0.5 max-w-[62ch] text-[13px] leading-relaxed text-muted-foreground">
+                {t('sections.data.delete.hint')}
+              </p>
+            </div>
+            {/*
+              NEEDS-BACKEND: account deletion is a real, irreversible flow with a
+              confirmation step and a grace period. This screen refuses to mock a
+              destructive action, so the button states plainly that it is not
+              wired rather than pretending to fire.
+            */}
+            <button
+              type="button"
+              disabled
+              title={t('v4Spaces:nav.notWired')}
+              /*
+                `text-quiet`, not `text-destructive/50` — which measured 1.87:1,
+                the worst contrast in the build. WCAG exempts inactive controls,
+                but the word "Delete" on an account-deletion row being
+                unreadable is not a thing to lean on an exemption for. The
+                destructive intent is carried by the border and the trash glyph.
+              */
+              className="inline-flex h-9 shrink-0 cursor-not-allowed items-center gap-2 rounded-lg border border-destructive/25 px-4 text-[13px] font-medium text-quiet"
+            >
+              <Trash2 aria-hidden className="h-4 w-4" />
+              {t('sections.data.delete.action')}
+            </button>
           </div>
-          {/*
-            NEEDS-BACKEND: account deletion is a real, irreversible flow with a
-            confirmation step and a grace period. This screen refuses to mock a
-            destructive action, so the button states plainly that it is not
-            wired rather than pretending to fire.
-          */}
-          <button
-            type="button"
-            disabled
-            title={t('v4Spaces:nav.notWired')}
-            /*
-              `text-quiet`, not `text-destructive/50` — which measured 1.87:1,
-              the worst contrast in the build. WCAG exempts inactive controls,
-              but the word "Delete" on an account-deletion row being
-              unreadable is not a thing to lean on an exemption for. The
-              destructive intent is carried by the border and the trash glyph.
-            */
-            className="inline-flex h-9 shrink-0 cursor-not-allowed items-center gap-2 rounded-lg border border-destructive/25 px-4 text-[13px] font-medium text-quiet"
-          >
-            <Trash2 aria-hidden className="h-4 w-4" />
-            {t('sections.data.delete.action')}
-          </button>
-        </div>
+          </>
+        )}
       </Section>
 
       {/* No link icon: this paragraph goes nowhere, and an ExternalLink glyph

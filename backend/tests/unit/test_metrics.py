@@ -51,6 +51,10 @@ async def test_verify_token_increments_auth_cache_hit(monkeypatch):
         return {"id": "u1", "email": "a@b.com", "app_metadata": {}, "user_metadata": {}, "role": "student"}
 
     monkeypatch.setattr(auth_middleware, "get_cached_token", fake_get_cached_token)
+    # The revocation check fails closed, so the cache-hit path needs a Redis.
+    from backend.core import redis as redis_module
+    from backend.tests.fake_redis import FakeRedis
+    monkeypatch.setattr(redis_module, "get_redis_client", lambda: FakeRedis())
 
     creds = type("Creds", (), {"credentials": "sometoken"})()
     user = await auth_middleware.verify_token(credentials=creds)

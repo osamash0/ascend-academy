@@ -154,7 +154,7 @@ async def analytics_insights_endpoint(request: Request, body: AnalyticsStatsRequ
         return InsightsResponse(**result)
     except Exception as e:
         logger.error("AI insights failed: %s", e)
-        raise HTTPException(status_code=500, detail="AI insights generation failed.")
+        raise HTTPException(status_code=502, detail="AI insights generation failed.")
 
 class SlideSuggestionRequest(BaseModel):
     ai_model: _AiModel = "cerebras"
@@ -246,10 +246,16 @@ async def text_to_speech_endpoint(request: Request, body: TTSRequest, user: Any 
     try:
         import io
         audio_content = await tutor_service.generate_speech(body.text, body.voice)
-        return StreamingResponse(io.BytesIO(audio_content), media_type="audio/mpeg")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error("TTS failed: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to generate AI voice.")
+        raise HTTPException(status_code=502, detail="Failed to generate AI voice.")
+    if not audio_content:
+        # Zero bytes with a 200 used to play as silence; say it failed.
+        logger.error("TTS produced no audio for a %d-char text", len(body.text))
+        raise HTTPException(status_code=502, detail="Failed to generate AI voice.")
+    return StreamingResponse(io.BytesIO(audio_content), media_type="audio/mpeg")
 
 @router.post("/sessions", response_model=SessionResponse)
 @limiter.limit("20/minute")
@@ -263,8 +269,18 @@ async def create_chat_session_endpoint(
     
     if body.lecture_id:
         try:
-            res = supabase_admin.table("lectures").select("id").eq("id", body.lecture_id).limit(1).execute()
+            res = (
+                supabase_admin.table("lectures")
+                .select("id, visibility, student_owner_id")
+                .eq("id", body.lecture_id).limit(1).execute()
+            )
             if not res.data: raise HTTPException(status_code=404, detail="Lecture not found.")
+            # Same rule as RLS `lecture_visible_to_caller`: a private student
+            # upload is only its owner's. Without this a session was a side
+            # door into /ai/chat for any lecture id.
+            row = res.data[0]
+            if row.get("visibility") == "private_student" and row.get("student_owner_id") != user_id:
+                raise HTTPException(status_code=403, detail="This material is private.")
         except HTTPException: raise
         except Exception: raise HTTPException(status_code=500, detail="Database lookup failed.")
 

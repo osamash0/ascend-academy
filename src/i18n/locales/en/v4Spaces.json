@@ -106,7 +106,8 @@
     "search": "Search",
     "settings": "Settings",
     "notWired": "Not wired in this design build",
-    "signOut": "Sign out — not wired in this design build"
+    "signOut": "Sign out — not wired in this design build",
+    "signOutLive": "Sign out"
   },
   "notifications": {
     "title": "Notifications",

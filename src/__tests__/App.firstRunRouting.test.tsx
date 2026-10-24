@@ -90,10 +90,10 @@ describe('first-run routing, without v4', () => {
     expect(await screen.findByText('admin-dashboard')).toBeInTheDocument();
   });
 
-  it('role lookup failed and not onboarded: the dashboard renders, no loop', async () => {
+  it('role lookup failed and not onboarded: says so instead of looping', async () => {
     persona(null, fresh);
     await mountAt('/dashboard');
-    expect(await screen.findByText('student-dashboard')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /couldn't load your account/i })).toBeInTheDocument();
   });
 
   it('a new student signing in is sent to first run', async () => {

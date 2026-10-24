@@ -21,7 +21,7 @@ import {
   StarButton,
   VisibilityBadge,
 } from '../components/badges';
-import { Notice, SpacesError, SpacesSkeleton } from '../components/states';
+import { Notice, NotFound, SpacesError, SpacesSkeleton } from '../components/states';
 import { PRESS_SPRING } from '../components/Pressable';
 import {
   Masthead,
@@ -181,7 +181,9 @@ export default function SpaceScreen({
   );
 
   if (state === 'loading') return chrome(<SpacesSkeleton />);
-  if (state === 'error' || !space) return chrome(<SpacesError what="space" />);
+  if (state === 'error') return chrome(<SpacesError what="space" />);
+  // A bad or stale id is not a failed load: retrying would never find it.
+  if (!space) return chrome(<NotFound what="space" back={{ to: '/v4/spaces', place: 'spaces' }} />);
 
   const owned = space.viewerRole === 'owner';
   const isEditor = owned || space.viewerRole === 'editor';
