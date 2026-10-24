@@ -11,6 +11,7 @@
  * / XP glue is kept here (a leaner version of the full LectureView route, which
  * still owns review/recap/achievements and is reachable via "open full page").
  */
+import { buildTutorQueryEvent } from '@/lib/tutorEvents';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -879,14 +880,13 @@ export function InlineLecturePlayer({
       }
 
       if (user) {
-        logLearningEvent(user.id, 'ai_tutor_query', {
+        logLearningEvent(user.id, 'ai_tutor_query', buildTutorQueryEvent({
           lectureId,
           slideId: currentSlide?.id,
           slideTitle: currentSlide?.title,
           sessionId: sessionIdRef.current,
           query: q,
-          timestamp: new Date().toISOString(),
-        }).catch(() => {});
+        })).catch(() => {});
         void recordOnboardingActivation('grounded_ai', lecture?.course_id ?? null);
       }
       onGroundedQuestionAsked?.();

@@ -133,6 +133,24 @@ async def get_history(session_id: str, limit: int = 20) -> List[Dict[str, str]]:
             
     return history
 
+async def purge_user_sessions(user_id: str) -> int:
+    """Erase every chat session of one person: each session's metadata and
+    messages, then the per-user index. Used by account erasure — these keys
+    live outside the database cascade. Returns the number of sessions removed.
+    """
+    redis_client = get_redis_client()
+    user_sessions_key = _get_user_sessions_key(user_id)
+    session_ids = await redis_client.smembers(user_sessions_key)
+    keys: List[str] = []
+    for sid in session_ids:
+        sid = sid.decode() if isinstance(sid, bytes) else sid
+        keys.extend((_get_meta_key(sid), _get_messages_key(sid)))
+    if keys:
+        await redis_client.delete(*keys)
+    await redis_client.delete(user_sessions_key)
+    return len(session_ids)
+
+
 async def delete_session(session_id: str, user_id: str) -> bool:
     """Delete a session's metadata and messages, verifying user ownership."""
     redis_client = get_redis_client()

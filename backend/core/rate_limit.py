@@ -62,4 +62,19 @@ def rate_limit_key(request: Request) -> str:
     return "ip:" + get_real_client_ip(request)
 
 
-limiter = Limiter(key_func=rate_limit_key, default_limits=["120/minute"])
+def build_limiter(storage_uri: str) -> Limiter:
+    """Shared limiter. ``storage_uri`` empty → process memory (tests, single
+    process dev). Production sets RATE_LIMIT_STORAGE_URI to the cache Redis
+    so the counters are shared across uvicorn workers — in memory, every
+    extra worker multiplied every per-user limit.
+    """
+    return Limiter(
+        key_func=rate_limit_key,
+        default_limits=["120/minute"],
+        storage_uri=storage_uri or "memory://",
+    )
+
+
+from backend.core.config import settings  # noqa: E402  (after the helpers it configures)
+
+limiter = build_limiter(settings.rate_limit_storage_uri)

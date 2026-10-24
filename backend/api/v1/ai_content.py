@@ -154,7 +154,7 @@ async def analytics_insights_endpoint(request: Request, body: AnalyticsStatsRequ
         return InsightsResponse(**result)
     except Exception as e:
         logger.error("AI insights failed: %s", e)
-        raise HTTPException(status_code=500, detail="AI insights generation failed.")
+        raise HTTPException(status_code=502, detail="AI insights generation failed.")
 
 class SlideSuggestionRequest(BaseModel):
     ai_model: _AiModel = "cerebras"
@@ -246,10 +246,16 @@ async def text_to_speech_endpoint(request: Request, body: TTSRequest, user: Any 
     try:
         import io
         audio_content = await tutor_service.generate_speech(body.text, body.voice)
-        return StreamingResponse(io.BytesIO(audio_content), media_type="audio/mpeg")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error("TTS failed: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to generate AI voice.")
+        raise HTTPException(status_code=502, detail="Failed to generate AI voice.")
+    if not audio_content:
+        # Zero bytes with a 200 used to play as silence; say it failed.
+        logger.error("TTS produced no audio for a %d-char text", len(body.text))
+        raise HTTPException(status_code=502, detail="Failed to generate AI voice.")
+    return StreamingResponse(io.BytesIO(audio_content), media_type="audio/mpeg")
 
 @router.post("/sessions", response_model=SessionResponse)
 @limiter.limit("20/minute")

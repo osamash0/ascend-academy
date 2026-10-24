@@ -21,6 +21,18 @@ import pytest
 # ── Embeddings ────────────────────────────────────────────────────────────────
 
 
+@pytest.fixture(autouse=True)
+def _no_embedding_accounting(monkeypatch):
+    """Embeddings now write an llm_calls row like every other provider call
+    (audit ARCH-F-3); these tests only care which model reaches the SDK."""
+    from backend.services.ai import orchestrator
+
+    async def _skip(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(orchestrator, "_account_for_call", _skip)
+
+
 def test_generate_embeddings_uses_current_model(monkeypatch):
     """`gemini-embedding-001` is the current GA Google AI embedding model.
     `text-embedding-004` was deprecated and now 404s on v1."""
