@@ -2,100 +2,35 @@
   "activation": {
     "badge": "Learnstation"
   },
-  "actions": {
-    "back": "Back",
-    "next": "Next",
-    "startLearning": "Start Learning",
-    "clickToContinue": "Click to continue"
-  },
   "sound": {
     "muteAria": "Mute sound",
     "unmuteAria": "Unmute sound",
     "onTitle": "Sound on",
     "offTitle": "Sound off"
   },
-  "intro": {
-    "title": "Welcome to Learnstation",
-    "subtitle": "Hey, I'm Luna! I'll be your guide as we set up your learning space."
-  },
-  "steps": {
+  "firstRun": {
     "name": {
-      "title": "Welcome!",
-      "subtitle": "What should we call you?",
-      "placeholder": "Enter your name...",
-      "ariaLabel": "Your name"
+      "title": "I'm Luna. And you?",
+      "label": "Your name",
+      "placeholder": "Your name",
+      "ask": "{{name}}?",
+      "hi": "Hi, {{name}}.",
+      "continue": "That's me"
     },
-    "avatar": {
-      "companionName": "luna",
-      "companionTagline": "your study companion · night mode guardian",
-      "themeTitle": "Choose Luna's look",
-      "themeSubtitle": "Each theme pairs a suit and visor colour made for Luna.",
-      "suitFinish": "Suit Finish",
-      "visorTint": "Visor Tint",
-      "insignia": "Insignia"
+    "light": {
+      "title": "Pick her light.",
+      "group": "Luna's light",
+      "bubble": "Suits me.",
+      "continue": "Keep it"
     },
-    "university": {
-      "title": "Your studies",
-      "subtitle": "Tell us where you study so we can set things up for you.",
-      "universityPlaceholder": "Select your university…",
-      "typeToSearch": "Start typing to search universities…",
-      "autoMatched": "Looks like you're at {{university}}. Pre-filled from your email.",
-      "noCatalog": "We don't have {{university}}'s course catalog yet. You can still tell us your institution, and we'll personalize once it's available.",
-      "institutionPlaceholder": "Your institution",
-      "facultyPlaceholder": "Select your department…",
-      "facultyPlaceholderLocked": "Pick a university first",
-      "programPlaceholder": "Select your field of study…",
-      "programPlaceholderLocked": "Pick a department first",
-      "semesterLabel": "Current semester",
-      "semesterPlaceholder": "Semester",
-      "semesterOption": "Semester {{n}}"
+    "back": "Back",
+    "progress": {
+      "label": "Getting started",
+      "name": "Name",
+      "light": "Light"
     },
-    "confirmCourses": {
-      "title": "We set up your Semester {{semester}}",
-      "subtitle": "Here's what you've likely done and what you're taking now. Adjust anything that's off.",
-      "empty": "No catalog courses found for this program.",
-      "elective": "Elective",
-      "semesterTag": "Semester {{n}}",
-      "currentSemesterTag": "Semester {{n}} · Current",
-      "electiveGroup": "Electives",
-      "selectedCount": "{{count}} selected",
-      "add": "Add {{title}}",
-      "remove": "Remove {{title}}",
-      "status": {
-        "completed": "Completed",
-        "in_progress": "Taking now",
-        "planned": "Planned"
-      }
-    },
-    "extraTopics": {
-      "title": "Add extra topics",
-      "subtitle": "Optionally explore courses on Learnstation beyond your curriculum.",
-      "empty": "No public courses available right now."
+    "error": {
+      "save": "We couldn't save that. Try again."
     }
-  },
-  "reveal": {
-    "allSet": "You're all set, {{name}}",
-    "rank": "Rank: {{rank}}",
-    "xpToNext": "{{xp}} XP to {{rank}}",
-    "badgeUnlocked": "Badge unlocked · Identity Set",
-    "semesterSetUp": "Semester {{semester}} set up",
-    "courseCount_one": "{{count}} course",
-    "courseCount_other": "{{count}} courses",
-    "classmatesToMeet": "Classmates to meet",
-    "classmatesWaiting": "{{count}} waiting",
-    "pickedForYou": "Picked for you",
-    "booting": "> Booting Learnstation…"
-  },
-  "toasts": {
-    "invalidFileTitle": "Invalid file",
-    "invalidFileDescription": "Please upload an image.",
-    "fileTooLargeTitle": "File too large",
-    "fileTooLargeDescription": "Image must be under 2MB.",
-    "avatarUploadedTitle": "Avatar uploaded",
-    "avatarUploadedDescription": "Looking good.",
-    "uploadErrorTitle": "We couldn't upload that",
-    "uploadErrorFallback": "Try a different image.",
-    "finishErrorTitle": "We couldn't finish setup",
-    "finishErrorFallback": "Try again in a moment."
   }
 }

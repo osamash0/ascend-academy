@@ -6,6 +6,8 @@
 export const PublicRoutes = {
   LANDING: '/',
   AUTH: '/auth',
+  /** The same page, opened in sign-up mode — what every "Start" CTA links to. */
+  SIGNUP: '/auth?mode=signup',
   RESET_PASSWORD: '/reset-password',
   IMPRESSUM: '/impressum',
   DATENSCHUTZ: '/datenschutz',
@@ -62,4 +64,11 @@ export const SharedRoutes = {
 export const AdminRoutes = {
   DASHBOARD: '/admin/dashboard',
   LAUNCH: '/admin/launch',
+} as const;
+
+/** The v4 rooms a first run can hand over to. */
+export const V4Routes = {
+  HOME: '/v4/home',
+  LIBRARY: '/v4/library',
+  SPACES: '/v4/spaces',
 } as const;

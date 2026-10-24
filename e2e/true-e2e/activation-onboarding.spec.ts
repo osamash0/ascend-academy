@@ -8,6 +8,14 @@ test.describe("Student True E2E: activation onboarding", () => {
     await page.locator("#password").fill(E2E_ONBOARDING_STUDENT.password);
     await page.getByRole("button", { name: /sign in/i }).click();
 
+    // First run comes first: a name (kept if the account has one), then Luna's light.
+    await page.waitForURL(/\/onboarding$/, { timeout: 15_000 });
+    const name = page.getByLabel(/your name/i);
+    if (!(await name.inputValue())) await name.fill("Onboarding Tester");
+    await page.getByRole("button", { name: /that's me/i }).click();
+    await page.getByRole("button", { name: /keep it/i }).click();
+
+    // Without live v4 data it hands over to the study-path step.
     await page.waitForURL(/\/onboarding\/start/, { timeout: 15_000 });
     await page.getByRole("button", { name: "Build my course" }).click();
     await page.getByRole("button", { name: /Prepare for an exam/ }).click();

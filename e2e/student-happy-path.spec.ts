@@ -63,12 +63,11 @@ test.describe("Student happy path", () => {
       singletons: { lectures: lecture },
     });
 
-    // 1. Visit /auth and switch to signup mode.
-    await page.goto("/auth");
-    await expect(page).toHaveURL(/\/auth/);
-    await page.getByText(/create one/i).click();
+    // 1. Open the account page in sign-up mode, as the landing's Start does.
+    await page.goto("/auth?mode=signup");
+    await expect(page).toHaveURL(/\/auth\?mode=signup/);
 
-    // 2. Fill the signup form (Student is the default role) and consent.
+    // 2. Fill the sign-up form (everyone signs up as a learner) and consent.
     await page.locator("#email").fill(STUDENT.email);
     await page.locator("#password").fill("Sup3rSecret!");
     await page.locator('input[type="checkbox"]').check();
@@ -76,20 +75,17 @@ test.describe("Student happy path", () => {
       .getByRole("button", { name: /create account/i })
       .click();
 
-    // 3. Mocked signup → Onboarding.
-    await page.waitForURL(/\/onboarding/, { timeout: 15_000 });
+    // 3. Mocked signup → first run: a name, then Luna's light.
+    await page.waitForURL(/\/onboarding$/, { timeout: 15_000 });
+    await page.getByLabel(/your name/i).fill("Alice");
+    await page.getByRole("button", { name: /that's me/i }).click();
+    await expect(page.getByRole("heading", { name: /pick her light/i })).toBeVisible();
+    await page.getByRole("button", { name: /keep it/i }).click();
 
-    // Step 1: Click next
-    await page.getByRole("button", { name: /next/i }).click();
-
-    // Step 2: Click next
-    await page.getByRole("button", { name: /next/i }).click();
-
-    // Step 3: Click next (smart default will have preselected University of Testing)
-    await page.getByRole("button", { name: /next/i }).click();
-
-    // Step 5: Click start learning/finish
-    await page.getByRole("button", { name: /start learning/i }).click();
+    // Without live v4 data, first run hands over to the study-path step.
+    // NOTE (2026-10-24): from here on this spec predates the v4 first run —
+    // reaching /dashboard also needs the study-path step completed in the mocks.
+    await page.waitForURL(/\/onboarding\/start|\/v4\/home/, { timeout: 15_000 });
 
     // Wait for redirect to /dashboard.
     await page.waitForURL(/\/dashboard$/, { timeout: 15_000 });

@@ -62,7 +62,7 @@ export function LandingNav() {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/auth')}
+            onClick={() => navigate(PublicRoutes.SIGNUP)}
             className="inline-flex h-9 items-center whitespace-nowrap rounded-full bg-white px-4 text-[13.5px] font-semibold text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
             {t('story.nav.start')}
@@ -176,7 +176,7 @@ export function Close() {
         <div className="mt-10 flex justify-center">
           <button
             type="button"
-            onClick={() => navigate('/auth')}
+            onClick={() => navigate(PublicRoutes.SIGNUP)}
             className="inline-flex h-14 items-center gap-2 rounded-full bg-white px-8 text-[15px] font-semibold text-black transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
             {t('story.close.start')}

@@ -10,7 +10,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { SkillTreePixiView } from '@/features/skilltree/pixi/SkillTreePixiView';
 import { PracticeMatchGame } from '@/features/practice_sheets/pixi/PracticeMatchGame';
-import { OnboardingJourneyMap } from '@/features/onboarding/pixi/OnboardingJourneyMap';
 import type { SkillNode } from '@/features/skilltree/skillTree';
 import type { PracticeSheetQuestion } from '@/services/practiceSheetsService';
 
@@ -76,10 +75,8 @@ const SAMPLE_QUESTIONS: PracticeSheetQuestion[] = [
   updated_at: null,
 })) as PracticeSheetQuestion[];
 
-const STEP_LABELS = ['Profil', 'Sprache', 'Universität', 'Kurse', 'Inhalte'];
 
 export default function PixiLab() {
-  const [step, setStep] = useState(1);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -92,7 +89,6 @@ export default function PixiLab() {
         <TabsList>
           <TabsTrigger value="skilltree">Skill Tree</TabsTrigger>
           <TabsTrigger value="match">Practice Match</TabsTrigger>
-          <TabsTrigger value="journey">Onboarding Journey</TabsTrigger>
         </TabsList>
 
         <TabsContent value="skilltree">
@@ -112,20 +108,6 @@ export default function PixiLab() {
           <p className="mt-2 text-xs text-muted-foreground">Drag each answer onto the matching prompt.</p>
         </TabsContent>
 
-        <TabsContent value="journey">
-          <div className="h-[220px] w-full overflow-hidden rounded-2xl border border-border bg-card">
-            <OnboardingJourneyMap current={step} total={5} labels={STEP_LABELS} height={220} />
-          </div>
-          <div className="mt-3 flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setStep((s) => Math.max(1, s - 1))}>
-              Back
-            </Button>
-            <span className="text-sm text-foreground">Step {step} / 5</span>
-            <Button size="sm" onClick={() => setStep((s) => Math.min(5, s + 1))}>
-              Next
-            </Button>
-          </div>
-        </TabsContent>
       </Tabs>
     </div>
   );

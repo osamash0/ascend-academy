@@ -178,8 +178,9 @@
       "body": "Nothing to pick up yet. Start a Space for something you’re learning, or join one with a code from someone else.",
       "create": "Create a Space",
       "join": "Join with a code",
-      "liveBody": "Nothing to pick up yet. Find a Space for something you’re learning — joining takes one tap, and its first Lesson is waiting inside.",
-      "find": "Find a Space"
+      "liveBody": "Nothing to pick up yet. Start with something you're learning.",
+      "find": "Find a Space",
+      "bring": "Bring in a file"
     },
     "answer": {
       "thinking": "Reading your material…",
