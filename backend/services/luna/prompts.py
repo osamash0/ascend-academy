@@ -19,6 +19,7 @@ class LessonView:
     served: str
     titles: list[tuple[int, str]]
     pages: PageIndex
+    course_id: Optional[str] = None
 
 
 RULES = """Rules:
