@@ -203,7 +203,8 @@ function SecuritySettings({ user }: { user: { email?: string } | null }) {
     const [isChangingPassword, setIsChangingPassword] = useState(false);
 
     const passwordsMatch = !confirmPassword || newPassword === confirmPassword;
-    const canChangePassword = currentPassword && newPassword.length >= 6 && newPassword === confirmPassword;
+    // New passwords need 8 characters, the same rule as sign-up (2026-10-24).
+    const canChangePassword = currentPassword && newPassword.length >= 8 && newPassword === confirmPassword;
 
     const handleChangePassword = useCallback(async () => {
         if (!user?.email || !canChangePassword) return;
@@ -295,7 +296,7 @@ function SecuritySettings({ user }: { user: { email?: string } | null }) {
                             {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                     </div>
-                    {newPassword && newPassword.length < 6 && (
+                    {newPassword && newPassword.length < 8 && (
                         <p className="text-xs text-destructive">{t('settings:security.passwordTooShort')}</p>
                     )}
                 </div>
