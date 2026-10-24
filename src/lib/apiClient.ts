@@ -110,7 +110,17 @@ export const apiClient = {
       signal,
       credentials: 'include',
     });
-    if (!res.ok) throw new Error(`Stream ${path} → ${res.status}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      let detail: string | undefined;
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed && typeof parsed.detail === 'string') detail = parsed.detail;
+      } catch {
+        // not JSON — nothing to extract
+      }
+      throw new ApiError(`Stream ${path} → ${res.status}: ${text}`, res.status, detail);
+    }
     return res;
   },
 
