@@ -34,3 +34,48 @@ def test_grade_activation_only_for_shared_or_own_cards(db_conn, make_user, make_
         cur.execute(_pg(ACTIVATE_IF_VISIBLE_SQL), {"p1": str(a), "p2": str(card), "p3": now})
         cur.execute("SELECT count(*) FROM public.review_schedule WHERE user_id = %s", (str(a),))
         assert cur.fetchone()[0] == 1
+
+
+def _owned_card(cur, lecture, owner):
+    card = uuid.uuid4()
+    cur.execute(
+        """INSERT INTO public.review_cards (id, lecture_id, source_type, front, back, content_hash, owner_id)
+           VALUES (%s, %s, %s, '{}'::jsonb, '{}'::jsonb, %s, %s)""",
+        (str(card), str(lecture), "luna_session" if owner else "quiz_question", uuid.uuid4().hex, str(owner) if owner else None),
+    )
+    return card
+
+
+def test_suspend_only_for_shared_or_own_cards(db_conn, make_user, make_lecture):
+    from backend.api.v1.review import SUSPEND_IF_VISIBLE_SQL
+
+    a, b, prof = make_user(), make_user(), make_user(role="professor")
+    lecture = make_lecture(prof)
+    with db_conn.cursor() as cur:
+        card = _owned_card(cur, lecture, a)
+        cur.execute(_pg(SUSPEND_IF_VISIBLE_SQL), {"p1": str(b), "p2": str(card)})
+        assert cur.rowcount == 0
+        cur.execute(_pg(SUSPEND_IF_VISIBLE_SQL), {"p1": str(a), "p2": str(card)})
+        assert cur.rowcount == 1
+        cur.execute("SELECT suspended FROM public.review_schedule WHERE user_id = %s AND card_id = %s", (str(a), str(card)))
+        assert cur.fetchone()[0] is True
+
+
+def test_shared_card_still_activates_for_anyone(db_conn, make_user, make_lecture):
+    b, prof = make_user(), make_user(role="professor")
+    lecture = make_lecture(prof)
+    with db_conn.cursor() as cur:
+        card = _owned_card(cur, lecture, None)
+        cur.execute(_pg(ACTIVATE_IF_VISIBLE_SQL), {"p1": str(b), "p2": str(card), "p3": datetime.now(timezone.utc)})
+        assert cur.rowcount == 1
+
+
+def test_hide_lookup_skips_owned_cards(db_conn, make_user, make_lecture):
+    a, prof = make_user(), make_user(role="professor")
+    lecture = make_lecture(prof)
+    with db_conn.cursor() as cur:
+        card = _owned_card(cur, lecture, a)
+        cur.execute(
+            "SELECT lecture_id FROM review_cards WHERE id = %s AND owner_id IS NULL", (str(card),)
+        )
+        assert cur.fetchone() is None
