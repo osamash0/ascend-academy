@@ -13,8 +13,9 @@ from uuid import UUID
 
 from backend.services.luna.context import load_lesson
 from backend.services.luna.plan import apply_action, advance, current_step, fallback_plan, is_last
-from backend.services.luna.prompts import LessonView, plan_prompt, turn_prompt
-from backend.services.luna.validate import PageIndex, validate_plan, validate_turn
+from backend.services.luna.memory import choose_retirements
+from backend.services.luna.prompts import LessonView, plan_prompt, practice_prompt, turn_prompt, wrap_prompt
+from backend.services.luna.validate import PageIndex, validate_check, validate_plan, validate_turn, validate_wrap
 
 logger = logging.getLogger(__name__)
 
@@ -252,3 +253,80 @@ async def _run(
         yield "error", {"detail": FALLBACK[lang]}
     finally:
         await store.release(sid)
+
+
+async def _owned(store: Any, user_id: str, session_id: str) -> dict:
+    session = await store.get_session(session_id, user_id)
+    if not session:
+        raise LunaError(404, "Session not found.")
+    return session
+
+
+def _visited(session: dict, turns: list[dict]) -> list[int]:
+    pages = {t["content"]["page"] for t in turns if t["role"] == "move" and t["content"].get("lecture_id") == session["lecture_id"]}
+    pages |= {s["target"]["page"] for s in session["plan"] if s["status"] in ("done", "current")}
+    return sorted(pages) or [1]
+
+
+async def wrap(store: Any, *, user_id: str, session_id: str, locale: str, ai: Ai = default_ai, load: Loader = load_lesson) -> dict:
+    session = await _owned(store, user_id, session_id)
+    if session["wrap"]:
+        return {"wrap": session["wrap"], "memory": []}
+    if not session["lecture_id"]:
+        raise LunaError(409, "This session's Lesson is gone.")
+    turns = await store.recent_turns(session_id, MAX_TURNS * 3)
+    view = await load(session["lecture_id"], locale, _visited(session, turns))
+    memory = await store.active_memory(user_id, session["space_id"])
+    try:
+        raw = await ai(wrap_prompt(view, plan=session["plan"], turns=turns, memory=memory, locale=locale),
+                       user_id=user_id, course_id=view.course_id, feature=FEATURE)
+    except Exception as exc:
+        if _is_budget(exc):
+            raise LunaError(429, BUDGET[_lang(locale)])
+        logger.warning("luna wrap model call failed: %s", exc)
+        raise LunaError(502, "Couldn't write the wrap-up just now.")
+    result = validate_wrap(raw, pages=view.pages, memory_ids={m["id"] for m in memory})
+    if not result:
+        raise LunaError(502, "Couldn't write the wrap-up just now.")
+    everything = await store.all_active_memory(user_id)
+    await store.retire_memory(user_id, choose_retirements(everything, len(result["memory_add"]), result["memory_retire"]))
+    added = await store.add_memory(user_id, result["memory_add"], session["space_id"], session_id)
+    await store.update_session(session_id, wrap=result["wrap"], status="wrapped")
+    return {"wrap": result["wrap"], "memory": [{k: m[k] for k in ("id", "kind", "text")} for m in added]}
+
+
+async def keep(store: Any, *, user_id: str, session_id: str) -> dict:
+    session = await _owned(store, user_id, session_id)
+    if not session["wrap"]:
+        raise LunaError(409, "Wrap the session up first.")
+    await store.update_session(session_id, kept=True)
+    return {"kept": True}
+
+
+async def practice(store: Any, *, user_id: str, session_id: str, locale: str, ai: Ai = default_ai, load: Loader = load_lesson) -> dict:
+    session = await _owned(store, user_id, session_id)
+    if not session["wrap"] or not session["lecture_id"]:
+        raise LunaError(409, "Wrap the session up first.")
+    turns = await store.recent_turns(session_id, MAX_TURNS * 3)
+    view = await load(session["lecture_id"], locale, _visited(session, turns))
+    shaky = [i["text"] for i in session["wrap"].get("shaky", [])]
+    missed = [t["content"]["check"]["question"] for t in turns
+              if t["role"] == "learner" and isinstance(t["content"].get("check"), dict) and not t["content"]["check"].get("correct")]
+    try:
+        raw = await ai(practice_prompt(view, shaky=shaky, missed=missed, locale=locale),
+                       user_id=user_id, course_id=view.course_id, feature=FEATURE)
+    except Exception as exc:
+        if _is_budget(exc):
+            raise LunaError(429, BUDGET[_lang(locale)])
+        logger.warning("luna practice model call failed: %s", exc)
+        raise LunaError(502, "Couldn't make practice just now.")
+    cards = []
+    for q in (raw.get("questions") if isinstance(raw, dict) else None) or []:
+        check = validate_check(q)
+        if check:
+            page = q.get("page") if isinstance(q.get("page"), int) and view.pages.exists(session["lecture_id"], q["page"]) else None
+            cards.append({**check, "page": page})
+    if not cards:
+        raise LunaError(502, "Couldn't make practice just now.")
+    added = await store.insert_owned_cards(user_id, session["lecture_id"], cards[:6])
+    return {"added": added}

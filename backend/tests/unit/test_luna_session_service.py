@@ -250,3 +250,49 @@ async def test_the_reserved_turn_id_is_refused():
         await svc.open_turn(store, user_id=U, session_id=sid, client_turn_id=str(uuid.UUID(int=0)), text="hi", action=None,
                             plan_edit=None, reading_at=None, check_result=None, locale="en", ai=scripted(), load=fake_load)
     assert e.value.status == 400
+
+
+WRAP_REPLY = {
+    "covered": [{"text": "Functional dependencies", "lecture_id": L, "page": 4}],
+    "clicked": [{"text": "Reading an FD as a lookup", "lecture_id": L, "page": 4}],
+    "shaky": [{"text": "Partial keys in 2NF", "lecture_id": L, "page": 5}],
+    "memory_add": [{"kind": "preference", "text": "examples before definitions"}, {"kind": "shaky", "text": "partial keys"}],
+    "memory_retire": [],
+}
+
+
+async def test_wrap_saves_the_card_writes_memory_and_is_idempotent():
+    store = FakeStore()
+    sid = await _started(store, scripted(PLAN_REPLY))
+    ai = scripted(WRAP_REPLY)
+    out = await svc.wrap(store, user_id=U, session_id=sid, locale="en", ai=ai, load=fake_load)
+    assert out["wrap"]["shaky"][0]["page"] == 5
+    assert {m["text"] for m in out["memory"]} == {"examples before definitions", "partial keys"}
+    assert store.sessions[sid]["status"] == "wrapped"
+    again = await svc.wrap(store, user_id=U, session_id=sid, locale="en", ai=ai, load=fake_load)
+    assert again["wrap"] == out["wrap"] and again["memory"] == [] and len(ai.calls) == 1
+
+
+async def test_wrap_respects_the_memory_cap():
+    store = FakeStore()
+    store.memory = [{"id": f"m{i}", "kind": "preference", "space_id": None, "text": f"line {i}", "active": True,
+                     "updated_at": datetime(2026, 1, 1 + i, tzinfo=timezone.utc)} for i in range(20)]
+    sid = await _started(store, scripted(PLAN_REPLY))
+    await svc.wrap(store, user_id=U, session_id=sid, locale="en", ai=scripted(WRAP_REPLY), load=fake_load)
+    assert sum(m["active"] for m in store.memory) == 20
+    assert not next(m for m in store.memory if m["id"] == "m0")["active"]
+
+
+async def test_keep_and_practice_need_a_wrapped_session():
+    store = FakeStore()
+    sid = await _started(store, scripted(PLAN_REPLY))
+    with pytest.raises(svc.LunaError) as e:
+        await svc.keep(store, user_id=U, session_id=sid)
+    assert e.value.status == 409
+    await svc.wrap(store, user_id=U, session_id=sid, locale="en", ai=scripted(WRAP_REPLY), load=fake_load)
+    assert await svc.keep(store, user_id=U, session_id=sid) == {"kept": True}
+    q = {"question": "Does it hold?", "page": 4, "options": [{"text": "Yes", "why": "a"}, {"text": "No", "correct": True, "why": "b"}]}
+    bad = {"question": "Two right?", "options": [{"text": "A", "correct": True}, {"text": "B", "correct": True}]}
+    out = await svc.practice(store, user_id=U, session_id=sid, locale="en",
+                             ai=scripted({"questions": [q, q, bad]}), load=fake_load)
+    assert out == {"added": 2} and store.cards[0]["question"] == "Does it hold?"
