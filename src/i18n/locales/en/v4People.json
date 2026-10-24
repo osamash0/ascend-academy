@@ -1,3 +1,131 @@
 {
-  "_about": "v4 Social, Profile, Person, Rank, Moments"
+  "_about": "v4 Social, Profile, Person, Rank, Moments",
+  "social": {
+    "lede": "The people you’re learning alongside.",
+    "standing": {
+      "behind": "{{xp}} XP behind {{name}}",
+      "top": "Nobody ahead of you",
+      "showBehind": "Number {{position}} on the board, {{xp}} XP behind {{name}}. Show the board.",
+      "showTop": "Top of the board. Show the board.",
+      "you": "You"
+    },
+    "tabs": {
+      "ranking": "Ranking",
+      "friends": "Friends · {{n}}",
+      "requests": "Requests · {{n}}"
+    },
+    "ranking": {
+      "about": "Ranked by XP — earned from learning, and from work of yours that other people found useful."
+    },
+    "sharedSpaces_one": "{{count}} Space in common",
+    "sharedSpaces_other": "{{count}} Spaces in common",
+    "friends": {
+      "emptyTitle": "No friends yet",
+      "emptyBody": "Find people in the Spaces you’re already in — you’re learning the same things.",
+      "view": "View profile",
+      "viewLabel": "View {{name}}'s profile",
+      "find": "Find people"
+    },
+    "requests": {
+      "emptyTitle": "No requests",
+      "emptyBody": "Nothing waiting for you right now.",
+      "accept": "Accept",
+      "acceptLabel": "Accept {{name}}",
+      "declineLabel": "Decline {{name}}",
+      "accepted": "{{name}} is now a friend",
+      "declined": "Request declined"
+    }
+  },
+  "person": {
+    "rank": "Rank {{n}}",
+    "noRank": "No rank yet",
+    "friends": "Friends",
+    "shared": "Spaces you are both in",
+    "published": "What they have published",
+    "nothingPublished": "{{name}} hasn’t published anything in a Space you share.",
+    "likes": "likes",
+    "needsNewHome": "Needs a new home"
+  },
+  "profile": {
+    "ringLabel": "Rank {{rank}}. {{toNext}} XP to the next Rank.",
+    "toGo": "{{toNext}} to go",
+    "figures": {
+      "streak_one": "day in a row",
+      "streak_other": "days in a row",
+      "published": "published",
+      "likes_one": "like",
+      "likes_other": "likes"
+    },
+    "journey": {
+      "title": "Your journey",
+      "lede": "Every Space you are in, oldest first. Height is how far you have got."
+    },
+    "moments": {
+      "lede": "The first time each thing happened. Not a set to complete.",
+      "all": "All moments"
+    }
+  },
+  "rank": {
+    "eyebrow": "Rank",
+    "title": "Rank {{rank}}",
+    "standing": "{{xp}} XP · {{toNext}} to Rank {{next}}",
+    "progressLabel": "Progress through Rank {{rank}}",
+    "through": "{{into}} of {{span}} XP through this rank",
+    "gate": {
+      "title": "XP comes from being useful",
+      "body": "Learning earns it, and so does work of yours that someone liked, an Owner endorsed, or someone used. Publishing on its own earns nothing — otherwise the fastest way up would be to post constantly, and the Spaces would fill with noise.",
+      "whoCounts": "Likes from people who have not learned anything in that Space still count toward the contribution, but grant no XP. You cannot like your own work."
+    },
+    "bySource": "Where yours came from",
+    "sources": {
+      "learning": {
+        "label": "Learning",
+        "meaning": "Finishing Lessons and practice in any Space."
+      },
+      "liked": {
+        "label": "Liked by someone",
+        "meaning": "Someone found a contribution of yours useful."
+      },
+      "endorsed": {
+        "label": "Endorsed by an Owner",
+        "meaning": "An Owner marked your work as worth trusting."
+      },
+      "used": {
+        "label": "Used by someone",
+        "meaning": "Someone completed a practice set you wrote."
+      },
+      "milestone": {
+        "label": "Milestone",
+        "meaning": "Your first contribution — once ever, not once per Space."
+      }
+    },
+    "events": "Everything that earned it",
+    "ahead": "What is ahead",
+    "here": "You are here",
+    "fromStart": "from the start",
+    "xp": "{{xp}} XP",
+    "name": "Rank {{n}}"
+  },
+  "moments": {
+    "name": "Moments",
+    "title": "The firsts",
+    "lede": "The first time each thing happened to you here. Nothing on this page is a score, and there is nothing to collect — these are just the days something changed.",
+    "empty": "Nothing yet. Finish a Lesson and the first one lands here."
+  },
+  "history": {
+    "eyebrow": "Study history",
+    "run_one": "{{count}} day running",
+    "run_other": "{{count}} days running",
+    "longest_one": "Longest so far, {{count}} day",
+    "longest_other": "Longest so far, {{count}} days",
+    "total_one": "{{count}} day studied in all",
+    "total_other": "{{count}} days studied in all",
+    "today": "Including today.",
+    "last": "Last on {{day}}.",
+    "weeks": "The last six weeks",
+    "studied": "{{day}} — studied",
+    "notStudied": "{{day}} — no study",
+    "legend": "A filled square is a day you studied. Nothing here counts toward XP or your Rank.",
+    "every": "Every day you studied"
+  }
 }

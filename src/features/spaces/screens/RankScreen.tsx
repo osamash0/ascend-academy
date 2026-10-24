@@ -1,5 +1,6 @@
 import { ArrowLeft, BookOpen, Check, Heart, Sparkles, Star, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { viewer } from '../mocks/people';
 import { viewerStanding } from '../mocks/library';
@@ -16,6 +17,7 @@ import { Skylight } from '../components/stage';
 import { EnterGroup, EnterItem, EnterList, EnterListItem } from '../components/Enter';
 import { useScreenState } from '../data/useSpaces';
 import { ListSkeleton, SpacesError } from '../components/states';
+import { formatNumber, formatTimestamp } from '../i18n/format';
 
 /**
  * Rank — "why is this number what it is?"
@@ -48,14 +50,7 @@ import { ListSkeleton, SpacesError } from '../components/states';
  * nothing to manage — the Studio screens are where dense work happens.
  */
 
-const SOURCE_LABEL: Record<XpSource, string> = {
-  learning: 'Learning',
-  liked: 'Liked by someone',
-  endorsed: 'Endorsed by an Owner',
-  used: 'Used by someone',
-  milestone: 'Milestone',
-};
-
+/** Each source's label and meaning live in v4People `rank.sources.*`. */
 const SOURCE_ICON: Record<XpSource, typeof BookOpen> = {
   learning: BookOpen,
   liked: Heart,
@@ -64,25 +59,8 @@ const SOURCE_ICON: Record<XpSource, typeof BookOpen> = {
   milestone: Star,
 };
 
-/**
- * What each source means, in the person's terms.
- *
- * Written out because "Used" is meaningless on its own, and Doc 1 defines it
- * narrowly — v1 has exactly one "used" event and pretending otherwise would
- * promise something the product does not do.
- */
-const SOURCE_MEANING: Record<XpSource, string> = {
-  learning: 'Finishing Lessons and practice in any Space.',
-  liked: 'Someone found a contribution of yours useful.',
-  endorsed: 'An Owner marked your work as worth trusting.',
-  used: 'Someone completed a practice set you wrote.',
-  milestone: 'Your first contribution — once ever, not once per Space.',
-};
-
-const formatWhen = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-
 export default function RankScreen() {
+  const { t } = useTranslation('v4People');
   const screenState = useScreenState();
   const { xp } = viewerStanding();
   const { rank, into, span, toNext, pct } = standingFor(xp);
@@ -119,7 +97,7 @@ export default function RankScreen() {
         className="console-focusable inline-flex items-center gap-2 rounded-full text-[13.5px] text-quiet transition-colors hover:text-foreground"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" />
-        Profile
+        {t('v4Spaces:nav.profile')}
       </Link>
 
       <EnterGroup>
@@ -127,13 +105,13 @@ export default function RankScreen() {
           <header className="mt-6">
             <p className="flex items-center gap-2 text-[13px] font-medium text-quiet">
               <TrendingUp aria-hidden className="h-4 w-4" />
-              Rank
+              {t('rank.eyebrow')}
             </p>
             <h1 className="mt-3 text-5xl font-medium tracking-[-0.035em] tabular-nums">
-              Rank {rank}
+              {t('rank.title', { rank })}
             </h1>
             <p className="mt-3 text-[15px] text-quiet tabular-nums">
-              {xp.toLocaleString()} XP · {toNext.toLocaleString()} to Rank {rank + 1}
+              {t('rank.standing', { xp: formatNumber(xp), toNext: formatNumber(toNext), next: rank + 1 })}
             </p>
 
             <div
@@ -141,7 +119,7 @@ export default function RankScreen() {
               aria-valuenow={pct}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-label={`Progress through Rank ${rank}`}
+              aria-label={t('rank.progressLabel', { rank })}
               className="mt-5 h-2 w-full max-w-md overflow-hidden rounded-full bg-white/10"
             >
               <div
@@ -150,7 +128,7 @@ export default function RankScreen() {
               />
             </div>
             <p className="mt-2 text-[12.5px] text-faint tabular-nums">
-              {into.toLocaleString()} of {span.toLocaleString()} XP through this rank
+              {t('rank.through', { into: formatNumber(into), span: formatNumber(span) })}
             </p>
           </header>
         </EnterItem>
@@ -162,22 +140,18 @@ export default function RankScreen() {
         */}
         <EnterItem>
           <section className="mt-10 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-5">
-            <h2 className="text-[15px] font-semibold">XP comes from being useful</h2>
+            <h2 className="text-[15px] font-semibold">{t('rank.gate.title')}</h2>
             <p className="mt-2 text-[14px] leading-relaxed text-quiet">
-              Learning earns it, and so does work of yours that someone liked, an Owner
-              endorsed, or someone used. Publishing on its own earns nothing — otherwise
-              the fastest way up would be to post constantly, and the Spaces would fill
-              with noise.
+              {t('rank.gate.body')}
             </p>
             <p className="mt-2 text-[14px] leading-relaxed text-quiet">
-              Likes from people who have not learned anything in that Space still count
-              toward the contribution, but grant no XP. You cannot like your own work.
+              {t('rank.gate.whoCounts')}
             </p>
           </section>
         </EnterItem>
 
         <EnterItem>
-          <h2 className="mt-10 text-[15px] font-semibold">Where yours came from</h2>
+          <h2 className="mt-10 text-[15px] font-semibold">{t('rank.bySource')}</h2>
         </EnterItem>
 
         <EnterItem>
@@ -192,12 +166,12 @@ export default function RankScreen() {
                 >
                   <div className="flex items-center gap-2.5">
                     <Icon aria-hidden className="h-4 w-4 text-quiet" />
-                    <span className="text-[14px] font-medium">{SOURCE_LABEL[s.source]}</span>
+                    <span className="text-[14px] font-medium">{t(`rank.sources.${s.source}.label`)}</span>
                     <span className="ml-auto text-[15px] font-semibold tabular-nums">
                       {s.total} XP
                     </span>
                   </div>
-                  <p className="mt-1.5 text-[13px] text-quiet">{SOURCE_MEANING[s.source]}</p>
+                  <p className="mt-1.5 text-[13px] text-quiet">{t(`rank.sources.${s.source}.meaning`)}</p>
                   {/*
                     A share of *this* total, not a second progression — Doc 1
                     rule 4. It says how one number was made up, and it moves
@@ -219,7 +193,7 @@ export default function RankScreen() {
         </EnterItem>
 
         <EnterItem>
-          <h2 className="mt-10 text-[15px] font-semibold">Everything that earned it</h2>
+          <h2 className="mt-10 text-[15px] font-semibold">{t('rank.events')}</h2>
         </EnterItem>
       </EnterGroup>
 
@@ -237,7 +211,7 @@ export default function RankScreen() {
                 <p className="mt-1 text-[12.5px] text-faint">
                   {/* An account-wide event names no Space, and must not
                       invent one — the orphan row's mistake. */}
-                  {[e.spaceName, formatWhen(e.at)].filter(Boolean).join(' · ')}
+                  {[e.spaceName, formatTimestamp(e.at)].filter(Boolean).join(' · ')}
                 </p>
               </div>
               <span className="shrink-0 text-[14px] font-semibold tabular-nums text-primary">
@@ -250,7 +224,7 @@ export default function RankScreen() {
 
       <EnterGroup whenVisible>
         <EnterItem>
-          <h2 className="mt-10 text-[15px] font-semibold">What is ahead</h2>
+          <h2 className="mt-10 text-[15px] font-semibold">{t('rank.ahead')}</h2>
         </EnterItem>
         <EnterItem>
           <ol className="mt-4 space-y-1.5">
@@ -274,13 +248,13 @@ export default function RankScreen() {
                       reached ? 'text-foreground' : 'text-quiet',
                     )}
                   >
-                    Rank {n}
+                    {t('rank.title', { rank: n })}
                   </span>
                   {current && (
-                    <span className="text-[12.5px] font-medium text-primary">You are here</span>
+                    <span className="text-[12.5px] font-medium text-primary">{t('rank.here')}</span>
                   )}
                   <span className="ml-auto text-[13px] text-faint tabular-nums">
-                    {n <= 1 ? 'from the start' : `${xpForRank(n).toLocaleString()} XP`}
+                    {n <= 1 ? t('rank.fromStart') : t('rank.xp', { xp: formatNumber(xpForRank(n)) })}
                   </span>
                 </li>
               );

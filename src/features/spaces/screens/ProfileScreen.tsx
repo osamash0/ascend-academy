@@ -1,5 +1,6 @@
 import { Flame, Heart, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { libraryItems, viewerStanding } from '../mocks/library';
 import { moments } from '../mocks/moments';
@@ -14,6 +15,7 @@ import { useScreenState } from '../data/useSpaces';
 import { ListSkeleton, SpacesError } from '../components/states';
 import { AscentMap, ascentSpaces } from '../components/AscentMap';
 import { Sep, Skylight, StageRow, ghostPillSm, stageCard } from '../components/stage';
+import { formatNumber } from '../i18n/format';
 
 /**
  * Profile — "how far have I come?"
@@ -33,6 +35,7 @@ import { Sep, Skylight, StageRow, ghostPillSm, stageCard } from '../components/s
 
 
 export default function ProfileScreen() {
+  const { t } = useTranslation('v4People');
   const screenState = useScreenState();
   /*
    * From the one standing, not from two literals sitting here.
@@ -81,7 +84,7 @@ export default function ProfileScreen() {
         <header className="flex flex-col items-center text-center">
           <Link
             to="/v4/profile/rank"
-            aria-label={`Rank ${rank}. ${toNext} XP to the next Rank.`}
+            aria-label={t('profile.ringLabel', { rank, toNext })}
             className="console-focusable relative rounded-full"
           >
             <RankRing progress={pct}>
@@ -98,8 +101,8 @@ export default function ProfileScreen() {
             {viewer.name}
           </h1>
           <p className="mt-3 text-[14px] tabular-nums text-quiet">
-            {xp.toLocaleString()} XP<Sep />
-            {toNext} to go
+            {formatNumber(xp)} XP<Sep />
+            {t('profile.toGo', { toNext })}
           </p>
         </header>
 
@@ -111,12 +114,12 @@ export default function ProfileScreen() {
         */}
         <div className="mx-auto mt-14 grid max-w-2xl grid-cols-3 divide-x divide-white/[0.08]">
           {[
-            { to: '/v4/profile/history', n: streak, label: streak === 1 ? 'day in a row' : 'days in a row', icon: Flame },
-            { to: '/v4/library?f=shared', n: published.length, label: 'published', icon: Sparkles },
-            { to: '/v4/library?f=shared', n: likesReceived, label: likesReceived === 1 ? 'like' : 'likes', icon: Heart },
+            { key: 'streak', to: '/v4/profile/history', n: streak, label: t('profile.figures.streak', { count: streak }), icon: Flame },
+            { key: 'published', to: '/v4/library?f=shared', n: published.length, label: t('profile.figures.published'), icon: Sparkles },
+            { key: 'likes', to: '/v4/library?f=shared', n: likesReceived, label: t('profile.figures.likes', { count: likesReceived }), icon: Heart },
           ].map((f) => (
             <Link
-              key={f.label}
+              key={f.key}
               to={f.to}
               className="console-focusable group flex flex-col items-center gap-1.5 px-2 py-2 transition-colors"
             >
@@ -133,8 +136,8 @@ export default function ProfileScreen() {
 
         <StageRow
           id="profile-journey"
-          title="Your journey"
-          lede="Every Space you are in, oldest first. Height is how far you have got."
+          title={t('profile.journey.title')}
+          lede={t('profile.journey.lede')}
         >
           {/*
             Abi's call, 2026-08-31: Ascent inherits the per-Space map's ten
@@ -155,12 +158,12 @@ export default function ProfileScreen() {
         */}
         <StageRow
           id="profile-moments"
-          title="Moments"
+          title={t('moments.name')}
           count={allMoments.length}
-          lede="The first time each thing happened. Not a set to complete."
+          lede={t('profile.moments.lede')}
           action={
             <Link to="/v4/profile/moments" className={ghostPillSm}>
-              All moments
+              {t('profile.moments.all')}
             </Link>
           }
         >

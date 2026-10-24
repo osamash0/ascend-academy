@@ -12,6 +12,7 @@ import { StudioShell } from '../components/StudioShell';
 import { ListSkeleton, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
 import { Avatar } from '../components/Avatar';
+import { formatNumber } from '../i18n/format';
 
 /**
  * Settings — a Studio screen hanging off Profile.
@@ -175,9 +176,9 @@ export default function SettingsScreen() {
       <StudioShell
         icon={SettingsIcon}
         title={t('title')}
-        subtitle={screenState === 'error' ? 'Something went wrong' : 'Loading…'}
+        subtitle={screenState === 'error' ? t('sections.status.failed') : t('sections.status.loading')}
         backTo="/v4/profile"
-        backLabel="Back to Profile"
+        backLabel={t('sections.status.back')}
       >
         {screenState === 'error' ? <SpacesError what="settings" /> : <ListSkeleton />}
       </StudioShell>
@@ -190,7 +191,7 @@ export default function SettingsScreen() {
       title={t('title')}
       subtitle={t('subtitle')}
       backTo="/v4/profile"
-      backLabel="Back to Profile"
+      backLabel={t('sections.status.back')}
     >
       {/* Identity, read-only. Editing it belongs to Profile, which owns "you". */}
       <div className="mb-8 flex items-center gap-4 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
@@ -198,14 +199,14 @@ export default function SettingsScreen() {
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-semibold text-foreground">{viewer.name}</p>
           <p className="truncate text-[13px] text-muted-foreground tabular-nums">
-            {standing.rank} · {standing.xp.toLocaleString()} XP
+            {t('sections.account.standing', { rank: standing.rank, xp: formatNumber(standing.xp) })}
           </p>
         </div>
         <Link
           to="/v4/profile"
           className="console-focusable inline-flex h-9 shrink-0 items-center rounded-lg border border-white/12 px-4 text-[13px] font-medium transition-colors hover:bg-white/[0.06]"
         >
-          Edit on Profile
+          {t('sections.account.edit')}
         </Link>
       </div>
 
@@ -221,57 +222,56 @@ export default function SettingsScreen() {
       <LanguageSection />
 
       <p className="mb-8 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-[13px] leading-relaxed text-muted-foreground">
-        The language above is saved. The switches below are not yet: they show
-        what will be adjustable, do not change anything, and reset when you leave.
+        {t('sections.notice')}
       </p>
 
-      <Section title="Notifications">
+      <Section title={t('sections.notifications.title')}>
         <Toggle
           id="notify-replies"
-          label="When someone replies to you"
-          description="A reply to your contribution, or a mention by name."
+          label={t('sections.notifications.replies.label')}
+          description={t('sections.notifications.replies.hint')}
           value={notifyMentions}
           onChange={setNotifyMentions}
         />
         <Toggle
           id="notify-endorsed"
-          label="When your work is endorsed"
-          description="Someone who maintains the Space marked your contribution as trustworthy."
+          label={t('sections.notifications.endorsed.label')}
+          description={t('sections.notifications.endorsed.hint')}
           value={notifyEndorsed}
           onChange={setNotifyEndorsed}
         />
         <Toggle
           id="notify-new-lessons"
-          label="New Lessons in Spaces you have starred"
-          description="Off by default. A busy Space can publish several a week, and this is the one that turns a useful inbox into noise."
+          label={t('sections.notifications.newLessons.label')}
+          description={t('sections.notifications.newLessons.hint')}
           value={notifyNewLessons}
           onChange={setNotifyNewLessons}
         />
       </Section>
 
-      <Section title="Who can see you">
+      <Section title={t('sections.visibility.title')}>
         <Toggle
           id="public-profile"
-          label="Public profile"
-          description="Your name, rank and published contributions are visible to anyone in a Space you share. Turning this off does not retract work you have already published."
+          label={t('sections.visibility.publicProfile.label')}
+          description={t('sections.visibility.publicProfile.hint')}
           value={publicProfile}
           onChange={setPublicProfile}
         />
         <Toggle
           id="show-activity"
-          label="Show what I am reading"
-          description="Lets members of a Space see which Lessons you have open. Off by default — nobody asked to be watched."
+          label={t('sections.visibility.activity.label')}
+          description={t('sections.visibility.activity.hint')}
           value={showActivity}
           onChange={setShowActivity}
         />
       </Section>
 
-      <Section title="Your data">
+      <Section title={t('sections.data.title')}>
         <div className="flex items-start justify-between gap-6 border-b border-white/[0.06] py-4">
           <div className="min-w-0">
-            <p className="text-[14.5px] font-semibold text-foreground">Export everything</p>
+            <p className="text-[14.5px] font-semibold text-foreground">{t('sections.data.export.label')}</p>
             <p className="mt-0.5 max-w-[62ch] text-[13px] leading-relaxed text-muted-foreground">
-              Your notes, contributions and uploads as one archive. Nothing here is locked in.
+              {t('sections.data.export.hint')}
             </p>
           </div>
           <button
@@ -281,23 +281,22 @@ export default function SettingsScreen() {
               // delivery mechanism this build does not have. The button still
               // responds — silence would read as a failure — but it says only
               // what is true.
-              toast('Not wired yet', {
-                description: 'Export is designed but not built in this version.',
+              toast(t('sections.data.export.notWired'), {
+                description: t('sections.data.export.notWiredHint'),
               })
             }
             className="console-focusable inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-white/12 px-4 text-[13px] font-medium transition-colors hover:bg-white/[0.06]"
           >
             <Download aria-hidden className="h-4 w-4" />
-            Export
+            {t('sections.data.export.action')}
           </button>
         </div>
 
         <div className="flex items-start justify-between gap-6 py-4">
           <div className="min-w-0">
-            <p className="text-[14.5px] font-semibold text-foreground">Delete your account</p>
+            <p className="text-[14.5px] font-semibold text-foreground">{t('sections.data.delete.label')}</p>
             <p className="mt-0.5 max-w-[62ch] text-[13px] leading-relaxed text-muted-foreground">
-              Removes your notes and uploads. Contributions you published to a Space stay,
-              unattributed — deleting them would tear holes in Lessons other people rely on.
+              {t('sections.data.delete.hint')}
             </p>
           </div>
           {/*
@@ -309,7 +308,7 @@ export default function SettingsScreen() {
           <button
             type="button"
             disabled
-            title="Not wired in this design build"
+            title={t('v4Spaces:nav.notWired')}
             /*
               `text-quiet`, not `text-destructive/50` — which measured 1.87:1,
               the worst contrast in the build. WCAG exempts inactive controls,
@@ -320,7 +319,7 @@ export default function SettingsScreen() {
             className="inline-flex h-9 shrink-0 cursor-not-allowed items-center gap-2 rounded-lg border border-destructive/25 px-4 text-[13px] font-medium text-quiet"
           >
             <Trash2 aria-hidden className="h-4 w-4" />
-            Delete
+            {t('sections.data.delete.action')}
           </button>
         </div>
       </Section>
@@ -328,9 +327,7 @@ export default function SettingsScreen() {
       {/* No link icon: this paragraph goes nowhere, and an ExternalLink glyph
           beside it told sighted users otherwise. */}
       <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-        Motion follows your system setting for reduced motion — both the animated
-        transitions and the hover effects. There is no switch here because there is
-        nothing for it to disagree with.
+        {t('sections.motion')}
       </p>
     </StudioShell>
   );

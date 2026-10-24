@@ -351,7 +351,13 @@ export const leaderboard: RankedPerson[] = [
     sharedSpaces: allSpaces.filter((s) => s.viewerRole !== null).length,
     isViewer: true,
   },
-].map((r) => ({ ...r, rank: rankLabel(r.xp) }));
+].map((r) => ({
+  ...r,
+  /* Read when shown, not when this module loads — so it is in the language the app is showing now. */
+  get rank() {
+    return rankLabel(r.xp);
+  },
+}));
 
 /**
  * The viewer's own standing — one source for it.

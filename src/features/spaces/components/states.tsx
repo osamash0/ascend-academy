@@ -64,8 +64,9 @@ const bar = (cls: string) => `animate-pulse rounded-full bg-white/[0.05] ${cls}`
 
 /** The Spaces rail: 200px tiles, matching `SpaceTile`. */
 export function SpacesSkeleton() {
+  const { t } = useTranslation('v4Spaces');
   return (
-    <div aria-busy="true" aria-label="Loading your Spaces" className="px-6 pt-8 lg:px-12">
+    <div aria-busy="true" aria-label={t('states.loading.spaces')} className="px-6 pt-8 lg:px-12">
       <div className={bar('mb-6 h-7 w-32 rounded-xl')} />
       <div className="mb-4 flex gap-2">
         <div className={bar('h-4 w-16')} />
@@ -87,8 +88,9 @@ export function SpacesSkeleton() {
  * The block sizes match the real headers so the title does not jump.
  */
 export function DetailSkeleton() {
+  const { t } = useTranslation('v4Spaces');
   return (
-    <div aria-busy="true" aria-label="Loading" className="mx-auto max-w-4xl px-6 pt-6 lg:px-8">
+    <div aria-busy="true" aria-label={t('states.loading.any')} className="mx-auto max-w-4xl px-6 pt-6 lg:px-8">
       <div className={bar('mb-8 h-5 w-24')} />
       <div className={bar('mb-4 h-3 w-40')} />
       <div className="mb-5 h-12 w-3/4 animate-pulse rounded-2xl bg-white/[0.05]" />
