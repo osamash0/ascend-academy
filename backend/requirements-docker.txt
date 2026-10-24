@@ -29,7 +29,8 @@ asyncpg>=0.29,<0.31
 # a 5.x that is vulnerable by definition. This file is what the production
 # image installs and it was never audited, so that went unnoticed the whole
 # time requirements.txt was being kept clean.
-pypdf>=6.16.1,<7.0
+# 2026-10: floor to 6.21.2 (CVE-2026-113786..115585, 11 advisories in 6.19.0).
+pypdf>=6.21.2,<7.0
 PyMuPDF==1.24.0
 # Floor raised from 9.5, cap from <12.0: the old range resolved to 11.3.0,
 # which carries 25 advisories (PYSEC-2026-2249 through -3496), every one of
@@ -40,7 +41,9 @@ PyMuPDF==1.24.0
 # Second instance of this pattern here, after pypdf: a `<next-major` cap keeps
 # a floating range on the wrong side of a security fix that landed in the next
 # major. Worth a look at the other caps in this file before one of them bites.
-Pillow>=12.3.0,<13.0
+# 2026-10: and it bit. 12.3.0 carries 37 advisories (CVE-2026-1123xx/1128xx) whose
+# only fix is 13.0.0, so floor 13.0.0 and cap at the next major again.
+Pillow>=13.0.0,<14.0
 python-multipart>=0.0.9,<0.1
 google-genai>=0.3,<2.0
 groq>=0.9,<1.0

@@ -64,6 +64,15 @@ export default function StudentDashboard() {
   const [showBelowFold, setShowBelowFold] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const tourTriggeredRef = useRef(false);
+  // True while mounted. Under StrictMode's dev-only remount it is false only
+  // between the two passes, so the one-shot tour timer below still lands.
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const { data: dashboardData, isLoading: loading, isError, refetch } = useStudentDashboard();
 
@@ -229,7 +238,11 @@ export default function StudentDashboard() {
     // cleanup that clears the timeout would cancel it under React 18
     // StrictMode's dev-only double-invoke (the second invocation short-
     // circuits on the now-true ref, so nothing would ever re-schedule it).
-    setTimeout(() => setShowTour(true), 300);
+    // A real unmount before it fires must not touch state: in tests that
+    // landed after the environment was torn down ("window is not defined").
+    setTimeout(() => {
+      if (mountedRef.current) setShowTour(true);
+    }, 300);
   }, [showBelowFold, profile, heroKind]);
 
   const handleTourDone = useCallback(() => {

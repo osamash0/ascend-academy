@@ -7,7 +7,8 @@ pydantic-settings==2.14.2
 python-dotenv==1.2.2
 asyncpg==0.31.0
 # 6.19.0: clears PYSEC-2026-4153..4160, fixed across 6.17.0-6.19.0 (earlier:
-# 6.16.1 cleared CVE-2026-84309/84310/84311). Each round has turned CI's SCA
+# 6.16.1 cleared CVE-2026-84309/84310/84311; 6.21.2 clears the CVE-2026-1137xx/1155xx
+# set of 2026-10). Each round has turned CI's SCA
 # job red on `main` for days.
 #
 # Worth knowing: nothing under `backend/` imports pypdf, and no installed
@@ -17,9 +18,9 @@ asyncpg==0.31.0
 # `requirements-docker.txt` separately pins `pypdf>=3.0,<6.0`; dropping a
 # dependency the production image still asks for is a larger change than a
 # security fix should carry on its back.
-pypdf==6.19.0
+pypdf==6.21.2
 PyMuPDF==1.24.0
-Pillow==12.3.0
+Pillow==13.0.0
 python-multipart==0.0.31
 ollama==0.6.2
 google-genai==2.12.1
