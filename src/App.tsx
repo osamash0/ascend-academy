@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
@@ -13,7 +13,7 @@ import { lazy, Suspense, Component, useMemo, useRef, type ReactNode } from "reac
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 
-import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes, homeForRole } from "@/lib/routes";
+import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes, homeForRole, safeNextPath } from "@/lib/routes";
 import { SocialProvider } from "@/features/social/store";
 import { ConfettiCanvas } from "@/components/ConfettiCanvas";
 import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
@@ -203,6 +203,7 @@ function AccountUnavailable() {
 
 export function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
   const { user, role, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -213,7 +214,10 @@ export function ProtectedRoute({ children, allowedRoles }: { children: React.Rea
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    // Remember where they were going: a shared course or exam link should
+    // still be where they land once they have signed in.
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/auth?next=${next}`} replace />;
   }
 
   // R7 fix: fail closed. `loading` (sessionLoading || roleLoading) is false
@@ -232,6 +236,7 @@ export function ProtectedRoute({ children, allowedRoles }: { children: React.Rea
 
 export function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, role, profile, loading } = useAuth();
+  const [params] = useSearchParams();
 
   if (loading) {
     return (
@@ -248,7 +253,9 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
     if (role === 'student' && profile && !profile.has_completed_activation_onboarding) {
       return <Navigate to={StudentRoutes.ONBOARDING} replace />;
     }
-    return <Navigate to={homeForRole(role)} replace />;
+    // Then where they were going when sign-in interrupted them, if it is a
+    // path inside the app; otherwise their own home.
+    return <Navigate to={safeNextPath(params.get("next")) ?? homeForRole(role)} replace />;
   }
 
   return <>{children}</>;

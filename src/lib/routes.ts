@@ -74,3 +74,16 @@ export const homeForRole = (role: string | null | undefined): string => {
   if (role === 'admin') return AdminRoutes.DASHBOARD;
   return StudentRoutes.HOME;
 };
+
+/**
+ * A `?next=` worth following after sign-in: a path inside this app. Anything
+ * else (another origin, a protocol-relative `//host`, a `/\host` trick, the
+ * auth page itself) is dropped, so the parameter can never send anyone
+ * off-site or round in a circle.
+ */
+export const safeNextPath = (next: string | null | undefined): string | null => {
+  if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) return null;
+  const path = next.split(/[?#]/)[0];
+  if (path === PublicRoutes.AUTH || path.startsWith(`${PublicRoutes.AUTH}/`)) return null;
+  return next;
+};

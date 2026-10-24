@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 const LunaAvatar = lazy(() => import('@/features/avatar/LunaAvatar').then(m => ({ default: m.LunaAvatar })));
@@ -20,7 +20,10 @@ type UserRole = 'student' | 'professor';
 
 export default function Auth() {
   const { t } = useTranslation(['auth']);
-  const [isLogin, setIsLogin] = useState(true);
+  // "Start learning" links here with ?mode=signup: someone with no account
+  // yet should land on account creation, not on a sign-in form.
+  const [searchParams] = useSearchParams();
+  const [isLogin, setIsLogin] = useState(searchParams.get('mode') !== 'signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
