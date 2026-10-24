@@ -75,6 +75,7 @@ look (show a page and the line that matters), explain (explain a page),
 ask (answer what they asked), check (one question they commit to),
 teachback (they explain it back), connect (link to where an idea is built on).
 Titles are 2-6 plain words, in the learner's language.
+"say" is plain text, no markdown.
 
 <<rules>>
 <<write_in>>
@@ -111,7 +112,7 @@ Page text you can quote from:
 
 Do ONE small thing for the current step: show a page and light the line that
 matters, explain with a block, ask one check, or answer what they asked. Keep
-"say" to 1-3 short sentences. Set step_done true only when the step's goal is
+"say" to 1-3 short sentences; "say" is plain text, no markdown. Set step_done true only when the step's goal is
 reached. Set offer_wrap true when the plan is finished or the learner wants to stop.
 <<recap_rule>>
 

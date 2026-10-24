@@ -89,3 +89,13 @@ def test_wrap_keeps_items_drops_bad_pages_and_unknown_memory_ids():
     assert [m["text"] for m in out["memory_add"]] == ["partial keys"]
     assert out["memory_retire"] == ["m1"]
     assert validate_wrap({"covered": []}, pages=PAGES, memory_ids=set()) is None
+
+
+def test_flags_are_true_only_when_the_model_says_true():
+    turn = validate_turn({"say": "ok", "step_done": "false", "offer_wrap": "no"}, pages=PAGES)
+    assert turn["step_done"] is False and turn["offer_wrap"] is False
+    turn = validate_turn({"say": "ok", "step_done": 1, "offer_wrap": True}, pages=PAGES)
+    assert turn["step_done"] is False and turn["offer_wrap"] is True
+    check = validate_check({"question": "Q?", "options": [
+        {"text": "A", "correct": "false"}, {"text": "B", "correct": "true"}, {"text": "C", "correct": True}]})
+    assert [o["correct"] for o in check["options"]] == [False, False, True]

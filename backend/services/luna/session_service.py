@@ -11,6 +11,8 @@ import logging
 from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 from uuid import UUID
 
+import anyio
+
 from backend.services.luna.context import load_lesson
 from backend.services.luna.plan import apply_action, advance, current_step, fallback_plan, is_last
 from backend.services.luna.memory import choose_retirements
@@ -37,6 +39,20 @@ GREETING = {
     "de": "Hier ist ein kurzer Plan. Ändere, was du willst, oder leg einfach los.",
 }
 
+# Every refusal a learner can see, in their language (du, calm, no "!").
+ERRORS = {
+    "not_found": {"en": "Session not found.", "de": "Diese Session gibt es nicht."},
+    "ended": {"en": "This session has ended.", "de": "Diese Session ist schon beendet."},
+    "busy": {"en": "Luna is still answering.", "de": "Luna antwortet noch."},
+    "bad_turn": {"en": "Invalid turn id.", "de": "Ungültige Turn-ID."},
+    "wrong_space": {"en": "That Lesson isn't in this Space.", "de": "Diese Lektion gehört nicht zu diesem Space."},
+    "wrap_failed": {"en": "Couldn't write the wrap-up just now.", "de": "Die Zusammenfassung klappt gerade nicht."},
+    "practice_failed": {"en": "Couldn't make practice just now.", "de": "Die Übungen klappen gerade nicht."},
+    "wrap_first": {"en": "Wrap the session up first.", "de": "Schließ die Session zuerst ab."},
+    "lesson_gone": {"en": "This session's Lesson is gone.", "de": "Die Lektion dieser Session gibt es nicht mehr."},
+    "lesson_not_found": {"en": "Lesson not found.", "de": "Lektion nicht gefunden."},
+}
+
 
 class LunaError(Exception):
     def __init__(self, status: int, detail: str):
@@ -47,6 +63,7 @@ class LunaError(Exception):
 
 Ai = Callable[..., Awaitable[Any]]
 Loader = Callable[[str, str, list[int]], Awaitable[LessonView]]
+CanView = Callable[[str, str], Awaitable[bool]]
 
 
 async def default_ai(prompt: str, *, user_id: str, course_id: Optional[str], feature: str) -> Any:
@@ -61,8 +78,30 @@ async def default_find(course_id: str, q: str, exclude_lecture: str) -> list[dic
     return await find_in_course(UUID(course_id), q, 3, UUID(exclude_lecture), True)
 
 
+async def default_can_view(lecture_id: str, user_id: str) -> bool:
+    from backend.services.v4_reader_service import can_view_lecture
+
+    return await can_view_lecture(UUID(lecture_id), user_id)
+
+
 def _lang(locale: str) -> str:
     return locale if locale in FALLBACK else "en"
+
+
+def _err(status: int, key: str, locale: str) -> LunaError:
+    return LunaError(status, ERRORS[key][_lang(locale)])
+
+
+async def _check_access(session: dict, user_id: str, locale: str, can_view: Optional[CanView]) -> None:
+    """Access can be lost mid-session (unenrolled, Lesson made private): re-check every call."""
+    if session["lecture_id"] and not await (can_view or default_can_view)(session["lecture_id"], user_id):
+        raise _err(404, "lesson_not_found", locale)
+
+
+async def _release(store: Any, session_id: str) -> None:
+    # Shielded: a cancelled request (client gone) must still free the session.
+    with anyio.CancelScope(shield=True):
+        await store.release(session_id)
 
 
 def _is_budget(exc: Exception) -> bool:
@@ -75,7 +114,7 @@ async def start(
 ) -> dict:
     view = await load(lecture_id, locale, [page])
     if space_id not in {view.course_id, user_id}:
-        raise LunaError(400, "That Lesson isn't in this Space.")
+        raise _err(400, "wrong_space", locale)
     memory = await store.active_memory(user_id, space_id)
     raw: Any = None
     try:
@@ -140,30 +179,32 @@ class _LockedTurn:
         if self._started:
             await self._gen.aclose()  # runs _run's finally, which releases
         else:
-            await self._store.release(self._sid)
+            await _release(self._store, self._sid)
 
 
 async def open_turn(
     store: Any, *, user_id: str, session_id: str, client_turn_id: str, text: Optional[str], action: Optional[str],
     plan_edit: Optional[list[dict]], reading_at: Optional[int], check_result: Optional[dict], locale: str,
     ai: Ai = default_ai, load: Loader = load_lesson, find: Callable[..., Awaitable[list[dict]]] = default_find,
+    can_view: Optional[CanView] = None,
 ) -> AsyncIterator[tuple[str, dict]]:
     """Raises LunaError before streaming. The caller must exhaust the returned stream or call
     `await stream.aclose()`, typically in a `finally` (plain generators have aclose() too)."""
     session = await store.get_session(session_id, user_id)
     if not session:
-        raise LunaError(404, "Session not found.")
+        raise _err(404, "not_found", locale)
+    await _check_access(session, user_id, locale, can_view)
     if session["status"] != "active":
-        raise LunaError(409, "This session has ended.")
+        raise _err(409, "ended", locale)
     if client_turn_id == str(UUID(int=0)):
-        raise LunaError(400, "Invalid turn id.")
+        raise _err(400, "bad_turn", locale)
     stored = await store.turns_for_client_id(session_id, client_turn_id)
     if stored:
         return _replay(_events_from_rows(stored, session))
     if session["turn_count"] >= MAX_TURNS or action == "end":
         return _replay([("end", {"turn_count": session["turn_count"], "offer_wrap": True})])
     if not await store.claim(session_id):
-        raise LunaError(409, "Luna is still answering.")
+        raise _err(409, "busy", locale)
     return _LockedTurn(store, session_id, _run(
         store, session, user_id=user_id, client_turn_id=client_turn_id, text=text, action=action,
         plan_edit=plan_edit, reading_at=reading_at, check_result=check_result, locale=locale,
@@ -252,13 +293,13 @@ async def _run(
         logger.warning("luna turn failed: %s", exc)
         yield "error", {"detail": FALLBACK[lang]}
     finally:
-        await store.release(sid)
+        await _release(store, sid)
 
 
-async def _owned(store: Any, user_id: str, session_id: str) -> dict:
+async def _owned(store: Any, user_id: str, session_id: str, locale: str) -> dict:
     session = await store.get_session(session_id, user_id)
     if not session:
-        raise LunaError(404, "Session not found.")
+        raise _err(404, "not_found", locale)
     return session
 
 
@@ -268,12 +309,16 @@ def _visited(session: dict, turns: list[dict]) -> list[int]:
     return sorted(pages) or [1]
 
 
-async def wrap(store: Any, *, user_id: str, session_id: str, locale: str, ai: Ai = default_ai, load: Loader = load_lesson) -> dict:
-    session = await _owned(store, user_id, session_id)
+async def wrap(
+    store: Any, *, user_id: str, session_id: str, locale: str, ai: Ai = default_ai, load: Loader = load_lesson,
+    can_view: Optional[CanView] = None,
+) -> dict:
+    session = await _owned(store, user_id, session_id, locale)
+    await _check_access(session, user_id, locale, can_view)
     if session["wrap"]:
         return {"wrap": session["wrap"], "memory": []}
     if not session["lecture_id"]:
-        raise LunaError(409, "This session's Lesson is gone.")
+        raise _err(409, "lesson_gone", locale)
     turns = await store.recent_turns(session_id, MAX_TURNS * 3)
     view = await load(session["lecture_id"], locale, _visited(session, turns))
     memory = await store.active_memory(user_id, session["space_id"])
@@ -284,10 +329,10 @@ async def wrap(store: Any, *, user_id: str, session_id: str, locale: str, ai: Ai
         if _is_budget(exc):
             raise LunaError(429, BUDGET[_lang(locale)])
         logger.warning("luna wrap model call failed: %s", exc)
-        raise LunaError(502, "Couldn't write the wrap-up just now.")
+        raise _err(502, "wrap_failed", locale)
     result = validate_wrap(raw, pages=view.pages, memory_ids={m["id"] for m in memory})
     if not result:
-        raise LunaError(502, "Couldn't write the wrap-up just now.")
+        raise _err(502, "wrap_failed", locale)
     everything = await store.all_active_memory(user_id)
     await store.retire_memory(user_id, choose_retirements(everything, len(result["memory_add"]), result["memory_retire"]))
     added = await store.add_memory(user_id, result["memory_add"], session["space_id"], session_id)
@@ -295,18 +340,22 @@ async def wrap(store: Any, *, user_id: str, session_id: str, locale: str, ai: Ai
     return {"wrap": result["wrap"], "memory": [{k: m[k] for k in ("id", "kind", "text")} for m in added]}
 
 
-async def keep(store: Any, *, user_id: str, session_id: str) -> dict:
-    session = await _owned(store, user_id, session_id)
+async def keep(store: Any, *, user_id: str, session_id: str, locale: str = "en") -> dict:
+    session = await _owned(store, user_id, session_id, locale)
     if not session["wrap"]:
-        raise LunaError(409, "Wrap the session up first.")
+        raise _err(409, "wrap_first", locale)
     await store.update_session(session_id, kept=True)
     return {"kept": True}
 
 
-async def practice(store: Any, *, user_id: str, session_id: str, locale: str, ai: Ai = default_ai, load: Loader = load_lesson) -> dict:
-    session = await _owned(store, user_id, session_id)
+async def practice(
+    store: Any, *, user_id: str, session_id: str, locale: str, ai: Ai = default_ai, load: Loader = load_lesson,
+    can_view: Optional[CanView] = None,
+) -> dict:
+    session = await _owned(store, user_id, session_id, locale)
+    await _check_access(session, user_id, locale, can_view)
     if not session["wrap"] or not session["lecture_id"]:
-        raise LunaError(409, "Wrap the session up first.")
+        raise _err(409, "wrap_first", locale)
     turns = await store.recent_turns(session_id, MAX_TURNS * 3)
     view = await load(session["lecture_id"], locale, _visited(session, turns))
     shaky = [i["text"] for i in session["wrap"].get("shaky", [])]
@@ -319,7 +368,7 @@ async def practice(store: Any, *, user_id: str, session_id: str, locale: str, ai
         if _is_budget(exc):
             raise LunaError(429, BUDGET[_lang(locale)])
         logger.warning("luna practice model call failed: %s", exc)
-        raise LunaError(502, "Couldn't make practice just now.")
+        raise _err(502, "practice_failed", locale)
     cards = []
     for q in (raw.get("questions") if isinstance(raw, dict) else None) or []:
         check = validate_check(q)
@@ -327,6 +376,6 @@ async def practice(store: Any, *, user_id: str, session_id: str, locale: str, ai
             page = q.get("page") if isinstance(q.get("page"), int) and view.pages.exists(session["lecture_id"], q["page"]) else None
             cards.append({**check, "page": page})
     if not cards:
-        raise LunaError(502, "Couldn't make practice just now.")
+        raise _err(502, "practice_failed", locale)
     added = await store.insert_owned_cards(user_id, session["lecture_id"], cards[:6])
     return {"added": added}

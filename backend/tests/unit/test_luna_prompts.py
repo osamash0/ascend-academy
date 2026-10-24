@@ -34,3 +34,10 @@ def test_wrap_and_practice_prompts_render():
 def test_memory_block_is_plain():
     assert prompts.memory_block([]) == "nothing yet"
     assert prompts.memory_block(MEMORY) == "- [m1] (preference) examples before definitions"
+
+
+def test_say_is_asked_for_as_plain_text():
+    from backend.services.luna import prompts
+
+    for template in (prompts.PLAN, prompts.TURN):
+        assert '"say" is plain text, no markdown' in template

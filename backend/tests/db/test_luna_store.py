@@ -81,8 +81,25 @@ async def test_owned_cards_are_scheduled_due_and_graded_only_by_their_owner(stor
     assert await store.insert_owned_cards(str(a), str(lecture), [card, card]) == 1
     due = await store.due_cards(str(a), str(lecture))
     assert len(due) == 1 and due[0]["front"]["question"] == "Does it hold?"
+    # The legacy review UI reads correct_answer/explanation; the deck reads correct/why.
+    assert due[0]["back"] == {"correct": 1, "why": ["a", "b"], "correct_answer": "No", "explanation": "b"}
     assert await store.due_cards(str(b), str(lecture)) == []
     assert await store.grade_owned_card(str(b), due[0]["card_id"], 3) is None
     graded = await store.grade_owned_card(str(a), due[0]["card_id"], 3)
     assert graded["card_id"] == due[0]["card_id"]
     assert await store.due_cards(str(a), str(lecture)) == []
+
+
+async def test_faded_memory_older_than_30_days_is_purged_before_luna_reads(store, make_user, db_conn):
+    a = make_user()
+    added = await store.add_memory(str(a), [
+        {"kind": "preference", "space_scoped": False, "text": "examples first"},
+        {"kind": "shaky", "space_scoped": False, "text": "outer joins"},
+    ], space_id=None, session_id=None)
+    await store.retire_memory(str(a), [added[1]["id"]])
+    with db_conn.cursor() as cur:
+        cur.execute("UPDATE learner_memory SET retired_at = now() - interval '31 days' WHERE id = %s", (added[1]["id"],))
+    assert {m["text"] for m in await store.active_memory(str(a), "space-1")} == {"examples first"}
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM learner_memory WHERE user_id = %s", (str(a),))
+        assert cur.fetchone()[0] == 1

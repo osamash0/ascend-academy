@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
+import anyio
 import pytest
 
 from backend.services.luna import session_service as svc
@@ -13,6 +14,15 @@ from backend.services.luna.validate import PageIndex
 
 L = "11111111-1111-1111-1111-111111111111"
 U = "22222222-2222-2222-2222-222222222222"
+
+
+@pytest.fixture(autouse=True)
+def _lesson_visible(monkeypatch):
+    """Access is re-checked each turn; by default the learner can still see the Lesson."""
+    async def can_view(lecture_id, user_id):
+        return True
+
+    monkeypatch.setattr(svc, "default_can_view", can_view)
 
 
 class FakeStore:
@@ -296,3 +306,75 @@ async def test_keep_and_practice_need_a_wrapped_session():
     out = await svc.practice(store, user_id=U, session_id=sid, locale="en",
                              ai=scripted({"questions": [q, q, bad]}), load=fake_load)
     assert out == {"added": 2} and store.cards[0]["question"] == "Does it hold?"
+
+
+async def _no_access(lecture_id, user_id):
+    return False
+
+
+async def test_losing_access_to_the_lesson_ends_turns_wrap_and_practice():
+    store = FakeStore()
+    sid = await _started(store, scripted(PLAN_REPLY))
+    with pytest.raises(svc.LunaError) as e:
+        await svc.open_turn(store, user_id=U, session_id=sid, client_turn_id=str(uuid.uuid4()), text="hi", action=None,
+                            plan_edit=None, reading_at=None, check_result=None, locale="en", ai=scripted(),
+                            load=fake_load, can_view=_no_access)
+    assert (e.value.status, e.value.detail) == (404, "Lesson not found.") and sid not in store.locked
+    with pytest.raises(svc.LunaError) as e:
+        await svc.wrap(store, user_id=U, session_id=sid, locale="de", ai=scripted(WRAP_REPLY), load=fake_load,
+                       can_view=_no_access)
+    assert (e.value.status, e.value.detail) == (404, "Lektion nicht gefunden.")
+    await svc.wrap(store, user_id=U, session_id=sid, locale="en", ai=scripted(WRAP_REPLY), load=fake_load)
+    with pytest.raises(svc.LunaError) as e:
+        await svc.practice(store, user_id=U, session_id=sid, locale="en", ai=scripted(), load=fake_load,
+                           can_view=_no_access)
+    assert e.value.status == 404
+
+
+async def test_refusals_speak_the_learners_language():
+    store = FakeStore()
+    kw = dict(client_turn_id=str(uuid.uuid4()), text="hi", action=None, plan_edit=None, reading_at=None,
+              check_result=None, ai=scripted(), load=fake_load)
+    with pytest.raises(svc.LunaError) as e:
+        await svc.open_turn(store, user_id=U, session_id=str(uuid.uuid4()), locale="de", **kw)
+    assert e.value.detail == svc.ERRORS["not_found"]["de"] != svc.ERRORS["not_found"]["en"]
+    sid = await _started(store, scripted(PLAN_REPLY))
+    with pytest.raises(svc.LunaError) as e:
+        await svc.keep(store, user_id=U, session_id=sid, locale="de")
+    assert e.value.detail == svc.ERRORS["wrap_first"]["de"]
+    with pytest.raises(svc.LunaError) as e:
+        await svc.start(FakeStore(), user_id=U, space_id="someone-elses", lecture_id=L, page=1, opener="",
+                        locale="de", ai=scripted(PLAN_REPLY), load=fake_load)
+    assert e.value.detail == svc.ERRORS["wrong_space"]["de"]
+    for key, texts in svc.ERRORS.items():
+        assert set(texts) == {"en", "de"} and "!" not in texts["de"], key
+
+
+class SlowReleaseStore(FakeStore):
+    async def release(self, session_id):
+        await anyio.sleep(0)  # a checkpoint: a cancelled caller would stop here
+        self.locked.discard(session_id)
+
+
+async def test_the_lock_is_released_even_when_the_request_is_cancelled():
+    store = SlowReleaseStore()
+    sid = await _started(store, scripted(PLAN_REPLY))
+    kw = dict(user_id=U, client_turn_id=str(uuid.uuid4()), text="hi", action=None, plan_edit=None, reading_at=None,
+              check_result=None, locale="en", load=fake_load)
+    never_started = await svc.open_turn(store, session_id=sid, ai=scripted(), **kw)
+    with anyio.CancelScope() as scope:
+        scope.cancel()
+        await never_started.aclose()
+    assert sid not in store.locked
+
+    async def hangs(prompt, **_):
+        await anyio.sleep_forever()
+
+    started = await svc.open_turn(store, session_id=sid, ai=hangs, **{**kw, "client_turn_id": str(uuid.uuid4())})
+    with anyio.move_on_after(0.05):
+        async for _ in started:
+            pass
+    with anyio.CancelScope() as scope:
+        scope.cancel()
+        await started.aclose()
+    assert sid not in store.locked

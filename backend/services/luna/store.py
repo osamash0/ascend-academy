@@ -126,8 +126,17 @@ class PgStore:
         return [_turn(r) for r in rows]
 
     # ── memory ───────────────────────────────────────────────────────────
+    @staticmethod
+    async def _purge_faded(c: Any, user_id: str) -> None:
+        """Faded lines are kept 30 days (so the learner can see what faded), then gone."""
+        await c.execute(
+            "DELETE FROM learner_memory WHERE user_id = $1 AND NOT active AND retired_at < now() - interval '30 days'",
+            UUID(user_id),
+        )
+
     async def active_memory(self, user_id: str, space_id: str) -> list[dict]:
         async with await self._conn() as c:
+            await self._purge_faded(c, user_id)
             rows = await c.fetch(
                 """SELECT * FROM learner_memory WHERE user_id = $1 AND active
                      AND (space_id IS NULL OR space_id = $2) ORDER BY updated_at""",
@@ -165,10 +174,7 @@ class PgStore:
 
     async def list_memory(self, user_id: str) -> list[dict]:
         async with await self._conn() as c:
-            await c.execute(
-                "DELETE FROM learner_memory WHERE user_id = $1 AND NOT active AND retired_at < now() - interval '30 days'",
-                UUID(user_id),
-            )
+            await self._purge_faded(c, user_id)
             rows = await c.fetch(
                 "SELECT * FROM learner_memory WHERE user_id = $1 ORDER BY active DESC, updated_at DESC", UUID(user_id),
             )
@@ -202,8 +208,10 @@ class PgStore:
             for card in cards:
                 h = hashlib.sha256(f"luna|{user_id}|{card['question']}".encode()).hexdigest()
                 front = {"question": card["question"], "options": [o["text"] for o in card["options"]], "page": card.get("page")}
-                back = {"correct": next(i for i, o in enumerate(card["options"]) if o["correct"]),
-                        "why": [o["why"] for o in card["options"]]}
+                right = next(i for i, o in enumerate(card["options"]) if o["correct"])
+                # correct/why for the deck; correct_answer/explanation for the legacy review UI.
+                back = {"correct": right, "why": [o["why"] for o in card["options"]],
+                        "correct_answer": card["options"][right]["text"], "explanation": card["options"][right]["why"]}
                 cid = await c.fetchval(
                     """INSERT INTO review_cards (lecture_id, source_type, front, back, content_hash, owner_id)
                        VALUES ($1, 'luna_session', $2::jsonb, $3::jsonb, $4, $5)

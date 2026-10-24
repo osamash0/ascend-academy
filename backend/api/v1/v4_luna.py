@@ -142,8 +142,9 @@ async def wrap(request: Request, session_id: UUID, user: Any = Depends(verify_to
 @router.post("/sessions/{session_id}/keep")
 @limiter.limit("20/minute")
 async def keep(request: Request, session_id: UUID, user: Any = Depends(verify_token)):
+    uid = _uid(user)
     try:
-        return await service.keep(_store(), user_id=_uid(user), session_id=str(session_id))
+        return await service.keep(_store(), user_id=uid, session_id=str(session_id), locale=await _lang(request, uid))
     except service.LunaError as e:
         raise _http(e)
 

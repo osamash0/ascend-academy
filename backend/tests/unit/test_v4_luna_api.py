@@ -117,3 +117,50 @@ def test_turn_stream_is_always_closed(client, monkeypatch):
                       json={"client_turn_id": str(uuid.uuid4()), "text": "hi"})
     assert res.status_code == 200 and "event: say" in res.text
     assert closed == [True]
+
+
+class _NobodysStore:
+    """Every lookup scoped to the caller finds nothing: a foreign or missing id."""
+
+    def __init__(self):
+        self.asked: list[tuple] = []
+
+    async def get_session(self, session_id, user_id):
+        self.asked.append(("get_session", user_id))
+        return None
+
+    async def edit_memory(self, user_id, memory_id, text):
+        self.asked.append(("edit_memory", user_id))
+        return None
+
+    async def delete_memory(self, user_id, memory_id):
+        self.asked.append(("delete_memory", user_id))
+        return False
+
+    async def grade_owned_card(self, user_id, card_id, rating):
+        self.asked.append(("grade_owned_card", user_id))
+        return None
+
+
+def test_foreign_or_missing_ids_are_404(client, monkeypatch):
+    store = _NobodysStore()
+    monkeypatch.setattr(v4_luna, "_store", lambda: store)
+    some = str(uuid.uuid4())
+    assert client.get(f"/api/v1/v4/luna/sessions/{some}").status_code == 404
+    assert client.patch(f"/api/v1/v4/luna/memory/{some}", json={"text": "mine now"}).status_code == 404
+    assert client.delete(f"/api/v1/v4/luna/memory/{some}").status_code == 404
+    assert client.post(f"/api/v1/v4/luna/practice/{some}/grade", json={"rating": 3}).status_code == 404
+    assert [name for name, _ in store.asked] == ["get_session", "edit_memory", "delete_memory", "grade_owned_card"]
+    assert all(uid == U for _, uid in store.asked)
+
+
+def test_keep_passes_the_learners_language(client, monkeypatch):
+    seen = {}
+
+    async def keep(store, **kw):
+        seen.update(kw)
+        raise svc.LunaError(409, "Schließ die Session zuerst ab.")
+
+    monkeypatch.setattr(v4_luna.service, "keep", keep)
+    res = client.post(f"/api/v1/v4/luna/sessions/{uuid.uuid4()}/keep?lang=de")
+    assert res.status_code == 409 and seen["locale"] == "de"

@@ -90,7 +90,7 @@ def validate_check(raw: Any) -> Optional[dict]:
             continue
         text = str(o.get("text") or "").strip()[:200]
         if text:
-            options.append({"text": text, "correct": bool(o.get("correct")), "why": str(o.get("why") or "").strip()[:300]})
+            options.append({"text": text, "correct": o.get("correct") is True, "why": str(o.get("why") or "").strip()[:300]})
     if not question or not 2 <= len(options) <= 4 or sum(o["correct"] for o in options) != 1:
         return None
     return {"question": question, "options": options}
@@ -126,8 +126,8 @@ def validate_turn(raw: Any, *, pages: PageIndex) -> Optional[dict]:
         "move": validate_move(raw.get("move"), pages=pages),
         "blocks": blocks,
         "check": check,
-        "step_done": bool(raw.get("step_done")),
-        "offer_wrap": bool(raw.get("offer_wrap")),
+        "step_done": raw.get("step_done") is True,
+        "offer_wrap": raw.get("offer_wrap") is True,
         "recap": str(raw.get("recap") or "").strip()[:2000],
     }
 
