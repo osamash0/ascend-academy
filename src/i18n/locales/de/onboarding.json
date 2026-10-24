@@ -2,100 +2,35 @@
   "activation": {
     "badge": "Learnstation"
   },
-  "actions": {
-    "back": "Zurück",
-    "next": "Weiter",
-    "startLearning": "Jetzt lernen",
-    "clickToContinue": "Weiter geht's"
-  },
   "sound": {
     "muteAria": "Ton stumm schalten",
     "unmuteAria": "Ton einschalten",
     "onTitle": "Ton an",
     "offTitle": "Ton aus"
   },
-  "intro": {
-    "title": "Willkommen bei Learnstation",
-    "subtitle": "Hey, ich bin Luna! Ich zeige dir, wie du deinen Lernbereich einrichtest."
-  },
-  "steps": {
+  "firstRun": {
     "name": {
-      "title": "Willkommen!",
-      "subtitle": "Wie sollen wir dich nennen?",
-      "placeholder": "Gib deinen Namen ein…",
-      "ariaLabel": "Dein Name"
+      "title": "Ich bin Luna. Und du?",
+      "label": "Dein Name",
+      "placeholder": "Dein Name",
+      "ask": "{{name}}?",
+      "hi": "Hi, {{name}}.",
+      "continue": "Das bin ich"
     },
-    "avatar": {
-      "companionName": "luna",
-      "companionTagline": "deine Lernbegleiterin · Nachtwache",
-      "themeTitle": "Wähle Lunas Look",
-      "themeSubtitle": "Jedes Thema kombiniert Anzug- und Visierfarben, die zu Luna passen.",
-      "suitFinish": "Anzug",
-      "visorTint": "Visierfarbe",
-      "insignia": "Abzeichen"
+    "light": {
+      "title": "Such ihr Licht aus.",
+      "group": "Lunas Licht",
+      "bubble": "Steht mir.",
+      "continue": "So bleibt es"
     },
-    "university": {
-      "title": "Dein Studium",
-      "subtitle": "Sag uns, wo du studierst, damit wir alles für dich einrichten können.",
-      "universityPlaceholder": "Wähle deine Universität…",
-      "typeToSearch": "Tippe, um Universitäten zu suchen…",
-      "autoMatched": "Sieht aus, als wärst du an der {{university}}. Aus deiner E-Mail übernommen.",
-      "noCatalog": "Wir haben den Studiengangskatalog von {{university}} noch nicht. Sag uns trotzdem deine Hochschule — wir personalisieren, sobald sie verfügbar ist.",
-      "institutionPlaceholder": "Deine Hochschule",
-      "facultyPlaceholder": "Wähle deinen Fachbereich…",
-      "facultyPlaceholderLocked": "Wähle zuerst eine Universität",
-      "programPlaceholder": "Wähle dein Fachgebiet…",
-      "programPlaceholderLocked": "Wähle zuerst einen Fachbereich",
-      "semesterLabel": "Aktuelles Semester",
-      "semesterPlaceholder": "Semester",
-      "semesterOption": "Semester {{n}}"
+    "back": "Zurück",
+    "progress": {
+      "label": "Erste Schritte",
+      "name": "Name",
+      "light": "Licht"
     },
-    "confirmCourses": {
-      "title": "Wir haben dein {{semester}}. Semester eingerichtet",
-      "subtitle": "Das hast du wahrscheinlich schon gemacht, das läuft gerade. Passe an, was nicht stimmt.",
-      "empty": "Für diesen Studiengang wurden keine Kurse gefunden.",
-      "elective": "Wahlfach",
-      "semesterTag": "Semester {{n}}",
-      "currentSemesterTag": "Semester {{n}} · Aktuell",
-      "electiveGroup": "Wahlfächer",
-      "selectedCount": "{{count}} ausgewählt",
-      "add": "{{title}} hinzufügen",
-      "remove": "{{title}} entfernen",
-      "status": {
-        "completed": "Abgeschlossen",
-        "in_progress": "Läuft gerade",
-        "planned": "Geplant"
-      }
-    },
-    "extraTopics": {
-      "title": "Weitere Themen hinzufügen",
-      "subtitle": "Entdecke optional Kurse auf Learnstation über deinen Studiengang hinaus.",
-      "empty": "Gerade keine öffentlichen Kurse verfügbar."
+    "error": {
+      "save": "Wir konnten das nicht speichern. Versuch es noch einmal."
     }
-  },
-  "reveal": {
-    "allSet": "Alles bereit, {{name}}",
-    "rank": "Rang: {{rank}}",
-    "xpToNext": "{{xp}} XP bis {{rank}}",
-    "badgeUnlocked": "Abzeichen freigeschaltet · Profil komplett",
-    "semesterSetUp": "{{semester}}. Semester eingerichtet",
-    "courseCount_one": "{{count}} Kurs",
-    "courseCount_other": "{{count}} Kurse",
-    "classmatesToMeet": "Kommiliton:innen zum Kennenlernen",
-    "classmatesWaiting": "{{count}} warten",
-    "pickedForYou": "Für dich ausgesucht",
-    "booting": "> Learnstation wird gestartet…"
-  },
-  "toasts": {
-    "invalidFileTitle": "Ungültige Datei",
-    "invalidFileDescription": "Bitte lade ein Bild hoch.",
-    "fileTooLargeTitle": "Datei zu groß",
-    "fileTooLargeDescription": "Das Bild darf höchstens 2 MB groß sein.",
-    "avatarUploadedTitle": "Avatar hochgeladen",
-    "avatarUploadedDescription": "Sieht gut aus.",
-    "uploadErrorTitle": "Hochladen hat nicht geklappt",
-    "uploadErrorFallback": "Versuch es mit einem anderen Bild.",
-    "finishErrorTitle": "Wir konnten die Einrichtung nicht abschließen",
-    "finishErrorFallback": "Versuch es gleich noch einmal."
   }
 }

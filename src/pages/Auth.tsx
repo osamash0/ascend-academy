@@ -1,483 +1,457 @@
-import { useState, lazy, Suspense } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-const LunaAvatar = lazy(() => import('@/features/avatar/LunaAvatar').then(m => ({ default: m.LunaAvatar })));
-import { BookOpen, User, Mail, Lock, ArrowRight, ArrowLeft, Sparkles, Eye, EyeOff, Layers } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useAuth } from '@/lib/auth';
-import { useToast } from '@/hooks/use-toast';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { Eye, EyeOff } from 'lucide-react';
 import { z } from 'zod';
+import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { logLearningEvent } from '@/services/studentService';
 import { recordOnboardingSecondSession } from '@/services/onboardingService';
 import { LanguageToggle } from '@/components/LanguageToggle';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { LunaHero } from '@/features/avatar/LunaHero';
+import { LunaSays } from '@/features/avatar/LunaSays';
+import { StagePage } from '@/features/onboarding/StagePage';
+import { stageInput, useLunaSize } from '@/features/onboarding/stageKit';
+import { whitePill, ghostPill } from '@/features/spaces/components/stage';
+import { PublicRoutes, StudentRoutes } from '@/lib/routes';
+import { cn } from '@/lib/utils';
 
-type UserRole = 'student' | 'professor';
+/**
+ * Sign in and sign up, on the stage (2026-10-24).
+ *
+ * One page, two modes; `?mode=signup` opens the second, which is where every
+ * "Start learning" on the landing points. Everyone signs up as a learner.
+ * Luna is here, alive: she looks down at what you type, nods with each key,
+ * and hops when you get in. She never comments on a mistake; the page owns
+ * those, in one plain sentence under the field.
+ */
+
+type Mode = 'signin' | 'signup';
+type FieldErrors = { email?: string; password?: string; consent?: string; form?: string };
+
+const EASE = [0.22, 1, 0.36, 1] as const;
 
 export default function Auth() {
-  const { t } = useTranslation(['auth']);
-  // "Start learning" links here with ?mode=signup: someone with no account
-  // yet should land on account creation, not on a sign-in form.
-  const [searchParams] = useSearchParams();
-  const [isLogin, setIsLogin] = useState(searchParams.get('mode') !== 'signup');
+  const { t } = useTranslation('auth');
+  const { signIn, signUp } = useAuth();
+  const navigate = useNavigate();
+  const reduce = useReducedMotion() ?? false;
+  const lunaSize = useLunaSize(150, 200);
+  const ids = useId();
+
+  const [params, setParams] = useSearchParams();
+  const mode: Mode = params.get('mode') === 'signup' ? 'signup' : 'signin';
+  const signingUp = mode === 'signup';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
-  const [selectedRole, setSelectedRole] = useState<UserRole>('student');
-  const [loading, setLoading] = useState(false);
-  const [forgotLoading, setForgotLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [consent, setConsent] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [busy, setBusy] = useState(false);
+  const [forgot, setForgot] = useState<'idle' | 'sending' | 'sent'>('idle');
+  const [stage, setStage] = useState<'form' | 'inbox'>('form');
+  const [resent, setResent] = useState(false);
 
-  const { signIn, signUp } = useAuth();
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  // Luna.
+  const [focused, setFocused] = useState(false);
+  const [keys, setKeys] = useState(0);
+  const [cheer, setCheer] = useState(0);
+  const [greeted, setGreeted] = useState(false);
+  const [inside, setInside] = useState(false);
 
-  const authSchema = z.object({
-    email: z.string().email(t('auth:validation.invalidEmail')),
-    password: z.string().min(6, t('auth:validation.passwordMin')),
+  // PublicRoute replaces this page as soon as the new session lands, so a
+  // pending hand-off must not fire after it has gone.
+  const handOff = useRef<number>();
+  useEffect(() => () => window.clearTimeout(handOff.current), []);
+
+  // Sign-up opens with a quiet "Hi." once she has landed. Returning people
+  // need no greeting; she looks at them, and winks if they click her.
+  useEffect(() => {
+    if (!signingUp) return;
+    const id = window.setTimeout(() => setGreeted(true), reduce ? 0 : 500);
+    return () => window.clearTimeout(id);
+  }, [signingUp, reduce]);
+
+  const bubble = inside ? t('luna.inside') : signingUp && greeted && !focused && stage === 'form' ? t('luna.hi') : null;
+
+  const schema = z.object({
+    email: z.string().email(t('errors.email')),
+    password: z.string().min(6, t('errors.password')),
   });
 
-  const getLunaMessage = () => {
-    if (focusedField === 'email') {
-      return "Use your university email for a special student badge!";
-    }
-    if (focusedField === 'password') {
-      return "Make it strong! 8+ characters to keep your notes safe.";
-    }
-    if (email.length > 0 && password.length >= 6) {
-      return `All set! Let's start, click ${isLogin ? 'Sign In' : 'Get Started'}.`;
-    }
-    return isLogin ? t('auth:branding.lunaIntro') : t('auth:branding.lunaSignupIntro');
+  const setMode = (next: Mode) => {
+    // Touch only `mode`: a shared link's `?next=` must survive the switch.
+    const updated = new URLSearchParams(params);
+    if (next === 'signup') updated.set('mode', 'signup');
+    else updated.delete('mode');
+    setParams(updated, { replace: true });
+    setErrors({});
+    setForgot('idle');
   };
 
-  const validateForm = () => {
-    try {
-      authSchema.parse({ email, password });
-      setErrors({});
-      return true;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const fieldErrors: { email?: string; password?: string } = {};
-        error.issues.forEach((err) => {
-          if (err.path[0] === 'email') fieldErrors.email = err.message;
-          if (err.path[0] === 'password') fieldErrors.password = err.message;
-        });
-        setErrors(fieldErrors);
+  const type = (setter: (v: string) => void) => (v: string) => {
+    setter(v);
+    setKeys((k) => k + 1);
+    if (errors.form) setErrors((e) => ({ ...e, form: undefined }));
+  };
+
+  const validate = (): FieldErrors => {
+    const parsed = schema.safeParse({ email: email.trim(), password });
+    const next: FieldErrors = {};
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        if (issue.path[0] === 'email') next.email ??= issue.message;
+        if (issue.path[0] === 'password') next.password ??= issue.message;
       }
-      return false;
     }
+    if (signingUp && !consent) next.consent = t('errors.consent');
+    return next;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const signInError = (message: string) => {
+    if (/invalid login credentials/i.test(message)) return t('errors.invalid');
+    if (/email not confirmed/i.test(message)) return t('errors.unconfirmed');
+    if (/deleted/i.test(message)) return t('errors.deleted');
+    return t('errors.generic');
+  };
+
+  const signUpError = (message: string) => {
+    if (/already (registered|exists)/i.test(message)) return t('errors.exists');
+    if (/password/i.test(message)) return t('errors.password');
+    return t('errors.generic');
+  };
+
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    const found = validate();
+    setErrors(found);
+    if (Object.keys(found).length) return;
 
-    if (!validateForm()) return;
-
-    setLoading(true);
-
-    if (!isLogin && !privacyConsent) {
-      toast({
-        title: t('auth:toasts.consentRequiredTitle'),
-        description: t('auth:toasts.consentRequiredDescription'),
-        variant: 'destructive',
-      });
-      setLoading(false);
-      return;
-    }
-
+    setBusy(true);
+    const address = email.trim();
     try {
-      if (isLogin) {
-        const { error } = await signIn(email, password);
+      if (!signingUp) {
+        const { error } = await signIn(address, password);
         if (error) {
-          toast({
-            title: t('auth:toasts.loginFailed'),
-            description: error.message === 'Invalid login credentials'
-              ? t('auth:toasts.loginInvalid')
-              : error.message,
-            variant: 'destructive',
-          });
-        } else {
-          toast({
-            title: t('auth:toasts.welcomeBack'),
-            description: t('auth:toasts.loginSuccess'),
-          });
-
-          try {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            if (authUser) {
-              await logLearningEvent(authUser.id, 'login', {
-                timestamp: new Date().toISOString(),
-                method: 'email_password',
-              });
-              void recordOnboardingSecondSession();
-            }
-          } catch (loginEventErr) {
-            console.error('Failed to log login event:', loginEventErr);
-          }
-
-          // Don't navigate by hand here. PublicRoute (which wraps /auth)
-          // redirects by role once the auth context resolves: professor →
-          // /professor/dashboard, everyone else → /dashboard. Navigating to a
-          // hardcoded '/dashboard' made professors bounce
-          // /dashboard → /professor/dashboard through the SAME ConsoleLayout
-          // instance, whose AnimatePresence(mode="wait") then wedged on the
-          // intermediate <Navigate> child and left the professor dashboard
-          // blank until a manual reload.
+          setErrors({ form: signInError(error.message) });
+          return;
         }
-      } else {
-        // The account does not exist yet, so capture this client-side funnel
-        // transition now and attach it as soon as Supabase returns a user.
-        try {
-          sessionStorage.setItem('ascend:account-creation-started', new Date().toISOString());
-        } catch {
-          // Funnel timing must never block account creation.
-        }
-        const { error } = await signUp(email, password, selectedRole);
-        if (error) {
-          toast({
-            title: t('auth:toasts.signupFailed'),
-            description: error.message.includes('already registered')
-              ? t('auth:toasts.alreadyRegistered')
-              : error.message,
-            variant: 'destructive',
-          });
-        } else {
-          try {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            if (authUser) {
-              const startedAt = sessionStorage.getItem('ascend:account-creation-started');
-              await logLearningEvent(authUser.id, 'account_creation_started', { method: 'email_password', role: selectedRole, started_at: startedAt });
-              await logLearningEvent(authUser.id, 'account_created', { method: 'email_password', role: selectedRole });
-              sessionStorage.removeItem('ascend:account-creation-started');
-            }
-          } catch (accountEventErr) {
-            console.error('Failed to log account creation events:', accountEventErr);
-          }
-          toast({
-            title: t('auth:toasts.accountCreated'),
-            description: t('auth:toasts.welcomeMessage'),
-          });
-          if (selectedRole === 'student') {
-            navigate('/onboarding');
-          } else {
-            navigate('/dashboard');
-          }
-        }
+        setCheer((c) => c + 1);
+        // No navigate here: PublicRoute, which wraps this page, sends each
+        // person where they belong once the auth context has their role.
+        void logSignIn();
+        return;
       }
+
+      try {
+        sessionStorage.setItem('ascend:account-creation-started', new Date().toISOString());
+      } catch {
+        // Funnel timing must never block account creation.
+      }
+      const { error, needsConfirmation } = await signUp(address, password);
+      if (error) {
+        setErrors({ form: signUpError(error.message) });
+        return;
+      }
+      setCheer((c) => c + 1);
+      setInside(true);
+      if (needsConfirmation) {
+        setStage('inbox');
+        return;
+      }
+      void logAccountCreated();
+      handOff.current = window.setTimeout(() => navigate(StudentRoutes.ONBOARDING), reduce ? 0 : 450);
     } catch {
-      toast({
-        title: t('auth:toasts.loginFailed'),
-        description: t('auth:toasts.genericError'),
-        variant: 'destructive',
-      });
+      setErrors({ form: t('errors.generic') });
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setErrors({ email: t('auth:validation.missingEmailForReset') });
+  const onForgot = async () => {
+    const address = email.trim();
+    if (!address) {
+      setErrors({ email: t('forgot.needEmail') });
       return;
     }
-    setForgotLoading(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-      if (error) throw error;
-      toast({
-        title: t('auth:toasts.resetEmailSent'),
-        description: t('auth:toasts.resetEmailDescription'),
-      });
-    } catch (error: unknown) {
-      toast({
-        title: t('auth:toasts.resetFailed'),
-        description: error instanceof Error ? error.message : t('auth:toasts.genericError'),
-        variant: 'destructive',
-      });
-    } finally {
-      setForgotLoading(false);
+    setForgot('sending');
+    const { error } = await supabase.auth.resetPasswordForEmail(address, {
+      redirectTo: `${window.location.origin}${PublicRoutes.RESET_PASSWORD}`,
+    });
+    if (error) {
+      setForgot('idle');
+      setErrors({ form: t('errors.generic') });
+      return;
     }
+    setForgot('sent');
   };
+
+  const onResend = async () => {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}/` },
+    });
+    if (!error) setResent(true);
+  };
+
+  const emailError = errors.email ? `${ids}-email-error` : undefined;
+  const passwordNote = `${ids}-password-note`;
 
   return (
-    <div className="min-h-screen bg-black flex relative overflow-hidden">
-      {/* Top-left Back button */}
-      <div className="absolute top-6 left-6 z-20">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/')}
-          className="text-muted-foreground hover:text-foreground gap-2 hover:bg-white/5 rounded-xl transition-all"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>{t('auth:backToHome')}</span>
-        </Button>
-      </div>
-
-      {/* Top-right language toggle */}
-      <div className="absolute top-6 right-6 z-20 flex items-center gap-4">
-        <LanguageToggle variant="icon-dark" />
-      </div>
-
-      {/* Animated Background for Auth */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-primary/10 blur-[100px] opacity-40" style={{ transform: 'translateZ(0)' }} />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-secondary/10 blur-[100px] opacity-30" style={{ transform: 'translateZ(0)' }} />
-      </div>
-
-      {/* Left side: Luna branding (hidden on mobile, visible on lg screens) */}
-      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center border-r border-white/5 bg-black overflow-hidden z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] to-white/[0.02] blur-[100px]" />
-        
-        <div className="relative z-10 flex flex-col items-center">
-          <Suspense fallback={<div className="w-64 h-64 animate-pulse rounded-full bg-white/5" />}>
-            <LunaAvatar size={200} showBackdrop={false} />
-          </Suspense>
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="mt-8 text-center max-w-md px-6 w-full flex flex-col items-center"
-          >
-            {/* Luna's Interactive Chat */}
-            <div className="min-h-[120px] w-full flex items-start justify-center">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={getLunaMessage()}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, y: -5 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <p className="text-2xl font-bold text-white leading-relaxed">
-                    {getLunaMessage().split('').map((char, i) => (
-                      <motion.span
-                        key={`${char}-${i}`}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.05, delay: i * 0.02 }}
-                      >
-                        {char}
-                      </motion.span>
-                    ))}
-                  </p>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </motion.div>
+    <StagePage home={PublicRoutes.LANDING} homeLabel={t('home')} topRight={<LanguageToggle variant="icon-dark" />}>
+      {/* Luna lands once, then stays put while the words beneath her change. */}
+      <motion.div
+        className="relative"
+        initial={reduce ? false : { y: -140, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 170, damping: 16, mass: 0.9 }}
+      >
+        <LunaHero size={lunaSize} attention={focused ? 'listening' : 'idle'} nudge={keys} cheer={cheer} />
+        <div aria-live="polite">
+          <AnimatePresence mode="wait">
+            {bubble && (
+              <LunaSays key={bubble} side="right" className="left-[calc(100%-12px)] top-[14%]">
+                {bubble}
+              </LunaSays>
+            )}
+          </AnimatePresence>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Right side: Center Auth form on mobile, Right side on lg */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-24 relative z-10">
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="w-full max-w-md"
-        >
-          {/* Brand Logo */}
-          <div className="flex items-center gap-4 mb-12 justify-center cursor-pointer" onClick={() => navigate('/')}>
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-glow-primary">
-              <Layers className="w-7 h-7 text-black" />
-            </div>
-            <div className="flex flex-col text-left">
-              <span className="text-xl font-bold text-foreground">Learnstation</span>
-            </div>
-          </div>
-
-          <div className="space-y-2 mb-10">
-            <h2 className="text-4xl font-bold text-foreground tracking-tight">
-              {isLogin ? t('auth:signIn') : t('auth:signUp')}
-            </h2>
-            <p className="text-muted-foreground font-medium">
-              {isLogin ? t('auth:signInSubtitle') : t('auth:signUpSubtitle')}
+      <AnimatePresence mode="wait" initial={false}>
+        {stage === 'inbox' ? (
+          <motion.section
+            key="inbox"
+            className="mt-6 w-full text-center"
+            initial={reduce ? false : { opacity: 0, y: 12, filter: 'blur(8px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            transition={{ duration: 0.55, ease: EASE }}
+          >
+            <h1 className="text-[36px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[44px]">{t('inbox.title')}</h1>
+            <p className="mx-auto mt-4 max-w-[34ch] text-[15.5px] leading-relaxed text-quiet">
+              {t('inbox.lede', { email: email.trim() })}
             </p>
-          </div>
-
-          {/* Role selector (signup only) */}
-          {!isLogin && (
-            <div className="mb-8">
-              <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 block">{t('auth:designation')}</Label>
-              <RadioGroup value={selectedRole} onValueChange={(v) => setSelectedRole(v as UserRole)} className="grid grid-cols-2 gap-4">
-                {[
-                  { role: 'student' as UserRole, icon: BookOpen, label: t('auth:roles.student') },
-                  { role: 'professor' as UserRole, icon: User, label: t('auth:roles.professor') },
-                ].map(({ role, icon: Icon, label }) => (
-                  <div key={role} className="relative">
-                    <RadioGroupItem value={role} id={`role-${role}`} className="sr-only" />
-                    <Label
-                      htmlFor={`role-${role}`}
-                      className={`cursor-pointer p-6 rounded-2xl border transition-all duration-300 flex flex-col items-center gap-3 focus-within:ring-2 focus-within:ring-primary focus-within:outline-none ${selectedRole === role
-                        ? 'border-primary bg-primary/5 shadow-glow-primary/10'
-                        : 'border-white/5 bg-white/2 hover:border-white/10'
-                        }`}
-                    >
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedRole === role ? 'bg-primary text-primary-foreground' : 'bg-white/5 text-muted-foreground'}`}>
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <span className={`text-xs font-bold uppercase tracking-widest ${selectedRole === role ? 'text-primary' : 'text-muted-foreground'}`}>
-                        {label}
-                      </span>
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
+            <div className="mt-8 flex flex-col items-center gap-3">
+              <button type="button" onClick={onResend} disabled={resent} className={whitePill}>
+                {resent ? t('inbox.resent') : t('inbox.resend')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStage('form');
+                  setInside(false);
+                  setResent(false);
+                }}
+                className={ghostPill}
+              >
+                {t('inbox.change')}
+              </button>
             </div>
-          )}
+          </motion.section>
+        ) : (
+          <motion.section
+            key="form"
+            className="mt-6 w-full"
+            initial={reduce ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8, filter: 'blur(8px)' }}
+            transition={{ duration: 0.5, ease: EASE }}
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.h1
+                key={mode}
+                className="text-center text-[36px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[44px]"
+                initial={reduce ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.3, ease: EASE }}
+              >
+                {signingUp ? t('title.signUp') : t('title.signIn')}
+              </motion.h1>
+            </AnimatePresence>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('auth:fields.emailLabel')}</Label>
-              <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                <Input
+            <form onSubmit={onSubmit} noValidate className="mt-8 space-y-4">
+              <div>
+                <label htmlFor="email" className="mb-1.5 block text-[13px] text-quiet">
+                  {t('fields.email')}
+                </label>
+                <input
                   id="email"
                   name="email"
                   type="email"
-                  placeholder={t('auth:fields.emailPlaceholder')}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onFocus={() => setFocusedField('email')}
-                  onBlur={() => setFocusedField(null)}
+                  inputMode="email"
                   autoComplete="username"
-                  className={`h-14 pl-12 text-white bg-white/5 placeholder:text-muted-foreground border-white/10 focus:border-primary/50 rounded-2xl transition-all ${errors.email ? 'border-destructive' : ''}`}
+                  placeholder={t('fields.emailPlaceholder')}
+                  value={email}
+                  onChange={(e) => type(setEmail)(e.target.value)}
+                  onFocus={() => setFocused(true)}
+                  onBlur={() => setFocused(false)}
+                  aria-invalid={!!errors.email}
+                  aria-describedby={emailError}
+                  className={stageInput}
                 />
-              </div>
-              {errors.email && (
-                <p className="text-xs font-bold text-destructive uppercase tracking-widest mt-1">{errors.email}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('auth:fields.passwordLabel')}</Label>
-                {isLogin && (
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    disabled={forgotLoading}
-                    className="text-[10px] font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest"
-                  >
-                    {forgotLoading ? t('auth:resetting') : t('auth:forgotPassword')}
-                  </button>
+                {errors.email && (
+                  <p id={emailError} className="mt-1.5 text-[13px] text-rose-300">
+                    {errors.email}
+                  </p>
                 )}
               </div>
-              <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
-                  autoComplete={isLogin ? 'current-password' : 'new-password'}
-                  className={`h-14 pl-12 pr-12 text-white bg-white/5 placeholder:text-muted-foreground border-white/10 focus:border-primary/50 rounded-2xl transition-all ${errors.password ? 'border-destructive' : ''}`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  tabIndex={-1}
-                  aria-label={showPassword ? t('auth:fields.hidePasswordText', { defaultValue: 'Hide input text' }) : t('auth:fields.showPasswordText', { defaultValue: 'Show input text' })}
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+
+              <div>
+                <div className="mb-1.5 flex items-baseline justify-between gap-3">
+                  <label htmlFor="password" className="text-[13px] text-quiet">
+                    {t('fields.password')}
+                  </label>
+                  {!signingUp ? (
+                    forgot === 'sent' ? (
+                      <span className="truncate text-[13px] text-quiet" role="status">
+                        {t('forgot.sent', { email: email.trim() })}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onForgot}
+                        disabled={forgot === 'sending'}
+                        className="console-focusable rounded text-[13px] text-quiet transition-colors hover:text-white"
+                      >
+                        {forgot === 'sending' ? t('forgot.sending') : t('forgot.link')}
+                      </button>
+                    )
+                  ) : (
+                    !errors.password && (
+                      <span id={passwordNote} className="text-[13px] text-faint">
+                        {t('fields.passwordHint')}
+                      </span>
+                    )
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete={signingUp ? 'new-password' : 'current-password'}
+                    value={password}
+                    onChange={(e) => type(setPassword)(e.target.value)}
+                    onFocus={() => setFocused(true)}
+                    onBlur={() => setFocused(false)}
+                    aria-invalid={!!errors.password}
+                    aria-describedby={errors.password || signingUp ? passwordNote : undefined}
+                    className={cn(stageInput, 'pr-12')}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    aria-label={showPassword ? t('fields.hidePassword') : t('fields.showPassword')}
+                    aria-pressed={showPassword}
+                    className="console-focusable absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-white/50 transition-colors hover:text-white"
+                  >
+                    {showPassword ? <EyeOff aria-hidden className="h-[18px] w-[18px]" /> : <Eye aria-hidden className="h-[18px] w-[18px]" />}
+                  </button>
+                </div>
+                {errors.password && (
+                  <p id={passwordNote} className="mt-1.5 text-[13px] text-rose-300">
+                    {errors.password}
+                  </p>
+                )}
               </div>
-              {errors.password && (
-                <p className="text-xs font-bold text-destructive uppercase tracking-widest mt-1">{errors.password}</p>
+
+              <AnimatePresence initial={false}>
+                {signingUp && (
+                  <motion.div
+                    key="consent"
+                    initial={reduce ? false : { height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.22, ease: EASE }}
+                    className="overflow-hidden"
+                  >
+                    <label className="flex cursor-pointer items-start gap-3 pt-1">
+                      <input
+                        type="checkbox"
+                        checked={consent}
+                        onChange={(e) => {
+                          setConsent(e.target.checked);
+                          if (e.target.checked) setErrors((x) => ({ ...x, consent: undefined }));
+                        }}
+                        aria-invalid={!!errors.consent}
+                        className="mt-[3px] h-4 w-4 shrink-0 rounded accent-white"
+                      />
+                      <span className="text-[13px] leading-relaxed text-quiet">
+                        {t('consent.prefix')}
+                        <a
+                          href={PublicRoutes.DATENSCHUTZ}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-white underline decoration-white/30 underline-offset-2 hover:decoration-white"
+                        >
+                          {t('consent.link')}
+                        </a>
+                        {t('consent.suffix')}
+                      </span>
+                    </label>
+                    {errors.consent && <p className="mt-1.5 text-[13px] text-rose-300">{errors.consent}</p>}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <button type="submit" disabled={busy} className={cn(whitePill, 'mt-2 w-full')}>
+                {busy ? t('submit.busy') : signingUp ? t('submit.signUp') : t('submit.signIn')}
+              </button>
+
+              {errors.form && (
+                <p role="alert" className="text-center text-[13.5px] text-rose-300">
+                  {errors.form}
+                </p>
               )}
-            </div>
+            </form>
 
-            <Button
-              type="submit"
-              size="xl"
-              className="w-full h-16 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-2xl shadow-glow-primary border-none text-lg transition-all active:scale-95"
-              disabled={loading || (!isLogin && !privacyConsent)}
-            >
-              {loading ? (
-                <span className="flex items-center gap-3">
-                  <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-                  {t('auth:submit.loading')}
-                </span>
-              ) : (
-                <>
-                  {isLogin ? t('auth:submit.signIn') : t('auth:submit.signUp')}
-                  <ArrowRight className="w-5 h-5 ml-3" />
-                </>
-              )}
-            </Button>
-
-            {!isLogin && (
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={privacyConsent}
-                  onChange={(e) => setPrivacyConsent(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-white/10 bg-white/2 accent-primary transition-all"
-                />
-                <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
-                  {t('auth:consent.prefix')}
-                  <a href="/datenschutz" target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline">
-                    {t('auth:consent.linkText')}
-                  </a>
-                  {t('auth:consent.suffix')}
-                </span>
-              </label>
-            )}
-          </form>
-
-          <div className="mt-10 text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setErrors({});
-              }}
-              className="text-sm font-bold text-muted-foreground hover:text-foreground transition-colors group"
-            >
-              {isLogin ? (
-                <>
-                  {t('auth:switch.toSignUpPrefix')}
-                  <span className="text-primary group-hover:underline">{t('auth:switch.toSignUpAction')}</span>
-                </>
-              ) : (
-                <>
-                  {t('auth:switch.toSignInPrefix')}
-                  <span className="text-primary group-hover:underline">{t('auth:switch.toSignInAction')}</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Sign-up hint only. Signing in needs no reassurance card
-              (Abi, 2026-10-10: remove "Your dashboard is ready."). */}
-          {!isLogin && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-            className="mt-12 p-6 glass-panel border-white/5 rounded-2xl flex items-center gap-4"
-          >
-            <div className="w-10 h-10 rounded-xl bg-xp/10 flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-5 h-5 text-xp" />
-            </div>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-relaxed">
-              {t('auth:performanceHint.signUp')}
+            <p className="mt-8 text-center text-[13.5px] text-quiet">
+              {signingUp ? t('switch.toSignIn.prefix') : t('switch.toSignUp.prefix')}{' '}
+              <button
+                type="button"
+                onClick={() => setMode(signingUp ? 'signin' : 'signup')}
+                className="console-focusable rounded font-medium text-white underline decoration-white/30 underline-offset-4 transition-colors hover:decoration-white"
+              >
+                {signingUp ? t('switch.toSignIn.action') : t('switch.toSignUp.action')}
+              </button>
             </p>
-          </motion.div>
-          )}
-        </motion.div>
-      </div>
-    </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+    </StagePage>
   );
+}
+
+/** The funnel's sign-in event. Never blocks or fails the sign-in itself. */
+async function logSignIn() {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    await logLearningEvent(user.id, 'login', { timestamp: new Date().toISOString(), method: 'email_password' });
+    void recordOnboardingSecondSession();
+  } catch (err) {
+    console.error('Failed to log login event:', err);
+  }
+}
+
+/** The funnel's account-created pair, timed from when the form was sent. */
+async function logAccountCreated() {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    const startedAt = sessionStorage.getItem('ascend:account-creation-started');
+    await logLearningEvent(user.id, 'account_creation_started', { method: 'email_password', role: 'student', started_at: startedAt });
+    await logLearningEvent(user.id, 'account_created', { method: 'email_password', role: 'student' });
+    sessionStorage.removeItem('ascend:account-creation-started');
+  } catch (err) {
+    console.error('Failed to log account creation events:', err);
+  }
 }

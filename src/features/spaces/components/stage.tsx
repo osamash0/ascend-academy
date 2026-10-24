@@ -150,6 +150,10 @@ export const ghostPill =
 export const ghostPillSm =
   'console-focusable inline-flex h-9 items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.05] px-4 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.09] hover:text-foreground';
 
+/** The one white primary action on a stage screen. */
+export const whitePill =
+  'console-focusable inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900 transition-colors hover:bg-white/90 disabled:pointer-events-none disabled:opacity-40';
+
 /** The white primary, small — for "Add", "New note". */
 export const whitePillSm =
   'console-focusable inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900';

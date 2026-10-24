@@ -116,11 +116,11 @@ describe('the auth page opens in the mode it was asked for', () => {
 
   it('?mode=signup opens account creation', () => {
     mountAuth('/auth?mode=signup');
-    expect(screen.getByRole('heading', { name: 'Get Started' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Start here.' })).toBeInTheDocument();
   });
 
   it('plain /auth opens sign-in', () => {
     mountAuth('/auth');
-    expect(screen.getByRole('heading', { name: 'Sign In' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Welcome back.' })).toBeInTheDocument();
   });
 });

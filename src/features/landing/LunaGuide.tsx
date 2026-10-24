@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useMotionValueEvent, useReducedMotion, useSpring } from 'motion/react';
 import type { Mood } from '@/features/avatar/types';
 import { cn } from '@/lib/utils';
+import { LunaSays } from '@/features/avatar/LunaSays';
 
 const LunaAvatar = lazy(() =>
   import('@/features/avatar/LunaAvatar').then((m) => ({ default: m.LunaAvatar })),
@@ -259,21 +260,17 @@ export function LunaGuide({
       {/* What she says: one or two words, the demo's only labels. */}
       <AnimatePresence mode="wait">
         {!hopping && (
-          <motion.span
+          // On the last tab she speaks to her left, so the bubble never leaves a phone screen.
+          <LunaSays
             key={at}
-            data-testid="luna-says"
-            // On the last tab she speaks to her left, so the bubble never leaves a phone screen.
+            side={GUIDE_VIEWS.indexOf(at) === GUIDE_VIEWS.length - 1 ? 'left' : 'right'}
             className={cn(
-              'absolute top-[12%] whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[12.5px] font-medium text-black shadow-[0_6px_20px_-8px_rgba(0,0,0,0.8)]',
-              GUIDE_VIEWS.indexOf(at) === GUIDE_VIEWS.length - 1 ? 'right-[calc(100%-6px)] rounded-br-[4px]' : 'left-[calc(100%-6px)] rounded-bl-[4px]',
+              'top-[12%]',
+              GUIDE_VIEWS.indexOf(at) === GUIDE_VIEWS.length - 1 ? 'right-[calc(100%-6px)]' : 'left-[calc(100%-6px)]',
             )}
-            initial={reduce ? false : { opacity: 0, scale: 0.85, x: -4 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.12 } }}
-            transition={{ type: 'spring', stiffness: 400, damping: 26, delay: 0.1 }}
           >
             {t(`story.luna.${at}`)}
-          </motion.span>
+          </LunaSays>
         )}
       </AnimatePresence>
 

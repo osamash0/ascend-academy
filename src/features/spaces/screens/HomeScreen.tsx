@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { LunaHero } from '@/features/avatar/LunaHero';
-import { useViewerLoadout } from '@/features/avatar/viewerLoadout';
+import { useViewerLight, useViewerLoadout } from '@/features/avatar/viewerLoadout';
 import { cn } from '@/lib/utils';
 import { Pressable, PressableLink } from '../components/Pressable';
 import { topicIcon } from '@/lib/topicIcon';
@@ -142,8 +142,14 @@ export default function HomeScreen() {
     return () => window.removeEventListener('resize', on);
   }, []);
 
-  /* Home is lit by the one thing it points at: the next Lesson's colour. */
-  const accent = next ? stageAccentFor(next.lessonOrder) : null;
+  /*
+   * Home is lit by the one thing it points at: the next Lesson's colour. With
+   * nothing to point at yet — a brand-new account, straight out of first run —
+   * it is lit by the light they picked for Luna, so the room they arrive in is
+   * the one they just switched on.
+   */
+  const viewerLight = useViewerLight();
+  const accent = next ? stageAccentFor(next.lessonOrder) : state === 'ready' ? viewerLight : null;
 
   const chrome = (body: React.ReactNode) => (
     <Scene surface={SURFACES.home} status="progress" motionKey="home" accent={accent}>
@@ -210,27 +216,35 @@ export default function HomeScreen() {
      * real. They come back when v4 can upload and invite.
      */
     return chrome(
-      <div className="relative mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-6 text-center">
+      <div className="relative mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-6 pb-16 text-center">
+        <LunaHero loadout={viewerLoadout} size={sizeLuna} accent={accent} className="mb-6" />
         <h1 className="mb-4 text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[56px]">
           {greeting}
         </h1>
         <p className="mb-8 max-w-[46ch] text-[15.5px] leading-[1.75] text-quiet">
           {t('home.empty.liveBody')}
         </p>
-        <Pressable
-          type="button"
-          onClick={() => navigate('/v4/spaces')}
-          className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900"
-        >
-          {t('home.empty.find')}
-        </Pressable>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Pressable
+            type="button"
+            onClick={() => navigate('/v4/spaces')}
+            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900"
+          >
+            {t('home.empty.find')}
+          </Pressable>
+          {/* Your own material: the Library is the one place v4 brings files in. */}
+          <Link to="/v4/library" className={ghostPill}>
+            {t('home.empty.bring')}
+          </Link>
+        </div>
       </div>,
     );
   }
 
   if (!next) {
     return chrome(
-      <div className="relative mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-6 text-center">
+      <div className="relative mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-6 pb-16 text-center">
+        <LunaHero loadout={viewerLoadout} size={sizeLuna} accent={accent} className="mb-6" />
         <h1 className="mb-4 text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[56px]">
           {greeting}
         </h1>

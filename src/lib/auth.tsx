@@ -37,7 +37,13 @@ interface AuthContextType {
   profile: Profile | null;
   role: UserRole;
   loading: boolean;
-  signUp: (email: string, password: string, role: UserRole) => Promise<{ error: Error | null }>;
+  /**
+   * Everyone signs up as a learner; teaching is owning a Space, not an account
+   * type. `needsConfirmation` is true when Supabase returned no session — email
+   * confirmation is on, or the address is already registered and enumeration
+   * protection hides that — so the page shows "check your inbox".
+   */
+  signUp: (email: string, password: string) => Promise<{ error: Error | null; needsConfirmation?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -232,16 +238,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
 
-  const signUp = useCallback(async (email: string, password: string, selectedRole: UserRole) => {
+  const signUp = useCallback(async (email: string, password: string) => {
     const redirectUrl = `${window.location.origin}/`;
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
         data: {
-          role: selectedRole,
+          // The on_auth_user_created trigger copies this into user_roles and
+          // defaults anything else to student; sent explicitly so the trigger
+          // and the e2e mocks read the same thing.
+          role: 'student',
         },
       },
     });
@@ -250,13 +259,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error };
     }
 
-    // Role is stored in user_metadata.role and propagated to user_roles
-    // by the on_auth_user_created database trigger. We deliberately do
-    // NOT upsert into user_roles from the client — that would let any
-    // user grant themselves the 'professor' role and bypass server-side
-    // role checks. If signups are succeeding but no role is assigned,
-    // verify the trigger exists in Supabase.
-    return { error: null };
+    // We deliberately do NOT upsert into user_roles from the client — that
+    // would let any user grant themselves a role and bypass server-side role
+    // checks. If signups succeed but no role is assigned, verify the trigger.
+    return { error: null, needsConfirmation: !data?.session };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {

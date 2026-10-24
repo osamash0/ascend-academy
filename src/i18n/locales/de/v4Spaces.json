@@ -179,8 +179,9 @@
       "body": "Noch gibt es nichts zum Weitermachen. Starte einen Space für etwas, das du lernst. Oder tritt einem Space mit einem Code bei, den du von jemandem bekommen hast.",
       "create": "Space erstellen",
       "join": "Mit Code beitreten",
-      "liveBody": "Noch gibt es nichts zum Weitermachen. Such dir einen Space für etwas, das du lernst – beitreten geht mit einem Tipp, und die erste Lektion wartet schon.",
-      "find": "Space finden"
+      "liveBody": "Noch gibt es nichts zum Weitermachen. Fang mit etwas an, das du gerade lernst.",
+      "find": "Space finden",
+      "bring": "Material hinzufügen"
     },
     "answer": {
       "thinking": "Dein Material wird gelesen…",

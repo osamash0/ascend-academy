@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useInView, useReducedMotion } from 'motion/react';
 import { ArrowRight, Check, CornerDownLeft, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PublicRoutes } from '@/lib/routes';
 
 import { HOP_MS, LunaGuide, type GuideReaction } from './LunaGuide';
 
@@ -470,7 +471,7 @@ export function Hero() {
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <button
             type="button"
-            onClick={() => navigate('/auth?mode=signup')}
+            onClick={() => navigate(PublicRoutes.SIGNUP)}
             className="inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14.5px] font-semibold text-black transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
             {t('story.hero.start')}

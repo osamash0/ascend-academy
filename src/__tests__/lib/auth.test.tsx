@@ -209,20 +209,46 @@ describe('AuthProvider — signIn / signUp', () => {
     expect(supabaseMock.auth.signOut).toHaveBeenCalled();
   });
 
-  it('signUp passes the requested role via metadata and never writes user_roles from the client', async () => {
+  it('signUp always asks for the learner role and never writes user_roles from the client', async () => {
     render(<AuthProvider><Probe /></AuthProvider>);
     let res: { error: Error | null } = { error: new Error('unset') };
     await act(async () => {
-      res = await ctx.signUp('new@b.edu', 'pw', 'professor');
+      res = await ctx.signUp('new@b.edu', 'pw');
     });
     expect(res.error).toBeNull();
     expect(supabaseMock.auth.signUp).toHaveBeenCalledWith(
       expect.objectContaining({
-        options: expect.objectContaining({ data: { role: 'professor' } }),
+        options: expect.objectContaining({ data: { role: 'student' } }),
       }),
     );
     // Privilege-escalation guard: the client must not insert into user_roles.
     expect(supabaseMock.data['user_roles']?.rows ?? []).toHaveLength(0);
+  });
+
+  it('signUp reports when there is no session yet, so the page can say "check your inbox"', async () => {
+    supabaseMock.auth.signUp.mockResolvedValueOnce({
+      data: { user: { id: 'u2', identities: [{}] }, session: null },
+      error: null,
+    });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    let res: { error: Error | null; needsConfirmation?: boolean } = { error: new Error('unset') };
+    await act(async () => {
+      res = await ctx.signUp('new@b.edu', 'pw');
+    });
+    expect(res).toEqual({ error: null, needsConfirmation: true });
+  });
+
+  it('signUp with a session needs no confirmation', async () => {
+    supabaseMock.auth.signUp.mockResolvedValueOnce({
+      data: { user: { id: 'u3' }, session: { access_token: 't' } },
+      error: null,
+    });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    let res: { error: Error | null; needsConfirmation?: boolean } = { error: new Error('unset') };
+    await act(async () => {
+      res = await ctx.signUp('new@b.edu', 'pw');
+    });
+    expect(res).toEqual({ error: null, needsConfirmation: false });
   });
 });
 

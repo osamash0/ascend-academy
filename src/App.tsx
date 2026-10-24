@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 
 import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes, homeForRole, safeNextPath } from "@/lib/routes";
+import { needsFirstRun, postAuthDestination } from "@/lib/firstRun";
 import { SocialProvider } from "@/features/social/store";
 import { ConfettiCanvas } from "@/components/ConfettiCanvas";
 import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
@@ -69,7 +70,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 // Two-part first run: the cinematic sets up identity (name, Luna, university,
 // courses), then the activation screen picks the first study path.
-const Onboarding = lazy(() => import("./pages/Onboarding"));
+const FirstRun = lazy(() => import("./pages/FirstRun"));
 const ActivationOnboarding = lazy(() => import("./pages/ActivationOnboarding"));
 const StudentUploadWizard = lazy(() => import("./features/student/components/StudentUploadWizard"));
 const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
@@ -165,6 +166,12 @@ const queryClient = new QueryClient({
 const V4_LIVE = import.meta.env.VITE_V4_DATA_MODE === 'live';
 const V4_ENABLED =
   import.meta.env.DEV || (['1', 'true'].includes(import.meta.env.VITE_FEATURE_V4 ?? '') && V4_LIVE);
+/**
+ * v4 is the product a signed-in student lands in: first run ends in v4 Home,
+ * and sign-in goes there. Only with live data — the dev fixture world is a
+ * design review, never somewhere to send a real account.
+ */
+const V4_FIRST = V4_ENABLED && V4_LIVE;
 
 /**
  * Signed in, but the role lookup settled without a role (a timeout, or more
@@ -247,42 +254,49 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
-    // New students choose a study path before reaching the dashboard. A name
-    // is now optional and belongs to progressive personalization. Onboarding
-    // is student-only, so no other role (or a missing one) is ever sent there.
-    if (role === 'student' && profile && !profile.has_completed_activation_onboarding) {
-      return <Navigate to={StudentRoutes.ONBOARDING} replace />;
-    }
-    // Then where they were going when sign-in interrupted them, if it is a
-    // path inside the app; otherwise their own home.
-    return <Navigate to={safeNextPath(params.get("next")) ?? homeForRole(role)} replace />;
+    // First run for a new student; then where sign-in interrupted them, if it
+    // is a path inside the app; then v4 Home or their role's own home.
+    return (
+      <Navigate
+        to={postAuthDestination({ role, profile, v4First: V4_FIRST, next: safeNextPath(params.get("next")) })}
+        replace
+      />
+    );
   }
 
   return <>{children}</>;
 }
 
-function OnboardingRoute() {
-  const { profile } = useAuth();
+/**
+ * A student who has not been through first run is sent there before anything
+ * else. Nobody else ever is: `/onboarding` is student-only, and sending an
+ * admin or an unknown role there looped them back here forever.
+ */
+export function FirstRunGate({ children }: { children: React.ReactNode }) {
+  const { role, profile } = useAuth();
+  if (needsFirstRun(role, profile)) {
+    return <Navigate to={StudentRoutes.ONBOARDING} replace />;
+  }
+  return <>{children}</>;
+}
 
-  // The cinematic is the identity flow, and a name is the durable thing it
-  // writes. Someone who already has one has been through it, so send them to
-  // the study-path step instead of replaying avatar and university setup.
-  //
-  // Answered on arrival rather than on every render, because the cinematic
-  // writes that name itself at the *start* of a finish sequence that still has
-  // a five-second reveal left to play. Nothing refreshes the profile mid-flow
-  // today, so a live check would also work — but only until it does.
-  const skipCinematic = useRef(Boolean(profile?.full_name));
+export function OnboardingRoute() {
+  const { role, profile } = useAuth();
 
-  if (skipCinematic.current) {
-    return <Navigate to={StudentRoutes.ONBOARDING_START} replace />;
+  // Answered on arrival, not on every render: first run refreshes the profile
+  // (now complete) just before it navigates to where it hands over, and a live
+  // check would yank the page away before that navigation happens.
+  const alreadyDone = useRef(Boolean(profile?.has_completed_activation_onboarding));
+
+  if (alreadyDone.current) {
+    return <Navigate to={postAuthDestination({ role, profile, v4First: V4_FIRST })} replace />;
   }
 
-  return <Onboarding />;
+  return <FirstRun v4First={V4_FIRST} />;
 }
 
 export function StudentDashboardRoute() {
-  const { role, profile } = useAuth();
+  const { role } = useAuth();
 
   if (!role) return <AccountUnavailable />;
 
@@ -290,11 +304,11 @@ export function StudentDashboardRoute() {
     return <Navigate to={homeForRole(role)} replace />;
   }
 
-  if (profile && !profile.has_completed_activation_onboarding) {
-    return <Navigate to={StudentRoutes.ONBOARDING} replace />;
-  }
-
-  return <StudentDashboard />;
+  return (
+    <FirstRunGate>
+      <StudentDashboard />
+    </FirstRunGate>
+  );
 }
 
 function SettingsWrapper() {
@@ -351,7 +365,20 @@ function AppRoutes() {
           study into production with nothing failing.
         */}
         {V4_ENABLED && (
-          <Route element={V4_LIVE ? <ProtectedRoute><MotionRoot /></ProtectedRoute> : <MotionRoot />}>
+          <Route
+            element={
+              V4_LIVE ? (
+                <ProtectedRoute>
+                  {/* A deep link into v4 must not skip first run. */}
+                  <FirstRunGate>
+                    <MotionRoot />
+                  </FirstRunGate>
+                </ProtectedRoute>
+              ) : (
+                <MotionRoot />
+              )
+            }
+          >
             {/* The hub. Replaces the Mine/Discover tabs, which the handoff
                 deletes — membership is a badge, never a section split. */}
             <Route path="/v4/spaces" element={<V4SpacesHub />} />
