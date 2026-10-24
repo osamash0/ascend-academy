@@ -17,15 +17,10 @@ from backend.core.logging_config import setup_logging, set_correlation_id
 
 # Initialize JSON structured logging
 setup_logging()
-traces_sample_rate = 0.1 if settings.env != "development" else 1.0
-profiles_sample_rate = 0.1 if settings.env != "development" else 1.0
 
 if os.environ.get("SENTRY_DSN"):
-    sentry_sdk.init(
-        dsn=os.environ.get("SENTRY_DSN"),
-        traces_sample_rate=traces_sample_rate,
-        profiles_sample_rate=profiles_sample_rate,
-    )
+    from backend.core.sentry import build_sentry_options
+    sentry_sdk.init(**build_sentry_options(os.environ["SENTRY_DSN"], env=settings.env))
 
 from backend.api.v1.analytics import router as analytics_router
 from backend.api.v1.auth import router as auth_router

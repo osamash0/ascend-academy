@@ -263,8 +263,18 @@ async def create_chat_session_endpoint(
     
     if body.lecture_id:
         try:
-            res = supabase_admin.table("lectures").select("id").eq("id", body.lecture_id).limit(1).execute()
+            res = (
+                supabase_admin.table("lectures")
+                .select("id, visibility, student_owner_id")
+                .eq("id", body.lecture_id).limit(1).execute()
+            )
             if not res.data: raise HTTPException(status_code=404, detail="Lecture not found.")
+            # Same rule as RLS `lecture_visible_to_caller`: a private student
+            # upload is only its owner's. Without this a session was a side
+            # door into /ai/chat for any lecture id.
+            row = res.data[0]
+            if row.get("visibility") == "private_student" and row.get("student_owner_id") != user_id:
+                raise HTTPException(status_code=403, detail="This material is private.")
         except HTTPException: raise
         except Exception: raise HTTPException(status_code=500, detail="Database lookup failed.")
 

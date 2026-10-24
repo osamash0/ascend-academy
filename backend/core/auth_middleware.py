@@ -99,12 +99,30 @@ async def verify_token(
     token: str = credentials.credentials
 
     # 0. Check blocklist first
-    from backend.services.cache import is_token_blocklisted
-    if await is_token_blocklisted(token):
+    from backend.services.cache import BlocklistUnavailable, is_token_blocklisted
+    try:
+        blocked = await is_token_blocklisted(token)
+        blocklist_unavailable = False
+    except BlocklistUnavailable:
+        # Fail closed, but only for tokens that turn out to be otherwise
+        # valid: an invalid token still gets its 401 below. A valid token we
+        # cannot prove un-revoked gets a retryable 503 (see ``_accept``).
+        blocked = False
+        blocklist_unavailable = True
+    if blocked:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session invalidated.",
         )
+
+    def _accept(user):
+        if blocklist_unavailable:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Sign-in check temporarily unavailable. Please retry.",
+                headers={"Retry-After": "5"},
+            )
+        return user
 
     # 1. Check shared database L2 cache first
     cached_user = await get_cached_token(token)
@@ -112,8 +130,8 @@ async def verify_token(
         from backend.core.metrics import AUTH_CACHE_TOTAL
         AUTH_CACHE_TOTAL.labels(result="hit").inc()
         if isinstance(cached_user, dict):
-            return CachedUser.from_dict(cached_user)
-        return cached_user
+            return _accept(CachedUser.from_dict(cached_user))
+        return _accept(cached_user)
 
     from backend.core.metrics import AUTH_CACHE_TOTAL
     AUTH_CACHE_TOTAL.labels(result="miss").inc()
@@ -141,7 +159,7 @@ async def verify_token(
         
         # Store in shared cache so other workers skip the Auth round-trip
         await store_cached_token(token, user)
-        return user
+        return _accept(user)
 
     except HTTPException:
         raise

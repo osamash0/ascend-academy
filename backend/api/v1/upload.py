@@ -503,7 +503,8 @@ async def parse_raw_endpoint(
         return await upload_service.extract_raw_pages(content, filename, parser)
     except Exception as e:
         logger.error("parse-raw failed: %s", e)
-        raise HTTPException(status_code=422, detail=str(e))
+        # Parser internals (paths, library errors) belong in the log, not the response.
+        raise HTTPException(status_code=422, detail="The file could not be parsed.")
 
 @router.get("/diagnostics/{pdf_hash}")
 @limiter.limit("30/minute")
