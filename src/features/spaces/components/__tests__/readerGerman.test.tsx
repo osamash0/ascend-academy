@@ -21,6 +21,7 @@ vi.mock('@/components/pdf', () => ({
   PdfPager: ({ rootRef }: { rootRef: RefObject<HTMLDivElement> }) => <div ref={rootRef} data-testid="document" />,
   pdfPageId: (p: number) => `pdf-page-${p}`,
   sampleAccent: () => null,
+  warmPdfWorker: () => {},
 }));
 
 const ENGLISH_CHROME = [

@@ -4,7 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Smartphone, Sun, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PdfPager, sampleAccent } from '@/components/pdf';
+import { PdfPager, sampleAccent, warmPdfWorker } from '@/components/pdf';
 import { addNote, deleteNote, notesError, notesForLesson, subscribeNotes, updateNote } from '../data/notes';
 import { submitAnswer, usePracticeQuestions } from '../data/practice';
 import { Scene, SURFACES } from '../components/Scene';
@@ -112,6 +112,8 @@ export default function LessonFacesScreen() {
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
   const { state, space, lesson, prev, next } = useReaderLesson(spaceId, lessonId);
   const content = useReaderContent(spaceId, lessonId);
+  /* The PDF worker loads while the lesson does, not after it — see `warmPdfWorker`. */
+  useEffect(warmPdfWorker, []);
   const reduce = useReducedMotion();
   const panel = useMediaQuery(PANEL);
   /* `?page=34&view=explain` — the Lesson overview's way in, at a page and a view. */
