@@ -47,12 +47,17 @@ export function lunaFor(id: string): Partial<Loadout> {
   return { suit: SUITS[h % SUITS.length], visor: VISORS[Math.floor(h / SUITS.length) % VISORS.length] };
 }
 
+/**
+ * `close`: at 36 px and below, Luna is the helmet alone. The starfield and the
+ * margin around it shrank her face to a few pixels on a byline, which read as
+ * a smudge rather than a person.
+ */
 const SIZE = {
-  xs: { box: 'h-5 w-5', text: 'text-[9px]', px: 20 },
-  sm: { box: 'h-7 w-7', text: 'text-[10px]', px: 28 },
-  md: { box: 'h-9 w-9', text: 'text-[12px]', px: 36 },
-  lg: { box: 'h-11 w-11', text: 'text-[13px]', px: 44 },
-  xl: { box: 'h-20 w-20', text: 'text-[24px]', px: 80 },
+  xs: { box: 'h-5 w-5', text: 'text-[9px]', px: 20, close: true },
+  sm: { box: 'h-7 w-7', text: 'text-[10px]', px: 28, close: true },
+  md: { box: 'h-9 w-9', text: 'text-[12px]', px: 36, close: true },
+  lg: { box: 'h-11 w-11', text: 'text-[13px]', px: 44, close: false },
+  xl: { box: 'h-20 w-20', text: 'text-[24px]', px: 80, close: false },
 };
 
 export interface AvatarProps {
@@ -104,9 +109,10 @@ export function Avatar({ person, size = 'md', loadout, isViewer, className }: Av
         )}
       >
         <LunaAvatar
-          variant="head"
+          variant={s.close ? 'face' : 'head'}
           size={s.px}
           animated={false}
+          showBackdrop={!s.close}
           loadout={{ ...lo, aura: 'aura-none', companion: 'companion-none' }}
           className="h-full w-full"
         />
