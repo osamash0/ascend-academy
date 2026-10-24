@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 import 'react-pdf/dist/Page/TextLayer.css';
-
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString();
+import { pdfOptions } from './worker';
 
 /**
  * A PDF as a document: every page, top to bottom, in one scroll.
@@ -136,6 +132,7 @@ export function PdfScroll({
     <div ref={scrollRef} className={className}>
       <Document
         file={file}
+        options={pdfOptions()}
         onLoadSuccess={({ numPages: n }) => {
           setNumPages(n);
           onLoad?.(n);

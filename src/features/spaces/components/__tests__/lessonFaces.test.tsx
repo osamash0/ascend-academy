@@ -22,6 +22,7 @@ vi.mock('@/components/pdf', () => ({
   },
   pdfPageId: (p: number) => `pdf-page-${p}`,
   sampleAccent: () => null,
+  warmPdfWorker: () => {},
 }));
 
 const renderFaces = async (path = '/v4/space/s-dbs/lesson/l-s-dbs-4/faces') => {

@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { pdfPageId } from './PdfScroll';
-
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString();
+import { pdfOptions } from './worker';
 
 /**
  * A PDF as a deck: one page in view, turned sideways.
@@ -24,6 +20,9 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
  *
  * Each slot carries `data-pdf-page` and the text layer is on, as in
  * `PdfScroll`, so a selection can be traced to its page.
+ *
+ * The page in view is drawn first. Its neighbours wait until it is up, so on
+ * opening they never compete with it for the worker or the file's bytes.
  */
 
 interface Props {
@@ -68,6 +67,17 @@ export function PdfPager({
   const [numPages, setNumPages] = useState(0);
   const [aspect, setAspect] = useState(405 / 720);
   const firstRender = useRef(false);
+  /* The first page has been drawn — until then, the placeholder, and no neighbours. */
+  const [painted, setPainted] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [paintedFile, setPaintedFile] = useState(file);
+  if (paintedFile !== file) {
+    setPaintedFile(file);
+    setPainted(false);
+    setFailed(false);
+    setNumPages(0);
+    firstRender.current = false;
+  }
 
   const width = Math.max(200, Math.floor(Math.min(maxWidth, maxHeight / aspect)));
   const height = Math.round(width * aspect);
@@ -128,8 +138,9 @@ export function PdfPager({
     if (p.width > 0) setAspect(p.height / p.width);
   }, []);
 
+  const reach = painted ? NEIGHBOURS : 0;
   const shown: number[] = [];
-  for (let p = page - NEIGHBOURS; p <= page + NEIGHBOURS; p++) if (p >= 1 && p <= numPages) shown.push(p);
+  for (let p = page - reach; p <= page + reach; p++) if (p >= 1 && p <= numPages) shown.push(p);
 
   /* A page's place on the track: one page and a gutter per step from the current one. */
   const step = width + Math.max(48, width * 0.08);
@@ -144,11 +155,13 @@ export function PdfPager({
     >
       <Document
         file={file}
+        options={pdfOptions()}
         className="h-full w-full"
         onLoadSuccess={({ numPages: n }) => {
           setNumPages(n);
           onLoad?.(n);
         }}
+        onLoadError={() => setFailed(true)}
         loading=""
         error={
           <p role="alert" className="p-6 text-center text-[13px] text-white/70">
@@ -157,20 +170,6 @@ export function PdfPager({
         }
       >
         <div className="relative h-full w-full">
-          {/* While the file arrives: the page's own shape, breathing, and a word about it. */}
-          {numPages === 0 && (
-            <motion.div
-              aria-label="Opening the deck"
-              role="status"
-              initial={{ opacity: 0.25 }}
-              animate={{ opacity: [0.25, 0.5, 0.25] }}
-              transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-              className="absolute left-1/2 top-1/2 flex items-end justify-center rounded-xl bg-white/[0.08] pb-5 text-[12.5px] text-white"
-              style={{ width, height, marginLeft: -width / 2, marginTop: -height / 2 }}
-            >
-              Opening the deck…
-            </motion.div>
-          )}
           {shown.map((p) => {
             const offset = p - page;
             return (
@@ -193,11 +192,13 @@ export function PdfPager({
                   renderAnnotationLayer={false}
                   onLoadSuccess={onPageLoad}
                   onRenderSuccess={() => {
+                    if (offset === 0) setPainted(true);
                     if (firstRender.current || !onFirstRender) return;
                     firstRender.current = true;
                     const canvas = rootRef.current?.querySelector<HTMLCanvasElement>(`#${pdfPageId(p)} canvas`);
                     onFirstRender(canvas ?? null);
                   }}
+                  onRenderError={() => offset === 0 && setPainted(true)}
                   loading=""
                 />
                 {offset === 0 && overlay}
@@ -206,6 +207,24 @@ export function PdfPager({
           })}
         </div>
       </Document>
+      {/*
+        While the file arrives: the page's own shape, breathing, and a word
+        about it. Outside the Document, which draws nothing of its own until
+        the file is open, and over the page's slot until the page is drawn.
+      */}
+      {!painted && !failed && (
+        <motion.div
+          aria-label="Opening the deck"
+          role="status"
+          initial={{ opacity: 0.25 }}
+          animate={reduce ? { opacity: 0.4 } : { opacity: [0.25, 0.5, 0.25] }}
+          transition={reduce ? { duration: 0 } : { duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+          className="pointer-events-none absolute left-1/2 top-1/2 flex items-end justify-center rounded-xl bg-white/[0.08] pb-5 text-[12.5px] text-white"
+          style={{ width, height, marginLeft: -width / 2, marginTop: -height / 2 }}
+        >
+          Opening the deck…
+        </motion.div>
+      )}
     </div>
   );
 }
