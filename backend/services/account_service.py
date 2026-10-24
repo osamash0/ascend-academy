@@ -60,6 +60,12 @@ EXPORT_TABLES: list[tuple[str, str]] = [
     ("internal_account_overrides", "user_id"),
     # v4 reader notes; the table is live in production ahead of its migration.
     ("notes", "user_id"),
+    # Luna study sessions (migration 20261025000000): sessions, their turns,
+    # what Luna knows about you, and the practice cards made for you.
+    ("luna_sessions", "user_id"),
+    ("luna_turns", "user_id"),
+    ("learner_memory", "user_id"),
+    ("review_cards", "owner_id"),
 ]
 
 # Columns never exported even though the row is: secrets, not personal data.
