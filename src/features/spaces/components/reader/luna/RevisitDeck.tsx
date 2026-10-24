@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { lunaApi, type DueCard } from '../../../data/lunaSession';
@@ -8,6 +8,9 @@ export function RevisitDeck({ lectureId, onDone }: { lectureId: string; onDone: 
   const { t } = useTranslation('v4Luna');
   const [cards, setCards] = useState<DueCard[] | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
+  const [grading, setGrading] = useState(false);
+  const [graded, setGraded] = useState(false);
+  const gradingRef = useRef(false);
 
   useEffect(() => {
     let live = true;
@@ -19,9 +22,20 @@ export function RevisitDeck({ lectureId, onDone }: { lectureId: string; onDone: 
 
   if (!cards) return null;
   const card = cards[0];
-  if (!card) return <p className="text-[13px] text-quiet">{t('revisit.done')}</p>;
+  if (!card) return graded ? <p className="text-[13px] text-quiet">{t('revisit.done')}</p> : null;
   const next = async (rating: 1 | 3) => {
-    await lunaApi.grade(card.card_id, rating).catch(() => undefined);
+    if (gradingRef.current) return;
+    gradingRef.current = true;
+    setGrading(true);
+    try {
+      await lunaApi.grade(card.card_id, rating);
+    } catch {
+      /* a missed grade never blocks the next card */
+    } finally {
+      gradingRef.current = false;
+      setGrading(false);
+    }
+    setGraded(true);
     setPicked(null);
     const rest = cards.slice(1);
     setCards(rest);
@@ -36,6 +50,7 @@ export function RevisitDeck({ lectureId, onDone }: { lectureId: string; onDone: 
           key={i}
           type="button"
           disabled={picked !== null}
+          aria-pressed={picked === i}
           onClick={() => setPicked(i)}
           className={cn(
             'console-focusable rounded-xl border px-3 py-2 text-left text-[13px]',
@@ -46,6 +61,9 @@ export function RevisitDeck({ lectureId, onDone }: { lectureId: string; onDone: 
           )}
         >
           {o}
+          {picked === i && (
+            <span className="mt-1 block text-[12px] text-quiet">{t(i === card.back.correct ? 'check.right' : 'check.wrong')}</span>
+          )}
           {picked !== null && (i === picked || i === card.back.correct) && (
             <span className="mt-1 block text-[12px] text-quiet">{card.back.why[i]}</span>
           )}
@@ -53,10 +71,10 @@ export function RevisitDeck({ lectureId, onDone }: { lectureId: string; onDone: 
       ))}
       {picked !== null && (
         <div className="flex gap-2">
-          <button type="button" onClick={() => next(1)} className="console-focusable rounded-full border border-white/15 px-3 py-1 text-[12.5px]">
+          <button type="button" onClick={() => next(1)} disabled={grading} className="console-focusable rounded-full border border-white/15 px-3 py-1 text-[12.5px] disabled:opacity-40">
             {t('revisit.again')}
           </button>
-          <button type="button" onClick={() => next(picked === card.back.correct ? 3 : 1)} className="console-focusable rounded-full bg-white px-3 py-1 text-[12.5px] text-slate-900">
+          <button type="button" onClick={() => next(picked === card.back.correct ? 3 : 1)} disabled={grading} className="console-focusable rounded-full bg-white px-3 py-1 text-[12.5px] text-slate-900">
             {t('revisit.good')}
           </button>
         </div>

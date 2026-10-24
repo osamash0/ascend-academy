@@ -24,6 +24,7 @@ function Check({ check, onAnswer }: { check: LunaCheck; onAnswer: (correct: bool
           key={i}
           type="button"
           disabled={picked !== null}
+          aria-pressed={picked === i}
           onClick={() => {
             setPicked(i);
             onAnswer(o.correct);
@@ -36,6 +37,7 @@ function Check({ check, onAnswer }: { check: LunaCheck; onAnswer: (correct: bool
           )}
         >
           {o.text}
+          {picked === i && <span className="mt-1 block text-[12px] text-quiet">{t(o.correct ? 'check.right' : 'check.wrong')}</span>}
           {picked !== null && (picked === i || o.correct) && <span className="mt-1 block text-[12px] text-quiet">{o.why}</span>}
         </button>
       ))}

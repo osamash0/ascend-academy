@@ -10,7 +10,7 @@ export function PlanStrip({
   const { t } = useTranslation('v4Luna');
   if (!plan.length) return null;
   return (
-    <div aria-label={t('plan.label')} className="flex flex-col gap-2">
+    <div role="group" aria-label={t('plan.label')} className="flex flex-col gap-2">
       <ol className="flex flex-wrap gap-1.5">
         {plan.map((s) => (
           <li
