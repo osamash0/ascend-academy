@@ -58,7 +58,11 @@ describe('every screen can be seen loading and failing', () => {
      */
     for (const { name, body } of screens) {
       const notFoundish = /if \(!\w+ (\|\| !\w+ )?\)\s*\n?\s*return chrome\(<SpacesError/;
+      // Also the folded form, `if (state === 'error' || !space)`, which hid a
+      // missing Space behind "the connection dropped" until 2026-10.
+      const foldedIn = /\|\|\s*!\w+\s*\)\s*\n?\s*return chrome\(<SpacesError/;
       expect(notFoundish.test(body), `${name} reports "not found" as a failure`).toBe(false);
+      expect(foldedIn.test(body), `${name} folds "not found" into the failure state`).toBe(false);
     }
   });
 
