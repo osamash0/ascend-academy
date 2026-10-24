@@ -76,7 +76,7 @@
     "refresh": "Neu laden"
   },
   "loader": {
-    "syncing": "Fortschritt wird synchronisiert..."
+    "loading": "Wird geladen..."
   },
   "achievements": {
     "level5": {

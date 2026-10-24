@@ -221,7 +221,9 @@
       "continueAt": "Weiter auf Seite {{page}}",
       "review": "Wiederholen",
       "continue": "Weiterlesen",
-      "begin": "Lesen beginnen"
+      "begin": "Lesen beginnen",
+      "ideas": "Ideen ansehen",
+      "practise": "Üben"
     },
     "openDeck": "{{action}}: {{title}}",
     "practice": "Übungen · {{count}}",

@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { Pressable } from '../components/Pressable';
 import { topicIcon } from '@/lib/topicIcon';
 import type { Membership, Role, Space } from '../types';
-import { useSpace } from '../data/useSpaces';
+import { resumeItem, useSpace } from '../data/useSpaces';
 import { useViewer } from '../data/viewer';
 import { contributionsForLesson, contributionsForSpace, visibleContributions } from '../data/contributions';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -103,13 +103,22 @@ export default function SpaceScreen({
   const communityRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
 
-  /** The first Lesson not yet finished — the one action this screen offers. */
-  const nextLesson = useMemo(
-    () =>
+  /**
+   * The one action this screen offers. Where you left off in this Space, by
+   * the same rule as Home's continue; otherwise the first Lesson not yet
+   * finished on the path.
+   */
+  const nextLesson = useMemo(() => {
+    const resume = resumeItem();
+    const fromHome = resume
+      ? lessons.find((l) => l.id === resume.lessonId && l.state === 'published' && l.progress !== 'done')
+      : undefined;
+    return (
+      fromHome ??
       lessons.find((l) => l.state === 'published' && l.progress === 'in-progress') ??
-      lessons.find((l) => l.state === 'published' && l.progress === 'not-started'),
-    [lessons],
-  );
+      lessons.find((l) => l.state === 'published' && l.progress === 'not-started')
+    );
+  }, [lessons]);
 
   /**
    * Every contribution in the Space: those anchored to it, plus those anchored

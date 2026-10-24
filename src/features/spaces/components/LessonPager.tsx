@@ -81,7 +81,7 @@ function PagerCard({
       whileTap={{ scale: 0.97 }}
       className={cn(
         'console-focusable group pointer-events-auto flex items-center gap-3 overflow-hidden rounded-2xl border border-white/[0.10] bg-[#0b1018]/85 p-2.5 backdrop-blur-md',
-        'w-[15rem] shadow-[0_16px_40px_-12px_rgba(0,0,0,0.7)]',
+        'w-[11rem] shadow-[0_16px_40px_-12px_rgba(0,0,0,0.7)] sm:w-[15rem]',
         isPrev ? 'flex-row' : 'flex-row-reverse',
       )}
     >
@@ -169,7 +169,8 @@ export function LessonPager({ spaceId, prev, next, companionOpen = false, keys =
   return (
     <div
       className={cn(
-        'pointer-events-none fixed inset-x-0 bottom-6 z-30 flex items-center justify-between px-2 lg:px-4',
+        // Above the phone's bottom nav (md:hidden), at the bottom edge above it.
+        'pointer-events-none fixed inset-x-0 bottom-[5.5rem] z-30 flex items-center justify-between px-2 md:bottom-6 lg:px-4',
         /*
           Written out rather than composed. Tailwind scans source text, so a
           class built from a variable is a class it never generates — the DOM
@@ -180,12 +181,16 @@ export function LessonPager({ spaceId, prev, next, companionOpen = false, keys =
       )}
       aria-label={t('pager.label')}
     >
-      {/* Half off-screen at rest, so each card reads as the path continuing
-          past the edge rather than a button parked on the content. */}
-      <div className="-ml-28 lg:-ml-24">
+      {/*
+        With a mouse, each card peeks in from the edge so it reads as the path
+        continuing past it, and hover pulls it in. Only the icon is tucked
+        away: hiding half the card cut the title to "Lektio…". A touch screen
+        has no hover to pull it in, so there the card sits fully on screen.
+      */}
+      <div className="[@media(hover:hover)]:-ml-14">
         {prev && <PagerCard lesson={prev} spaceId={spaceId} side="prev" />}
       </div>
-      <div className="-mr-28 lg:-mr-24">
+      <div className="[@media(hover:hover)]:-mr-14">
         {next && <PagerCard lesson={next} spaceId={spaceId} side="next" />}
       </div>
     </div>

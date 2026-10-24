@@ -76,7 +76,7 @@
     "refresh": "Refresh"
   },
   "loader": {
-    "syncing": "Syncing your progress..."
+    "loading": "Loading..."
   },
   "achievements": {
     "level5": {
