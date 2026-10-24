@@ -205,3 +205,50 @@ class TestCreateSessionVisibility:
             headers={"Authorization": "Bearer x"},
         )
         assert r.status_code == 200, r.text
+
+
+class TestFailedAiIsNotServedAsSuccess:
+    """Audit Q-B-F7: a provider failure must reach the client as an error."""
+
+    def test_tts_502_when_no_audio_was_produced(self, app, professor_user, monkeypatch):
+        from backend.services.ai import tutor_service
+
+        async def _empty(text, voice):
+            return b""
+
+        monkeypatch.setattr(tutor_service, "generate_speech", _empty)
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        r = TestClient(app).post(
+            "/api/v1/ai/tts", json={"text": "hello", "voice": "en-US-AriaNeural"},
+            headers={"Authorization": "Bearer x"},
+        )
+        assert r.status_code == 502
+
+    def test_tts_400_for_empty_text(self, app, professor_user, monkeypatch):
+        from backend.services.ai import tutor_service
+
+        async def _reject(text, voice):
+            raise ValueError("No text to speak.")
+
+        monkeypatch.setattr(tutor_service, "generate_speech", _reject)
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        r = TestClient(app).post(
+            "/api/v1/ai/tts", json={"text": " ", "voice": "en-US-AriaNeural"},
+            headers={"Authorization": "Bearer x"},
+        )
+        assert r.status_code == 400
+
+    def test_insights_502_when_the_model_fails(self, app, professor_user, monkeypatch):
+        from backend.services.ai import tutor_service
+
+        async def _boom(stats, ai_model):
+            raise RuntimeError("provider down")
+
+        monkeypatch.setattr(tutor_service, "generate_analytics_insights", _boom)
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        r = TestClient(app).post(
+            "/api/v1/ai/analytics-insights",
+            json={"completion_rate": 0.5, "avg_quiz_score": 0.6, "dropout_slides": [], "confusing_slides": []},
+            headers={"Authorization": "Bearer x"},
+        )
+        assert r.status_code == 502

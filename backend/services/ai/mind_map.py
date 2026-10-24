@@ -40,22 +40,7 @@ Slides: {slides_text}"""
         raw = await generate_text(prompt, ai_model)
         return parse_json_response(raw)
     except Exception as e:
+        # No silent fallback: the router used to upsert a flat "one node per
+        # slide" tree as if it were generated. Let it answer 502 instead.
         logger.error("Mind map generation failed: %s", e)
-        # Fallback to a simple list-based structure that uses the REAL slide
-        # ids so click-to-jump in the UI keeps working even when the model
-        # call fails.
-        return {
-            "id": "root",
-            "label": lecture_title,
-            "type": "root",
-            "children": [
-                {
-                    "id": s["id"],
-                    "label": s.get("title") or f"Slide {i + 1}",
-                    "type": "slide",
-                    "children": [],
-                }
-                for i, s in enumerate(slides)
-                if isinstance(s.get("id"), str)
-            ],
-        }
+        raise

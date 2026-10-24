@@ -18,15 +18,10 @@ Return ONLY valid JSON: {{"summary": "...", "suggestions": ["...", "...", "..."]
         raw = await generate_text(with_voice(prompt, structured=True), ai_model)
         return parse_json_response(raw)
     except Exception as e:
+        # No canned sentences: a professor acting on "insights" must know when
+        # none were generated. The endpoint turns this into a 502.
         logger.error("AI Analytics insights failed: %s", e)
-        return {
-            "summary": "Could not generate automated insights at this time.", 
-            "suggestions": [
-                "Focus on slides with high dropout rates.", 
-                "Review student feedback on quiz clarity.", 
-                "Compare these metrics with historical averages."
-            ]
-        }
+        raise
 
 
 async def generate_slide_recommendation(

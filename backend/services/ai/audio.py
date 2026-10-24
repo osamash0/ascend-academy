@@ -16,7 +16,7 @@ async def generate_speech(text: str, voice: str = "en-US-AvaNeural") -> bytes:
         Bytes object containing the MP3 audio data.
     """
     if not text.strip():
-        return b""
+        raise ValueError("No text to speak.")
         
     try:
         communicate = edge_tts.Communicate(text, voice)
@@ -29,5 +29,6 @@ async def generate_speech(text: str, voice: str = "en-US-AvaNeural") -> bytes:
         audio_data.seek(0)
         return audio_data.getvalue()
     except Exception as e:
+        # Zero bytes used to stream as a silent "success"; fail instead.
         logger.error("Speech generation failed: %s", e)
-        return b""
+        raise
