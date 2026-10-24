@@ -55,10 +55,11 @@ def apply_action(plan: list[dict], action: Optional[str], edit: Optional[list[di
     return plan
 
 
-def fallback_plan(lecture_id: str, page: int, total: int) -> list[dict]:
+def fallback_plan(lecture_id: str, page: int, total: int, locale: str = "en") -> list[dict]:
     """When the model's plan doesn't survive validation: look, explain, check this page."""
     p = max(1, min(page, total))
-    steps = [("look", "This page"), ("explain", "What it means"), ("check", "Check yourself")]
+    titles = ("Diese Seite", "Was sie bedeutet", "Prüf dich selbst") if locale == "de" else ("This page", "What it means", "Check yourself")
+    steps = list(zip(("look", "explain", "check"), titles))
     return [
         {"id": f"s{i + 1}", "kind": k, "title": t, "target": {"lecture_id": lecture_id, "page": p}, "status": "todo"}
         for i, (k, t) in enumerate(steps)

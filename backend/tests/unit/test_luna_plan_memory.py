@@ -42,3 +42,7 @@ def test_memory_retires_what_was_asked_then_the_oldest_to_fit_the_cap():
     assert choose_retirements(active, 0, []) == []
     assert choose_retirements(active, 2, ["m0", "unknown"]) == ["m0", "m19"]
     assert choose_retirements(active[:5], 3, []) == []
+
+
+def test_fallback_plan_titles_follow_the_locale():
+    assert fallback_plan(L, page=7, total=10, locale="de")[0]["title"] == "Diese Seite"
