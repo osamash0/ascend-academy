@@ -211,3 +211,59 @@ describe("useLectureSubmit edit-mode save (M4)", () => {
     expect(onSavedSlides).not.toHaveBeenCalled();
   });
 });
+
+describe("useLectureSubmit PDF upload order (lecture-pdfs owner-only writes)", () => {
+  /*
+   * Storage writes to lecture-pdfs are allowed only for the owner of the
+   * lecture named in the path (migration 20261024020000). That check needs the
+   * lecture row to exist at upload time, so the row must be inserted first
+   * and its pdf_url filled in after the upload.
+   */
+  const pdfFile = new File(["%PDF-1.4"], "deck.pdf", { type: "application/pdf" });
+  const slides: SlideData[] = [{ title: "S1", content: "c1", summary: "", questions: [] }];
+
+  function mockUpload(impl: (path: string) => { error: unknown }) {
+    const upload = vi.fn().mockImplementation(async (path: string) => impl(path));
+    const remove = vi.fn().mockResolvedValue({ data: [], error: null });
+    supabaseMock.storage.from.mockReturnValue({ upload, remove, getPublicUrl: vi.fn() });
+    return { upload, remove };
+  }
+
+  it("inserts the lecture before uploading its PDF, then records the path", async () => {
+    const lectureExistedAtUpload: boolean[] = [];
+    const { upload } = mockUpload((path) => {
+      const id = path.split("/")[1];
+      const rows = (supabaseMock.data.lectures?.rows ?? []) as Array<{ id: string }>;
+      lectureExistedAtUpload.push(rows.some((r) => r.id === id));
+      return { error: null };
+    });
+
+    const { result } = renderHook(() =>
+      useLectureSubmit({ slides, title: "T", description: "", pdfFile, pdfHash: null, deckQuiz: [] }),
+    );
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(lectureExistedAtUpload).toEqual([true]);
+    const path = upload.mock.calls[0][0] as string;
+    const lecture = (supabaseMock.data.lectures.rows as Array<{ id: string; pdf_url: string | null }>)[0];
+    expect(path).toBe(`lectures/${lecture.id}/deck.pdf`);
+    expect(lecture.pdf_url).toBe(path);
+  });
+
+  it("removes the just-created lecture when the upload fails", async () => {
+    mockUpload(() => ({ error: { message: "denied" } }));
+
+    const { result } = renderHook(() =>
+      useLectureSubmit({ slides, title: "T", description: "", pdfFile, pdfHash: null, deckQuiz: [] }),
+    );
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    expect(supabaseMock.data.lectures?.rows ?? []).toEqual([]);
+    expect(toastFn).toHaveBeenCalledWith(expect.objectContaining({ title: "PDF Upload Failed" }));
+  });
+});
