@@ -189,3 +189,48 @@ def test_learner_cannot_insert_turns_or_memory_or_touch_anothers_memory(db_conn,
         db_conn.rollback()
         with db_conn.cursor() as cur:
             _reset(cur)
+
+
+def test_learner_may_edit_only_the_text_of_their_memory(db_conn, make_user):
+    a = make_user()
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO public.learner_memory (user_id, kind, text) VALUES (%s, 'goal', 'pass the exam')",
+            (str(a),),
+        )
+        _as_user(cur, a)
+        cur.execute("UPDATE public.learner_memory SET text = 'pass with a 2', updated_at = now()")
+        assert cur.rowcount == 1
+        _reset(cur)
+    for col_sql in ("active = false", "kind = 'shaky'", "user_id = gen_random_uuid()"):
+        with db_conn.cursor() as cur:
+            _as_user(cur, a)
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                cur.execute(f"UPDATE public.learner_memory SET {col_sql}")
+        db_conn.rollback()
+        with db_conn.cursor() as cur:
+            _reset(cur)
+
+
+def test_migration_adds_lookup_indexes_and_a_validated_source_type_check(db_conn):
+    with db_conn.cursor() as cur:
+        for idx in ("luna_turns_user_idx", "learner_memory_source_session_idx"):
+            cur.execute("SELECT to_regclass(%s)", (f"public.{idx}",))
+            assert cur.fetchone()[0] is not None, idx
+        cur.execute(
+            "SELECT convalidated FROM pg_constraint WHERE conname = 'review_cards_source_type_check'"
+        )
+        assert cur.fetchone()[0] is True
+
+
+def test_migration_is_one_transaction_and_safe_to_rerun(db_conn):
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[3] / "supabase/migrations/20261025000000_luna_sessions.sql"
+    sql = path.read_text()
+    body = [ln for ln in sql.splitlines() if ln.strip() and not ln.lstrip().startswith("--")]
+    assert body[0] == "BEGIN;" and body[-1] == "COMMIT;"
+    with db_conn.cursor() as cur:
+        cur.execute(sql)  # second application over the harness's first
+        cur.execute("SELECT count(*) FROM pg_constraint WHERE conname = 'review_cards_source_type_check'")
+        assert cur.fetchone()[0] == 1

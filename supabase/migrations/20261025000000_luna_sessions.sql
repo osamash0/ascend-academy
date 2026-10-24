@@ -12,7 +12,13 @@
 -- edit or delete their own memory lines. Supabase grants new tables to
 -- anon/authenticated directly, so both are set explicitly.
 -- Apply by hand after probing pg_catalog. Never `supabase db push`.
+-- One transaction: it applies whole or not at all. lock_timeout keeps the
+-- ALTER on review_cards from queueing behind live traffic; on timeout, re-run.
+-- Safe to re-run (IF NOT EXISTS / DROP ... IF EXISTS throughout).
 -- ─────────────────────────────────────────────────────────────────────────────
+
+BEGIN;
+SET LOCAL lock_timeout = '5s';
 
 CREATE TABLE IF NOT EXISTS public.luna_sessions (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -44,6 +50,7 @@ CREATE TABLE IF NOT EXISTS public.luna_turns (
   UNIQUE (session_id, client_turn_id, role)
 );
 CREATE INDEX IF NOT EXISTS luna_turns_session_idx ON public.luna_turns (session_id, created_at);
+CREATE INDEX IF NOT EXISTS luna_turns_user_idx ON public.luna_turns (user_id);
 
 CREATE TABLE IF NOT EXISTS public.learner_memory (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -58,6 +65,8 @@ CREATE TABLE IF NOT EXISTS public.learner_memory (
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS learner_memory_user_idx ON public.learner_memory (user_id, active, updated_at);
+CREATE INDEX IF NOT EXISTS learner_memory_source_session_idx ON public.learner_memory (source_session_id)
+  WHERE source_session_id IS NOT NULL;
 
 -- Practice made in a session: the same engine, an owner.
 ALTER TABLE public.review_cards ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
@@ -74,8 +83,11 @@ BEGIN
     EXECUTE format('ALTER TABLE public.review_cards DROP CONSTRAINT %I', c.conname);
   END LOOP;
 END $$;
+-- NOT VALID first so the ADD takes only a brief lock; VALIDATE then scans
+-- existing rows without blocking writes.
 ALTER TABLE public.review_cards ADD CONSTRAINT review_cards_source_type_check
-  CHECK (source_type IN ('quiz_question', 'concept_qa', 'concept_cloze', 'luna_session'));
+  CHECK (source_type IN ('quiz_question', 'concept_qa', 'concept_cloze', 'luna_session')) NOT VALID;
+ALTER TABLE public.review_cards VALIDATE CONSTRAINT review_cards_source_type_check;
 
 -- Enrolled students see the lecture's shared cards, never someone's own.
 DROP POLICY IF EXISTS "review_cards_student_enrolled" ON public.review_cards;
@@ -133,5 +145,8 @@ CREATE POLICY "learner_memory_own_delete" ON public.learner_memory
 
 REVOKE ALL ON public.luna_sessions, public.luna_turns, public.learner_memory FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.luna_sessions, public.luna_turns TO authenticated;
-GRANT SELECT, UPDATE, DELETE ON public.learner_memory TO authenticated;
+GRANT SELECT, DELETE ON public.learner_memory TO authenticated;
+GRANT UPDATE (text, updated_at) ON public.learner_memory TO authenticated;
 GRANT ALL ON public.luna_sessions, public.luna_turns, public.learner_memory TO service_role;
+
+COMMIT;
