@@ -7,7 +7,9 @@ learner never sees a broken turn: it degrades to a gentle line instead.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 from uuid import UUID
 
@@ -66,10 +68,45 @@ Loader = Callable[[str, str, list[int]], Awaitable[LessonView]]
 CanView = Callable[[str, str], Awaitable[bool]]
 
 
+LUNA_PROVIDERS = ("gemini", "groq", "openai")
+
+
+def _attempt_seconds() -> float:
+    return float(os.getenv("LUNA_ATTEMPT_SECONDS", "20"))
+
+
+# Module constant (patchable); the env var is read at import time.
+LUNA_ATTEMPT_SECONDS = _attempt_seconds()
+
+
 async def default_ai(prompt: str, *, user_id: str, course_id: Optional[str], feature: str) -> Any:
+    """Try providers in turn, each bounded: a hung provider does not fail over inside the
+    orchestrator chain (only at the global timeout), so the failover is done here."""
     from backend.services.v4_reader_service import _generate_json
 
-    return await _generate_json(prompt, user_id=user_id, course_id=course_id, feature=feature, prefer="gemini")
+    last: Optional[BaseException] = None
+    for provider in LUNA_PROVIDERS:
+        try:
+            result = await asyncio.wait_for(
+                _generate_json(prompt, user_id=user_id, course_id=course_id, feature=feature, prefer=provider),
+                LUNA_ATTEMPT_SECONDS,
+            )
+        except asyncio.TimeoutError as exc:
+            last = exc
+            logger.warning("luna ai attempt failed provider=%s reason=timeout after %ss", provider, LUNA_ATTEMPT_SECONDS)
+            continue
+        except Exception as exc:
+            if _is_budget(exc):
+                raise
+            last = exc
+            logger.warning("luna ai attempt failed provider=%s reason=%r", provider, exc)
+            continue
+        if isinstance(result, dict):
+            return result
+        last = ValueError("non-dict AI result")
+        logger.warning("luna ai attempt failed provider=%s reason=non-dict result (%s)", provider, type(result).__name__)
+    assert last is not None
+    raise last
 
 
 async def default_find(course_id: str, q: str, exclude_lecture: str) -> list[dict]:
