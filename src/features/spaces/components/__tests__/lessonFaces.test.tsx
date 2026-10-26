@@ -230,4 +230,13 @@ describe('Explain and Text replace the page', () => {
     await waitFor(() => expect(layer).not.toBeInTheDocument());
     expect(screen.queryByRole('complementary', { name: 'Explain' })).toBeNull();
   });
+
+  it('has no close button of its own; Escape still closes it and returns the page', async () => {
+    await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?view=explain');
+    const layer = await screen.findByRole('complementary', { name: 'Explain' });
+    expect(within(layer).queryByRole('button', { name: /close|schließen/i })).toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(layer).not.toBeInTheDocument());
+    expect(screen.getByRole('tab', { name: 'Page' })).toHaveAttribute('aria-selected', 'true');
+  });
 });
