@@ -48,3 +48,8 @@ def test_plan_prompt_plans_content_pages_after_a_title_slide():
     assert "title, agenda or overview slide" in p
     assert "Put steps on different pages" in p
     assert "first step a `look`" in p
+
+
+def test_wrap_prompt_keeps_page_numbers_out_of_the_text():
+    p = prompts.wrap_prompt(VIEW, plan=[], turns=[], memory=[], locale="en")
+    assert "Do not write page numbers in the text; the page goes in the page field." in p

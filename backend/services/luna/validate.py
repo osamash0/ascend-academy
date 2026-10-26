@@ -32,6 +32,27 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", s or "").strip().casefold()
 
 
+_CODE = re.compile(r"(`[^`]*`)")
+_SHOUT = re.compile(r"!+(?!=)")
+_PAGE_TAIL = re.compile(r"(?:\s+(?:on|auf|see|siehe))?\s*[,;:–—-]?\s*[\(\[]?(page|seite|p\.)\s*\d+[\)\]]?\s*[.!]?\s*$", re.IGNORECASE)
+_PAGE_INLINE = re.compile(r"\s*\((?:page|seite|p\.)\s*\d+\)", re.IGNORECASE)
+
+
+def calm(text: str) -> str:
+    """Luna's voice has no exclamation marks: "!" becomes "." (after "?" it just goes).
+    "!=" and anything inside backticks are code and stay as they are."""
+    parts = _CODE.split(text or "")
+    return "".join(
+        p if i % 2 else _SHOUT.sub(lambda m: "" if m.start() and p[m.start() - 1] == "?" else ".", p)
+        for i, p in enumerate(parts)
+    )
+
+
+def _no_page_refs(text: str) -> str:
+    """The page lives in the page field; the line itself should not repeat it."""
+    return _PAGE_TAIL.sub("", _PAGE_INLINE.sub("", text)).strip()
+
+
 def _int(v: Any) -> Optional[int]:
     try:
         return int(v)
@@ -83,14 +104,14 @@ def validate_plan(raw: Any, *, lecture_id: str, pages: PageIndex) -> Optional[li
 def validate_check(raw: Any) -> Optional[dict]:
     if not isinstance(raw, dict):
         return None
-    question = str(raw.get("question") or "").strip()[:300]
+    question = calm(str(raw.get("question") or "").strip()[:300])
     options = []
     for o in raw.get("options") or []:
         if not isinstance(o, dict):
             continue
-        text = str(o.get("text") or "").strip()[:200]
+        text = calm(str(o.get("text") or "").strip()[:200])
         if text:
-            options.append({"text": text, "correct": o.get("correct") is True, "why": str(o.get("why") or "").strip()[:300]})
+            options.append({"text": text, "correct": o.get("correct") is True, "why": calm(str(o.get("why") or "").strip()[:300])})
     if not question or not 2 <= len(options) <= 4 or sum(o["correct"] for o in options) != 1:
         return None
     return {"question": question, "options": options}
@@ -113,7 +134,7 @@ def validate_move(raw: Any, *, pages: PageIndex) -> Optional[dict]:
 def validate_turn(raw: Any, *, pages: PageIndex) -> Optional[dict]:
     if not isinstance(raw, dict):
         return None
-    say = str(raw.get("say") or "").strip()[:MAX_SAY]
+    say = calm(str(raw.get("say") or "").strip()[:MAX_SAY])
     blocks: list[dict] = []
     if raw.get("blocks"):
         answer = validate_answer({"title": say[:120] or "Luna", "blocks": raw.get("blocks")})
@@ -148,7 +169,7 @@ def _wrap_items(raw: Any, pages: PageIndex) -> list[dict]:
     for it in (raw if isinstance(raw, list) else [])[:MAX_WRAP_ITEMS]:
         if not isinstance(it, dict):
             continue
-        text = str(it.get("text") or "").strip()[:160]
+        text = _no_page_refs(calm(str(it.get("text") or "").strip()[:160]))
         if not text:
             continue
         lecture_id = str(it.get("lecture_id") or "")

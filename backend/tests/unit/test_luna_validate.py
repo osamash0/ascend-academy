@@ -99,3 +99,34 @@ def test_flags_are_true_only_when_the_model_says_true():
     check = validate_check({"question": "Q?", "options": [
         {"text": "A", "correct": "false"}, {"text": "B", "correct": "true"}, {"text": "C", "correct": True}]})
     assert [o["correct"] for o in check["options"]] == [False, False, True]
+
+
+def test_calm_voice_swaps_exclamation_marks_but_leaves_code_and_not_equal_alone():
+    from backend.services.luna.validate import calm
+
+    assert calm("Great job! You got it!!") == "Great job. You got it."
+    assert calm("Really?!") == "Really?"
+    assert calm("Use x != y here, and `!flag` in code!") == "Use x != y here, and `!flag` in code."
+
+
+def test_turn_and_check_text_never_shout():
+    turn = validate_turn({"say": "Nice! Look here.", "check": {"question": "Which one holds!", "options": [
+        {"text": "X → Y!", "correct": True, "why": "Right!"}, {"text": "Y → X", "why": "Not quite!"}]}}, pages=PAGES)
+    assert turn["say"] == "Nice. Look here."
+    assert turn["check"]["question"] == "Which one holds."
+    assert [o["text"] for o in turn["check"]["options"]] == ["X → Y.", "Y → X"]
+    assert [o["why"] for o in turn["check"]["options"]] == ["Right.", "Not quite."]
+
+
+def test_wrap_text_loses_page_numbers_and_exclamation_marks():
+    raw = {"covered": [
+        {"text": "What an FD says (page 4)", "lecture_id": L, "page": 4},
+        {"text": "Second normal form, Seite 5", "lecture_id": L, "page": 5},
+        {"text": "Partial dependencies [p. 5]!", "lecture_id": L, "page": 5},
+        {"text": "Keys (page 3) and closures", "lecture_id": L, "page": 3},
+        {"text": "page 4", "lecture_id": L, "page": 4},
+    ], "clicked": [{"text": "FDs clicked on page 4!", "lecture_id": L, "page": 4}], "shaky": []}
+    wrap = validate_wrap(raw, pages=PAGES, memory_ids=set())["wrap"]
+    assert [i["text"] for i in wrap["covered"]] == [
+        "What an FD says", "Second normal form", "Partial dependencies", "Keys and closures"]
+    assert [i["text"] for i in wrap["clicked"]] == ["FDs clicked"]

@@ -164,6 +164,7 @@ Pages in this Lesson:
 
 Write the wrap-up the learner will keep: what was covered, what clicked, and
 what is still shaky, each item one plain line with the page it lives on.
+Do not write page numbers in the text; the page goes in the page field.
 Then update what you know about how they learn: up to 3 new short lines
 (under 80 characters, kinds: preference, shaky, strong, goal) and up to 3 ids
 of old lines that are no longer true (for example, a shaky idea they now got right).
