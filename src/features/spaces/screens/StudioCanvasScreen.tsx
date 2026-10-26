@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, Moon, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { EarlyReader } from '../components/reader/EarlyReader';
 import { ListSkeleton, NotFound, SpacesError } from '../components/states';
 import { nextSuggestions, useAsk } from '../data/useAsk';
 import { useCanvas } from '../data/useSpaces';
@@ -55,6 +56,7 @@ const BACK_ON_MS = 4000;
 export default function StudioCanvasScreen() {
   const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas' });
   const { materialId } = useParams<{ materialId: string }>();
+  const navigate = useNavigate();
   const { state: shelfState, item } = useShelfItem(materialId);
   const canvasId = item?.opens.kind === 'canvas' ? item.opens.canvasId : undefined;
   const { state: canvasState, canvas, pages, material } = useCanvas(canvasId);
@@ -562,23 +564,19 @@ export default function StudioCanvasScreen() {
   const frame = (children: React.ReactNode) => root(<div className="mx-auto max-w-3xl p-8">{children}</div>);
   if (state === 'loading') return frame(<ListSkeleton />);
   if (state === 'error') return frame(<SpacesError what="material" />);
-  // A real upload still being read has no Lesson to open yet.
-  if (item?.opens.kind === 'lesson' && !item.opens.lessonId)
-    return frame(
-      <div className="py-24 text-center">
-        <p className="text-[17px] font-semibold">
-          {item.stage === 'failed' ? t('reading.failedTitle') : t('reading.title')}
-        </p>
-        <p className="mx-auto mt-2 max-w-[44ch] text-[14.5px] leading-relaxed opacity-70">
-          {item.stage === 'failed' ? t('reading.failedBody') : t('reading.body', { filename: item.filename })}
-        </p>
-        <Link to="/v4/library" className="mt-6 inline-block text-[14px] underline underline-offset-4">
-          {t('reading.back')}
-        </Link>
-      </div>,
+  // A real upload still being read: read it now; the Lesson takes over when it exists.
+  if (item?.opens.kind === 'lesson' && !item.opens.lessonId) {
+    const spaceId = item.opens.spaceId;
+    return (
+      <EarlyReader
+        uploadId={item.id}
+        filename={item.filename}
+        onReady={(lessonId, page) => navigate(`/v4/space/${spaceId}/lesson/${lessonId}/faces?page=${page}`, { replace: true })}
+      />
     );
+  }
   if (item?.opens.kind === 'lesson')
-    return <Navigate replace to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}`} />;
+    return <Navigate replace to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}/faces`} />;
   if (!item || !doc || !material)
     return frame(<NotFound what="material" back={{ to: '/v4/library', place: 'library' }} />);
 
