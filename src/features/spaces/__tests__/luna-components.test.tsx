@@ -6,7 +6,7 @@ import { MoveMark } from '../components/reader/luna/MoveMark';
 import { WrapCard } from '../components/reader/luna/WrapCard';
 import { RevisitDeck } from '../components/reader/luna/RevisitDeck';
 import { SessionColumn } from '../components/reader/luna/SessionColumn';
-import { LunaSheet } from '../components/reader/luna/LunaSheet';
+import { LUNA_SHEET_HEIGHT, LunaSheet } from '../components/reader/luna/LunaSheet';
 import { initialLuna } from '../data/useLunaSession';
 import { lunaApi, type PlanStep } from '../data/lunaSession';
 
@@ -177,17 +177,23 @@ describe('Luna column parts', () => {
   );
   const said = { kind: 'luna' as const, id: 'a', md: 'Here is a plan.', blocks: [], check: null };
 
-  it('between turns, continue moves the session on', () => {
+  it('between turns, continue moves the session on once the plan has started', () => {
     const act = vi.fn();
     render(col(lunaWith({ sessionId: 's', plan, thread: [said] }, { act })));
+    expect(screen.queryByRole('button', { name: 'Looks good' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(act).toHaveBeenCalledWith('continue');
   });
 
-  it('continue stays hidden while busy, with a check open, on a wrap offer, after the wrap, or with nothing left', () => {
+  it('the sheet leaves the page at least 45% of a short screen', () => {
+    expect(LUNA_SHEET_HEIGHT).toBe('min(55dvh, max(280px, 45dvh))');
+  });
+
+  it('continue stays hidden before the plan starts, while busy, with a check open, on a wrap offer, after the wrap, or with nothing left', () => {
     const check = { question: 'Which?', options: [{ text: 'One', correct: true, why: 'b' }] };
     const done = plan.map((s) => ({ ...s, status: 'done' as const }));
     const cases: Partial<typeof initialLuna>[] = [
+      { sessionId: 's', plan: plan.map((s) => ({ ...s, status: 'todo' as const })), thread: [said] },
       { sessionId: 's', plan, thread: [said], busy: true },
       { sessionId: 's', plan, thread: [{ ...said, check }] },
       { sessionId: 's', plan, thread: [said], offerWrap: true },
@@ -202,13 +208,14 @@ describe('Luna column parts', () => {
     }
   });
 
-  it('on a narrow window Luna is a sheet with its own close', () => {
+  it('on a narrow window Luna is a sheet; the column inside is its only close, Escape too', () => {
     const close = vi.fn();
     const { rerender } = render(<LunaSheet open label="Luna" onClose={close}><p>the column</p></LunaSheet>);
     const sheet = screen.getByRole('complementary', { name: 'Luna' });
     expect(sheet.hasAttribute('data-luna-sheet')).toBe(true);
     expect(screen.getByText('the column')).not.toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Close Luna' }));
+    expect(screen.queryByRole('button')).toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
     expect(close).toHaveBeenCalledTimes(1);
     rerender(<LunaSheet open={false} label="Luna" onClose={close}><p>the column</p></LunaSheet>);
     return waitFor(() => expect(screen.queryByText('the column')).toBeNull());

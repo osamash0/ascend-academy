@@ -117,12 +117,15 @@ export function SessionColumn({
   const lastLuna = [...state.thread].reverse().find((i) => i.kind === 'luna');
   /* A way forward between turns. An open check is its own way forward: answering it continues. */
   const canContinue =
-    Boolean(state.sessionId) && !state.busy && !state.wrap && !state.offerWrap && state.plan.some(isOpen) &&
+    Boolean(state.sessionId) && accepted && !state.busy && !state.wrap && !state.offerWrap && state.plan.some(isOpen) &&
     !(lastLuna?.kind === 'luna' && lastLuna.check);
 
+  /* A check or blocks land on Luna's last item without adding one, so follow its contents too. */
+  const tail = state.thread[state.thread.length - 1];
+  const tailKey = tail?.kind === 'luna' ? `${tail.id}:${tail.blocks.length}:${tail.check ? 1 : 0}` : tail?.id;
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end', behavior: reduceMotion ? 'auto' : 'smooth' });
-  }, [state.thread.length, state.wrap, reduceMotion]);
+  }, [state.thread.length, tailKey, state.busy, state.offerWrap, state.wrap, reduceMotion]);
 
   const submit = () => {
     const text = draft.trim();
