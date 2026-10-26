@@ -52,6 +52,21 @@ async def v4_create_space(request: Request, body: _NewSpace, user: Any = Depends
     return {"id": await service.create_space(_uid(user), name, description)}
 
 
+class _Publish(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    published: bool
+
+
+@router.patch("/spaces/{space_id}")
+@limiter.limit("30/minute")
+async def v4_publish_space(space_id: UUID, request: Request, body: _Publish, user: Any = Depends(require_creator)):
+    """Make your Space visible to others, or private again (LS-072). Owners only."""
+    status = await service.set_space_published(str(space_id), _uid(user), body.published)
+    if status is None:
+        raise HTTPException(status_code=404, detail="Space not found.")
+    return {"published": status == "published"}
+
+
 @router.post("/spaces/{space_id}/join")
 @limiter.limit("30/minute")
 async def v4_join_space(space_id: UUID, request: Request, user: Any = Depends(verify_token)):
