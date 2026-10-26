@@ -22,6 +22,12 @@ let fetched: Upload[] | null = null;
 /** Files on their way up, or refused before they became a run. */
 let sending: Upload[] = [];
 const files = new Map<string, File>();
+/**
+ * Files that reached the server, by run id (or lecture id for a duplicate), so
+ * the early reader can open them from this device. Kept apart from `files` so a
+ * server-failed run never looks resendable.
+ */
+const kept = new Map<string, File>();
 /** Brought in during this visit: these develop in front of you. */
 const broughtIn = new Set<string>();
 let seq = 0;
@@ -54,6 +60,9 @@ export function uploadsNow(): Upload[] {
 }
 
 export const wasBroughtIn = (id: string): boolean => broughtIn.has(id);
+
+/** The file itself, if it was brought in on this device during this visit. */
+export const localFileFor = (uploadId: string): File | null => kept.get(uploadId) ?? null;
 
 /** Can this failed upload be sent again from here? */
 export const canResend = (id: string): boolean => files.has(id);
@@ -98,6 +107,8 @@ async function send(id: string, file: File): Promise<void> {
     const repo = await loadLiveRepository();
     const r = await repo.bringIn(file);
     files.delete(id);
+    const keptId = r.run_id ?? r.lecture_id;
+    if (keptId) kept.set(keptId, file);
     sending = sending.filter((u) => u.id !== id);
     if (r.run_id) broughtIn.add(r.run_id);
     if (r.status === 'duplicate') toast(`${file.name} is already in your Library.`);
@@ -195,6 +206,11 @@ async function carryOut(targets: Upload[]): Promise<void> {
   }
   const remote = targets.filter((u) => !u.id.startsWith('sending-'));
   if (!remote.length) return notify();
+  // Removing an upload drops its kept file too (keyed by run id or lecture id).
+  remote.forEach((u) => {
+    kept.delete(u.id);
+    if (u.lessonId) kept.delete(u.lessonId);
+  });
   const repo = await loadLiveRepository();
   const results = await Promise.allSettled(remote.map((u) => repo.removeUpload(u.lessonId ?? u.id)));
   const failed = remote.filter((_, i) => results[i].status === 'rejected');
@@ -224,6 +240,7 @@ export function __resetUploads(): void {
   fetched = null;
   sending = [];
   files.clear();
+  kept.clear();
   broughtIn.clear();
   hidden.clear();
   if (timer) clearTimeout(timer);
