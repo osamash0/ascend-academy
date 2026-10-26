@@ -240,3 +240,26 @@ describe('Explain and Text replace the page', () => {
     expect(screen.getByRole('tab', { name: 'Page' })).toHaveAttribute('aria-selected', 'true');
   });
 });
+
+describe('the face keys', () => {
+  it('2 opens Explain, 1 returns to the page', async () => {
+    await renderFaces();
+    fireEvent.keyDown(window, { key: '2' });
+    expect(await screen.findByRole('tab', { name: 'Explain', selected: true })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: '1' });
+    expect(await screen.findByRole('tab', { name: 'Page', selected: true })).toBeInTheDocument();
+  });
+
+  it('f typed in a field does not toggle full screen', async () => {
+    const request = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(document.documentElement, 'requestFullscreen', { value: request, configurable: true });
+    await renderFaces();
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    fireEvent.keyDown(input, { key: 'f' });
+    expect(request).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: 'f' });
+    expect(request).toHaveBeenCalled();
+    input.remove();
+  });
+});

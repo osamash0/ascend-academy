@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ChevronLeft, ChevronRight, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Smartphone, Sun, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ListChecks, Maximize, Minimize, Moon, PanelLeftClose, PanelLeftOpen, Smartphone, Sun, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PdfPager, sampleAccent, warmPdfWorker } from '@/components/pdf';
 import { addNote, deleteNote, notesError, notesForLesson, subscribeNotes, updateNote } from '../data/notes';
@@ -28,6 +28,7 @@ import { useReadingProgress } from '../data/reading';
 import { ReaderTimeline } from '../components/reader/ReaderTimeline';
 import { shapeOf } from '../components/reader/pageShape';
 import { GlassPill } from '../components/reader/glass/GlassPill';
+import { useFullscreen } from '../components/reader/useFullscreen';
 import { readPrefs, writePrefs, type ReaderPrefs } from '../data/readerPrefs';
 import { useIdle } from '../components/reader/useIdle';
 import { ChapterStrip, chaptersOf } from '../components/reader/ChapterStrip';
@@ -158,6 +159,7 @@ export default function LessonFacesScreen() {
   const [engaged, setEngaged] = useState(false);
   const [companion, setCompanion] = useState<CompanionState | null>(null);
   const [bench, setBench] = useState<'practice' | null>(null);
+  const fs = useFullscreen();
   const [quote, setQuote] = useState<string | undefined>(undefined);
   const [turns, setTurns] = useState<Turn[]>([]);
   const turnId = useRef(0);
@@ -270,6 +272,17 @@ export default function LessonFacesScreen() {
     setBench(null);
     setView('text');
   }, [engage]);
+  /* The tabs and the 1-3 keys switch the face the same way. */
+  const pickView = useCallback(
+    (id: View) => {
+      engage();
+      setSpot(null);
+      setBeat(-1);
+      if (id !== 'text') setCompanion(null);
+      setView(id);
+    },
+    [engage],
+  );
   const closeStudio = useCallback(() => {
     setView('slide');
     setCompanion(null);
@@ -458,8 +471,20 @@ export default function LessonFacesScreen() {
       if (bench || e.metaKey || e.ctrlKey || e.altKey) return;
       const el = e.target instanceof Element ? e.target : null;
       if (el?.closest('input, textarea, [contenteditable="true"], [data-studio="text"]')) return;
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        fs.toggle();
+        return;
+      }
+      if (e.key === '1' || e.key === '2' || e.key === '3') {
+        e.preventDefault();
+        pickView((['slide', 'explain', 'text'] as const)[Number(e.key) - 1]);
+        return;
+      }
+      /* Space turns the page, but a focused button keeps its own space. */
+      if (e.key === ' ' && el?.closest('button, a, [role="tab"], select, summary')) return;
       const by =
-        e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'PageUp' ? -1 : 0;
+        e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ' ? 1 : e.key === 'ArrowLeft' || e.key === 'PageUp' ? -1 : 0;
       const step = view === 'slide' ? (e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0) : 0;
       if (!by && !step) return;
       e.preventDefault();
@@ -468,7 +493,7 @@ export default function LessonFacesScreen() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [bench, turnPage, stepBeat, view]);
+  }, [bench, turnPage, stepBeat, view, fs, pickView]);
 
   /* `\` toggles the studio. Not in a field, not while practising. */
   useEffect(() => {
@@ -974,6 +999,17 @@ export default function LessonFacesScreen() {
             {prefs.tocPinned ? <PanelLeftClose aria-hidden className="h-4 w-4" /> : <PanelLeftOpen aria-hidden className="h-4 w-4" />}
           </button>
         )}
+        {fs.supported && (
+          <button
+            type="button"
+            onClick={fs.toggle}
+            aria-label={fs.full ? tr('screen.exitFullscreen') : tr('screen.fullscreen')}
+            title={fs.full ? tr('screen.exitFullscreen') : tr('screen.fullscreen')}
+            className="console-focusable flex h-8 w-8 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
+          >
+            {fs.full ? <Minimize aria-hidden className="h-4 w-4" /> : <Maximize aria-hidden className="h-4 w-4" />}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setPref({ night: !night })}
@@ -999,11 +1035,7 @@ export default function LessonFacesScreen() {
               role="tab"
               aria-selected={on}
               onClick={() => {
-                engage();
-                setSpot(null);
-                setBeat(-1);
-                if (v.id !== 'text') setCompanion(null);
-                setView(v.id);
+                pickView(v.id);
               }}
               className={cn(
                 'console-focusable relative h-8 rounded-full px-4 text-[13px] transition-colors',
@@ -1141,7 +1173,7 @@ export default function LessonFacesScreen() {
       {/* The page line: where you are, and the turn. */}
       <motion.div
         {...fade}
-        className="pointer-events-none absolute bottom-5 z-30 flex flex-col items-center gap-2 px-4"
+        className="pointer-events-none absolute bottom-[max(20px,calc(env(safe-area-inset-bottom)+8px))] z-30 flex flex-col items-center gap-2 px-4"
         style={{ left: showToc ? TOC_WIDTH : 0, right: docked ? panelWidth : 0 }}
       >
         {hintShown && !short && (

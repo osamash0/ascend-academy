@@ -6,6 +6,8 @@
     "text": "Text"
   },
   "screen": {
+    "fullscreen": "Vollbild",
+    "exitFullscreen": "Vollbild beenden",
     "empty": {
       "title": "Noch nichts zu lesen",
       "body": "{{lesson}} hat schon Ideen und Übungen, aber noch kein Material und keinen Text."
