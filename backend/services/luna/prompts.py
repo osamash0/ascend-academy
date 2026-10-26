@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 from backend.services.ai.voice import with_voice
 from backend.services.luna.validate import PageIndex
-from backend.services.v4_reader_service import write_in
+from backend.services.v4_reader_service import write_in as _reader_write_in
 
 
 @dataclass
@@ -34,6 +34,15 @@ BLOCKS = """Blocks you may use (exact field names; at most 3):
 - {"type":"explore","title":"...","intro":"one line","flow":false,"parts":[{"id":"a","label":"2-3 words","body":"1-3 sentences","spot":"exact words from the page"}]}
 - {"type":"compare","columns":[{"title":"...","tone":"a","points":["..."]},{"title":"...","tone":"b","points":["..."]}]}
 - {"type":"steps","title":"...","steps":[{"label":"2-3 words","body":"..."}]}"""
+
+
+DE_WORDS = 'Sag immer "Seite" / "Seiten", nie "Folie" / "Folien".'
+
+
+def write_in(locale: str, served: str) -> str:
+    """The reader's language line, plus the glossary's German word for a page."""
+    line = _reader_write_in(locale, served)
+    return f"{line}\n{DE_WORDS}" if locale.split("-")[0] == "de" else line
 
 
 def _fill(template: str, **slots: str) -> str:

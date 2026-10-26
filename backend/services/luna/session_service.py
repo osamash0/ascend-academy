@@ -16,7 +16,7 @@ from uuid import UUID
 import anyio
 
 from backend.services.luna.context import load_lesson
-from backend.services.luna.plan import apply_action, advance, current_step, fallback_plan, is_last
+from backend.services.luna.plan import apply_action, advance, current_step, fallback_plan, is_last, retarget_thin_pages
 from backend.services.luna.memory import choose_retirements
 from backend.services.luna.prompts import LessonView, plan_prompt, practice_prompt, turn_prompt, wrap_prompt
 from backend.services.luna.validate import PageIndex, validate_check, validate_plan, validate_turn, validate_wrap
@@ -167,7 +167,9 @@ async def start(
         logger.warning("luna plan model call failed: %s", exc)
     total = view.pages.totals[lecture_id]
     texts = {n: t for (lid, n), t in view.pages.texts.items() if lid == lecture_id}
-    plan = validate_plan(raw, lecture_id=lecture_id, pages=view.pages) or fallback_plan(
+    valid = validate_plan(raw, lecture_id=lecture_id, pages=view.pages)
+    # The model still aims step 1 at the title slide the learner opened on: move it to content.
+    plan = retarget_thin_pages(valid, texts, lecture_id) if valid else fallback_plan(
         lecture_id, page, total, locale=locale, texts=texts)
     say = str((raw or {}).get("say") or "").strip()[:400] if isinstance(raw, dict) else ""
     say = say or GREETING[_lang(locale)]
@@ -292,7 +294,7 @@ async def _run(
         except Exception as exc:
             yield "error", {"detail": BUDGET[lang] if _is_budget(exc) else FALLBACK[lang]}
             return
-        turn = validate_turn(raw, pages=view.pages)
+        turn = validate_turn(raw, pages=view.pages, locale=locale)
         if turn is None:
             yield "error", {"detail": FALLBACK[lang]}
             return
@@ -373,7 +375,7 @@ async def wrap(
             raise LunaError(429, BUDGET[_lang(locale)])
         logger.warning("luna wrap model call failed: %s", exc)
         raise _err(502, "wrap_failed", locale)
-    result = validate_wrap(raw, pages=view.pages, memory_ids={m["id"] for m in memory})
+    result = validate_wrap(raw, pages=view.pages, memory_ids={m["id"] for m in memory}, locale=locale)
     if not result:
         raise _err(502, "wrap_failed", locale)
     everything = await store.all_active_memory(user_id)
@@ -414,7 +416,7 @@ async def practice(
         raise _err(502, "practice_failed", locale)
     cards = []
     for q in (raw.get("questions") if isinstance(raw, dict) else None) or []:
-        check = validate_check(q)
+        check = validate_check(q, locale)
         if check:
             page = q.get("page") if isinstance(q.get("page"), int) and view.pages.exists(session["lecture_id"], q["page"]) else None
             cards.append({**check, "page": page})

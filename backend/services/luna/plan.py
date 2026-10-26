@@ -85,3 +85,20 @@ def fallback_plan(
          "status": "todo"}
         for i, (k, t) in enumerate(steps)
     ]
+
+
+def retarget_thin_pages(plan: list[dict], texts: dict[int, str], lecture_id: str) -> list[dict]:
+    """A step aimed at a title or agenda slide (a loaded page under NEAR_EMPTY chars) moves to
+    the nearest following loaded page with content, if there is one. Never backwards; order,
+    kind and title stay. Pages that weren't loaded are left alone: their text is unknown."""
+    full = sorted(n for n, t in texts.items() if len((t or "").strip()) >= NEAR_EMPTY)
+    out = []
+    for s in plan:
+        target = s["target"]
+        page = target["page"]
+        if target["lecture_id"] == lecture_id and page in texts and len((texts[page] or "").strip()) < NEAR_EMPTY:
+            nxt = next((n for n in full if n > page), None)
+            if nxt is not None:
+                s = {**s, "target": {**target, "page": nxt}}
+        out.append(dict(s))
+    return out

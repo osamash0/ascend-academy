@@ -130,3 +130,23 @@ def test_wrap_text_loses_page_numbers_and_exclamation_marks():
     assert [i["text"] for i in wrap["covered"]] == [
         "What an FD says", "Second normal form", "Partial dependencies", "Keys and closures"]
     assert [i["text"] for i in wrap["clicked"]] == ["FDs clicked"]
+
+
+def test_german_says_seite_never_folie_and_english_is_untouched():
+    from backend.services.luna.validate import calm
+
+    assert calm("Schau auf Folie 31! Die Folien davor auch. FOLIE, folie, Folienansicht", "de") == (
+        "Schau auf Seite 31. Die Seiten davor auch. SEITE, seite, Folienansicht")
+    assert calm("Folie 31 and Folien", "en") == "Folie 31 and Folien"
+    turn = validate_turn({"say": "Sieh dir Folie 31 an.", "check": {"question": "Welche Folien?", "options": [
+        {"text": "Folie 4", "correct": True, "why": "Auf der Folie steht es."}, {"text": "Keine", "why": "Folien zählen."}]}},
+        pages=PAGES, locale="de")
+    assert turn["say"] == "Sieh dir Seite 31 an."
+    assert turn["check"]["question"] == "Welche Seiten?"
+    assert [o["text"] for o in turn["check"]["options"]] == ["Seite 4", "Keine"]
+    assert [o["why"] for o in turn["check"]["options"]] == ["Auf der Seite steht es.", "Seiten zählen."]
+    assert validate_turn({"say": "See Folie 31."}, pages=PAGES)["say"] == "See Folie 31."
+    raw = {"covered": [{"text": "Die Folien zu FDs", "lecture_id": L, "page": 4},
+                       {"text": "Schlüssel, Folie 31", "lecture_id": L, "page": 4}]}
+    wrap = validate_wrap(raw, pages=PAGES, memory_ids=set(), locale="de")["wrap"]
+    assert [i["text"] for i in wrap["covered"]] == ["Die Seiten zu FDs", "Schlüssel"]

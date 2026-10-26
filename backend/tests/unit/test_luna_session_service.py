@@ -157,6 +157,13 @@ async def test_start_loads_the_next_pages_and_the_fallback_plans_the_content_aft
     assert seen == [list(range(1, 10))]
     assert [s["target"]["page"] for s in store.sessions[out["session"]["id"]]["plan"]] == [2, 3, 5]
 
+    reply = {"steps": [{"kind": "look", "title": "Overview", "page": 1}, {"kind": "explain", "title": "2NF", "page": 3},
+                       {"kind": "check", "title": "Check", "page": 4}]}
+    out = await svc.start(store, user_id=U, space_id=U, lecture_id=L, page=1, opener="", locale="en",
+                          ai=scripted(reply), load=load)
+    plan = store.sessions[out["session"]["id"]]["plan"]
+    assert [(s["title"], s["target"]["page"]) for s in plan] == [("Overview", 2), ("2NF", 3), ("Check", 4)]  # page 4 was not loaded: left alone
+
 
 async def test_start_rejects_a_space_the_lesson_is_not_in():
     with pytest.raises(svc.LunaError) as e:

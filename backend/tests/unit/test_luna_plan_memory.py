@@ -68,3 +68,29 @@ def test_fallback_plan_starts_at_the_learners_page_when_it_has_content():
 def test_fallback_plan_reuses_pages_when_too_few_and_keeps_near_empty_ones_if_nothing_else():
     assert [s["target"]["page"] for s in fallback_plan(L, page=3, total=10, texts={3: CONTENT, 4: CONTENT})] == [3, 4, 4]
     assert [s["target"]["page"] for s in fallback_plan(L, page=3, total=10, texts={3: "Hi", 4: "Agenda"})] == [3, 4, 4]
+
+
+def _steps(*pages):
+    return [{"id": f"s{i + 1}", "kind": k, "title": f"T{i}", "target": {"lecture_id": L, "page": p}, "status": "todo"}
+            for i, (k, p) in enumerate(zip(("look", "explain", "check", "ask"), pages))]
+
+
+def test_retarget_moves_steps_off_a_title_slide_to_the_next_content_page():
+    from backend.services.luna.plan import retarget_thin_pages
+
+    texts = {1: "Datenbanksysteme", 2: "Agenda", 3: CONTENT, 4: "", 5: CONTENT}
+    out = retarget_thin_pages(_steps(1, 3, 4, 2), texts, L)
+    assert [s["target"]["page"] for s in out] == [3, 3, 5, 3]
+    assert [(s["id"], s["kind"], s["title"]) for s in out] == [(s["id"], s["kind"], s["title"]) for s in _steps(1, 3, 4, 2)]
+
+
+def test_retarget_leaves_steps_with_no_content_page_after_them_and_content_steps_alone():
+    from backend.services.luna.plan import retarget_thin_pages
+
+    texts = {2: CONTENT, 5: CONTENT, 7: "Fragen?", 8: "Danke"}
+    plan = _steps(2, 5, 7)
+    out = retarget_thin_pages(plan, texts, L)
+    assert [s["target"]["page"] for s in out] == [2, 5, 7]
+    assert plan[2]["target"]["page"] == 7  # the input is not mutated
+    other = [{**_steps(1)[0], "target": {"lecture_id": "other", "page": 1}}]
+    assert retarget_thin_pages(other, {1: "", 2: CONTENT}, L)[0]["target"]["page"] == 1
