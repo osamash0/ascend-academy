@@ -83,6 +83,10 @@ const MODE: Record<string, Mode> = {
   // A router shim too: Join for a live Space you are not in, else the screen
   // the deep link asked for (LS-045). Its only UI is JoinSpaceScreen's.
   'SpaceMemberGate.tsx': 'shim',
+  // Old `/lecture/:id` links: finds the Lesson's Space and redirects (LS-050).
+  'LessonLinkRoute.tsx': 'shim',
+  // A v4 address that leads nowhere, on the stage, not in the old console.
+  'NotFoundScreen.tsx': 'learn',
   // StudioHomeScreen retired (One Library Task 7): `/v4/library/studio` redirects to the shelf.
   // The canvas: its own ground (studio-surface.css) — the reader's black by default, light as a toggle.
   'StudioCanvasScreen.tsx': 'own-ground',

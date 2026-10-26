@@ -88,6 +88,7 @@
     },
     "back": {
       "space": "Back to {{name}}",
+      "home": "Back to Home",
       "spaces": "Back to Spaces",
       "library": "Back to Library",
       "social": "Back to Social"
@@ -379,13 +380,17 @@
     "newSpace": {
       "title": "New Space",
       "description": "A Space is one subject, its material, and the people learning it with you. You can change any of this later.",
+      "descriptionLive": "A Space is one subject, its material, and the people learning it with you.",
       "name": "Name",
       "namePlaceholder": "Database Systems",
       "whoPublishes": "Who can publish Lessons",
       "modeGroup": "Mode",
       "whoSees": "Who can see it",
       "visibilityGroup": "Visibility",
-      "create": "Create and open it"
+      "create": "Create and open it",
+      "liveNote": "It starts private: only you can see it.",
+      "creating": "Making it…",
+      "failed": "Couldn’t make it just now. Nothing changed — try again."
     },
     "join": {
       "title": "Join with a code",

@@ -19,10 +19,7 @@ import {
 } from '../data/hub';
 import { archivedForViewer } from '../data/hub';
 import { Archive, Plus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { ProfessorRoutes } from '@/lib/routes';
 import { NewSpaceDialog } from '../components/SpaceDialogs';
-import { dataMode } from '../data/liveRepository';
 import { cn } from '@/lib/utils';
 import { Pressable } from '../components/Pressable';
 import { useScreenState } from '../data/useSpaces';
@@ -104,17 +101,12 @@ export default function SpacesHubScreen() {
   const archived = useMemo(() => archivedForViewer(), []);
   const [sort, setSort] = useState<SpaceSort>('active');
   const [newOpen, setNewOpen] = useState(false);
-  const navigate = useNavigate();
   /*
-   * Create lives where your Spaces are listed. Live, a Space is a course,
-   * and courses are made in the existing manager (as Manage already hands
-   * off there), so New Space opens its create dialog; the demo keeps its
-   * own dialog.
+   * Create lives where your Spaces are listed, on the stage — live too
+   * (LS-050): it used to hand off to the old console's course page, in
+   * English, which a student then had no way back from.
    */
-  const newSpace = () =>
-    dataMode(import.meta.env.VITE_V4_DATA_MODE) === 'live'
-      ? navigate(`${ProfessorRoutes.COURSES}?new=1`)
-      : setNewOpen(true);
+  const newSpace = () => setNewOpen(true);
   const sortedMine = useMemo(() => sortSpaces(mine, sort), [mine, sort]);
   const fresh = useMemo(() => newThisWeek(), []);
   const featured = useMemo(() => spaceOfTheWeek(), []);
