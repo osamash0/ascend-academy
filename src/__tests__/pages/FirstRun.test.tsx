@@ -105,6 +105,47 @@ describe('First run, moment one: your name', () => {
     expect(row.display_name).toBe('Alice Smith');
   });
 
+  it('"Pick one for me" rolls an alias into the field, and she says all of it', async () => {
+    const { default: en } = await import('@/i18n/locales/en/onboarding.json');
+    const aliases: string[] = en.firstRun.name.aliases;
+    const user = userEvent.setup();
+    mount(true);
+    await user.click(screen.getByRole('button', { name: /pick one for me/i }));
+    const field = screen.getByLabelText(/your name/i);
+    await waitFor(() => expect(play).toHaveBeenCalledWith('select'), { timeout: 2000 });
+    const landed = (field as HTMLInputElement).value;
+    expect(aliases).toContain(landed);
+    expect(await screen.findByText(`${landed}?`, {}, { timeout: 2000 })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /that's me/i })).toBeEnabled();
+  });
+
+  it('rolling again lands on a different alias, and typing replaces it', async () => {
+    const user = userEvent.setup();
+    mount(true);
+    const field = screen.getByLabelText(/your name/i) as HTMLInputElement;
+    await user.click(screen.getByRole('button', { name: /pick one for me/i }));
+    await waitFor(() => expect(play).toHaveBeenCalledWith('select'), { timeout: 2000 });
+    const first = field.value;
+    play.mockClear();
+    await user.click(screen.getByRole('button', { name: /pick one for me/i }));
+    await waitFor(() => expect(play).toHaveBeenCalledWith('select'), { timeout: 2000 });
+    expect(field.value).not.toBe(first);
+    await user.clear(field);
+    await user.type(field, 'Alice');
+    expect(field).toHaveValue('Alice');
+  });
+
+  it('a rolled alias is saved like a typed name', async () => {
+    const user = userEvent.setup();
+    mount(true);
+    await user.click(screen.getByRole('button', { name: /pick one for me/i }));
+    await waitFor(() => expect(play).toHaveBeenCalledWith('select'), { timeout: 2000 });
+    const landed = (screen.getByLabelText(/your name/i) as HTMLInputElement).value;
+    await user.click(screen.getByRole('button', { name: /that's me/i }));
+    await screen.findByRole('heading', { name: /pick her light/i }, { timeout: 3000 });
+    expect(supabaseMock.data['profiles'].rows[0].display_name).toBe(landed);
+  });
+
   it('keeps a name the account already has', () => {
     persona('Bea');
     mount(true);

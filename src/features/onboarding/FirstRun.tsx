@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Dices, Volume2, VolumeX } from 'lucide-react';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { LunaHero } from '@/features/avatar/LunaHero';
 import { LunaSays } from '@/features/avatar/LunaSays';
@@ -10,6 +10,7 @@ import { backLink, whitePill } from '@/features/spaces/components/stage';
 import { firstRunExit } from '@/lib/firstRun';
 import { useSound } from '@/lib/useSound';
 import { cn } from '@/lib/utils';
+import { REEL_MS, reel } from './aliases';
 import { LIGHTS, lightColor } from './lights';
 import { Segments } from './Segments';
 import { StagePage } from './StagePage';
@@ -27,6 +28,9 @@ import { NAME_MAX, useFirstRun } from './useFirstRun';
  *
  * Luna sits outside the moments' AnimatePresence so she never remounts; only
  * the words and the controls beneath her change.
+ *
+ * "Pick one for me" rolls a friendly alias for anyone who would rather not
+ * give their real name; she tries the whole alias out, not its first word.
  */
 
 type Bubble = { kind: 'ask' | 'hi'; name: string } | { kind: 'suits' } | null;
@@ -50,6 +54,10 @@ export function FirstRun({ v4First }: { v4First: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
+  // The alias the last roll landed on; while it is what the field holds,
+  // Luna says all of it ("Quiet Comet?"), not just "Quiet".
+  const [rolled, setRolled] = useState<string | null>(null);
+  const spin = useRef<number[]>([]);
 
   // Luna.
   const [focused, setFocused] = useState(false);
@@ -59,11 +67,21 @@ export function FirstRun({ v4First }: { v4First: boolean }) {
   const radios = useRef<(HTMLButtonElement | null)[]>([]);
   const timers = useRef<number[]>([]);
   const later = (fn: () => void, ms: number) => timers.current.push(window.setTimeout(fn, ms));
-  useEffect(() => () => timers.current.forEach(window.clearTimeout), []);
+  const stopSpin = () => {
+    spin.current.forEach(window.clearTimeout);
+    spin.current = [];
+  };
+  useEffect(
+    () => () => {
+      timers.current.forEach(window.clearTimeout);
+      stopSpin();
+    },
+    [],
+  );
 
   const light = LIGHTS[pick];
   const accent = step === 1 ? lightColor(light) : null;
-  const firstName = name.trim().split(/\s+/)[0] ?? '';
+  const firstName = rolled && name === rolled ? rolled : (name.trim().split(/\s+/)[0] ?? '');
 
   const { play } = sound;
   useEffect(() => {
@@ -79,15 +97,40 @@ export function FirstRun({ v4First }: { v4First: boolean }) {
   }, [keys, step]);
 
   const onName = (value: string) => {
+    stopSpin();
     setName(value.slice(0, NAME_MAX));
     setKeys((k) => k + 1);
     setError(null);
     if (bubble?.kind === 'ask') setBubble(null);
   };
 
+  const roll = () => {
+    stopSpin();
+    const aliases = t('firstRun.name.aliases', { returnObjects: true }) as unknown as string[];
+    const frames = reel(aliases, name);
+    const landed = frames[frames.length - 1];
+    setError(null);
+    if (bubble?.kind === 'ask') setBubble(null);
+    const land = () => {
+      setName(landed);
+      setRolled(landed);
+      // The same nudge as a keystroke: she looks, then tries it out.
+      setKeys((k) => k + 1);
+      play('select');
+    };
+    if (reduce) return land();
+    let at = 0;
+    frames.slice(0, -1).forEach((frame, i) => {
+      at += REEL_MS[i];
+      spin.current.push(window.setTimeout(() => setName(frame), at));
+    });
+    spin.current.push(window.setTimeout(land, at + REEL_MS[REEL_MS.length - 1]));
+  };
+
   const submitName = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim() || busy) return;
+    stopSpin();
     setBusy(true);
     setError(null);
     try {
@@ -245,7 +288,11 @@ export function FirstRun({ v4First }: { v4First: boolean }) {
               aria-invalid={!!error}
               className="mt-8 w-full max-w-[320px] border-0 border-b border-white/20 bg-transparent pb-2 text-center text-[22px] font-medium tracking-[-0.01em] text-white outline-none transition-colors placeholder:text-white/25 focus:border-white/70"
             />
-            <button type="submit" disabled={!name.trim() || busy} className={cn(whitePill, 'mt-9 min-w-[180px]')}>
+            <button type="button" onClick={roll} disabled={busy} className={cn(backLink, 'ml-0 mt-3')}>
+              <Dices aria-hidden className="h-4 w-4" />
+              {t('firstRun.name.roll')}
+            </button>
+            <button type="submit" disabled={!name.trim() || busy} className={cn(whitePill, 'mt-6 min-w-[180px]')}>
               {t('firstRun.name.continue')}
             </button>
           </motion.form>
