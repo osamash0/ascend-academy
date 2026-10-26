@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from backend.core.config import settings
 from backend.core.database import get_db_connection
@@ -369,6 +370,50 @@ async def get_world(user_id: str) -> Dict[str, Any]:
 
 
 # ── Your own uploads: the personal Space and the shelf ───────────────────────
+
+
+_DONE = {"complete", "completed", "succeeded", "done"}
+_FAILED = {"failed", "error", "cancelled"}
+
+
+def reading_view(run: Dict[str, Any], slides_done: int, pdf_url: Optional[str]) -> Dict[str, Any]:
+    """What the early reader needs: the file, and how far Luna has read it.
+
+    The file is readable from the moment it is stored; the Lesson exists once
+    the pipeline has made it. Progress is the slides written so far, capped at
+    the page count; a finished run is fully read.
+    """
+    status = (run.get("status") or "").lower()
+    pages = int(run.get("page_count") or 0)
+    ready = bool(run.get("lecture_id")) and status in _DONE
+    stage = "failed" if status in _FAILED else ("ready" if ready else "developing")
+    read = pages if ready else min(max(0, int(slides_done)), pages)
+    return {
+        "pdfUrl": pdf_url,
+        "pages": pages,
+        "pagesRead": read,
+        "stage": stage,
+        "lessonId": str(run["lecture_id"]) if run.get("lecture_id") else None,
+    }
+
+
+async def early_reading(user_id: str, run_id: str) -> Optional[Dict[str, Any]]:
+    """The caller's own run only; None for anything else (the route answers 404)."""
+    from backend.services.v4_reader_service import signed_pdf_url
+
+    async with await get_db_connection() as conn:
+        run = await conn.fetchrow(
+            "SELECT status, page_count, lecture_id, pdf_hash FROM parse_runs WHERE run_id = $1 AND user_id = $2",
+            UUID(run_id),
+            UUID(user_id),
+        )
+        if not run:
+            return None
+        done = 0
+        if run["lecture_id"]:
+            done = await conn.fetchval("SELECT count(*) FROM slides WHERE lecture_id = $1", run["lecture_id"]) or 0
+    pdf_url = await signed_pdf_url(f"{run['pdf_hash']}.pdf", "pdf-uploads")
+    return reading_view(dict(run), done, pdf_url)
 
 
 async def uploads_for(user_id: str) -> List[Dict[str, Any]]:
