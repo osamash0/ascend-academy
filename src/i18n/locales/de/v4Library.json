@@ -436,7 +436,8 @@
         "tryAgain": "Noch mal versuchen"
       },
       "reading": {
-        "back": "Zurück zur Bibliothek"
+        "back": "Zurück zur Bibliothek",
+        "gone": "Das war nur auf diesem Gerät, und nach dem Neuladen ist es weg. Hol es aus deiner Bibliothek noch einmal herein."
       }
     }
   }

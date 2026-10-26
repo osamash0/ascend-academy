@@ -120,4 +120,37 @@ describe('the temporary id resolves', () => {
     await waitFor(() => expect(uploadsNow().find((u) => u.id === id)?.stage).toBe('failed'));
     expect(resolvedUploadId(id)).toBeNull();
   });
+
+  it('accepted, but the shelf re-read fails: still accepted, never refused', async () => {
+    const { bringInLive, uploadsNow, isSettling, canResend } = await import('../../data/uploads');
+    const { toast } = await import('sonner');
+    vi.mocked(toast.error).mockClear();
+    setLiveWorld(emptyWorld({ canUpload: true }));
+    repo.bringIn.mockResolvedValue({ status: 'queued', run_id: 'run-1' });
+    repo.uploads.mockRejectedValue(new Error('offline'));
+    const [id] = bringInLive([pdf('a.pdf')]);
+    await waitFor(() => expect(isSettling(id)).toBe(true));
+    await act(async () => {});
+    expect(uploadsNow().find((u) => u.id === id)?.stage).toBe('developing');
+    expect(canResend(id)).toBe(false);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('keeps one link for the file across the swap, and lets it go on release', async () => {
+    const { bringInLive, localUrlFor, releaseLocalFile, resolvedUploadId } = await import('../../data/uploads');
+    let n = 0;
+    URL.createObjectURL = vi.fn(() => `blob:${++n}`);
+    URL.revokeObjectURL = vi.fn();
+    setLiveWorld(emptyWorld({ canUpload: true }));
+    repo.bringIn.mockResolvedValue({ status: 'queued', run_id: 'run-1' });
+    repo.uploads.mockResolvedValue({ uploads: [upload('run-1')] });
+    const [id] = bringInLive([pdf('a.pdf')]);
+    const first = localUrlFor(id);
+    await waitFor(() => expect(resolvedUploadId(id)).toBe('run-1'));
+    expect(localUrlFor('run-1')).toBe(first);
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    releaseLocalFile('run-1');
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(first);
+    expect(localUrlFor('run-1')).toBeNull();
+  });
 });

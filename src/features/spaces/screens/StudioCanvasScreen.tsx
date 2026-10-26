@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { isSettling } from '../data/uploads';
+import { canResend, isSettling, releaseLocalFile, resend } from '../data/uploads';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, Moon, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -60,10 +60,23 @@ export default function StudioCanvasScreen() {
   const navigate = useNavigate();
   const { state: shelfState, item: shelfItem } = useShelfItem(materialId);
   const [params] = useSearchParams();
+  const askedPage = Number(params.get('page')) > 0 ? Number(params.get('page')) : null;
   /* A file opened under its temporary id keeps its reader until the swap to the real id lands. */
   const lastEarly = useRef<typeof shelfItem>(null);
   if (shelfItem?.opens.kind === 'lesson' && !shelfItem.opens.lessonId) lastEarly.current = shelfItem;
   const item = shelfItem ?? (materialId && isSettling(materialId) ? lastEarly.current : null);
+  /*
+   * The page the early reader is on. Whichever notices the Lesson first — the
+   * reader's own handover or the shelf's poll — opens it at this page.
+   */
+  const earlyPage = useRef<number | null>(null);
+  const readyLesson = item?.opens.kind === 'lesson' ? item.opens.lessonId : '';
+  const releaseId = useRef<string | undefined>(undefined);
+  releaseId.current = item?.id;
+  /* The Lesson has taken over: the copy on this device can go. */
+  useEffect(() => {
+    if (releaseId.current && readyLesson) releaseLocalFile(releaseId.current, readyLesson);
+  }, [readyLesson]);
   const canvasId = item?.opens.kind === 'canvas' ? item.opens.canvasId : undefined;
   const { state: canvasState, canvas, pages, material } = useCanvas(canvasId);
   const state = shelfState !== 'ready' ? shelfState : item?.opens.kind === 'lesson' ? 'ready' : canvasState;
@@ -578,14 +591,42 @@ export default function StudioCanvasScreen() {
         uploadId={item.id}
         filename={item.filename}
         refused={item.stage === 'failed'}
-        initialPage={Number(params.get('page')) > 0 ? Number(params.get('page')) : 1}
+        onRetry={canResend(item.id) ? () => resend(item.id) : undefined}
+        initialPage={askedPage ?? 1}
+        onPage={(p) => {
+          earlyPage.current = p;
+        }}
         onResolved={(to, page) => navigate(`/v4/library/m/${to}?page=${page}`, { replace: true })}
-        onReady={(lessonId, page) => navigate(`/v4/space/${spaceId}/lesson/${lessonId}/faces?page=${page}`, { replace: true })}
+        onReady={(lessonId, page) => {
+          releaseLocalFile(item.id, lessonId);
+          navigate(`/v4/space/${spaceId}/lesson/${lessonId}/faces?page=${page}`, { replace: true });
+        }}
       />
     );
   }
-  if (item?.opens.kind === 'lesson')
-    return <Navigate replace to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}/faces`} />;
+  if (item?.opens.kind === 'lesson') {
+    /* The shelf saw the Lesson first, or the swap landed on one already made: the place still holds. */
+    const at = earlyPage.current ?? askedPage;
+    return (
+      <Navigate
+        replace
+        to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}/faces${at && at > 1 ? `?page=${at}` : ''}`}
+      />
+    );
+  }
+  /* A temporary id after a reload: the file was only in this tab, and it is gone. Said calmly, with the way back. */
+  if (!item && materialId?.startsWith('sending-'))
+    return frame(
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
+        <p className="max-w-[44ch] text-[15px] leading-relaxed text-quiet">{t('reading.gone')}</p>
+        <Link
+          to="/v4/library"
+          className="console-focusable inline-flex h-11 items-center rounded-full bg-[rgb(var(--studio-chip))] px-6 text-[14px] font-medium text-foreground"
+        >
+          {t('reading.back')}
+        </Link>
+      </div>,
+    );
   if (!item || !doc || !material)
     return frame(<NotFound what="material" back={{ to: '/v4/library', place: 'library' }} />);
 

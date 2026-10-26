@@ -436,7 +436,8 @@
         "tryAgain": "Try again"
       },
       "reading": {
-        "back": "Back to Library"
+        "back": "Back to Library",
+        "gone": "This one was only on this device, and a reload let it go. Bring it in again from your Library."
       }
     }
   }

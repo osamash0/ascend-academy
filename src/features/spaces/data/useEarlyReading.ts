@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { loadLiveRepository, type EarlyReading } from './liveRepository';
-import { localFileFor } from './uploads';
+import { localUrlFor } from './uploads';
 
 /** How often Luna's progress is re-read while she is still reading. */
 const POLL_MS = 3000;
@@ -13,20 +13,8 @@ const MAX_FAILURES = 5;
  * progress is re-read until she is done or the run has failed.
  */
 export function useEarlyReading(uploadId: string) {
-  const [local, setLocal] = useState<string | null>(null);
-  useEffect(() => {
-    const f = localFileFor(uploadId);
-    if (!f) {
-      setLocal(null);
-      return;
-    }
-    const u = URL.createObjectURL(f);
-    setLocal(u);
-    return () => {
-      URL.revokeObjectURL(u);
-      setLocal(null);
-    };
-  }, [uploadId]);
+  /* One link per File, kept across the swap from `sending-N` to the run id: the PDF loads once. */
+  const local = localUrlFor(uploadId);
 
   const [reading, setReading] = useState<EarlyReading | null>(null);
   useEffect(() => {
