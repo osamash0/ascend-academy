@@ -195,6 +195,8 @@ export function createLiveRepository(http: V4Transport) {
     deleteNote: (id: string) => http.delete<{ deleted: true }>(`${root}/notes/${idPath(id)}`),
     /* Mark every notification read. */
     markNotificationsRead: () => http.post<{ marked: number }>(`${root}/notifications/read-all`, {}),
+    /* Make a Space on the stage: a course you own, empty and private to start (LS-050). */
+    createSpace: (name: string) => http.post<{ id: string }>(`${root}/spaces`, { name }),
     /* Join an open Space (enrol in its course). Idempotent. */
     joinSpace: (id: string) => http.post<{ joined: true }>(`${root}/spaces/${idPath(id)}/join`, {}),
     /* The reader, on real courses and lectures (`/v4/reader`, FEATURE_V4_READER). */

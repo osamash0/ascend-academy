@@ -106,7 +106,12 @@
     "minutes_other": "~{{count}} min",
     "moreToRevisit_one": "and {{count}} more marked to revisit — it shows red on the map below",
     "moreToRevisit_other": "and {{count}} more marked to revisit — they show red on the map below",
-    "open": "Open"
+    "open": "Open",
+    "empty": {
+      "owner": "Nothing inside yet. Only you can see this Space for now.",
+      "member": "Nothing inside yet. Lessons show up here once they are added.",
+      "add": "Add Lessons"
+    }
   },
   "map": {
     "label": "Map of this Space's ideas and what builds on what",

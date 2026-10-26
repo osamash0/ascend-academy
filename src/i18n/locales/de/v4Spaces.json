@@ -88,6 +88,7 @@
     },
     "back": {
       "space": "Zurück zu {{name}}",
+      "home": "Zurück zum Start",
       "spaces": "Zurück zu den Spaces",
       "library": "Zurück zur Bibliothek",
       "social": "Zurück zu deinen Leuten"
@@ -376,13 +377,17 @@
     "newSpace": {
       "title": "Neuer Space",
       "description": "Ein Space ist ein Fach, sein Material und die Leute, die es mit dir lernen. Du kannst alles später ändern.",
+      "descriptionLive": "Ein Space ist ein Fach, sein Material und die Leute, die es mit dir lernen.",
       "name": "Name",
       "namePlaceholder": "Datenbanksysteme",
       "whoPublishes": "Wer Lektionen veröffentlichen darf",
       "modeGroup": "Modus",
       "whoSees": "Wer ihn sehen kann",
       "visibilityGroup": "Sichtbarkeit",
-      "create": "Erstellen und öffnen"
+      "create": "Erstellen und öffnen",
+      "liveNote": "Er ist erst privat: nur du siehst ihn.",
+      "creating": "Wird angelegt…",
+      "failed": "Das hat gerade nicht geklappt. Nichts hat sich geändert – versuch es noch einmal."
     },
     "join": {
       "title": "Mit Code beitreten",
