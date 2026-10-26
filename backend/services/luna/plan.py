@@ -55,12 +55,33 @@ def apply_action(plan: list[dict], action: Optional[str], edit: Optional[list[di
     return plan
 
 
-def fallback_plan(lecture_id: str, page: int, total: int, locale: str = "en") -> list[dict]:
-    """When the model's plan doesn't survive validation: look, explain, check this page."""
+NEAR_EMPTY = 120
+
+
+def _fallback_pages(page: int, total: int, texts: Optional[dict[int, str]]) -> list[int]:
+    """Up to three distinct pages from the learner's page on, the fullest first; a title
+    or agenda slide with little text is skipped when there are content pages to go to."""
+    pool = {n: len((t or "").strip()) for n, t in (texts or {}).items() if page <= n <= total}
+    full = {n: c for n, c in pool.items() if c >= NEAR_EMPTY}
+    pool = full or pool
+    if not pool:
+        return [page]
+    picked = [page] if page in pool else []
+    picked += sorted((n for n in pool if n != page), key=lambda n: (-pool[n], n))[: 3 - len(picked)]
+    return sorted(picked)
+
+
+def fallback_plan(
+    lecture_id: str, page: int, total: int, locale: str = "en", texts: Optional[dict[int, str]] = None,
+) -> list[dict]:
+    """When the model's plan doesn't survive validation: look, explain, check, spread over
+    the pages with real content from where the learner is."""
     p = max(1, min(page, total))
+    pages = _fallback_pages(p, total, texts)
     titles = ("Diese Seite", "Was sie bedeutet", "Prüf dich selbst") if locale == "de" else ("This page", "What it means", "Check yourself")
     steps = list(zip(("look", "explain", "check"), titles))
     return [
-        {"id": f"s{i + 1}", "kind": k, "title": t, "target": {"lecture_id": lecture_id, "page": p}, "status": "todo"}
+        {"id": f"s{i + 1}", "kind": k, "title": t, "target": {"lecture_id": lecture_id, "page": pages[min(i, len(pages) - 1)]},
+         "status": "todo"}
         for i, (k, t) in enumerate(steps)
     ]

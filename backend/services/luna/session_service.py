@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 MAX_TURNS = 60
 RECENT = 8
 RECAP_EVERY = 8
+PLAN_LOOKAHEAD = 8
 FEATURE = "luna_session"
 
 FALLBACK = {
@@ -150,7 +151,9 @@ async def start(
     store: Any, *, user_id: str, space_id: str, lecture_id: str, page: int, opener: str, locale: str,
     ai: Ai = default_ai, load: Loader = load_lesson,
 ) -> dict:
-    view = await load(lecture_id, locale, [page])
+    # The learner's page and the eight after it, so a title or agenda slide still
+    # leaves the model (and the fallback) real content to plan on.
+    view = await load(lecture_id, locale, list(range(page, page + PLAN_LOOKAHEAD + 1)))
     if space_id not in {view.course_id, user_id}:
         raise _err(400, "wrong_space", locale)
     memory = await store.active_memory(user_id, space_id)
@@ -163,7 +166,9 @@ async def start(
             raise LunaError(429, BUDGET[_lang(locale)])
         logger.warning("luna plan model call failed: %s", exc)
     total = view.pages.totals[lecture_id]
-    plan = validate_plan(raw, lecture_id=lecture_id, pages=view.pages) or fallback_plan(lecture_id, page, total, locale=locale)
+    texts = {n: t for (lid, n), t in view.pages.texts.items() if lid == lecture_id}
+    plan = validate_plan(raw, lecture_id=lecture_id, pages=view.pages) or fallback_plan(
+        lecture_id, page, total, locale=locale, texts=texts)
     say = str((raw or {}).get("say") or "").strip()[:400] if isinstance(raw, dict) else ""
     say = say or GREETING[_lang(locale)]
     session = await store.create_session(user_id, space_id, lecture_id, opener.strip()[:300], plan)

@@ -67,10 +67,14 @@ What you know about how they learn:
 <<memory>>
 Pages in this Lesson:
 <<titles>>
-Page text near where they are:
+Page text from where they are onwards:
 <<pages>>
 
-Make a plan of 3 to 5 steps that starts where the learner is. Step kinds:
+Make a plan of 3 to 5 steps that starts where the learner is.
+If the learner's page is a title, agenda or overview slide, plan the content pages that follow it.
+Put steps on different pages where the content allows.
+Make the first step a `look` that lights one exact phrase from a content page.
+Step kinds:
 look (show a page and the line that matters), explain (explain a page),
 ask (answer what they asked), check (one question they commit to),
 teachback (they explain it back), connect (link to where an idea is built on).

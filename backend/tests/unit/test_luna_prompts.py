@@ -41,3 +41,10 @@ def test_say_is_asked_for_as_plain_text():
 
     for template in (prompts.PLAN, prompts.TURN):
         assert '"say" is plain text, no markdown' in template
+
+
+def test_plan_prompt_plans_content_pages_after_a_title_slide():
+    p = prompts.plan_prompt(VIEW, page=1, opener="", memory=[], locale="en")
+    assert "title, agenda or overview slide" in p
+    assert "Put steps on different pages" in p
+    assert "first step a `look`" in p
