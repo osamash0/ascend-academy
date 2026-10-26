@@ -348,6 +348,31 @@ export default function LessonFacesScreen() {
     readingAt: useCallback(() => pdfPageRef.current, []),
     active: lunaOn && lunaOpen,
   });
+  /*
+   * `?page=N` on a document: the scroll mounts at the top, so take it to the
+   * page once, and ignore the page reports of that scroll until it has settled
+   * (they would otherwise overwrite the asked page with an intermediate one).
+   */
+  const scrollSettling = useRef(false);
+  const deepLinked = useRef(false);
+  useEffect(() => {
+    if (deepLinked.current || shape !== 'document' || numPages === 0 || !pdfRef.current) return;
+    deepLinked.current = true;
+    if (pdfPage <= 1) return;
+    scrollSettling.current = true;
+    scrollToPdfPage(pdfRef.current, pdfPage, 0.38, 'auto');
+    const t = window.setTimeout(() => {
+      scrollSettling.current = false;
+    }, 400);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shape, numPages]);
+  const onScrollPage = useCallback(
+    (page: number) => {
+      if (!scrollSettling.current) onPdfPage(page);
+    },
+    [onPdfPage],
+  );
   const turnPage = useCallback(
     (by: number) => {
       const to = Math.min(Math.max(1, pdfPage + by), numPages || 1);
@@ -881,7 +906,8 @@ export default function LessonFacesScreen() {
   /* The stage's own width decides whether the masthead can sit centred beside the switch. */
   const narrowHead = vw - (docked ? panelWidth : 0) - (showToc ? TOC_WIDTH : 0) < 980;
   const block = blockOf(pdfPage);
-  const beats = beatsOf(pdfPage);
+  /* Points are a slide's; a document has none. */
+  const beats = shape === 'slides' ? beatsOf(pdfPage) : [];
   /* The slide view keeps a band under the page for its points. */
   /* The first-visit hint takes a line of its own under the points. */
   const hintShown = !prefs.hinted && !engaged && view === 'slide';
@@ -1103,7 +1129,7 @@ export default function LessonFacesScreen() {
             file={content.pdfUrl}
             width={Math.min(box.w, 900)}
             anchorLine={0.38}
-            onPage={onPdfPage}
+            onPage={onScrollPage}
             onLoad={setNumPages}
             onFirstRender={(canvas) => setAccent(sampleAccent(canvas))}
             scrollRef={pdfRef}

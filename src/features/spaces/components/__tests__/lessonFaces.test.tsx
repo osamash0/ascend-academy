@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act, within, cleanup } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { useEffect, type RefObject } from 'react';
 import LessonFacesScreen from '../../screens/LessonFacesScreen';
@@ -302,6 +302,38 @@ describe('a document scrolls', () => {
       const ev = new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true, bubbles: true });
       window.dispatchEvent(ev);
       expect(ev.defaultPrevented).toBe(false);
+    } finally {
+      mockAspect = 405 / 720;
+    }
+  });
+
+  it('points belong to slides: a document has no points band', async () => {
+    const dots = () => screen.queryByRole('tablist', { name: 'Points on this page' });
+    /* The control: some page of this fixture carries points. */
+    let page = 0;
+    for (let p = 1; p <= 12 && !page; p++) {
+      await renderFaces(`/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=${p}`);
+      if (dots()) page = p;
+      cleanup();
+    }
+    expect(page).toBeGreaterThan(0);
+    mockAspect = 842 / 595;
+    try {
+      await renderFaces(`/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=${page}`);
+      await screen.findByTestId('scroll');
+      expect(dots()).not.toBeInTheDocument();
+    } finally {
+      mockAspect = 405 / 720;
+    }
+  });
+
+  it('?page=N lands on that page once a document has loaded', async () => {
+    mockAspect = 842 / 595;
+    scrolled.length = 0;
+    try {
+      await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=3');
+      await screen.findByTestId('scroll');
+      await waitFor(() => expect(scrolled).toContain(3));
     } finally {
       mockAspect = 405 / 720;
     }
