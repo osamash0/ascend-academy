@@ -122,6 +122,22 @@ describe('Luna column parts', () => {
     ...extra,
   });
 
+  it('while the plan is drafted Luna is reading the Lesson; during turns she is thinking', () => {
+    const { rerender } = render(
+      <SessionColumn
+        luna={lunaWith({ busy: true, planning: true, thread: [{ kind: 'learner', id: 'opener', text: 'I have an exam soon' }] }) as never}
+        lessonId="l" onOpenPage={vi.fn()} onClose={vi.fn()} onSpot={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('I have an exam soon')).not.toBeNull();
+    expect(screen.getByText('Luna is reading the Lesson…')).not.toBeNull();
+    expect(screen.queryByText('Luna is thinking…')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'I have an exam soon' })).toBeNull();
+    rerender(<SessionColumn luna={lunaWith({ sessionId: 's', busy: true }) as never} lessonId="l" onOpenPage={vi.fn()} onClose={vi.fn()} onSpot={vi.fn()} />);
+    expect(screen.getByText('Luna is thinking…')).not.toBeNull();
+    expect(screen.queryByText('Luna is reading the Lesson…')).toBeNull();
+  });
+
   it('once a session exists you can always say you are done', () => {
     const wrapUp = vi.fn();
     const { rerender } = render(

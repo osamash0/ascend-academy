@@ -26,6 +26,8 @@ export interface LunaState {
   plan: PlanStep[];
   thread: ThreadItem[];
   busy: boolean;
+  /** The plan is being drafted: the opener is already in the thread, the session isn't yet. */
+  planning: boolean;
   error: string | null;
   offerWrap: boolean;
   wrap: LunaWrap | null;
@@ -34,10 +36,11 @@ export interface LunaState {
 }
 
 export const initialLuna: LunaState = {
-  sessionId: null, lectureId: null, plan: [], thread: [], busy: false, error: null, offerWrap: false, wrap: null, kept: false, practiceAdded: null,
+  sessionId: null, lectureId: null, plan: [], thread: [], busy: false, planning: false, error: null, offerWrap: false, wrap: null, kept: false, practiceAdded: null,
 };
 
 type Action =
+  | { type: 'opening'; opener: string }
   | { type: 'started'; session: LunaSessionRow; say: string; opener: string }
   | { type: 'hydrated'; session: LunaSessionRow; turns: LunaTurnRow[] }
   | { type: 'learner'; id: string; text: string }
@@ -66,8 +69,13 @@ function threadFromTurns(turns: LunaTurnRow[]): { thread: ThreadItem[]; offerWra
   return { thread, offerWrap };
 }
 
+const openerItem = (text: string): ThreadItem[] => (text ? [{ kind: 'learner', id: 'opener', text }] : []);
+
 export function lunaReducer(state: LunaState, action: Action): LunaState {
   switch (action.type) {
+    case 'opening':
+      /* Shown at once: what you said shouldn't wait for the plan. */
+      return { ...state, error: null, busy: true, planning: true, thread: openerItem(action.opener) };
     case 'started':
       return {
         ...initialLuna,
@@ -75,10 +83,7 @@ export function lunaReducer(state: LunaState, action: Action): LunaState {
         lectureId: action.session.lecture_id,
         plan: action.session.plan,
         /* What you said comes first; Luna's answer follows it. */
-        thread: [
-          ...(action.opener ? [{ kind: 'learner' as const, id: 'opener', text: action.opener }] : []),
-          { kind: 'luna', id: 'start', md: action.say, blocks: [], check: null },
-        ],
+        thread: [...openerItem(action.opener), { kind: 'luna', id: 'start', md: action.say, blocks: [], check: null }],
       };
     case 'hydrated':
       return {
@@ -95,7 +100,7 @@ export function lunaReducer(state: LunaState, action: Action): LunaState {
     case 'busy':
       return { ...state, busy: action.busy, error: action.busy ? null : state.error };
     case 'failed':
-      return { ...state, busy: false, error: action.detail };
+      return { ...state, busy: false, planning: false, error: action.detail };
     case 'wrapped':
       return { ...state, wrap: action.wrap, offerWrap: false };
     case 'kept':
@@ -207,7 +212,7 @@ export function useLunaSession(opts: {
     async (opener: string) => {
       if (inFlight.current) return;
       inFlight.current = true;
-      dispatch({ type: 'busy', busy: true });
+      dispatch({ type: 'opening', opener });
       try {
         const out = await lunaApi.start({ space_id: opts.spaceId, lecture_id: opts.lessonId, page: readingAt(), opener });
         dispatch({ type: 'started', session: out.session, say: out.say, opener });
