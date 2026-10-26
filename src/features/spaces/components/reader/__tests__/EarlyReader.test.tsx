@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as rtl, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+const render = (ui: React.ReactElement) => rtl(<MemoryRouter>{ui}</MemoryRouter>);
 
 const base = { pdfUrl: 'x', pages: 10, pagesRead: 3, stage: 'developing', lessonId: null } as any;
 const state: { reading: any; url: string | null } = { reading: base, url: 'blob:x' };
@@ -44,5 +46,28 @@ describe('EarlyReader', () => {
     render(<EarlyReader uploadId="run-1" filename="Normalization.pdf" onReady={() => {}} />);
     expect(screen.getByText(/could not read this one/i)).toBeInTheDocument();
     expect(screen.getByTestId('pager')).toBeInTheDocument();
+  });
+
+  it('has a way out: back to the Library', () => {
+    render(<EarlyReader uploadId="run-1" filename="Normalization.pdf" onReady={() => {}} />);
+    expect(screen.getByRole('link', { name: /library|bibliothek/i })).toHaveAttribute('href', '/v4/library');
+  });
+
+  it('hands over exactly once, however often it re-renders', () => {
+    const onReady = vi.fn();
+    state.reading = { ...base, stage: 'ready', lessonId: 'L1', pagesRead: 10 };
+    const ui = <MemoryRouter><EarlyReader uploadId="run-1" filename="N.pdf" onReady={() => onReady()} /></MemoryRouter>;
+    const { rerender } = rtl(ui);
+    rerender(<MemoryRouter><EarlyReader uploadId="run-1" filename="N.pdf" onReady={() => onReady()} /></MemoryRouter>);
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    rerender(ui);
+    expect(onReady).toHaveBeenCalledTimes(1);
+  });
+
+  it('turns pages with the arrow keys, clamped to the file', () => {
+    render(<EarlyReader uploadId="run-1" filename="N.pdf" onReady={() => {}} />);
+    fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '2');
   });
 });

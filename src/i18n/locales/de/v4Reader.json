@@ -316,7 +316,6 @@
   "early": {
     "reading": "Luna liest mit · {{read}} / {{total}}",
     "readOn": "Lies einfach weiter – nichts wartet auf sie",
-    "faceSoon": "Erklären kommt, sobald Luna so weit gelesen hat",
     "failed": "Luna konnte diese Datei nicht lesen. Lesen kannst du sie trotzdem hier."
   }
 }

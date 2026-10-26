@@ -316,7 +316,6 @@
   "early": {
     "reading": "Luna is reading along · {{read}} / {{total}}",
     "readOn": "Read on — nothing waits for her",
-    "faceSoon": "Explain arrives when Luna has read this far",
     "failed": "Luna could not read this one. You can still read it here."
   }
 }
