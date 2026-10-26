@@ -6,7 +6,9 @@ import { cn } from '@/lib/utils';
 import { formatNumber } from '../../i18n/format';
 import { ModeBadge } from '../badges';
 import type { Space } from '../../types';
-import { coverFor, initialFor } from './covers';
+import { Planet, planetSize } from '../sky/Planet';
+import { StarField } from '../sky/StarField';
+import { planetOf } from './HeroCover';
 import { membershipOf } from '../../data/hub';
 import { say } from '../../data/phrases';
 import { itemVariants, railVariants } from '../Enter';
@@ -27,7 +29,42 @@ import { PRESS_SPRING } from '../Pressable';
  * Rails enter with the shared `Enter` variants — stagger 0.04, y 12 → 0,
  * `whileInView` once. The parent declares the rhythm and Motion propagates it,
  * so adding a row never means computing another delay.
+ *
+ * **Night sky, not cover art** (2026-10-26). Where a card used to show a
+ * hashed colour gradient and a big initial, it now shows a patch of the same
+ * night as the page: a few stars and the Space's planet. Monochrome; the only
+ * colour is the gold of Lessons you have finished. These planets hold still —
+ * the drift belongs to the hero and the row above, and a page of thirty
+ * drifting planets is busy rather than calm.
  */
+
+/**
+ * A card's picture: a patch of sky with the Space's planet in it.
+ * Decoration — the card's own text and link carry the name.
+ */
+function SkyArt({
+  space,
+  min,
+  max,
+  place = 'flex items-center justify-center',
+  className,
+}: {
+  space: Space;
+  min: number;
+  max: number;
+  /** Where the planet sits in the patch. Centred unless the card's text needs the room. */
+  place?: string;
+  className?: string;
+}) {
+  return (
+    <span aria-hidden className={cn('absolute inset-0 overflow-hidden bg-white/[0.025]', className)}>
+      <StarField seed={`card-${space.id}`} count={16} />
+      <span className={cn('absolute inset-0', place)}>
+        <Planet size={planetSize(space.lessonCount, min, max)} {...planetOf(space)} drift={false} />
+      </span>
+    </span>
+  );
+}
 
 export const GUTTER = 'px-[22px] sm:px-16';
 /**
@@ -162,22 +199,8 @@ export function WideCard({ space }: { space: Space }) {
         )}
         style={{ aspectRatio: '16 / 8.6' }}
       >
-        <div className="absolute inset-0" style={{ background: coverFor(space.id) }} />
-        <div
-          aria-hidden
-          className="absolute inset-0"
-          style={{
-            background:
-              'linear-gradient(0deg,rgba(5,6,8,.85) 0%,rgba(5,6,8,.15) 55%,rgba(5,6,8,0) 100%)',
-          }}
-        />
-        <span
-          aria-hidden
-          className="absolute right-4 top-[-6px] font-bold leading-none text-decor"
-          style={{ fontSize: 88, letterSpacing: -3 }}
-        >
-          {initialFor(space.name)}
-        </span>
+        {/* The planet sits right of centre, clear of the name at bottom left. */}
+        <SkyArt space={space} min={44} max={76} place="flex items-start justify-end pr-5 pt-5" />
 
         {space.newSinceLastVisit > 0 && (
           <span className="absolute left-3 top-3 z-[2] rounded-full bg-[#57d98a]/90 px-[10px] py-[3px] text-[11.5px] font-semibold text-[#06130b]">
@@ -229,14 +252,12 @@ export function FeatureBanner({ space }: { space: Space }) {
             CARD_OUTLINE,
           )}
         >
-          <div aria-hidden className="absolute inset-0" style={{ background: coverFor(space.id) }} />
-          <div
-            aria-hidden
-            className="absolute inset-0"
-            style={{
-              background:
-                'linear-gradient(90deg,rgba(5,6,8,.82) 0%,rgba(5,6,8,.45) 45%,rgba(5,6,8,.05) 100%)',
-            }}
+          <SkyArt
+            space={space}
+            min={84}
+            max={120}
+            place="flex items-center justify-end pr-[8%]"
+            className="hidden sm:block"
           />
           <div className="relative z-[2] max-w-[520px] p-[26px] sm:px-[42px] sm:py-[34px]">
             {/*
@@ -290,18 +311,12 @@ export function StandardCard({ space }: { space: Space }) {
       >
         <motion.div
           className={cn('relative overflow-hidden rounded-xl', CARD_OUTLINE)}
-          style={{ aspectRatio: '16 / 10', background: coverFor(space.id) }}
+          style={{ aspectRatio: '16 / 10' }}
           whileHover={{ scale: 1.04 }}
           whileTap={{ scale: 0.98 }}
           transition={PRESS_SPRING}
         >
-          <span
-            aria-hidden
-            className="absolute bottom-0.5 right-[14px] font-bold leading-none text-decor"
-            style={{ fontSize: 64, letterSpacing: -2 }}
-          >
-            {initialFor(space.name)}
-          </span>
+          <SkyArt space={space} min={36} max={64} />
           {(isMember || isPrivate) && (
             <span
               className={cn(
@@ -358,10 +373,9 @@ export function CompactCard({ space }: { space: Space }) {
       >
         <span
           aria-hidden
-          className="grid h-14 w-14 flex-none place-items-center overflow-hidden rounded-[9px]"
-          style={{ background: coverFor(space.id) }}
+          className="grid h-14 w-14 flex-none place-items-center overflow-hidden rounded-[9px] bg-white/[0.025]"
         >
-          <span className="text-[20px] font-bold opacity-75">{initialFor(space.name)}</span>
+          <Planet size={26} {...planetOf(space)} drift={false} />
         </span>
         <span className="min-w-0">
           <span className="block truncate text-[14px] font-medium">{space.name}</span>

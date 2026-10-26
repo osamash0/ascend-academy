@@ -330,6 +330,9 @@
       "draftsWaiting_other": "You have {{count}} drafts waiting",
       "archivedMarch": "Archived in March",
       "finishedPath": "You finished the path"
+    },
+    "hero": {
+      "lastOpened": "Last opened"
     }
   },
   "tiles": {

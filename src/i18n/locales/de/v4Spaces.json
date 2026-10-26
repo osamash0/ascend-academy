@@ -330,6 +330,9 @@
       "draftsWaiting_other": "{{count}} Entwürfe warten auf dich",
       "archivedMarch": "Im März archiviert",
       "finishedPath": "Du hast den Pfad abgeschlossen"
+    },
+    "hero": {
+      "lastOpened": "Zuletzt geöffnet"
     }
   },
   "tiles": {

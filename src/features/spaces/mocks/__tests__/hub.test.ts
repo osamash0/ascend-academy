@@ -11,7 +11,6 @@ import {
   spaceOfTheWeek,
 } from '../../data/hub';
 import { allSpaces } from '../spaces';
-import { coverFor, COVERS, SLATE_COVER } from '../../components/hub/covers';
 import { publishedLessonsForSpace } from '../lessons';
 
 /**
@@ -80,36 +79,11 @@ describe('the hero has one button with four states', () => {
   });
 });
 
-describe('covers are stable and load-bearing', () => {
-  it('gives the same Space the same gradient every time', () => {
-    // "Same space = same gradient always." The console's `gradientFor(index)`
-    // keys on a list position, so sorting changed a Space's colour.
-    for (const s of allSpaces) expect(coverFor(s.id)).toBe(coverFor(s.id));
-  });
-
-  it('does not depend on list order', () => {
-    const forward = allSpaces.map((s) => coverFor(s.id));
-    const backward = [...allSpaces].reverse().map((s) => coverFor(s.id));
-    expect(backward.reverse()).toEqual(forward);
-  });
-
-  it('always resolves to one of the palette', () => {
-    const palette = Object.values(COVERS);
-    for (const s of allSpaces) expect(palette).toContain(coverFor(s.id));
-  });
-
-  it('keeps the neutral one out of the hash', () => {
-    // Slate belongs to Discover, which is not a Space. A Space landing on it
-    // would read as the utility chip.
-    for (const s of allSpaces) expect(coverFor(s.id)).not.toBe(SLATE_COVER);
-  });
-
-  it('spreads across the palette rather than collapsing', () => {
-    // A hash that returns two colours for nine Spaces is not a hash.
-    const used = new Set(allSpaces.map((s) => coverFor(s.id)));
-    expect(used.size).toBeGreaterThan(3);
-  });
-});
+/*
+ * The hashed cover gradients this block guarded are gone (night sky,
+ * 2026-10-26). "Same Space = same look always" still holds — for the planet's
+ * body tone — and is checked in `components/__tests__/sky.test.tsx`.
+ */
 
 describe('empty rails are not rendered', () => {
   it('only offers "Jump back in" for Spaces with a path to return to', () => {

@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Compass, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import type { Space } from '../../types';
-import { coverFor } from './covers';
 import { PRESS_SPRING } from '../Pressable';
+import { Planet, planetSize } from '../sky/Planet';
+import { planetOf, StarCluster } from './HeroCover';
 
 /**
  * "Your spaces" — the chip row pinned to the bottom of the hero.
@@ -25,6 +25,11 @@ import { PRESS_SPRING } from '../Pressable';
  * Arrow keys are on the row rather than the window: a global handler would
  * steal ←/→ from every text field on the page, and the row is focusable, so
  * this is the standard listbox behaviour and not a shortcut.
+ *
+ * **Planets, not tiles** (2026-10-26). Each Space is its planet, sized by how
+ * many Lessons it holds, with its name under it. One fact once: no counts and
+ * no progress numbers here — the moons already show both. The only second
+ * line is one nothing else on the row says: that a Space is invite only.
  */
 
 export const DISCOVER_ID = 'discover';
@@ -93,6 +98,7 @@ export function SpaceChipRow({
       >
         {spaces.map((s) => {
           const isSelected = s.id === selected;
+          const isPrivate = s.visibility !== 'public';
           return (
             <motion.button
               key={s.id}
@@ -110,8 +116,8 @@ export function SpaceChipRow({
               whileTap={{ scale: 0.98 }}
               transition={PRESS_SPRING}
               className={cn(
-                'relative h-[88px] w-[158px] flex-none overflow-hidden rounded-[10px] text-left',
-                'bg-[rgba(14,16,20,0.72)] outline-offset-[3px]',
+                'relative flex w-[128px] flex-none flex-col items-center rounded-[12px] px-2 pb-2 pt-1 text-center',
+                'outline-offset-[3px]',
                 // Selection is a thin white outline. Nothing else.
                 isSelected ? 'outline outline-[1.5px] outline-white/90' : 'outline-none',
               )}
@@ -120,33 +126,18 @@ export function SpaceChipRow({
                 Motion, not `transition-opacity`. Opacity is the library's to
                 animate — a CSS transition sails past
                 `MotionConfig reducedMotion="user"` and animates for people who
-                asked the OS for less. `initial={false}` so the chips do not
+                asked the OS for less. `initial={false}` so the planets do not
                 all fade in on mount.
               */}
-              <motion.div
+              <motion.span
                 aria-hidden
                 initial={false}
-                animate={{ opacity: isSelected ? 0.85 : 0.5 }}
+                animate={{ opacity: isSelected ? 1 : 0.62 }}
                 transition={{ duration: 0.15 }}
-                className="absolute inset-0"
-                style={{ background: coverFor(s.id) }}
-              />
-              <div
-                aria-hidden
-                className="absolute inset-0"
-                style={{
-                  background:
-                    'linear-gradient(0deg,rgba(6,7,9,.78) 0%,rgba(6,7,9,.1) 60%)',
-                }}
-              />
-
-              {/* Private is a lock. The one icon on a chip. */}
-              {s.visibility !== 'public' && (
-                <Lock
-                  aria-hidden
-                  className="absolute left-3 top-[10px] z-[2] h-4 w-4 text-white/[0.62]"
-                />
-              )}
+                className="flex h-[84px] w-full items-center justify-center"
+              >
+                <Planet size={planetSize(s.lessonCount, 36, 72)} {...planetOf(s)} />
+              </motion.span>
 
               {/*
                 Unread is the only place green appears on this row, and the
@@ -156,18 +147,23 @@ export function SpaceChipRow({
               {s.newSinceLastVisit > 0 && (
                 <span
                   aria-hidden
-                  className="absolute right-[10px] top-[10px] z-[2] h-2 w-2 rounded-full bg-[#57d98a] ring-[3px] ring-[rgba(6,7,9,.5)]"
+                  className="absolute right-[10px] top-[8px] z-[2] h-2 w-2 rounded-full bg-[#57d98a] ring-[3px] ring-black/50"
                 />
               )}
 
               <span
                 className={cn(
-                  'absolute bottom-[9px] left-3 right-[10px] z-[2] truncate text-[12.5px] font-medium',
+                  'block w-full truncate text-[12.5px] font-medium',
                   isSelected ? 'text-white' : 'text-quiet',
                 )}
               >
                 {s.name}
               </span>
+              {isPrivate && (
+                <span className="mt-0.5 block w-full truncate text-[11.5px] text-label">
+                  {t('hub.cards.inviteOnlyShort')}
+                </span>
+              )}
               {s.newSinceLastVisit > 0 && (
                 <span className="sr-only">
                   {t('hub.chips.newLessons', { count: s.newSinceLastVisit })}
@@ -178,10 +174,9 @@ export function SpaceChipRow({
         })}
 
         {/*
-          Discover is the last chip and reads as an action, not a Space: no
-          cover, brighter fill, centred label. The spec asks for it to be
-          "clearly an action" — a dimmed cover would make it look like one more
-          thing you are already in.
+          Discover is the last entry and reads as somewhere to go, not a
+          Space: no planet, a loose cluster of stars — everything out there
+          you have not visited yet.
         */}
         <motion.button
           type="button"
@@ -198,16 +193,24 @@ export function SpaceChipRow({
           whileTap={{ scale: 0.98 }}
           transition={PRESS_SPRING}
           className={cn(
-            'relative flex h-[88px] w-[158px] flex-none flex-col items-center justify-center gap-2',
-            'rounded-[10px] bg-white/[0.13] shadow-[inset_0_0_0_1px_rgba(255,255,255,.22)]',
-            'outline-offset-[3px] hover:bg-white/20',
+            'relative flex w-[128px] flex-none flex-col items-center rounded-[12px] px-2 pb-2 pt-1 text-center',
+            'outline-offset-[3px]',
             selected === DISCOVER_ID
               ? 'outline outline-[1.5px] outline-white/90'
               : 'outline-none',
           )}
         >
-          <Compass aria-hidden className="h-[22px] w-[22px] text-white" />
-          <span className="text-[12.5px] font-semibold text-white">{t('hub.chips.discover')}</span>
+          <span aria-hidden className="flex h-[84px] w-full items-center justify-center">
+            <StarCluster seed="discover-chip" className="h-auto w-[88px]" />
+          </span>
+          <span
+            className={cn(
+              'block w-full truncate text-[12.5px] font-medium',
+              selected === DISCOVER_ID ? 'text-white' : 'text-quiet',
+            )}
+          >
+            {t('hub.chips.discover')}
+          </span>
         </motion.button>
       </div>
     </div>

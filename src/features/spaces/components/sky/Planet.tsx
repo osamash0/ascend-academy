@@ -96,6 +96,8 @@ interface PlanetProps {
   /** Centre, when drawn inside another SVG (Ascent). */
   cx?: number;
   cy?: number;
+  /** Let the moons drift. Off for small, many-at-once planets (the rail cards). */
+  drift?: boolean;
   className?: string;
 }
 
@@ -109,6 +111,7 @@ export function Planet({
   label,
   cx,
   cy,
+  drift = true,
   className,
 }: PlanetProps) {
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
@@ -132,7 +135,7 @@ export function Planet({
   const time = useTime();
   const drifting = useTransform(time, (t) => (t / DRIFT_PERIOD_MS) * Math.PI * 2);
   const still = useMotionValue(0);
-  const phase = reduce ? still : drifting;
+  const phase = reduce || !drift ? still : drifting;
 
   const a11y = label ? { role: 'img' as const, 'aria-label': label } : { 'aria-hidden': true as const };
   const inSvg = cx !== undefined && cy !== undefined;
