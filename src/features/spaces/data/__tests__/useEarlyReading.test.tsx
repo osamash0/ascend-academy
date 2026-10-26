@@ -15,6 +15,17 @@ beforeEach(() => {
 });
 
 describe('useEarlyReading', () => {
+  it('does not ask the server about a file still on its way up (sending-*)', async () => {
+    localFileFor.mockReturnValue(new File(['%PDF'], 'a.pdf'));
+    URL.createObjectURL = vi.fn(() => 'blob:local');
+    URL.revokeObjectURL = vi.fn();
+    const { result } = renderHook(() => useEarlyReading('sending-1'));
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect(readingFor).not.toHaveBeenCalled();
+    expect(result.current.reading).toBeNull();
+    expect(result.current.url).toBe('blob:local');
+  });
+
   it('reads the file on this device before the server link', async () => {
     localFileFor.mockReturnValue(new File(['%PDF'], 'a.pdf', { type: 'application/pdf' }));
     readingFor.mockResolvedValue({ pdfUrl: 'https://signed', pages: 10, pagesRead: 2, stage: 'developing', lessonId: null });

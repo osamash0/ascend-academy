@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, Maximize2, Minimize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { PdfPager, PdfScroll, scrollToPdfPage, warmPdfWorker } from '@/components/pdf';
 import { useEarlyReading } from '../../data/useEarlyReading';
+import { resolvedUploadId, subscribeUploads, uploadsVersion } from '../../data/uploads';
 import { useIdle } from './useIdle';
 import { useFullscreen } from './useFullscreen';
 import { ReaderTimeline } from './ReaderTimeline';
@@ -19,16 +20,22 @@ interface Props {
   uploadId: string;
   filename: string;
   onReady: (lessonId: string, page: number) => void;
+  /** The upload was refused before it became a run: the file stays readable, with a calm line. */
+  refused?: boolean;
+  /** Where to start (a swap from the temporary id keeps your place). */
+  initialPage?: number;
+  /** The server accepted the file this reader was opened on: the real id, and the page you are on. */
+  onResolved?: (id: string, page: number) => void;
 }
 
-export function EarlyReader({ uploadId, filename, onReady }: Props) {
+export function EarlyReader({ uploadId, filename, onReady, refused, initialPage = 1, onResolved }: Props) {
   const { t } = useTranslation('v4Reader');
   const { t: tl } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.reading' });
   const fs = useFullscreen();
   const reduce = !!useReducedMotion();
   useEffect(warmPdfWorker, []);
   const { reading, url } = useEarlyReading(uploadId);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(initialPage);
   const [pages, setPages] = useState(0);
   const [aspect, setAspect] = useState<number | null>(null);
   const [box, setBox] = useState({ w: 1000, h: 640 });
@@ -51,6 +58,15 @@ export function EarlyReader({ uploadId, filename, onReady }: Props) {
     handed.current = reading.lessonId;
     onReadyRef.current(reading.lessonId, pageRef.current);
   }, [reading?.stage, reading?.lessonId]);
+
+  /* A reader opened on a temporary id moves to the real one when it arrives; unmounted, nothing happens. */
+  useSyncExternalStore(subscribeUploads, uploadsVersion);
+  const resolvedTo = uploadId.startsWith('sending-') ? resolvedUploadId(uploadId) : null;
+  const onResolvedRef = useRef(onResolved);
+  onResolvedRef.current = onResolved;
+  useEffect(() => {
+    if (resolvedTo) onResolvedRef.current?.(resolvedTo, pageRef.current);
+  }, [resolvedTo]);
 
   const totalRef = useRef(total);
   totalRef.current = total;
@@ -77,6 +93,14 @@ export function EarlyReader({ uploadId, filename, onReady }: Props) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  /* A document opens at the page you were on. */
+  const placed = useRef(false);
+  useEffect(() => {
+    if (placed.current || initialPage <= 1 || shape !== 'document' || !pages || !scrollRef.current) return;
+    placed.current = true;
+    scrollToPdfPage(scrollRef.current, initialPage, 0.38, 'auto');
+  }, [pages, shape, initialPage]);
 
   useEffect(() => {
     const el = boxRef.current;
@@ -129,7 +153,7 @@ export function EarlyReader({ uploadId, filename, onReady }: Props) {
         )}
       </div>
       <div className="absolute inset-x-0 bottom-0 px-4 pb-[max(10px,env(safe-area-inset-bottom))]">
-        {reading?.stage === 'failed' ? (
+        {refused || reading?.stage === 'failed' ? (
           <p className="mb-2 text-center text-[12.5px] text-quiet">{t('early.failed')}</p>
         ) : (
           !quiet && (

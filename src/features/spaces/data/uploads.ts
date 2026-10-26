@@ -28,6 +28,8 @@ const files = new Map<string, File>();
  * server-failed run never looks resendable.
  */
 const kept = new Map<string, File>();
+/** Temporary `sending-N` ids that became a shelf id once the server accepted the file. */
+const resolved = new Map<string, string>();
 /** Brought in during this visit: these develop in front of you. */
 const broughtIn = new Set<string>();
 let seq = 0;
@@ -39,7 +41,7 @@ let snapshot: Upload[] = [];
 const listeners = new Set<() => void>();
 /** Removed, but still inside their Undo window: off the shelf, not yet deleted. */
 const hidden = new Set<string>();
-const compose = () => [...sending, ...(fetched ?? liveWorld()?.uploads ?? [])].filter((u) => !hidden.has(u.id));
+const compose = () => [...sending.filter((u) => !resolved.has(u.id) || !(fetched ?? []).some((f) => f.id === resolved.get(u.id))), ...(fetched ?? liveWorld()?.uploads ?? [])].filter((u) => !hidden.has(u.id));
 const notify = () => {
   version += 1;
   snapshot = compose();
@@ -62,7 +64,16 @@ export function uploadsNow(): Upload[] {
 export const wasBroughtIn = (id: string): boolean => broughtIn.has(id);
 
 /** The file itself, if it was brought in on this device during this visit. */
-export const localFileFor = (uploadId: string): File | null => kept.get(uploadId) ?? null;
+export const localFileFor = (uploadId: string): File | null => kept.get(uploadId) ?? files.get(uploadId) ?? null;
+
+/** A temporary id the server has answered for: its shelf id, once that is on the shelf. */
+export function resolvedUploadId(id: string): string | null {
+  const to = resolved.get(id);
+  return to && uploadsNow().some((u) => u.id === to) ? to : null;
+}
+
+/** Has this temporary id been accepted (its real cover may still be on its way)? */
+export const isSettling = (id: string): boolean => resolved.has(id);
 
 /** Can this failed upload be sent again from here? */
 export const canResend = (id: string): boolean => files.has(id);
@@ -103,31 +114,38 @@ export function watchUploads(): void {
 }
 
 /**
- * Send one file. Resolves to the shelf id that opens it once the server has
- * accepted it and the shelf has been re-read (so the id is on the shelf), or
- * null if it was refused. A duplicate resolves to the id of the cover that
- * already holds that Lesson (the shelf is keyed by run id, not lecture id).
+ * Send one file. When the server accepts it, the temporary `sending-N` id is
+ * mapped to the shelf id that now holds it (the run id; for a duplicate, the
+ * cover that already holds that Lesson), so a reader opened on the temporary
+ * id can swap to the real one.
  */
-async function send(id: string, file: File): Promise<string | null> {
+async function send(id: string, file: File): Promise<void> {
   try {
     const repo = await loadLiveRepository();
     const r = await repo.bringIn(file);
     files.delete(id);
     const keptId = r.run_id ?? r.lecture_id;
     if (keptId) kept.set(keptId, file);
-    sending = sending.filter((u) => u.id !== id);
-    if (r.run_id) broughtIn.add(r.run_id);
+    if (r.run_id) {
+      broughtIn.add(r.run_id);
+      // Set before the shelf is re-read: the temporary cover steps aside as the real one arrives.
+      resolved.set(id, r.run_id);
+    }
     if (r.status === 'duplicate') toast(`${file.name} is already in your Library.`);
     await refresh();
+    if (!r.run_id) {
+      const held = r.lecture_id ? fetched?.find((u) => u.lessonId === r.lecture_id)?.id : undefined;
+      if (held) resolved.set(id, held);
+    }
+    sending = sending.filter((u) => u.id !== id);
+    notify();
     polling = true;
     schedule();
-    if (r.run_id) return r.run_id;
-    return (r.lecture_id && uploadsNow().find((u) => u.lessonId === r.lecture_id)?.id) || null;
   } catch (e) {
+    resolved.delete(id);
     sending = sending.map((u) => (u.id === id ? { ...u, stage: 'failed' as const } : u));
     notify();
     toast.error(reason(e, file.name));
-    return null;
   }
 }
 
@@ -138,12 +156,8 @@ function reason(e: unknown, name: string): string {
   return detail ? `${name}: ${detail}` : `${name} could not be brought in.`;
 }
 
-/**
- * Bring files in. Each shows at once and develops in front of you. Returns
- * their shelf ids, and `first`: the id that opens the first file once the
- * server has accepted it (null if it was refused).
- */
-export function bringInLive(list: File[]): { ids: string[]; first: Promise<string | null> } {
+/** Bring files in. Each shows at once and develops in front of you. Returns their shelf ids. */
+export function bringInLive(list: File[]): string[] {
   const ids = list.map((file) => {
     const id = `sending-${++seq}`;
     files.set(id, file);
@@ -163,8 +177,8 @@ export function bringInLive(list: File[]): { ids: string[]; first: Promise<strin
     return id;
   });
   notify();
-  const results = ids.map((id) => send(id, files.get(id)!));
-  return { ids, first: results[0] ?? Promise.resolve(null) };
+  ids.forEach((id) => void send(id, files.get(id)!));
+  return ids;
 }
 
 /** Send a refused file again. */
@@ -254,6 +268,7 @@ export function __resetUploads(): void {
   sending = [];
   files.clear();
   kept.clear();
+  resolved.clear();
   broughtIn.clear();
   hidden.clear();
   if (timer) clearTimeout(timer);

@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Plus, Upload } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { bringFilesInOpening, importWillFail, shelfIsDemo } from '../data/useShelf';
+import { bringFilesIn, importWillFail, shelfIsDemo } from '../data/useShelf';
 import { inDialog, isTyping } from '../studio/keys';
 import { FLIGHT_EASE } from '../studio/motion';
 
@@ -22,7 +22,7 @@ const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer
 export function useBringIn(
   enabled: boolean,
   onBrought?: (ids: string[]) => void,
-  /** The first file's shelf id, once the server has accepted it: open it. */
+  /** The first file's shelf id, at once (a real upload only): open it. */
   onOpen?: (id: string) => void,
 ) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -35,11 +35,10 @@ export function useBringIn(
 
   /* The development itself runs in a store (demo: timed; live: the real pipeline), not in a cover. */
   const bringFiles = useCallback((files: FileList | File[] | null | undefined) => {
-    const { ids, opened } = bringFilesInOpening(Array.from(files ?? []), importWillFail());
+    const ids = bringFilesIn(Array.from(files ?? []), importWillFail());
     if (ids.length) onBroughtRef.current?.(ids);
-    void opened.then((id) => {
-      if (id) onOpenRef.current?.(id);
-    });
+    /* A real file opens at once, from this device, under its temporary id; the demo world stays on the shelf. */
+    if (ids[0]?.startsWith('sending-')) onOpenRef.current?.(ids[0]);
   }, []);
 
   useEffect(() => {

@@ -17,6 +17,13 @@ vi.mock('@/components/pdf', () => ({
   warmPdfWorker: () => {},
 }));
 
+const uploadsMock = vi.hoisted(() => ({ to: null as string | null, subs: new Set<() => void>(), v: 0 }));
+vi.mock('../../../data/uploads', () => ({
+  subscribeUploads: (fn: () => void) => (uploadsMock.subs.add(fn), () => uploadsMock.subs.delete(fn)),
+  uploadsVersion: () => uploadsMock.v,
+  resolvedUploadId: () => uploadsMock.to,
+}));
+import { act } from '@testing-library/react';
 import { EarlyReader } from '../EarlyReader';
 
 beforeEach(() => {
@@ -24,6 +31,42 @@ beforeEach(() => {
   state.url = 'blob:x';
   state.aspect = 0.56;
   scrollTo.mockClear();
+});
+
+const resolve = (to: string) =>
+  act(() => {
+    uploadsMock.to = to;
+    uploadsMock.v += 1;
+    uploadsMock.subs.forEach((f) => f());
+  });
+
+describe('EarlyReader on a temporary id', () => {
+  beforeEach(() => {
+    uploadsMock.to = null;
+  });
+  it('moves to the real id, at the page you are on, once the server answers', () => {
+    const onResolved = vi.fn();
+    state.reading = null;
+    render(<EarlyReader uploadId="sending-1" filename="a.pdf" onReady={() => {}} onResolved={onResolved} />);
+    expect(onResolved).not.toHaveBeenCalled();
+    resolve('run-9');
+    expect(onResolved).toHaveBeenCalledWith('run-9', 1);
+  });
+  it('unmounted before the answer, nothing moves', () => {
+    const onResolved = vi.fn();
+    state.reading = null;
+    const { unmount } = render(<EarlyReader uploadId="sending-1" filename="a.pdf" onReady={() => {}} onResolved={onResolved} />);
+    unmount();
+    resolve('run-9');
+    expect(onResolved).not.toHaveBeenCalled();
+  });
+  it('a refused file stays readable with the calm failed line and a way back', () => {
+    state.reading = null;
+    render(<EarlyReader uploadId="sending-1" filename="a.pdf" onReady={() => {}} refused />);
+    expect(screen.getByText(/could not read this one/i)).toBeInTheDocument();
+    expect(screen.getByTestId('pager')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /library|bibliothek/i })).toHaveAttribute('href', '/v4/library');
+  });
 });
 
 describe('EarlyReader', () => {

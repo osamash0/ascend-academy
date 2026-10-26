@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { isSettling } from '../data/uploads';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, Moon, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -57,7 +58,12 @@ export default function StudioCanvasScreen() {
   const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas' });
   const { materialId } = useParams<{ materialId: string }>();
   const navigate = useNavigate();
-  const { state: shelfState, item } = useShelfItem(materialId);
+  const { state: shelfState, item: shelfItem } = useShelfItem(materialId);
+  const [params] = useSearchParams();
+  /* A file opened under its temporary id keeps its reader until the swap to the real id lands. */
+  const lastEarly = useRef<typeof shelfItem>(null);
+  if (shelfItem?.opens.kind === 'lesson' && !shelfItem.opens.lessonId) lastEarly.current = shelfItem;
+  const item = shelfItem ?? (materialId && isSettling(materialId) ? lastEarly.current : null);
   const canvasId = item?.opens.kind === 'canvas' ? item.opens.canvasId : undefined;
   const { state: canvasState, canvas, pages, material } = useCanvas(canvasId);
   const state = shelfState !== 'ready' ? shelfState : item?.opens.kind === 'lesson' ? 'ready' : canvasState;
@@ -571,6 +577,9 @@ export default function StudioCanvasScreen() {
       <EarlyReader
         uploadId={item.id}
         filename={item.filename}
+        refused={item.stage === 'failed'}
+        initialPage={Number(params.get('page')) > 0 ? Number(params.get('page')) : 1}
+        onResolved={(to, page) => navigate(`/v4/library/m/${to}?page=${page}`, { replace: true })}
         onReady={(lessonId, page) => navigate(`/v4/space/${spaceId}/lesson/${lessonId}/faces?page=${page}`, { replace: true })}
       />
     );

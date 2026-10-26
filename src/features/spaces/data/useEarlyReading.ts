@@ -30,6 +30,8 @@ export function useEarlyReading(uploadId: string) {
 
   const [reading, setReading] = useState<EarlyReading | null>(null);
   useEffect(() => {
+    // A file still on its way up has no run yet: nothing to ask the server about.
+    if (uploadId.startsWith('sending-')) return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let failures = 0;

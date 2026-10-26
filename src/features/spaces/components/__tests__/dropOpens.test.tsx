@@ -54,52 +54,26 @@ afterEach(() => {
 });
 
 describe('dropping a file opens it', () => {
-  it('opens the first file you drop, straight into reading', async () => {
+  it('opens at once on the temporary id, before the server has answered', async () => {
     setLiveWorld(emptyWorld({ canUpload: true }));
-    repo.bringIn.mockResolvedValue({ status: 'queued', run_id: 'run-1' });
-    repo.uploads.mockResolvedValue({ uploads: [upload('run-1', { filename: 'Normalization.pdf' })] });
+    repo.bringIn.mockReturnValue(new Promise(() => {})); // never answers
     mount();
     await screen.findByRole('heading', { level: 1, name: 'Library' });
     await dropFiles([pdf('Normalization.pdf')]);
-    await waitFor(() => expect(here()).toBe('/v4/library/m/run-1'));
+    await waitFor(() => expect(here()).toMatch(/^\/v4\/library\/m\/sending-\d+$/));
     expect(screen.getByText('opened')).toBeInTheDocument();
   });
 
   it('only the first of several files opens', async () => {
     setLiveWorld(emptyWorld({ canUpload: true }));
-    repo.bringIn
-      .mockResolvedValueOnce({ status: 'queued', run_id: 'run-1' })
-      .mockResolvedValueOnce({ status: 'queued', run_id: 'run-2' });
-    repo.uploads.mockResolvedValue({ uploads: [upload('run-2'), upload('run-1')] });
+    repo.bringIn.mockReturnValue(new Promise(() => {}));
     mount();
     await screen.findByRole('heading', { level: 1, name: 'Library' });
     await dropFiles([pdf('a.pdf'), pdf('b.pdf')]);
-    await waitFor(() => expect(here()).toBe('/v4/library/m/run-1'));
-  });
-
-  it('a refused file does not navigate', async () => {
-    setLiveWorld(emptyWorld({ canUpload: true }));
-    repo.bringIn.mockRejectedValue(new Error('Upload → 413: {"detail":"too big"}'));
-    mount();
-    await screen.findByRole('heading', { level: 1, name: 'Library' });
-    await dropFiles([pdf('big.pdf')]);
-    await waitFor(() => expect(repo.bringIn).toHaveBeenCalled());
+    const first = here();
     await act(async () => {});
-    expect(here()).toBe('/v4/library');
-  });
-
-  it('a duplicate opens the existing shelf item (by its lesson), not the lecture id', async () => {
-    setLiveWorld(emptyWorld({ canUpload: true }));
-    repo.bringIn.mockResolvedValue({ status: 'duplicate', lecture_id: 'lec-1' });
-    const old = upload('run-old', { lessonId: 'lec-1', stage: 'ready', pageCount: 4 });
-    repo.world.mockResolvedValue(
-      emptyWorld({ canUpload: true, uploads: [old], lessons: [{ id: 'lec-1', percentComplete: 0 } as never] }),
-    );
-    repo.uploads.mockResolvedValue({ uploads: [old] });
-    mount();
-    await screen.findByRole('heading', { level: 1, name: 'Library' });
-    await dropFiles([pdf('again.pdf')]);
-    await waitFor(() => expect(here()).toBe('/v4/library/m/run-old'));
+    expect(here()).toBe(first);
+    expect(first).toMatch(/\/m\/sending-\d+$/);
   });
 
   it('the demo world keeps its synchronous path and stays on the shelf', async () => {
@@ -109,5 +83,41 @@ describe('dropping a file opens it', () => {
     await act(async () => {});
     expect(here()).toBe('/v4/library');
     expect(repo.bringIn).not.toHaveBeenCalled();
+  });
+});
+
+describe('the temporary id resolves', () => {
+  it('maps to the run id once accepted and on the shelf, and the file stays readable from this device', async () => {
+    const { bringInLive, resolvedUploadId, localFileFor } = await import('../../data/uploads');
+    setLiveWorld(emptyWorld({ canUpload: true }));
+    repo.bringIn.mockResolvedValue({ status: 'queued', run_id: 'run-1' });
+    repo.uploads.mockResolvedValue({ uploads: [upload('run-1')] });
+    const [id] = bringInLive([pdf('a.pdf')]);
+    expect(localFileFor(id)?.name).toBe('a.pdf');
+    expect(resolvedUploadId(id)).toBeNull();
+    await waitFor(() => expect(resolvedUploadId(id)).toBe('run-1'));
+    expect(localFileFor('run-1')?.name).toBe('a.pdf');
+  });
+
+  it('a duplicate resolves to the cover that already holds the Lesson', async () => {
+    const { bringInLive, resolvedUploadId } = await import('../../data/uploads');
+    setLiveWorld(emptyWorld({ canUpload: true }));
+    const old = upload('run-old', { lessonId: 'lec-1', stage: 'ready', pageCount: 4 });
+    repo.bringIn.mockResolvedValue({ status: 'duplicate', lecture_id: 'lec-1' });
+    repo.world.mockResolvedValue(
+      emptyWorld({ canUpload: true, uploads: [old], lessons: [{ id: 'lec-1', percentComplete: 0 } as never] }),
+    );
+    repo.uploads.mockResolvedValue({ uploads: [old] });
+    const [id] = bringInLive([pdf('again.pdf')]);
+    await waitFor(() => expect(resolvedUploadId(id)).toBe('run-old'));
+  });
+
+  it('a refused file never resolves, and its failed cover stays', async () => {
+    const { bringInLive, resolvedUploadId, uploadsNow } = await import('../../data/uploads');
+    setLiveWorld(emptyWorld({ canUpload: true }));
+    repo.bringIn.mockRejectedValue(new Error('Upload → 413: {"detail":"too big"}'));
+    const [id] = bringInLive([pdf('big.pdf')]);
+    await waitFor(() => expect(uploadsNow().find((u) => u.id === id)?.stage).toBe('failed'));
+    expect(resolvedUploadId(id)).toBeNull();
   });
 });
