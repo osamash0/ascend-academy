@@ -462,7 +462,10 @@
     "join": "Beitreten",
     "joining": "Beitritt läuft…",
     "failed": "Beitreten hat gerade nicht geklappt. Nichts hat sich geändert – versuch es noch einmal.",
-    "inside": "Darin"
+    "inside": "Darin",
+    "toOpen": "Tritt bei, um {{title}} zu öffnen.",
+    "members_one": "<b>{{n}}</b> Mitglied",
+    "members_other": "<b>{{n}}</b> Mitglieder"
   },
   "achievements": {
     "welcomeAboard": {

@@ -25,6 +25,9 @@ const screens = readdirSync(SCREENS)
   .filter((f) => f.endsWith('.tsx'))
   .map((f) => ({ name: f, body: read(SCREENS, f) }));
 
+/** Router shims: no UI of their own, so no states of their own. */
+const SHIMS = new Set(['SpaceRoute.tsx', 'SpaceMemberGate.tsx']);
+
 describe('every screen can be seen loading and failing', () => {
   it('finds all the screens', () => {
     expect(screens.length).toBeGreaterThanOrEqual(12);
@@ -34,8 +37,8 @@ describe('every screen can be seen loading and failing', () => {
     for (const { name, body } of screens) {
       // Either it fetches (and gets `state` from its data hook) or it does not
       // (and takes the round-trip from `useScreenState`). SpaceRoute is a
-      // router shim with no UI of its own.
-      if (name === 'SpaceRoute.tsx') continue;
+      // router shim with no UI of its own; so is SpaceMemberGate.
+      if (SHIMS.has(name)) continue;
       expect(
         /useScreenState|state === 'loading'/.test(body),
         `${name} can never render a loading state`,
@@ -45,7 +48,7 @@ describe('every screen can be seen loading and failing', () => {
 
   it('gives each one an error state', () => {
     for (const { name, body } of screens) {
-      if (name === 'SpaceRoute.tsx') continue;
+      if (SHIMS.has(name)) continue;
       expect(body.includes('SpacesError'), `${name} can never render an error`).toBe(true);
     }
   });

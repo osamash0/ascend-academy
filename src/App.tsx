@@ -108,6 +108,7 @@ const AskLunaPage = lazy(() => import("./pages/AskLunaPage"));
 const SpacesScreen = lazy(() => import("./features/spaces/screens/SpacesScreen"));
 const V4SpacesHub = lazy(() => import("./features/spaces/screens/SpacesHubScreen"));
 const SpaceRoute = lazy(() => import("./features/spaces/screens/SpaceRoute"));
+const SpaceMemberGate = lazy(() => import("./features/spaces/screens/SpaceMemberGate"));
 const V4Library = lazy(() => import("./features/spaces/screens/LibraryScreen"));
 const V4Home = lazy(() => import("./features/spaces/screens/HomeScreen"));
 const V4Lesson = lazy(() => import("./features/spaces/screens/LessonScreen"));
@@ -412,13 +413,13 @@ function AppRoutes() {
             {/* Someone else's public profile — a Social destination, per Doc 2. */}
             <Route path="/v4/person/:personId" element={<V4Person />} />
             {/* Practice before the bare lesson route, so it is not read as a tab. */}
-            <Route path="/v4/space/:spaceId/lesson/:lessonId/practice" element={<V4Practice />} />
+            <Route path="/v4/space/:spaceId/lesson/:lessonId/practice" element={<SpaceMemberGate><V4Practice /></SpaceMemberGate>} />
             {/* The reader — a focus surface, like practice. */}
-            <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<V4Reader />} />
+            <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<SpaceMemberGate><V4Reader /></SpaceMemberGate>} />
             {/* The same Lesson with two faces — beside the reader so the two can be compared. */}
-            <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<V4LessonFaces />} />
-            <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<V4Lesson />} />
-            <Route path="/v4/space/:spaceId/concept/:conceptId" element={<V4Concept />} />
+            <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<SpaceMemberGate><V4LessonFaces /></SpaceMemberGate>} />
+            <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<SpaceMemberGate><V4Lesson /></SpaceMemberGate>} />
+            <Route path="/v4/space/:spaceId/concept/:conceptId" element={<SpaceMemberGate><V4Concept /></SpaceMemberGate>} />
           </Route>
         )}
 
