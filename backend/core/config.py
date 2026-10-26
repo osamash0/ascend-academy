@@ -127,6 +127,9 @@ class Settings(BaseSettings):
     # v4 on real data beyond the reader: the viewer, Spaces, Home, Library
     # (/api/v1/v4/*). Pair with the frontend's VITE_V4_DATA_MODE=live.
     feature_v4: bool = Field(alias="FEATURE_V4", default=False)
+    # Luna study sessions in the v4 reader (/api/v1/v4/luna). Needs migration
+    # 20261025000000_luna_sessions.sql. Pair with VITE_FEATURE_LUNA_SESSIONS=1.
+    feature_luna_sessions: bool = Field(alias="FEATURE_LUNA_SESSIONS", default=False)
     # Monthly cap on private uploads per student; quota is the monetization seam.
     student_upload_monthly_limit: int = Field(alias="STUDENT_UPLOAD_MONTHLY_LIMIT", default=5)
 

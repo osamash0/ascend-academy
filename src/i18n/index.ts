@@ -26,6 +26,7 @@ import enV4Space from './locales/en/v4Space.json';
 import enV4Library from './locales/en/v4Library.json';
 import enV4People from './locales/en/v4People.json';
 import enV4Settings from './locales/en/v4Settings.json';
+import enV4Luna from './locales/en/v4Luna.json';
 
 import deCommon from './locales/de/common.json';
 import deNav from './locales/de/nav.json';
@@ -51,6 +52,7 @@ import deV4Space from './locales/de/v4Space.json';
 import deV4Library from './locales/de/v4Library.json';
 import deV4People from './locales/de/v4People.json';
 import deV4Settings from './locales/de/v4Settings.json';
+import deV4Luna from './locales/de/v4Luna.json';
 
 export const SUPPORTED_LANGUAGES = ['en', 'de'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -83,6 +85,7 @@ const resources = {
     v4Library: enV4Library,
     v4People: enV4People,
     v4Settings: enV4Settings,
+    v4Luna: enV4Luna,
   },
   de: {
     common: deCommon,
@@ -109,6 +112,7 @@ const resources = {
     v4Library: deV4Library,
     v4People: deV4People,
     v4Settings: deV4Settings,
+    v4Luna: deV4Luna,
   },
 };
 
@@ -121,7 +125,7 @@ i18n
     supportedLngs: SUPPORTED_LANGUAGES as unknown as string[],
     nonExplicitSupportedLngs: true,
     load: 'languageOnly',
-    ns: ['common', 'nav', 'landing', 'auth', 'settings', 'dashboard', 'professor', 'upload', 'lecture', 'legal', 'review', 'exam', 'search', 'myMaterials', 'gamification', 'onboarding', 'avatar', 'askLuna', 'v4Spaces', 'v4Reader', 'v4Space', 'v4Library', 'v4People', 'v4Settings'],
+    ns: ['common', 'nav', 'landing', 'auth', 'settings', 'dashboard', 'professor', 'upload', 'lecture', 'legal', 'review', 'exam', 'search', 'myMaterials', 'gamification', 'onboarding', 'avatar', 'askLuna', 'v4Spaces', 'v4Reader', 'v4Space', 'v4Library', 'v4People', 'v4Settings', 'v4Luna'],
     defaultNS: 'common',
     detection: {
       order: ['localStorage', 'navigator'],

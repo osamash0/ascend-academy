@@ -9,6 +9,7 @@ vi.mock("@/integrations/supabase/client", async () => {
 });
 
 import { apiClient } from "@/lib/apiClient";
+import { ApiError } from "@/lib/apiErrors";
 
 beforeEach(() => supabaseMock.reset());
 
@@ -80,6 +81,19 @@ describe("apiClient", () => {
     expect(res.ok).toBe(true);
     const txt = await res.text();
     expect(txt).toContain("data: x");
+  });
+
+  it("stream rejects with an ApiError carrying the server detail", async () => {
+    server.use(
+      http.post("http://api.test/api/v1/streamlocked", () =>
+        HttpResponse.json({ detail: "Luna is still answering." }, { status: 409 }),
+      ),
+    );
+    const err = await apiClient.stream("/api/streamlocked", {}).catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.status).toBe(409);
+    expect(err.detail).toBe("Luna is still answering.");
+    expect(err.message.startsWith("Stream ")).toBe(true);
   });
 
   it("stream throws on 500", async () => {
