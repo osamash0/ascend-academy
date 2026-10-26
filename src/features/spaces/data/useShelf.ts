@@ -138,8 +138,22 @@ export const shelfAcceptsFiles = (): boolean => {
 };
 
 /** Bring files in: the demo store's timed development, or a real upload. Returns shelf ids. */
-export const bringFilesIn = (list: File[], fail: boolean): string[] =>
-  liveWorld() ? bringInLive(list) : list.map((f) => shelfStore.bringIn(f.name, undefined, { fail }));
+export const bringFilesIn = (list: File[], fail: boolean): string[] => bringFilesInOpening(list, fail).ids;
+
+/**
+ * As `bringFilesIn`, plus `opened`: the shelf id of the first file once the
+ * server accepted it, or null (refused, or the demo world, which never opens).
+ */
+export function bringFilesInOpening(
+  list: File[],
+  fail: boolean,
+): { ids: string[]; opened: Promise<string | null> } {
+  if (liveWorld()) {
+    const { ids, first } = bringInLive(list);
+    return { ids, opened: first };
+  }
+  return { ids: list.map((f) => shelfStore.bringIn(f.name, undefined, { fail })), opened: Promise.resolve(null) };
+}
 
 /** "Try again" on a failed cover, when there is something to try: null when there is not. */
 export function retryFor(item: ShelfItem): (() => void) | null {

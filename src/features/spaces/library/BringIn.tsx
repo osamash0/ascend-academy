@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Plus, Upload } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { bringFilesIn, importWillFail, shelfIsDemo } from '../data/useShelf';
+import { bringFilesInOpening, importWillFail, shelfIsDemo } from '../data/useShelf';
 import { inDialog, isTyping } from '../studio/keys';
 import { FLIGHT_EASE } from '../studio/motion';
 
@@ -19,17 +19,27 @@ const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer
  * `enabled` is false while the shelf is not on screen (loading, error).
  * `onBrought` hears the ids of what just came in.
  */
-export function useBringIn(enabled: boolean, onBrought?: (ids: string[]) => void) {
+export function useBringIn(
+  enabled: boolean,
+  onBrought?: (ids: string[]) => void,
+  /** The first file's shelf id, once the server has accepted it: open it. */
+  onOpen?: (id: string) => void,
+) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [veil, setVeil] = useState(false);
   const depth = useRef(0);
   const onBroughtRef = useRef(onBrought);
   onBroughtRef.current = onBrought;
+  const onOpenRef = useRef(onOpen);
+  onOpenRef.current = onOpen;
 
   /* The development itself runs in a store (demo: timed; live: the real pipeline), not in a cover. */
   const bringFiles = useCallback((files: FileList | File[] | null | undefined) => {
-    const ids = bringFilesIn(Array.from(files ?? []), importWillFail());
+    const { ids, opened } = bringFilesInOpening(Array.from(files ?? []), importWillFail());
     if (ids.length) onBroughtRef.current?.(ids);
+    void opened.then((id) => {
+      if (id) onOpenRef.current?.(id);
+    });
   }, []);
 
   useEffect(() => {

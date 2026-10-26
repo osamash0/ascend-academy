@@ -102,7 +102,13 @@ export function watchUploads(): void {
   schedule();
 }
 
-async function send(id: string, file: File): Promise<void> {
+/**
+ * Send one file. Resolves to the shelf id that opens it once the server has
+ * accepted it and the shelf has been re-read (so the id is on the shelf), or
+ * null if it was refused. A duplicate resolves to the id of the cover that
+ * already holds that Lesson (the shelf is keyed by run id, not lecture id).
+ */
+async function send(id: string, file: File): Promise<string | null> {
   try {
     const repo = await loadLiveRepository();
     const r = await repo.bringIn(file);
@@ -115,10 +121,13 @@ async function send(id: string, file: File): Promise<void> {
     await refresh();
     polling = true;
     schedule();
+    if (r.run_id) return r.run_id;
+    return (r.lecture_id && uploadsNow().find((u) => u.lessonId === r.lecture_id)?.id) || null;
   } catch (e) {
     sending = sending.map((u) => (u.id === id ? { ...u, stage: 'failed' as const } : u));
     notify();
     toast.error(reason(e, file.name));
+    return null;
   }
 }
 
@@ -129,8 +138,12 @@ function reason(e: unknown, name: string): string {
   return detail ? `${name}: ${detail}` : `${name} could not be brought in.`;
 }
 
-/** Bring files in. Each shows at once and develops in front of you. Returns their shelf ids. */
-export function bringInLive(list: File[]): string[] {
+/**
+ * Bring files in. Each shows at once and develops in front of you. Returns
+ * their shelf ids, and `first`: the id that opens the first file once the
+ * server has accepted it (null if it was refused).
+ */
+export function bringInLive(list: File[]): { ids: string[]; first: Promise<string | null> } {
   const ids = list.map((file) => {
     const id = `sending-${++seq}`;
     files.set(id, file);
@@ -150,8 +163,8 @@ export function bringInLive(list: File[]): string[] {
     return id;
   });
   notify();
-  ids.forEach((id) => void send(id, files.get(id)!));
-  return ids;
+  const results = ids.map((id) => send(id, files.get(id)!));
+  return { ids, first: results[0] ?? Promise.resolve(null) };
 }
 
 /** Send a refused file again. */
