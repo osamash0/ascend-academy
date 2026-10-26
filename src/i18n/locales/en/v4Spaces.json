@@ -357,8 +357,8 @@
   },
   "ascent": {
     "empty": "Nothing to light yet. Your journey fills in as you work through a Space.",
-    "cleared": "<b>{{cleared}}</b><n> / {{total}}</n> Spaces cleared",
-    "lessons": "<n>{{done}}/{{total}}</n> Lessons",
+    "legend": "Gold: done · White: you are here · Faint: still open",
+    "here": "here you are",
     "folded": "{{count}} further folded",
     "label": "Your journey: {{cleared}} of {{total}} Spaces cleared, {{done}} of {{lessons}} Lessons.",
     "node": "{{name}}. {{done}} of {{total}} Lessons cleared.",

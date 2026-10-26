@@ -357,8 +357,8 @@
   },
   "ascent": {
     "empty": "Noch leuchtet nichts. Dein Weg füllt sich, sobald du in einem Space vorankommst.",
-    "cleared": "<b>{{cleared}}</b><n> / {{total}}</n> Spaces abgeschlossen",
-    "lessons": "<n>{{done}}/{{total}}</n> Lektionen",
+    "legend": "Gold: geschafft · Weiß: hier bist du · Blass: noch offen",
+    "here": "hier bist du gerade",
     "folded": "{{count}} weitere eingeklappt",
     "label": "Dein Weg: {{cleared}} von {{total}} Spaces abgeschlossen, {{done}} von {{lessons}} Lektionen.",
     "node": "{{name}}. {{done}} von {{total}} Lektionen abgeschlossen.",
