@@ -33,6 +33,8 @@ interface Props {
   maxWidth: number;
   maxHeight: number;
   onLoad?: (numPages: number) => void;
+  /** Page 1's height / width once known — lets the caller choose a layout. */
+  onAspect?: (heightOverWidth: number) => void;
   /** The canvas of the first page to paint — for sampling, never for drawing. */
   onFirstRender?: (canvas: HTMLCanvasElement | null) => void;
   rootRef: RefObject<HTMLDivElement>;
@@ -57,6 +59,7 @@ export function PdfPager({
   maxWidth,
   maxHeight,
   onLoad,
+  onAspect,
   onFirstRender,
   rootRef,
   className,
@@ -134,9 +137,14 @@ export function PdfPager({
     if (Math.abs(dx) > SWIPE_MIN && Math.abs(dx) > Math.abs(dy) * 1.4) turn(dx < 0 ? 1 : -1);
   };
 
-  const onPageLoad = useCallback((p: { width: number; height: number }) => {
-    if (p.width > 0) setAspect(p.height / p.width);
-  }, []);
+  const onPageLoad = useCallback(
+    (p: { width: number; height: number; pageNumber?: number }) => {
+      if (p.width <= 0) return;
+      setAspect(p.height / p.width);
+      if (p.pageNumber === 1 || p.pageNumber === undefined) onAspect?.(p.height / p.width);
+    },
+    [onAspect],
+  );
 
   const reach = painted ? NEIGHBOURS : 0;
   const shown: number[] = [];
