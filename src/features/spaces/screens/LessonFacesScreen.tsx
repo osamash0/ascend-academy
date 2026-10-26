@@ -828,7 +828,8 @@ export default function LessonFacesScreen() {
     </div>
   );
 
-  const docked = (studio || (lunaOn && lunaOpen)) && panel;
+  /* Explain and Text replace the page; only Luna's session sits beside it. */
+  const docked = lunaOn && lunaOpen && panel;
   /* The panel's width beside the page: half-ish, never cramped, never vast. */
   const panelWidth = Math.round(Math.min(680, Math.max(440, vw * 0.42)));
   /* The full contents only when pinned; otherwise the spine's hairline index. */
@@ -1244,6 +1245,7 @@ export default function LessonFacesScreen() {
       <Studio
         open={view === 'explain' && !bench}
         label={tr('views.explain')}
+        mode="replace"
         where={section.name}
         page={anchor.page}
         onClose={escapeStudio}
@@ -1284,6 +1286,7 @@ export default function LessonFacesScreen() {
 
       <Studio
         open={view === 'text' && !bench}
+        mode="replace"
         where={section.name}
         page={anchor.page}
         onClose={escapeStudio}

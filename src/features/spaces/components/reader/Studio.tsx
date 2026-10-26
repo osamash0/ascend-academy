@@ -34,12 +34,18 @@ interface Props {
   width?: number;
   /** The landmark's name — which layer this is. */
   label?: string;
+  /**
+   * `beside`: a panel next to the document (≥ panel width) or over it.
+   * `replace`: the page steps away and this layer is the stage — Explain and
+   * Text, the way the landing's faces work. Luna's session stays `beside`.
+   */
+  mode?: 'beside' | 'replace';
 }
 
 /** The panel's width, and the distance the document steps aside by half. */
 export const STUDIO_WIDTH = 440;
 
-export function Studio({ open, where, page, onClose, children, panel, width = STUDIO_WIDTH, label }: Props) {
+export function Studio({ open, where, page, onClose, children, panel, width = STUDIO_WIDTH, label, mode = 'beside' }: Props) {
   const { t } = useTranslation('v4Reader');
   const ref = useRef<HTMLElement>(null);
   useSummoned(open, onClose, ref, { takeFocus: false });
@@ -53,11 +59,12 @@ export function Studio({ open, where, page, onClose, children, panel, width = ST
           aria-label={label ?? t('studio.name')}
           /* The text studio scrolls with the arrow keys; the reader finds it by this, never by its words. */
           data-studio={label ? undefined : 'text'}
-          initial={{ opacity: 0, x: 24 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 24 }}
-          transition={{ duration: timing.card }}
-          style={{ width: panel ? width : undefined }}
+          data-mode={mode}
+          initial={mode === 'replace' ? { opacity: 0, scale: 0.985, filter: 'blur(10px)' } : { opacity: 0, x: 24 }}
+          animate={mode === 'replace' ? { opacity: 1, scale: 1, filter: 'blur(0px)' } : { opacity: 1, x: 0 }}
+          exit={mode === 'replace' ? { opacity: 0, scale: 1.01, filter: 'blur(10px)' } : { opacity: 0, x: 24 }}
+          transition={{ duration: mode === 'replace' ? 0.5 : timing.card, ease: [0.16, 1, 0.3, 1] }}
+          style={{ width: mode === 'beside' && panel ? width : undefined }}
           /*
            * Opaque: the text is read on this layer, and slides showing through
            * a translucent one put photographs behind every line. Over the
@@ -65,9 +72,10 @@ export function Studio({ open, where, page, onClose, children, panel, width = ST
            * since its own close is the way back.
            */
           className={cn(
-            'fixed inset-y-0 right-0 flex flex-col outline-none',
-            'border-l border-white/[0.08] bg-[#0b0b0c]',
-            panel ? 'z-30' : 'z-[42] w-full',
+            'fixed flex flex-col bg-[#0b0b0c] outline-none',
+            mode === 'replace'
+              ? 'inset-0 z-[42]'
+              : cn('inset-y-0 right-0 border-l border-white/[0.08]', panel ? 'z-30' : 'z-[42] w-full'),
           )}
         >
           <div className="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] pl-6 pr-3">
@@ -84,7 +92,7 @@ export function Studio({ open, where, page, onClose, children, panel, width = ST
               <X aria-hidden className="h-4 w-4" />
             </button>
           </div>
-          <div className="relative min-h-0 flex-1">{children}</div>
+          <div className={cn('relative min-h-0 flex-1', mode === 'replace' && 'mx-auto w-full max-w-[820px]')}>{children}</div>
         </motion.aside>
       )}
     </AnimatePresence>

@@ -164,7 +164,7 @@ describe('a Lesson with nothing to read', () => {
 });
 
 describe('Explain answers the page as an interface', () => {
-  it('composes an answer for the page in view, beside the document', async () => {
+  it('composes an answer for the page in view', async () => {
     await renderFaces();
     fireEvent.click(screen.getByRole('tab', { name: 'Explain' }));
     const panel = await screen.findByRole('complementary', { name: 'Explain' });
@@ -205,5 +205,19 @@ describe('another Lesson, opened in place', () => {
     await screen.findByTestId('document', {}, { timeout: 4000 });
     await waitFor(() => expect(pageLine()).toHaveTextContent('Page 2'));
     expect(pageLine()).toHaveAttribute('data-spot', 'relation');
+  });
+});
+
+describe('Explain and Text replace the page', () => {
+  it('Explain covers the whole stage instead of docking beside the page', async () => {
+    await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?view=explain');
+    const layer = await screen.findByRole('complementary', { name: 'Explain' });
+    expect(layer).toHaveAttribute('data-mode', 'replace');
+  });
+
+  it('Text covers the whole stage too', async () => {
+    await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?view=text');
+    const layer = await screen.findByRole('complementary');
+    expect(layer).toHaveAttribute('data-mode', 'replace');
   });
 });
