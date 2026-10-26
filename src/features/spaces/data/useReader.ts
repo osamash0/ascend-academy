@@ -69,6 +69,17 @@ const once = <T>(map: Map<string, Promise<T>>, key: string, make: () => Promise<
 };
 
 const getCourse = (id: string) => once(courses, id, async () => (await loadLiveRepository()).readerCourse(id));
+/**
+ * The course, holding this lecture. A course read before the lecture existed
+ * (a file that just became a Lesson, handed over from the early reader) is
+ * read again once, rather than answering "not found".
+ */
+async function getCourseWith(id: string, lectureId: string): Promise<ReaderCourse> {
+  const c = await getCourse(id);
+  if (c.lectures.some((l) => l.id === lectureId)) return c;
+  courses.delete(id);
+  return getCourse(id);
+}
 const getLecture = (id: string) => once(lectures, id, async () => (await loadLiveRepository()).readerLecture(id));
 const getIdeas = (id: string) =>
   once(ideas, id, async () => (await (await loadLiveRepository()).readerIdeas(id)).concepts);
@@ -174,7 +185,7 @@ export function useReaderLesson(spaceId: string | undefined, lessonId: string | 
     if (!live || !spaceId || !lessonId) return;
     let alive = true;
     setState({ state: 'loading', space: null, lesson: null, prev: null, next: null });
-    getCourse(spaceId)
+    getCourseWith(spaceId, lessonId)
       .then((c) => {
         if (!alive) return;
         const i = c.lectures.findIndex((l) => l.id === lessonId);
