@@ -33,8 +33,20 @@ describe('first-run aliases', () => {
     });
   });
 
-  it('a second roll lands somewhere new', () => {
-    const first = reel(lists.en, '').at(-1)!;
-    expect(reel(lists.en, first)[0]).not.toBe(first);
+  it('a roll never lands on the name it started from, whatever the dice say', () => {
+    // Every possible draw, not a lucky sample: random() walks the whole range.
+    for (let k = 0; k < lists.en.length * 3; k++) {
+      const start = lists.en[k % lists.en.length];
+      const draw = () => ((k * 7919) % 1000) / 1000;
+      expect(reel(lists.en, start, draw).at(-1)).not.toBe(start);
+    }
+    for (let i = 0; i < 500; i++) {
+      const start = lists.de[i % lists.de.length];
+      expect(reel(lists.de, start).at(-1)).not.toBe(start);
+    }
+  });
+
+  it('with only two names it still moves', () => {
+    expect(reel(['A', 'B'], 'A').at(-1)).toBe('B');
   });
 });
