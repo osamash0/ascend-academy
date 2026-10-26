@@ -50,12 +50,18 @@ function LoopTrap() {
   return null;
 }
 
+function Where() {
+  const l = useLocation();
+  return <div data-testid="where">{l.pathname + l.search}</div>;
+}
+
 async function mountAt(path: string) {
   const App = await import('@/App');
   const { PublicRoute, ProtectedRoute, StudentDashboardRoute, OnboardingRoute, FirstRunGate } = App;
   render(
     <MemoryRouter initialEntries={[path]}>
       <LoopTrap />
+      <Where />
       <Routes>
         <Route path="/" element={<PublicRoute><div>landing</div></PublicRoute>} />
         <Route path="/auth" element={<PublicRoute><div>auth</div></PublicRoute>} />
@@ -66,6 +72,10 @@ async function mountAt(path: string) {
         />
         <Route path="/onboarding/start" element={<div>activation</div>} />
         <Route path="/v4/home" element={<ProtectedRoute><FirstRunGate><div>v4-home</div></FirstRunGate></ProtectedRoute>} />
+        <Route
+          path="/v4/space/:spaceId"
+          element={<ProtectedRoute><FirstRunGate><div>v4-space</div></FirstRunGate></ProtectedRoute>}
+        />
         <Route path="/admin/dashboard" element={<div>admin-dashboard</div>} />
         <Route path="/professor/dashboard" element={<div>professor-dashboard</div>} />
       </Routes>
@@ -131,6 +141,40 @@ describe('first-run routing, with v4 live', () => {
     persona('student', fresh);
     await mountAt('/v4/home');
     expect(await screen.findByText('first-run')).toBeInTheDocument();
+  });
+
+  it('LS-047: a deep link that first run interrupts rides along as ?next', async () => {
+    persona('student', fresh);
+    await mountAt('/v4/space/s1?tab=map');
+    expect(await screen.findByText('first-run')).toBeInTheDocument();
+    expect(screen.getByTestId('where').textContent).toBe('/onboarding?next=%2Fv4%2Fspace%2Fs1%3Ftab%3Dmap');
+  });
+
+  it('LS-047: signing in from a shared link with first run owed carries the link', async () => {
+    persona('student', fresh);
+    await mountAt('/auth?next=%2Fv4%2Fspace%2Fs1');
+    expect(await screen.findByText('first-run')).toBeInTheDocument();
+    expect(screen.getByTestId('where').textContent).toBe('/onboarding?next=%2Fv4%2Fspace%2Fs1');
+  });
+
+  it('LS-047: the confirmation email lands on the start page with the link, and goes through first run', async () => {
+    persona('student', fresh);
+    await mountAt('/?next=%2Fv4%2Fspace%2Fs1');
+    expect(await screen.findByText('first-run')).toBeInTheDocument();
+    expect(screen.getByTestId('where').textContent).toBe('/onboarding?next=%2Fv4%2Fspace%2Fs1');
+  });
+
+  it('LS-047: reopening first run when it is done goes on to the link', async () => {
+    persona('student', done);
+    await mountAt('/onboarding?next=%2Fv4%2Fspace%2Fs1');
+    expect(await screen.findByText('v4-space')).toBeInTheDocument();
+  });
+
+  it('opening a home itself does not carry it as a link', async () => {
+    persona('student', fresh);
+    await mountAt('/v4/home');
+    expect(await screen.findByText('first-run')).toBeInTheDocument();
+    expect(screen.getByTestId('where').textContent).toBe('/onboarding');
   });
 
   it('an admin may open v4 without being sent to first run', async () => {

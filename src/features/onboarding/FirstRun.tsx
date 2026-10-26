@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Dices, Volume2, VolumeX } from 'lucide-react';
@@ -8,6 +8,7 @@ import { LunaHero } from '@/features/avatar/LunaHero';
 import { LunaSays } from '@/features/avatar/LunaSays';
 import { backLink, whitePill } from '@/features/spaces/components/stage';
 import { firstRunExit } from '@/lib/firstRun';
+import { safeNextPath } from '@/lib/routes';
 import { useSound } from '@/lib/useSound';
 import { cn } from '@/lib/utils';
 import { REEL_MS, reel } from './aliases';
@@ -24,7 +25,8 @@ import { NAME_MAX, useFirstRun } from './useFirstRun';
  * Then you pick her light: her helmet ring takes the colour, her halo and the
  * room's light follow, and the progress lights relight in it. When you keep
  * it, the page fades to black and v4 Home fades in already lit in that colour,
- * greeting you by the name you just typed.
+ * greeting you by the name you just typed — or, if a shared link brought you,
+ * what it pointed at.
  *
  * Luna sits outside the moments' AnimatePresence so she never remounts; only
  * the words and the controls beneath her change.
@@ -43,6 +45,9 @@ const FADE_MS = 400;
 export function FirstRun({ v4First }: { v4First: boolean }) {
   const { t } = useTranslation(['onboarding', 'avatar']);
   const navigate = useNavigate();
+  // A shared link that brought them here: first run ends on it (LS-047).
+  const [params] = useSearchParams();
+  const sharedLink = safeNextPath(params.get('next'));
   const reduce = useReducedMotion() ?? false;
   const sound = useSound();
   const lunaSize = useLunaSize(230, 300);
@@ -191,7 +196,7 @@ export function FirstRun({ v4First }: { v4First: boolean }) {
       await finish(light);
       play('complete');
       setLeaving(true);
-      later(() => navigate(firstRunExit(v4First), { replace: true }), reduce ? 0 : FADE_MS);
+      later(() => navigate(firstRunExit(v4First, sharedLink), { replace: true }), reduce ? 0 : FADE_MS);
     } catch {
       setError(t('firstRun.error.save'));
       setBusy(false);
