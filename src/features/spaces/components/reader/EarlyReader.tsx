@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useReducedMotion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, Maximize2, Minimize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { PdfPager, PdfScroll, warmPdfWorker } from '@/components/pdf';
+import { PdfPager, PdfScroll, scrollToPdfPage, warmPdfWorker } from '@/components/pdf';
 import { useEarlyReading } from '../../data/useEarlyReading';
 import { useIdle } from './useIdle';
 import { useFullscreen } from './useFullscreen';
@@ -24,6 +25,7 @@ export function EarlyReader({ uploadId, filename, onReady }: Props) {
   const { t } = useTranslation('v4Reader');
   const { t: tl } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.reading' });
   const fs = useFullscreen();
+  const reduce = !!useReducedMotion();
   useEffect(warmPdfWorker, []);
   const { reading, url } = useEarlyReading(uploadId);
   const [page, setPage] = useState(1);
@@ -47,16 +49,27 @@ export function EarlyReader({ uploadId, filename, onReady }: Props) {
     onReadyRef.current(reading.lessonId, pageRef.current);
   }, [reading?.stage, reading?.lessonId]);
 
-  const go = (p: number) => setPage(Math.max(1, Math.min(total || p, p)));
   const totalRef = useRef(total);
   totalRef.current = total;
+  const documentRef = useRef(false);
+  documentRef.current = shape === 'document';
+  /** Slides turn the page; a document scrolls to it, and its scroll reports the page back. */
+  const go = useCallback((p: number) => {
+    const to = Math.max(1, Math.min(totalRef.current || p, p));
+    if (documentRef.current && root.current) scrollToPdfPage(root.current, to, 0.38, reduce ? 'auto' : 'smooth');
+    else setPage(to);
+  }, [reduce]);
+  const goRef = useRef(go);
+  goRef.current = go;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       const el = e.target as HTMLElement | null;
       if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
       const step = e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'PageUp' ? -1 : 0;
       if (!step) return;
-      setPage((p) => Math.max(1, Math.min(totalRef.current || p, p + step)));
+      e.preventDefault();
+      goRef.current(pageRef.current + step);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

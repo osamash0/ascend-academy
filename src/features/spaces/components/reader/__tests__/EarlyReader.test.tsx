@@ -4,12 +4,16 @@ import { MemoryRouter } from 'react-router-dom';
 const render = (ui: React.ReactElement) => rtl(<MemoryRouter>{ui}</MemoryRouter>);
 
 const base = { pdfUrl: 'x', pages: 10, pagesRead: 3, stage: 'developing', lessonId: null } as any;
-const state: { reading: any; url: string | null } = { reading: base, url: 'blob:x' };
+const state: { reading: any; url: string | null; aspect: number } = { reading: base, url: 'blob:x', aspect: 0.56 };
+const scrollTo = vi.hoisted(() => vi.fn());
 vi.mock('../../../data/useEarlyReading', () => ({ useEarlyReading: () => state }));
 vi.mock('@/components/pdf', () => ({
-  PdfPager: () => <div data-testid="pager" />,
+  PdfPager: ({ onAspect }: any) => {
+    onAspect?.(state.aspect);
+    return <div data-testid="pager" />;
+  },
   PdfScroll: () => <div data-testid="scroll" />,
-  scrollToPdfPage: () => {},
+  scrollToPdfPage: (...a: unknown[]) => scrollTo(...a),
   warmPdfWorker: () => {},
 }));
 
@@ -18,6 +22,8 @@ import { EarlyReader } from '../EarlyReader';
 beforeEach(() => {
   state.reading = base;
   state.url = 'blob:x';
+  state.aspect = 0.56;
+  scrollTo.mockClear();
 });
 
 describe('EarlyReader', () => {
@@ -56,12 +62,13 @@ describe('EarlyReader', () => {
   it('hands over exactly once, however often it re-renders', () => {
     const onReady = vi.fn();
     state.reading = { ...base, stage: 'ready', lessonId: 'L1', pagesRead: 10 };
-    const ui = <MemoryRouter><EarlyReader uploadId="run-1" filename="N.pdf" onReady={() => onReady()} /></MemoryRouter>;
+    const ui = <MemoryRouter><EarlyReader uploadId="run-1" filename="N.pdf" onReady={onReady} /></MemoryRouter>;
     const { rerender } = rtl(ui);
-    rerender(<MemoryRouter><EarlyReader uploadId="run-1" filename="N.pdf" onReady={() => onReady()} /></MemoryRouter>);
+    rerender(<MemoryRouter><EarlyReader uploadId="run-1" filename="N.pdf" onReady={onReady} /></MemoryRouter>);
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     rerender(ui);
     expect(onReady).toHaveBeenCalledTimes(1);
+    expect(onReady).toHaveBeenLastCalledWith('L1', 1);
   });
 
   it('turns pages with the arrow keys, clamped to the file', () => {
@@ -69,5 +76,19 @@ describe('EarlyReader', () => {
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '2');
+  });
+
+  it('in a document, keys scroll to the page instead of moving the page alone', () => {
+    state.aspect = 1.41;
+    render(<EarlyReader uploadId="run-1" filename="N.pdf" onReady={() => {}} />);
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(scrollTo).toHaveBeenCalledWith(expect.anything(), 2, 0.38, expect.any(String));
+    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '1');
+  });
+
+  it('leaves browser shortcuts alone', () => {
+    render(<EarlyReader uploadId="run-1" filename="N.pdf" onReady={() => {}} />);
+    fireEvent.keyDown(window, { key: 'ArrowRight', metaKey: true });
+    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '1');
   });
 });
