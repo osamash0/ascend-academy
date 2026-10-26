@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, ListChecks, Maximize, Minimize, Moon, PanelLeftClose, PanelLeftOpen, Smartphone, Sun, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PdfPager, sampleAccent, warmPdfWorker } from '@/components/pdf';
+import { PdfPager, PdfScroll, sampleAccent, scrollToPdfPage, warmPdfWorker } from '@/components/pdf';
 import { addNote, deleteNote, notesError, notesForLesson, subscribeNotes, updateNote } from '../data/notes';
 import { submitAnswer, usePracticeQuestions } from '../data/practice';
 import { Scene, SURFACES } from '../components/Scene';
@@ -241,8 +241,8 @@ export default function LessonFacesScreen() {
     const ro = new ResizeObserver(read);
     ro.observe(el);
     return () => ro.disconnect();
-    /* `ready`: the pager mounts a render after the bundle, once there is an anchor. */
-  }, [ready]);
+    /* `ready`: the pager mounts a render after the bundle, once there is an anchor. `shape`: the scroll replaces the pager. */
+  }, [ready, shape]);
 
   /* Luna's offer to study together; it belongs to the Lesson it was made in. */
   const [lunaOffer, setLunaOffer] = useState(false);
@@ -326,8 +326,10 @@ export default function LessonFacesScreen() {
       setAnchor(a);
       setPdfPage(page);
       setBeat(-1);
+      /* A document has no pager to turn: take the scroll to the page. */
+      if (shape === 'document' && pdfRef.current) scrollToPdfPage(pdfRef.current, page, 0.38, reduce ? 'auto' : 'smooth');
     },
-    [sections, engage],
+    [sections, engage, shape, reduce],
   );
 
   /* Luna: a study session beside the page. Live only; nothing renders without it. */
@@ -347,8 +349,12 @@ export default function LessonFacesScreen() {
     active: lunaOn && lunaOpen,
   });
   const turnPage = useCallback(
-    (by: number) => onPdfPage(Math.min(Math.max(1, pdfPage + by), numPages || 1)),
-    [onPdfPage, pdfPage, numPages],
+    (by: number) => {
+      const to = Math.min(Math.max(1, pdfPage + by), numPages || 1);
+      onPdfPage(to);
+      if (shape === 'document' && pdfRef.current) scrollToPdfPage(pdfRef.current, to, 0.38, reduce ? 'auto' : 'smooth');
+    },
+    [onPdfPage, pdfPage, numPages, shape, reduce],
   );
 
   const blockOf = useCallback(
@@ -485,7 +491,7 @@ export default function LessonFacesScreen() {
       if (e.key === ' ' && el?.closest('button, a, [role="tab"], select, summary')) return;
       const by =
         e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ' ? 1 : e.key === 'ArrowLeft' || e.key === 'PageUp' ? -1 : 0;
-      const step = view === 'slide' ? (e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0) : 0;
+      const step = view === 'slide' && shape === 'slides' ? (e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0) : 0;
       if (!by && !step) return;
       e.preventDefault();
       if (by) turnPage(by);
@@ -493,7 +499,7 @@ export default function LessonFacesScreen() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [bench, turnPage, stepBeat, view, fs, pickView]);
+  }, [bench, turnPage, stepBeat, view, fs, pickView, shape]);
 
   /* `\` toggles the studio. Not in a field, not while practising. */
   useEffect(() => {
@@ -564,7 +570,8 @@ export default function LessonFacesScreen() {
       const h = slot.offsetHeight;
       const next = {
         left: Math.round(stage.offsetLeft + (stage.clientWidth - w) / 2),
-        top: Math.round(stage.offsetTop + (stage.clientHeight - h) / 2),
+        /* A document's pages scroll: the strip sits on the stage's top edge, not a page's. */
+        top: shape === 'document' ? stage.offsetTop : Math.round(stage.offsetTop + (stage.clientHeight - h) / 2),
         width: Math.round(w),
       };
       setFrame((f) => (f && f.left === next.left && f.top === next.top && f.width === next.width ? f : next));
@@ -579,7 +586,7 @@ export default function LessonFacesScreen() {
       ro.disconnect();
       mo.disconnect();
     };
-  }, [pdfPage, ready, numPages]);
+  }, [pdfPage, ready, numPages, shape]);
 
   /*
    * Checkpoints. The ideas as page ranges; turning forward off an idea's
@@ -1091,23 +1098,36 @@ export default function LessonFacesScreen() {
           right: docked ? panelWidth : 0,
         }}
       >
-        <PdfPager
-          file={content.pdfUrl}
-          page={pdfPage}
-          onPageChange={onPdfPage}
-          onStep={view === 'slide' ? stepBeat : undefined}
-          maxWidth={box.w}
-          maxHeight={box.h}
-          onLoad={setNumPages}
-          onAspect={setAspect}
-          onFirstRender={(canvas) => setAccent(sampleAccent(canvas))}
-          rootRef={pdfRef}
-          overlay={<Spotlight words={spot} />}
-          className="absolute inset-0 overflow-hidden"
-        />
+        {shape === 'document' ? (
+          <PdfScroll
+            file={content.pdfUrl}
+            width={Math.min(box.w, 900)}
+            anchorLine={0.38}
+            onPage={onPdfPage}
+            onLoad={setNumPages}
+            onFirstRender={(canvas) => setAccent(sampleAccent(canvas))}
+            scrollRef={pdfRef}
+            className="absolute inset-0 overflow-y-auto"
+          />
+        ) : (
+          <PdfPager
+            file={content.pdfUrl}
+            page={pdfPage}
+            onPageChange={onPdfPage}
+            onStep={view === 'slide' ? stepBeat : undefined}
+            maxWidth={box.w}
+            maxHeight={box.h}
+            onLoad={setNumPages}
+            onAspect={setAspect}
+            onFirstRender={(canvas) => setAccent(sampleAccent(canvas))}
+            rootRef={pdfRef}
+            overlay={<Spotlight words={spot} />}
+            className="absolute inset-0 overflow-hidden"
+          />
+        )}
       </div>
 
-      {portraitPhone && !prefs.turned && ready && (
+      {shape === 'slides' && portraitPhone && !prefs.turned && ready && (
         <motion.div {...fade} className="absolute inset-x-4 top-[72px] z-30 flex justify-center">
           <p className="flex items-center gap-2 rounded-full bg-white/[0.08] py-1.5 pl-4 pr-1.5 text-[12.5px] text-foreground">
             <Smartphone aria-hidden className="h-3.5 w-3.5 rotate-90 text-quiet" />

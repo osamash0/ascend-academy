@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
-import type { RefObject } from 'react';
+import { useEffect, type RefObject } from 'react';
 import LessonFacesScreen from '../../screens/LessonFacesScreen';
 
 /*
@@ -10,16 +10,26 @@ import LessonFacesScreen from '../../screens/LessonFacesScreen';
  * scroll ref, and a jump is recorded rather than performed.
  */
 const jumps: number[] = [];
+let mockAspect = 405 / 720;
+const scrolled: number[] = [];
 vi.mock('@/components/pdf', () => ({
   PdfPage: ({ page }: { page: number }) => <div data-testid="sheet" data-page={page} />,
-  PdfPager: ({ rootRef, page, overlay }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: { props?: { words?: string | null } } }) => {
+  PdfPager: ({ rootRef, page, overlay, onAspect }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: { props?: { words?: string | null } }; onAspect?: (a: number) => void }) => {
     jumps.push(page);
+    useEffect(() => onAspect?.(mockAspect), []); // eslint-disable-line react-hooks/exhaustive-deps
     /* The words the Spotlight would light, recorded rather than drawn. */
     return (
       <div ref={rootRef} data-testid="document" data-spot={overlay?.props?.words ?? ''}>
         Page {page}
       </div>
     );
+  },
+  PdfScroll: ({ scrollRef, onLoad }: { scrollRef: RefObject<HTMLDivElement>; onLoad?: (n: number) => void }) => {
+    useEffect(() => onLoad?.(10), []); // eslint-disable-line react-hooks/exhaustive-deps
+    return <div ref={scrollRef} data-testid="scroll" />;
+  },
+  scrollToPdfPage: (_c: HTMLElement, page: number) => {
+    scrolled.push(page);
   },
   pdfPageId: (p: number) => `pdf-page-${p}`,
   sampleAccent: () => null,
@@ -35,7 +45,8 @@ const renderFaces = async (path = '/v4/space/s-dbs/lesson/l-s-dbs-4/faces') => {
       </Routes>
     </MemoryRouter>,
   );
-  await screen.findByTestId('document', {}, { timeout: 4000 });
+  /* The pager, or the scroll that replaces it for a portrait file. */
+  await waitFor(() => expect(screen.queryByTestId('document') ?? screen.queryByTestId('scroll')).not.toBeNull(), { timeout: 4000 });
   await act(async () => {});
   return utils;
 };
@@ -261,5 +272,43 @@ describe('the face keys', () => {
     fireEvent.keyDown(window, { key: 'f' });
     expect(request).toHaveBeenCalled();
     input.remove();
+  });
+});
+
+describe('a document scrolls', () => {
+  it('a portrait file opens as a scroll, not a deck', async () => {
+    mockAspect = 842 / 595;
+    try {
+      await renderFaces();
+      expect(await screen.findByTestId('scroll')).toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByTestId('document')).not.toBeInTheDocument());
+    } finally {
+      mockAspect = 405 / 720;
+    }
+  });
+
+  it('seeking on the timeline scrolls to the page and keys do not step beats', async () => {
+    mockAspect = 842 / 595;
+    scrolled.length = 0;
+    try {
+      await renderFaces();
+      await screen.findByTestId('scroll');
+      const slider = await screen.findByRole('slider');
+      fireEvent.keyDown(slider, { key: 'ArrowRight' });
+      await waitFor(() => expect(scrolled.length).toBeGreaterThan(0));
+      scrolled.length = 0;
+      fireEvent.keyDown(window, { key: 'PageDown' });
+      await waitFor(() => expect(scrolled.length).toBeGreaterThan(0));
+      const ev = new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true, bubbles: true });
+      window.dispatchEvent(ev);
+      expect(ev.defaultPrevented).toBe(false);
+    } finally {
+      mockAspect = 405 / 720;
+    }
+  });
+
+  it('a landscape file stays a pager', async () => {
+    await renderFaces();
+    expect(screen.queryByTestId('scroll')).not.toBeInTheDocument();
   });
 });
