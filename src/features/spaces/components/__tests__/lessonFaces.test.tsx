@@ -24,8 +24,16 @@ vi.mock('@/components/pdf', () => ({
       </div>
     );
   },
-  PdfScroll: ({ scrollRef, onLoad }: { scrollRef: RefObject<HTMLDivElement>; onLoad?: (n: number) => void }) => {
-    useEffect(() => onLoad?.(10), []); // eslint-disable-line react-hooks/exhaustive-deps
+  PdfScroll: ({ scrollRef, onLoad, onFirstRender }: { scrollRef: RefObject<HTMLDivElement>; onLoad?: (n: number) => void; onFirstRender?: (c: null) => void }) => {
+    /* Like the real one: the file opens first, the first page paints later. */
+    useEffect(() => {
+      onLoad?.(10);
+      const t = setTimeout(() => {
+        scrolled.push(-1); // marker: first render
+        onFirstRender?.(null);
+      }, 50);
+      return () => clearTimeout(t);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
     return <div ref={scrollRef} data-testid="scroll" />;
   },
   scrollToPdfPage: (_c: HTMLElement, page: number) => {
@@ -295,10 +303,10 @@ describe('a document scrolls', () => {
       await screen.findByTestId('scroll');
       const slider = await screen.findByRole('slider');
       fireEvent.keyDown(slider, { key: 'ArrowRight' });
-      await waitFor(() => expect(scrolled.length).toBeGreaterThan(0));
+      await waitFor(() => expect(scrolled.filter((p) => p > 0).length).toBeGreaterThan(0));
       scrolled.length = 0;
       fireEvent.keyDown(window, { key: 'PageDown' });
-      await waitFor(() => expect(scrolled.length).toBeGreaterThan(0));
+      await waitFor(() => expect(scrolled.filter((p) => p > 0).length).toBeGreaterThan(0));
       const ev = new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true, bubbles: true });
       window.dispatchEvent(ev);
       expect(ev.defaultPrevented).toBe(false);
@@ -333,7 +341,10 @@ describe('a document scrolls', () => {
     try {
       await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=3');
       await screen.findByTestId('scroll');
-      await waitFor(() => expect(scrolled).toContain(3));
+      await waitFor(() => expect(scrolled).toContain(-1));
+      /* Not before the first page has painted; after it, once, to page 3. */
+      expect(scrolled.slice(0, scrolled.indexOf(-1))).not.toContain(3);
+      await waitFor(() => expect(scrolled.slice(scrolled.indexOf(-1))).toContain(3));
     } finally {
       mockAspect = 405 / 720;
     }

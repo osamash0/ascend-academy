@@ -354,19 +354,24 @@ export default function LessonFacesScreen() {
    * (they would otherwise overwrite the asked page with an intermediate one).
    */
   const scrollSettling = useRef(false);
-  const deepLinked = useRef(false);
+  /* The reading whose scroll has painted its first page: only then do the slots exist, at their real size. */
+  const [scrollReady, setScrollReady] = useState<string | undefined>(undefined);
+  const landedFor = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (deepLinked.current || shape !== 'document' || numPages === 0 || !pdfRef.current) return;
-    deepLinked.current = true;
-    if (pdfPage <= 1) return;
+    if (scrollReady !== lessonId || landedFor.current === lessonId || !pdfRef.current) return;
+    landedFor.current = lessonId;
+    const page = pdfPageRef.current;
+    if (page <= 1) return;
     scrollSettling.current = true;
-    scrollToPdfPage(pdfRef.current, pdfPage, 0.38, 'auto');
+    scrollToPdfPage(pdfRef.current, page, 0.38, 'auto');
     const t = window.setTimeout(() => {
       scrollSettling.current = false;
     }, 400);
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shape, numPages]);
+    return () => {
+      window.clearTimeout(t);
+      scrollSettling.current = false;
+    };
+  }, [scrollReady, lessonId]);
   const onScrollPage = useCallback(
     (page: number) => {
       if (!scrollSettling.current) onPdfPage(page);
@@ -1126,12 +1131,16 @@ export default function LessonFacesScreen() {
       >
         {shape === 'document' ? (
           <PdfScroll
+            key={content.pdfUrl}
             file={content.pdfUrl}
             width={Math.min(box.w, 900)}
             anchorLine={0.38}
             onPage={onScrollPage}
             onLoad={setNumPages}
-            onFirstRender={(canvas) => setAccent(sampleAccent(canvas))}
+            onFirstRender={(canvas) => {
+              setAccent(sampleAccent(canvas));
+              setScrollReady(lessonId);
+            }}
             scrollRef={pdfRef}
             className="absolute inset-0 overflow-y-auto"
           />
