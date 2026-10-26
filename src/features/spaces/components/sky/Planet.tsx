@@ -162,6 +162,10 @@ export function Planet({
         <clipPath id={`body-${uid}`}>
           <circle cx={ox} cy={oy} r={r} />
         </clipPath>
+        {/* Softens the lit and shadowed sides into the body — a blur, not a gradient. */}
+        <filter id={`soft-${uid}`} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation={r * 0.22} />
+        </filter>
       </defs>
 
       {g > 0 && (
@@ -179,11 +183,13 @@ export function Planet({
         />
       )}
 
-      {/* The body: a disc, a soft lit side, a shadowed side. Flat fills, no gradient. */}
+      {/* The body: a disc, a soft lit side, a shadowed side. Blurred fills, no gradient. */}
       <circle cx={ox} cy={oy} r={r} fill={toneFor(seed)} />
       <g clipPath={`url(#body-${uid})`}>
-        <circle cx={ox - r * 0.38} cy={oy - r * 0.42} r={r * 0.78} fill="#ffffff" fillOpacity={0.06} />
-        <circle cx={ox + r * 0.42} cy={oy + r * 0.4} r={r * 1.02} fill="#000000" fillOpacity={0.28} />
+        <g filter={`url(#soft-${uid})`}>
+          <circle cx={ox - r * 0.4} cy={oy - r * 0.45} r={r * 0.7} fill="#ffffff" fillOpacity={0.09} />
+          <circle cx={ox + r * 0.55} cy={oy + r * 0.5} r={r * 0.95} fill="#000000" fillOpacity={0.4} />
+        </g>
       </g>
       <circle cx={ox} cy={oy} r={r} fill="none" stroke="#ffffff" strokeOpacity={0.1} strokeWidth={1} />
 

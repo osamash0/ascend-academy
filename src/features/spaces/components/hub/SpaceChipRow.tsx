@@ -81,7 +81,11 @@ export function SpaceChipRow({
   }, [selected]);
 
   return (
-    <div className="pb-[34px]">
+    /*
+      Below `md` the phone's bottom bar is fixed over the end of this 100vh
+      hero, so the row stands clear of it there. MobileNav swaps at `md`.
+    */
+    <div className="pb-[96px] md:pb-[34px]">
       <p className="mb-[14px] text-[13.5px] text-quiet">{t('hub.chips.yours')}</p>
       <div
         ref={rowRef}
