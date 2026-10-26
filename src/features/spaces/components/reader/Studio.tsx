@@ -78,7 +78,8 @@ export function Studio({ open, where, page, onClose, children, panel, width = ST
               : cn('inset-y-0 right-0 border-l border-white/[0.08]', panel ? 'z-30' : 'z-[42] w-full'),
           )}
         >
-          <div className="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] pl-6 pr-3">
+          {/* Replacing the page, the reader's view switch stays on top at the right; the header leaves it room. */}
+          <div className={cn('flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] pl-6 pr-3', mode === 'replace' && 'md:pr-[22rem]')}>
             <p className="flex min-w-0 flex-1 items-baseline gap-2 text-[13px]">
               <span className="truncate font-medium text-foreground">{where}</span>
               <span className="shrink-0 tabular-nums text-faint">{t('studio.page', { page })}</span>

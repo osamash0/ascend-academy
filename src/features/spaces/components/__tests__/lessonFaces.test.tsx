@@ -220,4 +220,14 @@ describe('Explain and Text replace the page', () => {
     const layer = await screen.findByRole('complementary');
     expect(layer).toHaveAttribute('data-mode', 'replace');
   });
+
+  it('keeps the view switch above the layer, and Page brings the page back', async () => {
+    await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?view=explain');
+    const layer = await screen.findByRole('complementary', { name: 'Explain' });
+    const pageTab = screen.getByRole('tab', { name: 'Page' });
+    expect(pageTab.closest('div.absolute')).toHaveClass('z-[43]');
+    fireEvent.click(pageTab);
+    await waitFor(() => expect(layer).not.toBeInTheDocument());
+    expect(screen.queryByRole('complementary', { name: 'Explain' })).toBeNull();
+  });
 });

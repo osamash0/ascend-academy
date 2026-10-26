@@ -934,7 +934,7 @@ export default function LessonFacesScreen() {
       </motion.header>
 
       {/* How to look at the page: alone, explained, or as text. */}
-      <motion.div {...fade} className="absolute top-5 z-[41] flex items-center gap-2" style={{ right: docked ? panelWidth + 20 : 20 }}>
+      <motion.div {...fade} className={cn('absolute top-5 flex items-center gap-2', studio ? 'z-[43]' : 'z-[41]')} style={{ right: docked ? panelWidth + 20 : 20 }}>
       {lunaOn && !lunaOpen && (
         <div className={cn('flex items-center gap-2 rounded-full p-1', overPage)}>
           {lunaOffer && (
