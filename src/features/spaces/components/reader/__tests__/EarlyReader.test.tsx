@@ -12,7 +12,7 @@ vi.mock('@/components/pdf', () => ({
     onAspect?.(state.aspect);
     return <div data-testid="pager" />;
   },
-  PdfScroll: () => <div data-testid="scroll" />,
+  PdfScroll: (props: any) => <div ref={props.scrollRef} data-testid="scroll" />,
   scrollToPdfPage: (...a: unknown[]) => scrollTo(...a),
   warmPdfWorker: () => {},
 }));
@@ -82,7 +82,7 @@ describe('EarlyReader', () => {
     state.aspect = 1.41;
     render(<EarlyReader uploadId="run-1" filename="N.pdf" onReady={() => {}} />);
     fireEvent.keyDown(window, { key: 'ArrowRight' });
-    expect(scrollTo).toHaveBeenCalledWith(expect.anything(), 2, 0.38, expect.any(String));
+    expect(scrollTo).toHaveBeenCalledWith(screen.getByTestId('scroll'), 2, 0.38, expect.any(String));
     expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '1');
   });
 

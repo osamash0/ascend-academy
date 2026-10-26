@@ -32,7 +32,10 @@ export function EarlyReader({ uploadId, filename, onReady }: Props) {
   const [pages, setPages] = useState(0);
   const [aspect, setAspect] = useState<number | null>(null);
   const [box, setBox] = useState({ w: 1000, h: 640 });
-  const root = useRef<HTMLDivElement>(null);
+  /* Three elements, three refs: the box we measure, the pager, and the scrolling document. */
+  const boxRef = useRef<HTMLDivElement>(null);
+  const pagerRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const quiet = useIdle(true, 2800);
   const shape = shapeOf(aspect);
   const total = pages || reading?.pages || 0;
@@ -56,7 +59,7 @@ export function EarlyReader({ uploadId, filename, onReady }: Props) {
   /** Slides turn the page; a document scrolls to it, and its scroll reports the page back. */
   const go = useCallback((p: number) => {
     const to = Math.max(1, Math.min(totalRef.current || p, p));
-    if (documentRef.current && root.current) scrollToPdfPage(root.current, to, 0.38, reduce ? 'auto' : 'smooth');
+    if (documentRef.current && scrollRef.current) scrollToPdfPage(scrollRef.current, to, 0.38, reduce ? 'auto' : 'smooth');
     else setPage(to);
   }, [reduce]);
   const goRef = useRef(go);
@@ -76,7 +79,7 @@ export function EarlyReader({ uploadId, filename, onReady }: Props) {
   }, []);
 
   useEffect(() => {
-    const el = root.current;
+    const el = boxRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(([e]) => setBox({ w: e.contentRect.width - 32, h: e.contentRect.height - 32 }));
     ro.observe(el);
@@ -85,10 +88,10 @@ export function EarlyReader({ uploadId, filename, onReady }: Props) {
 
   return (
     <div className="fixed inset-0 z-40 bg-black text-white">
-      <div ref={root} className="absolute inset-x-0 bottom-16 top-12">
+      <div ref={boxRef} className="absolute inset-x-0 bottom-16 top-12">
         {url &&
           (shape === 'document' ? (
-            <PdfScroll file={url} width={Math.min(box.w, 900)} onPage={setPage} onLoad={setPages} scrollRef={root} className="h-full overflow-y-auto" />
+            <PdfScroll file={url} width={Math.min(box.w, 900)} onPage={setPage} onLoad={setPages} scrollRef={scrollRef} className="h-full overflow-y-auto" />
           ) : (
             <PdfPager
               file={url}
@@ -98,7 +101,7 @@ export function EarlyReader({ uploadId, filename, onReady }: Props) {
               maxHeight={box.h}
               onLoad={setPages}
               onAspect={setAspect}
-              rootRef={root}
+              rootRef={pagerRef}
               className="h-full w-full"
             />
           ))}
