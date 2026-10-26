@@ -144,6 +144,36 @@ describe('First run, moment two: her light', () => {
     expect(complete.mock.invocationCallOrder[0]).toBeLessThan(refreshProfile.mock.invocationCallOrder.at(-1)!);
   });
 
+  it('LS-047: brought by a shared link, Keep it ends on that link instead of Home', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <Routes>
+        <Route path="/onboarding" element={<FirstRun v4First />} />
+        <Route path="/v4/home" element={<div>v4-home</div>} />
+        <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<div>the-shared-lesson</div>} />
+      </Routes>,
+      { initialEntries: ['/onboarding?next=%2Fv4%2Fspace%2Fs1%2Flesson%2Fl1%2Ffaces%3Fpage%3D3'] },
+    );
+    await throughName(user);
+    await user.click(screen.getByRole('button', { name: /keep it/i }));
+    expect(await screen.findByText('the-shared-lesson', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByText('v4-home')).not.toBeInTheDocument();
+  });
+
+  it('LS-047: a next outside the app is ignored, and first run ends in Home', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <Routes>
+        <Route path="/onboarding" element={<FirstRun v4First />} />
+        <Route path="/v4/home" element={<div>v4-home</div>} />
+      </Routes>,
+      { initialEntries: ['/onboarding?next=%2F%2Fevil.example'] },
+    );
+    await throughName(user);
+    await user.click(screen.getByRole('button', { name: /keep it/i }));
+    expect(await screen.findByText('v4-home', {}, { timeout: 3000 })).toBeInTheDocument();
+  });
+
   it('without v4 it hands over to the study-path step, which completes onboarding itself', async () => {
     const user = userEvent.setup();
     mount(false);

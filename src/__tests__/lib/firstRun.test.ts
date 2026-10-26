@@ -8,7 +8,7 @@
  * accounts whose role lookup failed (role = null).
  */
 import { describe, expect, it } from 'vitest';
-import { firstRunExit, needsFirstRun, postAuthDestination } from '@/lib/firstRun';
+import { firstRunExit, firstRunPath, needsFirstRun, postAuthDestination } from '@/lib/firstRun';
 
 const fresh = { has_completed_activation_onboarding: false };
 const done = { has_completed_activation_onboarding: true };
@@ -48,17 +48,38 @@ describe('postAuthDestination', () => {
     expect(postAuthDestination({ role: 'professor', profile: done, v4First: false, next: '/course/abc' })).toBe('/course/abc');
   });
 
-  it('still sends a new student to first run first, even with a shared link', () => {
-    expect(postAuthDestination({ role: 'student', profile: fresh, v4First: true, next: '/course/abc' })).toBe('/onboarding');
+  it('still sends a new student to first run first, carrying the shared link (LS-047)', () => {
+    expect(postAuthDestination({ role: 'student', profile: fresh, v4First: true, next: '/course/abc' })).toBe(
+      '/onboarding?next=%2Fcourse%2Fabc',
+    );
+  });
+});
+
+describe('firstRunPath', () => {
+  it('is plain /onboarding without a link', () => {
+    expect(firstRunPath()).toBe('/onboarding');
+    expect(firstRunPath(null)).toBe('/onboarding');
+  });
+
+  it('carries a link, query and all', () => {
+    expect(firstRunPath('/v4/space/s1/lesson/l1/faces?page=3')).toBe(
+      '/onboarding?next=%2Fv4%2Fspace%2Fs1%2Flesson%2Fl1%2Ffaces%3Fpage%3D3',
+    );
   });
 });
 
 describe('firstRunExit', () => {
   it('ends inside v4 when v4 is the product', () => {
     expect(firstRunExit(true)).toBe('/v4/home');
+    expect(firstRunExit(true, null)).toBe('/v4/home');
+  });
+
+  it('ends where a shared link was heading (LS-047)', () => {
+    expect(firstRunExit(true, '/v4/space/s1')).toBe('/v4/space/s1');
   });
 
   it('hands over to the study-path step otherwise, which completes the flag', () => {
     expect(firstRunExit(false)).toBe('/onboarding/start');
+    expect(firstRunExit(false, '/v4/space/s1')).toBe('/onboarding/start');
   });
 });

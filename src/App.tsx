@@ -13,8 +13,8 @@ import { lazy, Suspense, Component, useMemo, useRef, type ReactNode } from "reac
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 
-import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes, homeForRole, safeNextPath } from "@/lib/routes";
-import { needsFirstRun, postAuthDestination } from "@/lib/firstRun";
+import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes, V4Routes, homeForRole, safeNextPath } from "@/lib/routes";
+import { firstRunPath, needsFirstRun, postAuthDestination } from "@/lib/firstRun";
 import { SocialProvider } from "@/features/social/store";
 import { ConfettiCanvas } from "@/components/ConfettiCanvas";
 import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
@@ -271,17 +271,24 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
  * A student who has not been through first run is sent there before anything
  * else. Nobody else ever is: `/onboarding` is student-only, and sending an
  * admin or an unknown role there looped them back here forever.
+ *
+ * A deep link they opened rides along and first run ends on it (LS-047) —
+ * except Home's own address, which is no destination to come back to.
  */
 export function FirstRunGate({ children }: { children: React.ReactNode }) {
   const { role, profile } = useAuth();
+  const location = useLocation();
   if (needsFirstRun(role, profile)) {
-    return <Navigate to={StudentRoutes.ONBOARDING} replace />;
+    const home = location.pathname === StudentRoutes.HOME || location.pathname === V4Routes.HOME;
+    const next = home ? null : safeNextPath(location.pathname + location.search);
+    return <Navigate to={firstRunPath(next)} replace />;
   }
   return <>{children}</>;
 }
 
 export function OnboardingRoute() {
   const { role, profile } = useAuth();
+  const [params] = useSearchParams();
 
   // Answered on arrival, not on every render: first run refreshes the profile
   // (now complete) just before it navigates to where it hands over, and a live
@@ -289,7 +296,12 @@ export function OnboardingRoute() {
   const alreadyDone = useRef(Boolean(profile?.has_completed_activation_onboarding));
 
   if (alreadyDone.current) {
-    return <Navigate to={postAuthDestination({ role, profile, v4First: V4_FIRST })} replace />;
+    return (
+      <Navigate
+        to={postAuthDestination({ role, profile, v4First: V4_FIRST, next: safeNextPath(params.get("next")) })}
+        replace
+      />
+    );
   }
 
   return <FirstRun v4First={V4_FIRST} />;

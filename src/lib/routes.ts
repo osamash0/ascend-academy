@@ -96,3 +96,15 @@ export const safeNextPath = (next: string | null | undefined): string | null => 
   if (path === PublicRoutes.AUTH || path.startsWith(`${PublicRoutes.AUTH}/`)) return null;
   return next;
 };
+
+/**
+ * Where the sign-up confirmation email brings someone back to: the start page,
+ * still holding the link they were sent (LS-047). The start page is a public
+ * route, so once the session lands it sends them on — through first run, then
+ * to `next`. If Supabase's redirect allow-list refuses the query, it falls
+ * back to the Site URL: the old behaviour, nothing worse.
+ */
+export const confirmReturnUrl = (next: string | null | undefined): string => {
+  const safe = safeNextPath(next);
+  return `${window.location.origin}/${safe ? `?next=${encodeURIComponent(safe)}` : ''}`;
+};

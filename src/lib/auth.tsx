@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AUTH_INIT_TIMEOUT_MS, AUTH_PROFILE_TIMEOUT_MS } from '@/lib/constants';
 import { toast } from '@/hooks/use-toast';
 import { apiClient } from '@/lib/apiClient';
+import { confirmReturnUrl } from '@/lib/routes';
 
 type UserRole = 'student' | 'professor' | 'admin' | null;
 
@@ -43,7 +44,12 @@ interface AuthContextType {
    * confirmation is on, or the address is already registered and enumeration
    * protection hides that — so the page shows "check your inbox".
    */
-  signUp: (email: string, password: string) => Promise<{ error: Error | null; needsConfirmation?: boolean }>;
+  /** `next`: a shared link sign-up interrupted, kept on the confirmation email's return address. */
+  signUp: (
+    email: string,
+    password: string,
+    next?: string | null,
+  ) => Promise<{ error: Error | null; needsConfirmation?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -238,8 +244,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
 
-  const signUp = useCallback(async (email: string, password: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+  const signUp = useCallback(async (email: string, password: string, next?: string | null) => {
+    const redirectUrl = confirmReturnUrl(next);
 
     const { data, error } = await supabase.auth.signUp({
       email,
