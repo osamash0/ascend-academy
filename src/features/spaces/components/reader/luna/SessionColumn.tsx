@@ -114,6 +114,11 @@ export function SessionColumn({
   const reduceMotion = useReducedMotion();
   const accepted = state.plan.some((s) => s.status !== 'todo');
   const canEdit = Boolean(state.sessionId) && !state.wrap && !state.busy && state.plan.some(isOpen);
+  const lastLuna = [...state.thread].reverse().find((i) => i.kind === 'luna');
+  /* A way forward between turns. An open check is its own way forward: answering it continues. */
+  const canContinue =
+    Boolean(state.sessionId) && !state.busy && !state.wrap && !state.offerWrap && state.plan.some(isOpen) &&
+    !(lastLuna?.kind === 'luna' && lastLuna.check);
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end', behavior: reduceMotion ? 'auto' : 'smooth' });
@@ -201,6 +206,11 @@ export function SessionColumn({
           })}
           {state.busy && <p className="text-[12.5px] text-quiet">{t('column.thinking')}</p>}
           {state.error && <p className="text-[12.5px] text-quiet">{state.error}</p>}
+          {canContinue && (
+            <button type="button" onClick={() => void luna.act('continue')} className="console-focusable self-start rounded-full bg-white px-3 py-1 text-[12.5px] text-slate-900">
+              {t('column.continue')}
+            </button>
+          )}
           {state.offerWrap && !state.wrap && (
             <button type="button" onClick={() => void luna.wrapUp()} className="console-focusable self-start rounded-full bg-white px-3 py-1 text-[12.5px] text-slate-900">
               {t('wrap.offer')}

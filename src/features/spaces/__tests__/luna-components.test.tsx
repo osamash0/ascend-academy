@@ -6,6 +6,7 @@ import { MoveMark } from '../components/reader/luna/MoveMark';
 import { WrapCard } from '../components/reader/luna/WrapCard';
 import { RevisitDeck } from '../components/reader/luna/RevisitDeck';
 import { SessionColumn } from '../components/reader/luna/SessionColumn';
+import { LunaSheet } from '../components/reader/luna/LunaSheet';
 import { initialLuna } from '../data/useLunaSession';
 import { lunaApi, type PlanStep } from '../data/lunaSession';
 
@@ -160,5 +161,56 @@ describe('Luna column parts', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(act).not.toHaveBeenCalled();
     expect(screen.getByText('Check yourself')).not.toBeNull();
+  });
+
+  it('skip this step shows only while a step is current', () => {
+    const skip = vi.fn();
+    const { rerender } = render(<PlanStrip plan={plan} accepted onSkip={skip} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Skip this step' }));
+    expect(skip).toHaveBeenCalled();
+    rerender(<PlanStrip plan={plan.map((s) => ({ ...s, status: s.status === 'current' ? ('done' as const) : s.status }))} accepted onSkip={skip} />);
+    expect(screen.queryByRole('button', { name: 'Skip this step' })).toBeNull();
+  });
+
+  const col = (luna: ReturnType<typeof lunaWith>) => (
+    <SessionColumn luna={luna as never} lessonId="l" onOpenPage={vi.fn()} onClose={vi.fn()} onSpot={vi.fn()} />
+  );
+  const said = { kind: 'luna' as const, id: 'a', md: 'Here is a plan.', blocks: [], check: null };
+
+  it('between turns, continue moves the session on', () => {
+    const act = vi.fn();
+    render(col(lunaWith({ sessionId: 's', plan, thread: [said] }, { act })));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(act).toHaveBeenCalledWith('continue');
+  });
+
+  it('continue stays hidden while busy, with a check open, on a wrap offer, after the wrap, or with nothing left', () => {
+    const check = { question: 'Which?', options: [{ text: 'One', correct: true, why: 'b' }] };
+    const done = plan.map((s) => ({ ...s, status: 'done' as const }));
+    const cases: Partial<typeof initialLuna>[] = [
+      { sessionId: 's', plan, thread: [said], busy: true },
+      { sessionId: 's', plan, thread: [{ ...said, check }] },
+      { sessionId: 's', plan, thread: [said], offerWrap: true },
+      { sessionId: 's', plan, thread: [said], wrap: { covered: [], clicked: [], shaky: [] } },
+      { sessionId: 's', plan: done, thread: [said] },
+      { plan, thread: [said] },
+    ];
+    for (const state of cases) {
+      const { unmount } = render(col(lunaWith(state)));
+      expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
+      unmount();
+    }
+  });
+
+  it('on a narrow window Luna is a sheet with its own close', () => {
+    const close = vi.fn();
+    const { rerender } = render(<LunaSheet open label="Luna" onClose={close}><p>the column</p></LunaSheet>);
+    const sheet = screen.getByRole('complementary', { name: 'Luna' });
+    expect(sheet.hasAttribute('data-luna-sheet')).toBe(true);
+    expect(screen.getByText('the column')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Close Luna' }));
+    expect(close).toHaveBeenCalledTimes(1);
+    rerender(<LunaSheet open={false} label="Luna" onClose={close}><p>the column</p></LunaSheet>);
+    return waitFor(() => expect(screen.queryByText('the column')).toBeNull());
   });
 });

@@ -12,6 +12,7 @@ describe('lunaReducer', () => {
       type: 'started',
       session: { id: 's1', plan: [step('s1', 'todo')] } as never,
       say: 'Here is a plan.',
+      opener: '',
     });
     expect(s.sessionId).toBe('s1');
     expect(s.thread).toEqual([{ kind: 'luna', id: 'start', md: 'Here is a plan.', blocks: [], check: null }]);
@@ -75,7 +76,17 @@ describe('lunaReducer', () => {
   });
 
   it('a started session remembers its Lesson', () => {
-    const s = lunaReducer(initialLuna, { type: 'started', session: { id: 's1', lecture_id: 'L1', plan: [] } as never, say: 'hi' });
+    const s = lunaReducer(initialLuna, { type: 'started', session: { id: 's1', lecture_id: 'L1', plan: [] } as never, say: 'hi', opener: '' });
     expect(s.lectureId).toBe('L1');
+  });
+
+  it('the learner\'s opener comes before Luna\'s greeting', () => {
+    const s = lunaReducer(initialLuna, {
+      type: 'started', session: { id: 's1', lecture_id: 'L1', plan: [] } as never, say: 'Here is a plan.', opener: 'I have an exam soon',
+    });
+    expect(s.thread).toEqual([
+      { kind: 'learner', id: 'opener', text: 'I have an exam soon' },
+      { kind: 'luna', id: 'start', md: 'Here is a plan.', blocks: [], check: null },
+    ]);
   });
 });

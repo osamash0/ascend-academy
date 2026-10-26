@@ -46,6 +46,7 @@ import { Studio } from '../components/reader/Studio';
 import { lunaEnabled } from '../data/lunaSession';
 import { useLunaSession } from '../data/useLunaSession';
 import { SessionColumn } from '../components/reader/luna/SessionColumn';
+import { LUNA_SHEET_HEIGHT, LunaSheet } from '../components/reader/luna/LunaSheet';
 import { LunaMark } from '../components/reader/luna/LunaMark';
 import { useLunaConductor } from '../components/reader/luna/useLunaConductor';
 import { markOffered, shouldOffer } from '../components/reader/luna/lunaOffer';
@@ -847,6 +848,7 @@ export default function LessonFacesScreen() {
   /* The slide view keeps a band under the page for its points. */
   /* The first-visit hint takes a line of its own under the points. */
   const hintShown = !prefs.hinted && !engaged && view === 'slide';
+  const lunaSheet = lunaOn && lunaOpen && !panel;
   const stageBottom = short ? 0 : (view === 'slide' && beats.length >= 2 ? 128 : 88) + (hintShown ? 22 : 0);
 
   return chrome(
@@ -1046,7 +1048,8 @@ export default function LessonFacesScreen() {
         className={cn('absolute', night && '[&_[data-pdf-page]]:bg-[#141414] [&_[data-pdf-page]_canvas]:[filter:invert(0.9)_hue-rotate(180deg)]')}
         style={{
           top: stageTop,
-          bottom: stageBottom,
+          /* Luna's sheet on a narrow window: the page fits above it. */
+          bottom: lunaSheet ? LUNA_SHEET_HEIGHT : stageBottom,
           left: showToc ? TOC_WIDTH : 0,
           right: docked ? panelWidth : 0,
         }}
@@ -1309,26 +1312,40 @@ export default function LessonFacesScreen() {
         />
       </Studio>
 
-      {lunaOn && (
-        <Studio
-          open={lunaOpen}
-          label={tl('column.label')}
-          where={lesson.title}
-          page={pdfPage}
-          onClose={() => setLunaOpen(false)}
-          panel={panel}
-          width={panelWidth}
-        >
-          <SessionColumn
-            luna={luna}
-            lessonId={lesson.id}
-            onOpenPage={(lectureId, page, spot) => conductor.onMove({ lecture_id: lectureId, page, spot })}
+      {lunaOn && (() => {
+        const column = (
+          <>
+            <SessionColumn
+              luna={luna}
+              lessonId={lesson.id}
+              onOpenPage={(lectureId, page, spot) => conductor.onMove({ lecture_id: lectureId, page, spot })}
+              onClose={() => setLunaOpen(false)}
+              onSpot={setSpot}
+            />
+            <p className="sr-only" aria-live="polite">{conductor.announce}</p>
+          </>
+        );
+        /* Too narrow to dock: a sheet from the bottom, the page still above it. */
+        if (!panel)
+          return (
+            <LunaSheet open={lunaOpen} label={tl('column.label')} onClose={() => setLunaOpen(false)}>
+              {column}
+            </LunaSheet>
+          );
+        return (
+          <Studio
+            open={lunaOpen}
+            label={tl('column.label')}
+            where={lesson.title}
+            page={pdfPage}
             onClose={() => setLunaOpen(false)}
-            onSpot={setSpot}
-          />
-          <p className="sr-only" aria-live="polite">{conductor.announce}</p>
-        </Studio>
-      )}
+            panel={panel}
+            width={panelWidth}
+          >
+            {column}
+          </Studio>
+        );
+      })()}
 
       <PracticePlane
         open={bench === 'practice'}

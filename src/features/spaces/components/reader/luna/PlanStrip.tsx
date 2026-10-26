@@ -40,7 +40,7 @@ export function PlanStrip({
             {t('plan.change')}
           </button>
         )}
-        {accepted && onSkip && (
+        {accepted && onSkip && plan.some((s) => s.status === 'current') && (
           <button type="button" onClick={onSkip} className="console-focusable rounded-full px-2 py-1 text-[12.5px] text-quiet hover:text-foreground">
             {t('plan.skip')}
           </button>

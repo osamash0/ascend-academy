@@ -38,7 +38,7 @@ export const initialLuna: LunaState = {
 };
 
 type Action =
-  | { type: 'started'; session: LunaSessionRow; say: string }
+  | { type: 'started'; session: LunaSessionRow; say: string; opener: string }
   | { type: 'hydrated'; session: LunaSessionRow; turns: LunaTurnRow[] }
   | { type: 'learner'; id: string; text: string }
   | { type: 'event'; id: string; event: LunaEvent }
@@ -74,7 +74,11 @@ export function lunaReducer(state: LunaState, action: Action): LunaState {
         sessionId: action.session.id,
         lectureId: action.session.lecture_id,
         plan: action.session.plan,
-        thread: [{ kind: 'luna', id: 'start', md: action.say, blocks: [], check: null }],
+        /* What you said comes first; Luna's answer follows it. */
+        thread: [
+          ...(action.opener ? [{ kind: 'learner' as const, id: 'opener', text: action.opener }] : []),
+          { kind: 'luna', id: 'start', md: action.say, blocks: [], check: null },
+        ],
       };
     case 'hydrated':
       return {
@@ -206,8 +210,7 @@ export function useLunaSession(opts: {
       dispatch({ type: 'busy', busy: true });
       try {
         const out = await lunaApi.start({ space_id: opts.spaceId, lecture_id: opts.lessonId, page: readingAt(), opener });
-        dispatch({ type: 'started', session: out.session, say: out.say });
-        if (opener) dispatch({ type: 'learner', id: 'opener', text: opener });
+        dispatch({ type: 'started', session: out.session, say: out.say, opener });
       } catch (err) {
         dispatch({ type: 'failed', detail: errorText(err) });
       } finally {

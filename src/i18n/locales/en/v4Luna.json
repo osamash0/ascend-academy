@@ -1,7 +1,7 @@
 {
   "open": "Study with Luna",
   "offer": { "text": "Want to go through this together?", "yes": "Yes, let's", "no": "Not now" },
-  "column": { "label": "Luna", "close": "Close", "done": "Done for now", "placeholder": "Ask, or tell Luna what you need", "send": "Send", "thinking": "Luna is thinking…", "error": "Something went wrong. Try again in a moment." },
+  "column": { "label": "Luna", "continue": "Continue", "close": "Close", "done": "Done for now", "placeholder": "Ask, or tell Luna what you need", "send": "Send", "thinking": "Luna is thinking…", "error": "Something went wrong. Try again in a moment." },
   "start": { "intro": "Reading on your own works too. I'm here if you want company.", "examFriday": "I have an exam soon", "stuck": "I don't get this page" },
   "plan": { "label": "Plan", "accept": "Looks good", "change": "Change plan", "skip": "Skip this step", "save": "Save plan", "remove": "Remove step", "cancel": "Cancel", "stepTitle": "Step {{n}}" },
   "move": { "to": "page {{page}}", "announce": "Luna moved to page {{page}}" },
