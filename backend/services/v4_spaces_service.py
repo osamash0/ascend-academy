@@ -50,6 +50,22 @@ async def create_space(user_id: str, name: str, description: Optional[str] = Non
     return str(new_id)
 
 
+async def set_space_published(course_id: str, user_id: str, published: bool) -> Optional[str]:
+    """Publish or unpublish a Space its owner made (LS-072). Returns the new status,
+    or None when the viewer does not own it (the caller says "not found").
+
+    Published is what the course manager's Publish sets. A published Space
+    still shows to others only once it has a lecture to read (_SPACES_SQL).
+    """
+    conn_cm = await get_db_connection()
+    async with conn_cm as conn:
+        return await conn.fetchval(
+            "UPDATE courses SET status = $3, updated_at = now() "
+            "WHERE id = $1::uuid AND professor_id = $2::uuid RETURNING status",
+            course_id, user_id, "published" if published else "draft",
+        )
+
+
 async def join_space(course_id: str, user_id: str) -> bool:
     """Enrol the viewer in an open Space. Idempotent.
 

@@ -108,9 +108,26 @@
     "moreToRevisit_other": "und {{count}} weitere zum Wiederholen – auf der Karte unten rot",
     "open": "Öffnen",
     "empty": {
-      "owner": "Noch ist nichts drin. Nur du siehst diesen Space – vorerst.",
-      "member": "Noch ist nichts drin. Lektionen erscheinen hier, sobald sie hinzugefügt sind.",
-      "add": "Lektionen hinzufügen"
+      "ownerNow": "Noch ist nichts drin.",
+      "member": "Noch ist nichts drin. Lektionen erscheinen hier, sobald sie hinzugefügt sind."
+    },
+    "owner": {
+      "label": "Dein Space",
+      "draft": "Privater Entwurf · nur du siehst ihn.",
+      "published": "Für alle sichtbar · alle können ihn finden und beitreten.",
+      "publishedEmpty": "Auf sichtbar gestellt · andere sehen ihn, sobald er eine Lektion hat.",
+      "add": "Lektion hinzufügen",
+      "sending": "Wird gesendet…",
+      "makeVisible": "Sichtbar machen",
+      "makePrivate": "Privat machen",
+      "publishHint": "Füge zuerst eine Lektion hinzu, dann kannst du ihn sichtbar machen.",
+      "preparing": "Wird vorbereitet…",
+      "preparingHint": "Das dauert ein paar Minuten. Du kannst die Seite verlassen; es läuft weiter.",
+      "fileFailed": "Konnte nicht hinzugefügt werden. Versuch eine andere Datei oder später noch einmal.",
+      "dismiss": "{{name}} ausblenden",
+      "uploadFailed": "Das ließ sich gerade nicht senden. Nichts hat sich geändert – versuch es noch einmal.",
+      "publishFailed": "Das ließ sich gerade nicht ändern. Nichts hat sich geändert – versuch es noch einmal.",
+      "manager": "Mehr in der Kursverwaltung"
     }
   },
   "map": {

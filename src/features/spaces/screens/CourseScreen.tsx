@@ -13,7 +13,8 @@ import { latestInCourse, readTrail } from '../data/trail';
 import { ideaAt, lightIdeas, type Light } from '../components/course/light';
 import { planToday, type TodayStep } from '../components/course/today';
 import { useViewer } from '../data/viewer';
-import { managerHref, spaceById } from '../data/world';
+import { spaceById } from '../data/world';
+import { OwnerBar } from '../components/course/OwnerBar';
 import { daysBetween, localToday, planExam } from '../components/course/examPlan';
 import { ExamRunway } from '../components/course/ExamRunway';
 import { examDateFor, setExamDate } from '../data/examDate';
@@ -99,29 +100,29 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
   if (!course) return chrome(<NotFound what="space" back={{ to: '/v4/spaces', place: 'spaces' }} />);
 
   /*
+   * The owner's controls (LS-072): add Lessons, publish, the course manager.
+   * `visibility` is the course's status as the world reads it.
+   */
+  const space = spaceById(course.id);
+  const owner = space?.viewerRole === 'owner';
+  const ownerBar = owner ? (
+    <OwnerBar spaceId={course.id} published={space?.visibility === 'public'} lessonCount={course.lectures.length} />
+  ) : null;
+
+  /*
    * A Space with nothing in it yet — usually one just made from the hub
-   * (LS-050). It says so, once, instead of an empty plan and an empty map.
-   * Its owner gets the one way lessons get in today: the course manager.
-   * Adding them here on the stage is the next step (LS-072).
+   * (LS-050). It says so, once, instead of an empty plan and an empty map;
+   * its owner gets the bar, with Add a Lesson as the one white action.
    */
   if (course.lectures.length === 0) {
-    const owner = spaceById(course.id)?.viewerRole === 'owner';
     return chrome(
       <div className="relative mx-auto max-w-2xl px-6 pb-24 pt-20 text-center lg:px-8">
         <p className="text-[13px] text-quiet">{t('course.kind')}</p>
         <h1 className="mt-3 text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[56px]">{course.title}</h1>
         <p className="mx-auto mt-5 max-w-[44ch] text-[15.5px] leading-[1.75] text-quiet">
-          {owner ? t('course.empty.owner') : t('course.empty.member')}
+          {owner ? t('course.empty.ownerNow') : t('course.empty.member')}
         </p>
-        {owner && (
-          <a
-            href={managerHref(course.id)}
-            className="console-focusable mt-8 inline-flex h-12 items-center gap-2 rounded-full bg-white px-6 text-[15px] font-medium text-background"
-          >
-            <BookOpen aria-hidden className="h-4 w-4" />
-            {t('course.empty.add')}
-          </a>
-        )}
+        {ownerBar}
       </div>,
     );
   }
@@ -175,6 +176,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             <Target aria-hidden className="h-4 w-4" />
             {t('course.rehearse')}
           </Link>
+          {ownerBar}
         </div>
 
         {/* Today: read on, revisit a miss, refresh what is fading. */}
