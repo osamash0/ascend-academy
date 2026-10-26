@@ -33,9 +33,9 @@ async def test_hung_provider_falls_over(monkeypatch):
     async def ok():
         return {"a": 1}
 
-    calls = _run(monkeypatch, {"gemini": hang, "groq": ok})
+    calls = _run(monkeypatch, {"groq": hang, "openai": ok})
     assert await _call() == {"a": 1}
-    assert calls == ["gemini", "groq"]
+    assert calls == ["groq", "openai"]
 
 
 async def test_budget_error_stops_immediately(monkeypatch):
@@ -45,10 +45,10 @@ async def test_budget_error_stops_immediately(monkeypatch):
     async def ok():
         return {"a": 1}
 
-    calls = _run(monkeypatch, {"gemini": budget, "groq": ok, "openai": ok})
+    calls = _run(monkeypatch, {"groq": budget, "openai": ok, "gemini": ok})
     with pytest.raises(LLMBudgetExceededError):
         await _call()
-    assert calls == ["gemini"]
+    assert calls == ["groq"]
 
 
 async def test_all_fail_raises_last(monkeypatch):
@@ -58,7 +58,7 @@ async def test_all_fail_raises_last(monkeypatch):
         return f
 
     _run(monkeypatch, {p: failing(p) for p in ("gemini", "groq", "openai")})
-    with pytest.raises(RuntimeError, match="openai"):
+    with pytest.raises(RuntimeError, match="gemini"):
         await _call()
 
 
@@ -69,6 +69,12 @@ async def test_non_dict_moves_on(monkeypatch):
     async def ok():
         return {"b": 2}
 
-    calls = _run(monkeypatch, {"gemini": lst, "groq": ok})
+    calls = _run(monkeypatch, {"groq": lst, "openai": ok})
     assert await _call() == {"b": 2}
-    assert calls == ["gemini", "groq"]
+    assert calls == ["groq", "openai"]
+
+
+def test_gemini_goes_last_and_attempts_are_bounded_at_15s(monkeypatch):
+    monkeypatch.delenv("LUNA_ATTEMPT_SECONDS", raising=False)
+    assert ss.LUNA_PROVIDERS == ("groq", "openai", "gemini")
+    assert ss._attempt_seconds() == 15.0

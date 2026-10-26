@@ -68,11 +68,12 @@ Loader = Callable[[str, str, list[int]], Awaitable[LessonView]]
 CanView = Callable[[str, str], Awaitable[bool]]
 
 
-LUNA_PROVIDERS = ("gemini", "groq", "openai")
+# Gemini hung on every call in the live run, so it goes last.
+LUNA_PROVIDERS = ("groq", "openai", "gemini")
 
 
 def _attempt_seconds() -> float:
-    return float(os.getenv("LUNA_ATTEMPT_SECONDS", "20"))
+    return float(os.getenv("LUNA_ATTEMPT_SECONDS", "15"))
 
 
 # Module constant (patchable); the env var is read at import time.
