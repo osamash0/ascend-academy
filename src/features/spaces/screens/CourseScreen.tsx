@@ -13,6 +13,7 @@ import { latestInCourse, readTrail } from '../data/trail';
 import { ideaAt, lightIdeas, type Light } from '../components/course/light';
 import { planToday, type TodayStep } from '../components/course/today';
 import { useViewer } from '../data/viewer';
+import { managerHref, spaceById } from '../data/world';
 import { daysBetween, localToday, planExam } from '../components/course/examPlan';
 import { ExamRunway } from '../components/course/ExamRunway';
 import { examDateFor, setExamDate } from '../data/examDate';
@@ -96,6 +97,34 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
   if (state === 'loading') return chrome(<DetailSkeleton />);
   if (state === 'error') return chrome(<SpacesError what="space" />);
   if (!course) return chrome(<NotFound what="space" back={{ to: '/v4/spaces', place: 'spaces' }} />);
+
+  /*
+   * A Space with nothing in it yet — usually one just made from the hub
+   * (LS-050). It says so, once, instead of an empty plan and an empty map.
+   * Its owner gets the one way lessons get in today: the course manager.
+   * Adding them here on the stage is the next step (LS-072).
+   */
+  if (course.lectures.length === 0) {
+    const owner = spaceById(course.id)?.viewerRole === 'owner';
+    return chrome(
+      <div className="relative mx-auto max-w-2xl px-6 pb-24 pt-20 text-center lg:px-8">
+        <p className="text-[13px] text-quiet">{t('course.kind')}</p>
+        <h1 className="mt-3 text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[56px]">{course.title}</h1>
+        <p className="mx-auto mt-5 max-w-[44ch] text-[15.5px] leading-[1.75] text-quiet">
+          {owner ? t('course.empty.owner') : t('course.empty.member')}
+        </p>
+        {owner && (
+          <a
+            href={managerHref(course.id)}
+            className="console-focusable mt-8 inline-flex h-12 items-center gap-2 rounded-full bg-white px-6 text-[15px] font-medium text-background"
+          >
+            <BookOpen aria-hidden className="h-4 w-4" />
+            {t('course.empty.add')}
+          </a>
+        )}
+      </div>,
+    );
+  }
 
   const pages = course.lectures.reduce((n, l) => n + l.total_slides, 0);
   const lessonHref = (id: string) => `/v4/space/${course.id}/lesson/${id}`;

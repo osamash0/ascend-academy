@@ -9,7 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.core.auth_middleware import _user_id, require_student, verify_token
+from backend.core.auth_middleware import _user_id, require_creator, require_student, verify_token
 from backend.core.config import settings
 from backend.core.rate_limit import limiter
 from backend.services import materials_service
@@ -33,6 +33,23 @@ async def v4_me(request: Request, user: Any = Depends(verify_token)):
     if person is None:
         raise HTTPException(status_code=404, detail="No profile for this account.")
     return person
+
+
+class _NewSpace(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=4000)
+
+
+@router.post("/spaces", status_code=201)
+@limiter.limit("10/minute")
+async def v4_create_space(request: Request, body: _NewSpace, user: Any = Depends(require_creator)):
+    """Make a Space on the stage (LS-050): a course you own, empty to start."""
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="A Space needs a name.")
+    description = (body.description or "").strip() or None
+    return {"id": await service.create_space(_uid(user), name, description)}
 
 
 @router.post("/spaces/{space_id}/join")

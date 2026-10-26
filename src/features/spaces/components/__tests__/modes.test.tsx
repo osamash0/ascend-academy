@@ -91,6 +91,10 @@ const MODE: Record<string, Mode> = {
   // A router shim: picks a tab and renders SpaceScreen. It has no UI of its
   // own, so the chrome rules have nothing to say about it.
   'SpaceRoute.tsx': 'shim',
+  // Old `/lecture/:id` links: finds the Lesson's Space and redirects (LS-050).
+  'LessonLinkRoute.tsx': 'shim',
+  // A v4 address that leads nowhere, on the stage, not in the old console.
+  'NotFoundScreen.tsx': 'learn',
   // StudioHomeScreen retired (One Library Task 7): `/v4/library/studio` redirects to the shelf.
   // The canvas: its own ground (studio-surface.css) — the reader's black by default, light as a toggle.
   'StudioCanvasScreen.tsx': 'own-ground',

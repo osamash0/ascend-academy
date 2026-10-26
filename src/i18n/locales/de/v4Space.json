@@ -106,7 +106,12 @@
     "minutes_other": "~{{count}} Min.",
     "moreToRevisit_one": "und {{count}} weitere zum Wiederholen – auf der Karte unten rot",
     "moreToRevisit_other": "und {{count}} weitere zum Wiederholen – auf der Karte unten rot",
-    "open": "Öffnen"
+    "open": "Öffnen",
+    "empty": {
+      "owner": "Noch ist nichts drin. Nur du siehst diesen Space – vorerst.",
+      "member": "Noch ist nichts drin. Lektionen erscheinen hier, sobald sie hinzugefügt sind.",
+      "add": "Lektionen hinzufügen"
+    }
   },
   "map": {
     "label": "Karte der Ideen dieses Spaces und was worauf aufbaut",

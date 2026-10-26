@@ -44,11 +44,13 @@ describe('New Space on the hub', () => {
     await i18n.changeLanguage('en');
   });
 
-  it('the source sends live mode to the course manager with ?new=1', async () => {
-    // Live mode needs a signed-in world, so the hand-off is checked where it is written.
+  it('LS-050: live mode makes the Space on the stage, never in the old console', async () => {
+    // Live mode needs a signed-in world, so the source is checked where it is
+    // written; the live dialog itself is covered in oneApp.test.tsx.
     const { readFileSync } = await import('node:fs');
     const { join } = await import('node:path');
     const src = readFileSync(join(process.cwd(), 'src/features/spaces/screens/SpacesHubScreen.tsx'), 'utf8');
-    expect(src).toMatch(/=== 'live'\s*\?\s*navigate\(`\$\{ProfessorRoutes\.COURSES\}\?new=1`\)/);
+    expect(src).toMatch(/const newSpace = \(\) => setNewOpen\(true\);/);
+    expect(src).not.toMatch(/ProfessorRoutes|\?new=1/);
   });
 });

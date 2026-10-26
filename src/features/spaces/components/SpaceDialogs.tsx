@@ -16,7 +16,8 @@ import type { ContributionType, Space, SpaceMode, Visibility } from '../types';
 import { createSpace, joinCodeFor, spaceByJoinCode } from '../mocks/spaces';
 import { addLesson } from '../mocks/lessons';
 import { addContribution } from '../mocks/contributions';
-import { useViewer } from '../data/viewer';
+import { useRefreshWorld, useViewer } from '../data/viewer';
+import { dataMode, loadLiveRepository } from '../data/liveRepository';
 import { AuthorLine, ClassificationChips, LessonCount } from './badges';
 import { publishedLessonsForSpace } from '../data/world';
 import { formatNumber } from '../i18n/format';
@@ -124,9 +125,35 @@ export function NewSpaceDialog({
   const [name, setName] = useState('');
   const [mode, setMode] = useState<SpaceMode>('guided');
   const [visibility, setVisibility] = useState<Visibility>('private');
+  /*
+   * Live, a Space is a course you own, made here on the stage (LS-050) rather
+   * than in the old console. Only the name is asked: mode and visibility are
+   * not stored for real courses yet, and a choice that is thrown away is a
+   * promise the product does not keep. It starts private and empty.
+   */
+  const live = dataMode(import.meta.env.VITE_V4_DATA_MODE) === 'live';
+  const refreshWorld = useRefreshWorld();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
 
-  const create = () => {
-    if (!name.trim()) return;
+  const create = async () => {
+    if (!name.trim() || busy) return;
+    if (live) {
+      setBusy(true);
+      setFailed(false);
+      try {
+        const { id } = await (await loadLiveRepository()).createSpace(name.trim());
+        await refreshWorld();
+        setName('');
+        onOpenChange(false);
+        navigate(`/v4/space/${id}`);
+      } catch {
+        setFailed(true);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     const s = createSpace({ name: name.trim(), mode, visibility });
     onOpenChange(false);
     setName('');
@@ -140,7 +167,8 @@ export function NewSpaceDialog({
         <DialogHeader>
           <DialogTitle className="text-[20px] font-semibold">{t('dialogs.newSpace.title')}</DialogTitle>
           <DialogDescription className="text-[14px] leading-relaxed text-quiet">
-            {t('dialogs.newSpace.description')}
+            {/* Live cannot change a Space's settings on the stage yet, so it does not say it can. */}
+            {live ? t('dialogs.newSpace.descriptionLive') : t('dialogs.newSpace.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -153,43 +181,54 @@ export function NewSpaceDialog({
               id="space-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && create()}
+              onKeyDown={(e) => e.key === 'Enter' && void create()}
               placeholder={t('dialogs.newSpace.namePlaceholder')}
               autoFocus
               className="console-focusable h-11 w-full rounded-xl border border-white/12 bg-white/[0.04] px-4 text-[15px] outline-none placeholder:text-faint"
             />
           </div>
 
-          <div>
-            <p className="mb-2 text-[13.5px] font-medium">{t('dialogs.newSpace.whoPublishes')}</p>
-            <Choice<SpaceMode>
-              name={t('dialogs.newSpace.modeGroup')}
-              options={modes(t)}
-              value={mode}
-              onChange={setMode}
-            />
-          </div>
+          {live ? (
+            <p className="text-[13.5px] leading-relaxed text-quiet">{t('dialogs.newSpace.liveNote')}</p>
+          ) : (
+            <>
+              <div>
+                <p className="mb-2 text-[13.5px] font-medium">{t('dialogs.newSpace.whoPublishes')}</p>
+                <Choice<SpaceMode>
+                  name={t('dialogs.newSpace.modeGroup')}
+                  options={modes(t)}
+                  value={mode}
+                  onChange={setMode}
+                />
+              </div>
 
-          <div>
-            <p className="mb-2 text-[13.5px] font-medium">{t('dialogs.newSpace.whoSees')}</p>
-            <Choice<Visibility>
-              name={t('dialogs.newSpace.visibilityGroup')}
-              options={visibilities(t)}
-              value={visibility}
-              onChange={setVisibility}
-            />
-          </div>
+              <div>
+                <p className="mb-2 text-[13.5px] font-medium">{t('dialogs.newSpace.whoSees')}</p>
+                <Choice<Visibility>
+                  name={t('dialogs.newSpace.visibilityGroup')}
+                  options={visibilities(t)}
+                  value={visibility}
+                  onChange={setVisibility}
+                />
+              </div>
+            </>
+          )}
 
           {/* The button says what it makes and where it lands. */}
           <Pressable
             type="button"
-            onClick={create}
-            disabled={!name.trim()}
+            onClick={() => void create()}
+            disabled={!name.trim() || busy}
             className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Plus aria-hidden className="h-4 w-4" />
-            {t('dialogs.newSpace.create')}
+            {busy ? t('dialogs.newSpace.creating') : t('dialogs.newSpace.create')}
           </Pressable>
+          {failed && (
+            <p role="alert" className="text-center text-[13px] text-destructive">
+              {t('dialogs.newSpace.failed')}
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>
