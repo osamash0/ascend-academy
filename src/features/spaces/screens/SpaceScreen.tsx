@@ -37,6 +37,8 @@ import {
 } from '../components/stage';
 import { AddLessonDialog, ContributeDialog } from '../components/SpaceDialogs';
 import { formatNumber } from '../i18n/format';
+import { LunaSpaceRow } from '../components/LunaMemoryCard';
+import { lunaEnabled } from '../data/lunaSession';
 
 /**
  * One Space.
@@ -408,6 +410,9 @@ export default function SpaceScreen({
       {/* ── Overview: one scroll — at a glance, the path, then the community ── */}
       {tab === 'overview' && (
         <>
+          {lunaEnabled(space.id, space.id) && (
+            <LunaSpaceRow spaceId={space.id} />
+          )}
           <StageRow
             id="path-heading"
             title={t('demo.path.title')}

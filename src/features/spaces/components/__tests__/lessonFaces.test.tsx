@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import type { RefObject } from 'react';
 import LessonFacesScreen from '../../screens/LessonFacesScreen';
 
@@ -12,10 +12,11 @@ import LessonFacesScreen from '../../screens/LessonFacesScreen';
 const jumps: number[] = [];
 vi.mock('@/components/pdf', () => ({
   PdfPage: ({ page }: { page: number }) => <div data-testid="sheet" data-page={page} />,
-  PdfPager: ({ rootRef, page }: { rootRef: RefObject<HTMLDivElement>; page: number }) => {
+  PdfPager: ({ rootRef, page, overlay }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: { props?: { words?: string | null } } }) => {
     jumps.push(page);
+    /* The words the Spotlight would light, recorded rather than drawn. */
     return (
-      <div ref={rootRef} data-testid="document">
+      <div ref={rootRef} data-testid="document" data-spot={overlay?.props?.words ?? ''}>
         Page {page}
       </div>
     );
@@ -180,5 +181,29 @@ describe('Explain answers the page as an interface', () => {
     await waitFor(() =>
       expect(within(panel).getByText('A ladder: each rung forbids one more kind of redundancy')).toBeInTheDocument(),
     );
+  });
+});
+
+describe('another Lesson, opened in place', () => {
+  it('opens at the page and the words it was asked for (a search hit, a Luna move)', async () => {
+    let go: (to: string) => void = () => {};
+    const Nav = () => {
+      go = useNavigate();
+      return null;
+    };
+    jumps.length = 0;
+    render(
+      <MemoryRouter initialEntries={['/v4/space/s-dbs/lesson/l-s-dbs-3/faces']}>
+        <Nav />
+        <Routes>
+          <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<LessonFacesScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByText('Nothing to read yet', {}, { timeout: 4000 });
+    await act(async () => go('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=2&spot=relation'));
+    await screen.findByTestId('document', {}, { timeout: 4000 });
+    await waitFor(() => expect(pageLine()).toHaveTextContent('Page 2'));
+    expect(pageLine()).toHaveAttribute('data-spot', 'relation');
   });
 });

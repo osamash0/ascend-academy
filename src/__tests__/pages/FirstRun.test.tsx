@@ -105,6 +105,47 @@ describe('First run, moment one: your name', () => {
     expect(row.display_name).toBe('Alice Smith');
   });
 
+  it('"Pick one for me" rolls an alias into the field, and she says all of it', async () => {
+    const { default: en } = await import('@/i18n/locales/en/onboarding.json');
+    const aliases: string[] = en.firstRun.name.aliases;
+    const user = userEvent.setup();
+    mount(true);
+    await user.click(screen.getByRole('button', { name: /pick one for me/i }));
+    const field = screen.getByLabelText(/your name/i);
+    await waitFor(() => expect(play).toHaveBeenCalledWith('select'), { timeout: 2000 });
+    const landed = (field as HTMLInputElement).value;
+    expect(aliases).toContain(landed);
+    expect(await screen.findByText(`${landed}?`, {}, { timeout: 2000 })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /that's me/i })).toBeEnabled();
+  });
+
+  it('rolling again lands on a different alias, and typing replaces it', async () => {
+    const user = userEvent.setup();
+    mount(true);
+    const field = screen.getByLabelText(/your name/i) as HTMLInputElement;
+    await user.click(screen.getByRole('button', { name: /pick one for me/i }));
+    await waitFor(() => expect(play).toHaveBeenCalledWith('select'), { timeout: 2000 });
+    const first = field.value;
+    play.mockClear();
+    await user.click(screen.getByRole('button', { name: /pick one for me/i }));
+    await waitFor(() => expect(play).toHaveBeenCalledWith('select'), { timeout: 2000 });
+    expect(field.value).not.toBe(first);
+    await user.clear(field);
+    await user.type(field, 'Alice');
+    expect(field).toHaveValue('Alice');
+  });
+
+  it('a rolled alias is saved like a typed name', async () => {
+    const user = userEvent.setup();
+    mount(true);
+    await user.click(screen.getByRole('button', { name: /pick one for me/i }));
+    await waitFor(() => expect(play).toHaveBeenCalledWith('select'), { timeout: 2000 });
+    const landed = (screen.getByLabelText(/your name/i) as HTMLInputElement).value;
+    await user.click(screen.getByRole('button', { name: /that's me/i }));
+    await screen.findByRole('heading', { name: /pick her light/i }, { timeout: 3000 });
+    expect(supabaseMock.data['profiles'].rows[0].display_name).toBe(landed);
+  });
+
   it('keeps a name the account already has', () => {
     persona('Bea');
     mount(true);
@@ -142,6 +183,36 @@ describe('First run, moment two: her light', () => {
     expect(complete).toHaveBeenCalledWith('material');
     expect(refreshProfile).toHaveBeenCalled();
     expect(complete.mock.invocationCallOrder[0]).toBeLessThan(refreshProfile.mock.invocationCallOrder.at(-1)!);
+  });
+
+  it('LS-047: brought by a shared link, Keep it ends on that link instead of Home', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <Routes>
+        <Route path="/onboarding" element={<FirstRun v4First />} />
+        <Route path="/v4/home" element={<div>v4-home</div>} />
+        <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<div>the-shared-lesson</div>} />
+      </Routes>,
+      { initialEntries: ['/onboarding?next=%2Fv4%2Fspace%2Fs1%2Flesson%2Fl1%2Ffaces%3Fpage%3D3'] },
+    );
+    await throughName(user);
+    await user.click(screen.getByRole('button', { name: /keep it/i }));
+    expect(await screen.findByText('the-shared-lesson', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByText('v4-home')).not.toBeInTheDocument();
+  });
+
+  it('LS-047: a next outside the app is ignored, and first run ends in Home', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <Routes>
+        <Route path="/onboarding" element={<FirstRun v4First />} />
+        <Route path="/v4/home" element={<div>v4-home</div>} />
+      </Routes>,
+      { initialEntries: ['/onboarding?next=%2F%2Fevil.example'] },
+    );
+    await throughName(user);
+    await user.click(screen.getByRole('button', { name: /keep it/i }));
+    expect(await screen.findByText('v4-home', {}, { timeout: 3000 })).toBeInTheDocument();
   });
 
   it('without v4 it hands over to the study-path step, which completes onboarding itself', async () => {

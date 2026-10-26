@@ -29,7 +29,7 @@ const screens = readdirSync(SCREENS)
  * Screens with nothing to load, so nothing to wait for or fail: the router
  * shims, and the 404, which is the "not found" itself.
  */
-const NO_STATES = new Set(['SpaceRoute.tsx', 'LessonLinkRoute.tsx', 'NotFoundScreen.tsx']);
+const NO_STATES = new Set(['SpaceRoute.tsx', 'SpaceMemberGate.tsx', 'LessonLinkRoute.tsx', 'NotFoundScreen.tsx']);
 
 describe('every screen can be seen loading and failing', () => {
   it('finds all the screens', () => {
@@ -40,7 +40,7 @@ describe('every screen can be seen loading and failing', () => {
     for (const { name, body } of screens) {
       // Either it fetches (and gets `state` from its data hook) or it does not
       // (and takes the round-trip from `useScreenState`). SpaceRoute is a
-      // router shim with no UI of its own.
+      // router shim with no UI of its own; so are SpaceMemberGate and LessonLinkRoute.
       if (NO_STATES.has(name)) continue;
       expect(
         /useScreenState|state === 'loading'/.test(body),

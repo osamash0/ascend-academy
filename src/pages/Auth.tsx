@@ -14,7 +14,8 @@ import { LunaSays } from '@/features/avatar/LunaSays';
 import { StagePage } from '@/features/onboarding/StagePage';
 import { stageInput, useLunaSize } from '@/features/onboarding/stageKit';
 import { whitePill, ghostPill } from '@/features/spaces/components/stage';
-import { PublicRoutes, StudentRoutes } from '@/lib/routes';
+import { PublicRoutes, confirmReturnUrl, safeNextPath } from '@/lib/routes';
+import { firstRunPath } from '@/lib/firstRun';
 import { cn } from '@/lib/utils';
 
 /**
@@ -42,6 +43,8 @@ export default function Auth() {
 
   const [params, setParams] = useSearchParams();
   const mode: Mode = params.get('mode') === 'signup' ? 'signup' : 'signin';
+  // Where a shared link was heading, if it is a path inside the app.
+  const sharedLink = safeNextPath(params.get('next'));
   const signingUp = mode === 'signup';
 
   const [email, setEmail] = useState('');
@@ -152,7 +155,7 @@ export default function Auth() {
       } catch {
         // Funnel timing must never block account creation.
       }
-      const { error, needsConfirmation } = await signUp(address, password);
+      const { error, needsConfirmation } = await signUp(address, password, sharedLink);
       if (error) {
         setErrors({ form: signUpError(error.message) });
         return;
@@ -164,7 +167,8 @@ export default function Auth() {
         return;
       }
       void logAccountCreated();
-      handOff.current = window.setTimeout(() => navigate(StudentRoutes.ONBOARDING), reduce ? 0 : 450);
+      // The shared link this sign-up interrupted rides through first run (LS-047).
+      handOff.current = window.setTimeout(() => navigate(firstRunPath(sharedLink)), reduce ? 0 : 450);
     } catch {
       setErrors({ form: t('errors.generic') });
     } finally {
@@ -194,7 +198,7 @@ export default function Auth() {
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}/` },
+      options: { emailRedirectTo: confirmReturnUrl(sharedLink) },
     });
     if (!error) setResent(true);
   };

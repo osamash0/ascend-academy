@@ -16,6 +16,8 @@ import { Sep, Skylight, StageRow, ghostPillSm, stageCard } from '../components/s
 import { visibleSpaces } from '../data/world';
 import { formatNumber } from '../i18n/format';
 import { momentText } from '../data/phrases';
+import { lunaLive } from '../data/lunaSession';
+import { LunaMemoryCard } from '../components/LunaMemoryCard';
 
 /**
  * Profile — "how far have I come?"
@@ -180,6 +182,8 @@ export default function ProfileScreen() {
             ))}
           </ul>
         </StageRow>
+
+        {lunaLive() && <LunaMemoryCard />}
       </div>
     </>,
   );

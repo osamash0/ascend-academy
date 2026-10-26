@@ -59,7 +59,7 @@ function mount(entry: string) {
   return renderWithProviders(
     <Routes>
       <Route path="/auth" element={<><Auth /><Where /></>} />
-      <Route path="/onboarding" element={<div>first-run</div>} />
+      <Route path="/onboarding" element={<><div>first-run</div><Where /></>} />
     </Routes>,
     { initialEntries: [entry] },
   );
@@ -173,8 +173,37 @@ describe("Auth page, sign-up mode", () => {
     await user.type(passwordField(), "secret12");
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: /create account/i }));
-    await waitFor(() => expect(signUp).toHaveBeenCalledWith("new@b.de", "secret12"));
+    await waitFor(() => expect(signUp).toHaveBeenCalledWith("new@b.de", "secret12", null));
     expect(await screen.findByText("first-run", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByTestId("where").textContent).toBe("/onboarding");
+  });
+
+  it("LS-047: a shared link rides through sign-up into first run and onto the confirmation email", async () => {
+    const user = userEvent.setup();
+    mount("/auth?mode=signup&next=%2Fv4%2Fspace%2Fs1%2Flesson%2Fl1%2Ffaces%3Fpage%3D3");
+    await user.type(screen.getByLabelText(/email address/i), "new@b.de");
+    await user.type(passwordField(), "secret12");
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: /create account/i }));
+    await waitFor(() =>
+      expect(signUp).toHaveBeenCalledWith("new@b.de", "secret12", "/v4/space/s1/lesson/l1/faces?page=3"),
+    );
+    expect(await screen.findByText("first-run", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByTestId("where").textContent).toBe(
+      "/onboarding?next=%2Fv4%2Fspace%2Fs1%2Flesson%2Fl1%2Ffaces%3Fpage%3D3",
+    );
+  });
+
+  it("LS-047: a link outside the app is dropped, not carried", async () => {
+    const user = userEvent.setup();
+    mount("/auth?mode=signup&next=https%3A%2F%2Fevil.example");
+    await user.type(screen.getByLabelText(/email address/i), "new@b.de");
+    await user.type(passwordField(), "secret12");
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: /create account/i }));
+    await waitFor(() => expect(signUp).toHaveBeenCalledWith("new@b.de", "secret12", null));
+    expect(await screen.findByText("first-run", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByTestId("where").textContent).toBe("/onboarding");
   });
 
   it("shows check-your-inbox when there is no session yet, and stays on the page", async () => {

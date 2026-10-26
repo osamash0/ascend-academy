@@ -1,0 +1,33 @@
+{
+  "open": "Study with Luna",
+  "offer": { "text": "Want to go through this together?", "yes": "Yes, let's", "no": "Not now" },
+  "column": { "label": "Luna", "continue": "Continue", "close": "Close", "done": "Done for now", "placeholder": "Ask, or tell Luna what you need", "send": "Send", "thinking": "Luna is thinking…", "error": "Something went wrong. Try again in a moment." },
+  "start": { "intro": "Reading on your own works too. I'm here if you want company.", "examFriday": "I have an exam soon", "stuck": "I don't get this page" },
+  "plan": { "label": "Plan", "accept": "Looks good", "change": "Change plan", "skip": "Skip this step", "save": "Save plan", "remove": "Remove step", "cancel": "Cancel", "stepTitle": "Step {{n}}" },
+  "move": { "to": "page {{page}}", "announce": "Luna moved to page {{page}}" },
+  "check": { "label": "Quick check", "right": "Right.", "wrong": "Not quite." },
+  "wrap": {
+    "offer": "Wrap up", "title": "Today with Luna", "covered": "Covered", "clicked": "Clicked", "shaky": "Still shaky",
+    "keep": "Keep summary", "kept": "Kept in your Space", "practice": "Make practice from this",
+    "practiceDone_one": "{{count}} question added. It comes back in Today.",
+    "practiceDone_other": "{{count}} questions added. They come back in Today.",
+    "failed": "Couldn't write the wrap-up just now. Try again in a moment."
+  },
+  "revisit": {
+    "title": "From last time",
+    "count_one": "{{count}} question from your last session",
+    "count_other": "{{count}} questions from your last session",
+    "again": "Again", "good": "Got it", "done": "All done for now."
+  },
+  "space": { "pickUp": "Pick up with Luna", "lastTime": "Last time: {{goal}}", "shaky_one": "{{count}} thing still shaky", "shaky_other": "{{count}} things still shaky", "sessions": "Your sessions with Luna" },
+  "home": { "unfinished": "Your session with Luna on {{lesson}} is waiting" },
+  "memory": {
+    "title": "What Luna knows about you",
+    "intro": "Luna keeps a few short notes on how you learn. Only you can see and change them. Luna uses them when you study together.",
+    "empty": "Nothing yet. Luna learns as you study together.",
+    "kinds": { "preference": "How you learn", "shaky": "Still shaky", "strong": "Strong", "goal": "Goal" },
+    "faded": "Faded", "edit": "Edit", "save": "Save", "delete": "Delete", "forget": "Forget everything",
+    "error": "That didn't work. Try again in a moment.",
+    "forgetConfirm": "Luna will forget everything she knows about you. This can't be undone."
+  }
+}

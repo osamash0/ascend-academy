@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { BookOpen } from 'lucide-react';
 import { Scene, SURFACES } from '../components/Scene';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -17,8 +17,12 @@ import { publishedLessonsForSpace, spaceById } from '../data/world';
  * and one action: Join. Joining enrols you in the course; the world reloads
  * and this same URL becomes the Space itself. Who is in it stays visible to
  * members only, as everywhere else.
+ *
+ * Reached through a link to one Lesson (`SpaceMemberGate`), it names that
+ * Lesson, so the person who was sent it knows the link is right and what
+ * Join will open.
  */
-export default function JoinSpaceScreen({ spaceId }: { spaceId: string }) {
+export default function JoinSpaceScreen({ spaceId, lessonId }: { spaceId: string; lessonId?: string }) {
   const { t } = useTranslation('v4Spaces');
   const viewer = useViewer();
   const refreshWorld = useRefreshWorld();
@@ -38,6 +42,7 @@ export default function JoinSpaceScreen({ spaceId }: { spaceId: string }) {
   if (screenState === 'error') return chrome(<SpacesError what="space" />);
   if (!space) return chrome(<NotFound what="space" back={{ to: "/v4/spaces", place: "spaces" }} />);
   const lessons = publishedLessonsForSpace(space.id);
+  const linked = lessonId ? lessons.find((l) => l.id === lessonId) : undefined;
 
   const join = async () => {
     setJoining(true);
@@ -54,13 +59,22 @@ export default function JoinSpaceScreen({ spaceId }: { spaceId: string }) {
   return chrome(
     <div className="mx-auto max-w-[680px] px-[22px] pb-36 pt-16 sm:pt-24">
       <p className="text-[13px] text-quiet">
-        {space.owner.name} · <b className="font-medium">{space.memberCount.toLocaleString()}</b>{' '}
-        {space.memberCount === 1 ? 'member' : 'members'}
+        {space.owner.name} ·{' '}
+        <Trans
+          t={t}
+          i18nKey="join.members"
+          count={space.memberCount}
+          values={{ n: space.memberCount.toLocaleString() }}
+          components={{ b: <b className="font-medium" /> }}
+        />
       </p>
       <h1 className="mt-3 text-[40px] font-semibold leading-[1.05] tracking-[-0.02em] sm:text-[52px]">
         {space.name}
       </h1>
       {space.description && <p className="mt-4 text-[16px] leading-relaxed text-quiet">{space.description}</p>}
+      {linked && (
+        <p className="mt-6 text-[15px] leading-relaxed">{t('join.toOpen', { title: linked.title })}</p>
+      )}
 
       <Pressable
         type="button"
@@ -79,7 +93,11 @@ export default function JoinSpaceScreen({ spaceId }: { spaceId: string }) {
       <h2 className="mt-14 text-[13px] font-medium text-quiet">{t('join.inside')}</h2>
       <ol className="mt-4 space-y-1">
         {lessons.map((l) => (
-          <li key={l.id} className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px]">
+          <li
+            key={l.id}
+            aria-current={l.id === linked?.id ? 'true' : undefined}
+            className={`flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] ${l.id === linked?.id ? 'bg-white/[0.06]' : ''}`}
+          >
             <span className="w-6 shrink-0 text-right tabular-nums text-quiet">{l.order}</span>
             <BookOpen aria-hidden className="h-4 w-4 shrink-0 text-quiet" />
             <span className="truncate">{l.title}</span>

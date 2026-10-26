@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 
 import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes, V4Routes, homeForRole, safeNextPath } from "@/lib/routes";
-import { needsFirstRun, postAuthDestination } from "@/lib/firstRun";
+import { firstRunPath, needsFirstRun, postAuthDestination } from "@/lib/firstRun";
 import { SocialProvider } from "@/features/social/store";
 import { ConfettiCanvas } from "@/components/ConfettiCanvas";
 import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
@@ -108,6 +108,7 @@ const AskLunaPage = lazy(() => import("./pages/AskLunaPage"));
 const SpacesScreen = lazy(() => import("./features/spaces/screens/SpacesScreen"));
 const V4SpacesHub = lazy(() => import("./features/spaces/screens/SpacesHubScreen"));
 const SpaceRoute = lazy(() => import("./features/spaces/screens/SpaceRoute"));
+const SpaceMemberGate = lazy(() => import("./features/spaces/screens/SpaceMemberGate"));
 const V4Library = lazy(() => import("./features/spaces/screens/LibraryScreen"));
 const V4Home = lazy(() => import("./features/spaces/screens/HomeScreen"));
 const V4Lesson = lazy(() => import("./features/spaces/screens/LessonScreen"));
@@ -306,17 +307,24 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
  * A student who has not been through first run is sent there before anything
  * else. Nobody else ever is: `/onboarding` is student-only, and sending an
  * admin or an unknown role there looped them back here forever.
+ *
+ * A deep link they opened rides along and first run ends on it (LS-047) —
+ * except Home's own address, which is no destination to come back to.
  */
 export function FirstRunGate({ children }: { children: React.ReactNode }) {
   const { role, profile } = useAuth();
+  const location = useLocation();
   if (needsFirstRun(role, profile)) {
-    return <Navigate to={StudentRoutes.ONBOARDING} replace />;
+    const home = location.pathname === StudentRoutes.HOME || location.pathname === V4Routes.HOME;
+    const next = home ? null : safeNextPath(location.pathname + location.search);
+    return <Navigate to={firstRunPath(next)} replace />;
   }
   return <>{children}</>;
 }
 
 export function OnboardingRoute() {
   const { role, profile } = useAuth();
+  const [params] = useSearchParams();
 
   // Answered on arrival, not on every render: first run refreshes the profile
   // (now complete) just before it navigates to where it hands over, and a live
@@ -324,7 +332,12 @@ export function OnboardingRoute() {
   const alreadyDone = useRef(Boolean(profile?.has_completed_activation_onboarding));
 
   if (alreadyDone.current) {
-    return <Navigate to={postAuthDestination({ role, profile, v4First: V4_FIRST })} replace />;
+    return (
+      <Navigate
+        to={postAuthDestination({ role, profile, v4First: V4_FIRST, next: safeNextPath(params.get("next")) })}
+        replace
+      />
+    );
   }
 
   return <FirstRun v4First={V4_FIRST} />;
@@ -456,13 +469,13 @@ function AppRoutes() {
             {/* Someone else's public profile — a Social destination, per Doc 2. */}
             <Route path="/v4/person/:personId" element={<V4Person />} />
             {/* Practice before the bare lesson route, so it is not read as a tab. */}
-            <Route path="/v4/space/:spaceId/lesson/:lessonId/practice" element={<V4Practice />} />
+            <Route path="/v4/space/:spaceId/lesson/:lessonId/practice" element={<SpaceMemberGate><V4Practice /></SpaceMemberGate>} />
             {/* The reader — a focus surface, like practice. */}
-            <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<V4Reader />} />
+            <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<SpaceMemberGate><V4Reader /></SpaceMemberGate>} />
             {/* The same Lesson with two faces — beside the reader so the two can be compared. */}
-            <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<V4LessonFaces />} />
-            <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<V4Lesson />} />
-            <Route path="/v4/space/:spaceId/concept/:conceptId" element={<V4Concept />} />
+            <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<SpaceMemberGate><V4LessonFaces /></SpaceMemberGate>} />
+            <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<SpaceMemberGate><V4Lesson /></SpaceMemberGate>} />
+            <Route path="/v4/space/:spaceId/concept/:conceptId" element={<SpaceMemberGate><V4Concept /></SpaceMemberGate>} />
             {/* A Lesson by id alone — where old /lecture/:id links land (LS-050). */}
             <Route path="/v4/lesson/:lessonId" element={<V4LessonLink />} />
             {/* Any other v4 address: the 404 on the stage, not in the old console. */}

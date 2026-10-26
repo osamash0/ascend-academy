@@ -33,6 +33,24 @@ from backend.schemas.learning_events import ReviewGraded
 from backend.services.review.scheduler import ReviewState, schedule
 
 logger = logging.getLogger(__name__)
+
+# Lazily activate a card for a student only when they may see it: a shared
+# card (no owner) or their own. Owned cards (Luna sessions) are private, and
+# /queue would otherwise reveal one activated by a forged id.
+ACTIVATE_IF_VISIBLE_SQL = """
+    INSERT INTO review_schedule (user_id, card_id, due_at, stability, difficulty, reps, lapses, state)
+    SELECT $1, rc.id, $3, 0, 2.5, 0, 0, 'new' FROM review_cards rc
+    WHERE rc.id = $2 AND (rc.owner_id IS NULL OR rc.owner_id = $1)
+    ON CONFLICT (user_id, card_id) DO NOTHING
+"""
+
+SUSPEND_IF_VISIBLE_SQL = """
+    INSERT INTO review_schedule (user_id, card_id, due_at, stability, difficulty, reps, lapses, state, suspended)
+    SELECT $1, rc.id, now(), 0, 2.5, 0, 0, 'new', true FROM review_cards rc
+    WHERE rc.id = $2 AND (rc.owner_id IS NULL OR rc.owner_id = $1)
+    ON CONFLICT (user_id, card_id) DO UPDATE SET suspended = true
+"""
+
 router = APIRouter(prefix="/review", tags=["review"])
 
 DEFAULT_NEW_CARD_CAP = 20
@@ -63,6 +81,7 @@ async def _activate_new_cards(conn, user_id: str, cap: int, now: datetime) -> No
         JOIN assignment_enrollments ae ON ae.assignment_id = al.assignment_id
         WHERE ae.user_id = $1
           AND rc.hidden_at IS NULL
+          AND rc.owner_id IS NULL
           AND NOT EXISTS (
               SELECT 1 FROM review_schedule rs WHERE rs.user_id = $1 AND rs.card_id = rc.id
           )
@@ -122,6 +141,7 @@ async def get_queue(
             JOIN review_cards rc ON rc.id = rs.card_id
             WHERE rs.user_id = $1 AND NOT rs.suspended AND rs.due_at <= $2
               AND rc.hidden_at IS NULL
+              AND (rc.owner_id IS NULL OR rc.owner_id = $1)
             ORDER BY rs.due_at
             LIMIT $3
             """,
@@ -178,14 +198,7 @@ async def grade_card(
             # Card was never activated for this student (or a forged id) —
             # lazily activate it now rather than 404, so a client that races
             # ahead of /queue still succeeds.
-            await conn.execute(
-                """
-                INSERT INTO review_schedule (user_id, card_id, due_at, stability, difficulty, reps, lapses, state)
-                VALUES ($1, $2, $3, 0, 2.5, 0, 0, 'new')
-                ON CONFLICT (user_id, card_id) DO NOTHING
-                """,
-                user_id, card_uuid, now,
-            )
+            await conn.execute(ACTIVATE_IF_VISIBLE_SQL, user_id, card_uuid, now)
             row = await conn.fetchrow(
                 "SELECT * FROM review_schedule WHERE user_id = $1 AND card_id = $2",
                 user_id, card_uuid,
@@ -265,6 +278,7 @@ async def get_stats(request: Request, user: Any = Depends(require_student)):
             JOIN review_cards rc ON rc.id = rs.card_id
             WHERE rs.user_id = $1 AND NOT rs.suspended AND rs.due_at <= $2
               AND rc.hidden_at IS NULL
+              AND (rc.owner_id IS NULL OR rc.owner_id = $1)
             """,
             user_id, end_of_today,
         )
@@ -330,14 +344,9 @@ async def suspend_card(request: Request, card_id: str, user: Any = Depends(requi
         raise HTTPException(status_code=400, detail="Invalid card_id.")
 
     async with await get_db_connection() as conn:
-        await conn.execute(
-            """
-            INSERT INTO review_schedule (user_id, card_id, due_at, stability, difficulty, reps, lapses, state, suspended)
-            VALUES ($1, $2, now(), 0, 2.5, 0, 0, 'new', true)
-            ON CONFLICT (user_id, card_id) DO UPDATE SET suspended = true
-            """,
-            user_id, card_uuid,
-        )
+        status = await conn.execute(SUSPEND_IF_VISIBLE_SQL, user_id, card_uuid)
+        if status.rsplit(" ", 1)[-1] == "0":
+            raise HTTPException(status_code=404, detail="Card not found or not visible to you.")
     return {"card_id": card_id, "suspended": True}
 
 
@@ -379,7 +388,7 @@ async def list_lecture_cards(
             """
             SELECT id, source_type, front, back, concept_id, hidden_at, created_at
             FROM review_cards
-            WHERE lecture_id = $1
+            WHERE lecture_id = $1 AND owner_id IS NULL
             ORDER BY created_at
             """,
             lecture_uuid,
@@ -410,7 +419,7 @@ async def _set_card_hidden(request: Request, card_id: str, user: Any, hidden: bo
 
     async with await get_db_connection() as conn:
         lecture_id = await conn.fetchval(
-            "SELECT lecture_id FROM review_cards WHERE id = $1", card_uuid,
+            "SELECT lecture_id FROM review_cards WHERE id = $1 AND owner_id IS NULL", card_uuid,
         )
         if lecture_id is None:
             raise HTTPException(status_code=404, detail="Card not found.")
