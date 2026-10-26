@@ -311,11 +311,14 @@
     "slide": "Seite",
     "page": "Seite",
     "at": "{{unit}} {{page}}",
-    "soon": "Luna gleich"
+    "soon": "Luna liest noch",
+    "count": "{{page}} / {{total}}"
   },
   "early": {
-    "reading": "Luna liest mit · {{read}} / {{total}}",
+    "reading": "Luna liest mit",
     "readOn": "Lies einfach weiter – nichts wartet auf sie",
-    "failed": "Luna konnte diese Datei nicht lesen. Lesen kannst du sie trotzdem hier."
+    "failed": "Luna konnte dieses Material nicht lesen. Lesen kannst du es hier trotzdem.",
+    "refused": "Nur auf diesem Gerät gespeichert",
+    "retry": "Erneut versuchen"
   }
 }

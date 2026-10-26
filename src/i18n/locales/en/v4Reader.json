@@ -311,11 +311,14 @@
     "slide": "Slide",
     "page": "Page",
     "at": "{{unit}} {{page}}",
-    "soon": "Luna soon"
+    "soon": "Luna soon",
+    "count": "{{page}} / {{total}}"
   },
   "early": {
-    "reading": "Luna is reading along · {{read}} / {{total}}",
+    "reading": "Luna is reading along",
     "readOn": "Read on — nothing waits for her",
-    "failed": "Luna could not read this one. You can still read it here."
+    "failed": "Luna could not read this one. You can still read it here.",
+    "refused": "Saved on this device only",
+    "retry": "Try again"
   }
 }

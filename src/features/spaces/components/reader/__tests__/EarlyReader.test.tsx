@@ -12,7 +12,10 @@ vi.mock('@/components/pdf', () => ({
     onAspect?.(state.aspect);
     return <div data-testid="pager" />;
   },
-  PdfScroll: (props: any) => <div ref={props.scrollRef} data-testid="scroll" />,
+  PdfScroll: (props: any) => (
+    /* Like the real one: the first page paints after mount. A click stands in for that paint. */
+    <div ref={props.scrollRef} data-testid="scroll" onClick={() => props.onFirstRender?.(null)} />
+  ),
   scrollToPdfPage: (...a: unknown[]) => scrollTo(...a),
   warmPdfWorker: () => {},
 }));
@@ -60,20 +63,57 @@ describe('EarlyReader on a temporary id', () => {
     resolve('run-9');
     expect(onResolved).not.toHaveBeenCalled();
   });
-  it('a refused file stays readable with the calm failed line and a way back', () => {
+  it('a refused file stays readable, says it is only on this device, and offers to try again', () => {
     state.reading = null;
-    render(<EarlyReader uploadId="sending-1" filename="a.pdf" onReady={() => {}} refused />);
-    expect(screen.getByText(/could not read this one/i)).toBeInTheDocument();
+    const onRetry = vi.fn();
+    render(<EarlyReader uploadId="sending-1" filename="a.pdf" onReady={() => {}} refused onRetry={onRetry} />);
+    expect(screen.getByText('Saved on this device only')).toBeInTheDocument();
+    expect(screen.queryByText(/could not read this one/i)).toBeNull();
     expect(screen.getByTestId('pager')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /library|bibliothek/i })).toHaveAttribute('href', '/v4/library');
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('refused with nothing to resend: the line, without a dead button', () => {
+    state.reading = null;
+    render(<EarlyReader uploadId="sending-1" filename="a.pdf" onReady={() => {}} refused />);
+    expect(screen.getByText('Saved on this device only')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
   });
 });
 
 describe('EarlyReader', () => {
-  it('shows the file at once, with Luna’s progress on the timeline', () => {
+  it('shows the file at once, with Luna’s progress on the timeline and the page once', () => {
     render(<EarlyReader uploadId="run-1" filename="Normalization.pdf" onReady={() => {}} />);
     expect(screen.getByTestId('pager')).toBeInTheDocument();
-    expect(screen.getByText(/3 \/ 10/)).toBeInTheDocument();
+    expect(screen.getByTestId('timeline-read')).toHaveStyle({ width: '30%' });
+    expect(screen.getByTestId('timeline-count')).toHaveTextContent('1 / 10');
+    /* One fact, once: the total is the timeline's, nowhere else. */
+    expect(screen.getAllByText(/\/ 10/)).toHaveLength(1);
+  });
+
+  it('reports the page it is on, so a handover elsewhere keeps it', () => {
+    const onPage = vi.fn();
+    render(<EarlyReader uploadId="run-1" filename="N.pdf" onReady={() => {}} onPage={onPage} />);
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(onPage).toHaveBeenLastCalledWith(2);
+  });
+
+  it('Page Down on the focused timeline is the slider’s, not a page turn', () => {
+    render(<EarlyReader uploadId="run-1" filename="N.pdf" onReady={() => {}} />);
+    fireEvent.keyDown(screen.getByRole('slider'), { key: 'PageDown' });
+    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '1');
+  });
+
+  it('a document is placed at the asked page only after its first page has painted', () => {
+    state.aspect = 1.41;
+    render(<EarlyReader uploadId="run-1" filename="N.pdf" onReady={() => {}} initialPage={4} />);
+    expect(scrollTo).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('scroll'));
+    expect(scrollTo).toHaveBeenCalledWith(screen.getByTestId('scroll'), 4, 0.38, 'auto');
+    fireEvent.click(screen.getByTestId('scroll'));
+    expect(scrollTo).toHaveBeenCalledTimes(1);
   });
 
   it('hands over to the Lesson once it exists, at the page being read', () => {

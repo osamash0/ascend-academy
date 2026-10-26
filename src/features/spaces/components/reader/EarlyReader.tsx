@@ -26,9 +26,13 @@ interface Props {
   initialPage?: number;
   /** The server accepted the file this reader was opened on: the real id, and the page you are on. */
   onResolved?: (id: string, page: number) => void;
+  /** Send a refused file again; absent when there is nothing to resend. */
+  onRetry?: () => void;
+  /** The page you are on, as it changes — so whoever hands over keeps your place. */
+  onPage?: (page: number) => void;
 }
 
-export function EarlyReader({ uploadId, filename, onReady, refused, initialPage = 1, onResolved }: Props) {
+export function EarlyReader({ uploadId, filename, onReady, refused, initialPage = 1, onResolved, onRetry, onPage }: Props) {
   const { t } = useTranslation('v4Reader');
   const { t: tl } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.reading' });
   const fs = useFullscreen();
@@ -50,6 +54,11 @@ export function EarlyReader({ uploadId, filename, onReady, refused, initialPage 
   /* The handover fires once per Lesson, with the page as it is at that moment. */
   const pageRef = useRef(page);
   pageRef.current = page;
+  const onPageRef = useRef(onPage);
+  onPageRef.current = onPage;
+  useEffect(() => {
+    onPageRef.current?.(page);
+  }, [page]);
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
   const handed = useRef<string | null>(null);
@@ -85,6 +94,8 @@ export function EarlyReader({ uploadId, filename, onReady, refused, initialPage 
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const el = e.target as HTMLElement | null;
       if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      /* On the timeline, Page Up/Down belong to the slider, not the page. */
+      if ((e.key === 'PageDown' || e.key === 'PageUp') && el?.closest?.('[role="slider"]')) return;
       const step = e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'PageUp' ? -1 : 0;
       if (!step) return;
       e.preventDefault();
@@ -94,13 +105,13 @@ export function EarlyReader({ uploadId, filename, onReady, refused, initialPage 
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  /* A document opens at the page you were on. */
+  /* A document opens at the page you were on — once its first page has painted, so the slots have their real size. */
   const placed = useRef(false);
-  useEffect(() => {
-    if (placed.current || initialPage <= 1 || shape !== 'document' || !pages || !scrollRef.current) return;
+  const place = useCallback(() => {
+    if (placed.current || initialPage <= 1 || !scrollRef.current) return;
     placed.current = true;
     scrollToPdfPage(scrollRef.current, initialPage, 0.38, 'auto');
-  }, [pages, shape, initialPage]);
+  }, [initialPage]);
 
   useEffect(() => {
     const el = boxRef.current;
@@ -115,7 +126,15 @@ export function EarlyReader({ uploadId, filename, onReady, refused, initialPage 
       <div ref={boxRef} className="absolute inset-x-0 bottom-16 top-12">
         {url &&
           (shape === 'document' ? (
-            <PdfScroll file={url} width={Math.min(box.w, 900)} onPage={setPage} onLoad={setPages} scrollRef={scrollRef} className="h-full overflow-y-auto" />
+            <PdfScroll
+              file={url}
+              width={Math.min(box.w, 900)}
+              onPage={setPage}
+              onLoad={setPages}
+              onFirstRender={place}
+              scrollRef={scrollRef}
+              className="h-full overflow-y-auto"
+            />
           ) : (
             <PdfPager
               file={url}
@@ -153,12 +172,27 @@ export function EarlyReader({ uploadId, filename, onReady, refused, initialPage 
         )}
       </div>
       <div className="absolute inset-x-0 bottom-0 px-4 pb-[max(10px,env(safe-area-inset-bottom))]">
-        {refused || reading?.stage === 'failed' ? (
+        {refused ? (
+          /* Never reached the server: it is here, on this device, and can be sent again. */
+          <p role="status" className="mb-2 flex items-center justify-center gap-3 text-center text-[12.5px] text-quiet">
+            <span>{t('early.refused')}</span>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="console-focusable h-7 rounded-full bg-white/[0.08] px-3 text-foreground transition-colors hover:bg-white/[0.14]"
+              >
+                {t('early.retry')}
+              </button>
+            )}
+          </p>
+        ) : reading?.stage === 'failed' ? (
           <p className="mb-2 text-center text-[12.5px] text-quiet">{t('early.failed')}</p>
         ) : (
           !quiet && (
+            /* How far Luna has read is the grey of the timeline; this only says she is on it. */
             <p className="mb-2 text-center text-[12.5px] text-quiet">
-              {t('early.reading', { read: reading?.pagesRead ?? 0, total })} · {t('early.readOn')}
+              {t('early.reading')} · {t('early.readOn')}
             </p>
           )
         )}

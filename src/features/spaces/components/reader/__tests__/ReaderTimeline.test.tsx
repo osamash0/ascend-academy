@@ -38,4 +38,18 @@ describe('ReaderTimeline', () => {
     fireEvent.keyDown(screen.getByRole('slider'), { key: 'End' });
     expect(onSeek).toHaveBeenCalledWith(10);
   });
+
+  it('shows the page number awake, and nothing of it asleep', () => {
+    const { rerender } = render(<ReaderTimeline page={34} total={82} read={82} quiet={false} onSeek={() => {}} unit="page" />);
+    expect(screen.getByTestId('timeline-count')).toHaveTextContent('34 / 82');
+    rerender(<ReaderTimeline page={34} total={82} read={82} quiet onSeek={() => {}} unit="page" />);
+    expect(screen.queryByTestId('timeline-count')).toBeNull();
+    expect(screen.queryByText(/82/)).toBeNull();
+  });
+
+  it('never reports a page past the end', () => {
+    render(<ReaderTimeline page={14} total={10} read={10} quiet={false} onSeek={() => {}} unit="slide" />);
+    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '10');
+    expect(screen.getByTestId('timeline-count')).toHaveTextContent('10 / 10');
+  });
 });

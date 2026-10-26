@@ -108,8 +108,21 @@ const SHEET_PAD = { y: 16, side: 56 };
 const TOC_ALONE = 1180;
 const TOC_WITH_PANEL = 1640;
 const TOC_WIDTH = 260;
+/*
+ * The page line sits above the timeline, never on it: the timeline's row is
+ * 20px over the safe area (6px at least), and the pill stands 8px clear of it.
+ * A short window has no timeline band to clear; its controls float.
+ */
+const PILL_BOTTOM = 'bottom-[max(34px,calc(env(safe-area-inset-bottom)+28px))]';
+const PILL_BOTTOM_SHORT = 'bottom-[max(20px,calc(env(safe-area-inset-bottom)+8px))]';
 
 type View = 'slide' | 'explain' | 'text';
+/*
+ * Present-or-absent, never `inert={false}` (React 18 writes "false", which is
+ * still inert). Spread it, or nothing.
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- typed as nothing so it spreads onto motion and plain divs alike
+const INERT = { inert: '' } as {};
 /* Labels live in the v4Reader namespace (views.page / views.explain / views.text). */
 const VIEWS: { id: View; label: 'page' | 'explain' | 'text' }[] = [
   { id: 'slide', label: 'page' },
@@ -264,6 +277,9 @@ export default function LessonFacesScreen() {
     setFound(null);
     setPdfPage(askedPage ?? 1);
     setLunaOffer(false);
+    /* The next file is measured afresh: a deck after a document must not open as one. */
+    setAspect(null);
+    setNumPages(0);
   }
 
   const engage = useCallback(() => setEngaged(true), []);
@@ -502,21 +518,32 @@ export default function LessonFacesScreen() {
    * Arrow keys and Page Up/Down turn the page. Not in a field, not inside
    * the studio (its text scrolls with them), not while practising.
    */
+  const { toggle: toggleFull, supported: canFull } = fs;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (bench || e.metaKey || e.ctrlKey || e.altKey) return;
       const el = e.target instanceof Element ? e.target : null;
       if (el?.closest('input, textarea, [contenteditable="true"], [data-studio="text"]')) return;
-      if (e.key === 'f' || e.key === 'F') {
+      /* Where there is no full screen (an iPhone), F is just a letter. */
+      if ((e.key === 'f' || e.key === 'F') && canFull) {
         e.preventDefault();
-        fs.toggle();
+        toggleFull();
         return;
       }
-      if (e.key === '1' || e.key === '2' || e.key === '3') {
+      /* One key per view tab, in the order they stand. */
+      const face = VIEWS[Number(e.key) - 1];
+      if (/^[1-9]$/.test(e.key) && face) {
         e.preventDefault();
-        pickView((['slide', 'explain', 'text'] as const)[Number(e.key) - 1]);
+        pickView(face.id);
         return;
       }
+      /*
+       * Space and Page Up/Down are the layer's own while Explain or Text
+       * replaces the page (its text scrolls with them), and the timeline's
+       * while it has focus.
+       */
+      const paging = e.key === ' ' || e.key === 'PageDown' || e.key === 'PageUp';
+      if (paging && (studio || el?.closest('[role="slider"]'))) return;
       /* Space turns the page, but a focused button keeps its own space. */
       if (e.key === ' ' && el?.closest('button, a, [role="tab"], select, summary')) return;
       const by =
@@ -529,7 +556,7 @@ export default function LessonFacesScreen() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [bench, turnPage, stepBeat, view, fs, pickView, shape]);
+  }, [bench, turnPage, stepBeat, view, studio, toggleFull, canFull, pickView, shape]);
 
   /* `\` toggles the studio. Not in a field, not while practising. */
   useEffect(() => {
@@ -917,7 +944,14 @@ export default function LessonFacesScreen() {
   /* The first-visit hint takes a line of its own under the points. */
   const hintShown = !prefs.hinted && !engaged && view === 'slide';
   const lunaSheet = lunaOn && lunaOpen && !panel;
-  const stageBottom = short ? 0 : (view === 'slide' && beats.length >= 2 ? 128 : 88) + (hintShown ? 22 : 0);
+  /* The points band sits above the lifted page line. */
+  const beatsBottom = hintShown ? 102 : 80;
+  const stageBottom = short ? 0 : (view === 'slide' && beats.length >= 2 ? beatsBottom + 64 : 88) + (hintShown ? 22 : 0);
+  /*
+   * Explain or Text replacing the page: what is behind it is out of reach —
+   * no tabbing into a page you cannot see. The view switch stays: Page is the way back.
+   */
+  const behind = studio && !bench ? INERT : undefined;
 
   return chrome(
     <div
@@ -964,7 +998,7 @@ export default function LessonFacesScreen() {
         }}
       />
 
-      <motion.div {...fade}>
+      <motion.div {...fade} {...behind}>
         <ReaderExit to={back} />
       </motion.div>
 
@@ -1094,7 +1128,7 @@ export default function LessonFacesScreen() {
       </div>
       </motion.div>
 
-      <motion.div {...fade}>
+      <motion.div {...fade} {...behind}>
       {showToc ? (
         <div className="absolute bottom-24 left-0 top-[120px] z-20 overflow-y-auto overflow-x-hidden pl-8 pr-4" style={{ width: TOC_WIDTH }}>
           <LessonToc sections={sections} conceptId={anchor.conceptId} page={pdfPage} onPage={goToPage} />
@@ -1120,6 +1154,7 @@ export default function LessonFacesScreen() {
       */}
       <div
         ref={stageRef}
+        {...behind}
         className={cn('absolute', night && '[&_[data-pdf-page]]:bg-[#141414] [&_[data-pdf-page]_canvas]:[filter:invert(0.9)_hue-rotate(180deg)]')}
         style={{
           top: stageTop,
@@ -1163,7 +1198,7 @@ export default function LessonFacesScreen() {
       </div>
 
       {shape === 'slides' && portraitPhone && !prefs.turned && ready && (
-        <motion.div {...fade} className="absolute inset-x-4 top-[72px] z-30 flex justify-center">
+        <motion.div {...fade} {...behind} className="absolute inset-x-4 top-[72px] z-30 flex justify-center">
           <p className="flex items-center gap-2 rounded-full bg-white/[0.08] py-1.5 pl-4 pr-1.5 text-[12.5px] text-foreground">
             <Smartphone aria-hidden className="h-3.5 w-3.5 rotate-90 text-quiet" />
             {tr('screen.turnPhone')}
@@ -1183,6 +1218,7 @@ export default function LessonFacesScreen() {
       {strip && !short && (
         <motion.div
           {...fade}
+          {...behind}
           className="absolute z-20"
           style={
             frame
@@ -1202,8 +1238,9 @@ export default function LessonFacesScreen() {
       */}
       {view === 'slide' && beats.length >= 2 && (
         <div
+          {...behind}
           className="pointer-events-none absolute z-20 flex flex-col items-center justify-end gap-2 px-6"
-          style={{ bottom: hintShown ? 88 : 66, height: 64, left: showToc ? TOC_WIDTH : 0, right: 0 }}
+          style={{ bottom: beatsBottom, height: 64, left: showToc ? TOC_WIDTH : 0, right: 0 }}
         >
           <AnimatePresence mode="wait" initial={false}>
             {beat >= 0 && (
@@ -1228,7 +1265,9 @@ export default function LessonFacesScreen() {
       {/* The page line: where you are, and the turn. */}
       <motion.div
         {...fade}
-        className="pointer-events-none absolute bottom-[max(20px,calc(env(safe-area-inset-bottom)+8px))] z-30 flex flex-col items-center gap-2 px-4"
+        {...behind}
+        data-testid="page-line"
+        className={cn('pointer-events-none absolute z-30 flex flex-col items-center gap-2 px-4', short ? PILL_BOTTOM_SHORT : PILL_BOTTOM)}
         style={{ left: showToc ? TOC_WIDTH : 0, right: docked ? panelWidth : 0 }}
       >
         {hintShown && !short && (
@@ -1266,6 +1305,8 @@ export default function LessonFacesScreen() {
       {/* Where you are, and how far Luna has read: a timeline awake, a hairline asleep. */}
       {numPages > 0 && (
         <div
+          {...behind}
+          data-testid="timeline-row"
           className={cn('absolute bottom-0 z-30 px-4 pb-[max(6px,env(safe-area-inset-bottom))]', quiet && 'px-0 pb-0')}
           style={{ left: showToc ? TOC_WIDTH : 0, right: docked ? panelWidth : 0 }}
         >
