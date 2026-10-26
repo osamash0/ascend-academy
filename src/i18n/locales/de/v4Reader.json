@@ -303,5 +303,12 @@
       "tabs": "Begleiter",
       "close": "Begleiter schließen"
     }
+  },
+  "timeline": {
+    "label": "{{unit}} {{page}} von {{total}}",
+    "slide": "Seite",
+    "page": "Seite",
+    "at": "{{unit}} {{page}}",
+    "soon": "Luna gleich"
   }
 }

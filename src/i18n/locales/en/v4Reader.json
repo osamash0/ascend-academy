@@ -303,5 +303,12 @@
       "tabs": "Companions",
       "close": "Close companions"
     }
+  },
+  "timeline": {
+    "label": "{{unit}} {{page}} of {{total}}",
+    "slide": "Slide",
+    "page": "Page",
+    "at": "{{unit}} {{page}}",
+    "soon": "Luna soon"
   }
 }

@@ -25,6 +25,8 @@ import {
 } from '../data/useReader';
 import { markTrail } from '../data/trail';
 import { useReadingProgress } from '../data/reading';
+import { ReaderTimeline } from '../components/reader/ReaderTimeline';
+import { shapeOf } from '../components/reader/pageShape';
 import { GlassPill } from '../components/reader/glass/GlassPill';
 import { readPrefs, writePrefs, type ReaderPrefs } from '../data/readerPrefs';
 import { useIdle } from '../components/reader/useIdle';
@@ -174,6 +176,8 @@ export default function LessonFacesScreen() {
   const foundNonce = useRef(0);
   const [box, setBox] = useState({ w: MAX_SHEET, h: 600 });
   const [numPages, setNumPages] = useState(0);
+  const [aspect, setAspect] = useState<number | null>(null);
+  const shape = shapeOf(aspect);
   /* The page in view. The document is a deck: one page, turned sideways. */
   const [pdfPage, setPdfPage] = useState(() => askedPage ?? 1);
 
@@ -1062,6 +1066,7 @@ export default function LessonFacesScreen() {
           maxWidth={box.w}
           maxHeight={box.h}
           onLoad={setNumPages}
+          onAspect={setAspect}
           onFirstRender={(canvas) => setAccent(sampleAccent(canvas))}
           rootRef={pdfRef}
           overlay={<Spotlight words={spot} />}
@@ -1158,10 +1163,6 @@ export default function LessonFacesScreen() {
           >
             <ChevronLeft aria-hidden className="h-4 w-4" />
           </button>
-          <span className="min-w-[4.5rem] shrink-0 text-center tabular-nums text-quiet">
-            <span className="text-foreground">{pdfPage}</span>
-            {numPages > 0 && <span className="text-faint"> / {numPages}</span>}
-          </span>
           <button
             type="button"
             onClick={() => turnPage(1)}
@@ -1174,19 +1175,19 @@ export default function LessonFacesScreen() {
         </GlassPill>
       </motion.div>
 
-      {/* Where you are in the deck, as a hairline that stays when everything else has gone. */}
+      {/* Where you are, and how far Luna has read: a timeline awake, a hairline asleep. */}
       {numPages > 0 && (
         <div
-          aria-hidden
-          className="pointer-events-none absolute bottom-0 z-30 h-[2px] bg-white/[0.05]"
+          className={cn('absolute bottom-0 z-30 px-4 pb-[max(6px,env(safe-area-inset-bottom))]', quiet && 'px-0 pb-0')}
           style={{ left: showToc ? TOC_WIDTH : 0, right: docked ? panelWidth : 0 }}
         >
-          <motion.div
-            className="h-full origin-left"
-            style={{ background: 'var(--reader-accent, hsl(var(--secondary)))', opacity: 0.75 }}
-            initial={false}
-            animate={{ scaleX: pdfPage / numPages }}
-            transition={{ duration: reduce ? 0 : 0.5, ease: [0.16, 1, 0.3, 1] }}
+          <ReaderTimeline
+            page={pdfPage}
+            total={numPages}
+            read={numPages}
+            quiet={quiet}
+            onSeek={(p) => goToPage(p)}
+            unit={shape === 'document' ? 'page' : 'slide'}
           />
         </div>
       )}
