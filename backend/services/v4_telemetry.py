@@ -1,10 +1,11 @@
 """What the v4 reader tells the insight engine, written one validated row at a time.
 
-The routes call these after their own work is settled. Each opens its own
-connection, looks up the page's ``slides.id`` (the key the engine joins on;
-null when the lecture has no slides row for that page), and writes through
-``record_event`` — so a refused row, or a database that is down, is logged
-and costs the reader nothing.
+The routes call these once their own work is settled, with two exceptions:
+Explain and Ask record before the AI call, so a failed Explain still counts as
+the learner asking for help. Each opens its own connection, looks up the page's
+``slides.id`` (the key the engine joins on; null when the lecture has no slides
+row for that page), and writes through ``record_event`` — so a refused row, or
+a database that is down, is logged and costs the reader nothing.
 """
 from __future__ import annotations
 

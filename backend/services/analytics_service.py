@@ -1004,23 +1004,6 @@ def _calculate_dropoff_map(slides_data: list, progress_data: list, student_count
     ]
 
 
-def _generate_live_feeds(events_data: list) -> tuple:
-    ticker, queries = [], []
-    sorted_events = sorted(events_data, key=lambda x: x.get("created_at", ""), reverse=True)
-    for e in sorted_events:
-        evt, evd = e.get("event_type"), e.get("event_data", {})
-        if evt == "ai_tutor_query":
-            q_text = evd.get("query", "").strip()
-            if q_text: queries.append({"slide_title": evd.get("slideTitle", "Unknown Slide"), "query_text": q_text, "created_at": e.get("created_at", "")})
-        if len(ticker) < 15 and evt in ["ai_tutor_query", "slide_back_navigation", "quiz_attempt"]:
-            slide_title = evd.get("slideTitle", "Unknown Slide")
-            if evt == "ai_tutor_query": desc = f'Asked AI Tutor on {slide_title}: "{evd.get("query", "")[:40]}..."'
-            elif evt == "slide_back_navigation": desc = f"Navigated backwards from {evd.get('fromSlideId', 'Unknown')} (Revision)"
-            else: desc = f"{'Passed' if evd.get('correct') else 'Failed'} quiz on {slide_title}"
-            ticker.append({"type": evt, "description": desc, "time": e.get("created_at", "")})
-    return ticker, queries
-
-
 # ── Professor course-wide overview ───────────────────────────────────────────
 
 

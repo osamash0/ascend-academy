@@ -3,10 +3,12 @@
 Questions come from `quiz_questions` (the same rows the old reader quizzes
 from), shaped as the v4 `PracticeQuestion`. An answer is graded HERE, against
 the stored correct option — never on the client's word — and then counts the
-way the old reader's did: a `quiz_attempt` learning event (professor
-analytics, the activation funnel) and, when right, 10 XP through the same
-ledger `grant_xp()` writes. XP is once per question (`dedupe_key`), so
-answering the same question again teaches but does not farm.
+way the old reader's did: a learning event (professor analytics, the
+activation funnel) — a `quiz_attempt` for a question's first answer, a
+`quiz_retry_attempt` for every later one, so first-try rates stay true — and,
+when right, 10 XP through the same ledger `grant_xp()` writes. XP is once per
+question (`dedupe_key`), so answering the same question again teaches but does
+not farm.
 
 `concept_mastery` is deliberately not touched: the review engine's rollup
 owns it, with its own smoothing, and a second writer would disagree with it.
