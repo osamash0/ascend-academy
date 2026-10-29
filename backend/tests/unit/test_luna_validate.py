@@ -99,3 +99,54 @@ def test_flags_are_true_only_when_the_model_says_true():
     check = validate_check({"question": "Q?", "options": [
         {"text": "A", "correct": "false"}, {"text": "B", "correct": "true"}, {"text": "C", "correct": True}]})
     assert [o["correct"] for o in check["options"]] == [False, False, True]
+
+
+def test_calm_voice_swaps_exclamation_marks_but_leaves_code_and_not_equal_alone():
+    from backend.services.luna.validate import calm
+
+    assert calm("Great job! You got it!!") == "Great job. You got it."
+    assert calm("Really?!") == "Really?"
+    assert calm("Use x != y here, and `!flag` in code!") == "Use x != y here, and `!flag` in code."
+
+
+def test_turn_and_check_text_never_shout():
+    turn = validate_turn({"say": "Nice! Look here.", "check": {"question": "Which one holds!", "options": [
+        {"text": "X → Y!", "correct": True, "why": "Right!"}, {"text": "Y → X", "why": "Not quite!"}]}}, pages=PAGES)
+    assert turn["say"] == "Nice. Look here."
+    assert turn["check"]["question"] == "Which one holds."
+    assert [o["text"] for o in turn["check"]["options"]] == ["X → Y.", "Y → X"]
+    assert [o["why"] for o in turn["check"]["options"]] == ["Right.", "Not quite."]
+
+
+def test_wrap_text_loses_page_numbers_and_exclamation_marks():
+    raw = {"covered": [
+        {"text": "What an FD says (page 4)", "lecture_id": L, "page": 4},
+        {"text": "Second normal form, Seite 5", "lecture_id": L, "page": 5},
+        {"text": "Partial dependencies [p. 5]!", "lecture_id": L, "page": 5},
+        {"text": "Keys (page 3) and closures", "lecture_id": L, "page": 3},
+        {"text": "page 4", "lecture_id": L, "page": 4},
+    ], "clicked": [{"text": "FDs clicked on page 4!", "lecture_id": L, "page": 4}], "shaky": []}
+    wrap = validate_wrap(raw, pages=PAGES, memory_ids=set())["wrap"]
+    assert [i["text"] for i in wrap["covered"]] == [
+        "What an FD says", "Second normal form", "Partial dependencies", "Keys and closures"]
+    assert [i["text"] for i in wrap["clicked"]] == ["FDs clicked"]
+
+
+def test_german_says_seite_never_folie_and_english_is_untouched():
+    from backend.services.luna.validate import calm
+
+    assert calm("Schau auf Folie 31! Die Folien davor auch. FOLIE, folie, Folienansicht", "de") == (
+        "Schau auf Seite 31. Die Seiten davor auch. SEITE, seite, Folienansicht")
+    assert calm("Folie 31 and Folien", "en") == "Folie 31 and Folien"
+    turn = validate_turn({"say": "Sieh dir Folie 31 an.", "check": {"question": "Welche Folien?", "options": [
+        {"text": "Folie 4", "correct": True, "why": "Auf der Folie steht es."}, {"text": "Keine", "why": "Folien zählen."}]}},
+        pages=PAGES, locale="de")
+    assert turn["say"] == "Sieh dir Seite 31 an."
+    assert turn["check"]["question"] == "Welche Seiten?"
+    assert [o["text"] for o in turn["check"]["options"]] == ["Seite 4", "Keine"]
+    assert [o["why"] for o in turn["check"]["options"]] == ["Auf der Seite steht es.", "Seiten zählen."]
+    assert validate_turn({"say": "See Folie 31."}, pages=PAGES)["say"] == "See Folie 31."
+    raw = {"covered": [{"text": "Die Folien zu FDs", "lecture_id": L, "page": 4},
+                       {"text": "Schlüssel, Folie 31", "lecture_id": L, "page": 4}]}
+    wrap = validate_wrap(raw, pages=PAGES, memory_ids=set(), locale="de")["wrap"]
+    assert [i["text"] for i in wrap["covered"]] == ["Die Seiten zu FDs", "Schlüssel"]

@@ -41,3 +41,28 @@ def test_say_is_asked_for_as_plain_text():
 
     for template in (prompts.PLAN, prompts.TURN):
         assert '"say" is plain text, no markdown' in template
+
+
+def test_plan_prompt_plans_content_pages_after_a_title_slide():
+    p = prompts.plan_prompt(VIEW, page=1, opener="", memory=[], locale="en")
+    assert "title, agenda or overview slide" in p
+    assert "Put steps on different pages" in p
+    assert "first step a `look`" in p
+
+
+def test_wrap_prompt_keeps_page_numbers_out_of_the_text():
+    p = prompts.wrap_prompt(VIEW, plan=[], turns=[], memory=[], locale="en")
+    assert "Do not write page numbers in the text; the page goes in the page field." in p
+
+
+def test_german_prompts_say_seite_never_folie():
+    rule = 'Sag immer "Seite" / "Seiten", nie "Folie" / "Folien".'
+    de = [
+        prompts.plan_prompt(VIEW, page=1, opener="", memory=[], locale="de"),
+        prompts.turn_prompt(VIEW, step=None, plan=[], recent=[], recap="", memory=[], reading_at=None, text=None,
+                            check_result=None, related=[], locale="de"),
+        prompts.wrap_prompt(VIEW, plan=[], turns=[], memory=[], locale="de"),
+        prompts.practice_prompt(VIEW, shaky=[], missed=[], locale="de"),
+    ]
+    assert all(rule in p for p in de)
+    assert rule not in prompts.plan_prompt(VIEW, page=1, opener="", memory=[], locale="en")

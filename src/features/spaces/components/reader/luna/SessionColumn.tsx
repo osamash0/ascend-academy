@@ -174,7 +174,7 @@ export function SessionColumn({
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4" aria-live="polite">
-        {!state.sessionId && (
+        {!state.sessionId && !state.planning && (
           <div className="flex flex-col gap-3">
             {revisit && <RevisitDeck lectureId={lessonId} onDone={() => setRevisit(false)} />}
             <p className="text-[13.5px] text-quiet">{t('start.intro')}</p>
@@ -207,7 +207,7 @@ export function SessionColumn({
               </div>
             );
           })}
-          {state.busy && <p className="text-[12.5px] text-quiet">{t('column.thinking')}</p>}
+          {state.busy && <p className="text-[12.5px] text-quiet">{t(state.planning ? 'column.planning' : 'column.thinking')}</p>}
           {state.error && <p className="text-[12.5px] text-quiet">{state.error}</p>}
           {canContinue && (
             <button type="button" onClick={() => void luna.act('continue')} className="console-focusable self-start rounded-full bg-white px-3 py-1 text-[12.5px] text-slate-900">
