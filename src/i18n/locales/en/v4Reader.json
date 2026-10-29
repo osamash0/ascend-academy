@@ -320,5 +320,10 @@
     "failed": "Luna could not read this one. You can still read it here.",
     "refused": "Saved on this device only",
     "retry": "Try again"
+  },
+  "lights": {
+    "explain": "Explain is ready for this page.",
+    "practice": "Practise is ready.",
+    "stopped": "Luna couldn't finish reading this — what she read is here."
   }
 }
