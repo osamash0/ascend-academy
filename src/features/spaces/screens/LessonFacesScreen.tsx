@@ -182,8 +182,6 @@ export default function LessonFacesScreen() {
   const textRef = useRef<HTMLDivElement>(null);
 
   const liveReader = !!spaceId && isLive(spaceId);
-  /* Count the reading: progress, visits and the streak, page by page. */
-  useReadingProgress(lessonId, pdfPage, liveReader && numPages > 0);
   /* The practice bench: the lecture's real questions when live. */
   const practice = usePracticeQuestions(lessonId, liveReader);
 
@@ -498,6 +496,17 @@ export default function LessonFacesScreen() {
   const [checkpointOpen, setCheckpointOpen] = useState(false);
   /* The idea being explained back, if any. */
   const [teaching, setTeaching] = useState<{ id: string; name: string; first: number; last: number } | null>(null);
+  /*
+   * Count the reading: progress, visits and the streak, page by page. Time
+   * the page sits under Luna, a checkpoint, the teach-back, the break room or
+   * the practice bench is not reading it, so it is not counted.
+   */
+  useReadingProgress(
+    lessonId,
+    pdfPage,
+    liveReader && numPages > 0,
+    (lunaOn && lunaOpen) || checkpointOpen || Boolean(teaching) || care.resting || Boolean(bench),
+  );
   /*
    * A slide is landscape; a phone held upright shows it at a third of the
    * screen. Said once, and gone for good the first time the phone is turned.
