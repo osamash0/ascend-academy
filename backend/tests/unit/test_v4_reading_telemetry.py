@@ -111,3 +111,25 @@ def test_an_already_finished_lesson_does_not_finish_again(monkeypatch):
     conn = FakeConn(total=3, read_after=[1, 2, 3], completed_at=datetime.datetime.now())
     _, events = _run(monkeypatch, conn, page=2, seconds=20, session_id="s1")
     assert [k for k, _ in events] == ["slide_view"]
+
+
+def test_the_seconds_sum_never_casts_a_stored_duration_unguarded():
+    """One odd stored duration must not abort the progress transaction (and the finish with it)."""
+    import re
+
+    sql = svc._SECONDS_READ_SQL
+    assert "::int" not in sql  # the old bare cast raises on "40.0"
+    [pattern] = re.findall(r"~ '([^']+)'", sql)  # the guard Postgres applies before the numeric cast
+    for fine in ("0", "40", "40.0", "12.75"):
+        assert re.search(pattern, fine), fine
+    for odd in ("", "abc", "1e3", "-5", "40.", ".5", "4 0"):
+        assert not re.search(pattern, odd), odd
+
+
+def test_a_decimal_sum_from_the_database_still_finishes_with_an_int(monkeypatch):
+    from decimal import Decimal
+
+    conn = FakeConn(total=3, read_after=[1, 2, 3], completed_at=None, durations=Decimal("125"))
+    _, events = _run(monkeypatch, conn, page=3, seconds=20, session_id="s1")
+    done = events[1][1]
+    assert done["total_duration_seconds"] == 125 and isinstance(done["total_duration_seconds"], int)

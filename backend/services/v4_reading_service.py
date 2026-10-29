@@ -63,8 +63,12 @@ UPDATE profiles SET
 WHERE user_id = $1::uuid
 """
 
+# The cast is guarded in SQL: one stored row with an odd duration ("40.0" passes
+# the registry as it is stored raw) must not abort the progress transaction and,
+# with it, the finish. Whole and decimal seconds count (rounded); anything else is 0.
 _SECONDS_READ_SQL = """
-SELECT COALESCE(SUM((event_data->>'duration_seconds')::int), 0)
+SELECT COALESCE(SUM(CASE WHEN event_data->>'duration_seconds' ~ '^[0-9]+(\\.[0-9]+)?$'
+                         THEN round((event_data->>'duration_seconds')::numeric) ELSE 0 END), 0)
 FROM learning_events
 WHERE user_id = $1::uuid AND event_type = 'slide_view' AND event_data->>'lectureId' = $2
 """
