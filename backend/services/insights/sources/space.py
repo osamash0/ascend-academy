@@ -9,6 +9,7 @@ reads a member's rows, only the aggregates built from them (spec §0).
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -16,8 +17,12 @@ from uuid import UUID
 
 from backend.core.database import get_db_connection
 
+logger = logging.getLogger(__name__)
+
 #: How far back the owner's view looks: its figures draw eight weeks.
 WINDOW_DAYS = 56
+#: The most events one read takes, the newest; past it the oldest are not read (and a warning says so).
+EVENT_CAP = 200_000
 
 #: The events the engine reads. Luna writes none of these; her checks stay hers.
 EVENT_TYPES = (
@@ -77,7 +82,7 @@ FROM lectures l
 WHERE l.course_id = $1
   AND NOT COALESCE(l.is_archived, false)
   AND COALESCE(l.visibility, 'course') = 'course'
-ORDER BY l.created_at
+ORDER BY l.created_at, l.id
 """
 
 _SLIDES_SQL = "SELECT id::text AS id, slide_number FROM slides WHERE lecture_id = ANY($1::uuid[])"
@@ -89,15 +94,40 @@ JOIN slides s ON s.id = q.slide_id
 WHERE s.lecture_id = ANY($1::uuid[])
 """
 
-_EVENTS_SQL = """
-SELECT user_id::text AS user_id, event_type, event_data, created_at
+# A member writes their own events: any key, any length. The read takes only the keys the
+# engine reads, each bounded, so no payload can size what the owner's view holds.
+#: Read as JSON (a number stays a number, a boolean a boolean). No real value is longer than an
+#: id (36 characters); a longer one is no event's, and is dropped (Python will not even parse an
+#: integer past 4300 digits, so one such page would otherwise fail the owner's whole view).
+_KEPT = (
+    "page", "slideId", "duration_seconds", "kind", "rating", "questionId", "correct",
+    "fromPage", "toPage", "fromSlideId", "toSlideId",
+)
+_KEPT_MAX = 64
+#: Free text, cut short: the session, the idea, and only from an `ai_tutor_query` the question.
+_CUT = {"sessionId": 64, "idea": 60}
+QUERY_MAX = 300
+
+_EVENT_DATA = ",\n    ".join(
+    ["'lectureId', event_data->'lectureId'"]
+    + [f"'{k}', CASE WHEN length(event_data->>'{k}') <= {_KEPT_MAX} THEN event_data->'{k}' END" for k in _KEPT]
+    + [f"'{k}', left(event_data->>'{k}', {n})" for k, n in _CUT.items()]
+    + [f"'query', CASE WHEN event_type = 'ai_tutor_query' THEN left(event_data->>'query', {QUERY_MAX}) END"]
+)
+
+_EVENTS_SQL = f"""
+SELECT user_id::text AS user_id, event_type, created_at,
+  jsonb_strip_nulls(jsonb_build_object(
+    {_EVENT_DATA}
+  )) AS event_data
 FROM learning_events
 WHERE created_at >= $1
   AND created_at <= $2
   AND event_type = ANY($3::text[])
   AND user_id = ANY($4::uuid[])
   AND event_data->>'lectureId' = ANY($5::text[])
-ORDER BY created_at
+ORDER BY created_at DESC
+LIMIT $6
 """
 
 
@@ -135,11 +165,14 @@ async def load_space_data(
             }
         if ids and members:
             rows = await conn.fetch(
-                _EVENTS_SQL, now - timedelta(days=WINDOW_DAYS), now, list(EVENT_TYPES), list(members), ids
+                _EVENTS_SQL, now - timedelta(days=WINDOW_DAYS), now, list(EVENT_TYPES), list(members), ids, EVENT_CAP
             )
+            if len(rows) >= EVENT_CAP:
+                logger.warning("landing: space %s hit the event cap (%d); its oldest events are not read", space_id, EVENT_CAP)
+            # Read newest first so the cap keeps the newest; held oldest first.
             events = tuple(
                 Event(user_id=r["user_id"], type=r["event_type"], data=_json(r["event_data"]), at=r["created_at"])
-                for r in rows
+                for r in reversed(rows)
             )
     return SpaceData(
         space_id=str(space_id),

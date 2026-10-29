@@ -143,7 +143,7 @@ WHERE NOT COALESCE(l.is_archived, false)
     -- The viewer's own uploads: their personal Space (v4_personal).
     OR (l.course_id IS NULL AND l.student_owner_id = $1::uuid AND l.visibility = 'private_student')
   )
-ORDER BY COALESCE(l.course_id, $1::uuid), l.created_at
+ORDER BY COALESCE(l.course_id, $1::uuid), l.created_at, l.id
 """
 
 _CONCEPTS_SQL = """
