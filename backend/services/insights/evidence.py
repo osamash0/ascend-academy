@@ -32,6 +32,9 @@ def get_ai_queries_evidence(lecture_id: str, slide_id: str, token: Optional[str]
     queries: List[Dict[str, Any]] = []
     for e in events:
         ed = e.get("event_data") or {}
+        # v4 reader questions reach owners only as themes over 5+ askers, never verbatim (spec §0).
+        if ed.get("source") == "v4_reader":
+            continue
         if ed.get("slideId") != slide_id:
             continue
         query_text = (ed.get("query") or "").strip()

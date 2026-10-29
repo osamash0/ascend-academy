@@ -614,6 +614,9 @@ def get_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]
     result = []
     for e in events_data:
         ev_data = e.get("event_data", {})
+        # v4 reader questions reach owners only as themes over 5+ askers, never verbatim (spec §0).
+        if ev_data.get("source") == "v4_reader":
+            continue
         query_text = ev_data.get("query", "").strip()
         if not query_text:
             continue
