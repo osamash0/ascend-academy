@@ -21,12 +21,17 @@ export function bufferOf(pagesReady: number[]): number {
 }
 
 export interface Lights {
-  /** A run is being followed and is not ready. */
+  /** A run is being followed and is not ready (or its first answer has not come yet). */
   following: boolean;
   /** This page has Explain, Text and Ask. */
   pageReady: boolean;
   /** Practise may show (run: practiceReady; no run: practiceCount > 0). */
   practiceOn: boolean;
+  /**
+   * The practice questions may be asked for, and the companion's Practise
+   * shown: always without a run (as it always was), else once they exist.
+   */
+  practiceArmed: boolean;
   /** The Luna session offer may show. */
   lunaReady: boolean;
   /** Grey part of the timeline. */
@@ -35,6 +40,8 @@ export interface Lights {
   line: LightLine | null;
   /** True for RING_MS after a light came on: wake controls, ring the new tabs. */
   ringing: boolean;
+  /** What rings: the new tabs (Explain) or the Practise entry. */
+  rings: 'tabs' | 'practice' | null;
   /** Clears `line` early. */
   dismiss: () => void;
 }
@@ -42,14 +49,23 @@ export interface Lights {
 export function useLights(
   run: EarlyReading | null,
   page: number,
-  opts: { total: number; practiceCount: number },
+  opts: {
+    total: number;
+    practiceCount: number;
+    /** A run is known but has not answered yet: every face waits, as if nothing were written. */
+    pending?: boolean;
+    /** The once-only lines are once per Lesson: a new Lesson in the same screen starts afresh. */
+    lessonId?: string;
+  },
 ): Lights {
-  const following = run !== null && run.stage !== 'ready';
+  const pending = !run && !!opts.pending;
+  const following = pending || (run !== null && run.stage !== 'ready');
   const pageReady = !following || (run?.pagesReady.includes(page) ?? false);
-  const practiceOn = run && following
-    ? run.practiceReady
+  const practiceOn = following
+    ? (run?.practiceReady ?? false)
     : (run?.practiceReady ?? false) || opts.practiceCount > 0;
-  const buffer = run && following ? bufferOf(run.pagesReady) : opts.total;
+  const practiceArmed = !following || (run?.practiceReady ?? false);
+  const buffer = following ? (run ? bufferOf(run.pagesReady) : 0) : opts.total;
 
   const [line, setLine] = useState<LightLine | null>(null);
   const [ringing, setRinging] = useState(false);
@@ -78,6 +94,15 @@ export function useLights(
 
   /* The lights seen during this visit: a change, never what was already there on arrival. */
   const was = useRef<{ page: number; ready: boolean; practice: boolean } | null>(null);
+  /* Another Lesson: nothing said yet, nothing seen yet. Declared first, so it runs before the lights below. */
+  const lessonId = opts.lessonId;
+  useEffect(() => {
+    said.current = new Set();
+    was.current = null;
+    clearTimer();
+    setLine(null);
+    setRinging(false);
+  }, [lessonId, clearTimer]);
   useEffect(() => {
     if (!run) return;
     const prev = was.current;
@@ -94,5 +119,6 @@ export function useLights(
     setRinging(false);
   }, [clearTimer]);
 
-  return { following, pageReady, practiceOn, lunaReady: !following, buffer, line, ringing, dismiss };
+  const rings = !ringing ? null : line === 'explain' ? 'tabs' : line === 'practice' ? 'practice' : null;
+  return { following, pageReady, practiceOn, practiceArmed, lunaReady: !following, buffer, line, ringing, rings, dismiss };
 }

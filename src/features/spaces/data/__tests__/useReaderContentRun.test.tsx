@@ -3,13 +3,15 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 
 const readerLecture = vi.fn();
 const readerIdeas = vi.fn();
+const readingFor = vi.fn();
 vi.mock('../liveRepository', async (orig) => ({
   ...(await orig<object>()),
-  loadLiveRepository: async () => ({ readerLecture, readerIdeas }),
+  loadLiveRepository: async () => ({ readerLecture, readerIdeas, readingFor }),
 }));
 vi.stubEnv('VITE_V4_DATA_MODE', 'live');
 
 const { useReaderContent } = await import('../useReader');
+const { followOf, useRunStatus } = await import('../useRunReading');
 const { default: i18n } = await import('@/i18n');
 
 const S = '11111111-1111-4111-8111-111111111111';
@@ -37,6 +39,7 @@ beforeEach(() => {
   readerLecture.mockReset();
   readerIdeas.mockReset();
   readerIdeas.mockResolvedValue({ concepts: [] });
+  readingFor.mockReset();
 });
 
 describe('useReaderContent following a running upload', () => {
@@ -94,5 +97,56 @@ describe('useReaderContent following a running upload', () => {
     await act(async () => {
       await i18n.changeLanguage('en');
     });
+  });
+
+  /* The full reader as the screen wires it: the run's status, what to follow, the content. */
+  const useFull = (runId: string, lessonId: string) => {
+    const { follow } = followOf(useRunStatus(runId), runId, lessonId);
+    return useReaderContent(S, lessonId, follow);
+  };
+  const early = (lessonId: string, pages: number[]) => ({
+    pdfUrl: 'u', pages: 16, pagesRead: pages.length, pagesReady: pages, practiceReady: false,
+    readable: true, stage: 'developing', lessonId,
+  });
+
+  it('handed over from the early reader, the Lesson is read exactly once', async () => {
+    const L4 = '55555555-5555-4555-8555-555555555555';
+    const lec = (n: number) => {
+      const l = lecture(n);
+      l.bundle.lecture.id = L4;
+      return l;
+    };
+    readingFor.mockResolvedValueOnce(early(L4, [1, 2, 3, 4, 5, 6, 7, 8]));
+    const before = renderHook(() => useRunStatus('run-handover'));
+    await waitFor(() => expect(before.result.current.reading).not.toBeNull());
+    before.unmount();
+    /* The full reader's own first read says the same thing a moment later. */
+    readingFor.mockResolvedValue(early(L4, [1, 2, 3, 4, 5, 6, 7, 8]));
+    readerLecture.mockResolvedValue(lec(8));
+    const { result } = renderHook(() => useFull('run-handover', L4));
+    await waitFor(() => expect(result.current.bundle?.slides.length).toBe(8));
+    await waitFor(() => expect(readingFor).toHaveBeenCalledTimes(2));
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    expect(readerLecture).toHaveBeenCalledTimes(1);
+  });
+
+  it('a run not heard from yet reads the Lesson once, and never keeps that read', async () => {
+    const L5 = '66666666-6666-4666-8666-666666666666';
+    const lec = (n: number) => {
+      const l = lecture(n);
+      l.bundle.lecture.id = L5;
+      return l;
+    };
+    readingFor.mockReturnValue(new Promise(() => {}));
+    readerLecture.mockResolvedValue(lec(4));
+    const pending = renderHook(() => useFull('run-silent', L5));
+    await waitFor(() => expect(pending.result.current.bundle?.slides.length).toBe(4));
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    expect(readerLecture).toHaveBeenCalledTimes(1);
+    expect(readerIdeas).not.toHaveBeenCalled();
+    pending.unmount();
+    const later = renderHook(() => useReaderContent(S, L5, null));
+    await waitFor(() => expect(later.result.current.bundle?.slides.length).toBe(4));
+    expect(readerLecture).toHaveBeenCalledTimes(2);
   });
 });
