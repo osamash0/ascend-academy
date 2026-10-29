@@ -106,7 +106,29 @@
     "minutes_other": "~{{count}} min",
     "moreToRevisit_one": "and {{count}} more marked to revisit — it shows red on the map below",
     "moreToRevisit_other": "and {{count}} more marked to revisit — they show red on the map below",
-    "open": "Open"
+    "open": "Open",
+    "empty": {
+      "ownerNow": "Nothing inside yet.",
+      "member": "Nothing inside yet. Lessons show up here once they are added."
+    },
+    "owner": {
+      "label": "Your Space",
+      "draft": "Private draft · only you can see it.",
+      "published": "Visible to everyone · anyone can find and join it.",
+      "publishedEmpty": "Set to visible · others will see it once it has a Lesson.",
+      "add": "Add a Lesson",
+      "sending": "Sending…",
+      "makeVisible": "Make it visible",
+      "makePrivate": "Make it private",
+      "publishHint": "Add a Lesson first, then you can make it visible.",
+      "preparing": "Being prepared…",
+      "preparingHint": "This takes a few minutes. You can leave this page; it keeps going.",
+      "fileFailed": "Couldn’t be added. Try another file, or try again later.",
+      "dismiss": "Dismiss {{name}}",
+      "uploadFailed": "Couldn’t send that just now. Nothing changed — try again.",
+      "publishFailed": "Couldn’t change that just now. Nothing changed — try again.",
+      "manager": "More in the course manager"
+    }
   },
   "map": {
     "label": "Map of this Space's ideas and what builds on what",

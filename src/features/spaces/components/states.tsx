@@ -44,7 +44,7 @@ export type Missing = 'space' | 'lesson' | 'idea' | 'person' | 'screen' | 'mater
 export type Loading = 'any' | 'spaces' | 'profile' | 'social' | 'moments' | 'history' | 'rank';
 
 /** The way back from something that is not there. */
-export type Back = { to: string; space: string } | { to: string; place: 'spaces' | 'library' | 'social' };
+export type Back = { to: string; space: string } | { to: string; place: 'home' | 'spaces' | 'library' | 'social' };
 
 /* ── Loading ────────────────────────────────────────────────────── */
 

@@ -160,6 +160,21 @@ export interface V4Transport {
   upload?<T>(path: string, form: FormData): Promise<T>;
 }
 
+/** What the background upload answers: one row per file, queued or failed at once. */
+export interface LessonBatch {
+  batch_id: string;
+  files: { filename: string; run_id: string | null; status: string; error?: string }[];
+}
+/** One file of a batch as it is prepared; `status` is the parse run's. */
+export interface LessonBatchRow {
+  run_id: string;
+  status: string;
+  error: string | null;
+  filename: string;
+  lecture_id: string | null;
+  title: string | null;
+}
+
 const root = '/api/v1/v4';
 const idPath = (id: string) => encodeURIComponent(id);
 
@@ -195,6 +210,25 @@ export function createLiveRepository(http: V4Transport) {
     deleteNote: (id: string) => http.delete<{ deleted: true }>(`${root}/notes/${idPath(id)}`),
     /* Mark every notification read. */
     markNotificationsRead: () => http.post<{ marked: number }>(`${root}/notifications/read-all`, {}),
+    /* Make a Space on the stage: a course you own, empty and private to start (LS-050). */
+    createSpace: (name: string) => http.post<{ id: string }>(`${root}/spaces`, { name }),
+    /* Publish your Space, or make it private again (owners only, LS-072). */
+    setSpacePublished: (id: string, published: boolean) =>
+      http.patch<{ published: boolean }>(`${root}/spaces/${idPath(id)}`, { published }),
+    /*
+     * Add Lessons to your Space on the stage (LS-072): the course manager's own
+     * background upload, aimed at this Space — the server checks you own it.
+     * It answers at once; poll `lessonBatch` while the files are prepared.
+     */
+    addLessons: (spaceId: string, files: File[]) => {
+      if (!http.upload) return Promise.reject(new Error('This transport cannot send files.'));
+      const form = new FormData();
+      for (const f of files) form.append('files', f);
+      form.append('course_id', spaceId);
+      return http.upload<LessonBatch>('/api/upload/batch', form);
+    },
+    lessonBatch: (batchId: string) =>
+      http.get<{ batch_id: string; lectures: LessonBatchRow[] }>(`/api/upload/batches/${idPath(batchId)}`),
     /* Join an open Space (enrol in its course). Idempotent. */
     joinSpace: (id: string) => http.post<{ joined: true }>(`${root}/spaces/${idPath(id)}/join`, {}),
     /* The reader, on real courses and lectures (`/v4/reader`, FEATURE_V4_READER). */

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams, useSearchParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
@@ -114,6 +114,8 @@ const V4Library = lazy(() => import("./features/spaces/screens/LibraryScreen"));
 const V4Home = lazy(() => import("./features/spaces/screens/HomeScreen"));
 const V4Lesson = lazy(() => import("./features/spaces/screens/LessonScreen"));
 const V4Concept = lazy(() => import("./features/spaces/screens/ConceptScreen"));
+const V4LessonLink = lazy(() => import("./features/spaces/screens/LessonLinkRoute"));
+const V4NotFound = lazy(() => import("./features/spaces/screens/NotFoundScreen"));
 const V4SpaceManage = lazy(() => import("./features/spaces/screens/SpaceManageScreen"));
 const V4StudioCanvas = lazy(() => import("./features/spaces/screens/StudioCanvasScreen"));
 const V4Social = lazy(() => import("./features/spaces/screens/SocialScreen"));
@@ -174,6 +176,39 @@ const V4_ENABLED =
  * design review, never somewhere to send a real account.
  */
 const V4_FIRST = V4_ENABLED && V4_LIVE;
+
+/**
+ * Where a signed-in person's app begins. With v4 the product, a student's is
+ * v4 Home: the classic student app is retired for them (LS-050), so no
+ * redirect may land them in it. Everyone else keeps their console home.
+ */
+const appHome = (role: string | null | undefined): string =>
+  V4_FIRST && role === 'student' ? V4Routes.HOME : homeForRole(role);
+
+/**
+ * A classic student room, retired for v4 students (LS-050): it sends them to
+ * the v4 room that replaced it, so old links, bookmarks and redirects never
+ * open a second app with its own settings, tour and progress numbers.
+ * Professors and admins, and everyone when v4 is off, get the page itself.
+ * Classic tools with no v4 room yet (review, exams, materials, study guide)
+ * are not wrapped and stay reachable by URL.
+ */
+export function StudentV4Redirect({
+  to,
+  children,
+}: {
+  to: string | ((params: Readonly<Record<string, string | undefined>>) => string);
+  children: React.ReactNode;
+}) {
+  const { role } = useAuth();
+  const params = useParams();
+  const { search } = useLocation();
+  if (V4_FIRST && role === 'student') {
+    const target = typeof to === 'string' ? to : to(params);
+    return <Navigate to={`${target}${search}`} replace />;
+  }
+  return <>{children}</>;
+}
 
 /**
  * Signed in, but the role lookup settled without a role (a timeout, or more
@@ -237,7 +272,7 @@ export function ProtectedRoute({ children, allowedRoles }: { children: React.Rea
   // same redirect used for any other unauthorized role, rather than skipping
   // the check and letting the route render for an unknown role.
   if (allowedRoles && !allowedRoles.includes(role ?? '')) {
-    return <Navigate to={homeForRole(role)} replace />;
+    return <Navigate to={appHome(role)} replace />;
   }
 
   return <>{children}</>;
@@ -315,8 +350,11 @@ export function StudentDashboardRoute() {
   if (!role) return <AccountUnavailable />;
 
   if (role !== 'student') {
-    return <Navigate to={homeForRole(role)} replace />;
+    return <Navigate to={appHome(role)} replace />;
   }
+  // With v4 the product, a student's home is v4 Home (LS-050); its own gate
+  // still sends them through first run first.
+  if (V4_FIRST) return <Navigate to={V4Routes.HOME} replace />;
 
   return (
     <FirstRunGate>
@@ -334,12 +372,18 @@ function SettingsWrapper() {
   );
 }
 
-function ProtectedNotFound() {
-  const { user } = useAuth();
+export function ProtectedNotFound() {
+  const { user, role } = useAuth();
 
   // Unauthenticated: bare 404. Authenticated (any role): 404 inside the shell.
   if (!user) {
     return <NotFound />;
+  }
+
+  // A v4 student's 404 is on the v4 stage, whose menu leads back into v4 —
+  // not the console's, which led into the retired classic app (LS-050).
+  if (V4_FIRST && role === 'student') {
+    return <Navigate to="/v4/not-found" replace />;
   }
 
   return (
@@ -434,6 +478,11 @@ function AppRoutes() {
             <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<SpaceMemberGate><V4LessonFaces /></SpaceMemberGate>} />
             <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<SpaceMemberGate><V4Lesson /></SpaceMemberGate>} />
             <Route path="/v4/space/:spaceId/concept/:conceptId" element={<SpaceMemberGate><V4Concept /></SpaceMemberGate>} />
+            {/* A Lesson by id alone — where old /lecture/:id links land (LS-050). */}
+            <Route path="/v4/lesson/:lessonId" element={<V4LessonLink />} />
+            {/* Any other v4 address: the 404 on the stage, not in the old console. */}
+            <Route path="/v4" element={<Navigate to="/v4/home" replace />} />
+            <Route path="/v4/*" element={<V4NotFound />} />
           </Route>
         )}
 
@@ -478,9 +527,11 @@ function AppRoutes() {
           path="/course/:courseId"
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <StudentCourseView />
-              </ConsoleLayout>
+              <StudentV4Redirect to={(p) => `/v4/space/${p.courseId}`}>
+                <ConsoleLayout>
+                  <StudentCourseView />
+                </ConsoleLayout>
+              </StudentV4Redirect>
             </ProtectedRoute>
           }
         />
@@ -548,9 +599,11 @@ function AppRoutes() {
           path={StudentRoutes.LIBRARY}
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <StudentCourseLibrary />
-              </ConsoleLayout>
+              <StudentV4Redirect to="/v4/library">
+                <ConsoleLayout>
+                  <StudentCourseLibrary />
+                </ConsoleLayout>
+              </StudentV4Redirect>
             </ProtectedRoute>
           }
         />
@@ -559,9 +612,11 @@ function AppRoutes() {
           path="/course-v3/:courseId"
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <StudentCourseLibrary />
-              </ConsoleLayout>
+              <StudentV4Redirect to={(p) => `/v4/space/${p.courseId}`}>
+                <ConsoleLayout>
+                  <StudentCourseLibrary />
+                </ConsoleLayout>
+              </StudentV4Redirect>
             </ProtectedRoute>
           }
         />
@@ -569,7 +624,9 @@ function AppRoutes() {
           path="/lecture/:lectureId"
           element={
             <ProtectedRoute>
-              <LectureView />
+              <StudentV4Redirect to={(p) => `/v4/lesson/${p.lectureId}`}>
+                <LectureView />
+              </StudentV4Redirect>
             </ProtectedRoute>
           }
         />
@@ -577,9 +634,11 @@ function AppRoutes() {
           path={StudentRoutes.ASCENT}
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <Ascent />
-              </ConsoleLayout>
+              <StudentV4Redirect to="/v4/profile/rank">
+                <ConsoleLayout>
+                  <Ascent />
+                </ConsoleLayout>
+              </StudentV4Redirect>
             </ProtectedRoute>
           }
         />
@@ -613,9 +672,11 @@ function AppRoutes() {
           path={StudentRoutes.LEADERBOARD}
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <Leaderboard />
-              </ConsoleLayout>
+              <StudentV4Redirect to="/v4/social">
+                <ConsoleLayout>
+                  <Leaderboard />
+                </ConsoleLayout>
+              </StudentV4Redirect>
             </ProtectedRoute>
           }
         />
@@ -623,7 +684,9 @@ function AppRoutes() {
           path={SharedRoutes.SETTINGS}
           element={
             <ProtectedRoute>
-              <SettingsWrapper />
+              <StudentV4Redirect to="/v4/settings">
+                <SettingsWrapper />
+              </StudentV4Redirect>
             </ProtectedRoute>
           }
         />
@@ -772,9 +835,11 @@ function AppRoutes() {
           path={StudentRoutes.FRIENDS}
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <FriendsHub />
-              </ConsoleLayout>
+              <StudentV4Redirect to="/v4/social">
+                <ConsoleLayout>
+                  <FriendsHub />
+                </ConsoleLayout>
+              </StudentV4Redirect>
             </ProtectedRoute>
           }
         />
@@ -782,9 +847,11 @@ function AppRoutes() {
           path={StudentRoutes.FRIENDS_REQUESTS}
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <FriendRequests />
-              </ConsoleLayout>
+              <StudentV4Redirect to="/v4/social">
+                <ConsoleLayout>
+                  <FriendRequests />
+                </ConsoleLayout>
+              </StudentV4Redirect>
             </ProtectedRoute>
           }
         />
@@ -792,9 +859,11 @@ function AppRoutes() {
           path={StudentRoutes.FRIENDS_FIND}
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <FindFriends />
-              </ConsoleLayout>
+              <StudentV4Redirect to="/v4/social">
+                <ConsoleLayout>
+                  <FindFriends />
+                </ConsoleLayout>
+              </StudentV4Redirect>
             </ProtectedRoute>
           }
         />
@@ -802,9 +871,11 @@ function AppRoutes() {
           path={StudentRoutes.PROFILE}
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <SocialProfile />
-              </ConsoleLayout>
+              <StudentV4Redirect to="/v4/profile">
+                <ConsoleLayout>
+                  <SocialProfile />
+                </ConsoleLayout>
+              </StudentV4Redirect>
             </ProtectedRoute>
           }
         />
@@ -812,9 +883,11 @@ function AppRoutes() {
           path="/profile/:userId"
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <FriendProfile />
-              </ConsoleLayout>
+              <StudentV4Redirect to={(p) => `/v4/person/${p.userId}`}>
+                <ConsoleLayout>
+                  <FriendProfile />
+                </ConsoleLayout>
+              </StudentV4Redirect>
             </ProtectedRoute>
           }
         />

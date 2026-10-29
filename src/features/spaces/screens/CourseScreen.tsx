@@ -13,6 +13,8 @@ import { latestInCourse, readTrail } from '../data/trail';
 import { ideaAt, lightIdeas, type Light } from '../components/course/light';
 import { planToday, type TodayStep } from '../components/course/today';
 import { useViewer } from '../data/viewer';
+import { spaceById } from '../data/world';
+import { OwnerBar } from '../components/course/OwnerBar';
 import { daysBetween, localToday, planExam } from '../components/course/examPlan';
 import { ExamRunway } from '../components/course/ExamRunway';
 import { examDateFor, setExamDate } from '../data/examDate';
@@ -97,6 +99,34 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
   if (state === 'error') return chrome(<SpacesError what="space" />);
   if (!course) return chrome(<NotFound what="space" back={{ to: '/v4/spaces', place: 'spaces' }} />);
 
+  /*
+   * The owner's controls (LS-072): add Lessons, publish, the course manager.
+   * `visibility` is the course's status as the world reads it.
+   */
+  const space = spaceById(course.id);
+  const owner = space?.viewerRole === 'owner';
+  const ownerBar = owner ? (
+    <OwnerBar spaceId={course.id} published={space?.visibility === 'public'} lessonCount={course.lectures.length} />
+  ) : null;
+
+  /*
+   * A Space with nothing in it yet — usually one just made from the hub
+   * (LS-050). It says so, once, instead of an empty plan and an empty map;
+   * its owner gets the bar, with Add a Lesson as the one white action.
+   */
+  if (course.lectures.length === 0) {
+    return chrome(
+      <div className="relative mx-auto max-w-2xl px-6 pb-24 pt-20 text-center lg:px-8">
+        <p className="text-[13px] text-quiet">{t('course.kind')}</p>
+        <h1 className="mt-3 text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[56px]">{course.title}</h1>
+        <p className="mx-auto mt-5 max-w-[44ch] text-[15.5px] leading-[1.75] text-quiet">
+          {owner ? t('course.empty.ownerNow') : t('course.empty.member')}
+        </p>
+        {ownerBar}
+      </div>,
+    );
+  }
+
   const pages = course.lectures.reduce((n, l) => n + l.total_slides, 0);
   const lessonHref = (id: string) => `/v4/space/${course.id}/lesson/${id}`;
   const readHref = (id: string, page: number, spot?: string) =>
@@ -146,6 +176,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             <Target aria-hidden className="h-4 w-4" />
             {t('course.rehearse')}
           </Link>
+          {ownerBar}
         </div>
 
         {/* Today: read on, revisit a miss, refresh what is fading. */}
