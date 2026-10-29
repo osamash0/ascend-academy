@@ -12,7 +12,7 @@ Brings the professor Insight Garden (`docs/analytics-redesign/00..02`) into v4, 
 | Who may open it | Ownership (`courses.professor_id = viewer`), never a global role. No door on the personal Space. |
 | How numbers are made | Server-side aggregates. Owners never get row-level reads of members' activity. The owner's own reading is excluded. |
 | Signals | Behaviour (dwell, re-reads, Explain/Ask, checkpoint and practice misses graded on the server) **plus one quiet check-in** — "clicked / still foggy" — at idea checkpoints. |
-| Members' questions | Stored. The owner sees **AI themes only**, and only when **≥5 different people** asked on that page. Never verbatim. |
+| Members' questions | Stored. The owner sees **AI themes only**, and only when **≥5 different people** asked on that page. Never verbatim. Enforced in Plan 1: the legacy views skip `v4_reader` rows and the professor events RLS policy excludes them. |
 | Person-level pieces (Strugglers list, Journey) | Carried over behind a flag; real members see nothing person-level until Abi's privacy call. |
 | What stays legacy | Advanced Analytics and the professor dashboard. |
 
@@ -83,7 +83,7 @@ Detectors 27, analytics service 12, cache 10, ask 7+9, endpoints 12 (`backend/te
 The reader is the product. Nothing below changes a member's reader except one optional tap.
 
 **Mira, a member** (second semester, reads Database Systems on her phone).
-Needs: the reader exactly as it is; the check-in to be one tap, skippable, never blocking; one honest line about what the owner sees (join screen + privacy page): *"The people who run this Space see how pages land for the group — never your name, never your questions."*
+Needs: the reader exactly as it is; the check-in to be one tap, skippable, never blocking; one honest line about what the owner sees (join screen + privacy page): *"The people who run this Space see how pages land for the group — never your name, never your questions."* (Ships as the shorter line in A11 until the legacy person-level views are gated.)
 Must never see: the door, anyone else's numbers, her own name in anything an owner sees. Her Luna, notes and memory stay hers (documented promise, `2026-10-24-luna-study-sessions-design.md:32,89`).
 
 **Jonas, who made a Space for six friends.**
@@ -92,7 +92,7 @@ Must never see: which friend is slipping. With six people, "one person" is a nam
 
 **Lena, a tutor** (owns the Space for her exercise group, ~35 members, decks she didn't write).
 Needs: the three pages to go over next session; what people kept asking on them (themes); which Lesson feels heavy; a link straight to the page. Lesson-level ranking matters more than any single card.
-Must never see: verbatim questions (a 35-person group identifies people by phrasing).
+Must never see: verbatim questions (a 35-person group identifies people by phrasing). Enforced in Plan 1: the legacy views skip `v4_reader` rows and the professor events RLS policy excludes them.
 
 **Prof. K., 200 members, 10 Lessons.**
 Needs: the Space-level ranking (which Lesson needs re-explaining), the trap pages (calibration), quizzes that test the wrong thing, themes at scale, and numbers that stay honest at scale. Later: export for a teaching report, "what could help", benchmarks.
@@ -115,7 +115,7 @@ Today v4 writes two events: `slide_view` (`v4_reading_service.py:99-117`: no `se
 |---|---|---|---|
 | A1 | `sessionId` per reader mount; sent with every progress ping; `timestamp` stamped server-side | `data/reading.ts`, `v4_reader.py:83-103`, `v4_reading_service.py` | Make the v4 `slide_view` pass `SlideView` (allow optional `page`, `source`). |
 | A2 | Last page survives: `keepalive`/`sendBeacon` on `pagehide` | `data/reading.ts` | Fixes dropoff ending one page early. |
-| A3 | Dwell pauses while Explain, Luna, a checkpoint card or the break room covers the page | `LessonFacesScreen.tsx` (checkpoint already reports `onOpenChange`) | Send `seconds` net of covered time. |
+| A3 | Dwell pauses while Explain covers the page (full screen on narrow screens), a checkpoint, the teach-back, the break room or the practice bench covers it, or the tab is hidden. Luna sits beside or below the page and does **not** pause it (decided 2026-10-29). | `LessonFacesScreen.tsx` (checkpoint already reports `onOpenChange`) | Send `seconds` net of covered time. |
 | A4 | `slide_back_navigation` when the page goes backwards | progress body gains `from_page`; server writes `{fromSlideId,toSlideId,sessionId}` | Feeds Speed Bump. |
 | A5 | `lecture_complete` when `completed_at` is set | `v4_reading_service.py:80-87` | Feeds engagement/time. |
 | A6 | Retry detection on the server: a `quiz_attempt` already on file for (user, question) → write `quiz_retry_attempt` | `v4_practice_service.py` | No client change; fixes first-try rates. |
@@ -123,7 +123,7 @@ Today v4 writes two events: `slide_view` (`v4_reading_service.py:99-117`: no `se
 | A8 | **The check-in**: at an idea's last page, beside the checkpoint offer, one row "Clicked · Still foggy"; optional; writes `confidence_rating {rating: got_it\|confused, slideId, idea, sessionId}` | `CheckpointCard.tsx` offer state | Reuses the existing event type; `unsure` unused. The checkpoint that follows gives the calibration pair. |
 | A9 | Checkpoints graded on the server: generated checkpoint cached with answers under an id; `POST …/checkpoint/{id}/answer` grades and writes `checkpoint_attempt {lectureId, slideId, idea, kind, correct, sessionId}` | `v4_rehearsal_service.py:340-410`, `CheckpointCard.tsx:78-81` | New event type → CHECK constraint + `EVENT_REGISTRY` in one migration. Teach-back verdict emits the same (no text). Luna check results: **never** emitted (decided: Luna stays fully private). |
 | A10 | v4 writers go through `validate_event()` | `event_repo.py:38` | One path, one schema. |
-| A11 | Words for members: join screen line + privacy page line (en+de) | `JoinSpaceScreen.tsx`, privacy page | Honest, before any data is shown to owners. |
+| A11 | Words for members: join screen line + privacy page line (en+de) | `JoinSpaceScreen.tsx`, privacy page | Honest, before any data is shown to owners. The join line ships as "…can see how its pages are read." The privacy page keeps its current bullet until the ≥5 floor is enforced and the legacy person-level views are gated (Silent Strugglers rows, `/students`, `/dashboard` `studentsMatrix`, the assignments roster, raw ids); then both change in the same PR (decided 2026-10-29). |
 
 Nothing in Phase A changes what a member sees except A8 and A11. Owner-only tables (`v4_rehearsal_attempts`, Luna, notes, `learner_memory`) are not opened.
 
@@ -186,7 +186,7 @@ One gesture for the learner, one row for the owner, Luna as the messenger.
 Five directions were built in the lab on the same fixtures: **A** a path of Lesson nodes, **B** stat tiles and cover tiles, **C** a rail of covers with light bars, **D** the v4 edition (masthead, figures, journey line, UpNext, a hairline list). Abi asked for friendlier and more visual ("more like Duolingo, not overwhelming"), colour from the decks, then "look from A to D and come up with a better one". All four drew the same fact four ways: where in a Lesson the trouble sits. D also said every finding twice. **E draws it once and makes it the screen.**
 
 - **The map is the analytics.** Each Lesson is its pages, one cell per page. Dark is landing (Doc 2: darkness is the content). A cell takes the Lesson's colour as its help index rises; a page a finding is about is lit outright, labelled with its number, and opens that page. No separate findings list.
-- **A finding is a sentence that opens in place** onto why it matters, its evidence (themes at ≥5 askers, never verbatim; clicked vs. missed with the trap cell lit) and **Open page N**. One open at a time. The garden's expand-in-place rule, kept.
+- **A finding is a sentence that opens in place** onto why it matters, its evidence (themes at ≥5 askers, never verbatim; clicked vs. missed with the trap cell lit) and **Open page N**. One open at a time. The garden's expand-in-place rule, kept. Never-verbatim is enforced in Plan 1 by the legacy views skipping `v4_reader` rows and the professor events RLS policy excluding them.
 - **Colour comes from the content.** Each Lesson speaks in its own colour (live: `sampleAccent` of its first page). The skylight takes the colour of the Lesson that needs the owner most.
 - **Luna says the one line**, beside the one white action. No lede under the title, no eyebrow above it; the Space's name rides on the back link.
 - **Figures, not gauges.** Three figures with worded qualifiers, each with its last eight weeks as bars, parted by hairlines.
