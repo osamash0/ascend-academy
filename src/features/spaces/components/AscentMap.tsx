@@ -309,9 +309,14 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
   );
 }
 
-/** Every Space the viewer is in — what Ascent draws. */
+/** Every active Space the viewer is in — what Ascent draws. */
 export const ascentSpaces = (spaces: Space[]): Space[] =>
   // `publishedLessonsForSpace`, matching what the body measures. Filtering on
   // *all* Lessons admitted a Space holding only drafts, which then drew as
   // `0/0` — permanently unlit, with no way to light it.
-  spaces.filter((s) => s.viewerRole !== null && publishedLessonsForSpace(s.id).length > 0);
+  // Active only, like the hub's "Your spaces": counting archived Spaces made
+  // Profile say "0 / 6 Spaces cleared" beside a hub showing three. An archived
+  // Space keeps its progress in the hub's archived section.
+  spaces.filter(
+    (s) => s.viewerRole !== null && s.state === 'active' && publishedLessonsForSpace(s.id).length > 0,
+  );

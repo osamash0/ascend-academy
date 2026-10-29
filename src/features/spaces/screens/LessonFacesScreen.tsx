@@ -125,7 +125,7 @@ export default function LessonFacesScreen() {
   const reduce = useReducedMotion();
   const panel = useMediaQuery(PANEL);
   /* `?page=34&view=explain` — the Lesson overview's way in, at a page and a view. */
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const askedPage = Number(params.get('page')) || null;
   const askedView = params.get('view');
   /* `&spot=words` — a search hit: light those words on the page once it is up. */
@@ -192,6 +192,25 @@ export default function LessonFacesScreen() {
     if (!spaceId || !lessonId || !numPages || !isLive(spaceId)) return;
     markTrail(lessonId, { page: pdfPage, pages: numPages, course: spaceId });
   }, [spaceId, lessonId, pdfPage, numPages]);
+
+  /*
+   * Keep `?page=` on the page in view, so a refresh or a shared link opens
+   * where you are rather than where you came in. Replaced, not pushed: Back
+   * leaves the Lesson instead of stepping through every page turned. A turn
+   * clears the lit words, so their `spot` goes with it.
+   */
+  useEffect(() => {
+    if (!numPages || params.get('page') === String(pdfPage)) return;
+    setParams(
+      (prev) => {
+        const nextParams = new URLSearchParams(prev);
+        nextParams.set('page', String(pdfPage));
+        nextParams.delete('spot');
+        return nextParams;
+      },
+      { replace: true },
+    );
+  }, [pdfPage, numPages, params, setParams]);
 
   useEffect(() => {
     if (anchor || sections.length === 0) return;
@@ -841,8 +860,15 @@ export default function LessonFacesScreen() {
   const chapters = chaptersOf(sections, numPages || Math.max(...sections.flatMap((x) => x.blocks.map((b) => b.page))));
   const strip = chapters.length >= 2;
   const stageTop = short ? 0 : 88 + (strip ? 48 : 0);
-  /* The stage's own width decides whether the masthead can sit centred beside the switch. */
-  const narrowHead = vw - (docked ? panelWidth : 0) - (showToc ? TOC_WIDTH : 0) < 980;
+  /*
+   * The stage's own width decides whether the masthead can sit centred beside the switch.
+   * The controls on the right grow by Luna's button (or her offer), so the masthead
+   * keeps clear of them: 980 and 248px were measured before Luna had a button there,
+   * and at ~1000px the Space's name ran under "Study with Luna".
+   */
+  const lunaControls = lunaOn && !lunaOpen ? (lunaOffer ? 360 : 168) : 0;
+  const narrowHead =
+    vw - (docked ? panelWidth : 0) - (showToc ? TOC_WIDTH : 0) < 980 + 2 * lunaControls;
   const block = blockOf(pdfPage);
   const beats = beatsOf(pdfPage);
   /* The slide view keeps a band under the page for its points. */
@@ -908,9 +934,13 @@ export default function LessonFacesScreen() {
           /* Below sm the switch needs the top row; the strip names where you are. */
           'pointer-events-none absolute inset-x-0 top-0 z-20 hidden h-[88px] items-center',
           !short && 'sm:flex',
-          narrowHead ? 'justify-start pl-16 pr-[248px]' : 'justify-center px-20',
+          narrowHead ? 'justify-start pl-16' : 'justify-center px-20',
         )}
-        style={{ right: docked ? panelWidth : 0, left: showToc ? TOC_WIDTH : 0 }}
+        style={{
+          right: docked ? panelWidth : 0,
+          left: showToc ? TOC_WIDTH : 0,
+          ...(narrowHead && { paddingRight: 248 + lunaControls }),
+        }}
       >
         <div className={cn('min-w-0', !narrowHead && 'text-center')}>
           <p className="mb-1 truncate text-[12.5px] text-quiet">

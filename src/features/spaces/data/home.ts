@@ -3,6 +3,7 @@ import type { HeroKind, HomeItem, RecentItem } from '../mocks/library';
 export type { HeroKind, HomeItem, RecentItem };
 import type { Lesson } from '../types';
 import type { World } from './world';
+import { runIn } from './record';
 
 /**
  * Home, assembled from the live world.
@@ -102,6 +103,8 @@ export function homeFromWorld(world: World): LiveHome {
     next,
     feed: kind === 'resume' ? feed : [],
     recent: kind === 'resume' ? recent : [],
-    streakDays: world.streakDays,
+    // Counted from the study days, like Profile. The stored profiles.current_streak
+    // only moves when you study, so it could say 2 while Profile said 1.
+    streakDays: runIn(world.record.studyDays),
   };
 }
