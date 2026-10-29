@@ -61,8 +61,9 @@ def test_turning_back_lands_on_the_page_turned_to():
     facts = lesson_facts(space(
         ev("a", "slide_back_navigation", 0, fromPage=8, toPage=7),
         ev("b", "slide_back_navigation", 1, fromPage=12, toPage=7),
+        ev("a", "slide_back_navigation", 2, fromPage=8, toPage=7),
     ))[L1]
-    assert facts.pages[7].returners == {"a", "b"} and facts.pages[7].from_next == 1
+    assert facts.pages[7].returners == {"a", "b"} and facts.pages[7].from_next == {"a"}
 
 
 def test_only_the_first_try_at_a_question_counts_and_the_teach_back_is_not_a_try():

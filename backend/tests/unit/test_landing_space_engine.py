@@ -28,7 +28,7 @@ def test_a_page_row_carries_what_the_detectors_read():
     people = readers(10)
     pf = PageFacts(
         readers=set(people), sittings=[3.0, 40.0, 50.0], explain={"r0"}, ask={"r1", "r2"},
-        ratings={"r0": "confused", "r1": "got_it"}, returners={"r3"}, from_next=1,
+        ratings={"r0": "confused", "r1": "got_it"}, returners={"r3"}, from_next={"r3"},
         pairs={"r1": ("got_it", False), "r4": ("got_it", True)},
     )
     row = page_row("l1", 3, pf)
@@ -48,6 +48,14 @@ def test_someone_who_asked_or_turned_back_without_a_counted_read_is_not_a_reader
     assert row["view_count"] == 2
     assert row["ai_query_count"] == 2 and row["back_nav_count"] == 1
     assert row["ai_query_count"] <= row["view_count"] and row["back_nav_count"] <= row["view_count"]
+
+
+def test_one_reader_turning_back_twice_from_the_next_page_is_one_person():
+    pf = PageFacts(readers=readers(10), sittings=[40.0] * 10, returners={"r0"}, from_next={"r0"})
+    assert page_row("l1", 2, pf)["back_nav_from_next"] == 1
+    # and someone with no counted read of the page is not counted
+    pf.from_next.add("x1")
+    assert page_row("l1", 2, pf)["back_nav_from_next"] == 1
 
 
 def test_a_page_where_many_ask_and_say_foggy_is_a_hotspot():
@@ -78,3 +86,19 @@ def test_a_lesson_fewer_than_five_people_read_says_nothing():
 
 def test_people_never_enter_the_lesson_bundle():
     assert lesson_bundle(lesson({1: calm_page(readers(10))}))["students"] == []
+
+
+def _leaky(counts):
+    """Readers per page, 10 people at most: page n is read by the first counts[n-1] of them."""
+    people = sorted(readers(10))
+    return lesson({n: calm_page(people[:c]) for n, c in enumerate(counts, start=1) if c})
+
+
+def test_a_page_skipped_by_most_is_not_where_people_stopped():
+    found = lesson_insights(_leaky([10, 10, 10, 2, 10]))
+    assert not any(i["kind"] == "leaky_bucket" for i in found)
+
+
+def test_a_real_drop_still_says_where_people_stopped():
+    found = lesson_insights(_leaky([10, 10, 10, 3, 2]))
+    assert [pages_of(i) for i in found if i["kind"] == "leaky_bucket"] == [[3]]

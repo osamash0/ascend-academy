@@ -54,8 +54,8 @@ class PageFacts:
     #: Each person's latest check-in on this page.
     ratings: dict[str, str] = field(default_factory=dict)
     returners: set[str] = field(default_factory=set)
-    #: Turns back to this page from the page right after it.
-    from_next: int = 0
+    #: People who turned back to this page from the page right after it (people, not turns).
+    from_next: set[str] = field(default_factory=set)
     tries: list[Try] = field(default_factory=list)
     #: Per person: (latest check-in on an idea anchored here, cleared every first try at its checkpoint).
     pairs: dict[str, tuple[str, bool]] = field(default_factory=dict)
@@ -160,7 +160,7 @@ def lesson_facts(data: SpaceData) -> dict[str, LessonFacts]:
             pf = lf.page(to)
             pf.returners.add(e.user_id)
             if page_of(e, data, "fromPage", "fromSlideId") == to + 1:
-                pf.from_next += 1
+                pf.from_next.add(e.user_id)
 
     for (lesson_id, _user, _session, page), secs in sittings.items():
         if secs <= DWELL_CEIL:

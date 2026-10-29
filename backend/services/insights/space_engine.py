@@ -54,7 +54,7 @@ def page_row(lesson_id: str, page: int, f: PageFacts) -> dict[str, Any]:
         # back without a counted read is not a reader of this page.
         "ai_query_count": len((f.explain | f.ask) & f.readers),
         "back_nav_count": len(f.returners & f.readers),
-        "back_nav_from_next": f.from_next,
+        "back_nav_from_next": len(f.from_next & f.readers),
         "overconfident_count": missed,
         "got_it_quiz_total": len(clicked),
         "overconfidence_rate": round(missed / len(clicked) * 100, 1) if clicked else 0.0,
@@ -86,6 +86,12 @@ def pages_of(insight: dict[str, Any]) -> list[int]:
     return [int(n)] if n else []
 
 
+def _drop_persists(lf: LessonFacts, page: int) -> bool:
+    """A drop after `page` is people stopping only if no later page wins readers back (else it was skipped)."""
+    after = len(lf.pages.get(page + 1, PageFacts()).readers)
+    return all(len(pf.readers) <= after for n, pf in lf.pages.items() if n > page + 1)
+
+
 def lesson_insights(lf: LessonFacts) -> list[dict[str, Any]]:
     """Every finding the detectors make on one Lesson, floored."""
     if len(lf.readers) < MIN_READERS:
@@ -104,4 +110,9 @@ def lesson_insights(lf: LessonFacts) -> list[dict[str, Any]]:
         pages = pages_of(insight)
         return bool(pages) and all(len(lf.pages.get(p, PageFacts()).readers) >= MIN_READERS for p in pages)
 
-    return [i for i in found if above_floor(i)]
+    def kept(insight: dict[str, Any]) -> bool:
+        if insight.get("kind") == "leaky_bucket":
+            return _drop_persists(lf, pages_of(insight)[0])
+        return True
+
+    return [i for i in found if above_floor(i) and kept(i)]
