@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 
 const readerLecture = vi.fn();
 const readerIdeas = vi.fn();
@@ -10,6 +10,7 @@ vi.mock('../liveRepository', async (orig) => ({
 vi.stubEnv('VITE_V4_DATA_MODE', 'live');
 
 const { useReaderContent } = await import('../useReader');
+const { default: i18n } = await import('@/i18n');
 
 const S = '11111111-1111-4111-8111-111111111111';
 const L = '22222222-2222-4222-8222-222222222222';
@@ -52,5 +53,46 @@ describe('useReaderContent following a running upload', () => {
     rerender({ run: { pagesReady: 16, done: true } });
     await waitFor(() => expect(readerIdeas).toHaveBeenCalledTimes(1));
     expect(readerLecture).toHaveBeenCalledTimes(3);
+  });
+
+  it('never leaves a partial read in the memo for a later visit without a run', async () => {
+    const L2 = '33333333-3333-4333-8333-333333333333';
+    const lec = (n: number) => {
+      const l = lecture(n);
+      l.bundle.lecture.id = L2;
+      return l;
+    };
+    readerLecture.mockResolvedValueOnce(lec(8)).mockResolvedValueOnce(lec(16));
+    const first = renderHook(() => useReaderContent(S, L2, { pagesReady: 8, done: false }));
+    await waitFor(() => expect(first.result.current.bundle?.slides.length).toBe(8));
+    first.unmount();
+    const later = renderHook(() => useReaderContent(S, L2, null));
+    await waitFor(() => expect(later.result.current.bundle?.slides.length).toBe(16));
+    expect(readerLecture).toHaveBeenCalledTimes(2);
+  });
+
+  it('without a run, a language change goes back to loading before the new read, as before', async () => {
+    const L3 = '44444444-4444-4444-8444-444444444444';
+    const lec = (n: number) => {
+      const l = lecture(n);
+      l.bundle.lecture.id = L3;
+      return l;
+    };
+    readerLecture.mockResolvedValueOnce(lec(8));
+    const seen: string[] = [];
+    const { result } = renderHook(() => {
+      const r = useReaderContent(S, L3, null);
+      seen.push(r.state);
+      return r;
+    });
+    await waitFor(() => expect(result.current.state).toBe('ready'));
+    seen.length = 0;
+    await act(async () => {
+      await i18n.changeLanguage(i18n.language === 'de' ? 'en' : 'de');
+    });
+    expect(seen).toContain('loading');
+    await act(async () => {
+      await i18n.changeLanguage('en');
+    });
   });
 });

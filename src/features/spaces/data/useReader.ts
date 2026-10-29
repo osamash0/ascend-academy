@@ -240,13 +240,15 @@ export function useReaderContent(
   useEffect(() => {
     if (!live || !lessonId) return;
     let alive = true;
-    if (shownFor.current !== lessonId) {
+    if (!run || shownFor.current !== lessonId) {
       setState({ state: 'loading', bundle: null, concepts: [], pdfUrl: null });
     }
     /* A running upload is read fresh each time; any other Lesson is read once. */
     if (run) lectures.delete(lessonId);
     getLecture(lessonId)
       .then(async (r) => {
+        /* A partial read is never left in the memo for a later visit. */
+        if (following) lectures.delete(lessonId);
         if (!alive) return;
         const bundle = bundleFrom(r);
         if (bundle.slides.length === 0) return setState({ state: 'empty', bundle: null, concepts: [], pdfUrl: null });
