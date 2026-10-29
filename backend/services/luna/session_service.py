@@ -7,14 +7,16 @@ learner never sees a broken turn: it degrades to a gentle line instead.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 from uuid import UUID
 
 import anyio
 
 from backend.services.luna.context import load_lesson
-from backend.services.luna.plan import apply_action, advance, current_step, fallback_plan, is_last
+from backend.services.luna.plan import apply_action, advance, current_step, fallback_plan, is_last, retarget_thin_pages
 from backend.services.luna.memory import choose_retirements
 from backend.services.luna.prompts import LessonView, plan_prompt, practice_prompt, turn_prompt, wrap_prompt
 from backend.services.luna.validate import PageIndex, validate_check, validate_plan, validate_turn, validate_wrap
@@ -24,6 +26,7 @@ logger = logging.getLogger(__name__)
 MAX_TURNS = 60
 RECENT = 8
 RECAP_EVERY = 8
+PLAN_LOOKAHEAD = 8
 FEATURE = "luna_session"
 
 FALLBACK = {
@@ -66,10 +69,46 @@ Loader = Callable[[str, str, list[int]], Awaitable[LessonView]]
 CanView = Callable[[str, str], Awaitable[bool]]
 
 
+# Gemini hung on every call in the live run, so it goes last.
+LUNA_PROVIDERS = ("groq", "openai", "gemini")
+
+
+def _attempt_seconds() -> float:
+    return float(os.getenv("LUNA_ATTEMPT_SECONDS", "15"))
+
+
+# Module constant (patchable); the env var is read at import time.
+LUNA_ATTEMPT_SECONDS = _attempt_seconds()
+
+
 async def default_ai(prompt: str, *, user_id: str, course_id: Optional[str], feature: str) -> Any:
+    """Try providers in turn, each bounded: a hung provider does not fail over inside the
+    orchestrator chain (only at the global timeout), so the failover is done here."""
     from backend.services.v4_reader_service import _generate_json
 
-    return await _generate_json(prompt, user_id=user_id, course_id=course_id, feature=feature, prefer="gemini")
+    last: Optional[BaseException] = None
+    for provider in LUNA_PROVIDERS:
+        try:
+            result = await asyncio.wait_for(
+                _generate_json(prompt, user_id=user_id, course_id=course_id, feature=feature, prefer=provider),
+                LUNA_ATTEMPT_SECONDS,
+            )
+        except asyncio.TimeoutError as exc:
+            last = exc
+            logger.warning("luna ai attempt failed provider=%s reason=timeout after %ss", provider, LUNA_ATTEMPT_SECONDS)
+            continue
+        except Exception as exc:
+            if _is_budget(exc):
+                raise
+            last = exc
+            logger.warning("luna ai attempt failed provider=%s reason=%r", provider, exc)
+            continue
+        if isinstance(result, dict):
+            return result
+        last = ValueError("non-dict AI result")
+        logger.warning("luna ai attempt failed provider=%s reason=non-dict result (%s)", provider, type(result).__name__)
+    assert last is not None
+    raise last
 
 
 async def default_find(course_id: str, q: str, exclude_lecture: str) -> list[dict]:
@@ -112,7 +151,9 @@ async def start(
     store: Any, *, user_id: str, space_id: str, lecture_id: str, page: int, opener: str, locale: str,
     ai: Ai = default_ai, load: Loader = load_lesson,
 ) -> dict:
-    view = await load(lecture_id, locale, [page])
+    # The learner's page and the eight after it, so a title or agenda slide still
+    # leaves the model (and the fallback) real content to plan on.
+    view = await load(lecture_id, locale, list(range(page, page + PLAN_LOOKAHEAD + 1)))
     if space_id not in {view.course_id, user_id}:
         raise _err(400, "wrong_space", locale)
     memory = await store.active_memory(user_id, space_id)
@@ -125,7 +166,11 @@ async def start(
             raise LunaError(429, BUDGET[_lang(locale)])
         logger.warning("luna plan model call failed: %s", exc)
     total = view.pages.totals[lecture_id]
-    plan = validate_plan(raw, lecture_id=lecture_id, pages=view.pages) or fallback_plan(lecture_id, page, total, locale=locale)
+    texts = {n: t for (lid, n), t in view.pages.texts.items() if lid == lecture_id}
+    valid = validate_plan(raw, lecture_id=lecture_id, pages=view.pages)
+    # The model still aims step 1 at the title slide the learner opened on: move it to content.
+    plan = retarget_thin_pages(valid, texts, lecture_id) if valid else fallback_plan(
+        lecture_id, page, total, locale=locale, texts=texts)
     say = str((raw or {}).get("say") or "").strip()[:400] if isinstance(raw, dict) else ""
     say = say or GREETING[_lang(locale)]
     session = await store.create_session(user_id, space_id, lecture_id, opener.strip()[:300], plan)
@@ -249,7 +294,7 @@ async def _run(
         except Exception as exc:
             yield "error", {"detail": BUDGET[lang] if _is_budget(exc) else FALLBACK[lang]}
             return
-        turn = validate_turn(raw, pages=view.pages)
+        turn = validate_turn(raw, pages=view.pages, locale=locale)
         if turn is None:
             yield "error", {"detail": FALLBACK[lang]}
             return
@@ -330,7 +375,7 @@ async def wrap(
             raise LunaError(429, BUDGET[_lang(locale)])
         logger.warning("luna wrap model call failed: %s", exc)
         raise _err(502, "wrap_failed", locale)
-    result = validate_wrap(raw, pages=view.pages, memory_ids={m["id"] for m in memory})
+    result = validate_wrap(raw, pages=view.pages, memory_ids={m["id"] for m in memory}, locale=locale)
     if not result:
         raise _err(502, "wrap_failed", locale)
     everything = await store.all_active_memory(user_id)
@@ -371,7 +416,7 @@ async def practice(
         raise _err(502, "practice_failed", locale)
     cards = []
     for q in (raw.get("questions") if isinstance(raw, dict) else None) or []:
-        check = validate_check(q)
+        check = validate_check(q, locale)
         if check:
             page = q.get("page") if isinstance(q.get("page"), int) and view.pages.exists(session["lecture_id"], q["page"]) else None
             cards.append({**check, "page": page})

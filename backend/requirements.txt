@@ -19,6 +19,9 @@ asyncpg==0.31.0
 # security fix should carry on its back.
 pypdf==6.21.2
 PyMuPDF==1.27.1
+# qpdf (bundled in the wheel) rewrites each lecture PDF's reading copy so its
+# first page needs fewer byte ranges -- see backend/services/parser/compact_pdf.py.
+pikepdf==10.17.0
 Pillow==13.0.0
 pillow-heif==1.8.1
 python-multipart==0.0.31

@@ -123,12 +123,12 @@ export function parseSse(chunk: string, carry: string): { events: LunaEvent[]; c
 }
 
 export function lunaEnabled(spaceId?: string, lessonId?: string): boolean {
-  return import.meta.env.VITE_FEATURE_LUNA_SESSIONS === '1' && isLive(spaceId, lessonId);
+  return ['1', 'true'].includes(import.meta.env.VITE_FEATURE_LUNA_SESSIONS ?? '') && isLive(spaceId, lessonId);
 }
 
 /** Luna is on and the data is real — for screens that have no Space or Lesson ids yet. */
 export function lunaLive(): boolean {
-  if (import.meta.env.VITE_FEATURE_LUNA_SESSIONS !== '1') return false;
+  if (!['1', 'true'].includes(import.meta.env.VITE_FEATURE_LUNA_SESSIONS ?? '')) return false;
   try {
     return dataMode(import.meta.env.VITE_V4_DATA_MODE) === 'live';
   } catch {
