@@ -4,6 +4,7 @@ Provides typed query helpers so services don't embed raw PostgREST chains.
 """
 from __future__ import annotations
 import logging
+import json
 from typing import Any
 from supabase import Client
 
@@ -58,6 +59,36 @@ async def insert_event(client: Client, user_id: str, event_type: str, event_data
         logger.warning(
             "Failed to enqueue rollup_analytics_cache for lecture_id=%s", lecture_id, exc_info=True
         )
+
+
+async def record_event(conn: Any, user_id: str, event_type: str, event_data: dict[str, Any]) -> bool:
+    """Validate and write one ``learning_events`` row on an open asyncpg connection.
+
+    The asyncpg twin of :func:`insert_event`, for writers that already hold a
+    connection (the v4 reader). Telemetry never costs the caller its own
+    work: the insert runs in a savepoint, so inside a caller's transaction a
+    refused row rolls back alone, and a payload the registry rejects or a
+    write the database refuses is logged and dropped. Returns whether the
+    row was written. The analytics cache is invalidated by the table's own
+    trigger, so nothing is enqueued here.
+    """
+    try:
+        validate_event(event_type, event_data)
+    except Exception:  # noqa: BLE001 — UnknownEventTypeError or ValidationError
+        logger.warning("learning event %s rejected by the registry", event_type, exc_info=True)
+        return False
+    try:
+        async with conn.transaction():
+            await conn.execute(
+                "INSERT INTO learning_events (user_id, event_type, event_data) VALUES ($1::uuid, $2, $3::jsonb)",
+                user_id,
+                event_type,
+                json.dumps(event_data),
+            )
+    except Exception:  # noqa: BLE001 — telemetry must not fail the request
+        logger.warning("learning event %s not written", event_type, exc_info=True)
+        return False
+    return True
 
 
 def get_events_for_lecture(

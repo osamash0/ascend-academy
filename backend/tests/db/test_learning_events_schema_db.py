@@ -54,3 +54,14 @@ def test_unknown_event_type_rejected_by_db(db_conn, make_user):
     with pytest.raises(psycopg.errors.CheckViolation):
         with db_conn.cursor() as cur:
             _insert_event(cur, uid, "totally_made_up_event")
+
+
+def test_checkpoint_attempt_accepted(db_conn, make_user):
+    uid = make_user()
+    with db_conn.cursor() as cur:
+        _insert_event(cur, uid, "checkpoint_attempt", '{"lectureId": "L1", "page": 3}')
+        cur.execute(
+            "SELECT count(*) FROM public.learning_events WHERE user_id = %s AND event_type = 'checkpoint_attempt'",
+            (str(uid),),
+        )
+        assert cur.fetchone()[0] == 1
