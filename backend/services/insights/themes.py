@@ -2,9 +2,10 @@
 
 Only for a page where at least `MIN_READERS` different members asked (the
 owner excluded): the model sees the questions, at most three per person
-(`balanced_questions`), the owner sees only the themes (spec §0). The call is metered to the owner, since their view asks for it,
-and cached per page and per number of askers, so it runs again only when
-someone new has asked. A failed call yields no themes and is not cached.
+(`balanced_questions`), the owner sees only the themes (spec §0). The call
+is metered to the owner, since their view asks for it, and cached per page
+and per number of askers, so it runs again only when someone new has asked.
+A failed call yields no themes and is not cached.
 """
 from __future__ import annotations
 
