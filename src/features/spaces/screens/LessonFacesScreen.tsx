@@ -20,13 +20,12 @@ import {
   useExplain,
   useReaderContent,
   useReaderLesson,
-  type RunFollow,
   useRehearsalHistory,
   useRelated,
 } from '../data/useReader';
 import { markTrail } from '../data/trail';
 import { uploadsNow } from '../data/uploads';
-import { useRunReading } from '../data/useRunReading';
+import { followOf, useRunStatus } from '../data/useRunReading';
 import { useLights } from '../components/reader/lights';
 import { useReadingProgress } from '../data/reading';
 import { ReaderTimeline } from '../components/reader/ReaderTimeline';
@@ -157,8 +156,7 @@ export default function LessonFacesScreen() {
     params.get('run') ??
     uploadsNow().find((u) => u.lessonId === lessonId && u.stage !== 'ready')?.id ??
     null;
-  const run = useRunReading(runId);
-  const follow: RunFollow | null = run ? { pagesReady: run.pagesReady.length, done: run.stage !== 'developing' } : null;
+  const { run, pending, follow } = followOf(useRunStatus(runId), runId, lessonId);
   const content = useReaderContent(spaceId, lessonId, follow);
 
   const sections = useMemo(
@@ -218,13 +216,20 @@ export default function LessonFacesScreen() {
   /* Count the reading: progress, visits and the streak, page by page. */
   useReadingProgress(lessonId, pdfPage, liveReader && numPages > 0);
   /* The practice bench: the lecture's real questions when live. */
-  const lights = useLights(run, pdfPage, { total: numPages || run?.pages || 0, practiceCount: lesson?.practiceCount ?? 0 });
+  const lights = useLights(run, pdfPage, {
+    total: numPages || run?.pages || 0,
+    practiceCount: lesson?.practiceCount ?? 0,
+    pending,
+    lessonId,
+  });
+  const following = lights.following;
   /* Only the faces this page has: Page always; Explain and Text once Luna has written it. */
   const views = useMemo(() => (lights.pageReady ? VIEWS : VIEWS.slice(0, 1)), [lights.pageReady]);
   useEffect(() => {
     if (!lights.pageReady && view !== 'slide') setView('slide');
   }, [lights.pageReady, view]);
-  const practice = usePracticeQuestions(lessonId, liveReader, lights.practiceOn);
+  /* Without a run the questions are always asked for, as they always were. */
+  const practice = usePracticeQuestions(lessonId, liveReader, lights.practiceArmed);
 
   /* Leave a mark where you are, so the course can offer to pick up here. */
   useEffect(() => {
@@ -355,25 +360,30 @@ export default function LessonFacesScreen() {
   /* Take the document to a page. The studio follows through the anchor. */
   const goToPage = useCallback(
     (page: number) => {
+      /*
+       * While Luna is still reading, a page she has not written has no anchor:
+       * the page still turns there, and the studio keeps the one it had (as a
+       * page report does). Otherwise a page without an anchor goes nowhere.
+       */
       const a = anchorForPage(page, sections);
-      if (!a) return;
+      if (!a && !following) return;
       engage();
       setBench(null);
-      setAnchor(a);
+      if (a) setAnchor(a);
       setPdfPage(page);
       setBeat(-1);
       /* A document has no pager to turn: take the scroll to the page. */
       if (shape === 'document' && pdfRef.current) scrollToPdfPage(pdfRef.current, page, 0.38, reduce ? 'auto' : 'smooth');
     },
-    [sections, engage, shape, reduce],
+    [sections, engage, shape, reduce, following],
   );
 
   /* Luna: a study session beside the page. Live only; nothing renders without it. */
   const navigate = useNavigate();
   const lunaOn = lunaEnabled(spaceId, lessonId);
-  const [lunaOpen, setLunaOpen] = useState(() => params.get('luna') === '1');
-  /* Explain and text dock in the same place: whichever opens, Luna steps aside. */
-  if (studio && lunaOpen) setLunaOpen(false);
+  const [lunaOpen, setLunaOpen] = useState(() => params.get('luna') === '1' && lights.lunaReady);
+  /* Explain and text dock in the same place: whichever opens, Luna steps aside. No session while she is still reading. */
+  if ((studio || !lights.lunaReady) && lunaOpen) setLunaOpen(false);
   const conductor = useLunaConductor({ lessonId: lessonId ?? '', spaceId: spaceId ?? '', goToPage, setSpot, navigate });
   const pdfPageRef = useRef(pdfPage);
   pdfPageRef.current = pdfPage;
@@ -895,17 +905,22 @@ export default function LessonFacesScreen() {
       onClose={closeCompanion}
       className={companion.kind === 'tutor' ? 'h-[min(60vh,560px)]' : undefined}
       footer={
-        <button
-          type="button"
-          onClick={() => {
-            setCompanion(null);
-            setBench('practice');
-          }}
-          className="console-focusable inline-flex h-8 items-center gap-1.5 rounded-full px-2 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
-        >
-          <ListChecks aria-hidden className="h-3.5 w-3.5" />
-          {tr('screen.practiseIdea')}
-        </button>
+        lights.practiceArmed ? (
+          <button
+            type="button"
+            onClick={() => {
+              setCompanion(null);
+              setBench('practice');
+            }}
+            className={cn(
+              'console-focusable inline-flex h-8 items-center gap-1.5 rounded-full px-2 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground',
+              lights.rings === 'practice' && 'ring-1 ring-white/60',
+            )}
+          >
+            <ListChecks aria-hidden className="h-3.5 w-3.5" />
+            {tr('screen.practiseIdea')}
+          </button>
+        ) : undefined
       }
     >
       {companion.kind === 'tutor' ? tutorNode : notesNode}
@@ -922,7 +937,10 @@ export default function LessonFacesScreen() {
             setCompanion(null);
             setBench('practice');
           }}
-          className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14.5px] font-semibold text-slate-900"
+          className={cn(
+            'console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14.5px] font-semibold text-slate-900',
+            lights.rings === 'practice' && 'ring-2 ring-white/60 ring-offset-2 ring-offset-background',
+          )}
         >
           <ListChecks aria-hidden className="h-4 w-4" />
           {tr('screen.practiseRead')}
@@ -1136,7 +1154,7 @@ export default function LessonFacesScreen() {
               className={cn(
                 'console-focusable relative h-8 rounded-full px-4 text-[13px] transition-colors',
                 on ? 'text-background' : 'text-quiet hover:text-foreground',
-                lights.ringing && v.id !== 'slide' && 'ring-1 ring-white/60',
+                lights.rings === 'tabs' && v.id !== 'slide' && 'ring-1 ring-white/60',
               )}
             >
               {on && (

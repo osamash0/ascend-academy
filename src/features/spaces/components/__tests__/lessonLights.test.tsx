@@ -47,8 +47,11 @@ vi.mock('@/components/pdf', () => ({
   warmPdfWorker: () => {},
 }));
 
-const runState = vi.hoisted(() => ({ reading: null as null | Record<string, unknown> }));
-vi.mock('../../data/useRunReading', () => ({ useRunReading: () => runState.reading }));
+const runState = vi.hoisted(() => ({ reading: null as null | Record<string, unknown>, gaveUp: false }));
+vi.mock('../../data/useRunReading', async (orig) => ({
+  ...(await orig<object>()),
+  useRunStatus: () => ({ reading: runState.reading, gaveUp: runState.gaveUp }),
+}));
 const base = { pdfUrl: 'u', pages: 82, pagesRead: 2, practiceReady: false, readable: true, stage: 'developing', lessonId: 'l-s-dbs-4' };
 
 const mountAt = async (query: string) => {
@@ -66,6 +69,7 @@ const mountAt = async (query: string) => {
 afterEach(() => {
   cleanup();
   runState.reading = null;
+  runState.gaveUp = false;
   mockPages = 0;
 });
 
@@ -108,6 +112,70 @@ describe('the faces light up page by page', () => {
     const bar = await screen.findByTestId('timeline-read');
     const total = Number(screen.getByTestId('timeline-count').textContent?.split('/')[1]?.trim());
     expect(bar.style.width).toBe(`${(3 / total) * 100}%`);
+  });
+
+  it('a run known but not heard from yet keeps every face waiting', async () => {
+    runState.reading = null;
+    await mountAt('?page=1&run=run-1');
+    expect(await screen.findByRole('tab', { name: 'Page' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Explain' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Text' })).toBeNull();
+  });
+
+  it('a run whose reads gave up is read as any Lesson', async () => {
+    runState.reading = null;
+    runState.gaveUp = true;
+    await mountAt('?page=1&run=run-1');
+    expect(await screen.findByRole('tab', { name: 'Explain' })).toBeInTheDocument();
+  });
+
+  it('a run for another Lesson is not followed', async () => {
+    runState.reading = { ...base, pagesReady: [1], lessonId: 'l-s-dbs-9' };
+    await mountAt('?page=5&run=run-1');
+    expect(await screen.findByRole('tab', { name: 'Explain' })).toBeInTheDocument();
+  });
+
+  it('seeking the timeline past Luna turns there, with Page only', async () => {
+    /* More pages than the stand-in deck has slides: the last one has no anchor yet. */
+    mockPages = 200;
+    runState.reading = { ...base, pagesReady: [1, 2] };
+    await mountAt('?page=1&run=run-1');
+    expect(await screen.findByRole('tab', { name: 'Explain' })).toBeInTheDocument();
+    fireEvent.pointerMove(window);
+    const slider = await screen.findByRole('slider');
+    fireEvent.keyDown(slider, { key: 'End' });
+    await waitFor(() => expect(screen.getByTestId('document')).toHaveTextContent('Page 200'));
+    expect(screen.getByRole('tab', { name: 'Page' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('tab', { name: 'Explain' })).toBeNull();
+  });
+
+  it('Explain gives way to Page when you turn to a page Luna has not written', async () => {
+    mockPages = 10;
+    runState.reading = { ...base, pagesReady: [1, 2] };
+    await mountAt('?page=2&run=run-1&view=explain');
+    expect(await screen.findByRole('tab', { name: 'Explain' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.pointerMove(window);
+    fireEvent.keyDown(await screen.findByRole('slider'), { key: 'ArrowUp' });
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Page' })).toHaveAttribute('aria-selected', 'true'));
+    expect(screen.queryByRole('tab', { name: 'Explain' })).toBeNull();
+  });
+
+  it("the companion's Practise waits for the questions while Luna reads", async () => {
+    runState.reading = { ...base, pagesReady: [1, 2, 3, 4, 5] };
+    await mountAt('?page=5&run=run-1&view=text');
+    await screen.findByRole('tab', { name: 'Text' });
+    fireEvent.click((await screen.findAllByRole('button', { name: /^Notes for/ }))[0]);
+    expect(await screen.findByText(/^Notes ·/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Practise this idea' })).toBeNull();
+  });
+
+  it("without a run, the companion's Practise is there", async () => {
+    runState.reading = null;
+    await mountAt('?page=5&view=text');
+    await screen.findByRole('tab', { name: 'Text' });
+    fireEvent.click((await screen.findAllByRole('button', { name: /^Notes for/ }))[0]);
+    expect(await screen.findByText(/^Notes ·/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Practise this idea' })).toBeInTheDocument();
   });
 
   it('without a run, nothing changes', async () => {
