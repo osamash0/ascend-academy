@@ -498,14 +498,16 @@ export default function LessonFacesScreen() {
   const [teaching, setTeaching] = useState<{ id: string; name: string; first: number; last: number } | null>(null);
   /*
    * Count the reading: progress, visits and the streak, page by page. Time
-   * the page sits under Luna, a checkpoint, the teach-back, the break room or
-   * the practice bench is not reading it, so it is not counted.
+   * the page is covered is not reading it, so it is not counted: Explain when
+   * it fills the screen over the page (narrow), a checkpoint, the teach-back,
+   * the break room, the practice bench. Luna sits beside or below the page,
+   * and the text view is still the page's words, so reading goes on there.
    */
   useReadingProgress(
     lessonId,
     pdfPage,
     liveReader && numPages > 0,
-    (lunaOn && lunaOpen) || checkpointOpen || Boolean(teaching) || care.resting || Boolean(bench),
+    (view === 'explain' && !panel) || checkpointOpen || Boolean(teaching) || care.resting || Boolean(bench),
   );
   /*
    * A slide is landscape; a phone held upright shows it at a third of the

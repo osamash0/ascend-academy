@@ -7,10 +7,11 @@ import { endSession, startSession } from './readingSession';
  *
  * Each time the page in view changes the page being *left* is posted with how
  * long it was really read, the reading session, and the page now in view (an
- * earlier one is a way back). Time the page sat under Explain, Luna, a
- * checkpoint or the break room (`covered`), or in a hidden tab, is not
- * counted. Closing the reader reports the open page; closing the tab reports
- * it too, as a beacon, because nothing after `pagehide` is sure to run.
+ * earlier one is a way back). Time the page is covered (`covered`: Explain
+ * when it fills the screen over the page, a checkpoint, the teach-back, the
+ * break room, the practice bench), or in a hidden tab, is not counted. Closing
+ * the reader reports the open page; closing the tab reports it too, as a
+ * beacon, because nothing after `pagehide` is sure to run.
  *
  * Fire-and-forget: a failed report must never interrupt reading. Live only.
  */
