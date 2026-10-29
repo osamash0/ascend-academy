@@ -85,6 +85,11 @@
       "start": "One question",
       "teach": "Explain it back"
     },
+    "checkin": {
+      "label": "How did it land?",
+      "clicked": "Clicked",
+      "foggy": "Still foggy"
+    },
     "panel": {
       "label": "Checkpoint: {{name}}",
       "heading": "Checkpoint · pages {{first}}–{{last}}",

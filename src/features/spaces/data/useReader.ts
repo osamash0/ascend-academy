@@ -10,6 +10,7 @@ import {
   dataMode,
   loadLiveRepository,
   type Checkpoint,
+  type CheckpointAnswer,
   type ReaderLink,
   type TeachBack,
   type ReaderConcept,
@@ -486,6 +487,20 @@ export function teachBack(lectureId: string, first: number, last: number, idea: 
     loadLiveRepository().then((repo) => repo.teachBack(lectureId, { first, last, idea, explanation, session_id: currentSession(lectureId) ?? '' })),
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Teach-back timed out')), 120_000)),
   ]);
+}
+
+/** The check-in at an idea's checkpoint. Fire-and-forget: it never holds the reader up. */
+export function recordCheckIn(lectureId: string, first: number, last: number, idea: string, rating: 'got_it' | 'confused'): void {
+  void loadLiveRepository()
+    .then((repo) => repo.checkIn(lectureId, { first, last, idea: idea.slice(0, 120), rating, session_id: currentSession(lectureId) ?? '' }))
+    .catch(() => {});
+}
+
+/** One checkpoint answer, for the server to grade and record. The reader still grades it at once for the learner. */
+export function recordCheckpointAnswer(lectureId: string, first: number, last: number, questionId: number, answer: CheckpointAnswer): void {
+  void loadLiveRepository()
+    .then((repo) => repo.answerCheckpoint(lectureId, { first, last, question_id: questionId, answer, session_id: currentSession(lectureId) ?? '' }))
+    .catch(() => {});
 }
 
 /**

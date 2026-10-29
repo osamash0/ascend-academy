@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { Checkpoint } from '../../data/liveRepository';
 import { QuestionView } from '../rehearsal/QuestionView';
-import { grade, type Grade } from '../rehearsal/grade';
+import { grade, type Answer, type Grade } from '../rehearsal/grade';
 
 /**
  * A checkpoint at the end of an idea.
@@ -35,18 +35,23 @@ interface Props {
   onOpenChange?: (open: boolean) => void;
   /** The other way to check: explain the idea in your own words. */
   onTeach?: () => void;
+  /** The quiet check-in: how the idea landed, before any question. Optional, never blocking. */
+  onCheckIn?: (rating: 'got_it' | 'confused') => void;
+  /** Every answer, as given, with the span the checkpoint was served for, so the server can grade it too. */
+  onAnswer?: (questionId: number, answer: Answer, span: { first: number; last: number }) => void;
   onDismiss: () => void;
 }
 
 type Phase = 'offer' | 'loading' | 'asking' | 'done' | 'failed';
 
-export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onOpenChange, onTeach, onDismiss }: Props) {
+export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onOpenChange, onTeach, onCheckIn, onAnswer, onDismiss }: Props) {
   const { t } = useTranslation('v4Reader');
   const reduce = useReducedMotion();
   const [phase, setPhase] = useState<Phase>('offer');
   const [cp, setCp] = useState<Checkpoint | null>(null);
   const [at, setAt] = useState(0);
   const [grades, setGrades] = useState<Grade[]>([]);
+  const [rating, setRating] = useState<'got_it' | 'confused' | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const ideaKey = idea ? `${idea.first}-${idea.last}` : '';
 
@@ -56,6 +61,7 @@ export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onO
     setCp(null);
     setAt(0);
     setGrades([]);
+    setRating(null);
   }, [ideaKey]);
 
   useEffect(() => {
@@ -118,6 +124,29 @@ export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onO
           <p className="mt-1 text-[13px] text-quiet">
             {phase === 'failed' ? t('checkpoint.offer.failed') : t('checkpoint.offer.prompt')}
           </p>
+          {onCheckIn && phase !== 'failed' && (
+            <div role="group" aria-label={t('checkpoint.checkin.label')} className="mt-3 flex flex-wrap gap-1.5">
+              {(['got_it', 'confused'] as const).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  aria-pressed={rating === r}
+                  onClick={() => {
+                    /* A repeat tap on the chosen one says nothing new; switching still does. */
+                    if (rating === r) return;
+                    setRating(r);
+                    onCheckIn(r);
+                  }}
+                  className={cn(
+                    'console-focusable inline-flex h-8 items-center rounded-full px-3.5 text-[12.5px] transition-colors',
+                    rating === r ? 'bg-white/[0.16] text-foreground' : 'bg-white/[0.05] text-quiet hover:bg-white/[0.1] hover:text-foreground',
+                  )}
+                >
+                  {t(r === 'got_it' ? 'checkpoint.checkin.clicked' : 'checkpoint.checkin.foggy')}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"
@@ -195,7 +224,10 @@ export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onO
                   lectureTitle={lectureTitle}
                   pageHref={pageHref(q.page)}
                   graded={grades[at] ?? null}
-                  onCheck={(a) => setGrades((g) => [...g.slice(0, at), grade(q, a)])}
+                  onCheck={(a) => {
+                    setGrades((g) => [...g.slice(0, at), grade(q, a)]);
+                    if (cp) onAnswer?.(q.id, a, { first: cp.first, last: cp.last });
+                  }}
                 />
                 {grades[at] && (
                   <button

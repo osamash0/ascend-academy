@@ -13,6 +13,8 @@ import { NoteEditor } from '../components/NoteEditor';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import {
   fetchCheckpoint,
+  recordCheckIn,
+  recordCheckpointAnswer,
   teachBack,
   isLive,
   saveRehearsal,
@@ -1225,6 +1227,10 @@ export default function LessonFacesScreen() {
           if (offer) setTeaching(offer);
           dismissOffer();
         }}
+        onCheckIn={
+          liveReader && offer ? (rating) => recordCheckIn(lesson.id, offer.first, offer.last, offer.name, rating) : undefined
+        }
+        onAnswer={liveReader ? (id, answer, span) => recordCheckpointAnswer(lesson.id, span.first, span.last, id, answer) : undefined}
         onDismiss={dismissOffer}
       />
       <TeachBack
