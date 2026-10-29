@@ -231,6 +231,7 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
             "title": (lec["title"] if lec else None) or r["filename"],
             "total_slides": (lec["total_slides"] if lec else 0) or 0,
             "quiz_count": c.get("quiz_count", 0),
+            "slide_count": c.get("slide_count", 0),
             "stage": stage_of(r["status"]),
             # The run knows its page count right after extraction; the
             # lecture's total_slides only after finalize.
