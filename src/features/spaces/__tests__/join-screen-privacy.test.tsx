@@ -38,7 +38,7 @@ describe('the join screen says what owners can see', () => {
       </MemoryRouter>,
     );
     expect(
-      await screen.findByText('The people who run this Space can see how its pages are read, never your name.'),
+      await screen.findByText('The people who run this Space can see how its pages are read.'),
     ).toBeInTheDocument();
   });
 });
