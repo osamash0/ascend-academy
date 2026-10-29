@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from backend.domain.authorization import (
     assert_lecture_owner,
     assert_professor_access,
+    assert_space_owner,
     assert_student_access,
 )
 
@@ -50,3 +51,22 @@ class TestRoleGates:
         with pytest.raises(HTTPException) as exc:
             assert_professor_access("student")
         assert exc.value.status_code == 403
+
+
+OWNER = "11111111-1111-1111-1111-111111111111"
+
+
+def _code(space, uid):
+    try:
+        assert_space_owner(space, uid)
+    except HTTPException as exc:
+        return exc.status_code
+    return 200
+
+
+def test_only_the_owner_opens_a_space_view_a_member_is_told_and_others_learn_nothing():
+    space = {"id": "s", "title": "DBS", "professor_id": OWNER, "is_member": False}
+    assert _code(space, OWNER) == 200
+    assert _code({**space, "is_member": True}, "someone-else") == 403
+    assert _code(space, "someone-else") == 404
+    assert _code(None, OWNER) == 404

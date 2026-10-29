@@ -42,3 +42,21 @@ def assert_professor_access(user_role: str) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This endpoint is only accessible to professors.",
         )
+
+
+def assert_space_owner(space: dict | None, user_id: str) -> None:
+    """Only the person who runs a Space may open its owner's views (spec §0).
+
+    ``space`` is ``v4_landing_service.space_row`` — ``None`` when the Space
+    does not exist or is the caller's personal Space (which has no owner's
+    view). A member is told the door is not theirs (403); anyone else learns
+    nothing (404), as everywhere in v4.
+    """
+    if space is not None and str(space.get("professor_id")) == str(user_id):
+        return
+    if space is not None and space.get("is_member"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the people who run this Space can open this.",
+        )
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Space not found.")
