@@ -149,6 +149,14 @@ def test_a_page_beyond_the_lessons_pages_does_not_lengthen_its_help():
     assert len(help_index({"l1": lf})["l1"]) == 4
 
 
+def test_a_hidden_page_beyond_the_lessons_pages_does_not_dim_the_shown_ones():
+    # Five people who all "needed" page 9 of a four-page Lesson (their own inserts) set no scale.
+    shown = {1: PageFacts(readers=people(10), explain={"r0"}), 2: PageFacts(readers=people(10), ask=people(4))}
+    alone = help_index({"l1": facts(shown, count=4)})
+    hidden = PageFacts(readers=people(5, prefix="h"), ask=people(5, prefix="h"))
+    assert help_index({"l1": facts({**shown, 9: hidden}, count=4)}) == alone == {"l1": [0.2, 0.8, 0.0, 0.0]}
+
+
 def test_a_lesson_without_a_page_count_is_as_long_as_its_highest_page_read():
     lf = facts({2: PageFacts(readers=people(10), explain={"r0"}), 5: PageFacts(readers=people(10))}, count=0)
     assert len(help_index({"l1": lf})["l1"]) == 5

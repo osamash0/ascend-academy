@@ -34,16 +34,15 @@ def help_index(facts: dict[str, LessonFacts]) -> dict[str, list[float]]:
     """Per Lesson, one 0–1 value per page: its help share, normalised over the Space.
 
     As long as the Lesson has pages (else the highest page seen), so a page number
-    beyond them never lengthens the list."""
-    shares = {lid: {n: help_share(pf) for n, pf in lf.pages.items()} for lid, lf in facts.items()}
-    top = max((v for s in shares.values() for v in s.values()), default=0.0)
-    scale = max(HELP_FULL, top)
-    out: dict[str, list[float]] = {}
+    beyond them never lengthens the list, and normalised over those shown pages only,
+    so a page no one is shown never sets the scale."""
+    shares: dict[str, list[float]] = {}
     for lid, lf in facts.items():
         # The Lesson's own page count when it has one; else the highest page seen (never above MAX_PAGE).
         length = lf.lesson.pages if lf.lesson.pages > 0 else max(lf.pages, default=0)
-        out[lid] = [round(min(1.0, shares[lid].get(n, 0.0) / scale), 2) for n in range(1, length + 1)]
-    return out
+        shares[lid] = [help_share(lf.pages[n]) if n in lf.pages else 0.0 for n in range(1, length + 1)]
+    scale = max(HELP_FULL, max((v for s in shares.values() for v in s), default=0.0))
+    return {lid: [round(min(1.0, v / scale), 2) for v in s] for lid, s in shares.items()}
 
 
 def grid(f: PageFacts) -> Optional[dict[str, int]]:
