@@ -5,6 +5,7 @@ import asyncio
 import uuid
 
 import backend.services.v4_telemetry as tel
+from backend.schemas.learning_events import validate_event
 
 LEC = uuid.UUID("11111111-1111-1111-1111-111111111111")
 SLIDE = "33333333-3333-3333-3333-333333333333"
@@ -31,6 +32,8 @@ def _fake_db(monkeypatch, *, slide=SLIDE, fail_connect=False):
         return Ctx()
 
     async def record(conn, user_id, event_type, data):
+        # The real record_event drops a row the registry refuses, silently; here it must fail the test.
+        validate_event(event_type, data)
         written.append((user_id, event_type, data))
         return True
 

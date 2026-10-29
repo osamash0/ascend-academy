@@ -6,6 +6,7 @@ import json
 import uuid
 
 import backend.services.v4_practice_service as svc
+from backend.schemas.learning_events import validate_event
 
 LEC = uuid.UUID("11111111-1111-1111-1111-111111111111")
 Q = uuid.UUID("44444444-4444-4444-4444-444444444444")
@@ -57,6 +58,8 @@ def _run(monkeypatch, conn, chosen):
         return Ctx()
 
     async def record(c, user_id, event_type, data):
+        # The real record_event drops a row the registry refuses, silently; here it must fail the test.
+        validate_event(event_type, data)
         events.append((event_type, data))
         return True
 
