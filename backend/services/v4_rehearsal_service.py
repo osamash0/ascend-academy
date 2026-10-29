@@ -63,6 +63,45 @@ def _holds(columns: list[str], rows: list[list[str]], lhs: list[str], rhs: list[
     return True
 
 
+def grade_answer(question: dict[str, Any], answer: dict[str, Any]) -> bool:
+    """Grade one checkpoint answer the way the reader does (``rehearsal/grade.ts``):
+    tool questions by computing the answer, choice and order against the
+    slides. Anything malformed is simply wrong — never an error."""
+
+    def same(got: Any, expected: set) -> bool:
+        return isinstance(got, list) and len(got) == len(expected) and set(got) == expected
+
+    try:
+        kind = question.get("kind")
+        if answer.get("kind") != kind:
+            return False
+        if kind == "choice":
+            right = next((i for i, o in enumerate(question["options"]) if o.get("correct")), None)
+            return right is not None and answer.get("index") == right
+        if kind == "order":
+            order = answer.get("order")
+            return isinstance(order, list) and len(order) == len(question["items"]) and all(
+                v == i for i, v in enumerate(order)
+            )
+        if kind == "fdHolds":
+            holds = {
+                i for i, fd in enumerate(question["candidates"])
+                if _holds(question["columns"], question["rows"], fd["lhs"], fd["rhs"])
+            }
+            return same(answer.get("holds"), holds)
+        fds = [(set(fd["lhs"]), set(fd["rhs"])) for fd in question["fds"]]
+        if kind == "closure":
+            c = _closure(set(question["start"]), fds)
+            return same(answer.get("attrs"), {a for a in question["attrs"] if a in c})
+        if kind == "bcnf":
+            attrs = set(question["attrs"])
+            violating = {i for i, (lhs, rhs) in enumerate(fds) if not rhs <= lhs and not attrs <= _closure(lhs, fds)}
+            return same(answer.get("violating"), violating)
+    except (KeyError, IndexError, TypeError, ValueError, AttributeError):
+        return False
+    return False
+
+
 # ─── the questions ───────────────────────────────────────────────────────
 
 
@@ -337,6 +376,19 @@ Idea: {idea} (pages {first}–{last})
 Answer with ONE JSON object only: {{"questions":[...]}}"""
 
 
+def checkpoint_key(lecture_id: UUID, revision: Any, locale: str, first: int, last: int) -> str:
+    return f"v4reader:{CHECKPOINT_VERSION}:{lecture_id}:{revision}:{locale}:{first}-{last}"
+
+
+async def cached_checkpoint(lecture_id: UUID, first: int, last: int, locale: str) -> Optional[dict[str, Any]]:
+    """The checkpoint as it was served (answers included), or None once it has expired."""
+    from backend.services.v4_reader_service import _lecture_row
+
+    meta = await _lecture_row(lecture_id)
+    cached = await get_cache(checkpoint_key(lecture_id, meta["content_revision"], locale, first, last))
+    return cached if isinstance(cached, dict) and cached.get("questions") else None
+
+
 async def checkpoint(
     lecture_id: UUID,
     first: int,
@@ -358,7 +410,7 @@ async def checkpoint(
     if last < first:
         raise HTTPException(status_code=422, detail="Those pages are not in this lecture.")
 
-    key = f"v4reader:{CHECKPOINT_VERSION}:{lecture_id}:{meta['content_revision']}:{locale}:{first}-{last}"
+    key = checkpoint_key(lecture_id, meta["content_revision"], locale, first, last)
     cached = await get_cache(key)
     if isinstance(cached, dict) and cached.get("questions"):
         return {**cached, "cached": True}
