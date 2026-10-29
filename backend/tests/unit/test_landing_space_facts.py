@@ -35,6 +35,17 @@ def test_a_sitting_is_one_persons_session_on_one_page_and_a_tab_left_open_is_not
     assert page.readers == {"a", "b"} and facts.readers == {"a", "b"}
 
 
+def test_a_page_no_reader_could_name_is_forged_and_makes_no_page():
+    # A member's own insert can say any page; the reader API stops at 2000, so a page past that was never read.
+    facts = lesson_facts(space(
+        ev("a", "slide_view", 0, page=3, duration_seconds=20, sessionId="s1"),
+        ev("a", "slide_view", 1, page=2_000_000_000, duration_seconds=20, sessionId="s1"),
+        ev("b", "ai_tutor_query", 2, page=2_000_000_000, kind="ask", query="x"),
+        ev("b", "confidence_rating", 3, page=2_001, rating="confused"),
+    ))[L1]
+    assert set(facts.pages) == {3}
+
+
 def test_the_latest_check_in_counts_and_the_old_reader_is_placed_by_its_slide():
     facts = lesson_facts(space(
         ev("a", "confidence_rating", 0, page=9, idea="Joins", rating="confused"),

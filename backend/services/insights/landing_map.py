@@ -31,13 +31,17 @@ def help_share(f: PageFacts) -> float:
 
 
 def help_index(facts: dict[str, LessonFacts]) -> dict[str, list[float]]:
-    """Per Lesson, one 0–1 value per page: its help share, normalised over the Space."""
+    """Per Lesson, one 0–1 value per page: its help share, normalised over the Space.
+
+    As long as the Lesson has pages (else the highest page seen), so a page number
+    beyond them never lengthens the list."""
     shares = {lid: {n: help_share(pf) for n, pf in lf.pages.items()} for lid, lf in facts.items()}
     top = max((v for s in shares.values() for v in s.values()), default=0.0)
     scale = max(HELP_FULL, top)
     out: dict[str, list[float]] = {}
     for lid, lf in facts.items():
-        length = max([lf.lesson.pages, *lf.pages.keys()], default=0)
+        # The Lesson's own page count when it has one; else the highest page seen (never above MAX_PAGE).
+        length = lf.lesson.pages if lf.lesson.pages > 0 else max(lf.pages, default=0)
         out[lid] = [round(min(1.0, shares[lid].get(n, 0.0) / scale), 2) for n in range(1, length + 1)]
     return out
 
@@ -59,12 +63,15 @@ def _pct(value: Any) -> int:
 
 def _metrics(kind: str, m: dict[str, Any], f: PageFacts) -> dict[str, float]:
     if kind == "confusion_hotspot":
-        return {"askers": len(f.explain | f.ask), "foggy": _pct(m.get("confusionRate"))}
+        # Readers only, as `page_row` and `help_share` count: someone who asked without a counted read is no reader here.
+        return {"askers": len((f.explain | f.ask) & f.readers), "foggy": _pct(m.get("confusionRate"))}
     if kind == "silent_misleader":
         clicked = [cleared for rating, cleared in f.pairs.values() if rating == "got_it"]
+        # The detector fires only on 2 or fewer clicked pairs (3 or more is a calibration_gap), so the
+        # pairs are stated as a share only once the floor's worth exist; else the page's own pass rate.
         missed = (
             _pct(100 * sum(1 for c in clicked if not c) / len(clicked))
-            if clicked
+            if len(clicked) >= MIN_READERS
             else _pct(100 - float(m.get("quizSuccessRate") or 0))
         )
         return {"clicked": _pct(m.get("gotItPct")), "missed": missed}

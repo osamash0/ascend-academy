@@ -36,12 +36,27 @@ def test_a_hotspot_tells_how_many_people_asked_and_how_many_said_foggy():
     }
 
 
+def test_someone_who_asked_without_reading_the_page_is_not_counted_among_its_askers():
+    pf = PageFacts(readers=people(10), explain={"r0"}, ask={"r1", "ghost"})
+    out = to_landing(engine("confusion_hotspot", 3, confusionRate=50.0), facts({3: pf}))
+    assert out["metrics"]["askers"] == 2
+
+
 def test_a_trap_tells_clicked_then_missed_and_carries_its_grid():
     pairs = {f"r{i}": ("got_it", i >= 3) for i in range(5)} | {"r5": ("confused", True)}
     pf = PageFacts(readers=people(10), pairs=pairs)
     out = to_landing(engine("silent_misleader", 9, gotItPct=78.0, quizSuccessRate=40.0), facts({9: pf}))
     assert out["metrics"] == {"clicked": 78, "missed": 60}
     assert out["grid"] == {"clickedCleared": 2, "clickedMissed": 3, "foggyCleared": 1, "foggyMissed": 0}
+
+
+def test_a_trap_with_one_or_two_clicked_pairs_does_not_state_their_outcome_as_a_share():
+    # The detector only fires on a trap with 2 or fewer clicked pairs, so the pairs are one or two people:
+    # their 1-in-2 must not be told as "50%". The page's own pass rate stands in.
+    pf = PageFacts(readers=people(10), pairs={"r0": ("got_it", True), "r1": ("got_it", False)})
+    out = to_landing(engine("silent_misleader", 9, gotItPct=78.0, quizSuccessRate=41.6), facts({9: pf}))
+    assert out["metrics"] == {"clicked": 78, "missed": round(100 - 41.6)}
+    assert "grid" not in out
 
 
 def test_each_kind_sends_the_numbers_its_copy_reads():
@@ -113,6 +128,16 @@ def test_help_is_the_share_of_readers_who_needed_the_page_never_brighter_than_ha
     lf = facts({1: quiet, 2: loud, 3: few}, count=4)
     assert help_share(quiet) == 0.1 and help_share(few) == 0.0
     assert help_index({"l1": lf}) == {"l1": [0.2, 1.0, 0.0, 0.0]}
+
+
+def test_a_page_beyond_the_lessons_pages_does_not_lengthen_its_help():
+    lf = facts({1: PageFacts(readers=people(10), explain={"r0"}), 1_999: PageFacts(readers=people(10), ask=people(6))}, count=4)
+    assert len(help_index({"l1": lf})["l1"]) == 4
+
+
+def test_a_lesson_without_a_page_count_is_as_long_as_its_highest_page_read():
+    lf = facts({2: PageFacts(readers=people(10), explain={"r0"}), 5: PageFacts(readers=people(10))}, count=0)
+    assert len(help_index({"l1": lf})["l1"]) == 5
 
 
 def test_a_grid_needs_five_pairs():

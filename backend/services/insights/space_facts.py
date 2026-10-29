@@ -26,6 +26,11 @@ DWELL_CEIL = 1800.0
 #: A sitting shorter than this is a glance (the engine's "short view").
 SHORT_VIEW = 4.0
 
+#: The highest page number a reader can name: the reader API's own bound
+#: (`v4_reader._Reading.page le=2000`). An event is a member's own insert, so a
+#: page beyond it is forged, not read; counting it would let one member size a list.
+MAX_PAGE = 2000
+
 _RATINGS = ("got_it", "unsure", "confused")
 
 
@@ -78,7 +83,7 @@ class LessonFacts:
 
 
 def _page(value: Any) -> Optional[int]:
-    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 1 else None
+    return value if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= MAX_PAGE else None
 
 
 def page_of(event: Event, data: SpaceData, page_key: str = "page", slide_key: str = "slideId") -> Optional[int]:
