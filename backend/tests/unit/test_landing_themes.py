@@ -60,9 +60,26 @@ def test_a_failed_call_costs_the_owner_nothing_and_is_not_kept(model):
 
 
 def test_a_theme_that_repeats_a_question_is_dropped_and_three_is_the_most():
+    out = themes.clean_themes({"themes": [ASKED[1], "  A  ", "B", "C", "D", 7]}, ASKED)
+    assert out == ["A", "B", "C"]
+    assert themes.clean_themes(["not", "a", "dict"], ASKED) == []
+
+
+def test_ordinary_themes_are_tidied_and_three_is_still_the_most():
     out = themes.clean_themes({"themes": [ASKED[1], "  Key  choices ", "Join order", "Index cost", "Lock waits", 7]}, ASKED)
     assert out == ["Key choices", "Join order", "Index cost"]
-    assert themes.clean_themes(["not", "a", "dict"], ASKED) == []
+
+
+def test_a_theme_that_only_shares_words_with_a_question_is_kept():
+    asked = ["Is a lossless decomposition always dependency preserving?"]
+    for kept in ("Lossless decomposition", "Dependency", "a", "Dependency preservation"):
+        assert themes.clean_themes({"themes": [kept]}, asked) == [kept], kept
+    # Four or more words in a row, whole words, taken from the question: that is the question.
+    assert themes.clean_themes({"themes": ["a lossless decomposition always dependency"]}, asked) == []
+    # Letters inside a word are not words: "ssless" is no run of the question's words.
+    assert themes.clean_themes({"themes": ["a lossless decomposition always ssless"]}, asked) == [
+        "a lossless decomposition always ssless"
+    ]
 
 
 def test_a_question_tidied_or_without_its_mark_is_still_a_question():
@@ -79,8 +96,10 @@ def test_the_first_hundred_and_twenty_characters_of_a_long_question_are_a_questi
         "ursprünglichen Schemaentwürfen, obwohl Verlustfreiheit gewährleistet bleibt?"
     )
     cut = long[:120]
-    # Short enough in words that only the "part of a question" rule can drop it.
+    # Short enough in words that only the "part of a question" rule can drop it, and the cut
+    # lands inside a word ("verl"), so that last word alone is not one of the question's words.
     assert len(long) > 120 and len(themes._norm(cut).split()) <= 12
+    assert f" {themes._norm(cut)} " not in f" {themes._norm(long)} "
     assert themes.clean_themes({"themes": [cut, "Join order"]}, [long]) == ["Join order"]
 
 

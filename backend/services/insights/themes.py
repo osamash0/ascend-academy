@@ -26,8 +26,8 @@ MAX_THEMES = 3
 MAX_TEXTS = 60
 #: A theme is a short phrase.
 MAX_THEME_WORDS = 12
-#: A shorter question is too small for "part of it" or "wraps it" to mean it was echoed.
-MIN_QUESTION_WORDS = 4
+#: Fewer words in a row, from a question, are just the vocabulary of the topic, not an echo of it.
+MIN_ECHO_WORDS = 4
 
 _LANGUAGE = {"en": "English", "de": "German (address no one, no exclamation marks)"}
 
@@ -53,10 +53,17 @@ def themes_prompt(texts: list[str], lang: str) -> str:
 
 
 def _repeats_a_question(theme: str, questions: list[str]) -> bool:
-    """True when the theme is a question, part of one, or wraps one (compared as plain words)."""
+    """True when the theme is a question, a run of four or more of its words, or wraps one.
+
+    Both are normalised words and matched on whole words, so "b" is not inside "bcnf". The
+    theme's last word may be cut short (a model, or a cap, can stop mid-word); every word
+    before it must be whole.
+    """
+    long_theme = len(theme.split()) >= MIN_ECHO_WORDS
     return any(
         theme == q
-        or (len(q.split()) >= MIN_QUESTION_WORDS and (theme in q or q in theme))
+        or (long_theme and f" {theme}" in f" {q}")
+        or (len(q.split()) >= MIN_ECHO_WORDS and f" {q} " in f" {theme} ")
         for q in questions
     )
 
