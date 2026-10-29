@@ -319,7 +319,22 @@ export default function LessonFacesScreen() {
   const [lunaOpen, setLunaOpen] = useState(() => params.get('luna') === '1');
   /* Explain and text dock in the same place: whichever opens, Luna steps aside. */
   if (studio && lunaOpen) setLunaOpen(false);
-  const conductor = useLunaConductor({ lessonId: lessonId ?? '', spaceId: spaceId ?? '', goToPage, setSpot, navigate });
+  /* The page Luna last turned to, so the reading count never takes her move for the reader turning back. */
+  const lunaSteered = useRef<number | null>(null);
+  const lunaGoToPage = useCallback(
+    (p: number) => {
+      lunaSteered.current = p;
+      goToPage(p);
+    },
+    [goToPage],
+  );
+  const conductor = useLunaConductor({
+    lessonId: lessonId ?? '',
+    spaceId: spaceId ?? '',
+    goToPage: lunaGoToPage,
+    setSpot,
+    navigate,
+  });
   const pdfPageRef = useRef(pdfPage);
   pdfPageRef.current = pdfPage;
   const luna = useLunaSession({
@@ -510,6 +525,7 @@ export default function LessonFacesScreen() {
     pdfPage,
     liveReader && numPages > 0,
     (view === 'explain' && !panel) || checkpointOpen || Boolean(teaching) || care.resting || Boolean(bench),
+    lunaSteered,
   );
   /*
    * A slide is landscape; a phone held upright shows it at a third of the

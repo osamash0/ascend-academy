@@ -149,6 +149,24 @@ describe('useReadingProgress', () => {
     expect(recordMock).toHaveBeenLastCalledWith('lec-1', 2, 10, expect.any(String), 3);
   });
 
+  it('a page Luna turns to is not the reader turning back', async () => {
+    const steered = { current: null as number | null };
+    const { rerender } = renderHook(({ page }) => useReadingProgress('lec-1', page, true, false, steered), {
+      initialProps: { page: 5 },
+    });
+    await flush();
+    at('10:00:20');
+    steered.current = 2;
+    rerender({ page: 2 });
+    await flush();
+    expect(recordMock).toHaveBeenLastCalledWith('lec-1', 5, 20, expect.any(String), undefined);
+    expect(steered.current).toBeNull();
+    at('10:00:30');
+    rerender({ page: 1 });
+    await flush();
+    expect(recordMock).toHaveBeenLastCalledWith('lec-1', 2, 10, expect.any(String), 1);
+  });
+
   it('leaves no listeners behind when the reader goes', async () => {
     const adds = vi.spyOn(window, 'addEventListener');
     const removes = vi.spyOn(window, 'removeEventListener');

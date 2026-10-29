@@ -13,9 +13,18 @@ import { endSession, startSession } from './readingSession';
  * the reader reports the open page; closing the tab reports it too, as a
  * beacon, because nothing after `pagehide` is sure to run.
  *
+ * A page a guide turned to (`steered`: Luna) is reported without the page now
+ * in view, so it is never counted as the reader turning back.
+ *
  * Fire-and-forget: a failed report must never interrupt reading. Live only.
  */
-export function useReadingProgress(lessonId: string | undefined, page: number, live: boolean, covered = false): void {
+export function useReadingProgress(
+  lessonId: string | undefined,
+  page: number,
+  live: boolean,
+  covered = false,
+  steered?: { current: number | null },
+): void {
   const clock = useRef<{ page: number; at: number; paused: number; pausedAt: number | null } | null>(null);
   const session = useRef<string | null>(null);
   const repo = useRef<LiveRepository | null>(null);
@@ -90,12 +99,17 @@ export function useReadingProgress(lessonId: string | undefined, page: number, l
   /* The page changed: report the one left, start the next. */
   useEffect(() => {
     pageRef.current = page;
+    /* A page a guide (Luna) turned to is not the reader turning back. */
+    const guided = steered?.current === page;
+    if (steered) steered.current = null;
     if (!live || !lessonId || page < 1) return;
     const now = Date.now();
     const left = clock.current;
-    if (left && left.page !== page) send(repo.current, lessonId, left.page, seconds(left, now), session.current, page);
+    if (left && left.page !== page) {
+      send(repo.current, lessonId, left.page, seconds(left, now), session.current, guided ? undefined : page);
+    }
     if (!left || left.page !== page) clock.current = { page, at: now, paused: 0, pausedAt: isPaused() ? now : null };
-  }, [lessonId, page, live]);
+  }, [lessonId, page, live, steered]);
 
   /* Covered or uncovered: move the pause clock. */
   useEffect(() => {
