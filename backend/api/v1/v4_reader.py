@@ -124,6 +124,7 @@ class _Answer(BaseModel):
     model_config = ConfigDict(extra="forbid")
     question_id: UUID
     answer: str = Field(min_length=1, max_length=2000)
+    session_id: str = Field(default="", max_length=64)
 
 
 @router.post("/lectures/{lecture_id}/practice/answer")
@@ -134,11 +135,12 @@ async def reader_practice_answer(
     body: _Answer,
     user: Any = Depends(verify_token),
 ):
-    """Grade on the server, log a quiz_attempt, and grant XP once per question."""
+    """Grade on the server, log a first try or a retry, and grant XP once per question."""
     from backend.services.v4_practice_service import answer
+    from backend.services.v4_telemetry import session_or_new
 
     uid = await _lecture_access(lecture_id, user)
-    return await answer(lecture_id, uid, body.question_id, body.answer)
+    return await answer(lecture_id, uid, body.question_id, body.answer, session_id=session_or_new(body.session_id))
 
 
 class _Turn(BaseModel):

@@ -20,6 +20,8 @@ from uuid import UUID
 from fastapi import HTTPException
 
 from backend.core.database import get_db_connection
+from backend.repositories.event_repo import record_event
+from backend.services.v4_telemetry import now_iso
 
 XP_PER_CORRECT = 10
 
@@ -29,6 +31,20 @@ FROM quiz_questions q
 JOIN slides s ON s.id = q.slide_id
 WHERE s.lecture_id = $1
 ORDER BY s.slide_number, q.created_at
+"""
+
+# Earlier answers by this person to this question, and what they chose first.
+# The cast is guarded: this runs inside the answer's transaction, and one stored
+# row with a non-integer selectedAnswer must not abort it and fail the answer.
+_PRIOR_SQL = """
+SELECT count(*) AS n,
+       (array_agg(CASE WHEN event_data->>'selectedAnswer' ~ '^[0-9]{1,9}$'
+                       THEN (event_data->>'selectedAnswer')::int END
+                  ORDER BY created_at))[1] AS first_answer
+FROM learning_events
+WHERE user_id = $1::uuid
+  AND event_type IN ('quiz_attempt', 'quiz_retry_attempt')
+  AND event_data->>'questionId' = $2
 """
 
 
@@ -76,7 +92,9 @@ async def questions_for(lecture_id: UUID) -> list[dict[str, Any]]:
     return [q for q in (to_question(r, str(lecture_id)) for r in rows) if q]
 
 
-async def answer(lecture_id: UUID, user_id: str, question_id: UUID, chosen: str) -> dict[str, Any]:
+async def answer(
+    lecture_id: UUID, user_id: str, question_id: UUID, chosen: str, *, session_id: str
+) -> dict[str, Any]:
     async with await get_db_connection() as conn:
         async with conn.transaction():
             row = await conn.fetchrow(
@@ -93,19 +111,25 @@ async def answer(lecture_id: UUID, user_id: str, question_id: UUID, chosen: str)
                 raise HTTPException(status_code=404, detail="Question not found.")
             correct = chosen == question["correctAnswer"]
 
-            await conn.execute(
-                "INSERT INTO learning_events (user_id, event_type, event_data) "
-                "VALUES ($1::uuid, 'quiz_attempt', $2::jsonb)",
-                user_id,
-                json.dumps({
-                    "lectureId": str(lecture_id),
-                    "slideId": str(row["slide_id"]),
-                    "questionId": str(question_id),
-                    "correct": correct,
-                    "selectedAnswer": question["choices"].index(chosen) if chosen in question["choices"] else None,
-                    "source": "v4_practice",
-                }),
-            )
+            selected = question["choices"].index(chosen) if chosen in question["choices"] else None
+            prior = await conn.fetchrow(_PRIOR_SQL, user_id, str(question_id))
+            base = {
+                "lectureId": str(lecture_id),
+                "slideId": str(row["slide_id"]),
+                "questionId": str(question_id),
+                "correct": correct,
+                "selectedAnswer": selected,
+                "sessionId": session_id,
+                "timestamp": now_iso(),
+                "source": "v4_practice",
+            }
+            if prior and prior["n"]:
+                # Second looks, restarts, a reopened bench: not first tries.
+                await record_event(conn, user_id, "quiz_retry_attempt", {
+                    **base, "firstAttemptAnswer": prior["first_answer"], "reviewIndex": int(prior["n"]),
+                })
+            else:
+                await record_event(conn, user_id, "quiz_attempt", base)
 
             xp = 0
             if correct:

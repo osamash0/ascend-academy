@@ -42,19 +42,23 @@ async def test_questions_grading_events_and_xp(practice, db_conn, make_user, mak
     assert "page 4" in q["explanation"]  # none stored: say where the answer lives
 
     uid = str(student)
-    wrong = await practice.answer(lecture, uid, uuid.UUID(q["id"]), "2")
+    wrong = await practice.answer(lecture, uid, uuid.UUID(q["id"]), "2", session_id="s1")
     assert (wrong["correct"], wrong["xp"]) == (False, 0)
-    right = await practice.answer(lecture, uid, uuid.UUID(q["id"]), "4")
+    right = await practice.answer(lecture, uid, uuid.UUID(q["id"]), "4", session_id="s1")
     assert (right["correct"], right["xp"]) == (True, 10)
-    again = await practice.answer(lecture, uid, uuid.UUID(q["id"]), "4")
+    again = await practice.answer(lecture, uid, uuid.UUID(q["id"]), "4", session_id="s1")
     assert (again["correct"], again["xp"]) == (True, 0)  # still right, no second XP
 
     with db_conn.cursor() as cur:
         cur.execute("SELECT total_xp, current_level FROM profiles WHERE user_id = %s", (uid,))
         assert cur.fetchone() == (105, 2)  # crossed 100 → level 2, as grant_xp computes it
+        # The first answer ("2", wrong) is the first try; the next two are retries.
         cur.execute("SELECT count(*), count(*) FILTER (WHERE (event_data->>'correct')::boolean) "
                     "FROM learning_events WHERE user_id = %s AND event_type = 'quiz_attempt'", (uid,))
-        assert cur.fetchone() == (3, 2)
+        assert cur.fetchone() == (1, 0)
+        cur.execute("SELECT count(*), count(*) FILTER (WHERE (event_data->>'correct')::boolean) "
+                    "FROM learning_events WHERE user_id = %s AND event_type = 'quiz_retry_attempt'", (uid,))
+        assert cur.fetchone() == (2, 2)
         cur.execute("SELECT count(*) FROM xp_events WHERE user_id = %s AND dedupe_key = %s",
                     (uid, f"v4quiz:{qid}"))
         assert cur.fetchone() == (1,)
@@ -67,5 +71,5 @@ async def test_a_question_from_another_lecture_is_not_found(practice, make_user,
     from fastapi import HTTPException
 
     with pytest.raises(HTTPException) as err:
-        await practice.answer(mine, str(prof), qid, "4")
+        await practice.answer(mine, str(prof), qid, "4", session_id="s1")
     assert err.value.status_code == 404
