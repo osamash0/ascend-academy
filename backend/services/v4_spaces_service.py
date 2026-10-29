@@ -118,7 +118,11 @@ WITH visible AS (
 )
 SELECT v.id, v.title, v.description, v.is_archived, v.status, v.updated_at, v.created_at,
        v.professor_id, v.viewer_role,
-       (SELECT count(*) FROM course_enrollments e WHERE e.course_id = v.id) AS member_count,
+       -- The owner is a member of their own Space (as in the personal Space),
+       -- whether or not they also hold an enrollment row.
+       (SELECT count(*) FROM course_enrollments e
+         WHERE e.course_id = v.id AND e.user_id IS DISTINCT FROM v.professor_id)
+         + CASE WHEN v.professor_id IS NULL THEN 0 ELSE 1 END AS member_count,
        (SELECT last_visited_at FROM course_visits cv
          WHERE cv.course_id = v.id AND cv.user_id = $1::uuid) AS last_visit
 FROM visible v

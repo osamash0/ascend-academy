@@ -69,8 +69,10 @@ async def test_world_reads_courses_as_spaces_and_lectures_as_lessons(
     dbs = spaces[str(joined)]
     assert dbs["viewerRole"] == "member"
     assert dbs["shortCode"] == "DBS"  # from the file names, not the title
-    assert (dbs["lessonCount"], dbs["memberCount"], dbs["viewerProgress"]) == (2, 1, 25)
+    # The owner counts as a member: the professor plus the one enrolled student.
+    assert (dbs["lessonCount"], dbs["memberCount"], dbs["viewerProgress"]) == (2, 2, 25)
     assert spaces[str(open_course)]["viewerRole"] is None  # open to join
+    assert spaces[str(open_course)]["memberCount"] == 1  # nobody joined yet: just the owner
 
     lessons = [l for l in world["lessons"] if l["spaceId"] == str(joined)]
     assert [(l["title"], l["order"]) for l in lessons] == [("Introduction", 1), ("SQL", 2)]
