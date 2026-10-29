@@ -17,8 +17,11 @@ HELP_FULL = 0.5
 
 _BAND = {"act": 2, "watch": 1, "calm": 0}
 
+#: The kinds the door is told; any other finding maps to None. `silent_misleader` is not one:
+#: its "then N% of them missed" is over clicked pairs, and with the people gate (`page_row`) it
+#: fires only on fewer than five of them; five or more is a `calibration_gap`, honestly paired.
 _KINDS = {
-    "confusion_hotspot", "silent_misleader", "skipped_slide", "speed_bump", "overpacked",
+    "confusion_hotspot", "skipped_slide", "speed_bump", "overpacked",
     "leaky_bucket", "confusion_block", "quiz_misalignment", "calibration_gap", "healthy",
 }
 
@@ -62,14 +65,10 @@ def _pct(value: Any) -> int:
     return int(round(float(value or 0)))
 
 
-def _metrics(kind: str, m: dict[str, Any], f: PageFacts, g: Optional[dict[str, int]]) -> dict[str, float]:
+def _metrics(kind: str, m: dict[str, Any], f: PageFacts) -> dict[str, float]:
     if kind == "confusion_hotspot":
         # Readers only, as `page_row` and `help_share` count: someone who asked without a counted read is no reader here.
         return {"askers": len((f.explain | f.ask) & f.readers), "foggy": _pct(m.get("confusionRate"))}
-    if kind == "silent_misleader" and g:
-        # "of them": the clicked row of the grid the card carries (`to_landing` tells no trap without one).
-        missed = 100 * g["clickedMissed"] / (g["clickedCleared"] + g["clickedMissed"])
-        return {"clicked": _pct(m.get("gotItPct")), "missed": _pct(missed)}
     if kind == "skipped_slide":
         return {"seconds": _pct(m.get("medianDwellSeconds"))}
     if kind == "speed_bump":
@@ -93,10 +92,6 @@ def to_landing(insight: dict[str, Any], lf: LessonFacts) -> Optional[dict[str, A
     if kind not in _KINDS or not pages:
         return None
     f = lf.pages.get(pages[0]) or PageFacts()
-    g = grid(f) if kind in ("silent_misleader", "calibration_gap") else None
-    if kind == "silent_misleader" and not (g and g["clickedCleared"] + g["clickedMissed"]):
-        # Its "then N% of them missed" is about people who said clicked and then tried: no pairs, no "them".
-        return None
     out: dict[str, Any] = {
         "id": f"{lf.lesson.id}:{insight['id']}",
         "kind": kind,
@@ -108,9 +103,11 @@ def to_landing(insight: dict[str, Any], lf: LessonFacts) -> Optional[dict[str, A
         out["first"], out["last"] = pages[0], pages[-1]
     else:
         out["page"] = pages[0]
-    out["metrics"] = _metrics(kind, insight.get("metrics") or {}, f, g)
-    if g:
-        out["grid"] = g
+    out["metrics"] = _metrics(kind, insight.get("metrics") or {}, f)
+    if kind == "calibration_gap":
+        g = grid(f)
+        if g:
+            out["grid"] = g
     return out
 
 

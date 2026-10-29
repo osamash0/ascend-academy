@@ -42,26 +42,25 @@ def test_someone_who_asked_without_reading_the_page_is_not_counted_among_its_ask
     assert out["metrics"]["askers"] == 2
 
 
-def test_a_trap_tells_clicked_then_missed_and_carries_its_grid():
+def test_a_calibration_gap_tells_its_share_and_carries_its_grid():
     pairs = {f"r{i}": ("got_it", i >= 3) for i in range(5)} | {"r5": ("confused", True)}
     pf = PageFacts(readers=people(10), pairs=pairs)
-    out = to_landing(engine("silent_misleader", 9, gotItPct=78.0, quizSuccessRate=40.0), facts({9: pf}))
-    assert out["metrics"] == {"clicked": 78, "missed": 60}
+    out = to_landing(engine("calibration_gap", 9, overconfidenceRate=60.0), facts({9: pf}))
+    assert out["metrics"] == {"pct": 60}
     assert out["grid"] == {"clickedCleared": 2, "clickedMissed": 3, "foggyCleared": 1, "foggyMissed": 0}
 
 
-def test_a_trap_without_its_grid_is_not_told():
-    # "then N% of them missed" needs the check-ins paired with the checkpoint. Without the
-    # floor's worth of pairs there is no "of them", and the page's own pass rate is no stand-in.
-    pf = PageFacts(readers=people(10), pairs={"r0": ("got_it", True), "r1": ("got_it", False)})
-    assert to_landing(engine("silent_misleader", 9, gotItPct=78.0, quizSuccessRate=41.6), facts({9: pf})) is None
-    unpaired = facts({9: PageFacts(readers=people(10))})
-    assert to_landing(engine("silent_misleader", 9, gotItPct=100.0, quizSuccessRate=0.0), unpaired) is None
-
-
-def test_a_trap_whose_pairs_are_all_foggy_has_no_them_to_tell():
-    pf = PageFacts(readers=people(10), pairs={f"r{i}": ("unsure", False) for i in range(5)})
-    assert to_landing(engine("silent_misleader", 9, gotItPct=78.0, quizSuccessRate=20.0), facts({9: pf})) is None
+def test_a_silent_misleader_is_never_told_even_with_a_full_grid():
+    # Its "then N% of them missed" is over clicked pairs. With the people gate the detector fires
+    # only on fewer than five of them (five or more is a calibration_gap, honestly paired), so
+    # the share would always stand for one to four people. The door never says it.
+    paired = {f"r{i}": ("got_it", i >= 3) for i in range(5)} | {"r5": ("confused", True)}
+    for pf in (
+        PageFacts(readers=people(10), pairs=paired),
+        PageFacts(readers=people(10), pairs={"r0": ("got_it", True), "r1": ("got_it", False)}),
+        PageFacts(readers=people(10)),
+    ):
+        assert to_landing(engine("silent_misleader", 9, gotItPct=78.0, quizSuccessRate=40.0), facts({9: pf})) is None
 
 
 def test_a_grid_counts_only_the_pages_readers():
