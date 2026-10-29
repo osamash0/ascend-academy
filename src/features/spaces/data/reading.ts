@@ -9,9 +9,10 @@ import { endSession, startSession } from './readingSession';
  * long it was really read, the reading session, and the page now in view (an
  * earlier one is a way back). Time the page is covered (`covered`: Explain
  * when it fills the screen over the page, a checkpoint, the teach-back, the
- * break room, the practice bench), or in a hidden tab, is not counted. Closing
- * the reader reports the open page; closing the tab reports it too, as a
- * beacon, because nothing after `pagehide` is sure to run.
+ * break room, the practice bench), or in a hidden tab, is not counted; a tab
+ * being hidden reports its page at once, since a phone may close it without
+ * warning. Closing the reader reports the open page; closing the tab reports
+ * it too, as a beacon, because nothing after `pagehide` is sure to run.
  *
  * A page a guide turned to (`steered`: Luna) is reported without the page now
  * in view, so it is never counted as the reader turning back.
@@ -62,13 +63,28 @@ export function useReadingProgress(
       })
       .catch(() => {});
 
-    const onVisibility = () => syncPause();
+    const onVisibility = () => {
+      if (document.visibilityState !== 'hidden') {
+        syncPause();
+        return;
+      }
+      /*
+       * A phone may never fire `pagehide` for a tab it closes in the
+       * background: report the page now, and count on from the return.
+       */
+      const c = clock.current;
+      if (!c) return;
+      const now = Date.now();
+      const secs = seconds(c, now);
+      if (secs >= 1 && repo.current) repo.current.recordReadingBeacon(lessonId, c.page, secs, id);
+      clock.current = { page: c.page, at: now, paused: 0, pausedAt: now };
+    };
     const onPageHide = () => {
       const c = clock.current;
       if (!c) return;
       const secs = seconds(c, Date.now());
       clock.current = null;
-      if (repo.current) repo.current.recordReadingBeacon(lessonId, c.page, secs, id);
+      if (secs >= 1 && repo.current) repo.current.recordReadingBeacon(lessonId, c.page, secs, id);
     };
     const onPageShow = (e: PageTransitionEvent) => {
       /* Back from the page cache: the page in view is open again, from now. */
