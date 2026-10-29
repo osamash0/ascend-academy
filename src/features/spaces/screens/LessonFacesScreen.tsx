@@ -627,6 +627,15 @@ export default function LessonFacesScreen() {
   /* A question handed to Explain from outside it — words selected on the page. */
   const [queued, setQueued] = useState<{ question: string; n: number } | null>(null);
   const queuedN = useRef(0);
+  /*
+   * The page Explain was opened on, from the moment it becomes the view
+   * (a `?view=explain` way in included) until it stops being it. Explain is
+   * fetched again for each page turned while it stays open; only the page it
+   * was opened on is the learner asking for help.
+   */
+  const [explainOpenedOn, setExplainOpenedOn] = useState<number | null>(null);
+  if (view === 'explain' && explainOpenedOn === null) setExplainOpenedOn(pdfPage);
+  if (view !== 'explain' && explainOpenedOn !== null) setExplainOpenedOn(null);
   /* Explain is asked only while it is the view: turning pages costs nothing. */
   const explainBlock = blockOf(pdfPage);
   const explained = useExplain(
@@ -635,6 +644,7 @@ export default function LessonFacesScreen() {
     pdfPage,
     { title: explainBlock?.title ?? lesson?.title ?? '', markdown: explainBlock?.markdown ?? '' },
     view === 'explain',
+    explainOpenedOn === pdfPage,
   );
 
   const chrome = (body: React.ReactNode) => (

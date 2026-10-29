@@ -72,6 +72,9 @@ async def reader_ideas(request: Request, lecture_id: UUID, user: Any = Depends(v
 class _Session(BaseModel):
     model_config = ConfigDict(extra="forbid")
     session_id: str = Field(default="", max_length=64)
+    #: False when Explain was only left open while the reader turned to this page: that is not asking for help here.
+    #: Absent means opened, so an older client keeps counting what it counted.
+    opened: bool = True
 
 
 @router.post("/lectures/{lecture_id}/pages/{page}/explain")
@@ -84,10 +87,12 @@ async def reader_explain(
     user: Any = Depends(verify_token),
 ):
     uid = await _lecture_access(lecture_id, user)
-    # Opening Explain is asking for help with this page, cached answer or not.
-    await telemetry.record_help(
-        lecture_id, uid, page, "explain", "", telemetry.session_or_new(body.session_id if body else "")
-    )
+    # Opening Explain on this page is asking for help with it, cached answer or not. The answer is also fetched for
+    # each page turned while Explain stays open; those the reader did not open are not help.
+    if body is None or body.opened:
+        await telemetry.record_help(
+            lecture_id, uid, page, "explain", "", telemetry.session_or_new(body.session_id if body else "")
+        )
     return await service.explain_page(lecture_id, page, user_id=uid, locale=await _lang(request, uid))
 
 

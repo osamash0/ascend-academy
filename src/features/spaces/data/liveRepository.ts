@@ -275,9 +275,11 @@ export function createLiveRepository(http: V4Transport) {
         { question_id: questionId, answer, session_id: session ?? '' },
       ),
     readerIdeas: (id: string) => http.get<{ concepts: ReaderConcept[] }>(`${root}/reader/lectures/${idPath(id)}/ideas`),
-    explainPage: (id: string, page: number, session?: string | null) =>
+    /** `opened`: false when Explain was already open and the reader turned to this page; that is not asking for help here. */
+    explainPage: (id: string, page: number, session?: string | null, opened = true) =>
       http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/explain`, {
         session_id: session ?? '',
+        opened,
       }),
     courseMap: (id: string) => http.get<ReaderCourseMap>(`${root}/reader/courses/${idPath(id)}/map`),
     findInCourse: (id: string, q: string) =>

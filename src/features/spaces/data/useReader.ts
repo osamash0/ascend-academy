@@ -286,6 +286,8 @@ export function useExplain(
   page: number,
   source: { title: string; markdown: string },
   enabled = true,
+  /** False when Explain was open before this page came up: the answer is still fetched, but it is not a request for help here. */
+  opened = true,
 ): ExplainResult {
   const live = isLive(spaceId, lessonId);
   const lang = useLang();
@@ -296,13 +298,13 @@ export function useExplain(
     if (!live || !lessonId || !enabled) return;
     let alive = true;
     setResult({ state: 'loading', answer: null, fallback: false });
-    once(answers, `${lessonId}:${page}:${lang}`, async () => (await loadLiveRepository()).explainPage(lessonId, page, currentSession(lessonId)))
+    once(answers, `${lessonId}:${page}:${lang}`, async () => (await loadLiveRepository()).explainPage(lessonId, page, currentSession(lessonId), opened))
       .then((a) => alive && setResult({ state: 'ready', answer: a, fallback: false }))
       .catch(() => alive && setResult({ state: 'ready', answer: composeFromText(title, markdown), fallback: true }));
     return () => {
       alive = false;
     };
-  }, [live, lessonId, page, title, markdown, enabled, lang]);
+  }, [live, lessonId, page, title, markdown, enabled, opened, lang]);
 
   if (!live) return { state: 'ready', answer: explainFor(lessonId ?? '', page, source), fallback: false };
   return result;

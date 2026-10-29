@@ -42,12 +42,14 @@ describe('the reader’s telemetry, live', () => {
     const { http, calls } = transport();
     const repo = createLiveRepository(http);
     await repo.explainPage('l1', 12, 's1');
+    await repo.explainPage('l1', 13, 's1', false);
     await repo.askPage('l1', 12, 'Why?', [], 's1');
     await repo.answerPractice('l1', 'q1', 'b', 's1');
     await repo.checkIn('l1', { first: 4, last: 9, idea: 'Joins', rating: 'confused', session_id: 's1' });
     await repo.answerCheckpoint('l1', { first: 4, last: 9, question_id: 1, answer: { kind: 'choice', index: 1 }, session_id: 's1' });
     expect(calls.map((c) => [c.path, c.body])).toEqual([
-      [`${R}/l1/pages/12/explain`, { session_id: 's1' }],
+      [`${R}/l1/pages/12/explain`, { session_id: 's1', opened: true }],
+      [`${R}/l1/pages/13/explain`, { session_id: 's1', opened: false }],
       [`${R}/l1/pages/12/ask`, { question: 'Why?', thread: [], session_id: 's1' }],
       [`${R}/l1/practice/answer`, { question_id: 'q1', answer: 'b', session_id: 's1' }],
       [`${R}/l1/check-in`, { first: 4, last: 9, idea: 'Joins', rating: 'confused', session_id: 's1' }],

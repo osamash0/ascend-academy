@@ -83,6 +83,15 @@ def test_explain_and_ask_count_as_help_on_their_page(client, calls):
     assert (kind3, q3) == ("ask", "Why BCNF?")
 
 
+def test_explain_left_open_while_turning_pages_is_not_help(client, calls):
+    base = f"/api/v1/v4/reader/lectures/{L}/pages"
+    assert client.post(f"{base}/13/explain", json={"session_id": "s1", "opened": False}).status_code == 200
+    assert calls["help"] == []
+    assert client.post(f"{base}/13/explain", json={"session_id": "s1", "opened": True}).status_code == 200
+    [(_, uid, page, kind, _, session)] = calls["help"]
+    assert (uid, page, kind, session) == (U, 13, "explain", "s1")
+
+
 def test_a_checkpoint_answer_is_graded_and_recorded_here(client, calls):
     right = client.post(f"/api/v1/v4/reader/lectures/{L}/checkpoint/answer",
                         json={"first": 4, "last": 9, "question_id": 1, "answer": {"kind": "choice", "index": 1}, "session_id": "s1"})
