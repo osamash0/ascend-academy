@@ -6,6 +6,8 @@ from learning_events, so each must skip rows the v4 reader wrote.
 """
 from __future__ import annotations
 
+import json
+
 from backend.services import analytics_service
 from backend.services.insights import evidence
 
@@ -90,3 +92,15 @@ def test_ai_queries_evidence_skips_v4_reader_questions(monkeypatch):
     out = evidence.get_ai_queries_evidence("lec1", "s1", "tok")
     assert [row["query"] for row in out["queries"]] == ["what is a tuple?"]
     assert out["totalCount"] == 1
+
+
+def test_dashboard_feed_and_ticker_skip_v4_reader_questions():
+    # asyncpg returns jsonb as text, so the v4 row arrives as a JSON string and
+    # exercises the parse branch in the helper.
+    rows = [
+        {"type": "ai_tutor_query", "event_data": json.dumps(V4_READER), "time": "2026-10-28T10:00:00Z"},
+        {"type": "ai_tutor_query", "event_data": LEGACY, "time": "2026-10-27T10:00:00Z"},
+    ]
+    feed, ticker = analytics_service._feed_and_ticker(rows)
+    assert [row["query_text"] for row in feed] == ["what is a tuple?"]
+    assert [row["description"] for row in ticker] == ['Asked AI Tutor: "what is a tuple?..."']
