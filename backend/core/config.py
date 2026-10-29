@@ -130,6 +130,11 @@ class Settings(BaseSettings):
     # Luna study sessions in the v4 reader (/api/v1/v4/luna). Needs migration
     # 20261025000000_luna_sessions.sql. Pair with VITE_FEATURE_LUNA_SESSIONS=1.
     feature_luna_sessions: bool = Field(alias="FEATURE_LUNA_SESSIONS", default=False)
+    # Person-level pieces of the owner's view (Strugglers, Journey). Off until
+    # Abi's privacy call (spec 2026-10-26-how-its-landing-design.md §8); also
+    # needs LANDING_PSEUDONYM_SALT, which makes a person someone else in every Space.
+    feature_landing_people: bool = Field(alias="FEATURE_LANDING_PEOPLE", default=False)
+    landing_pseudonym_salt: str = Field(alias="LANDING_PSEUDONYM_SALT", default="")
     # Monthly cap on private uploads per student; quota is the monetization seam.
     student_upload_monthly_limit: int = Field(alias="STUDENT_UPLOAD_MONTHLY_LIMIT", default=5)
 

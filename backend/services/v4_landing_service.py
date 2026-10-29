@@ -18,6 +18,7 @@ from backend.domain.authorization import assert_space_owner
 from backend.services import analytics_cache
 from backend.services.insights.figures import figures
 from backend.services.insights.landing_map import collapse_healthy, help_index, lesson_light, rank, to_landing
+from backend.services.insights.people import journey, strugglers
 from backend.services.insights.sources.space import SpaceData, load_space_data
 from backend.services.insights.space_engine import MIN_READERS, lesson_insights
 from backend.services.insights.space_facts import LessonFacts, lesson_facts
@@ -141,3 +142,19 @@ async def _themes(data: SpaceData, facts: dict[str, LessonFacts], lang: str) -> 
         if found:
             out.append({"lessonId": lesson_id, "page": page, "askers": askers, "themes": found})
     return out
+
+
+async def get_people(space_id: UUID, user_id: str, salt: str) -> dict[str, Any]:
+    """Strugglers by per-Space pseudonym (flag-only; not cached)."""
+    row = await space_row(space_id, user_id)
+    assert_space_owner(row, user_id)
+    data = await load_space_data(space_id, row["title"] or "", str(row["professor_id"]))
+    return {"strugglers": strugglers(data, salt)}
+
+
+async def get_journey(space_id: UUID, user_id: str, salt: str, person: str, lesson_id: str) -> Optional[list]:
+    """One pseudonym's way through one Lesson (flag-only); None when not found."""
+    row = await space_row(space_id, user_id)
+    assert_space_owner(row, user_id)
+    data = await load_space_data(space_id, row["title"] or "", str(row["professor_id"]))
+    return journey(data, salt, person, lesson_id)
