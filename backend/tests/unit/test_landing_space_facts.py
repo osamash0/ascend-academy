@@ -65,7 +65,18 @@ def test_help_is_explain_or_ask_and_only_asked_questions_are_kept_for_themes():
     ))[L1]
     page = facts.pages[12]
     assert page.explain == {"a"} and page.ask == {"b", "c"}
-    assert page.ask_texts == ["Why BCNF?", "Old reader question"]
+    assert page.ask_texts == {"b": ["Why BCNF?"], "c": ["Old reader question"]}
+
+
+def test_questions_are_kept_per_person_oldest_first():
+    facts = lesson_facts(space(
+        ev("a", "ai_tutor_query", 2, page=4, kind="ask", query="Second"),
+        ev("b", "ai_tutor_query", 1, page=4, kind="ask", query="Only"),
+        ev("a", "ai_tutor_query", 0, page=4, kind="ask", query="First"),
+        ev("c", "ai_tutor_query", 3, page=4, kind="ask", query="   "),
+    ))[L1]
+    assert facts.pages[4].ask_texts == {"a": ["First", "Second"], "b": ["Only"]}
+    assert facts.pages[4].ask == {"a", "b", "c"}
 
 
 def test_turning_back_lands_on_the_page_turned_to():

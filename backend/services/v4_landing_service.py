@@ -22,7 +22,7 @@ from backend.services.insights.people import journey, strugglers
 from backend.services.insights.sources.space import SpaceData, load_space_data
 from backend.services.insights.space_engine import MIN_READERS, lesson_insights
 from backend.services.insights.space_facts import LessonFacts, lesson_facts
-from backend.services.insights.themes import themes_for
+from backend.services.insights.themes import balanced_questions, themes_for
 from backend.services.v4_personal import is_personal
 
 _SPACE_SQL = """
@@ -101,7 +101,7 @@ async def landing_from(data: SpaceData, lang: str) -> dict[str, Any]:
         lessons.append(entry)
 
     ranked = rank(found_all, {lesson.id: len(facts[lesson.id].readers) for lesson in data.lessons})
-    themes = await _themes(data, facts, lang) if above else []
+    themes = await _themes(data, facts, ranked, lang) if above else []
     lit = {(t["lessonId"], t["page"]) for t in themes}
     for insight in ranked:
         if insight["kind"] == "confusion_hotspot":
@@ -121,23 +121,27 @@ async def landing_from(data: SpaceData, lang: str) -> dict[str, Any]:
     }
 
 
-async def _themes(data: SpaceData, facts: dict[str, LessonFacts], lang: str) -> list[dict[str, Any]]:
-    """Themes for the most-asked-about pages (at least the floor's worth of askers)."""
-    hot = sorted(
-        (
-            (len(pf.ask), lf.lesson.id, page, pf)
-            for lf in facts.values()
-            for page, pf in lf.pages.items()
-            if len(pf.ask) >= MIN_READERS
-        ),
-        key=lambda x: x[0],
-        reverse=True,
-    )[:THEMES_PAGES]
+async def _themes(
+    data: SpaceData, facts: dict[str, LessonFacts], ranked: list[dict[str, Any]], lang: str
+) -> list[dict[str, Any]]:
+    """Themes for the most-asked-about hotspots: pages the ranked findings already floored and
+    kept within their Lesson. Askers are the page's readers who asked, and the model hears
+    each of them in turn (`balanced_questions`), never one person's flood."""
+    hot: list[tuple[int, str, int, dict[str, list[str]]]] = []
+    for insight in ranked:
+        if insight["kind"] != "confusion_hotspot":
+            continue
+        pf = facts[insight["lessonId"]].pages.get(insight["page"])
+        askers = (pf.ask & pf.readers) if pf else set()
+        if len(askers) >= MIN_READERS:
+            by_person = {user: texts for user, texts in pf.ask_texts.items() if user in askers}
+            hot.append((len(askers), insight["lessonId"], insight["page"], by_person))
+    hot.sort(key=lambda x: x[0], reverse=True)
     out: list[dict[str, Any]] = []
-    for askers, lesson_id, page, pf in hot:
+    for askers, lesson_id, page, by_person in hot[:THEMES_PAGES]:
         found = await themes_for(
             space_id=data.space_id, owner_id=data.owner_id, lesson_id=lesson_id,
-            page=page, texts=pf.ask_texts, askers=askers, lang=lang,
+            page=page, texts=balanced_questions(by_person), askers=askers, lang=lang,
         )
         if found:
             out.append({"lessonId": lesson_id, "page": page, "askers": askers, "themes": found})

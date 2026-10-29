@@ -54,8 +54,8 @@ class PageFacts:
     sittings: list[float] = field(default_factory=list)
     explain: set[str] = field(default_factory=set)
     ask: set[str] = field(default_factory=set)
-    #: What was asked here, oldest first: for themes only, never sent to anyone.
-    ask_texts: list[str] = field(default_factory=list)
+    #: What each person asked here (user id → their questions, oldest first): for themes only, never sent to anyone.
+    ask_texts: dict[str, list[str]] = field(default_factory=dict)
     #: Each person's latest check-in on this page.
     ratings: dict[str, str] = field(default_factory=dict)
     returners: set[str] = field(default_factory=set)
@@ -149,7 +149,7 @@ def lesson_facts(data: SpaceData) -> dict[str, LessonFacts]:
                 pf.ask.add(e.user_id)
                 text = str(d.get("query") or "").strip()
                 if text:
-                    pf.ask_texts.append(text)
+                    pf.ask_texts.setdefault(e.user_id, []).append(text)
         elif e.type == "confidence_rating":
             page = page_of(e, data)
             rating = d.get("rating")

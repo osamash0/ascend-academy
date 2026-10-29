@@ -180,3 +180,68 @@ def test_a_finding_beyond_the_lessons_last_page_is_dropped_but_not_when_its_page
 
     assert about("has-four-pages") == [("confusion_hotspot", 3), ("confusion_hotspot", 4)]
     assert ("confusion_hotspot", 9) in about("pages-unknown") and ("confusion_block", 9) in about("pages-unknown")
+
+
+@pytest.fixture
+def prompts(monkeypatch):
+    import backend.services.v4_reader_service as reader
+
+    seen: list[str] = []
+
+    async def passthrough(key, view, compute, **kw):
+        return await compute()
+
+    async def model(prompt, **kw):
+        seen.append(prompt)
+        return {"themes": ["Why a split can lose a dependency"]}
+
+    monkeypatch.setattr(service.analytics_cache, "get_or_compute_async", passthrough)
+    monkeypatch.setattr(reader, "_generate_json", model)
+    return seen
+
+
+def _reads(pages=(1, 2, 3, 4)):
+    return [
+        Event(f"m{i}", "slide_view", {"lectureId": L1, "page": p, "duration_seconds": 40, "sessionId": f"m{i}"},
+              NOW - timedelta(days=1))
+        for i in range(10) for p in pages
+    ]
+
+
+def _ask(user, page, query, second):
+    return Event(user, "ai_tutor_query", {"lectureId": L1, "page": page, "kind": "ask", "query": query},
+                 NOW - timedelta(days=1) + timedelta(seconds=second))
+
+
+def test_one_member_asking_sixty_times_cannot_fill_what_the_model_sees(prompts):
+    foggy = [Event(f"m{i}", "confidence_rating", {"lectureId": L1, "page": 3, "rating": "confused" if i < 8 else "got_it"},
+                   NOW - timedelta(days=1)) for i in range(10)]
+    busy = [_ask("m0", 3, f"Busy question {k}", k) for k in range(60)]
+    once = [_ask(f"m{i}", 3, f"Once question {i}", 100 + i) for i in range(1, 5)]
+    body = asyncio.run(service.landing_from(_data(tuple(_reads() + foggy + busy + once)), "en"))
+
+    assert body["themes"] == [{"lessonId": L1, "page": 3, "askers": 5, "themes": ["Why a split can lose a dependency"]}]
+    (prompt,) = prompts
+    questions = [line for line in prompt.splitlines() if line.startswith('- "')]
+    assert len(questions) <= 3 + 4
+    assert sum("Busy question" in q for q in questions) == 3
+    assert all(any(f"Once question {i}" in q for q in questions) for i in range(1, 5))
+
+
+def test_a_page_many_asked_about_that_is_not_a_hotspot_gets_no_theme_call(prompts):
+    calm = [Event(f"m{i}", "confidence_rating", {"lectureId": L1, "page": 2, "rating": "got_it"}, NOW - timedelta(days=1))
+            for i in range(10)]
+    asked = [_ask(f"m{i}", 2, f"Curious about {i}", i) for i in range(6)]
+    body = asyncio.run(service.landing_from(_data(tuple(_reads() + calm + asked)), "en"))
+    assert not any(i["kind"] == "confusion_hotspot" for i in body["insights"])
+    assert body["themes"] == [] and prompts == []
+
+
+def test_only_readers_of_the_page_count_as_its_askers(prompts):
+    # Four readers asked; a fifth "asker" never read the page. Four is under the floor: no themes.
+    foggy = [Event(f"m{i}", "confidence_rating", {"lectureId": L1, "page": 3, "rating": "confused" if i < 8 else "got_it"},
+                   NOW - timedelta(days=1)) for i in range(10)]
+    asked = [_ask(f"m{i}", 3, f"Why {i}", i) for i in range(4)] + [_ask("m11", 3, "Why not", 9)]
+    body = asyncio.run(service.landing_from(_data(tuple(_reads() + foggy + asked)), "en"))
+    assert any(i["kind"] == "confusion_hotspot" for i in body["insights"])
+    assert body["themes"] == [] and prompts == []

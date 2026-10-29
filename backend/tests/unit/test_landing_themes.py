@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import unicodedata
 
 import pytest
 
@@ -122,3 +123,31 @@ def test_a_language_we_do_not_write_in_is_english_in_the_key_and_the_prompt(mode
     cache, call = calls
     assert cache["cache"][2]["lang"] == "en"
     assert "English" in call["prompt"]
+
+
+def test_each_person_counts_for_at_most_three_questions_latest_first_in_turn():
+    by_person = {"a": ["a1", "a2", "a3", "a4", "a5"], "b": ["b1"], "c": ["c1", "c2"]}
+    assert themes.balanced_questions(by_person) == ["a5", "b1", "c2", "a4", "c1", "a3"]
+    assert themes.balanced_questions(by_person, per_person=1) == ["a5", "b1", "c2"]
+    assert themes.balanced_questions(by_person, cap=2) == ["a5", "b1"]
+    assert themes.balanced_questions({}) == []
+
+
+def test_one_person_asking_sixty_times_cannot_fill_what_the_model_sees():
+    by_person = {"busy": [f"busy {i}" for i in range(60)]} | {f"p{i}": [f"once {i}"] for i in range(4)}
+    seen = themes.balanced_questions(by_person)
+    assert len(seen) == 3 + 4
+    assert [q for q in seen if q.startswith("busy")] == ["busy 59", "busy 58", "busy 57"]
+    assert {f"once {i}" for i in range(4)} <= set(seen)
+
+
+def test_a_question_written_another_way_in_unicode_is_still_a_question():
+    asked = "Warum verliert die Zerlegung bei der Straße ihre Abhängigkeit?"
+    nfd = unicodedata.normalize("NFD", asked)
+    zero_width = "Warum ver​liert die Zer‍legung bei der Stra­ße ihre Abhängigkeit"
+    shouted = "WARUM VERLIERT DIE ZERLEGUNG BEI DER STRASSE IHRE ABHÄNGIGKEIT"
+    assert nfd != asked
+    for echo in (nfd, zero_width, shouted):
+        assert themes.clean_themes({"themes": [echo, "Join order"]}, [asked]) == ["Join order"], echo
+    # and the other way round: the question is the odd one, the theme is plain
+    assert themes.clean_themes({"themes": [asked, "Join order"]}, [nfd]) == ["Join order"]
