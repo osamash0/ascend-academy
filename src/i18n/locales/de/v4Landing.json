@@ -1,0 +1,156 @@
+{
+  "_about": "v4 „Wie es ankommt“ — die Sicht der Inhaber:in auf einen Space, die Fragen, die Leute schicken, und der Weg im Reader, eine zu schicken",
+  "door": {
+    "title": "Wie es ankommt",
+    "pill": "Wie es ankommt",
+    "lede": {
+      "act": "Eine Seite braucht dich. Der Rest kommt an.",
+      "watch": "Nichts Dringendes. Ein paar Seiten lohnen einen Blick.",
+      "calm": "Es kommt an. Heute braucht dich nichts.",
+      "floor_one": "{{count}} Person hat gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.",
+      "floor_other": "{{count}} Leute haben gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.",
+      "actPage": "Eine Seite braucht dich: {{lesson}}, Seite {{page}}. Der Rest kommt an."
+    },
+    "ownOnly": "Dein eigenes Lesen zählt nie mit."
+  },
+  "figures": {
+    "reading": "von {{members}} Mitgliedern haben diese Woche gelesen",
+    "landing": "der Seiten kommen an",
+    "cleared": "Checkpoints beim ersten Versuch geschafft"
+  },
+  "light": {
+    "act": "braucht dich",
+    "watch": "lohnt einen Blick",
+    "calm": "kommt an",
+    "few": "noch zu wenige"
+  },
+  "questions": {
+    "title": "Fragen an dich",
+    "none": "Noch hat niemand eine Frage geschickt. Wenn jemand das tut, landet sie zuerst hier.",
+    "someone": "Jemand",
+    "page": "Seite {{page}}",
+    "answer": "Antworten",
+    "placeholder": "Antwort schreiben",
+    "them": "Nur ihr/ihm antworten",
+    "everyone": "Für alle antworten",
+    "everyoneHint": "Erscheint auf dieser Seite für alle Mitglieder",
+    "answered": {
+      "them": "Beantwortet · nur für sie",
+      "everyone": "Beantwortet · für alle"
+    },
+    "close": "Schließen",
+    "when": {
+      "now": "gerade eben",
+      "hours_one": "vor {{count}} Stunde",
+      "hours_other": "vor {{count}} Stunden",
+      "days_one": "gestern",
+      "days_other": "vor {{count}} Tagen"
+    }
+  },
+  "lessons": {
+    "title": "Lektionen",
+    "readers_one": "{{count}} Lesende:r",
+    "readers_other": "{{count}} Lesende",
+    "open": "{{lesson}} öffnen",
+    "mapLede": "Jede Zelle ist eine Seite. Je heller, desto mehr Leute brauchten dort Hilfe; eine beschriftete öffnet die Seite.",
+    "cell": "Seite {{page}} von {{lesson}}"
+  },
+  "feed": {
+    "title": "Was dich braucht",
+    "openPage": "Seite {{page}} öffnen"
+  },
+  "kind": {
+    "confusion_hotspot": {
+      "headline": "Eine Seite, auf der viele Hilfe suchen",
+      "summary": "Auf Seite {{page}} von {{lesson}} haben {{askers}} Leute Erklären geöffnet oder gefragt, und {{foggy}}% fanden es noch nebelig.",
+      "why": "So gebündelte Hilfesuche heißt meist: Auf der Seite fehlt ein Schritt, nicht bei den Leuten, die sie lesen."
+    },
+    "silent_misleader": {
+      "headline": "Eine Seite mit einer Falle",
+      "summary": "{{clicked}}% sagten, Seite {{page}} hat klick gemacht, dann lagen {{missed}}% davon beim Checkpoint daneben.",
+      "why": "Die Seite liest sich klar und prüft sich falsch. Etwas darauf ist plausibel und falsch zugleich."
+    },
+    "skipped_slide": {
+      "headline": "Eine Seite, die übersprungen wird",
+      "summary": "Leute bleiben im Median {{seconds}} s auf Seite {{page}} von {{lesson}}, bevor sie weitergehen.",
+      "why": "Entweder bringt die Seite nichts Neues, oder sie sieht so aus. Wenn sie wichtig ist, braucht sie einen Grund zum Anhalten."
+    },
+    "speed_bump": {
+      "headline": "Eine Seite, zu der Leute zurückkommen, später",
+      "summary": "{{backs}} Leute sind von der Seite danach zu Seite {{page}} zurückgeblättert.",
+      "why": "Die nächste Seite braucht etwas, das diese nicht deutlich gemacht hat. Es hier zu benennen spart den Weg zurück."
+    },
+    "overpacked": {
+      "headline": "Eine Seite, die zu viel auf einmal will",
+      "summary": "Seite {{page}} hält Leute {{ratio}}× länger als der Rest von {{lesson}}, und viele suchen dort Hilfe.",
+      "why": "Lange, ungleiche Zeit plus Hilfesuche ist die Form von zwei Ideen auf einer Seite."
+    },
+    "leaky_bucket": {
+      "headline": "Eine Lektion, die schwer wird",
+      "summary": "{{pct}}% der Lesenden haben direkt nach Seite {{page}} von {{lesson}} aufgehört.",
+      "why": "Ein so scharfer Abfall ist eine Wand, keine Müdigkeit. Die Seite davor ist die, die du dir ansiehst."
+    },
+    "confusion_block": {
+      "headline": "Ein Abschnitt, in dem der Faden riss",
+      "summary": "Die Seiten {{first}}–{{last}} von {{lesson}} waren für die meisten nebelig.",
+      "why": "Ein fehlendes Glied früh im Abschnitt macht jede Seite danach schwerer."
+    },
+    "quiz_misalignment": {
+      "headline": "Eine Frage, die etwas anderes prüft",
+      "summary": "Seite {{page}} las sich leicht, doch nur {{pct}}% haben ihre Übung beim ersten Versuch geschafft.",
+      "why": "Wenn die Seite klar ist und die Frage daneben geht, fragt die Frage nach etwas, das die Seite nicht lehrt."
+    },
+    "calibration_gap": {
+      "headline": "Sicher, und trotzdem daneben",
+      "summary": "Auf Seite {{page}} lagen {{pct}}% derer, die „hat klick gemacht“ sagten, beim Checkpoint daneben.",
+      "why": "Sicherheit ohne Treffer ist von vorn im Raum am schwersten zu sehen. Hier ist sie."
+    },
+    "healthy": {
+      "headline": "{{lesson}} kommt gut an",
+      "summary": "Wenige suchten Hilfe, und die meisten haben die Checkpoints beim ersten Versuch geschafft.",
+      "why": "Nichts zu ändern. Gut zu wissen, welche Lektion du als Vorbild nimmst, wenn du die nächste baust."
+    }
+  },
+  "picture": {
+    "page": "S. {{page}}"
+  },
+  "themes": {
+    "title": "Was Leute auf Seite {{page}} gefragt haben",
+    "count_one": "{{count}} Person hat gefragt · als Themen, nie wörtlich",
+    "count_other": "{{count}} Leute haben gefragt · als Themen, nie wörtlich",
+    "few": "Themen erscheinen, sobald fünf verschiedene Leute auf einer Seite gefragt haben."
+  },
+  "grid": {
+    "title": "Verstanden vs. daneben auf Seite {{page}}",
+    "clickedCleared": "Sagten klick, geschafft",
+    "clickedMissed": "Sagten klick, daneben",
+    "foggyCleared": "Sagten nebelig, geschafft",
+    "foggyMissed": "Sagten nebelig, daneben",
+    "people_one": "{{count}} Person",
+    "people_other": "{{count}} Leute",
+    "few": "Noch nicht genug Check-ins und Checkpoints zum Vergleichen."
+  },
+  "reader": {
+    "line": "Noch nebelig? Schick es in den Space.",
+    "send": "In den Space schicken",
+    "title": "In den Space schicken",
+    "who": "Die Leute, die diesen Space pflegen, sehen es, und du hörst hier davon.",
+    "yourQuestion": "Deine Frage",
+    "page": "Seite {{page}} · {{lesson}}",
+    "anonymous": "Ohne meinen Namen",
+    "sendNow": "Senden",
+    "cancel": "Jetzt nicht",
+    "sent": "Geschickt. Ich sag dir Bescheid, wenn sie antworten.",
+    "answeredLuna": "Sie haben deine Frage zu Seite {{page}} beantwortet. Willst du sie lesen?",
+    "read": "Lesen",
+    "answered": {
+      "title": "Die Leute, die diesen Space pflegen, haben geantwortet",
+      "everyone": "Für alle beantwortet",
+      "yours": "Deine Frage"
+    },
+    "checkin": {
+      "clicked": "Hat klick gemacht",
+      "foggy": "Noch nebelig"
+    }
+  }
+}

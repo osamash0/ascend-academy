@@ -102,6 +102,7 @@ const PixiLab = lazy(() => import("./pages/PixiLab"));
 const AvatarLab = lazy(() => import("./pages/AvatarLab"));
 const AvatarStudio = lazy(() => import("./pages/AvatarStudio"));
 const AskLunaLab = lazy(() => import("./pages/AskLunaLab"));
+const LandingLab = lazy(() => import("./pages/LandingLab"));
 const AskLunaPage = lazy(() => import("./pages/AskLunaPage"));
 // v4 design rebuild. Mock data only, no backend, dev-only route — the old
 // product is untouched and the two coexist. See docs/design-v4/.
@@ -364,6 +365,7 @@ function AppRoutes() {
         {import.meta.env.DEV && <Route path="/pixi-lab" element={<PixiLab />} />}
         {import.meta.env.DEV && <Route path="/avatar-lab" element={<AvatarLab />} />}
         {import.meta.env.DEV && <Route path="/ask-luna-lab" element={<AskLunaLab />} />}
+        {import.meta.env.DEV && <Route path="/landing-lab" element={<LandingLab />} />}
         {/* v4. In dev on fixtures it is public, so the design can be reviewed
             without a session (append ?mock=empty|loading|error for the other
             states). Live — and therefore in production — it is signed-in only.
