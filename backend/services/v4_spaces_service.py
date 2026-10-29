@@ -390,11 +390,16 @@ def reading_view(
     pages = int(run.get("page_count") or 0)
     ready = bool(run.get("lecture_id")) and status in _DONE
     stage = "failed" if status in _FAILED else ("ready" if ready else "developing")
-    written = list(range(1, pages + 1)) if ready else sorted({int(p) for p in pages_ready})
+    # A finished run is fully read; one whose page count was never stored is
+    # read from its slide rows instead, so it still opens.
+    if ready and pages > 0:
+        written = list(range(1, pages + 1))
+    else:
+        written = sorted({int(p) for p in pages_ready})
     return {
         "pdfUrl": pdf_url,
         "pages": pages,
-        "pagesRead": min(len(written), pages),
+        "pagesRead": min(len(written), pages) if pages > 0 else len(written),
         "pagesReady": written,
         "practiceReady": bool(practice_ready),
         "readable": bool(run.get("lecture_id")) and len(written) > 0,

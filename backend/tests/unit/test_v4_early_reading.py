@@ -58,6 +58,15 @@ def test_a_failed_run_keeps_what_was_read():
     assert v["stage"] == "failed" and v["pagesReady"] == [1, 2] and v["readable"] is True
 
 
+def test_a_finished_run_without_a_page_count_is_read_from_its_slides():
+    v = reading_view(run(status="completed", lecture_id="L1", page_count=None), [2, 1, 3], True, "u")
+    assert v["stage"] == "ready"
+    assert v["pagesReady"] == [1, 2, 3] and v["pagesRead"] == 3
+    assert v["readable"] is True
+    v0 = reading_view(run(status="completed", lecture_id="L1", page_count=0), [1], False, "u")
+    assert v0["pagesReady"] == [1] and v0["readable"] is True
+
+
 def test_unknown_page_count_reads_as_zero():
     assert reading_view(run(page_count=None), [], False, "u")["pages"] == 0
 
