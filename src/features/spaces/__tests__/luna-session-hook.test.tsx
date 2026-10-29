@@ -24,9 +24,34 @@ beforeEach(() => {
   vi.mocked(lunaApi.get).mockReset();
   vi.mocked(lunaApi.turn).mockReset();
   vi.mocked(lunaApi.wrap).mockReset();
+  vi.mocked(lunaApi.start).mockReset();
 });
 
 describe('useLunaSession', () => {
+  it('starting shows your opener at once and keeps it first when the plan arrives', async () => {
+    vi.mocked(lunaApi.sessions).mockResolvedValue({ sessions: [] } as never);
+    let resolve: (v: unknown) => void = () => {};
+    vi.mocked(lunaApi.start).mockReturnValue(new Promise((r) => { resolve = r; }) as never);
+    const { result } = hook();
+    let pending: Promise<void> = Promise.resolve();
+    act(() => { pending = result.current.start('I have an exam soon'); });
+    expect(result.current.state.thread).toEqual([{ kind: 'learner', id: 'opener', text: 'I have an exam soon' }]);
+    expect(result.current.state.planning).toBe(true);
+    await act(async () => { resolve({ session: row({ turn_count: 0 }), say: 'Here is a plan.' }); await pending; });
+    expect(result.current.state.thread.map((t) => t.kind)).toEqual(['learner', 'luna']);
+    expect(result.current.state.planning).toBe(false);
+  });
+
+  it('a failed start keeps your opener and shows the error', async () => {
+    vi.mocked(lunaApi.sessions).mockResolvedValue({ sessions: [] } as never);
+    vi.mocked(lunaApi.start).mockRejectedValue({ detail: 'Not now.' });
+    const { result } = hook();
+    await act(async () => { await result.current.start('I don\'t get this page'); });
+    expect(result.current.state.thread).toEqual([{ kind: 'learner', id: 'opener', text: 'I don\'t get this page' }]);
+    expect(result.current.state.error).toBe('Not now.');
+    expect(result.current.state.busy).toBe(false);
+  });
+
   it('opening the column picks up the active session for this Lesson instead of starting anew', async () => {
     vi.mocked(lunaApi.sessions).mockResolvedValue({ sessions: [row()] });
     vi.mocked(lunaApi.get).mockResolvedValue({

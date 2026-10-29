@@ -138,6 +138,33 @@ async def test_start_drafts_a_plan_and_falls_back_when_it_is_unusable():
     assert [s["kind"] for s in store.sessions[sid2]["plan"]] == ["look", "explain", "check"]
 
 
+async def test_start_loads_the_next_pages_and_the_fallback_plans_the_content_after_a_title_slide():
+    seen = []
+    content = "Second normal form removes partial dependencies on a composite key. " * 3
+
+    async def load(lecture_id, locale, around):
+        seen.append(around)
+        return LessonView(lecture_id=lecture_id, title="Normalisation", served="en",
+                          titles=[(n, f"Page {n}") for n in range(1, 21)],
+                          pages=PageIndex(totals={lecture_id: 20},
+                                          texts={(lecture_id, 1): "Normalisation", (lecture_id, 2): content,
+                                                 (lecture_id, 3): content, (lecture_id, 5): content}),
+                          course_id=None)
+
+    store = FakeStore()
+    out = await svc.start(store, user_id=U, space_id=U, lecture_id=L, page=1, opener="", locale="en",
+                          ai=scripted({"steps": []}), load=load)
+    assert seen == [list(range(1, 10))]
+    assert [s["target"]["page"] for s in store.sessions[out["session"]["id"]]["plan"]] == [2, 3, 5]
+
+    reply = {"steps": [{"kind": "look", "title": "Overview", "page": 1}, {"kind": "explain", "title": "2NF", "page": 3},
+                       {"kind": "check", "title": "Check", "page": 4}]}
+    out = await svc.start(store, user_id=U, space_id=U, lecture_id=L, page=1, opener="", locale="en",
+                          ai=scripted(reply), load=load)
+    plan = store.sessions[out["session"]["id"]]["plan"]
+    assert [(s["title"], s["target"]["page"]) for s in plan] == [("Overview", 2), ("2NF", 3), ("Check", 4)]  # page 4 was not loaded: left alone
+
+
 async def test_start_rejects_a_space_the_lesson_is_not_in():
     with pytest.raises(svc.LunaError) as e:
         await svc.start(FakeStore(), user_id=U, space_id="someone-elses", lecture_id=L, page=1, opener="",
