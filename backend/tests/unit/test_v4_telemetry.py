@@ -70,3 +70,12 @@ def test_a_missing_session_becomes_a_fresh_one():
     assert tel.session_or_new("abc") == "abc"
     fresh = tel.session_or_new("")
     assert fresh and fresh != tel.session_or_new("")
+
+
+def test_a_checkpoint_row_names_its_question_and_a_teach_back_does_not(monkeypatch):
+    written = _fake_db(monkeypatch, slide=None)
+    asyncio.run(tel.record_checkpoint(LEC, "u1", 9, "Joins", "choice", True, "s1", question_id=2))
+    asyncio.run(tel.record_checkpoint(LEC, "u1", 4, "Joins", "teach", False, "s1"))
+    (_, _, choice), (_, _, teach) = written
+    assert choice["questionId"] == 2
+    assert "questionId" not in teach

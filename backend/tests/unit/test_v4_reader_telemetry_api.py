@@ -99,7 +99,9 @@ def test_a_checkpoint_answer_is_graded_and_recorded_here(client, calls):
                         json={"first": 4, "last": 9, "question_id": 1, "answer": {"kind": "choice", "index": 0}})
     assert right.json() == {"correct": True} and wrong.json() == {"correct": False}
     (args, kw), _ = calls["checkpoint"]
-    assert args[:2][1] == U and kw == {"page": 9, "idea": "Joins", "kind": "choice", "correct": True, "session_id": "s1"}
+    assert args[:2][1] == U and kw == {
+        "page": 9, "idea": "Joins", "kind": "choice", "correct": True, "session_id": "s1", "question_id": 1,
+    }
 
 
 def test_an_expired_checkpoint_is_a_conflict_not_a_guess(client, calls):

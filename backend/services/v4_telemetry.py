@@ -69,10 +69,19 @@ async def record_check_in(
 
 
 async def record_checkpoint(
-    lecture_id: UUID, user_id: str, page: int, idea: str, kind: str, correct: bool, session_id: str
+    lecture_id: UUID,
+    user_id: str,
+    page: int,
+    idea: str,
+    kind: str,
+    correct: bool,
+    session_id: str,
+    question_id: int | None = None,
 ) -> None:
-    """One checkpoint question or teach-back, graded on the server."""
+    """One checkpoint question or teach-back, graded on the server. The
+    question's id lets the engine count only the first try at each question."""
     await _write(lecture_id, user_id, page, "checkpoint_attempt", {
-        "page": page, "idea": idea[:60], "kind": kind, "correct": correct, "sessionId": session_id,
-        "timestamp": now_iso(), "source": SOURCE,
+        "page": page, "idea": idea[:60], "kind": kind, "correct": correct,
+        **({"questionId": question_id} if question_id is not None else {}),
+        "sessionId": session_id, "timestamp": now_iso(), "source": SOURCE,
     })
