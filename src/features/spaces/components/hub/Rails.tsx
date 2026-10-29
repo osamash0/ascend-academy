@@ -6,9 +6,9 @@ import { cn } from '@/lib/utils';
 import { formatNumber } from '../../i18n/format';
 import { ModeBadge } from '../badges';
 import type { Space } from '../../types';
-import { Planet, planetSize } from '../sky/Planet';
+import { SpaceWindow, windowOf } from '../sky/SpaceWindow';
 import { StarField } from '../sky/StarField';
-import { planetOf } from './HeroCover';
+import { FaceStack } from './People';
 import { membershipOf } from '../../data/hub';
 import { say } from '../../data/phrases';
 import { itemVariants, railVariants } from '../Enter';
@@ -30,37 +30,33 @@ import { PRESS_SPRING } from '../Pressable';
  * `whileInView` once. The parent declares the rhythm and Motion propagates it,
  * so adding a row never means computing another delay.
  *
- * **Night sky, not cover art** (2026-10-26). Where a card used to show a
+ * **Its own page, not cover art** (2026-10-26). Where a card used to show a
  * hashed colour gradient and a big initial, it now shows a patch of the same
- * night as the page: a few stars and the Space's planet. Monochrome; the only
- * colour is the gold of Lessons you have finished. These planets hold still —
- * the drift belongs to the hero and the row above, and a page of thirty
- * drifting planets is busy rather than calm.
+ * night as the page with the Space's window in it: page 1 of its first Lesson,
+ * calm black and white. The only colour is the gold of the path you finished.
  */
 
 /**
- * A card's picture: a patch of sky with the Space's planet in it.
+ * A card's picture: a patch of sky with the Space's window in it.
  * Decoration — the card's own text and link carry the name.
  */
 function SkyArt({
   space,
-  min,
-  max,
+  size,
   place = 'flex items-center justify-center',
   className,
 }: {
   space: Space;
-  min: number;
-  max: number;
-  /** Where the planet sits in the patch. Centred unless the card's text needs the room. */
+  size: number;
+  /** Where the window sits in the patch. Centred unless the card's text needs the room. */
   place?: string;
   className?: string;
 }) {
   return (
     <span aria-hidden className={cn('absolute inset-0 overflow-hidden bg-white/[0.025]', className)}>
-      <StarField seed={`card-${space.id}`} count={16} />
+      <StarField seed={`card-${space.id}`} count={12} />
       <span className={cn('absolute inset-0', place)}>
-        <Planet size={planetSize(space.lessonCount, min, max)} {...planetOf(space)} drift={false} />
+        <SpaceWindow size={size} {...windowOf(space)} />
       </span>
     </span>
   );
@@ -199,8 +195,8 @@ export function WideCard({ space }: { space: Space }) {
         )}
         style={{ aspectRatio: '16 / 8.6' }}
       >
-        {/* The planet sits right of centre, clear of the name at bottom left. */}
-        <SkyArt space={space} min={44} max={76} place="flex items-start justify-end pr-5 pt-5" />
+        {/* The window sits right of centre, clear of the name at bottom left. */}
+        <SkyArt space={space} size={96} place="flex items-start justify-end pr-5 pt-5" />
 
         {space.newSinceLastVisit > 0 && (
           <span className="absolute left-3 top-3 z-[2] rounded-full bg-[#57d98a]/90 px-[10px] py-[3px] text-[11.5px] font-semibold text-[#06130b]">
@@ -221,6 +217,7 @@ export function WideCard({ space }: { space: Space }) {
         )}
 
         <span className="absolute bottom-[14px] left-[18px] right-[18px] z-[2] block">
+          <FaceStack space={space} className="mb-2" />
           <span className="mb-1 block text-[16.5px] font-semibold">{space.name}</span>
           {space.lastActivity && (
             <span className="block truncate text-[12.5px] text-quiet">
@@ -254,8 +251,7 @@ export function FeatureBanner({ space }: { space: Space }) {
         >
           <SkyArt
             space={space}
-            min={84}
-            max={120}
+            size={132}
             place="flex items-center justify-end pr-[8%]"
             className="hidden sm:block"
           />
@@ -302,7 +298,7 @@ export function FeatureBanner({ space }: { space: Space }) {
 export function StandardCard({ space }: { space: Space }) {
   const { t } = useTranslation('v4Spaces');
   const isMember = space.viewerRole !== null;
-  const isPrivate = space.visibility !== 'public';
+  const isPrivate = space.visibility !== 'public' && !space.personal;
   return (
     <motion.div variants={itemVariants} className="flex-none snap-start">
       <Link
@@ -316,7 +312,7 @@ export function StandardCard({ space }: { space: Space }) {
           whileTap={{ scale: 0.98 }}
           transition={PRESS_SPRING}
         >
-          <SkyArt space={space} min={36} max={64} />
+          <SkyArt space={space} size={84} />
           {(isMember || isPrivate) && (
             <span
               className={cn(
@@ -375,7 +371,7 @@ export function CompactCard({ space }: { space: Space }) {
           aria-hidden
           className="grid h-14 w-14 flex-none place-items-center overflow-hidden rounded-[9px] bg-white/[0.025]"
         >
-          <Planet size={26} {...planetOf(space)} drift={false} />
+          <SpaceWindow size={50} {...windowOf(space)} />
         </span>
         <span className="min-w-0">
           <span className="block truncate text-[14px] font-medium">{space.name}</span>

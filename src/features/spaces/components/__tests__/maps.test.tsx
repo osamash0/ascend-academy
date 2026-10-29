@@ -133,7 +133,7 @@ describe('Ascent draws Spaces, not Lessons', () => {
 describe('Ascent is a night sky that shows rather than counts', () => {
   /*
    * 2026-10-26: the bodies were hollow 9px circles with "0/10" under each and
-   * "0 / 2 Spaces cleared · 0/11 Lessons" above. Now each Space is a planet
+   * "0 / 2 Spaces cleared · 0/11 Lessons" above. Now each Space is a window onto its first page
    * with its real name, and the counts live only in the accessible names.
    */
   const mount = () => {
@@ -146,11 +146,11 @@ describe('Ascent is a night sky that shows rather than counts', () => {
     return spaces;
   };
 
-  it('draws a planet per Space, named with its real name', async () => {
+  it('draws a window per Space, named with its real name', async () => {
     await i18n.changeLanguage('en');
     const spaces = mount();
     for (const s of spaces.slice(0, FOLD_THRESHOLD)) {
-      expect(document.querySelector(`[data-planet="${s.id}"]`), `${s.id} has no planet`).toBeTruthy();
+      expect(document.querySelector(`[data-space-window="${s.id}"]`), `${s.id} has no window`).toBeTruthy();
     }
     const labels = [...document.querySelectorAll('svg text')].map((t) => t.textContent ?? '');
     for (const s of spaces) {

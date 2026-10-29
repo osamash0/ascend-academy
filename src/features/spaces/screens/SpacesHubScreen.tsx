@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useViewer } from '../data/viewer';
-import { formatNumber } from '../i18n/format';
 import {
   actionFor,
   hubInitialSelection,
@@ -25,6 +24,7 @@ import { Pressable } from '../components/Pressable';
 import { useScreenState } from '../data/useSpaces';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { HeroCover } from '../components/hub/HeroCover';
+import { SpaceLife } from '../components/hub/People';
 import { Scene, SURFACES } from '../components/Scene';
 import { StarField } from '../components/sky/StarField';
 import { DISCOVER_ID, SpaceChipRow } from '../components/hub/SpaceChipRow';
@@ -71,8 +71,8 @@ import { ListSkeleton, SpacesError } from '../components/states';
  * **A night sky, on the stage** (Abi, 2026-10-26). The hashed cover gradients
  * are gone: they washed the page in a colour per Space and broke the
  * monochrome black stage every other room stands on. Each Space is now a
- * planet whose moons are its Lessons, lit gold as you finish them, over a
- * faint field of stars. The page renders through `Scene` on the stage like
+ * round window onto its own first page, calm black and white, ringed in gold
+ * as you finish its path, over a faint field of stars. The page renders through `Scene` on the stage like
  * the other rooms, so the ground, the top bar's scroll pane and the phone's
  * bottom-bar spacer all come from the one place.
  */
@@ -184,12 +184,14 @@ export default function SpacesHubScreen() {
            * "curated weekly" went with it: nothing curates anything weekly.
            */
           meta: (
+            <p>
             <Trans
               t={t}
               i18nKey="hub.discover.notJoined"
               count={discoverable.length}
               components={{ b: <b className="font-medium text-quiet" /> }}
             />
+            </p>
           ),
           /*
            * Stays on this page. It used to be a Link to `/v4/spaces-legacy` —
@@ -204,31 +206,13 @@ export default function SpacesHubScreen() {
       : {
           title: space.name,
           desc: space.description ?? '',
-          meta: (
-            <>
-              {space.visibility === 'public' ? t('hub.meta.public') : t('hub.meta.invite')} ·{' '}
-              <Trans
-                t={t}
-                i18nKey="hub.meta.members"
-                count={space.memberCount}
-                values={{ n: formatNumber(space.memberCount) }}
-                components={{ b: <b className="font-medium text-quiet" /> }}
-              />
-              {space.online !== undefined && space.online > 0 && (
-                <>
-                  {' · '}
-                  <Trans
-                    t={t}
-                    i18nKey="hub.meta.online"
-                    values={{ n: formatNumber(space.online) }}
-                    components={{ b: <b className="font-medium text-quiet" /> }}
-                  />
-                </>
-              )}
-              {' · '}
-              {t('badges.lessons', { count: space.lessonCount })}
-            </>
-          ),
+          /*
+           * Said, not tabulated (Abi, 2026-10-26: "give a life to the
+           * informations"): who made it, who learns here with their faces,
+           * and where you stopped — instead of "Public · 128 members · 12
+           * Lessons".
+           */
+          meta: <SpaceLife space={space} />,
           /* The mock's state machine decides; the label is said here. */
           action: {
             ...actionFor(membershipOf(space)),
@@ -272,7 +256,7 @@ export default function SpacesHubScreen() {
       <div data-hub className="relative z-[2]">
         {/* ── Calm hero: 100vh, copy anchored left at ~34vh ── */}
         <section className="relative flex h-screen flex-col justify-end px-[22px] sm:px-16">
-          {/* The selected Space as a planet, right of the copy. */}
+          {/* The selected Space through its window, right of the copy. */}
           <HeroCover space={space} swapping={swapping} />
           <div className="relative mb-auto max-w-[560px] pt-[30vh] sm:pt-[34vh]">
             {/*
@@ -318,10 +302,10 @@ export default function SpacesHubScreen() {
                   BUILD-PROMPT §4: "do not reintroduce raw text-white/40
                   … measured as AA failures". This is the hero's meta
                   line — information, not decoration — and it sits beside
-                  the planet, on the stage. Still below the
+                  the window, on the stage. Still below the
                   0.62 emphasis nested inside it, so the hierarchy holds.
                 */}
-                <p className="mb-[30px] text-[13.5px] text-label">{hero.meta}</p>
+                <div className="mb-[30px] text-[13.5px] text-label">{hero.meta}</div>
                 <HubPill
                   to={hero.to}
                   onPress={hero.onPress}
