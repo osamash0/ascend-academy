@@ -148,7 +148,8 @@ def test_under_the_spaces_floor_it_says_so_with_no_findings_and_no_light(monkeyp
     assert body["readers"] == 4 and body["insights"] == [] and body["themes"] == []
     assert {l["light"] for l in body["lessons"]} == {"few"}
     assert all("help" not in l for l in body["lessons"])
-    assert body["figures"]["landing"] == {"value": 0, "history": []}
+    assert body["figures"]["landing"] == {"value": None, "history": []}
+    assert body["figures"]["cleared"] == {"value": None, "history": []}
 
 
 def test_a_finding_beyond_the_lessons_last_page_is_dropped_but_not_when_its_pages_are_unknown():

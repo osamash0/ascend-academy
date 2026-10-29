@@ -35,7 +35,8 @@ def test_reading_counts_members_who_read_each_week():
 def test_under_the_floor_only_reading_is_real():
     out = figures(space(*[read(f"m{i}", 1) for i in range(4)]), 5)
     assert out["reading"]["value"] == 4
-    assert out["landing"] == {"value": 0, "history": []} and out["cleared"] == {"value": 0, "history": []}
+    # Nothing to say is null, never 0%.
+    assert out["landing"] == {"value": None, "history": []} and out["cleared"] == {"value": None, "history": []}
 
 
 def test_a_page_lands_when_fewer_than_one_in_five_of_its_readers_needed_it():

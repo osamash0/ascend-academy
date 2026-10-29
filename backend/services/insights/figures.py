@@ -13,7 +13,7 @@ by `space_facts.lesson_facts`, the one rule every number on the door shares
 A week is seven days back from now. A week with nothing to say (no page `floor`
 people read, fewer than `floor` people at a checkpoint) is `None`, not 0%: the
 door shows a dash, never a claim. Under the Space's floor only `reading` is
-real; the other two are empty, and the door shows no figures (spec §5).
+real; the other two are null with no history, and the door shows no figures (spec §5).
 """
 from __future__ import annotations
 
@@ -50,8 +50,9 @@ def figures(data: SpaceData, floor: int) -> dict[str, Any]:
     reading = [len(r) for r in readers]
     out: dict[str, Any] = {"reading": {"value": reading[-1], "history": reading}}
     if len(set().union(*readers)) < floor:
-        out["landing"] = {"value": 0, "history": []}
-        out["cleared"] = {"value": 0, "history": []}
+        # Nothing to say is null (the Figure contract), never 0%.
+        out["landing"] = {"value": None, "history": []}
+        out["cleared"] = {"value": None, "history": []}
         return out
 
     landing: list[Optional[int]] = []
