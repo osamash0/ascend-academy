@@ -51,7 +51,7 @@ export function EarlyReader({ uploadId, filename, onReady, refused, initialPage 
   const shape = shapeOf(aspect);
   const total = pages || reading?.pages || 0;
 
-  /* The handover fires once per Lesson, with the page as it is at that moment. */
+  /* The handover fires once per Lesson, as soon as it has pages, with the page as it is at that moment. */
   const pageRef = useRef(page);
   pageRef.current = page;
   const onPageRef = useRef(onPage);
@@ -63,10 +63,10 @@ export function EarlyReader({ uploadId, filename, onReady, refused, initialPage 
   onReadyRef.current = onReady;
   const handed = useRef<string | null>(null);
   useEffect(() => {
-    if (reading?.stage !== 'ready' || !reading.lessonId || handed.current === reading.lessonId) return;
+    if (!reading?.readable || !reading.lessonId || handed.current === reading.lessonId) return;
     handed.current = reading.lessonId;
     onReadyRef.current(reading.lessonId, pageRef.current);
-  }, [reading?.stage, reading?.lessonId]);
+  }, [reading?.readable, reading?.lessonId]);
 
   /* A reader opened on a temporary id moves to the real one when it arrives; unmounted, nothing happens. */
   useSyncExternalStore(subscribeUploads, uploadsVersion);

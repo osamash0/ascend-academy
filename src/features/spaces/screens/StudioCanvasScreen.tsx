@@ -599,7 +599,7 @@ export default function StudioCanvasScreen() {
         onResolved={(to, page) => navigate(`/v4/library/m/${to}?page=${page}`, { replace: true })}
         onReady={(lessonId, page) => {
           releaseLocalFile(item.id, lessonId);
-          navigate(`/v4/space/${spaceId}/lesson/${lessonId}/faces?page=${page}`, { replace: true });
+          navigate(`/v4/space/${spaceId}/lesson/${lessonId}/faces?page=${page}&run=${item.id}`, { replace: true });
         }}
       />
     );
@@ -607,10 +607,13 @@ export default function StudioCanvasScreen() {
   if (item?.opens.kind === 'lesson') {
     /* The shelf saw the Lesson first, or the swap landed on one already made: the place still holds. */
     const at = earlyPage.current ?? askedPage;
+    const query = [at && at > 1 ? `page=${at}` : '', item.stage !== 'ready' ? `run=${item.id}` : '']
+      .filter(Boolean)
+      .join('&');
     return (
       <Navigate
         replace
-        to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}/faces${at && at > 1 ? `?page=${at}` : ''}`}
+        to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}/faces${query ? `?${query}` : ''}`}
       />
     );
   }

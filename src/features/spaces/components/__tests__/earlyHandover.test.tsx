@@ -109,7 +109,7 @@ describe('the early reader hands over to the Lesson', () => {
   it('its own handover opens the Lesson at the page being read', async () => {
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'hand over' }));
-    expect(here()).toBe('/v4/space/u/lesson/L1/faces?page=7');
+    expect(here()).toBe('/v4/space/u/lesson/L1/faces?page=7&run=run-1');
     expect(uploadsMock.release).toHaveBeenCalledWith('run-1', 'L1');
   });
 
@@ -121,6 +121,14 @@ describe('the early reader hands over to the Lesson', () => {
     expect(await screen.findByText('faces')).toBeInTheDocument();
     expect(here()).toBe('/v4/space/u/lesson/L1/faces?page=7');
     expect(uploadsMock.release).toHaveBeenCalledWith('run-1', 'L1');
+  });
+
+  it('the shelf noticing a readable Lesson first, still being read, keeps the run too', async () => {
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'turn to 7' }));
+    act(() => setItem(item({ stage: 'developing' }, 'L1')));
+    expect(await screen.findByText('faces')).toBeInTheDocument();
+    expect(here()).toBe('/v4/space/u/lesson/L1/faces?page=7&run=run-1');
   });
 
   it('a swap that lands on an item already a Lesson keeps the asked page', async () => {

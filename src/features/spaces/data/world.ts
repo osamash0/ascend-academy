@@ -63,6 +63,8 @@ export interface Upload {
   title: string | null;
   pageCount: number;
   stage: 'developing' | 'ready' | 'failed';
+  /** Its Lesson has pages already, so it can be opened while Luna is still reading. */
+  readable?: boolean;
   addedAt: string;
 }
 

@@ -28,7 +28,7 @@ describe('useEarlyReading', () => {
 
   it('reads the file on this device before the server link', async () => {
     localUrlFor.mockReturnValue('blob:local');
-    readingFor.mockResolvedValue({ pdfUrl: 'https://signed', pages: 10, pagesRead: 2, stage: 'developing', lessonId: null });
+    readingFor.mockResolvedValue({ pdfUrl: 'https://signed', pages: 10, pagesRead: 2, pagesReady: [], practiceReady: false, readable: false, stage: 'developing', lessonId: null });
     const { result } = renderHook(() => useEarlyReading('run-1'));
     expect(result.current.url).toBe('blob:local');
     await waitFor(() => expect(result.current.reading?.pagesRead).toBe(2));
@@ -36,7 +36,7 @@ describe('useEarlyReading', () => {
 
   it('falls back to the signed link when the file is not on this device', async () => {
     localUrlFor.mockReturnValue(null);
-    readingFor.mockResolvedValue({ pdfUrl: 'https://signed', pages: 10, pagesRead: 0, stage: 'developing', lessonId: null });
+    readingFor.mockResolvedValue({ pdfUrl: 'https://signed', pages: 10, pagesRead: 0, pagesReady: [], practiceReady: false, readable: false, stage: 'developing', lessonId: null });
     const { result } = renderHook(() => useEarlyReading('run-1'));
     await waitFor(() => expect(result.current.url).toBe('https://signed'));
   });
@@ -46,8 +46,8 @@ describe('useEarlyReading', () => {
     try {
       localUrlFor.mockReturnValue('blob:local');
       readingFor
-        .mockResolvedValueOnce({ pdfUrl: null, pages: 4, pagesRead: 1, stage: 'developing', lessonId: null })
-        .mockResolvedValue({ pdfUrl: null, pages: 4, pagesRead: 4, stage: 'ready', lessonId: 'l1' });
+        .mockResolvedValueOnce({ pdfUrl: null, pages: 4, pagesRead: 1, pagesReady: [], practiceReady: false, readable: false, stage: 'developing', lessonId: null })
+        .mockResolvedValue({ pdfUrl: null, pages: 4, pagesRead: 4, pagesReady: [], practiceReady: false, readable: false, stage: 'ready', lessonId: 'l1' });
       const { result, unmount } = renderHook(() => useEarlyReading('run-1'));
       await act(async () => { await vi.advanceTimersByTimeAsync(0); });
       expect(readingFor).toHaveBeenCalledTimes(1);
@@ -65,7 +65,7 @@ describe('useEarlyReading', () => {
 
   it('keeps the same link under StrictMode', async () => {
     localUrlFor.mockReturnValue('blob:local');
-    readingFor.mockResolvedValue({ pdfUrl: null, pages: 4, pagesRead: 1, stage: 'ready', lessonId: 'l1' });
+    readingFor.mockResolvedValue({ pdfUrl: null, pages: 4, pagesRead: 1, pagesReady: [], practiceReady: false, readable: false, stage: 'ready', lessonId: 'l1' });
     const { result } = renderHook(() => useEarlyReading('run-1'), { wrapper: StrictMode });
     await waitFor(() => expect(result.current.url).not.toBeNull());
     const live = result.current.url;

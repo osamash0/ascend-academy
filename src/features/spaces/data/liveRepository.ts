@@ -14,6 +14,12 @@ export interface EarlyReading {
   pdfUrl: string | null;
   pages: number;
   pagesRead: number;
+  /** Pages Luna has written, ascending. */
+  pagesReady: number[];
+  /** Practice questions exist. */
+  practiceReady: boolean;
+  /** The Lesson can be opened. */
+  readable: boolean;
   stage: 'developing' | 'ready' | 'failed';
   lessonId: string | null;
 }
