@@ -4,8 +4,8 @@ import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import type { Space } from '../../types';
 import { PRESS_SPRING } from '../Pressable';
-import { Planet, planetSize } from '../sky/Planet';
-import { planetOf, StarCluster } from './HeroCover';
+import { SpaceWindow, windowOf } from '../sky/SpaceWindow';
+import { StarCluster } from './HeroCover';
 
 /**
  * "Your spaces" — the chip row pinned to the bottom of the hero.
@@ -26,10 +26,11 @@ import { planetOf, StarCluster } from './HeroCover';
  * steal ←/→ from every text field on the page, and the row is focusable, so
  * this is the standard listbox behaviour and not a shortcut.
  *
- * **Planets, not tiles** (2026-10-26). Each Space is its planet, sized by how
- * many Lessons it holds, with its name under it. One fact once: no counts and
- * no progress numbers here — the moons already show both. The only second
- * line is one nothing else on the row says: that a Space is invite only.
+ * **Its own page, not a tile** (2026-10-26). Each Space is a round window onto
+ * page 1 of its first Lesson, calm black and white, with the gold ring of your
+ * progress, and its name under it. One fact once: no counts here — the ring
+ * shows progress. The only second line is one nothing else on the row says:
+ * that a Space is invite only.
  */
 
 export const DISCOVER_ID = 'discover';
@@ -130,17 +131,17 @@ export function SpaceChipRow({
                 Motion, not `transition-opacity`. Opacity is the library's to
                 animate — a CSS transition sails past
                 `MotionConfig reducedMotion="user"` and animates for people who
-                asked the OS for less. `initial={false}` so the planets do not
+                asked the OS for less. `initial={false}` so the windows do not
                 all fade in on mount.
               */}
               <motion.span
                 aria-hidden
                 initial={false}
-                animate={{ opacity: isSelected ? 1 : 0.62 }}
+                animate={{ opacity: isSelected ? 1 : 0.78 }}
                 transition={{ duration: 0.15 }}
                 className="flex h-[84px] w-full items-center justify-center"
               >
-                <Planet size={planetSize(s.lessonCount, 36, 72)} {...planetOf(s)} />
+                <SpaceWindow size={70} {...windowOf(s)} lifted={isSelected} />
               </motion.span>
 
               {/*
@@ -179,7 +180,7 @@ export function SpaceChipRow({
 
         {/*
           Discover is the last entry and reads as somewhere to go, not a
-          Space: no planet, a loose cluster of stars — everything out there
+          Space: no page, a loose cluster of stars — everything out there
           you have not visited yet.
         */}
         <motion.button

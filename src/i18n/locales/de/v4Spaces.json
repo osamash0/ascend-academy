@@ -334,7 +334,23 @@
     },
     "hero": {
       "lastOpened": "Zuletzt geöffnet"
-    }
+    },
+    "people": {
+      "by": "von {{name}}",
+      "byYou": "von dir",
+      "one": "{{name}} lernt hier",
+      "two": "{{a}} und {{b}} lernen hier",
+      "withOthers_one": "{{names}} und {{count}} weitere Person lernen hier",
+      "withOthers_other": "{{names}} und {{count}} andere lernen hier",
+      "count_one": "{{n}} Person lernt hier",
+      "count_other": "{{n}} Menschen lernen hier",
+      "more": "{{count}} weitere"
+    },
+    "place": {
+      "last": "Du warst zuletzt auf Seite {{page}} · {{title}}",
+      "start": "Fang mit {{title}} an"
+    },
+    "window": "{{name}}. {{done}} von {{total}} Lektionen geschafft."
   },
   "tiles": {
     "label": {

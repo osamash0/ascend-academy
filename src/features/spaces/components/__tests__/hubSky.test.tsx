@@ -11,7 +11,7 @@ import { SURFACES } from '../Scene';
  *
  * The hashed cover gradients washed the page in a colour per Space ("moss"
  * green behind a database course) and broke the monochrome stage. These
- * guards keep them gone and check what replaced them: a planet per Space on
+ * guards keep them gone and check what replaced them: a window per Space on
  * the same black stage as every other room.
  */
 
@@ -61,13 +61,13 @@ describe('the hub stands on the black stage', () => {
   });
 });
 
-describe('your Spaces are planets', () => {
-  it('gives every Space in the row its own planet, and Discover a star cluster', async () => {
+describe('your Spaces are windows onto their own pages', () => {
+  it('gives every Space in the row its own window, and Discover a star cluster', async () => {
     const { unmount } = await renderHub();
     for (const s of myHubSpaces()) {
       const chip = document.querySelector(`[data-chip="${s.id}"]`);
       expect(chip, `${s.id} has no entry in the row`).toBeTruthy();
-      expect(chip!.querySelector(`[data-planet="${s.id}"]`), `${s.id} has no planet`).toBeTruthy();
+      expect(chip!.querySelector(`[data-space-window="${s.id}"]`), `${s.id} has no window`).toBeTruthy();
     }
     expect(document.querySelector('[data-chip="discover"] [data-star-cluster]')).toBeTruthy();
     unmount();
@@ -81,11 +81,11 @@ describe('your Spaces are planets', () => {
     unmount();
   });
 
-  it('shows the selected Space as the hero planet', async () => {
+  it('shows the selected Space as the hero window', async () => {
     const { unmount } = await renderHub();
     const selected = document.querySelector('[role="option"][aria-selected="true"]')!;
     const id = selected.getAttribute('data-chip');
-    expect(document.querySelector(`[data-hero-art] [data-planet="${id}"]`)).toBeTruthy();
+    expect(document.querySelector(`[data-hero-art] [data-space-window="${id}"]`)).toBeTruthy();
     unmount();
   });
 });

@@ -4,6 +4,7 @@ is named after in src/features/spaces/types.ts, so the frontend's live
 repository is a thin transport and never reshapes."""
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Any, Dict, List, Optional
 
@@ -11,6 +12,7 @@ from backend.core.config import settings
 from backend.core.database import get_db_connection
 from backend.services import materials_service
 from backend.services.v4_personal import TITLE as PERSONAL_TITLE
+from backend.services.v4_reader_service import POSTER_BUCKET, signed_pdf_url
 
 
 def _person(row: Any) -> Dict[str, Any]:
@@ -114,11 +116,12 @@ WHERE v.viewer_role IS NOT NULL
 """
 
 _LESSONS_SQL = """
-SELECT l.id, l.course_id, l.title, l.created_at, l.professor_id, l.pdf_url,
+SELECT l.id, l.course_id, l.title, l.created_at, l.professor_id, l.pdf_url, l.poster_url,
        COALESCE(l.total_slides, 0) AS total_slides,
        (SELECT count(*) FROM quiz_questions q JOIN slides s ON s.id = q.slide_id
          WHERE s.lecture_id = l.id) AS practice_count,
-       sp.completed_slides, sp.completed_at, sp.id IS NOT NULL AS started
+       sp.completed_slides, sp.completed_at, sp.id IS NOT NULL AS started,
+       sp.last_slide_viewed, sp.updated_at AS read_at
 FROM lectures l
 LEFT JOIN student_progress sp ON sp.lecture_id = l.id AND sp.user_id = $1::uuid
 WHERE NOT COALESCE(l.is_archived, false)
@@ -154,6 +157,24 @@ GROUP BY lecture_id
 ORDER BY at DESC
 LIMIT 20
 """
+
+# Faces for a Space's card: a few of the people learning there, newest first.
+# Only for Spaces the viewer is in — the people they already share it with
+# (the same circle as _SHARED_SQL). A Space you are only browsing shows its
+# owner and a count, never strangers' faces.
+_FACES_SQL = """
+SELECT course_id, user_id, display_name, full_name, email, avatar_url FROM (
+  SELECT e.course_id, p.user_id, p.display_name, p.full_name, p.email, p.avatar_url,
+         row_number() OVER (PARTITION BY e.course_id ORDER BY e.created_at DESC NULLS LAST) AS n
+  FROM course_enrollments e
+  JOIN courses c ON c.id = e.course_id
+  JOIN public.profiles p ON p.user_id = e.user_id
+  WHERE e.course_id = ANY($2::uuid[])
+    AND e.user_id <> $1::uuid AND e.user_id <> c.professor_id
+) t
+WHERE n <= 3
+"""
+_MAX_FACES = 3
 
 # A lesson shows its strongest ideas, not every tag the graph collected.
 _MAX_CONCEPTS = 12
@@ -221,6 +242,8 @@ async def get_world(user_id: str) -> Dict[str, Any]:
             user_id,
         )
         activity = await conn.fetch(_ACTIVITY_SQL, user_id, lecture_ids)
+        joined_ids = [r["id"] for r in spaces if r["viewer_role"]]
+        face_rows = await conn.fetch(_FACES_SQL, user_id, joined_ids) if joined_ids else []
         record = await _record(conn, user_id)
         social = await _social(conn, user_id)
         my_notes = await notes_for(conn, user_id)
@@ -284,6 +307,37 @@ async def get_world(user_id: str) -> Dict[str, Any]:
             "practiceCount": r["practice_count"],
         })
 
+    faces: Dict[str, List[Dict[str, Any]]] = {}
+    for r in face_rows:
+        faces.setdefault(str(r["course_id"]), []).append(_person(r))
+
+    rows_by_lesson = {str(r["id"]): r for r in lessons}
+    # Each Space's cover is its first Lesson's page 1 — the poster, a small
+    # WebP, never the PDF. Signed once per poster and cached for hours.
+    first_poster: Dict[str, Optional[str]] = {}
+    for l in lessons_out:
+        if l["spaceId"] not in first_poster:
+            first_poster[l["spaceId"]] = rows_by_lesson[l["id"]]["poster_url"]
+    sids = list(first_poster)
+    signed = await asyncio.gather(*(signed_pdf_url(first_poster[sid], POSTER_BUCKET) for sid in sids))
+    covers = dict(zip(sids, signed))
+
+    def last_place(mine: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Where the viewer stopped reading in this Space: the most recently
+        read Lesson they have not finished, and its page."""
+        open_ = [
+            (rows_by_lesson[l["id"]], l) for l in mine
+            if l["progress"] == "in-progress" and rows_by_lesson[l["id"]]["read_at"]
+        ]
+        if not open_:
+            return None
+        row, lesson = max(open_, key=lambda p: p[0]["read_at"])
+        return {
+            "lessonId": lesson["id"],
+            "lessonTitle": lesson["title"],
+            "page": max(1, row["last_slide_viewed"] or 1),
+        }
+
     spaces_out: List[Dict[str, Any]] = []
     for r in spaces:
         mine = [l for l in lessons_out if l["spaceId"] == str(r["id"])]
@@ -326,10 +380,19 @@ async def get_world(user_id: str) -> Dict[str, Any]:
             "lessonsDone": sum(1 for l in mine if l["progress"] == "done"),
             "newSinceLastVisit": new_since,
             "lastActiveAt": last_active,
+            "cover": covers.get(str(r["id"])),
+            "faces": faces.get(str(r["id"]), [])[:_MAX_FACES],
+            "lastPlace": last_place(mine) if r["viewer_role"] else None,
         })
 
-    personal = _personal_space(user_id, viewer, [l for l in lessons_out if l["spaceId"] == user_id], uploads)
+    personal_lessons = [l for l in lessons_out if l["spaceId"] == user_id]
+    personal = _personal_space(user_id, viewer, personal_lessons, uploads)
     if personal:
+        personal.update({
+            "cover": covers.get(user_id),
+            "faces": [],
+            "lastPlace": last_place(personal_lessons),
+        })
         spaces_out.append(personal)
 
     return {

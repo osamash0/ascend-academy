@@ -1,9 +1,8 @@
 /**
  * Deterministic numbers from a string, for the night sky.
  *
- * A Space's planet and the stars behind a screen must look the same on every
- * render and every visit — "same Space = same planet always", the rule the old
- * cover gradients followed. An id is the one thing about a Space that does not
+ * The stars behind a screen must look the same on every
+ * render and every visit. An id is the one thing about a Space that does not
  * move, so everything here is keyed on a string and nothing on a list index.
  */
 
@@ -25,12 +24,3 @@ export const seededRandom = (seed: string): (() => number) => {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 };
-
-/**
- * Planet bodies: four neutral grey-blues, close enough to read as one family
- * on the black stage. Not a palette to tell Spaces apart — the name does that —
- * just enough variation that a row of planets is not a row of clones.
- */
-export const PLANET_TONES = ['#1b2232', '#232a36', '#1f2530', '#262b33'] as const;
-
-export const toneFor = (seed: string): string => PLANET_TONES[hashString(seed) % PLANET_TONES.length];

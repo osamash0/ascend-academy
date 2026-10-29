@@ -97,3 +97,53 @@ async def test_world_reads_courses_as_spaces_and_lectures_as_lessons(
     # A stranger sees the open courses but holds no role in them.
     other = await svc.get_world(str(stranger))
     assert all(s["viewerRole"] is None for s in other["spaces"])
+
+
+async def test_world_gives_each_space_a_cover_faces_and_a_last_place(
+    pool_from, db_conn, monkeypatch, make_user, make_course, make_lecture, make_course_enrollment,
+):
+    """The hub draws a Space from its own pages and people: page 1 of its first
+    Lesson, a few faces of those learning there, and where you stopped."""
+    svc = pool_from
+    signed: list = []
+
+    async def fake_sign(raw, bucket):
+        signed.append((raw, bucket))
+        return f"https://signed/{raw}" if raw else None
+
+    monkeypatch.setattr(svc, "signed_pdf_url", fake_sign)
+    tag = uuid.uuid4().hex[:6]
+    prof = make_user(role="professor", email=f"prof-{tag}@uni-marburg.de")
+    me = make_user(email=f"me-{tag}@gmail.com")
+    lea = make_user(email=f"lea-{tag}@gmail.com")
+    browsing = make_user(email=f"browse-{tag}@gmail.com")
+
+    course = make_course(prof, title=f"Softwaretechnik {tag}")
+    first = make_lecture(prof, title="Einführung")
+    second = make_lecture(prof, title="Drei-Schichten-Modell")
+    with db_conn.cursor() as cur:
+        cur.execute("UPDATE courses SET status = 'published' WHERE id = %s", (str(course),))
+        cur.execute("UPDATE lectures SET course_id = %s, total_slides = 40, poster_url = %s WHERE id = %s",
+                    (str(course), f"lecture-posters/{tag}/first.webp", str(first)))
+        cur.execute("UPDATE lectures SET course_id = %s, total_slides = 40, poster_url = %s, "
+                    "created_at = now() + interval '1 minute' WHERE id = %s",
+                    (str(course), f"lecture-posters/{tag}/second.webp", str(second)))
+        cur.execute(
+            "INSERT INTO student_progress (user_id, lecture_id, completed_slides, last_slide_viewed, updated_at) "
+            "VALUES (%s, %s, %s, 3, now() - interval '1 day'), (%s, %s, %s, 32, now())",
+            (str(me), str(first), [1, 2, 3], str(me), str(second), list(range(1, 32))),
+        )
+    make_course_enrollment(me, course)
+    make_course_enrollment(lea, course)
+
+    space = {s["id"]: s for s in (await svc.get_world(str(me)))["spaces"]}[str(course)]
+    assert space["cover"] == f"https://signed/lecture-posters/{tag}/first.webp"
+    assert ("lecture-posters/" + tag + "/first.webp", "lecture-posters") in signed
+    # The people you learn with — never yourself, never the owner (shown apart).
+    assert [f["id"] for f in space["faces"]] == [str(lea)]
+    assert space["lastPlace"] == {"lessonId": str(second), "lessonTitle": "Drei-Schichten-Modell", "page": 32}
+
+    # Somebody only browsing sees the cover, but no faces and no place of their own.
+    seen = {s["id"]: s for s in (await svc.get_world(str(browsing)))["spaces"]}[str(course)]
+    assert seen["cover"] == space["cover"]
+    assert (seen["faces"], seen["lastPlace"]) == ([], None)

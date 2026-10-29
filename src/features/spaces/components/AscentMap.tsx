@@ -6,7 +6,7 @@ import type { Space } from '../types';
 import { FOLD_THRESHOLD, MAP_PALETTE } from './SpaceMap';
 import { publishedLessonsForSpace } from '../data/world';
 import { useMediaQuery } from '../data/useMediaQuery';
-import { Planet, planetBox, planetSize } from './sky/Planet';
+import { SpaceWindow } from './sky/SpaceWindow';
 import { StarField } from './sky/StarField';
 
 /**
@@ -48,17 +48,19 @@ import { StarField } from './sky/StarField';
  *
  * **A night sky** (Abi, 2026-10-26). The bodies were 9px hollow circles with
  * counters under them ("0/10", "0 / 2 Spaces cleared"), which said nothing
- * about space or distance. Each Space is now a planet — sized by its Lessons,
- * its moons lit gold as you finish them, haloed by its progress — on a faint
- * star field, along a dashed arc. **Show, don't count**: no number is drawn.
+ * about space or distance. Each Space is now a round window onto its own
+ * first page — calm black and white, ringed in gold as far as you have come,
+ * with a white point where you are — on a faint star field, along a dashed
+ * arc. (A planet stood here for a day; Abi wanted the Space's own files
+ * instead.) **Show, don't count**: no number is drawn.
  * The counts live on in the accessible names (`ascent.label`, `ascent.node`),
- * so a screen reader still hears them. On a phone the arc stands up: planets
+ * so a screen reader still hears them. On a phone the arc stands up: windows
  * stacked, swaying left and right down a vertical curve.
  */
 
 /** Horizontal arc (≥ sm). */
 const PAD_X = 90;
-/** The narrowest gap between two planets on the arc. */
+/** The narrowest gap between two windows on the arc. */
 const STEP_X = 170;
 /**
  * The arc spans at least this many units. Two Spaces on a 350-unit arc,
@@ -76,9 +78,8 @@ const PAD_Y = 80;
 const STEP_Y = 150;
 const SWAY = 72;
 
-/** Planet body sizes, by Lesson count. */
-const MIN_SIZE = 34;
-const MAX_SIZE = 64;
+/** Every window the same size: the path's length is not a contest. */
+const WINDOW = 76;
 
 interface Placed {
   space: Space;
@@ -136,7 +137,7 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
         ...(wide
           ? { x: n < 2 ? span / 2 : PAD_X + i * step, y: BASE_Y - 4 * ARC * f * (1 - f) }
           : { x: V_WIDTH / 2 + (i % 2 === 0 ? -SWAY : SWAY) * (n < 2 ? 0 : 1), y: PAD_Y + i * STEP_Y }),
-        size: planetSize(total, MIN_SIZE, MAX_SIZE),
+        size: WINDOW,
         light,
         done,
         total,
@@ -218,7 +219,7 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
             const href = `/v4/space/${p.space.id}`;
             const open = () => navigate(href);
             const r = p.size / 2;
-            const boxH = planetBox(p.size).height;
+            const boxH = p.size;
             const lit = p.light > 0 || p.current;
             return (
               <motion.g
@@ -240,7 +241,7 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                 /*
                   Not `outline-none`: that, with a 6% wash, was the old
                   failure — a keyboard user got no feedback at all. The visible
-                  state is the drawn ring below, around the planet.
+                  state is the drawn ring below, around the window.
                 */
                 className="group cursor-pointer [&_text]:transition-[fill]"
               >
@@ -261,19 +262,18 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                   variants={{ rest: { opacity: 0 }, hover: { opacity: 0.5 }, focus: { opacity: 1 } }}
                 />
 
-                {/* A real target, larger than the planet. */}
+                {/* A real target, larger than the window. */}
                 <circle cx={p.x} cy={p.y} r={Math.max(r + 14, 34)} fill="transparent" />
                 <title>{t('ascent.nodeTitle', { name: p.space.name, done: p.done, total: p.total })}</title>
 
-                <Planet
+                <SpaceWindow
+                  spaceId={p.space.id}
                   cx={p.x}
                   cy={p.y}
                   size={p.size}
-                  lessonCount={p.total}
-                  lessonsDone={p.done}
+                  cover={p.space.cover}
+                  progress={p.light}
                   current={p.current}
-                  glow={p.light}
-                  seed={p.space.id}
                 />
 
                 {p === latest && p.current && (

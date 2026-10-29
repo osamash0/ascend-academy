@@ -1,119 +1,140 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { MAX_MOONS, Planet, moonStates, planetSize } from '../sky/Planet';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { SpaceWindow, WINDOW_LOOKS, windowOf } from '../sky/SpaceWindow';
 import { StarField, starsFor } from '../sky/StarField';
-import { PLANET_TONES, toneFor } from '../sky/seed';
-import { FOLD_THRESHOLD, MAP_PALETTE } from '../SpaceMap';
+import { FaceStack, SpaceLife, peopleLine } from '../hub/People';
+import { MAP_PALETTE } from '../SpaceMap';
 import { allSpaces } from '../../mocks/spaces';
+import type { Space } from '../../types';
 
 /**
- * The night sky's two pieces: a planet whose moons are Lessons, and the stars
- * behind it. The palette is the map's — gold earned, white "you are here",
- * faint everything else — and nothing is counted on screen; the numbers live
- * in the accessible name.
+ * A Space drawn from its own files: a round window onto page 1 of its first
+ * Lesson, calm black and white, ringed in the map's palette — gold for the
+ * path finished, one white point for "you are here". Nothing is counted on
+ * screen; the numbers live in the accessible name. And the people in it are
+ * said, with their faces, not tabulated.
  */
 
-const moons = (root: ParentNode = document) => [...root.querySelectorAll('[data-moon]')];
-const byState = (state: string) => moons().filter((m) => m.getAttribute('data-moon') === state);
+const base = allSpaces[0];
+const space = (over: Partial<Space>): Space => ({ ...base, ...over });
+/** The line as the hub says it, through the app's own i18n. */
+function Line({ s }: { s: Space }) {
+  const { t } = useTranslation('v4Spaces');
+  return <p data-line>{peopleLine(t, s) ?? 'null'}</p>;
+}
+const lineFor = (s: Space) => {
+  const { container, unmount } = render(<Line s={s} />);
+  const text = container.querySelector('[data-line]')!.textContent;
+  unmount();
+  return text === 'null' ? null : text;
+};
 
-describe('a planet’s moons are its Lessons', () => {
-  it('draws one moon per Lesson, gold for done, one white for here, faint for open', () => {
-    render(<Planet size={80} lessonCount={10} lessonsDone={3} current glow={0.3} seed="dbs" />);
-    expect(moons()).toHaveLength(10);
-    expect(byState('done')).toHaveLength(3);
-    expect(byState('current')).toHaveLength(1);
-    expect(byState('open')).toHaveLength(6);
-    for (const m of byState('done')) expect(m.getAttribute('fill')).toBe(MAP_PALETTE.goldCore);
-    const here = byState('current')[0];
-    expect(here.getAttribute('fill')).toBe(MAP_PALETTE.hereRim);
-    expect(Number(here.getAttribute('fill-opacity'))).toBe(1);
-    for (const m of byState('open')) expect(Number(m.getAttribute('fill-opacity'))).toBeLessThan(0.3);
+describe('a Space’s window is its own first page', () => {
+  it('shows the poster, calm: black and white and dimmed', () => {
+    const { container } = render(<SpaceWindow size={80} cover="https://x/p.webp" progress={0} />);
+    const img = container.querySelector('[data-cover]')!;
+    expect(img.getAttribute('href')).toBe('https://x/p.webp');
+    expect(WINDOW_LOOKS.calm.rest).toContain('grayscale(1)');
+    expect(container.querySelector('[data-drawn-page]')).toBeNull();
   });
 
-  it('has no "you are here" moon unless asked, and none once every Lesson is done', () => {
-    expect(moonStates(10, 3, false)).not.toContain('current');
-    expect(moonStates(10, 10, true)).not.toContain('current');
-    expect(moonStates(10, 10, true).every((s) => s === 'done')).toBe(true);
+  it('draws a faint page when there is no poster, or it fails to load', () => {
+    const { container, rerender } = render(<SpaceWindow size={80} cover={null} progress={0} />);
+    expect(container.querySelector('[data-drawn-page]')).not.toBeNull();
+    rerender(<SpaceWindow size={80} cover="https://x/broken.webp" progress={0} />);
+    fireEvent.error(container.querySelector('[data-cover]')!);
+    expect(container.querySelector('[data-drawn-page]')).not.toBeNull();
+  });
+});
+
+describe('progress is the ring', () => {
+  it('has no gold before you start, and gold in proportion after', () => {
+    const { container, rerender } = render(<SpaceWindow size={100} progress={0} />);
+    expect(container.querySelector('[data-ring-done]')).toBeNull();
+    rerender(<SpaceWindow size={100} progress={0.25} />);
+    const ring = container.querySelector('[data-ring-done]')!;
+    expect(ring.getAttribute('stroke')).toBe(MAP_PALETTE.goldCore);
+    const [on, all] = ring.getAttribute('stroke-dasharray')!.split(' ').map(Number);
+    expect(on / all).toBeCloseTo(0.25, 2);
   });
 
-  it('folds past 24 Lessons, keeping the proportion', () => {
-    render(<Planet size={80} lessonCount={60} lessonsDone={30} current glow={0.5} seed="big" />);
-    expect(moons()).toHaveLength(MAX_MOONS);
-    expect(byState('done')).toHaveLength(12);
-    expect(byState('current')).toHaveLength(1);
+  it('marks "you are here" with one white point, only when asked', () => {
+    const { container, rerender } = render(<SpaceWindow size={100} progress={0.4} />);
+    expect(container.querySelector('[data-ring-here]')).toBeNull();
+    rerender(<SpaceWindow size={100} progress={0.4} current />);
+    expect(container.querySelector('[data-ring-here]')!.getAttribute('fill')).toBe(MAP_PALETTE.hereRim);
   });
 
-  it('never rounds unfinished up to finished, nor some progress down to none', () => {
-    expect(moonStates(100, 99, false).filter((s) => s === 'done')).toHaveLength(MAX_MOONS - 1);
-    expect(moonStates(100, 1, false).filter((s) => s === 'done')).toHaveLength(1);
-  });
-
-  it('never caps moons below what a route shows', () => {
-    expect(MAX_MOONS).toBeGreaterThanOrEqual(FOLD_THRESHOLD);
+  it('is "here" only in a Space you are in, started and unfinished', () => {
+    expect(windowOf(space({ viewerRole: 'member', viewerProgress: 40 })).current).toBe(true);
+    expect(windowOf(space({ viewerRole: null, viewerProgress: 40 })).current).toBe(false);
+    expect(windowOf(space({ viewerRole: 'member', viewerProgress: 0 })).current).toBe(false);
+    expect(windowOf(space({ viewerRole: 'member', viewerProgress: 100 })).current).toBe(false);
   });
 
   it('draws no number at all', () => {
-    const { container } = render(
-      <Planet size={80} lessonCount={10} lessonsDone={3} glow={0.3} seed="dbs" label="x" />,
-    );
+    const { container } = render(<SpaceWindow size={80} progress={0.3} current label="x" />);
     expect(container.querySelector('text')).toBeNull();
     expect(container.textContent).toBe('');
   });
 });
 
-describe('a planet is named for screen readers, or hidden', () => {
+describe('a window is named for screen readers, or hidden', () => {
   it('is an image with the counts in its name when labelled', () => {
-    render(
-      <Planet
-        size={80}
-        lessonCount={10}
-        lessonsDone={3}
-        glow={0.3}
-        seed="dbs"
-        label="Datenbanksysteme. 3 of 10 Lessons done."
-      />,
-    );
+    render(<SpaceWindow size={80} progress={0.3} label="Datenbanksysteme. 3 of 10 Lessons done." />);
     expect(screen.getByRole('img', { name: 'Datenbanksysteme. 3 of 10 Lessons done.' })).toBeTruthy();
   });
 
   it('is decoration when unlabelled, because its control carries the name', () => {
-    const { container } = render(<Planet size={40} lessonCount={4} lessonsDone={0} glow={0} seed="a" />);
+    const { container } = render(<SpaceWindow size={40} progress={0} />);
     expect(container.querySelector('svg')!.getAttribute('aria-hidden')).toBe('true');
     expect(screen.queryByRole('img')).toBeNull();
   });
 });
 
-describe('progress is what lights a planet', () => {
-  it('draws no halo with no progress, and a stronger one with more', () => {
-    const { container, rerender } = render(
-      <Planet size={80} lessonCount={10} lessonsDone={0} glow={0} seed="dbs" />,
+describe('the people in a Space are said, not counted', () => {
+  const lea = { id: 'lea', name: 'Lea Brandt', avatarUrl: null };
+  const jonas = { id: 'jonas', name: 'Jonas Weber', avatarUrl: null };
+
+  it('names two faces and counts the rest, without the viewer', () => {
+    const s = space({ viewerRole: 'member', memberCount: 128, faces: [lea, jonas] });
+    expect(lineFor(s)).toBe('Lea, Jonas and 125 others learn here');
+  });
+
+  it('reads naturally with only one or two others', () => {
+    expect(lineFor(space({ viewerRole: 'member', memberCount: 2, faces: [lea] }))).toBe('Lea learns here');
+    expect(lineFor(space({ viewerRole: 'owner', memberCount: 2, faces: [lea, jonas] }))).toBe(
+      'Lea and Jonas learn here',
     );
-    expect(container.querySelector('[data-halo]')).toBeNull();
-    rerender(<Planet size={80} lessonCount={10} lessonsDone={2} glow={0.2} seed="dbs" />);
-    const low = Number(container.querySelector('[data-halo]')!.getAttribute('opacity'));
-    rerender(<Planet size={80} lessonCount={10} lessonsDone={9} glow={0.9} seed="dbs" />);
-    const high = Number(container.querySelector('[data-halo]')!.getAttribute('opacity'));
-    expect(high).toBeGreaterThan(low);
   });
-});
 
-describe('planet size', () => {
-  it('grows with Lessons on a square-root scale and stays in range', () => {
-    expect(planetSize(0, 36, 72)).toBe(36);
-    expect(planetSize(MAX_MOONS, 36, 72)).toBe(72);
-    expect(planetSize(500, 36, 72)).toBe(72);
-    // A quarter of the Lessons is half the extra width, not a quarter.
-    expect(planetSize(MAX_MOONS / 4, 36, 72)).toBe(54);
+  it('shows a browsing viewer a count, never strangers’ faces', () => {
+    const s = space({ viewerRole: null, memberCount: 40, faces: [] });
+    expect(lineFor(s)).toBe('40 people learn here');
+    const { container } = render(<FaceStack space={s} />);
+    expect(container.textContent).toBe('');
   });
-});
 
-describe('the same Space is the same planet always', () => {
-  it('picks a body tone from the id, not from list order', () => {
-    const forward = allSpaces.map((s) => toneFor(s.id));
-    const backward = [...allSpaces].reverse().map((s) => toneFor(s.id));
-    expect(backward.reverse()).toEqual(forward);
-    for (const tone of forward) expect(PLANET_TONES).toContain(tone);
-    expect(new Set(forward).size).toBeGreaterThan(1);
+  it('says nothing when you learn there alone', () => {
+    expect(lineFor(space({ viewerRole: 'member', memberCount: 1, faces: [] }))).toBeNull();
+  });
+
+  it('tells you where you stopped, as a way back in', () => {
+    const s = space({
+      viewerRole: 'member',
+      faces: [],
+      memberCount: 1,
+      lastPlace: { lessonId: 'l7', lessonTitle: 'Drei-Schichten-Modell', page: 32 },
+    });
+    render(
+      <MemoryRouter>
+        <SpaceLife space={s} />
+      </MemoryRouter>,
+    );
+    const link = screen.getByRole('link', { name: /page 32 · Drei-Schichten-Modell/ });
+    expect(link.getAttribute('href')).toBe(`/v4/space/${s.id}/lesson/l7`);
   });
 });
 
