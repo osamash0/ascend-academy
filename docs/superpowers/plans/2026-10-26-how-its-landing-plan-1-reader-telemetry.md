@@ -18,7 +18,7 @@
 - Payload keys are camelCase (`lectureId`, `slideId`, `sessionId`); every v4 payload carries `"source": "v4_reader"` (practice: `"v4_practice"`).
 - Telemetry must never fail the user's request: `record_event()` swallows and logs, and it runs in a savepoint inside existing transactions.
 - New migration file name: `supabase/migrations/20261027000000_v4_reader_telemetry_events.sql` (sorts after `20261026000000`, the newest on main).
-- **Deploy order:** the migration is applied to prod (by Abi, via psql) **before** the backend that writes `checkpoint_attempt` ships. Never run `supabase db push` (memory: prod ledger is unreliable).
+- **Deploy order:** migration (applied to prod by Abi, via psql, after a pg_dump) → backend → frontend, or one combined rebuild of backend and frontend after the migration. Never the frontend first: the old backend's request models are `extra="forbid"`, so a new frontend (which sends `session_id`, `to_page`, `opened`, …) against an old backend gets a 422 on every ping. Never run `supabase db push` (memory: prod ledger is unreliable).
 - v4 UI copy: no "professor / student / teacher / lecture / slide / course / deck / document" in strings under `src/features/spaces` (`node scripts/check-vocabulary.mjs`); every JSX word comes from i18n (`node scripts/check-v4-strings.mjs`); en and de keys match (`node scripts/check-i18n-parity.cjs`). German: du, no exclamation marks.
 - Type-check with `npx tsc -p tsconfig.app.json --noEmit` (the bare `tsconfig.json` checks nothing).
 - Backend tests: `.venv/bin/python -m pytest …` from the repo root (absolute venv: `/Users/abdullahabobaker/Desktop/ascend-academy/.venv/bin/python`). DB tests need Docker (`-m db`).
@@ -2600,7 +2600,8 @@ Expected: `slide_view` rows sharing one session (including the last page, from t
 Deploy order
 1. Abi applies supabase/migrations/20261027000000_v4_reader_telemetry_events.sql to prod (psql via the pooler, port 5432), after a pg_dump.
    Verify: SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'learning_events_event_type_check';  -- contains checkpoint_attempt
-2. Deploy backend + frontend together (the frontend's new fields are optional for the backend and vice versa).
+2. Deploy the backend (or rebuild backend + frontend together). Never the frontend first: the old backend's request models are extra="forbid", so the new frontend's extra fields (session_id, to_page, opened, ...) would be refused with a 422.
+3. Deploy the frontend, unless step 2 was the combined rebuild.
 Rollback: the CHECK accepts the old 16 types too; reverting the code needs no migration.
 ```
 
