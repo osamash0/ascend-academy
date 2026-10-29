@@ -87,8 +87,12 @@ function wordsNow(items: ShelfItem[], canvases: ReadonlyMap<string, CanvasDoc>):
  * A real upload as a cover. It is private (shared nowhere) and, once the
  * pipeline has made it a Lesson, opens that Lesson in your personal Space —
  * whose id is yours. Its life bar is your reading of that Lesson.
+ *
+ * The pipeline makes the Lesson's row midway, long before it can be read (the
+ * reader answers 409 until then). So the cover opens the Lesson only once the
+ * upload is ready; until then it opens the file itself, in the early reader.
  */
-function coverOf(u: Upload, world: World): ShelfItem {
+export function coverOf(u: Upload, world: World): ShelfItem {
   const lesson = u.lessonId ? world.lessons.find((l) => l.id === u.lessonId) : undefined;
   return {
     id: u.id,
@@ -97,7 +101,7 @@ function coverOf(u: Upload, world: World): ShelfItem {
     cover: '',
     stage: u.stage,
     share: { kind: 'private' },
-    opens: { kind: 'lesson', spaceId: world.viewer.id, lessonId: u.lessonId ?? '' },
+    opens: { kind: 'lesson', spaceId: world.viewer.id, lessonId: u.stage === 'ready' ? (u.lessonId ?? '') : '' },
     progress: {
       pagesRead: lesson ? Math.round((lesson.percentComplete / 100) * u.pageCount) : 0,
       recallKnew: 0,
