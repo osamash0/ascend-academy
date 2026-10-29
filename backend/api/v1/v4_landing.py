@@ -38,9 +38,13 @@ async def v4_landing(request: Request, space_id: UUID, user: Any = Depends(verif
     return await service.get_landing(space_id, _uid(user), _lang(request))
 
 
+#: A salt shorter than this is as good as none: the pseudonyms could be worked back to accounts.
+_MIN_SALT = 32
+
+
 def _people_salt() -> str:
-    """Person-level views exist only with the flag on and a salt set; otherwise they are not here."""
-    if not settings.feature_landing_people or not settings.landing_pseudonym_salt:
+    """Person-level views exist only with the flag on and a salt of real length; otherwise they are not here."""
+    if not settings.feature_landing_people or len(settings.landing_pseudonym_salt) < _MIN_SALT:
         raise HTTPException(status_code=404, detail="Not found.")
     return settings.landing_pseudonym_salt
 
