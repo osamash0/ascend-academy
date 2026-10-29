@@ -47,11 +47,13 @@ def help_index(facts: dict[str, LessonFacts]) -> dict[str, list[float]]:
 
 
 def grid(f: PageFacts) -> Optional[dict[str, int]]:
-    """Check-in against checkpoint, paired per person; only once the floor's worth of pairs exist."""
-    if len(f.pairs) < MIN_READERS:
+    """Check-in against checkpoint, paired per reader (as `page_row` pairs them); only once
+    the floor's worth of pairs exist."""
+    pairs = [pair for user, pair in f.pairs.items() if user in f.readers]
+    if len(pairs) < MIN_READERS:
         return None
     g = {"clickedCleared": 0, "clickedMissed": 0, "foggyCleared": 0, "foggyMissed": 0}
-    for rating, cleared in f.pairs.values():
+    for rating, cleared in pairs:
         said = "clicked" if rating == "got_it" else "foggy"
         g[f"{said}{'Cleared' if cleared else 'Missed'}"] += 1
     return g
@@ -61,20 +63,14 @@ def _pct(value: Any) -> int:
     return int(round(float(value or 0)))
 
 
-def _metrics(kind: str, m: dict[str, Any], f: PageFacts) -> dict[str, float]:
+def _metrics(kind: str, m: dict[str, Any], f: PageFacts, g: Optional[dict[str, int]]) -> dict[str, float]:
     if kind == "confusion_hotspot":
         # Readers only, as `page_row` and `help_share` count: someone who asked without a counted read is no reader here.
         return {"askers": len((f.explain | f.ask) & f.readers), "foggy": _pct(m.get("confusionRate"))}
-    if kind == "silent_misleader":
-        clicked = [cleared for rating, cleared in f.pairs.values() if rating == "got_it"]
-        # The detector fires only on 2 or fewer clicked pairs (3 or more is a calibration_gap), so the
-        # pairs are stated as a share only once the floor's worth exist; else the page's own pass rate.
-        missed = (
-            _pct(100 * sum(1 for c in clicked if not c) / len(clicked))
-            if len(clicked) >= MIN_READERS
-            else _pct(100 - float(m.get("quizSuccessRate") or 0))
-        )
-        return {"clicked": _pct(m.get("gotItPct")), "missed": missed}
+    if kind == "silent_misleader" and g:
+        # "of them": the clicked row of the grid the card carries (`to_landing` tells no trap without one).
+        missed = 100 * g["clickedMissed"] / (g["clickedCleared"] + g["clickedMissed"])
+        return {"clicked": _pct(m.get("gotItPct")), "missed": _pct(missed)}
     if kind == "skipped_slide":
         return {"seconds": _pct(m.get("medianDwellSeconds"))}
     if kind == "speed_bump":
@@ -98,6 +94,10 @@ def to_landing(insight: dict[str, Any], lf: LessonFacts) -> Optional[dict[str, A
     if kind not in _KINDS or not pages:
         return None
     f = lf.pages.get(pages[0]) or PageFacts()
+    g = grid(f) if kind in ("silent_misleader", "calibration_gap") else None
+    if kind == "silent_misleader" and not (g and g["clickedCleared"] + g["clickedMissed"]):
+        # Its "then N% of them missed" is about people who said clicked and then tried: no pairs, no "them".
+        return None
     out: dict[str, Any] = {
         "id": f"{lf.lesson.id}:{insight['id']}",
         "kind": kind,
@@ -109,11 +109,9 @@ def to_landing(insight: dict[str, Any], lf: LessonFacts) -> Optional[dict[str, A
         out["first"], out["last"] = pages[0], pages[-1]
     else:
         out["page"] = pages[0]
-    out["metrics"] = _metrics(kind, insight.get("metrics") or {}, f)
-    if kind in ("silent_misleader", "calibration_gap"):
-        g = grid(f)
-        if g:
-            out["grid"] = g
+    out["metrics"] = _metrics(kind, insight.get("metrics") or {}, f, g)
+    if g:
+        out["grid"] = g
     return out
 
 

@@ -24,13 +24,27 @@ MIN_READERS = 5
 
 
 def page_row(lesson_id: str, page: int, f: PageFacts) -> dict[str, Any]:
-    """One page as the detectors read a slide."""
+    """One page as the detectors read a slide.
+
+    The people gate: a share the door prints is taken over raters, tryers or clicked
+    pairs, not over readers, so each of those counts only the page's readers and says
+    nothing until there are `MIN_READERS` of them. Under it, the row holds no ratings,
+    no tries and no pairs (the detectors then find nothing to say about them).
+    """
     dwell = f.sittings
     p25, p75 = _safe_quartiles(dwell)
-    counts = {r: sum(1 for v in f.ratings.values() if v == r) for r in ("got_it", "unsure", "confused")}
+    ratings = [r for u, r in f.ratings.items() if u in f.readers]
+    if len(ratings) < MIN_READERS:
+        ratings = []
+    tries = [t for t in f.tries if t.user_id in f.readers]
+    if len({t.user_id for t in tries}) < MIN_READERS:
+        tries = []
+    clicked = [cleared for u, (rating, cleared) in f.pairs.items() if rating == "got_it" and u in f.readers]
+    if len(clicked) < MIN_READERS:
+        clicked = []
+    counts = {r: sum(1 for v in ratings if v == r) for r in ("got_it", "unsure", "confused")}
     rated = sum(counts.values())
-    right = sum(1 for t in f.tries if t.correct)
-    clicked = [cleared for rating, cleared in f.pairs.values() if rating == "got_it"]
+    right = sum(1 for t in tries if t.correct)
     missed = sum(1 for cleared in clicked if not cleared)
     return {
         "slide_id": f"{lesson_id}:{page}",
@@ -44,8 +58,8 @@ def page_row(lesson_id: str, page: int, f: PageFacts) -> dict[str, Any]:
         "dwell_cv": round(_safe_cv(dwell), 2),
         "short_views": sum(1 for d in dwell if d < SHORT_VIEW),
         "confusion_rate": round(counts["confused"] / rated * 100, 1) if rated else 0.0,
-        "quiz_success_rate": round(right / len(f.tries) * 100, 1) if f.tries else None,
-        "quiz_attempts": len(f.tries),
+        "quiz_success_rate": round(right / len(tries) * 100, 1) if tries else None,
+        "quiz_attempts": len(tries),
         "got_it": counts["got_it"],
         "unsure": counts["unsure"],
         "confused": counts["confused"],

@@ -1,11 +1,14 @@
 """The engine's detectors, untouched, run on a Space's facts — and say nothing under the floor."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from backend.services.insights.sources.space import LessonRow
 from backend.services.insights.space_engine import MIN_READERS, lesson_bundle, lesson_insights, page_row, pages_of
-from backend.services.insights.space_facts import LessonFacts, PageFacts
+from backend.services.insights.space_facts import LessonFacts, PageFacts, Try
 
 LESSON = LessonRow(id="l1", title="Normalization", order=1, pages=6)
+AT = datetime(2026, 10, 28, 12, 0, tzinfo=timezone.utc)
 
 
 def readers(n, prefix="r"):
@@ -24,19 +27,93 @@ def lesson(pages):
     return lf
 
 
+def tries(people, correct):
+    return [Try(p, "l1", 3, None, correct(p), AT, "practice") for p in sorted(people)]
+
+
 def test_a_page_row_carries_what_the_detectors_read():
     people = readers(10)
     pf = PageFacts(
         readers=set(people), sittings=[3.0, 40.0, 50.0], explain={"r0"}, ask={"r1", "r2"},
-        ratings={"r0": "confused", "r1": "got_it"}, returners={"r3"}, from_next={"r3"},
-        pairs={"r1": ("got_it", False), "r4": ("got_it", True)},
+        ratings={"r0": "confused", "r1": "got_it", "r2": "got_it", "r3": "unsure", "r4": "got_it"},
+        returners={"r3"}, from_next={"r3"},
+        pairs={f"r{i}": ("got_it", i >= 2) for i in range(5)},
+        tries=tries(readers(5), lambda p: p != "r0"),
     )
     row = page_row("l1", 3, pf)
     assert row["slide_number"] == 3 and row["view_count"] == 10 and row["short_views"] == 1
-    assert row["confusion_rate"] == 50.0 and row["ratings_total"] == 2
+    assert row["confusion_rate"] == 20.0 and row["ratings_total"] == 5
+    assert (row["got_it"], row["unsure"], row["confused"]) == (3, 1, 1)
     assert row["ai_query_count"] == 3 and row["back_nav_count"] == 1 and row["back_nav_from_next"] == 1
-    assert (row["got_it_quiz_total"], row["overconfident_count"], row["overconfidence_rate"]) == (2, 1, 50.0)
-    assert row["quiz_success_rate"] is None and row["quiz_attempts"] == 0
+    assert (row["got_it_quiz_total"], row["overconfident_count"], row["overconfidence_rate"]) == (5, 2, 40.0)
+    assert row["quiz_success_rate"] == 80.0 and row["quiz_attempts"] == 5
+
+
+def test_no_share_is_taken_over_fewer_than_five_people():
+    # Every share the door prints has its own denominator: raters, tryers, clicked pairs.
+    # Each needs the floor's worth of the page's readers, or the row says nothing about it.
+    people = readers(10)
+    pf = PageFacts(
+        readers=set(people), sittings=[40.0] * 10,
+        ratings={f"r{i}": "confused" for i in range(4)},
+        tries=tries(readers(4), lambda p: False),
+        pairs={f"r{i}": ("got_it", False) for i in range(4)},
+    )
+    row = page_row("l1", 3, pf)
+    assert (row["got_it"], row["unsure"], row["confused"], row["ratings_total"], row["confusion_rate"]) == (0, 0, 0, 0, 0.0)
+    assert (row["quiz_success_rate"], row["quiz_attempts"]) == (None, 0)
+    assert (row["got_it_quiz_total"], row["overconfident_count"], row["overconfidence_rate"]) == (0, 0, 0.0)
+
+
+def test_one_person_trying_many_questions_is_one_tryer():
+    pf = PageFacts(readers=readers(10), sittings=[40.0] * 10)
+    pf.tries = [Try("r0", "l1", 3, None, False, AT, "practice") for _ in range(6)]
+    row = page_row("l1", 3, pf)
+    assert (row["quiz_success_rate"], row["quiz_attempts"]) == (None, 0)
+
+
+def test_only_the_pages_readers_count_toward_its_shares():
+    # Five people rated, tried and paired, but one of them never read the page: four is under the floor.
+    four = readers(4)
+    everyone = four | {"ghost"}
+    pf = PageFacts(
+        readers=set(four) | readers(6, prefix="q"), sittings=[40.0] * 10,
+        ratings={p: "confused" for p in everyone},
+        tries=tries(everyone, lambda p: False),
+        pairs={p: ("got_it", False) for p in everyone},
+    )
+    row = page_row("l1", 3, pf)
+    assert (row["ratings_total"], row["quiz_attempts"], row["got_it_quiz_total"]) == (0, 0, 0)
+
+
+def _with_page_three(pf):
+    """Two calm pages of six readers around a page of six readers that `pf` fills in."""
+    six = readers(6)
+    pf.readers, pf.sittings = set(six), [40.0] * 6
+    return lesson({1: calm_page(six), 2: calm_page(six), 3: pf})
+
+
+def test_one_members_three_wrong_answers_are_no_finding():
+    # One member, three practice questions, all wrong: "0% passed" would be about that one person.
+    pf = PageFacts()
+    pf.tries = [Try("r0", "l1", 3, None, False, AT, "practice") for _ in range(3)]
+    assert not any(i["kind"] == "quiz_misalignment" for i in lesson_insights(_with_page_three(pf)))
+
+
+def test_three_who_said_clicked_and_one_other_who_missed_are_no_trap():
+    pf = PageFacts(ratings={f"r{i}": "got_it" for i in range(3)})
+    pf.tries = [Try("r5", "l1", 3, None, False, AT, "practice") for _ in range(3)]
+    assert not any(i["kind"] == "silent_misleader" for i in lesson_insights(_with_page_three(pf)))
+
+
+def test_three_pairs_are_no_calibration_gap():
+    pf = PageFacts(pairs={f"r{i}": ("got_it", i == 0) for i in range(3)})
+    assert not any(i["kind"] == "calibration_gap" for i in lesson_insights(_with_page_three(pf)))
+
+
+def test_one_foggy_of_three_raters_is_no_hotspot():
+    pf = PageFacts(ratings={"r0": "confused", "r1": "got_it", "r2": "got_it"})
+    assert not any(3 in pages_of(i) for i in lesson_insights(_with_page_three(pf)) if i["kind"] == "confusion_hotspot")
 
 
 def test_someone_who_asked_or_turned_back_without_a_counted_read_is_not_a_reader_of_the_page():

@@ -50,13 +50,27 @@ def test_a_trap_tells_clicked_then_missed_and_carries_its_grid():
     assert out["grid"] == {"clickedCleared": 2, "clickedMissed": 3, "foggyCleared": 1, "foggyMissed": 0}
 
 
-def test_a_trap_with_one_or_two_clicked_pairs_does_not_state_their_outcome_as_a_share():
-    # The detector only fires on a trap with 2 or fewer clicked pairs, so the pairs are one or two people:
-    # their 1-in-2 must not be told as "50%". The page's own pass rate stands in.
+def test_a_trap_without_its_grid_is_not_told():
+    # "then N% of them missed" needs the check-ins paired with the checkpoint. Without the
+    # floor's worth of pairs there is no "of them", and the page's own pass rate is no stand-in.
     pf = PageFacts(readers=people(10), pairs={"r0": ("got_it", True), "r1": ("got_it", False)})
-    out = to_landing(engine("silent_misleader", 9, gotItPct=78.0, quizSuccessRate=41.6), facts({9: pf}))
-    assert out["metrics"] == {"clicked": 78, "missed": round(100 - 41.6)}
-    assert "grid" not in out
+    assert to_landing(engine("silent_misleader", 9, gotItPct=78.0, quizSuccessRate=41.6), facts({9: pf})) is None
+    unpaired = facts({9: PageFacts(readers=people(10))})
+    assert to_landing(engine("silent_misleader", 9, gotItPct=100.0, quizSuccessRate=0.0), unpaired) is None
+
+
+def test_a_trap_whose_pairs_are_all_foggy_has_no_them_to_tell():
+    pf = PageFacts(readers=people(10), pairs={f"r{i}": ("unsure", False) for i in range(5)})
+    assert to_landing(engine("silent_misleader", 9, gotItPct=78.0, quizSuccessRate=20.0), facts({9: pf})) is None
+
+
+def test_a_grid_counts_only_the_pages_readers():
+    pairs = {f"r{i}": ("got_it", False) for i in range(4)} | {"ghost": ("got_it", True)}
+    assert grid(PageFacts(readers=people(10), pairs=pairs)) is None
+    pairs["r4"] = ("confused", True)
+    assert grid(PageFacts(readers=people(10), pairs=pairs)) == {
+        "clickedCleared": 0, "clickedMissed": 4, "foggyCleared": 1, "foggyMissed": 0,
+    }
 
 
 def test_each_kind_sends_the_numbers_its_copy_reads():
@@ -141,5 +155,5 @@ def test_a_lesson_without_a_page_count_is_as_long_as_its_highest_page_read():
 
 
 def test_a_grid_needs_five_pairs():
-    four = PageFacts(pairs={f"r{i}": ("got_it", True) for i in range(4)})
+    four = PageFacts(readers=people(10), pairs={f"r{i}": ("got_it", True) for i in range(4)})
     assert grid(four) is None
