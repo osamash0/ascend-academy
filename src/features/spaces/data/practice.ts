@@ -17,6 +17,7 @@ const cache = new Map<string, Promise<PracticeQuestion[]>>();
 export function usePracticeQuestions(
   lessonId: string | undefined,
   live: boolean,
+  armed = true,
 ): { state: LoadState; questions: PracticeQuestion[] } {
   const [result, setResult] = useState<{ state: LoadState; questions: PracticeQuestion[] }>(() =>
     live || !lessonId
@@ -25,7 +26,7 @@ export function usePracticeQuestions(
   );
 
   useEffect(() => {
-    if (!lessonId) return;
+    if (!lessonId || !armed) return;
     if (!live) {
       setResult({ state: 'ready', questions: practiceForLesson(lessonId) });
       return;
@@ -41,7 +42,11 @@ export function usePracticeQuestions(
     }
     cache
       .get(lessonId)!
-      .then((questions) => alive && setResult({ state: questions.length ? 'ready' : 'empty', questions }))
+      .then((questions) => {
+        /* An empty answer is not kept: a Lesson still being read may have questions later. */
+        if (questions.length === 0) cache.delete(lessonId);
+        if (alive) setResult({ state: questions.length ? 'ready' : 'empty', questions });
+      })
       .catch(() => {
         cache.delete(lessonId);
         if (alive) setResult({ state: 'error', questions: [] });
@@ -49,7 +54,7 @@ export function usePracticeQuestions(
     return () => {
       alive = false;
     };
-  }, [lessonId, live]);
+  }, [lessonId, live, armed]);
 
   return result;
 }
