@@ -31,7 +31,7 @@
     "section3Title": "3. Purpose and legal basis",
     "section3Items": [
       "<bold>Performance of contract (Art. 6(1)(b) GDPR):</bold> account data, learning progress, your uploads and the AI features (summaries, questions, tutor answers) are required to provide the service you signed up for.",
-      "<bold>Legitimate interest (Art. 6(1)(f) GDPR):</bold> learning events are collected to improve teaching and to show the people who maintain a Space where learners struggle; server logs and error reports are kept to run the service securely and reliably."
+      "<bold>Legitimate interest (Art. 6(1)(f) GDPR):</bold> learning events are collected to improve teaching and to show the people who maintain a Space where learners struggle, only as patterns across at least five people, never by name; server logs and error reports are kept to run the service securely and reliably."
     ],
     "section4Title": "4. Processors",
     "section4Items": [
