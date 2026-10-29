@@ -477,13 +477,6 @@ export function Hero() {
             {t('story.hero.start')}
             <ArrowRight aria-hidden className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={() => navigate('/auth')}
-            className="inline-flex h-12 items-center rounded-full border border-white/12 bg-white/[0.05] px-6 text-[14.5px] font-medium text-white transition-colors hover:bg-white/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-          >
-            {t('story.hero.signIn')}
-          </button>
         </div>
       </div>
 
