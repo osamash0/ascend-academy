@@ -29,31 +29,31 @@ Most of what the faces need exists long before the run ends. This design lets ea
 
 ### 1 · The reading status gains per-page readiness (backend)
 
-`GET /api/v1/v4/uploads/{run_id}/reading` (`reading_view` / `early_reading` in `backend/services/v4_spaces_service.py`) adds two fields and one stage:
+`GET /api/v1/v4/uploads/{run_id}/reading` (`reading_view` / `early_reading` in `backend/services/v4_spaces_service.py`) adds three fields:
 
 | Field | Meaning |
 |---|---|
 | `pagesReady: number[]` | slide numbers that have a slide row for this run's lecture, ascending (all pages once ready) |
 | `practiceReady: boolean` | at least one `quiz_questions` row exists for the lecture |
-| `stage: "readable"` | new, between `developing` and `ready`: the lecture exists and `pagesReady` is non-empty, run not complete |
+| `readable: boolean` | the lecture exists and `pagesReady` is non-empty — the Lesson can be opened, whatever the stage |
 
 - `pagesRead` stays (it is `pagesReady.length`), so the current early reader keeps working.
-- Stage order: `developing` (no slide yet) → `readable` → `ready` (run complete) — or `failed` at any point.
+- `stage` keeps its three values (`developing` → `ready`, or `failed`). `readable` is a separate flag, so every existing "still developing" check keeps polling unchanged. (Decided while planning, 2026-10-29: a fourth stage would have touched every such check for no behavioural gain.)
 - A failed run keeps its `pagesReady` and `lessonId`, so pages already written stay usable.
 - Ownership is unchanged: the caller's own run only, otherwise 404.
 - Payload size: at most one integer per page (≤ a few hundred), polled every 3 s while the run is going.
 
 ### 2 · The handover moves to `readable`
 
-- `EarlyReader` hands over once, when `stage` is `readable` or `ready` and `lessonId` is set, at the current page (today: only `ready`).
-- The Library cover (`coverOf` in `useShelf.ts`) opens its Lesson for `readable` as well as `ready`. `GET /v4/uploads` needs the same `readable` stage, so the cover and the reader agree.
+- `EarlyReader` hands over once, when `readable` and `lessonId` are set, at the current page (today: only at `ready`). The handover URL carries the run id (`&run=<runId>`) so the full reader knows which run to follow.
+- The Library cover (`coverOf` in `useShelf.ts`) opens its Lesson when the upload is `ready` or `readable`. `GET /v4/uploads` gains the same `readable` flag, so the cover and the reader agree.
 - Everything else of the handover stays as built in #139: whichever side notices first keeps the page; the local file is released on handover.
 
 ### 3 · The full reader follows the run (frontend)
 
 The full reader (`LessonFacesScreen`) learns the lesson is still being read from the upload's reading status. A lesson that is not a still-running upload behaves exactly as today.
 
-- **Run status in the reader.** A small hook gives the reader `{ pagesReady, practiceReady, stage, pages }` for the open lesson while its run is not `ready`, by polling the reading endpoint every 3 s. It stops at `ready` or `failed`. The lesson → run link comes from the shelf's uploads (the upload whose `lessonId` is this lesson).
+- **Run status in the reader.** A small hook gives the reader `{ pagesReady, practiceReady, stage, pages }` for the open lesson while its run is not `ready`, by polling the reading endpoint every 3 s. It stops at `ready` or `failed`. The lesson → run link is the `run` URL parameter from the handover, else the shelf's uploads (the upload whose `lessonId` is this lesson and which is not `ready`).
 - **Refetch, never pin a partial bundle.** While the run is going, the reader re-reads the lesson (`getLecture`) whenever `pagesReady` grows, and the `lectures` memo does not keep a partial bundle once the run is `ready`. The page count shown is the run's `pages`, not `total_slides`.
 - **Per-page faces.** On a page in `pagesReady`, the view tabs Explain and Text and the Ask companion show as today. On any other page only Page shows: the tabs are not rendered, and keys 2–3 do nothing. If the person is in Explain or Text and turns to a page Luna hasn't reached, the reader returns to Page.
 - **Timeline.** The grey "read" part of `ReaderTimeline` is `pagesReady` (the highest contiguous page from 1, so it reads as a buffer).
@@ -97,6 +97,6 @@ German avoids "Folie" and "Datei" (`docs/V4_GLOSSARY.md`).
 
 ## Testing
 
-- **Backend unit:** `reading_view` for each stage (`developing` / `readable` / `ready` / `failed`), `pagesReady` ordering and the all-pages case at `ready`, `practiceReady`; `uploads_for` emits `readable`; route still 404 for a foreign run. No database (fake connection, as in `test_v4_early_reading.py`).
+- **Backend unit:** `reading_view` for each stage (`developing` / `ready` / `failed`) and `readable`, `pagesReady` ordering and the all-pages case at `ready`, `practiceReady`; `uploads_for` emits `readable`; route still 404 for a foreign run. No database (fake connection, as in `test_v4_early_reading.py`).
 - **Frontend:** handover at `readable`; cover opens its Lesson at `readable`; per-page tabs (shown on ready pages, absent elsewhere, Explain → Page when turning past Luna); refetch when `pagesReady` grows; timeline buffer; first-light fires once; Practise appears at `practiceReady` and not before (no pinned empty cache); `/ideas` and the Luna offer wait for `ready`; failed run keeps read pages; a Space lesson does not poll.
 - **Live:** one real upload — time to first tabs, the first-light moment, Practise arriving, no dead wait at the end.
