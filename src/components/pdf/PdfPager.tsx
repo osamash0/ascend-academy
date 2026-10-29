@@ -12,6 +12,8 @@ import { pdfOptions } from './worker';
  * height both — so a slide is always seen entire, never scrolled. The pages
  * either side of it are painted too, off to the left and right on the same
  * track, so a turn slides an already-drawn page in rather than a blank one.
+ * At rest they are invisible: one page fills the frame and its neighbours
+ * never peek in; they only show while a turn carries them across.
  *
  * The page is the caller's: this component is told which page to show and
  * reports the reader's wish to turn (`onPageChange`). Turning by wheel and by
@@ -188,7 +190,7 @@ export function PdfPager({
                 aria-hidden={offset !== 0 || undefined}
                 {...(offset !== 0 ? { inert: '' } : {})}
                 initial={false}
-                animate={{ x: offset * step, opacity: offset === 0 ? 1 : 0.35, scale: offset === 0 ? 1 : 0.94 }}
+                animate={{ x: offset * step, opacity: offset === 0 ? 1 : 0, scale: offset === 0 ? 1 : 0.94 }}
                 transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
                 className="absolute left-1/2 top-1/2 overflow-hidden rounded-xl bg-white shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_2px_6px_rgba(0,0,0,0.3),0_28px_64px_-16px_rgba(0,0,0,0.65)]"
                 style={{ width, height, marginLeft: -width / 2, marginTop: -height / 2 }}
