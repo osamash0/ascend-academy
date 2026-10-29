@@ -1192,6 +1192,7 @@ export default function LessonFacesScreen() {
             onFirstRender={(canvas) => setAccent(sampleAccent(canvas))}
             rootRef={pdfRef}
             overlay={<Spotlight words={spot} />}
+            zoomable
             className="absolute inset-0 overflow-hidden"
           />
         )}

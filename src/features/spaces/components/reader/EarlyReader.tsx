@@ -145,7 +145,8 @@ export function EarlyReader({ uploadId, filename, onReady, refused, initialPage 
               onLoad={setPages}
               onAspect={setAspect}
               rootRef={pagerRef}
-              className="h-full w-full"
+              zoomable
+              className="h-full w-full overflow-hidden"
             />
           ))}
       </div>
