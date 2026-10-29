@@ -23,14 +23,21 @@ supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 PROF_EMAIL = "prof@admin.com"
 ADMIN_EMAIL = "admin@admin.com"
-DEFAULT_PASSWORD = "Academy2026!"
+# Never commit a password here: the repo is public. Read it at run time.
+DEFAULT_PASSWORD = os.environ.get("SEED_ACCOUNT_PASSWORD")
+
+def _require_password(value):
+    """Refuse to create an account without a password supplied at run time."""
+    if not value:
+        sys.exit("Set SEED_ACCOUNT_PASSWORD in your environment before creating accounts.")
+    return value
 
 def get_or_create_user(email, role="professor", full_name="User"):
     user = None
     try:
         res = supabase_admin.auth.admin.create_user({
             "email": email,
-            "password": DEFAULT_PASSWORD,
+            "password": _require_password(DEFAULT_PASSWORD),
             "email_confirm": True,
             "app_metadata": {"role": role}
         })

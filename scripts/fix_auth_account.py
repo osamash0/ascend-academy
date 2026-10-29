@@ -51,7 +51,7 @@ def fix_account(email, new_password=None):
         )
         print(f"Successfully updated {email}.")
         if new_password:
-            print(f"IMPORTANT: The new password is set to: {new_password}")
+            print("Password updated.")
         else:
             print("Role metadata synced. Password was NOT changed.")
     except Exception as e:
@@ -63,5 +63,6 @@ if __name__ == "__main__":
         sys.exit(1)
     
     target_email = sys.argv[1]
-    pwd = sys.argv[2] if len(sys.argv) > 2 else "Academy2026!" # Default secure temporary password
+    # No default: without a second argument only the role metadata is synced.
+    pwd = sys.argv[2] if len(sys.argv) > 2 else None
     fix_account(target_email, pwd)
