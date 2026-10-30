@@ -47,11 +47,41 @@ vi.mock('@/components/pdf', () => ({
   warmPdfWorker: () => {},
 }));
 
-const runState = vi.hoisted(() => ({ reading: null as null | Record<string, unknown>, gaveUp: false }));
-vi.mock('../../data/useRunReading', async (orig) => ({
-  ...(await orig<object>()),
-  useRunStatus: () => ({ reading: runState.reading, gaveUp: runState.gaveUp }),
+const runState = vi.hoisted(() => ({
+  reading: null as null | Record<string, unknown>,
+  gaveUp: false,
+  /* A poll coming back: whoever reads the run reads it again. */
+  heard: new Set<() => void>(),
 }));
+vi.mock('../../data/useRunReading', async (orig) => {
+  const { useEffect: useE, useState: useS } = await import('react');
+  return {
+    ...(await orig<object>()),
+    useRunStatus: () => {
+      const [, tick] = useS(0);
+      useE(() => {
+        const on = () => tick((n) => n + 1);
+        runState.heard.add(on);
+        return () => void runState.heard.delete(on);
+      }, []);
+      return { reading: runState.reading, gaveUp: runState.gaveUp };
+    },
+  };
+});
+/* How many of the deck's pages the reading has rows for; null is all of them. */
+const contentState = vi.hoisted(() => ({ upTo: null as null | number }));
+vi.mock('../../data/useReader', async (orig) => {
+  const real = await orig<typeof import('../../data/useReader')>();
+  return {
+    ...real,
+    useReaderContent: (...args: Parameters<typeof real.useReaderContent>) => {
+      const c = real.useReaderContent(...args);
+      const upTo = contentState.upTo;
+      if (upTo === null || !c.bundle) return c;
+      return { ...c, bundle: { ...c.bundle, slides: c.bundle.slides.filter((s) => s.slide_number <= upTo) } };
+    },
+  };
+});
 const base = { pdfUrl: 'u', pages: 82, pagesRead: 2, practiceReady: false, readable: true, stage: 'developing', lessonId: 'l-s-dbs-4' };
 
 const mountAt = async (query: string) => {
@@ -71,6 +101,7 @@ afterEach(() => {
   runState.reading = null;
   runState.gaveUp = false;
   mockPages = 0;
+  contentState.upTo = null;
 });
 
 describe('the faces light up page by page', () => {
@@ -158,6 +189,27 @@ describe('the faces light up page by page', () => {
     fireEvent.keyDown(await screen.findByRole('slider'), { key: 'ArrowUp' });
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Page' })).toHaveAttribute('aria-selected', 'true'));
     expect(screen.queryByRole('tab', { name: 'Explain' })).toBeNull();
+  });
+
+  it('a page you sought past Luna becomes the studio\'s page once she writes it', async () => {
+    mockPages = 10;
+    contentState.upTo = 2;
+    runState.reading = { ...base, pagesReady: [1, 2] };
+    await mountAt('?page=1&run=run-1');
+    await screen.findByRole('tab', { name: 'Explain' });
+    fireEvent.pointerMove(window);
+    const slider = await screen.findByRole('slider');
+    fireEvent.keyDown(slider, { key: 'ArrowUp' });
+    fireEvent.keyDown(slider, { key: 'ArrowUp' });
+    await waitFor(() => expect(screen.getByTestId('document')).toHaveTextContent('Page 3'));
+    expect(screen.queryByRole('tab', { name: 'Explain' })).toBeNull();
+    /* Luna writes page 3: the reading grows to include it. */
+    contentState.upTo = 3;
+    runState.reading = { ...base, pagesRead: 3, pagesReady: [1, 2, 3] };
+    act(() => runState.heard.forEach((f) => f()));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Explain' }));
+    expect(await screen.findByText('Page 3', { selector: 'span' })).toBeInTheDocument(); 
+    expect(screen.queryByText('Page 2', { selector: 'span' })).toBeNull();
   });
 
   it("the companion's Practise waits for the questions while Luna reads", async () => {

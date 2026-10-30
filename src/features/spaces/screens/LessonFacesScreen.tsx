@@ -261,6 +261,17 @@ export default function LessonFacesScreen() {
     if (again) setAnchor(again);
   }, [sections, anchor]);
 
+  /*
+   * A page sought past Luna keeps the last anchor it had; once she writes it,
+   * the page you are on is the anchor again. Without a run, a page that has
+   * no anchor never gains one, so this does nothing.
+   */
+  useEffect(() => {
+    if (!anchor || anchor.page === pdfPage) return;
+    const here = anchorForPage(pdfPage, sections);
+    if (here) setAnchor(here);
+  }, [sections, anchor, pdfPage]);
+
   const ready = Boolean(content.bundle && content.pdfUrl && anchor);
   /*
    * The page fits the window whole; the window is measured, not assumed.
