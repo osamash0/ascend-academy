@@ -31,6 +31,7 @@ All notable changes to Learnstation are documented in this file. Since 2026-06 t
 - #123 / #127 "Pick one for me" rolls a friendly alias and never lands on the name it started from
 - #116 new passwords need 8 characters; sign-in still accepts older ones
 - #111 no redirect loop for admins or a failed role; v4 can sign out, export and delete
+- #160 the password-reset page also accepts token-hash links verified on our own domain; older links keep working
 
 **Language**
 - #120 German mode stops speaking English (LS-014..017, 019); #109 the German Library guard reads text node by text node
@@ -44,6 +45,12 @@ All notable changes to Learnstation are documented in this file. Since 2026-06 t
 - #129 an account that owns lessons can be deleted again (LS-112)
 - #134 no committed default passwords for seed accounts
 - #136 v4 and feature flags reach the prod frontend build (LS-037, LS-032)
+- #159 the Impressum and privacy policy use hello@ and privacy@learnstation.app instead of a private address, and name Cloudflare (mail forwarding, encrypted backups) as a processor
+
+**Operations**
+- #158 server monitoring (Better Stack heartbeats, e-mail alerts) and encrypted off-site copies of the nightly database dump in Cloudflare R2, with their runbook
+- #161 the worker heartbeat no longer waits for a job slot, so long parses stop paging a healthy worker as dead
+- the site moved to learnstation.app; www and the old hosts redirect (log: `docs/ops/2026-10-30-learnstation-app-move.md`); hello@ and privacy@ addresses and a public status page at status.learnstation.app (`docs/runbooks/domain-dns-and-email.md`)
 
 **Dependencies and CI**
 - #106 / #108 the advisories that turned CI red: Pillow 13, pypdf 6.21.2, zod 4

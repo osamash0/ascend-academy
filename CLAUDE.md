@@ -38,10 +38,11 @@ CI runs on pull requests and on pushes to `main`, plus a nightly at 03:17 UTC (D
 
 - Hetzner CX23 at `195.201.221.137`, Ubuntu 24.04, Docker. Live at https://learnstation.app (moved 2026-10-30). www and both old hosts redirect to the apex; Cloudflare is DNS only. Evidence/rollback: `docs/ops/2026-10-30-learnstation-app-move.md`.
 - Containers from `docker-compose.prod.yml`: `api`, `worker`, `frontend` (nginx on 3000, proxies `/api/` to `api:8000` unchanged), `redis`, `redis-queue`.
-- Deploys are manual over SSH; there is no deploy automation. Last full deploy: main @ 35a30d73, 2026-10-30 15:24 UTC. Rollback images are tagged `pre-deploy-main-<date>`.
-- Flags on in prod (2026-10-30): `FEATURE_V4`, `FEATURE_V4_READER`, `FEATURE_LUNA_SESSIONS`. Each `VITE_FEATURE_*` is derived from its backend flag in the compose file. `VITE_*` values are baked at image build, so any frontend change needs a rebuild, not a restart.
+- Deploys are manual over SSH; there is no deploy automation. Last full deploy: main @ 35a30d73, 2026-10-30 15:24 UTC; since then the frontend was rebuilt from 70cfa292 (18:12 and 20:05 UTC), and api/worker were recreated with new env at 20:06. #159 to #161 are merged but not deployed (checked 2026-10-30 evening). Rollback images are tagged `pre-deploy-main-<date>`.
+- Flags on in prod (2026-10-30): `FEATURE_V4`, `FEATURE_V4_READER`, `FEATURE_LUNA_SESSIONS`, `FEATURE_STUDENT_UPLOADS` (since 20:06 UTC, `STUDENT_UPLOAD_MONTHLY_LIMIT=30`). Each `VITE_FEATURE_*` is derived from its backend flag in the compose file. `VITE_*` values are baked at image build, so any frontend change needs a rebuild, not a restart.
 - Supabase project `lkiiideqjoiksnycgplc` (eu-west-1, free tier, no PITR). Auth emails go through Resend since 2026-10-30.
-- Monitoring and backups (2026-10-30, both free): Better Stack alerts Abi by e-mail when the site, the server's 5-minute heartbeat or the nightly backup goes quiet; each nightly dump is age-encrypted to Cloudflare R2 (`learnstation-backups`). The decryption key is only in Abi's password manager. Runbook: `docs/runbooks/monitoring-and-backups.md`.
+- Cloudflare (2FA on) holds the domain, DNS (all records DNS only), Email Routing (`hello@` and `privacy@learnstation.app` forward to the operator's inbox) and R2. Never proxy the app or `status` without reading `docs/runbooks/domain-dns-and-email.md` first.
+- Monitoring and backups (2026-10-30, both free): Better Stack alerts Abi by e-mail when the site, the server's 5-minute heartbeat or the nightly backup goes quiet; each nightly dump is age-encrypted to Cloudflare R2 (`learnstation-backups`). The decryption key is only in Abi's password manager. Public status page: https://status.learnstation.app. Runbook: `docs/runbooks/monitoring-and-backups.md`.
 - Real usage is near zero since August 2026 (measured 2026-10-30). Optimise for a handful of real students, not scale.
 
 ## Rules Abi has set

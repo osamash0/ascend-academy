@@ -8,7 +8,7 @@
 - Cloudflare serves DNS only: apex A and www CNAME must remain **DNS only** (grey cloud). Host nginx terminates Let's Encrypt TLS and proxies the app to `127.0.0.1:3000`. Keep the old hosts' certificates for their HTTPS redirects.
 - Apex nginx site: `/etc/nginx/sites-available/learnstation.app`. Legacy redirect sites: `ascend-academy` and `195-201-221-137.sslip.io` in the same directory. Back up a file before editing it; run `nginx -t` before `systemctl reload nginx`. Renewal check: `certbot renew --dry-run --non-interactive --no-random-sleep-on-renew`.
 - `CORS_ALLOWED_ORIGINS` in the server's root `.env` includes `https://learnstation.app` plus both previous origins. Supabase Auth Site URL is `https://learnstation.app`; Redirect URLs include `https://learnstation.app/**` and retain both previous entries.
-- Recovery emails currently use `{{ .ConfirmationURL }}`. The separate `feat/reset-link-own-domain` change is **not deployed**; switch to `{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery` only after it is separately deployed. Resend receiving, open tracking and click tracking stay off.
+- Recovery emails currently use `{{ .ConfirmationURL }}`. The token-hash reset page is merged (PR #160) but **not deployed** as of 2026-10-30 evening; switch the Supabase Reset Password template to `{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery` only after a frontend deploy that contains #160, then send yourself one reset email to check. Resend receiving, open tracking and click tracking stay off.
 
 See the [migration log](../ops/2026-10-30-learnstation-app-move.md) for verification, backup paths and rollback details. Historical audits keep the addresses they tested.
 

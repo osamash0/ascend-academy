@@ -14,6 +14,12 @@ The server does not shout when something breaks; it checks in when everything is
 
 Alerts go to Abi by e-mail (Better Stack free plan: push, SMS and SSL/domain-expiry checks are paid, which is why the cert check lives in our script).
 
+`/health/ready` reports the worker as alive from a heartbeat key the worker writes every 30 s. Until PR #161 that write was an Arq cron, which waits for a free job slot: four long parses on 2026-10-30 starved it and turned the endpoint 503 on a healthy worker. Since #161 (merged 2026-10-30, live from the next worker rebuild) it runs as a background task beside the job pool. The other crons (stalled-run sweep, erasure retries) still share the pool and can be postponed by long parses; that delays them, it never looks like an outage.
+
+## Public status page
+
+https://status.learnstation.app (Better Stack status page, free plan; the `status` CNAME is in `docs/runbooks/domain-dns-and-email.md`). It shows **only the website monitor**: the `learnstation-health` heartbeat also fails for internal reasons (disk ≥ 85 %, a certificate under 14 days) that are not outages for learners, and the backup heartbeat means nothing to them. "Get in touch" opens `hello@learnstation.app`. Edit it in Better Stack → Status pages; extras such as subscriptions, custom CSS or password protection are paid.
+
 ## Where things are
 
 | Thing | Where |

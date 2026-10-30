@@ -24,7 +24,9 @@ Statuses: **current** = describes the code on `main` today; **historical** = a d
 | `docs/prompts/README.md` | 2026-10-30 | Index of reusable session prompts | current |  |
 | `docs/prompts/V4_SCENARIO_TESTING_PROMPT.md` | 2026-10-30 | Scenario walk of the v4 rooms before a deploy | current |  |
 | `docs/runbooks/gdpr-erasure-rollout.md` | 2026-10-11 | How the erasure migration and backend were rolled out | current |  |
-| `docs/runbooks/monitoring-and-backups.md` | 2026-10-30 | Better Stack heartbeats and the encrypted R2 copy of the nightly dump: install, check, restore | current |  |
+| `docs/runbooks/domain-dns-and-email.md` | 2026-10-30 | Cloudflare account, every DNS record and why, hello@/privacy@ forwarding, what not to switch on | current |  |
+| `docs/runbooks/monitoring-and-backups.md` | 2026-10-30 | Better Stack heartbeats and the encrypted R2 copy of the nightly dump: install, check, restore; the public status page | current |  |
+| `docs/ops/2026-10-30-learnstation-app-move.md` | 2026-10-30 | The move to learnstation.app: before/after evidence, backups, rollback for DNS, TLS, CORS, Auth URLs and old-host redirects | current |  |
 | `docs/threat_model.md` | 2026-10-30 | STRIDE threat model: assets, trust boundaries, scan anchors | current |  |
 | `docs/DECK_LAB_2026_10.md` | 2026-10-11 | Generated scorecard: old vs new slide selection, 2026-10-11 | historical |  |
 | `docs/MILESTONE_2026_08.md` | 2026-10-11 | The 2026-08 consolidation: 83 branches to one trunk | historical | `docs/START_HERE.md` |
