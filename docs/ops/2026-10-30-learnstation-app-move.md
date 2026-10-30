@@ -1,4 +1,4 @@
-STATUS: IN PROGRESS — step 3
+STATUS: IN PROGRESS — step 4
 
 | step | status | before → after | evidence (UTC) | rollback |
 | --- | --- | --- | --- | --- |
@@ -12,7 +12,7 @@ STATUS: IN PROGRESS — step 3
 | 0g: recovery subject readback | done by Abi | `Learnstation: Passwort zurücksetzen · Reset your password` → unchanged; already matches requested value. | 2026-10-30T15:12:34Z: Abi supplied the current subject. | Read-only; none. |
 | 1: DNS | done | No apex/www records → A `@` = `195.201.221.137`, CNAME `www` = `learnstation.app`, both DNS only, TTL 300. | 2026-10-30T15:15:21Z: Cloudflare final GET succeeds, six records; original four mail records unchanged. Both `dig @1.1.1.1` and `dig @8.8.8.8` resolve apex A, www CNAME and www A correctly; outputs below. | Delete only A ID `6c96e98ae307209f2e48fa97d2724072` and www CNAME ID `5b8eda11583b8e291ec907145126eb18`; retain all four mail records. |
 | 2: TLS/nginx | done | Only old sites/certs → separate apex/www HTTPS site and Let's Encrypt certificate; www and new HTTP hosts 301 to apex, preserving URI. | 2026-10-30T15:19Z–15:23Z: apex 200 with TLS verification 0; www 301 with path/query intact; Let's Encrypt YE1, expires 2027-01-28T14:20:41Z; `nginx -t` passes; all three renewal dry runs succeed; old site files byte-identical. | Disable only new enabled symlink, test nginx and reload; leave original sites/certificates in place. Backups `.bak-20261030-1519` and `.bak-20261030-1521`; details below. |
-| 3: CORS | pending | `https://learnstation.duckdns.org,https://195-201-221-137.sslip.io` → append `https://learnstation.app`. | Only the `CORS_ALLOWED_ORIGINS` line was read from `.env`; API healthy. | Restore `.env` backup and recreate only `api`, without building/pulling. |
+| 3: CORS | done | Old two origins → append `https://learnstation.app`; only API recreated with the same image. | 2026-10-30T15:27:15Z: API healthy; GET courses 401; new and both retained origins' preflights 200 with exact allow-origin headers; unrelated origin 400 without allow-origin. All non-API IDs unchanged. | Back up current `.env`, restore only its previous CORS line from `.env.bak-20261030-1526`, preserve other changes, then recreate API only with no build/pull. |
 | 4: Auth URLs | pending | Site URL `http://localhost:3000`; allow list contains DuckDNS and sslip wildcard entries → Site URL `https://learnstation.app`, add `https://learnstation.app/**`, preserve both existing entries. | Abi's URL Configuration readback recorded below. Connector exposes no Auth configuration read/write tools; later dashboard change required. | Restore `http://localhost:3000`; remove only the newly added apex redirect entry, preserving both original entries. |
 | 5: recovery email/tracking/test | pending | Reported subject/body already match requested template; open/click tracking OFF → preserve these values; test after new-domain/Auth URL readiness. | Subject/body readback done by Abi; Resend settings verified by connector. No test mail requested/sent. | No template/tracking change needed from current baseline; restore Auth URLs per step 4 if migration is rolled back. |
 | 6: old host redirects | pending | DuckDNS serves app on 3000; sslip points at separate gateway on 3001, currently 502 → proposed 301 to apex after second explicit go. | `curl -I`: DuckDNS 200; sslip 502; localhost:3001 connection refused. | Restore both backed-up old site files, run `nginx -t`, reload. Keep their certificates. |
@@ -25,13 +25,15 @@ Owner: Abi. Target: `learnstation.app`, server `195.201.221.137`, Supabase proje
 
 This log contains observations from 2026-10-30 in UTC. Handoff assertions are distinguished from freshly verified values. No SMTP password, API key, database URL, service-role key, full `.env`, certificate private key or recovery token is included.
 
-The server remains on `deploy/legal-20261030`. No checkout, image, worker, frontend, database, migration or application deployment changes are authorized by this log. Other PRs are outside scope.
+At initial recon the server was on `deploy/legal-20261030`. A concurrent deployment later moved it to `main`; step 3 records that observation. This agent did not change the server checkout or deploy code. Image builds/pulls, worker/frontend recreation, database changes and migrations are outside this migration's scope. The explicitly authorized API-only recreation for CORS is recorded below. Other PRs are outside scope.
 
 STOP 1: BEFORE-value recon complete at 2026-10-30T15:12:34Z. Abi explicitly replied **“go and do 1 with Cloudflare”** at the 2026-10-30T15:14Z checkpoint. Proceed with **step 1 only** using the connected Cloudflare API; stop after DNS verification/logging. The draft PR remains pending due to connector 403; Abi explicitly requested proceeding with step 1 despite that outstanding documentation item. No approval inferred for the step 6 STOP point.
 
 STOP 2: After Abi tests the new domain, wait for another explicit **go** before redirecting either old hostname. Not received.
 
 2026-10-30T15:18:01Z: Abi said **“continue next”** after step 1; proceeding with **step 2 TLS/nginx only**, then stopping ahead of CORS. This does not authorize the step 6 redirects.
+
+2026-10-30T15:24:45Z: Abi explicitly said **“step 3 go ahead”**. Proceed with the CORS-only environment update and API-only recreation, then stop ahead of step 4's Supabase dashboard handoff.
 
 ## Read-only recon evidence
 
@@ -249,6 +251,70 @@ Rollback for step 2: remove only `/etc/nginx/sites-enabled/learnstation.app`, ru
 
 Step 2 complete. Stopped ahead of step 3: no `.env`, CORS, container, server checkout, database or Supabase Auth settings changed during this step.
 
+## Step 3 execution
+
+2026-10-30T15:24:45Z–15:25:24Z, BEFORE read: the server has concurrently changed since step 2. Its branch is now `main`, HEAD `35a30d736696606f74611606abd7b142b142b5d1`; API, worker and frontend were recreated around 15:23:51Z–15:23:56Z by a separate deployment. This agent did not change that checkout or recreate those containers. Do not switch the server back or overwrite another agent's work.
+
+Checked for unapplied drift before proceeding: `docker compose -f docker-compose.prod.yml config --hash api` exactly matches the running API's `com.docker.compose.config-hash` label, **`e97724026dff0c2ac1387e87dcb495e95dd79aa47c5b3c852ef29079ecd3dd80`**. The local `ascend-academy-prod-api` image tag matches the running image, **`sha256:cbf166c43d53d43bc640de5636b71588e2f74fc93f69f3630e10565c68e2e6d4`**. Thus no pending Compose or image change was observed. Re-check these guards immediately before mutation; do not build or pull anything.
+
+Only the following `.env` line was exposed:
+
+```text
+CORS_ALLOWED_ORIGINS="https://learnstation.duckdns.org,https://195-201-221-137.sslip.io"
+```
+
+Compose maps it to `ALLOWED_ORIGINS`; the running API currently has exactly those two origins. GET `https://learnstation.app/api/v1/courses` returns **401**. Preflight OPTIONS with `Origin: https://learnstation.app`, requested method GET and requested header authorization currently returns **400** without `access-control-allow-origin`.
+
+Baseline container IDs:
+
+```text
+api          546ac243c0f603253ad16250031c13bc7d2a3a850fda16ec6ca04362115bf159
+frontend     ece954099357b7acbcebb1503fedfd0e4ab0f36c32237c7011ae68447b0fe7a0
+worker       4638cce9ec55be289bd33cb10cbb87af1f28017bd1bf369e9df64500e513263a
+redis        cf1227967d06be05917c7fbfa95e67c1d4636f363e7c1cb4a2955cc91854262f
+redis-queue  e79580597dd53011e51c1adf00b67796ddc09804e8f20d27d015dae308e3e70c
+```
+
+2026-10-30T15:26:52Z–15:26:54Z: rechecked server HEAD/branch, running API ID, Compose config hash, and running/local image equality before writing. Backed up `.env` to **`/root/ascend-academy/.env.bak-20261030-1526`**. Atomically changed only the one CORS line, preserving file mode/owner and every other byte. The edit guarded against concurrent file changes; no other environment values were exposed.
+
+AFTER CORS line:
+
+```text
+CORS_ALLOWED_ORIGINS="https://learnstation.duckdns.org,https://195-201-221-137.sslip.io,https://learnstation.app"
+```
+
+Recreated only API, command exited 0:
+
+```sh
+docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate --no-build --pull never api
+```
+
+The last two flags explicitly prohibited builds/pulls. API ID changed to **`01eb0624f8edff3d2fc86547b833ddc0ba87d5eed8ba0d8966fdfa9500653ed7`**; image remained **`sha256:cbf166c43d53d43bc640de5636b71588e2f74fc93f69f3630e10565c68e2e6d4`**. All non-API container IDs, including frontend, worker, both Redis containers and the unrelated anonymization engine, matched the fresh baseline exactly. Compose file and server HEAD remained unchanged during this operation.
+
+2026-10-30T15:27:15Z: `docker compose -f docker-compose.prod.yml ps api` reports **Up 21 seconds (healthy)**. Runtime `ALLOWED_ORIGINS` contains exactly the three origins above. Current Compose hash and running API label both equal **`6ad45309a11feca71576af9a60b475b10d7b244e7af72d487956bdcb8de2d880`**. Server remains `main` at `35a30d736696606f74611606abd7b142b142b5d1`.
+
+2026-10-30T15:27:15Z–15:27:19Z, external checks (TLS verification enabled):
+
+```sh
+curl -sS -D - -o /dev/null https://learnstation.app/api/v1/courses -H 'Origin: https://learnstation.app'
+curl -sS -D - -o /dev/null -X OPTIONS https://learnstation.app/api/v1/courses -H 'Origin: https://learnstation.app' -H 'Access-Control-Request-Method: GET' -H 'Access-Control-Request-Headers: authorization'
+```
+
+GET returns **HTTP/1.1 401 Unauthorized**, `access-control-allow-origin: https://learnstation.app`, `access-control-allow-credentials: true`. Preflight now returns **HTTP/1.1 200 OK** with those same allow-origin/credentials headers. Allowed methods include GET and allowed headers include Authorization.
+
+Repeated the preflight with each retained origin and a negative control:
+
+| Origin | status | access-control-allow-origin |
+| --- | --- | --- |
+| https://learnstation.app | 200 | https://learnstation.app |
+| https://learnstation.duckdns.org | 200 | https://learnstation.duckdns.org |
+| https://195-201-221-137.sslip.io | 200 | https://195-201-221-137.sslip.io |
+| https://invalid.example | 400 | absent |
+
+Rollback: back up the current `.env` with a fresh UTC suffix, then restore only the previous two-origin CORS line using `.env.bak-20261030-1526` as reference. Preserve any unrelated later environment changes. Recheck active API image/config, recreate only API with the no-build/no-pull command above, and verify health/authentication/old origins. No nginx, frontend or worker action needed.
+
+Step 3 complete. Next is Abi's step 4 Supabase URL Configuration action; no Supabase settings or old-host redirects changed here.
+
 ## Exact proposed changes for first go (steps 1–5)
 
 1. **Cloudflare:** use the connected API to add DNS-only A `@` → `195.201.221.137` and DNS-only CNAME `www` → `learnstation.app`; preserve all mail records. Verify using `dig +short` against both 1.1.1.1 and 8.8.8.8.
@@ -277,8 +343,8 @@ Step 2 complete. Stopped ahead of step 3: no `.env`, CORS, container, server che
 
 - Recon complete: Cloudflare/Resend connector checks and Supabase Auth dashboard readbacks passed. Later Supabase Auth changes still require Abi's dashboard action; do not scrape dashboards or extract tokens from files.
 - Create the single draft ops log PR through an authorized GitHub connector or Abi's dashboard; existing create attempt failed with 403. Record the PR link once created.
-- Steps 1–2 complete and verified. Stopped before step 3 CORS/API recreation. Required early draft PR remains pending.
-- Complete steps 3–5 and Abi's test; obtain second explicit go before step 6. Moving to the new address signs everyone out once because sessions are stored per site address.
+- Steps 1–3 complete and verified. The concurrent server deployment was recorded; this agent changed only CORS and recreated API using its existing image. Required early draft PR remains pending.
+- Complete steps 4–5 and Abi's test; obtain second explicit go before step 6. Moving to the new address signs everyone out once because sessions are stored per site address.
 - Create `feat/reset-link-own-domain` from current `origin/main` for the separate, undeployed code PR. Preserve existing implicit recovery, add token-hash verification and meaningful tests; run touched Vitest tests and `npx tsc --noEmit -p tsconfig.app.json`. Rerun the known intermittent deck-measurement timeout once if encountered; do not skip it.
 - **Only after the code PR is separately deployed:** change the recovery link to `{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery`. Until then retain `{{ .ConfirmationURL }}`.
 - Update only deployment/runbook references to the old address, finish evidence, update status and mark ops PR ready at completion.
@@ -287,12 +353,12 @@ Step 2 complete. Stopped ahead of step 3: no `.env`, CORS, container, server che
 
 Cloudflare and Resend are now connected and verified. The correct Supabase connection is Learnstation → osama's org → Ascend Academy, but its exposed tools lack Auth settings operations.
 
-**Draft PR handoff (GitHub connector returned 403):** open [the prepared branch comparison](https://github.com/osamash0/ascend-academy/compare/main...ops/learnstation-app-move?expand=1) → Create pull request → title `ops: move the site to learnstation.app (log)` → choose **Create draft pull request** from the button menu. Base: `main`; compare: `ops/learnstation-app-move`. Description: `Records migration recon, BEFORE/AFTER evidence, rollback instructions and Abi's two checkpoints. DNS and TLS/nginx complete; all three renewal simulations pass. CORS/Auth URL changes pending. Mail records preserved.` Return the PR link so its creation can be recorded as **done by Abi**. Do not create a second PR if one already exists.
+**Draft PR handoff (GitHub connector returned 403):** open [the prepared branch comparison](https://github.com/osamash0/ascend-academy/compare/main...ops/learnstation-app-move?expand=1) → Create pull request → title `ops: move the site to learnstation.app (log)` → choose **Create draft pull request** from the button menu. Base: `main`; compare: `ops/learnstation-app-move`. Description: `Records migration recon, BEFORE/AFTER evidence, rollback instructions and Abi's two checkpoints. DNS, TLS/nginx and CORS complete; API-only recreation verified. Supabase Auth URL change and user testing pending.` Return the PR link so its creation can be recorded as **done by Abi**. Do not create a second PR if one already exists.
 
-Current readbacks are complete. After first go, make only the Supabase URL changes when the agent reaches step 4 and confirms HTTPS/API readiness:
+Current readbacks are complete, and HTTPS/API checks passed. Step 4 can now be performed by Abi because the connector lacks Auth configuration operations:
 
 - **Cloudflare:** step 1 complete through connector; apex A and www CNAME are DNS only, TTL 300, verified at both public resolvers. No manual DNS change needed.
-- **Supabase → project lkiiideqjoiksnycgplc → Authentication → URL Configuration:** readback complete: Site URL `http://localhost:3000`, plus the two old Redirect URLs. After first go and HTTPS readiness: Site URL `https://learnstation.app`; add `https://learnstation.app/**`, retain both existing entries.
+- **Supabase → project lkiiideqjoiksnycgplc → Authentication → URL Configuration:** change Site URL from `http://localhost:3000` to **`https://learnstation.app`** → Save changes. Redirect URLs → Add URL → **`https://learnstation.app/**`** → Save, retaining `https://learnstation.duckdns.org/**` and `https://195-201-221-137.sslip.io/**`. Return the saved Site URL and full three-entry redirect list; only then mark the change done by Abi.
 - **Supabase → Authentication → Emails → SMTP Settings:** readback complete, custom SMTP ON; leave unchanged. **Emails → Templates → Reset Password:** current subject `Learnstation: Passwort zurücksetzen · Reset your password` and body already match requested values; preserve both and `{{ .ConfirmationURL }}` links.
 - **Resend:** baseline read complete through connector; verified, sending enabled, receiving OFF, both tracking switches OFF. Leave these values unchanged.
 
