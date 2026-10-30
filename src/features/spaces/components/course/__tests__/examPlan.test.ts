@@ -43,6 +43,14 @@ describe('the exam plan', () => {
     expect(plan.days.at(-1)!.steps[0]).toMatchObject({ kind: 'revisit', title: 'Closure' });
   });
 
+  it('plans from the furthest page reached, not the page last looked at (LS-055)', () => {
+    // Read Basics to page 16, then looked back at page 3.
+    const plan = planExam({ ...BASE, exam: '2026-10-21', trail: { a: { page: 3, pages: 40, furthest: 16 } } });
+    expect(plan.unreadPages).toBe(24 + 60);
+    const reads = plan.days.flatMap((d) => d.steps).filter((s) => s.kind === 'read');
+    expect(reads[0]).toMatchObject({ lectureId: 'a', page: 17 });
+  });
+
   it('keeps a miss even before the lecture is grouped into ideas, and rehearses in chunks when review runs dry', () => {
     const plan = planExam({
       ...BASE,

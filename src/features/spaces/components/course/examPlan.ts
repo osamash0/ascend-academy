@@ -1,6 +1,7 @@
 import { proofs, FADE_AFTER_DAYS, daysSince, type Mark } from './light';
 import type { TodayStep } from './today';
 import { pagesPhrase, phrase } from './phrase';
+import { readTo } from '../../data/trail';
 
 /**
  * The days until the exam, planned from what the student has actually done.
@@ -30,7 +31,7 @@ export interface PlanLecture {
 export interface PlanInput {
   lectures: PlanLecture[];
   /** Pages read so far per lecture (the trail's last page). */
-  trail: Record<string, { page: number; pages: number }>;
+  trail: Record<string, { page: number; pages: number; furthest?: number }>;
   marks: Mark[];
   weak: { lecture_id: string; idea: string; page: number }[];
   exam: string;
@@ -80,7 +81,8 @@ export function planExam({ lectures, trail, marks, weak, exam, today, now = Date
   /* What is left to read, lecture by lecture, from where the student stopped. */
   const queue: { lec: PlanLecture; from: number; to: number }[] = [];
   for (const lec of lectures) {
-    const read = Math.min(lec.total_slides, trail[lec.id]?.page ?? 0);
+    /* The furthest page reached, not the last one looked at (LS-055). */
+    const read = Math.min(lec.total_slides, readTo(trail[lec.id]));
     if (read < lec.total_slides) queue.push({ lec, from: read + 1, to: lec.total_slides });
   }
   const unreadPages = queue.reduce((n, q) => n + q.to - q.from + 1, 0);

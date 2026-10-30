@@ -9,7 +9,7 @@ import { SpacesTopBar } from '../components/SpacesTopBar';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { useCourse, useCourseLinks, useFind, useRehearsalHistory } from '../data/useReader';
 import { CourseMap } from '../components/course/CourseMap';
-import { latestInCourse, readTrail } from '../data/trail';
+import { latestInCourse, readTo, readTrail } from '../data/trail';
 import { ideaAt, lightIdeas, type Light } from '../components/course/light';
 import { planToday, type TodayStep } from '../components/course/today';
 import { useViewer } from '../data/viewer';
@@ -207,7 +207,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
                     step={step}
                     href={stepHref(step)}
                     poster={i === 0 && step.kind === 'read' ? course.lectures.find((l) => l.id === step.lectureId)?.poster ?? null : null}
-                    progress={step.kind === 'read' && resume && step.lectureId === resume.lectureId ? resume.page / resume.pages : null}
+                    progress={step.kind === 'read' && resume && step.lectureId === resume.lectureId ? readTo(resume) / resume.pages : null}
                     idea={step.kind === 'read' && resume && step.lectureId === resume.lectureId && !plan ? resumeIdea?.name : undefined}
                     more={step.kind === 'revisit' && !plan ? Math.max(0, (history?.weak.length ?? 0) - 1) : 0}
                     reduce={Boolean(reduce)}
@@ -332,7 +332,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
               transition={{ duration: reduce ? 0 : 0.3 }}
               className="relative grid grid-cols-[40px_minmax(0,1fr)] gap-x-5 pb-12"
             >
-              <ReadRing order={l.order} read={trail[l.id] ? trail[l.id].page / trail[l.id].pages : 0} reduce={Boolean(reduce)} />
+              <ReadRing order={l.order} read={trail[l.id] ? readTo(trail[l.id]) / trail[l.id].pages : 0} reduce={Boolean(reduce)} />
               <div className="grid gap-5 sm:grid-cols-[220px_minmax(0,1fr)]">
                 {/* The deck itself is the way in: it opens where you stopped, or at the start. */}
                 <Link
