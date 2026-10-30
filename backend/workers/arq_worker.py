@@ -14,6 +14,7 @@ so even if this worker is ever scaled to N processes, only one of them
 actually executes the job at each scheduled time (arq dedupes via a
 Redis-backed key), never N double-fires the way APScheduler would have.
 """
+import asyncio
 import logging
 import time
 
@@ -38,8 +39,11 @@ logger = logging.getLogger(__name__)
 
 # M33/M34: how often the liveness heartbeat re-writes itself. Comfortably
 # inside WORKER_HEARTBEAT_TTL_SECONDS (90s) so a healthy worker's key never
-# lapses between cron ticks even under a slow Redis round-trip.
+# lapses between beats even under a slow Redis round-trip.
 WORKER_HEARTBEAT_INTERVAL_SECONDS = 30
+
+# ctx key holding the background heartbeat task between startup and shutdown.
+_HEARTBEAT_TASK_KEY = "_worker_heartbeat_task"
 
 # R51/R52: how long a run may sit in 'extracting' before the reconciliation
 # sweep treats it as stalled. Comfortably above WorkerSettings.job_timeout
@@ -89,10 +93,21 @@ async def startup(ctx: dict) -> None:
             "cache Redis unavailable in worker; provider limits/cost ceiling are per-process only",
             exc_info=True,
         )
+    # Beat from the event loop, not from a cron: arq crons are jobs and wait
+    # for a free max_jobs slot, so long parse jobs filling every slot used to
+    # starve the heartbeat and turn /health/ready red on a busy, healthy worker.
+    ctx[_HEARTBEAT_TASK_KEY] = asyncio.create_task(_heartbeat_loop(ctx))
     logger.info("Arq worker startup complete")
 
 
 async def shutdown(ctx: dict) -> None:
+    task = ctx.pop(_HEARTBEAT_TASK_KEY, None)
+    if task is not None:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
     from backend.core.database import db_pool
     if db_pool:
         await db_pool.close()
@@ -178,6 +193,16 @@ async def worker_heartbeat(ctx: dict) -> None:
         await redis.set(WORKER_HEARTBEAT_KEY, "1", ex=WORKER_HEARTBEAT_TTL_SECONDS)
     except Exception:
         logger.debug("worker_heartbeat: failed to write heartbeat key", exc_info=True)
+
+
+async def _heartbeat_loop(ctx: dict) -> None:
+    """Write the heartbeat every WORKER_HEARTBEAT_INTERVAL_SECONDS for the life
+    of the worker process. It runs beside arq's job pool, so a full pool never
+    delays it; it stops only when the process (or its event loop) does, which
+    is exactly what the key is meant to report."""
+    while True:
+        await worker_heartbeat(ctx)
+        await asyncio.sleep(WORKER_HEARTBEAT_INTERVAL_SECONDS)
 
 
 async def reconcile_stalled_parse_runs(ctx: dict) -> None:
@@ -299,8 +324,10 @@ class WorkerSettings:
     ]
     cron_jobs = [
         cron(refresh_professor_overview_mv, minute={0, 10, 20, 30, 40, 50}, run_at_startup=True),
-        # M33/M34: liveness heartbeat every 30s, well inside its own 90s TTL.
-        cron(worker_heartbeat, second={0, 30}, run_at_startup=True),
+        # M33/M34: the liveness heartbeat is NOT a cron any more; startup()
+        # runs it as a background task so a full job pool cannot starve it.
+        # The crons below still share max_jobs and can be delayed by long
+        # parses; that only postpones them, it never makes the worker look dead.
         # R51/R52: stalled-run reconciliation sweep every 10 minutes.
         cron(reconcile_stalled_parse_runs, minute={0, 10, 20, 30, 40, 50}, run_at_startup=True),
         # GDPR F2: finish account erasures whose inline file deletes failed.
