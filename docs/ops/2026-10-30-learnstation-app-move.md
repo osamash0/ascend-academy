@@ -1,4 +1,4 @@
-STATUS: BLOCKED — step 6: awaiting Abi's explicit second go
+STATUS: IN PROGRESS — step 7
 
 | step | status | before → after | evidence (UTC) | rollback |
 | --- | --- | --- | --- | --- |
@@ -18,7 +18,7 @@ STATUS: BLOCKED — step 6: awaiting Abi's explicit second go
 | 5a: account/reset/login test | done by Abi | New-domain authentication not user-tested → account creation, password reset and login with the new password reported working. | 2026-10-30T15:39:35Z: explicit user test report; no credentials or recovery token collected. | User test only; no settings change. |
 | 5b: Lesson and delivery report | done by Abi | Results unknown → Lesson opens; inbox delivery observed after an earlier Gmail “not spam” action. | 2026-10-30T15:44:12Z: explicit user report. Do not claim this proves inbox placement for a fresh recipient. | User test only; no settings change. |
 | 5c: second Gmail delivery test | done by Abi | Only one mailbox tested → reset email also lands in inbox for another Gmail account. | 2026-10-30T15:45:51Z: explicit user report. No recipient address collected; prior filtering/training history of this second account not reported. | User test only; no settings change. |
-| 6: old host redirects | pending | DuckDNS serves app on 3000; sslip points at separate gateway on 3001, currently 502 → proposed 301 to apex after second explicit go. | `curl -I`: DuckDNS 200; sslip 502; localhost:3001 connection refused. | Restore both backed-up old site files, run `nginx -t`, reload. Keep their certificates. |
+| 6: old host redirects | done | DuckDNS app proxy and sslip gateway route → both old hosts return 301 to new apex over HTTP/HTTPS, preserving URI; certificates retained. | 2026-10-30T15:49:40Z–15:50:54Z: nginx test/reload passed; all four `curl -I` probes return 301 with exact Location; all three renewal simulations passed; apex 200; certificates/apex config/container IDs unchanged. | Restore both old site files from `.bak-20261030-1549`, test nginx, reload. Keep certificates. |
 | 7: recovery link code PR | pending | Existing implicit recovery flow → add token-hash verification while retaining implicit flow, separate undeployed branch/PR. | No application source changed or deployed. | Close/revert the separate code PR; no live effect until separately deployed. |
 | 8: finish | pending | Deployment/runbook address updates and completed evidence pending. | Ops log branch created from `origin/main` at `e2de2766bad4d2fb88a1eaaf3e80b3813654a9aa`, first commit `08682528` pushed. GitHub create_pull_request rejected with HTTP 403, Resource not accessible by integration; draft PR not created. | Revert documentation-only changes if required. |
 
@@ -32,7 +32,7 @@ At initial recon the server was on `deploy/legal-20261030`. A concurrent deploym
 
 STOP 1: BEFORE-value recon complete at 2026-10-30T15:12:34Z. Abi explicitly replied **“go and do 1 with Cloudflare”** at the 2026-10-30T15:14Z checkpoint. Proceed with **step 1 only** using the connected Cloudflare API; stop after DNS verification/logging. The draft PR remains pending due to connector 403; Abi explicitly requested proceeding with step 1 despite that outstanding documentation item. No approval inferred for the step 6 STOP point.
 
-STOP 2: Step 5 user tests complete at 2026-10-30T15:44:12Z, including the Gmail placement qualification. Await another explicit **go** before redirecting either old hostname. Not received. No step 6 mutation performed.
+STOP 2: Step 5 user tests complete, including a second Gmail inbox result. Abi explicitly replied **“go”** at the 2026-10-30T15:48Z checkpoint after the proposal to redirect both old hosts, including replacing the sslip gateway route. Second checkpoint satisfied; step 6 authorized.
 
 2026-10-30T15:18:01Z: Abi said **“continue next”** after step 1; proceeding with **step 2 TLS/nginx only**, then stopping ahead of CORS. This does not authorize the step 6 redirects.
 
@@ -362,6 +362,41 @@ Run `nginx -t` before `systemctl reload nginx`; never restart. Verify both old h
 
 Session consequence: **everyone gets signed out once when moving to the new site address**, because browser sessions are stored per site address. No account or password reset is required just because of the hostname change.
 
+## Step 6 execution
+
+2026-10-30T15:48:23Z, BEFORE: read both original nginx site files again; their SHA-256 values still match the step 2 baseline. New apex config hash is `c38cdb732e63bbc6e7a20b48de226a29b5dd845c5adf23a1bf476f57b42d6d6a`. nginx active; `nginx -t` passes. Original proxy targets, listeners and certificate paths match the approved proposal.
+
+2026-10-30T15:49:40Z: rechecked baseline hashes and backed up every nginx regular file, TLS options and renewal configuration to sibling **`.bak-20261030-1549`** files before mutation. Changed only `/etc/nginx/sites-available/ascend-academy` and `/etc/nginx/sites-available/195-201-221-137.sslip.io`: both now return `301 https://learnstation.app$request_uri` inside `location /` for HTTP/HTTPS. Kept DuckDNS's IPv4 listeners, sslip's IPv4/IPv6 listeners, and each old hostname's certificate/TLS options. `nginx -t` passed before `systemctl reload nginx`; no restart.
+
+2026-10-30T15:49:41Z–15:50:21Z: `certbot renew --dry-run --non-interactive --no-random-sleep-on-renew` exited 0; **all three simulated renewals succeeded** (sslip, apex/www, DuckDNS). Final `nginx -t` passed; nginx active. Checksums confirm all three certificate fullchains and the new apex nginx config unchanged. Every Docker container ID is unchanged by step 6.
+
+2026-10-30T15:50:54Z, external `curl --max-time 20 -sSI <URL>` checks after renewal restoration:
+
+```text
+http://learnstation.duckdns.org/reset-password?probe=step6-final
+HTTP/1.1 301 Moved Permanently
+Location: https://learnstation.app/reset-password?probe=step6-final
+https://learnstation.duckdns.org/reset-password?probe=step6-final
+HTTP/1.1 301 Moved Permanently
+Location: https://learnstation.app/reset-password?probe=step6-final
+http://195-201-221-137.sslip.io/reset-password?probe=step6-final
+HTTP/1.1 301 Moved Permanently
+Location: https://learnstation.app/reset-password?probe=step6-final
+https://195-201-221-137.sslip.io/reset-password?probe=step6-final
+HTTP/1.1 301 Moved Permanently
+Location: https://learnstation.app/reset-password?probe=step6-final
+apex status=200 ssl_verify_result=0
+```
+
+Final site SHA-256 values:
+
+```text
+4a46fd4afbb2f651bffbdde67582d1bf4c2b27b865c62d7bcd29f22d8606d999  /etc/nginx/sites-available/ascend-academy
+c7780069bc5305e73b815a36dd23635ffbdf75ecfa143fe6279ec609b5ca79ec  /etc/nginx/sites-available/195-201-221-137.sslip.io
+```
+
+Rollback: first back up the current versions, then restore these two site files from their respective **`.bak-20261030-1549`** backups, run `nginx -t`, and `systemctl reload nginx`. Do not alter certificates or the apex site. Everyone signs in once at the new site address because browser sessions are stored per site address. Step 6 complete; remaining code work is separate and must not be deployed.
+
 ## Exact proposed changes for first go (steps 1–5)
 
 1. **Cloudflare:** use the connected API to add DNS-only A `@` → `195.201.221.137` and DNS-only CNAME `www` → `learnstation.app`; preserve all mail records. Verify using `dig +short` against both 1.1.1.1 and 8.8.8.8.
@@ -391,7 +426,7 @@ Session consequence: **everyone gets signed out once when moving to the new site
 - Recon complete: Cloudflare/Resend connector checks and Supabase Auth dashboard readbacks passed. Later Supabase Auth changes still require Abi's dashboard action; do not scrape dashboards or extract tokens from files.
 - Create the single draft ops log PR through an authorized GitHub connector or Abi's dashboard; existing create attempt failed with 403. Record the PR link once created.
 - Steps 1–3 complete and verified; step 4 reported done by Abi. The concurrent server deployment was recorded; this agent changed only CORS and recreated API using its existing image. Required early draft PR remains pending.
-- Step 5 complete: signup/reset/new-password login/Lesson work; inbox delivery observed in two Gmail accounts (first had prior “not spam” history; second history unspecified). Link/redirect evidence recorded. Await separate second explicit go before step 6; moving to the new address signs everyone out once because sessions are stored per site address.
+- Steps 5–6 complete: functional tests/two Gmail inbox reports recorded; both old hosts redirect with preserved URI, retained certificates and passing renewal tests. Users sign in once at the new address. Remaining work is the separate undeployed code PR and documentation/PR finalization.
 - Create `feat/reset-link-own-domain` from current `origin/main` for the separate, undeployed code PR. Preserve existing implicit recovery, add token-hash verification and meaningful tests; run touched Vitest tests and `npx tsc --noEmit -p tsconfig.app.json`. Rerun the known intermittent deck-measurement timeout once if encountered; do not skip it.
 - **Only after the code PR is separately deployed:** change the recovery link to `{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery`. Until then retain `{{ .ConfirmationURL }}`.
 - Update only deployment/runbook references to the old address, finish evidence, update status and mark ops PR ready at completion.
@@ -402,11 +437,11 @@ Cloudflare and Resend are now connected and verified. The correct Supabase conne
 
 **Draft PR handoff (GitHub connector returned 403):** open [the prepared branch comparison](https://github.com/osamash0/ascend-academy/compare/main...ops/learnstation-app-move?expand=1) → Create pull request → title `ops: move the site to learnstation.app (log)` → choose **Create draft pull request** from the button menu. Base: `main`; compare: `ops/learnstation-app-move`. Description: `Records migration recon, BEFORE/AFTER evidence, rollback instructions and Abi's two checkpoints. Steps 1–5 complete; functional tests pass and two Gmail inbox deliveries reported. Awaiting second go before old-host redirects.` Return the PR link so its creation can be recorded as **done by Abi**. Do not create a second PR if one already exists.
 
-Steps 1–5 are complete, including functional tests and inbox delivery in two Gmail accounts. The first account had an earlier “not spam” action; the second account's history is unspecified. **Reply with a separate go to authorize the step 6 proposal above:** redirect both old hosts to `https://learnstation.app$request_uri`, keeping their certificates. Everyone must sign in once at the new address. No redirect changes have been made yet.
+Steps 1–6 are complete, including functional tests/two Gmail inbox deliveries and verified old-host redirects. Everyone signs in once at the new address. Remaining work: separate undeployed recovery code PR, then PR/log finalization.
 
 - **Cloudflare:** step 1 complete through connector; apex A and www CNAME are DNS only, TTL 300, verified at both public resolvers. No manual DNS change needed.
 - **Supabase → project lkiiideqjoiksnycgplc → Authentication → URL Configuration:** change reported **done by Abi**: Site URL `https://learnstation.app`, add `https://learnstation.app/**`, keep both existing entries. Reset/new-password login reported working; email evidence points back to the new reset destination. No further settings change requested now.
 - **Supabase → Authentication → Emails → SMTP Settings:** readback complete, custom SMTP ON; leave unchanged. **Emails → Templates → Reset Password:** current subject `Learnstation: Passwort zurücksetzen · Reset your password` and body already match requested values; preserve both and `{{ .ConfirmationURL }}` links.
 - **Resend:** baseline read complete through connector; verified, sending enabled, receiving OFF, both tracking switches OFF. Leave these values unchanged.
 
-The step 4 Auth URL change is reported **done by Abi**. Earlier SMTP/template baseline readbacks do not imply edits; those settings already matched the requested values. No second go for old-host redirects has been received.
+The step 4 Auth URL change is reported **done by Abi**. Earlier SMTP/template baseline readbacks do not imply edits; those settings already matched the requested values. The separate second go for step 6 has now been received.
