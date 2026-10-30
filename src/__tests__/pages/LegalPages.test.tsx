@@ -15,6 +15,8 @@ describe('Impressum', () => {
     const { container } = renderWithProviders(<Impressum />, { initialEntries: ['/impressum'] });
     const text = container.textContent ?? '';
     expect(text).toContain('Abdullah Abobaker');
+    expect(text).toContain('Wettergasse 6');
+    expect(text).toContain('35037 Marburg');
     expect(text).toContain('§ 5 DDG');
     expect(text).toContain('§ 18');
     expect(text).not.toMatch(/TMG|RStV|\[/);
