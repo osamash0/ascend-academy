@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent, act, within, cleanup } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, type RefObject } from 'react';
 import LessonFacesScreen from '../../screens/LessonFacesScreen';
 
@@ -403,14 +403,20 @@ describe('the page shape belongs to its Lesson', () => {
       return null;
     };
     mockAspect = 842 / 595;
+    /*
+     * The browser's own history, as in the app: the reader writes `?page=` only
+     * while window.location is still on its Lesson, and a MemoryRouter never
+     * moves window.location, so under one the write would never come.
+     */
+    window.history.replaceState(null, '', '/v4/space/s-dbs/lesson/l-s-dbs-4/faces');
     try {
       render(
-        <MemoryRouter initialEntries={['/v4/space/s-dbs/lesson/l-s-dbs-4/faces']}>
+        <BrowserRouter>
           <Nav />
           <Routes>
             <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<LessonFacesScreen />} />
           </Routes>
-        </MemoryRouter>,
+        </BrowserRouter>,
       );
       expect(await screen.findByTestId('scroll', {}, { timeout: 4000 })).toBeInTheDocument();
       /*
@@ -429,6 +435,7 @@ describe('the page shape belongs to its Lesson', () => {
       expect(screen.queryByTestId('scroll')).toBeNull();
     } finally {
       mockAspect = 405 / 720;
+      window.history.replaceState(null, '', '/');
     }
   });
 });
