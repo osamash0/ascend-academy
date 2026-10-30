@@ -41,6 +41,7 @@ CI runs on pull requests and on pushes to `main`, plus a nightly at 03:17 UTC (D
 - Deploys are manual over SSH; there is no deploy automation. Last full deploy: main @ 35a30d73, 2026-10-30 15:24 UTC. Rollback images are tagged `pre-deploy-main-<date>`.
 - Flags on in prod (2026-10-30): `FEATURE_V4`, `FEATURE_V4_READER`, `FEATURE_LUNA_SESSIONS`. Each `VITE_FEATURE_*` is derived from its backend flag in the compose file. `VITE_*` values are baked at image build, so any frontend change needs a rebuild, not a restart.
 - Supabase project `lkiiideqjoiksnycgplc` (eu-west-1, free tier, no PITR). Auth emails go through Resend since 2026-10-30.
+- Monitoring and backups (2026-10-30, both free): Better Stack alerts Abi by e-mail when the site, the server's 5-minute heartbeat or the nightly backup goes quiet; each nightly dump is age-encrypted to Cloudflare R2 (`learnstation-backups`). The decryption key is only in Abi's password manager. Runbook: `docs/runbooks/monitoring-and-backups.md`.
 - Real usage is near zero since August 2026 (measured 2026-10-30). Optimise for a handful of real students, not scale.
 
 ## Rules Abi has set

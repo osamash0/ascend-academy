@@ -17,6 +17,9 @@
 | Supabase Auth site URL and redirect URLs | nowhere in the repo | Supabase dashboard → Authentication → URL Configuration | Supabase Auth |
 | Admin and professor account passwords | nowhere; rotated by Abi 2026-10-30 | Supabase Auth | people |
 | SSH key for the server | `~/.ssh/id_ed25519` | `abo@` and `root@` on 195.201.221.137 | you |
+| Better Stack heartbeat URLs | nowhere in the repo | `/etc/learnstation-heartbeat.conf` (600 root) | heartbeat timer, `db-backup.service` |
+| R2 access key (`learnstation-server-backups`) | nowhere in the repo | `/etc/offsite-backup.conf` (600 root) | `offsite-backup.sh` |
+| Backup decryption key (age) | Abi's password manager only | never on the server; the server holds only the public half | whoever restores |
 
 Two env files locally: the API reads `backend/.env` before root `.env`. To know which value is live, introspect the running app, not a file.
 
@@ -39,6 +42,10 @@ Edit the server `.env`, then rebuild and swap the frontend only (`docs/runbooks/
 ## Rotate an account password
 
 The dashboard cannot set a password and `@admin.com` addresses receive no mail. Use the Admin API with the service role key: `auth.admin.update_user_by_id(user_id, {"password": ...})` from a throwaway script that takes the password as an argument. Never commit a script with a password in it (PR #134 removed the last one). Seed scripts never reset an existing user.
+
+## Rotate the monitoring and backup secrets
+
+Re-run the matching installer; it asks for the new values and overwrites the config (`docs/runbooks/monitoring-and-backups.md`). For the R2 key, create the new token first, install, then delete the old token in Cloudflare. A new age key pair cannot read copies made with the old one, so keep the old private key until those copies are deleted (30 days).
 
 ## If a secret reached git
 
