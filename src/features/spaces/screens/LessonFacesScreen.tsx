@@ -1252,8 +1252,20 @@ export default function LessonFacesScreen() {
         )}
       </div>
 
+      {/*
+        Luna's line. Over an open face it rises above that layer (42) and
+        clears its header — below it on a phone, under it from md up — and
+        stays beneath the dialogs (50). It takes no clicks: the face is read
+        through the row it sits in.
+      */}
       {lights.line && (
-        <motion.div {...fade} className="absolute inset-x-4 top-[72px] z-30 flex justify-center">
+        <motion.div
+          {...fade}
+          className={cn(
+            'pointer-events-none absolute inset-x-4 flex justify-center',
+            behind ? 'top-[128px] z-[43] md:top-[68px]' : 'top-[72px] z-30',
+          )}
+        >
           <p
             role="status"
             className="flex items-center gap-2 rounded-full bg-white/[0.08] py-1.5 pl-3 pr-4 text-[12.5px] text-foreground"

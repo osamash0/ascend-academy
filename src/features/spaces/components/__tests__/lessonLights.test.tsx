@@ -212,6 +212,31 @@ describe('the faces light up page by page', () => {
     expect(screen.queryByText('Page 2', { selector: 'span' })).toBeNull();
   });
 
+  it("Luna's line is seen over an open face, not under it", async () => {
+    runState.reading = { ...base, pagesReady: [1, 2, 3, 4, 5] };
+    await mountAt('?page=5&run=run-1&view=text');
+    await screen.findByRole('tab', { name: 'Text' });
+    /* Her questions arrive while the Text face is open. */
+    runState.reading = { ...base, pagesReady: [1, 2, 3, 4, 5], practiceReady: true };
+    act(() => runState.heard.forEach((f) => f()));
+    const line = await screen.findByText('Practise is ready.');
+    const status = line.closest('[role="status"]') as HTMLElement;
+    expect(status.closest('[inert]')).toBeNull();
+    /* The stacking order happy-dom cannot paint, read off the layers' classes. */
+    const zOf = (el: Element | null): number => {
+      for (let n = el; n; n = n.parentElement) {
+        const m = /(?:^|\s)z-(?:\[(\d+)\]|(\d+))(?:\s|$)/.exec(n.getAttribute('class') ?? '');
+        if (m) return Number(m[1] ?? m[2]);
+      }
+      return 0;
+    };
+    const face = document.querySelector('aside[data-mode="replace"]');
+    expect(face).not.toBeNull();
+    expect(zOf(status)).toBeGreaterThan(zOf(face));
+    /* Below the dialogs, which sit at 50. */
+    expect(zOf(status)).toBeLessThan(50);
+  });
+
   it("the companion's Practise waits for the questions while Luna reads", async () => {
     runState.reading = { ...base, pagesReady: [1, 2, 3, 4, 5] };
     await mountAt('?page=5&run=run-1&view=text');
