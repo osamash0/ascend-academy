@@ -1,4 +1,4 @@
-STATUS: BLOCKED — step 0: draft PR creation and first checkpoint go pending
+STATUS: IN PROGRESS — step 2
 
 | step | status | before → after | evidence (UTC) | rollback |
 | --- | --- | --- | --- | --- |
@@ -10,7 +10,7 @@ STATUS: BLOCKED — step 0: draft PR creation and first checkpoint go pending
 | 0e: recovery body readback | done by Abi | Abi reports the exact requested bilingual body using `{{ .ConfirmationURL }}` → no body edit needed if this is the saved current value. | 2026-10-30T15:10:49Z: full HTML supplied in response to the request for current template content; matches the body preserved below. Subject still unknown. | No body change performed; preserve reported body. |
 | 0f: Site URL readback | done by Abi | `http://localhost:3000` → unchanged during recon; planned replacement `https://learnstation.app` after first go. | 2026-10-30T15:11:49Z: Abi explicitly supplied the current Site URL field value. | Read-only; none. |
 | 0g: recovery subject readback | done by Abi | `Learnstation: Passwort zurücksetzen · Reset your password` → unchanged; already matches requested value. | 2026-10-30T15:12:34Z: Abi supplied the current subject. | Read-only; none. |
-| 1: DNS | pending | Cloudflare has no apex/www records; public resolvers returned no apex A or www CNAME → planned A `@` = `195.201.221.137`, CNAME `www` = `learnstation.app`, both DNS only. | Cloudflare list: exactly four preserved mail records. `dig @1.1.1.1` and `dig @8.8.8.8`: no apex A or www CNAME answers. | Delete only the two newly created records; retain all four mail records. |
+| 1: DNS | done | No apex/www records → A `@` = `195.201.221.137`, CNAME `www` = `learnstation.app`, both DNS only, TTL 300. | 2026-10-30T15:15:21Z: Cloudflare final GET succeeds, six records; original four mail records unchanged. Both `dig @1.1.1.1` and `dig @8.8.8.8` resolve apex A, www CNAME and www A correctly; outputs below. | Delete only A ID `6c96e98ae307209f2e48fa97d2724072` and www CNAME ID `5b8eda11583b8e291ec907145126eb18`; retain all four mail records. |
 | 2: TLS/nginx | pending | Only DuckDNS and sslip certificates/sites observed → planned additional apex/www certificate and site. | Existing certificate issuers/expiries and nginx behavior below; `nginx -t`: syntax OK, test successful. | Restore backed-up nginx files, remove only the new enabled site, test nginx and reload; leave old certificates/sites intact. |
 | 3: CORS | pending | `https://learnstation.duckdns.org,https://195-201-221-137.sslip.io` → append `https://learnstation.app`. | Only the `CORS_ALLOWED_ORIGINS` line was read from `.env`; API healthy. | Restore `.env` backup and recreate only `api`, without building/pulling. |
 | 4: Auth URLs | pending | Site URL `http://localhost:3000`; allow list contains DuckDNS and sslip wildcard entries → Site URL `https://learnstation.app`, add `https://learnstation.app/**`, preserve both existing entries. | Abi's URL Configuration readback recorded below. Connector exposes no Auth configuration read/write tools; later dashboard change required. | Restore `http://localhost:3000`; remove only the newly added apex redirect entry, preserving both original entries. |
@@ -27,7 +27,7 @@ This log contains observations from 2026-10-30 in UTC. Handoff assertions are di
 
 The server remains on `deploy/legal-20261030`. No checkout, image, worker, frontend, database, migration or application deployment changes are authorized by this log. Other PRs are outside scope.
 
-STOP 1: BEFORE-value recon complete at 2026-10-30T15:12:34Z. Exact steps 1–5 are below and presented to Abi for explicit **go**. Not received. The required early draft PR also remains pending due to connector 403; dashboard handoff below.
+STOP 1: BEFORE-value recon complete at 2026-10-30T15:12:34Z. Abi explicitly replied **“go and do 1 with Cloudflare”** at the 2026-10-30T15:14Z checkpoint. Proceed with **step 1 only** using the connected Cloudflare API; stop after DNS verification/logging. The draft PR remains pending due to connector 403; Abi explicitly requested proceeding with step 1 despite that outstanding documentation item. No approval inferred for the step 6 STOP point.
 
 STOP 2: After Abi tests the new domain, wait for another explicit **go** before redirecting either old hostname. Not received.
 
@@ -135,6 +135,42 @@ worker       Up 20 hours
 
 Container names use the `ascend-academy-prod-` prefix. No containers changed.
 
+## Step 1 execution
+
+2026-10-30T15:14Z, BEFORE read: Cloudflare `GET /zones/09f8045d57baa5b18239a2168f4a4288/dns_records?per_page=100&page=1` succeeds (HTTP 200), total_count=4, one page. The four original mail records match the inventory above; all have `proxied=false`. No apex or www records exist. No server changes are part of this step.
+
+Authorized write completed through the Cloudflare connector: created A `learnstation.app` → `195.201.221.137` and CNAME `www.learnstation.app` → `learnstation.app`, each with `proxied=false`, TTL **300 seconds**. A guard re-read confirmed exactly the four baseline mail records before either POST. The immediate post-write readback compared the full original record objects and returned `mail_records_unchanged=true`. No PATCH/PUT/DELETE operation was performed.
+
+2026-10-30T15:15:21Z, AFTER read: Cloudflare `GET /zones/09f8045d57baa5b18239a2168f4a4288/dns_records?per_page=100&page=1` succeeds (HTTP 200), `count=6`, `total_count=6`, one page. The immediate read had transient `count=6`/`total_count=5` metadata; final readback resolves both to six. The original four records retain their IDs, content, TTL and DNS-only state.
+
+| type | name | content | proxied | TTL | new record ID |
+| --- | --- | --- | --- | --- | --- |
+| A | learnstation.app | 195.201.221.137 | false | 300 | 6c96e98ae307209f2e48fa97d2724072 |
+| CNAME | www.learnstation.app | learnstation.app | false | 300 | 5b8eda11583b8e291ec907145126eb18 |
+
+2026-10-30T15:15:21Z, public DNS verification (exit code 0 for every command):
+
+```text
+$ dig @1.1.1.1 learnstation.app A +short
+195.201.221.137
+$ dig @1.1.1.1 www.learnstation.app CNAME +short
+learnstation.app.
+$ dig @1.1.1.1 www.learnstation.app A +short
+learnstation.app.
+195.201.221.137
+$ dig @8.8.8.8 learnstation.app A +short
+195.201.221.137
+$ dig @8.8.8.8 www.learnstation.app CNAME +short
+learnstation.app.
+$ dig @8.8.8.8 www.learnstation.app A +short
+learnstation.app.
+195.201.221.137
+```
+
+Rollback: in this zone, delete only the two new record IDs listed above (Cloudflare → learnstation.app → DNS → Records → apex A / www CNAME → Delete). Re-read the zone to confirm only the four original mail records remain, and verify public DNS after TTL expiration. No mail record or zone setting needs changing.
+
+Stopped after step 1 as Abi requested. Step 2 has **not** started: no apex/www certificate issued, nginx edited/reloaded, CORS changed or container recreated. Because `.app` requires HTTPS, DNS completion alone does not make the new website ready for browser use. The next step is certificate/nginx setup; old-host redirects remain gated on the separate step 6 go.
+
 ## Exact proposed changes for first go (steps 1–5)
 
 1. **Cloudflare:** use the connected API to add DNS-only A `@` → `195.201.221.137` and DNS-only CNAME `www` → `learnstation.app`; preserve all mail records. Verify using `dig +short` against both 1.1.1.1 and 8.8.8.8.
@@ -163,7 +199,7 @@ Container names use the `ascend-academy-prod-` prefix. No containers changed.
 
 - Recon complete: Cloudflare/Resend connector checks and Supabase Auth dashboard readbacks passed. Later Supabase Auth changes still require Abi's dashboard action; do not scrape dashboards or extract tokens from files.
 - Create the single draft ops log PR through an authorized GitHub connector or Abi's dashboard; existing create attempt failed with 403. Record the PR link once created.
-- Obtain first explicit go before production changes. All step 0 BEFORE values are recorded. Required early draft PR remains pending.
+- Step 1 complete and verified; stopped at Abi's requested scope. Next: step 2 TLS/nginx. All step 0 BEFORE values are recorded. Required early draft PR remains pending.
 - Complete steps 1–5 and Abi's test; obtain second explicit go before step 6. Moving to the new address signs everyone out once because sessions are stored per site address.
 - Create `feat/reset-link-own-domain` from current `origin/main` for the separate, undeployed code PR. Preserve existing implicit recovery, add token-hash verification and meaningful tests; run touched Vitest tests and `npx tsc --noEmit -p tsconfig.app.json`. Rerun the known intermittent deck-measurement timeout once if encountered; do not skip it.
 - **Only after the code PR is separately deployed:** change the recovery link to `{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery`. Until then retain `{{ .ConfirmationURL }}`.
@@ -173,11 +209,11 @@ Container names use the `ascend-academy-prod-` prefix. No containers changed.
 
 Cloudflare and Resend are now connected and verified. The correct Supabase connection is Learnstation → osama's org → Ascend Academy, but its exposed tools lack Auth settings operations.
 
-**Draft PR handoff (GitHub connector returned 403):** open [the prepared branch comparison](https://github.com/osamash0/ascend-academy/compare/main...ops/learnstation-app-move?expand=1) → Create pull request → title `ops: move the site to learnstation.app (log)` → choose **Create draft pull request** from the button menu. Base: `main`; compare: `ops/learnstation-app-move`. Description: `Records migration recon, BEFORE/AFTER evidence, rollback instructions and Abi's two checkpoints. Recon complete; awaiting first go. No production changes made.` Return the PR link so its creation can be recorded as **done by Abi**. Do not create a second PR if one already exists.
+**Draft PR handoff (GitHub connector returned 403):** open [the prepared branch comparison](https://github.com/osamash0/ascend-academy/compare/main...ops/learnstation-app-move?expand=1) → Create pull request → title `ops: move the site to learnstation.app (log)` → choose **Create draft pull request** from the button menu. Base: `main`; compare: `ops/learnstation-app-move`. Description: `Records migration recon, BEFORE/AFTER evidence, rollback instructions and Abi's two checkpoints. Step 1 DNS complete and verified; TLS/nginx setup pending. Mail records preserved.` Return the PR link so its creation can be recorded as **done by Abi**. Do not create a second PR if one already exists.
 
 Current readbacks are complete. After first go, make only the Supabase URL changes when the agent reaches step 4 and confirms HTTPS/API readiness:
 
-- **Cloudflare:** baseline read complete through connector; no manual DNS change needed before first go.
+- **Cloudflare:** step 1 complete through connector; apex A and www CNAME are DNS only, TTL 300, verified at both public resolvers. No manual DNS change needed.
 - **Supabase → project lkiiideqjoiksnycgplc → Authentication → URL Configuration:** readback complete: Site URL `http://localhost:3000`, plus the two old Redirect URLs. After first go and HTTPS readiness: Site URL `https://learnstation.app`; add `https://learnstation.app/**`, retain both existing entries.
 - **Supabase → Authentication → Emails → SMTP Settings:** readback complete, custom SMTP ON; leave unchanged. **Emails → Templates → Reset Password:** current subject `Learnstation: Passwort zurücksetzen · Reset your password` and body already match requested values; preserve both and `{{ .ConfirmationURL }}` links.
 - **Resend:** baseline read complete through connector; verified, sending enabled, receiving OFF, both tracking switches OFF. Leave these values unchanged.
