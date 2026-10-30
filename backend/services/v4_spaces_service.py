@@ -443,22 +443,33 @@ _DONE = {"complete", "completed", "succeeded", "done"}
 _FAILED = {"failed", "error", "cancelled"}
 
 
-def reading_view(run: Dict[str, Any], slides_done: int, pdf_url: Optional[str]) -> Dict[str, Any]:
-    """What the early reader needs: the file, and how far Luna has read it.
+def reading_view(
+    run: Dict[str, Any], pages_ready: List[int], practice_ready: bool, pdf_url: Optional[str]
+) -> Dict[str, Any]:
+    """What a reader of a running upload needs: the file, and what Luna has made of it.
 
-    The file is readable from the moment it is stored; the Lesson exists once
-    the pipeline has made it. Progress is the slides written so far, capped at
-    the page count; a finished run is fully read.
+    The file is readable from the moment it is stored. The Lesson exists once
+    the pipeline has made its row, and can be opened once Luna has written its
+    first pages (``readable``). ``pagesReady`` are the pages she has written; a
+    finished run is fully read. Practice exists only once its questions do.
     """
     status = (run.get("status") or "").lower()
     pages = int(run.get("page_count") or 0)
     ready = bool(run.get("lecture_id")) and status in _DONE
     stage = "failed" if status in _FAILED else ("ready" if ready else "developing")
-    read = pages if ready else min(max(0, int(slides_done)), pages)
+    # A finished run is fully read; one whose page count was never stored is
+    # read from its slide rows instead, so it still opens.
+    if ready and pages > 0:
+        written = list(range(1, pages + 1))
+    else:
+        written = sorted({int(p) for p in pages_ready})
     return {
         "pdfUrl": pdf_url,
         "pages": pages,
-        "pagesRead": read,
+        "pagesRead": min(len(written), pages) if pages > 0 else len(written),
+        "pagesReady": written,
+        "practiceReady": bool(practice_ready),
+        "readable": bool(run.get("lecture_id")) and len(written) > 0,
         "stage": stage,
         "lessonId": str(run["lecture_id"]) if run.get("lecture_id") else None,
     }
@@ -476,18 +487,30 @@ async def early_reading(user_id: str, run_id: str) -> Optional[Dict[str, Any]]:
         )
         if not run:
             return None
-        done = 0
+        pages_ready: List[int] = []
+        practice_ready = False
         if run["lecture_id"]:
-            done = await conn.fetchval("SELECT count(*) FROM slides WHERE lecture_id = $1", run["lecture_id"]) or 0
+            rows = await conn.fetch(
+                "SELECT slide_number FROM slides WHERE lecture_id = $1 ORDER BY slide_number", run["lecture_id"]
+            )
+            pages_ready = [int(r["slide_number"]) for r in rows]
+            practice_ready = bool(
+                await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM quiz_questions q JOIN slides s ON s.id = q.slide_id"
+                    " WHERE s.lecture_id = $1)",
+                    run["lecture_id"],
+                )
+            )
     pdf_url = await signed_pdf_url(f"{run['pdf_hash']}.pdf", "pdf-uploads")
-    return reading_view(dict(run), done, pdf_url)
+    return reading_view(dict(run), pages_ready, practice_ready, pdf_url)
 
 
 async def uploads_for(user_id: str) -> List[Dict[str, Any]]:
     """Every private upload run, newest first, in the shelf's terms.
 
     A run is ``developing`` until the pipeline has made its lecture, ``failed``
-    if it stopped, and ``ready`` once there is a lecture to open.
+    if it stopped, and ``ready`` once the run is done. ``readable`` is true as
+    soon as its Lesson has pages.
     """
     rows = await materials_service.list_my_materials(user_id)
     out: List[Dict[str, Any]] = []
@@ -502,6 +525,8 @@ async def uploads_for(user_id: str) -> List[Dict[str, Any]]:
             "title": r.get("title"),
             "pageCount": r.get("total_slides") or 0,
             "stage": "failed" if failed else ("ready" if ready else "developing"),
+            # The Lesson can be opened once Luna has written its first pages.
+            "readable": bool(r.get("lecture_id")) and int(r.get("slide_count") or 0) > 0,
             "addedAt": r["created_at"],
         })
 
@@ -531,6 +556,7 @@ async def uploads_for(user_id: str) -> List[Dict[str, Any]]:
             "title": r["title"],
             "pageCount": r["total"],
             "stage": "ready",
+            "readable": True,
             "addedAt": r["created_at"].isoformat(),
         })
     out.sort(key=lambda u: u["addedAt"], reverse=True)

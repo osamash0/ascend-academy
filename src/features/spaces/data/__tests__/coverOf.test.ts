@@ -25,6 +25,11 @@ describe('a real upload as a cover', () => {
     expect(c.opens).toEqual({ kind: 'lesson', spaceId: 'u', lessonId: '' });
   });
 
+  it('still being read but already with pages, it opens its Lesson', () => {
+    const c = coverOf(upload({ lessonId: 'L1', readable: true }), emptyWorld());
+    expect(c.opens).toEqual({ kind: 'lesson', spaceId: 'u', lessonId: 'L1' });
+  });
+
   it('ready, it opens its Lesson', () => {
     const c = coverOf(upload({ lessonId: 'L1', stage: 'ready' }), emptyWorld());
     expect(c.opens).toEqual({ kind: 'lesson', spaceId: 'u', lessonId: 'L1' });

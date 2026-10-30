@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import type { LectureConcept, LocalizedLectureBundle } from '@/types/domain';
@@ -218,27 +218,42 @@ export function useReaderLesson(spaceId: string | undefined, lessonId: string | 
   return live ? state : demo;
 }
 
+/** A running upload the reader follows: how many pages exist, and whether the run is done. */
+export interface RunFollow {
+  pagesReady: number;
+  done: boolean;
+}
+
 /** What the Lesson is made of — `useLessonContent`'s shape, demo or real. */
-export function useReaderContent(spaceId: string | undefined, lessonId: string | undefined): LessonContentResult {
+export function useReaderContent(
+  spaceId: string | undefined,
+  lessonId: string | undefined,
+  run?: RunFollow | null,
+): LessonContentResult {
   const live = isLive(spaceId, lessonId);
   const lang = useLang();
   const demo = useLessonContent(live ? undefined : lessonId);
   const [state, setState] = useState<LessonContentResult>({ state: 'loading', bundle: null, concepts: [], pdfUrl: null });
+  /* The Lesson whose pages are on screen: a re-read of it keeps them showing. */
+  const shownFor = useRef<string | undefined>(undefined);
+  const following = !!run && !run.done;
+  const generation = run ? `${run.pagesReady}:${run.done ? 1 : 0}` : 'static';
 
   useEffect(() => {
     if (!live || !lessonId) return;
     let alive = true;
-    setState({ state: 'loading', bundle: null, concepts: [], pdfUrl: null });
+    if (!run || shownFor.current !== lessonId) {
+      setState({ state: 'loading', bundle: null, concepts: [], pdfUrl: null });
+    }
+    /* A running upload is read fresh each time; any other Lesson is read once. */
+    if (run) lectures.delete(lessonId);
     getLecture(lessonId)
       .then(async (r) => {
+        /* A partial read is never left in the memo for a later visit. */
+        if (following) lectures.delete(lessonId);
         if (!alive) return;
         const bundle = bundleFrom(r);
         if (bundle.slides.length === 0) return setState({ state: 'empty', bundle: null, concepts: [], pdfUrl: null });
-        /*
-         * The concept graph's ideas when it has some; otherwise the model's
-         * grouping, which may take a moment the first time — the page shows
-         * without it and the ideas arrive after.
-         */
         /*
          * Until there are ideas, the deck is one section under the lecture's
          * own name, so the reader opens at once instead of waiting.
@@ -251,19 +266,26 @@ export function useReaderContent(spaceId: string | undefined, lessonId: string |
             slide_indices: bundle.slides.map((s) => s.slide_number - 1),
           },
         ];
+        shownFor.current = lessonId;
         setState({
           state: 'ready',
           bundle,
           concepts: r.concepts.length ? (r.concepts as LectureConcept[]) : whole,
           pdfUrl: r.pdf_signed_url,
         });
-        if (r.concepts.length === 0) {
+        /*
+         * The concept graph's ideas when it has some; otherwise the model's
+         * grouping, which may take a moment the first time. While Luna is
+         * still writing, the ideas wait for the finished deck.
+         */
+        if (!following && r.concepts.length === 0) {
           const grouped = await getIdeas(lessonId).catch(() => [] as ReaderConcept[]);
           if (alive && grouped.length) setState((s) => ({ ...s, concepts: grouped as LectureConcept[] }));
         }
       })
       .catch((e) => {
         if (!alive) return;
+        if (following && shownFor.current === lessonId) return;
         setState({
           state: statusOf(e) === 409 ? 'empty' : 'error',
           bundle: null,
@@ -274,7 +296,9 @@ export function useReaderContent(spaceId: string | undefined, lessonId: string |
     return () => {
       alive = false;
     };
-  }, [live, lessonId, lang]);
+    // `run` is read through `generation` and `following`, which change when it does.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, lessonId, lang, generation]);
 
   return live ? state : demo;
 }

@@ -26,6 +26,9 @@ import {
   useRelated,
 } from '../data/useReader';
 import { markTrail } from '../data/trail';
+import { uploadsNow } from '../data/uploads';
+import { followOf, useRunStatus } from '../data/useRunReading';
+import { useLights } from '../components/reader/lights';
 import { useReadingProgress } from '../data/reading';
 import { ReaderTimeline } from '../components/reader/ReaderTimeline';
 import { shapeOf } from '../components/reader/pageShape';
@@ -142,7 +145,6 @@ export default function LessonFacesScreen() {
   const { t: tl } = useTranslation('v4Luna');
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
   const { state, space, lesson, prev, next } = useReaderLesson(spaceId, lessonId);
-  const content = useReaderContent(spaceId, lessonId);
   /* The PDF worker loads while the lesson does, not after it — see `warmPdfWorker`. */
   useEffect(warmPdfWorker, []);
   const reduce = useReducedMotion();
@@ -153,6 +155,16 @@ export default function LessonFacesScreen() {
   const askedView = params.get('view');
   /* `&spot=words` — a search hit: light those words on the page once it is up. */
   const askedSpot = params.get('spot');
+  /*
+   * A file still being read: the run to follow, from the handover (`&run=`),
+   * else your uploads. Pages Luna has written have their faces; the rest wait.
+   */
+  const runId =
+    params.get('run') ??
+    uploadsNow().find((u) => u.lessonId === lessonId && u.stage !== 'ready')?.id ??
+    null;
+  const { run, pending, follow } = followOf(useRunStatus(runId), runId, lessonId);
+  const content = useReaderContent(spaceId, lessonId, follow);
 
   const sections = useMemo(
     () => (content.bundle ? sectionsFromRows(content.bundle.slides, content.concepts) : []),
@@ -209,7 +221,20 @@ export default function LessonFacesScreen() {
 
   const liveReader = !!spaceId && isLive(spaceId);
   /* The practice bench: the lecture's real questions when live. */
-  const practice = usePracticeQuestions(lessonId, liveReader);
+  const lights = useLights(run, pdfPage, {
+    total: numPages || run?.pages || 0,
+    practiceCount: lesson?.practiceCount ?? 0,
+    pending,
+    lessonId,
+  });
+  const following = lights.following;
+  /* Only the faces this page has: Page always; Explain and Text once Luna has written it. */
+  const views = useMemo(() => (lights.pageReady ? VIEWS : VIEWS.slice(0, 1)), [lights.pageReady]);
+  useEffect(() => {
+    if (!lights.pageReady && view !== 'slide') setView('slide');
+  }, [lights.pageReady, view]);
+  /* Without a run the questions are always asked for, as they always were. */
+  const practice = usePracticeQuestions(lessonId, liveReader, lights.practiceArmed);
 
   /* Leave a mark where you are, so the course can offer to pick up here. */
   useEffect(() => {
@@ -266,6 +291,17 @@ export default function LessonFacesScreen() {
     const again = anchorForPage(anchor.page, sections);
     if (again) setAnchor(again);
   }, [sections, anchor]);
+
+  /*
+   * A page sought past Luna keeps the last anchor it had; once she writes it,
+   * the page you are on is the anchor again. Without a run, a page that has
+   * no anchor never gains one, so this does nothing.
+   */
+  useEffect(() => {
+    if (!anchor || anchor.page === pdfPage) return;
+    const here = anchorForPage(pdfPage, sections);
+    if (here) setAnchor(here);
+  }, [sections, anchor, pdfPage]);
 
   const ready = Boolean(content.bundle && content.pdfUrl && anchor);
   /*
@@ -366,25 +402,30 @@ export default function LessonFacesScreen() {
   /* Take the document to a page. The studio follows through the anchor. */
   const goToPage = useCallback(
     (page: number) => {
+      /*
+       * While Luna is still reading, a page she has not written has no anchor:
+       * the page still turns there, and the studio keeps the one it had (as a
+       * page report does). Otherwise a page without an anchor goes nowhere.
+       */
       const a = anchorForPage(page, sections);
-      if (!a) return;
+      if (!a && !following) return;
       engage();
       setBench(null);
-      setAnchor(a);
+      if (a) setAnchor(a);
       setPdfPage(page);
       setBeat(-1);
       /* A document has no pager to turn: take the scroll to the page. */
       if (shape === 'document' && pdfRef.current) scrollToPdfPage(pdfRef.current, page, 0.38, reduce ? 'auto' : 'smooth');
     },
-    [sections, engage, shape, reduce],
+    [sections, engage, shape, reduce, following],
   );
 
   /* Luna: a study session beside the page. Live only; nothing renders without it. */
   const navigate = useNavigate();
   const lunaOn = lunaEnabled(spaceId, lessonId);
-  const [lunaOpen, setLunaOpen] = useState(() => params.get('luna') === '1');
-  /* Explain and text dock in the same place: whichever opens, Luna steps aside. */
-  if (studio && lunaOpen) setLunaOpen(false);
+  const [lunaOpen, setLunaOpen] = useState(() => params.get('luna') === '1' && lights.lunaReady);
+  /* Explain and text dock in the same place: whichever opens, Luna steps aside. No session while she is still reading. */
+  if ((studio || !lights.lunaReady) && lunaOpen) setLunaOpen(false);
   /*
    * The page last reached without the reader turning to it (Luna's move, or a
    * document's scroll passing it), so the reading count never takes it for a
@@ -587,7 +628,7 @@ export default function LessonFacesScreen() {
         return;
       }
       /* One key per view tab, in the order they stand. */
-      const face = VIEWS[Number(e.key) - 1];
+      const face = views[Number(e.key) - 1];
       if (/^[1-9]$/.test(e.key) && face) {
         e.preventDefault();
         pickView(face.id);
@@ -612,7 +653,7 @@ export default function LessonFacesScreen() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [bench, turnPage, stepBeat, view, studio, toggleFull, canFull, pickView, shape]);
+  }, [bench, turnPage, stepBeat, view, studio, toggleFull, canFull, pickView, shape, views]);
 
   /* `\` toggles the studio. Not in a field, not while practising. */
   useEffect(() => {
@@ -678,7 +719,7 @@ export default function LessonFacesScreen() {
     if (portraitPhone) wasPortrait.current = true;
     else if (wasPortrait.current && !prefs.turned) setPref({ turned: true });
   }, [portraitPhone, prefs.turned, setPref]);
-  const quiet = useIdle(ready && view === 'slide' && !bench && !care.due && !care.resting && !checkpointOpen && !teaching, 2800);
+  const quiet = useIdle(ready && view === 'slide' && !bench && !care.due && !care.resting && !checkpointOpen && !teaching && !lights.ringing, 2800);
 
   /*
    * Where the page actually is, so the chapter strip can sit on its top edge
@@ -754,10 +795,10 @@ export default function LessonFacesScreen() {
   }, []);
   /* Luna offers, once a day, on a missed checkpoint or on reading into the next idea. */
   const offerLuna = useCallback(() => {
-    if (!lunaOn || lunaOpen || !lessonId || !shouldOffer(lessonId)) return;
+    if (!lunaOn || !lights.lunaReady || lunaOpen || !lessonId || !shouldOffer(lessonId)) return;
     markOffered(lessonId);
     setLunaOffer(true);
-  }, [lunaOn, lunaOpen, lessonId]);
+  }, [lunaOn, lights.lunaReady, lunaOpen, lessonId]);
   const chapterIndex = ideaRanges.filter((c) => c.first <= pdfPage).length - 1;
   const lastChapter = useRef(chapterIndex);
   useEffect(() => {
@@ -955,17 +996,22 @@ export default function LessonFacesScreen() {
       onClose={closeCompanion}
       className={companion.kind === 'tutor' ? 'h-[min(60vh,560px)]' : undefined}
       footer={
-        <button
-          type="button"
-          onClick={() => {
-            setCompanion(null);
-            setBench('practice');
-          }}
-          className="console-focusable inline-flex h-8 items-center gap-1.5 rounded-full px-2 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
-        >
-          <ListChecks aria-hidden className="h-3.5 w-3.5" />
-          {tr('screen.practiseIdea')}
-        </button>
+        lights.practiceArmed ? (
+          <button
+            type="button"
+            onClick={() => {
+              setCompanion(null);
+              setBench('practice');
+            }}
+            className={cn(
+              'console-focusable inline-flex h-8 items-center gap-1.5 rounded-full px-2 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground',
+              lights.rings === 'practice' && 'ring-1 ring-white/60',
+            )}
+          >
+            <ListChecks aria-hidden className="h-3.5 w-3.5" />
+            {tr('screen.practiseIdea')}
+          </button>
+        ) : undefined
       }
     >
       {companion.kind === 'tutor' ? tutorNode : notesNode}
@@ -974,7 +1020,7 @@ export default function LessonFacesScreen() {
 
   const footer = (
     <div className="mt-14 flex flex-wrap items-center gap-3 border-t border-white/[0.08] pt-8">
-      {lesson.practiceCount > 0 && (
+      {lights.practiceOn && (
         <button
           type="button"
           onClick={() => {
@@ -982,7 +1028,10 @@ export default function LessonFacesScreen() {
             setCompanion(null);
             setBench('practice');
           }}
-          className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14.5px] font-semibold text-slate-900"
+          className={cn(
+            'console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14.5px] font-semibold text-slate-900',
+            lights.rings === 'practice' && 'ring-2 ring-white/60 ring-offset-2 ring-offset-background',
+          )}
         >
           <ListChecks aria-hidden className="h-4 w-4" />
           {tr('screen.practiseRead')}
@@ -1048,6 +1097,7 @@ export default function LessonFacesScreen() {
       <FoundLine found={found} />
 
       {/* Words on the page. */}
+      {lights.pageReady && (
       <SelectionAsk
         articleRef={pdfRef}
         also={{
@@ -1065,7 +1115,9 @@ export default function LessonFacesScreen() {
           openNotes(pageOfSelection() ?? anchor.page);
         }}
       />
+      )}
       {/* Words in the studio. */}
+      {lights.pageReady && (
       <SelectionAsk
         articleRef={textRef}
         also={{
@@ -1084,6 +1136,7 @@ export default function LessonFacesScreen() {
           openNotes(pageOfSelection() ?? anchor.page);
         }}
       />
+      )}
 
       <motion.div {...fade} {...behind}>
         <ReaderExit to={back} />
@@ -1123,7 +1176,7 @@ export default function LessonFacesScreen() {
 
       {/* How to look at the page: alone, explained, or as text. */}
       <motion.div {...fade} className={cn('absolute top-5 flex items-center gap-2', studio ? 'z-[43]' : 'z-[41]')} style={{ right: docked ? panelWidth + 20 : 20 }}>
-      {lunaOn && !lunaOpen && (
+      {lunaOn && lights.lunaReady && !lunaOpen && (
         <div className={cn('flex items-center gap-2 rounded-full p-1', overPage)}>
           {lunaOffer && (
             <>
@@ -1189,7 +1242,7 @@ export default function LessonFacesScreen() {
         aria-label={tr('views.label')}
         className={cn('flex rounded-full p-1', overPage)}
       >
-        {VIEWS.map((v) => {
+        {views.map((v) => {
           const on = view === v.id;
           return (
             <button
@@ -1203,6 +1256,7 @@ export default function LessonFacesScreen() {
               className={cn(
                 'console-focusable relative h-8 rounded-full px-4 text-[13px] transition-colors',
                 on ? 'text-background' : 'text-quiet hover:text-foreground',
+                lights.rings === 'tabs' && v.id !== 'slide' && 'ring-1 ring-white/60',
               )}
             >
               {on && (
@@ -1289,7 +1343,30 @@ export default function LessonFacesScreen() {
         )}
       </div>
 
-      {shape === 'slides' && portraitPhone && !prefs.turned && ready && (
+      {/*
+        Luna's line. Over an open face it rises above that layer (42) and
+        clears its header — below it on a phone, under it from md up — and
+        stays beneath the dialogs (50). It takes no clicks: the face is read
+        through the row it sits in.
+      */}
+      {lights.line && (
+        <motion.div
+          {...fade}
+          className={cn(
+            'pointer-events-none absolute inset-x-4 flex justify-center',
+            behind ? 'top-[128px] z-[43] md:top-[68px]' : 'top-[72px] z-30',
+          )}
+        >
+          <p
+            role="status"
+            className="flex items-center gap-2 rounded-full bg-white/[0.08] py-1.5 pl-3 pr-4 text-[12.5px] text-foreground"
+          >
+            <LunaMark />
+            {tr(`lights.${lights.line}`)}
+          </p>
+        </motion.div>
+      )}
+      {shape === 'slides' && portraitPhone && !prefs.turned && ready && !lights.line && (
         <motion.div {...fade} {...behind} className="absolute inset-x-4 top-[72px] z-30 flex justify-center">
           <p className="flex items-center gap-2 rounded-full bg-white/[0.08] py-1.5 pl-4 pr-1.5 text-[12.5px] text-foreground">
             <Smartphone aria-hidden className="h-3.5 w-3.5 rotate-90 text-quiet" />
@@ -1404,8 +1481,8 @@ export default function LessonFacesScreen() {
         >
           <ReaderTimeline
             page={pdfPage}
-            total={numPages}
-            read={numPages}
+            total={numPages || run?.pages || 0}
+            read={lights.buffer}
             quiet={quiet}
             onSeek={(p) => goToPage(p)}
             unit={shape === 'document' ? 'page' : 'slide'}

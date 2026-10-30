@@ -3,7 +3,7 @@ import { render as rtl, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 const render = (ui: React.ReactElement) => rtl(<MemoryRouter>{ui}</MemoryRouter>);
 
-const base = { pdfUrl: 'x', pages: 10, pagesRead: 3, stage: 'developing', lessonId: null } as any;
+const base = { pdfUrl: 'x', pages: 10, pagesRead: 3, pagesReady: [], practiceReady: false, readable: false, stage: 'developing', lessonId: null } as any;
 const state: { reading: any; url: string | null; aspect: number } = { reading: base, url: 'blob:x', aspect: 0.56 };
 const scrollTo = vi.hoisted(() => vi.fn());
 vi.mock('../../../data/useEarlyReading', () => ({ useEarlyReading: () => state }));
@@ -83,6 +83,37 @@ describe('EarlyReader on a temporary id', () => {
   });
 });
 
+describe('EarlyReader with nothing to show', () => {
+  beforeEach(() => {
+    uploadsMock.to = null;
+  });
+  it('a file already in your Library says so calmly, still shows it, and leads back', () => {
+    state.reading = null;
+    render(<EarlyReader uploadId="sending-1" filename="a.pdf" onReady={() => {}} already />);
+    expect(screen.getByRole('status')).toHaveTextContent('already in your Library');
+    expect(screen.getByTestId('pager')).toBeInTheDocument();
+    expect(screen.queryByText(/Luna is reading along/)).toBeNull();
+    expect(screen.getAllByRole('link', { name: 'Back to Library' })[0]).toHaveAttribute('href', '/v4/library');
+  });
+
+  it('a temporary id whose file is gone is never a blank page', () => {
+    state.reading = null;
+    state.url = null;
+    render(<EarlyReader uploadId="sending-1" filename="a.pdf" onReady={() => {}} />);
+    expect(screen.getByText(/only on this device/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Back to Library' }).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Luna is reading along/)).toBeNull();
+  });
+
+  it('a temporary id already answered for is not called gone while it moves', () => {
+    state.reading = null;
+    state.url = null;
+    uploadsMock.to = 'run-9';
+    render(<EarlyReader uploadId="sending-1" filename="a.pdf" onReady={() => {}} />);
+    expect(screen.queryByText(/only on this device/i)).toBeNull();
+  });
+});
+
 describe('EarlyReader', () => {
   it('shows the file at once, with Luna’s progress on the timeline and the page once', () => {
     render(<EarlyReader uploadId="run-1" filename="Normalization.pdf" onReady={() => {}} />);
@@ -118,9 +149,16 @@ describe('EarlyReader', () => {
 
   it('hands over to the Lesson once it exists, at the page being read', () => {
     const onReady = vi.fn();
-    state.reading = { ...base, stage: 'ready', lessonId: 'L1', pagesRead: 10 };
+    state.reading = { ...base, stage: 'developing', readable: true, lessonId: 'L1', pagesRead: 10 };
     render(<EarlyReader uploadId="run-1" filename="Normalization.pdf" onReady={onReady} />);
     expect(onReady).toHaveBeenCalledWith('L1', 1);
+  });
+
+  it('does not hand over while the Lesson has no pages', () => {
+    const onReady = vi.fn();
+    state.reading = { ...base, stage: 'developing', readable: false, lessonId: 'L1' };
+    render(<EarlyReader uploadId="run-1" filename="Normalization.pdf" onReady={onReady} />);
+    expect(onReady).not.toHaveBeenCalled();
   });
 
   it('mounts no pdf view until the file url exists', () => {
@@ -144,7 +182,7 @@ describe('EarlyReader', () => {
 
   it('hands over exactly once, however often it re-renders', () => {
     const onReady = vi.fn();
-    state.reading = { ...base, stage: 'ready', lessonId: 'L1', pagesRead: 10 };
+    state.reading = { ...base, stage: 'developing', readable: true, lessonId: 'L1', pagesRead: 10 };
     const ui = <MemoryRouter><EarlyReader uploadId="run-1" filename="N.pdf" onReady={onReady} /></MemoryRouter>;
     const { rerender } = rtl(ui);
     rerender(<MemoryRouter><EarlyReader uploadId="run-1" filename="N.pdf" onReady={onReady} /></MemoryRouter>);

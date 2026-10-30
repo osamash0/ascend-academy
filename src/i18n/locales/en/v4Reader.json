@@ -324,6 +324,12 @@
     "readOn": "Read on — nothing waits for her",
     "failed": "Luna could not read this one. You can still read it here.",
     "refused": "Saved on this device only",
+    "already": "This is already in your Library. You are reading it from this device.",
     "retry": "Try again"
+  },
+  "lights": {
+    "explain": "Explain is ready for this page.",
+    "practice": "Practise is ready.",
+    "stopped": "Luna couldn't finish reading this — what she read is here."
   }
 }

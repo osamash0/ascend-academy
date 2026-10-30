@@ -30,9 +30,11 @@ interface Props {
   onRetry?: () => void;
   /** The page you are on, as it changes — so whoever hands over keeps your place. */
   onPage?: (page: number) => void;
+  /** Already in your Library, with no Lesson on the shelf to move to: your file, read from this device. */
+  already?: boolean;
 }
 
-export function EarlyReader({ uploadId, filename, onReady, refused, initialPage = 1, onResolved, onRetry, onPage }: Props) {
+export function EarlyReader({ uploadId, filename, onReady, refused, initialPage = 1, onResolved, onRetry, onPage, already }: Props) {
   const { t } = useTranslation('v4Reader');
   const { t: tl } = useTranslation('v4Library', { keyPrefix: 'studio.canvas.reading' });
   const fs = useFullscreen();
@@ -51,7 +53,7 @@ export function EarlyReader({ uploadId, filename, onReady, refused, initialPage 
   const shape = shapeOf(aspect);
   const total = pages || reading?.pages || 0;
 
-  /* The handover fires once per Lesson, with the page as it is at that moment. */
+  /* The handover fires once per Lesson, as soon as it has pages, with the page as it is at that moment. */
   const pageRef = useRef(page);
   pageRef.current = page;
   const onPageRef = useRef(onPage);
@@ -63,10 +65,10 @@ export function EarlyReader({ uploadId, filename, onReady, refused, initialPage 
   onReadyRef.current = onReady;
   const handed = useRef<string | null>(null);
   useEffect(() => {
-    if (reading?.stage !== 'ready' || !reading.lessonId || handed.current === reading.lessonId) return;
+    if (!reading?.readable || !reading.lessonId || handed.current === reading.lessonId) return;
     handed.current = reading.lessonId;
     onReadyRef.current(reading.lessonId, pageRef.current);
-  }, [reading?.stage, reading?.lessonId]);
+  }, [reading?.readable, reading?.lessonId]);
 
   /* A reader opened on a temporary id moves to the real one when it arrives; unmounted, nothing happens. */
   useSyncExternalStore(subscribeUploads, uploadsVersion);
@@ -121,8 +123,26 @@ export function EarlyReader({ uploadId, filename, onReady, refused, initialPage 
     return () => ro.disconnect();
   }, []);
 
+  /*
+   * A temporary id with no file on this device and none on its way: never a
+   * blank page. A server reading always has a run id, so this is the file
+   * that was only here and is gone.
+   */
+  const gone = !url && uploadId.startsWith('sending-') && !resolvedTo;
+
   return (
     <div className="fixed inset-0 z-40 bg-black text-white">
+      {gone && (
+        <div className="absolute inset-x-0 bottom-16 top-12 flex flex-col items-center justify-center gap-6 px-6 text-center">
+          <p className="max-w-[44ch] text-[15px] leading-relaxed text-quiet">{tl('gone')}</p>
+          <Link
+            to="/v4/library"
+            className="console-focusable inline-flex h-11 items-center rounded-full bg-white/[0.08] px-6 text-[14px] font-medium text-foreground transition-colors hover:bg-white/[0.14]"
+          >
+            {tl('back')}
+          </Link>
+        </div>
+      )}
       <div ref={boxRef} className="absolute inset-x-0 bottom-16 top-12">
         {url &&
           (shape === 'document' ? (
@@ -173,7 +193,18 @@ export function EarlyReader({ uploadId, filename, onReady, refused, initialPage 
         )}
       </div>
       <div className="absolute inset-x-0 bottom-0 px-4 pb-[max(10px,env(safe-area-inset-bottom))]">
-        {refused ? (
+        {gone ? null : already ? (
+          /* Already yours: no Lesson on the shelf to move to, so this copy is read here. */
+          <p role="status" className="mb-2 flex items-center justify-center gap-3 text-center text-[12.5px] text-quiet">
+            <span>{t('early.already')}</span>
+            <Link
+              to="/v4/library"
+              className="console-focusable h-7 rounded-full bg-white/[0.08] px-3 leading-7 text-foreground transition-colors hover:bg-white/[0.14]"
+            >
+              {tl('back')}
+            </Link>
+          </p>
+        ) : refused ? (
           /* Never reached the server: it is here, on this device, and can be sent again. */
           <p role="status" className="mb-2 flex items-center justify-center gap-3 text-center text-[12.5px] text-quiet">
             <span>{t('early.refused')}</span>

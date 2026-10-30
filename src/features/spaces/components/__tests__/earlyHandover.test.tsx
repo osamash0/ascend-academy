@@ -33,22 +33,40 @@ vi.mock('../../data/useShelf', async (orig) => {
     },
   };
 });
-const uploadsMock = vi.hoisted(() => ({ release: vi.fn(), resend: vi.fn(), canResend: vi.fn(() => false) }));
+const uploadsMock = vi.hoisted(() => ({
+  release: vi.fn(),
+  resend: vi.fn(),
+  canResend: vi.fn(() => false),
+  localFileFor: vi.fn((_id: string): File | null => null),
+  duplicateOffShelf: vi.fn((_id: string) => false),
+}));
 vi.mock('../../data/uploads', async (orig) => ({
   ...(await orig<object>()),
   releaseLocalFile: uploadsMock.release,
   resend: uploadsMock.resend,
   canResend: uploadsMock.canResend,
+  localFileFor: uploadsMock.localFileFor,
+  duplicateOffShelf: uploadsMock.duplicateOffShelf,
 }));
 vi.mock('../reader/EarlyReader', () => ({
   EarlyReader: (p: {
     initialPage?: number;
     refused?: boolean;
+    already?: boolean;
+    uploadId?: string;
+    filename?: string;
     onPage?: (n: number) => void;
     onReady: (l: string, n: number) => void;
     onRetry?: () => void;
   }) => (
-    <div data-testid="early" data-initial={p.initialPage} data-refused={String(!!p.refused)}>
+    <div
+      data-testid="early"
+      data-initial={p.initialPage}
+      data-refused={String(!!p.refused)}
+      data-already={String(!!p.already)}
+      data-id={p.uploadId}
+      data-name={p.filename}
+    >
       <button type="button" onClick={() => p.onPage?.(7)}>
         turn to 7
       </button>
@@ -103,13 +121,15 @@ beforeEach(() => {
   shelfState.item = item();
   Object.values(uploadsMock).forEach((f) => f.mockClear());
   uploadsMock.canResend.mockReturnValue(false);
+  uploadsMock.localFileFor.mockReturnValue(null);
+  uploadsMock.duplicateOffShelf.mockReturnValue(false);
 });
 
 describe('the early reader hands over to the Lesson', () => {
   it('its own handover opens the Lesson at the page being read', async () => {
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'hand over' }));
-    expect(here()).toBe('/v4/space/u/lesson/L1/faces?page=7');
+    expect(here()).toBe('/v4/space/u/lesson/L1/faces?page=7&run=run-1');
     expect(uploadsMock.release).toHaveBeenCalledWith('run-1', 'L1');
   });
 
@@ -121,6 +141,14 @@ describe('the early reader hands over to the Lesson', () => {
     expect(await screen.findByText('faces')).toBeInTheDocument();
     expect(here()).toBe('/v4/space/u/lesson/L1/faces?page=7');
     expect(uploadsMock.release).toHaveBeenCalledWith('run-1', 'L1');
+  });
+
+  it('the shelf noticing a readable Lesson first, still being read, keeps the run too', async () => {
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'turn to 7' }));
+    act(() => setItem(item({ stage: 'developing' }, 'L1')));
+    expect(await screen.findByText('faces')).toBeInTheDocument();
+    expect(here()).toBe('/v4/space/u/lesson/L1/faces?page=7&run=run-1');
   });
 
   it('a swap that lands on an item already a Lesson keeps the asked page', async () => {
@@ -160,5 +188,20 @@ describe('a temporary id after a reload', () => {
     mount('/v4/library/m/sending-3');
     expect(await screen.findByText(/only on this device/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to Library' })).toHaveAttribute('href', '/v4/library');
+  });
+});
+
+describe('a file already in your Library, whose Lesson is not on the shelf', () => {
+  it('keeps reading your own file, with a calm line, never a blank page', async () => {
+    shelfState.item = null;
+    uploadsMock.localFileFor.mockReturnValue(new File(['%PDF'], 'again.pdf', { type: 'application/pdf' }));
+    uploadsMock.duplicateOffShelf.mockReturnValue(true);
+    mount('/v4/library/m/sending-1?page=3');
+    const early = await screen.findByTestId('early');
+    expect(early).toHaveAttribute('data-already', 'true');
+    expect(early).toHaveAttribute('data-id', 'sending-1');
+    expect(early).toHaveAttribute('data-name', 'again.pdf');
+    expect(early).toHaveAttribute('data-initial', '3');
+    expect(screen.queryByText(/only on this device/i)).toBeNull();
   });
 });

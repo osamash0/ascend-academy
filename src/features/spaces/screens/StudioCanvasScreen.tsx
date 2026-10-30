@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { canResend, isSettling, releaseLocalFile, resend } from '../data/uploads';
+import { canResend, duplicateOffShelf, isSettling, localFileFor, releaseLocalFile, resend } from '../data/uploads';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, Moon, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -599,7 +599,7 @@ export default function StudioCanvasScreen() {
         onResolved={(to, page) => navigate(`/v4/library/m/${to}?page=${page}`, { replace: true })}
         onReady={(lessonId, page) => {
           releaseLocalFile(item.id, lessonId);
-          navigate(`/v4/space/${spaceId}/lesson/${lessonId}/faces?page=${page}`, { replace: true });
+          navigate(`/v4/space/${spaceId}/lesson/${lessonId}/faces?page=${page}&run=${item.id}`, { replace: true });
         }}
       />
     );
@@ -607,13 +607,26 @@ export default function StudioCanvasScreen() {
   if (item?.opens.kind === 'lesson') {
     /* The shelf saw the Lesson first, or the swap landed on one already made: the place still holds. */
     const at = earlyPage.current ?? askedPage;
+    const query = [at && at > 1 ? `page=${at}` : '', item.stage !== 'ready' ? `run=${item.id}` : '']
+      .filter(Boolean)
+      .join('&');
     return (
       <Navigate
         replace
-        to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}/faces${at && at > 1 ? `?page=${at}` : ''}`}
+        to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}/faces${query ? `?${query}` : ''}`}
       />
     );
   }
+  /*
+   * Already in your Library, but its Lesson is not on the shelf (archived, or
+   * read by another pipeline): there is nothing to move to, so you keep
+   * reading your own file, with a calm line and the way back.
+   */
+  const already = !item && materialId?.startsWith('sending-') && duplicateOffShelf(materialId) ? localFileFor(materialId) : null;
+  if (already && materialId)
+    return (
+      <EarlyReader uploadId={materialId} filename={already.name} initialPage={askedPage ?? 1} already onReady={() => {}} />
+    );
   /* A temporary id after a reload: the file was only in this tab, and it is gone. Said calmly, with the way back. */
   if (!item && materialId?.startsWith('sending-'))
     return frame(
