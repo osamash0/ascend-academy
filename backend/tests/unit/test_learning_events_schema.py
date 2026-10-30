@@ -200,3 +200,9 @@ def test_v4_back_navigation_and_completion_validate():
 def test_checkpoint_attempt_rejects_an_unknown_kind():
     with pytest.raises(ValidationError):
         validate_event("checkpoint_attempt", {**VALID_PAYLOADS["checkpoint_attempt"], "kind": "essay"})
+
+
+def test_checkpoint_attempt_may_name_its_question():
+    validate_event("checkpoint_attempt", {**VALID_PAYLOADS["checkpoint_attempt"], "questionId": 2})
+    with pytest.raises(ValidationError):
+        validate_event("checkpoint_attempt", {**VALID_PAYLOADS["checkpoint_attempt"], "questionId": "two"})
