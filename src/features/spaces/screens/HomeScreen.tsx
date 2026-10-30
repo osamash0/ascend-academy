@@ -1,5 +1,5 @@
 import { Flame, PartyPopper, Play, Plus, RotateCw, Sparkles } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { LunaHero } from '@/features/avatar/LunaHero';
@@ -20,6 +20,7 @@ import { Masthead, Sep, Skylight, StageRow, UpNext, ghostPill, stageAccentFor } 
 import { Scene, SURFACES } from '../components/Scene';
 import { JoinSpaceDialog, NewSpaceDialog } from '../components/SpaceDialogs';
 import { SpacesError, SpacesSkeleton } from '../components/states';
+import { tutorReply } from '../components/tutorReply';
 import { lunaApi, lunaLive } from '../data/lunaSession';
 
 /**
@@ -131,6 +132,16 @@ export default function HomeScreen() {
     { state: 'thinking' } | { state: 'done'; a: AskAnswer } | { state: 'failed' } | null
   >(null);
   const live = liveWorld() !== null;
+  /*
+   * The answer lands below the suggestion chips, often below the fold: bring
+   * it into view when it arrives, or a click on a chip seems to do nothing
+   * (LS-104).
+   */
+  const answerRef = useRef<HTMLDivElement>(null);
+  const answered = answer?.state === 'done';
+  useEffect(() => {
+    if (answered) answerRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [answered]);
   /* A Luna session left open in the Space of the next Lesson. Live only. */
   const nextSpaceId = next?.spaceId;
   const lunaGate = lunaLive();
@@ -381,6 +392,7 @@ export default function HomeScreen() {
         )}
         {asked && live && answer && (
           <div
+            ref={answerRef}
             role="status"
             aria-live="polite"
             className="mx-auto mt-3 max-w-2xl rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-4 text-[14px] leading-6"
@@ -392,7 +404,7 @@ export default function HomeScreen() {
             {answer.state === 'done' && (
               <>
                 {answer.a.spaceName && <p className="mb-1.5 text-[12px] text-quiet">{t('home.answer.from', { space: answer.a.spaceName })}</p>}
-                <p className="whitespace-pre-line text-foreground">{answer.a.reply}</p>
+                <p className="whitespace-pre-line text-foreground">{tutorReply(answer.a.reply)}</p>
                 {answer.a.citations.length > 0 && answer.a.spaceId && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {answer.a.citations.map((c) => (
