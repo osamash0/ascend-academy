@@ -31,7 +31,7 @@ export default function Impressum() {
                     <section>
                         <h2 className="text-xl font-semibold text-foreground mb-2">{t('imprint.contact')}</h2>
                         <p>
-                            {t('imprint.email')}: <a href="mailto:binsalah8@gmail.com" className="text-primary hover:underline">binsalah8@gmail.com</a>
+                            {t('imprint.email')}: <a href="mailto:hello@learnstation.app" className="text-primary hover:underline">hello@learnstation.app</a>
                         </p>
                     </section>
 
