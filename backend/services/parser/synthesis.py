@@ -31,6 +31,7 @@ from backend.services.ai.prompts import (
     SYLLABUS_FACTS_EXTRACTION_PROMPT,
     SYNTHESIS_DECK_QUIZ_PROMPT,
     SYNTHESIS_QUIZ_REPAIR_PROMPT,
+    SYNTHESIS_QUIZ_VERIFY_PROMPT,
     output_language as _output_language,
 )
 from backend.services.ai.quiz_validator import _normalize_answer_index
@@ -59,6 +60,29 @@ MAX_CONCURRENT_REPAIRS = 3
 # semantic scorer and a re-run of that probe. Structural verdicts are dropped
 # in both modes.
 ENFORCE_SUPPORT_THRESHOLD = False
+
+# The answer check (LS-115) is the semantic step the lexical verifier lacks: a
+# model answers each question from its cited slide WITHOUT seeing the key. A
+# different answer, a second defensible option, or no supported option is a
+# dispute: one repair against the slide, checked again, else the question is
+# dropped — in both modes, since a key that marks a careful reader wrong does
+# more harm than a missing question. A failed or unreadable check keeps the
+# question as before.
+# Measured 2026-10-30 with backend/eval/quiz_answer_check.py (drop-risk probe +
+# LS-115): false drops 0/16 (lexical enforcement: 14/16), false keeps 0/16,
+# LS-115 disputed 5/5 and its sound twin agreed 5/5.
+CHECK_ANSWERS = True
+# The checker is not the author: the quality chain led by Groq's reasoning
+# model, not the bulk model that wrote the question. Checked by the bulk model
+# (gpt-4o-mini) instead, LS-115 was agreed twice — it shared the author's
+# misreading. openai_only resolves this to openai.
+CHECK_MODEL = "groq"
+# Low, so a parse does not trip Groq's rate limit (one check fell back and
+# timed out in the measurement run at sequential load).
+MAX_CONCURRENT_CHECKS = 2
+_OPTION_LETTERS = "ABCDEFGH"
+# What a model writes for "no option" instead of a JSON null.
+_NO_ANSWER = frozenset({"", "null", "none", "n/a", "keine"})
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +223,59 @@ async def _repair_question(
     return {**res, "source_slide": slide_number}
 
 
+def _option_index(value: Any, options: List[Any]) -> int | None:
+    """The option a checker names: "B", "b", "B)", "(B)", or the option's own text."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    letter = text.strip("()[]. ").upper()
+    if len(letter) == 1 and letter in _OPTION_LETTERS[: len(options)]:
+        return _OPTION_LETTERS.index(letter)
+    for i, opt in enumerate(options):
+        if isinstance(opt, str) and opt.strip().casefold() == text.casefold():
+            return i
+    return None
+
+
+async def _check_answer(
+    q: Dict[str, Any],
+    slide_number: int,
+    skeleton: DeckSkeleton,
+    ai_model: str,
+) -> str:
+    """"agreed", "disputed" or "error". The checker sees the cited slide, the
+    stem and the options in order — never the key or the explanation."""
+    options = q.get("options")
+    key = _normalize_answer_index(q)
+    if not isinstance(options, list) or not options or key is None:
+        return "error"
+    listed = "\n".join(f"{letter}) {opt}" for letter, opt in zip(_OPTION_LETTERS, options))
+    prompt = SYNTHESIS_QUIZ_VERIFY_PROMPT.format(
+        slide_number=slide_number,
+        slide_text=skeleton.slides[slide_number - 1].text[:1500],
+        question=str(q.get("question") or "")[:500],
+        options=listed,
+    )
+    try:
+        with llm_call_scope(prompt_name="SYNTHESIS_QUIZ_VERIFY_PROMPT",
+                            slide_indices=(slide_number - 1,)):
+            raw = await generate_text(prompt, ai_model=CHECK_MODEL, json_mode=True)
+    except Exception as exc:
+        logger.warning("deck quiz answer check failed (non-fatal): %s", exc)
+        return "error"
+    res = parse_json_response(raw)
+    if not isinstance(res, dict) or "answer" not in res or not isinstance(res.get("also_fits", []), list):
+        return "error"
+    answer = res["answer"]
+    if isinstance(answer, str) and answer.strip().casefold() in _NO_ANSWER:
+        answer = None
+    picked = None if answer is None else _option_index(answer, options)
+    if answer is not None and picked is None:
+        return "error"
+    others = {_option_index(o, options) for o in res.get("also_fits") or []} - {None, picked}
+    return "agreed" if picked == key and not others else "disputed"
+
+
 async def ground_deck_quiz(
     questions: List[Any],
     skeleton: DeckSkeleton,
@@ -214,14 +291,21 @@ async def ground_deck_quiz(
     there is nothing to repair against. A content verdict (low_support,
     ambiguous, number_not_on_slide) is advisory by default: the question is
     kept and flagged via ``grounding_flag``. With ENFORCE_SUPPORT_THRESHOLD it
-    instead gets ONE regeneration against its cited slide, then is dropped. Logs one ``deck_quiz_grounding {json}`` line
-    (proposed/kept/repaired/dropped + drop reasons) and, when ``stats`` is
-    given, merges the same summary into it for the parse receipt."""
+    instead gets ONE regeneration against its cited slide, then is dropped.
+    Every question that would be kept then goes through the answer check
+    (CHECK_ANSWERS): a dispute gets one regeneration, if it has not had one,
+    and a question still disputed is dropped. Logs one ``deck_quiz_grounding
+    {json}`` line (proposed/kept/repaired/dropped + drop reasons + answer
+    check) and, when ``stats`` is given, merges the same summary into it for
+    the parse receipt."""
     # (question | None, was_repaired, drop_reason)
     proposed = len(questions)
     over_cap = max(0, proposed - MAX_DECK_QUIZ_QUESTIONS)
     questions = questions[:MAX_DECK_QUIZ_QUESTIONS]
     repair_slots = asyncio.Semaphore(MAX_CONCURRENT_REPAIRS)
+    check_slots = asyncio.Semaphore(MAX_CONCURRENT_CHECKS)
+    # First check per question only; a repair's re-check shows in repaired/dropped.
+    checks = {"agreed": 0, "disputed": 0, "errors": 0}
 
     async def _checked(q: Any) -> tuple[Dict[str, Any] | None, bool, str]:
         try:
@@ -230,7 +314,15 @@ async def ground_deck_quiz(
             logger.warning("deck quiz grounding errored; dropping question", exc_info=True)
             return None, False, "grounding_error"
 
-    async def _one(q: Any) -> tuple[Dict[str, Any] | None, bool, str]:
+    async def _repair(q: Dict[str, Any], slide: int) -> Dict[str, Any] | None:
+        async with repair_slots:
+            return await _repair_question(q, slide, skeleton, lecture_title, ai_model, source_language)
+
+    async def _answer(q: Dict[str, Any], slide: int) -> str:
+        async with check_slots:
+            return await _check_answer(q, slide, skeleton, ai_model)
+
+    async def _lexical(q: Any) -> tuple[Dict[str, Any] | None, bool, str]:
         if not isinstance(q, dict):
             return None, False, "not_an_object"
         verdict = assess_grounding(q, skeleton)
@@ -240,16 +332,36 @@ async def ground_deck_quiz(
             return None, False, verdict.reason
         if not ENFORCE_SUPPORT_THRESHOLD:
             return _flagged(q, verdict), False, ""
-        async with repair_slots:
-            repaired = await _repair_question(
-                q, verdict.source_slide, skeleton, lecture_title, ai_model, source_language,
-            )
+        repaired = await _repair(q, verdict.source_slide)
         if repaired is None:
             return None, False, "repair_failed"
         second = assess_grounding(repaired, skeleton)
         if second.ok:
             return _grounded(repaired, second), True, ""
         return None, False, f"repair_{second.reason}"
+
+    async def _one(q: Any) -> tuple[Dict[str, Any] | None, bool, str]:
+        kept_q, was_repaired, reason = await _lexical(q)
+        if kept_q is None or not CHECK_ANSWERS:
+            return kept_q, was_repaired, reason
+        slide = kept_q["source_slide"]
+        status = await _answer(kept_q, slide)
+        checks["errors" if status == "error" else status] += 1
+        if status != "disputed":
+            return kept_q, was_repaired, ""
+        if was_repaired:
+            return None, False, "disputed"
+        repaired = await _repair(kept_q, slide)
+        if repaired is None:
+            return None, False, "disputed"
+        second = assess_grounding(repaired, skeleton)
+        if second.reason in STRUCTURAL_REASONS or second.source_slide is None:
+            return None, False, "disputed"
+        if not second.ok and ENFORCE_SUPPORT_THRESHOLD:
+            return None, False, "disputed"
+        if await _answer(repaired, second.source_slide) == "disputed":
+            return None, False, "disputed"
+        return (_grounded if second.ok else _flagged)(repaired, second), True, ""
 
     results = await asyncio.gather(*(_checked(q) for q in questions))
     kept = [r for r, _, _ in results if r is not None]
@@ -272,6 +384,8 @@ async def ground_deck_quiz(
         "flagged": sum(flag_reasons.values()),
         "flag_reasons": flag_reasons,
     }
+    if CHECK_ANSWERS:
+        summary["answer_check"] = checks
     logger.info("deck_quiz_grounding %s", json.dumps(summary, sort_keys=True))
     if stats is not None:
         stats.update(summary)
