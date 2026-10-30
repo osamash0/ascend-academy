@@ -407,6 +407,12 @@ describe('the page shape belongs to its Lesson', () => {
         </MemoryRouter>,
       );
       expect(await screen.findByTestId('scroll', {}, { timeout: 4000 })).toBeInTheDocument();
+      /*
+       * Let the reader settle first: its `?page=` write is a pending effect
+       * that would otherwise land after the navigation below and replace the
+       * new Lesson's URL with this one's.
+       */
+      await act(async () => {});
       /* Another Lesson, then this one again as a landscape file: the old shape must not carry over. */
       await act(async () => go('/v4/space/s-dbs/lesson/l-s-dbs-3/faces'));
       await screen.findByText('Nothing to read yet', {}, { timeout: 4000 });
