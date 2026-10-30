@@ -15,7 +15,7 @@
   },
   "privacy": {
     "title": "Datenschutzerklärung",
-    "lastUpdated": "Stand: 29. Oktober 2026",
+    "lastUpdated": "Stand: 30. Oktober 2026",
     "section1Title": "1. Verantwortlicher",
     "section1Body": "Abdullah Abobaker\nWettergasse 6\n35037 Marburg\nDeutschland\nE-Mail:",
     "section2Title": "2. Welche Daten wir erheben",
@@ -38,6 +38,7 @@
     "section4Items": [
       "<bold>Supabase Inc.</bold> — Anmeldung, Datenbank und Dateispeicherung (Server in der EU, Irland).",
       "<bold>Hetzner Online GmbH (Deutschland)</bold> — Hosting des Anwendungsservers.",
+      "<bold>Resend (Plus Five Five, Inc., USA)</bold> — versendet die E-Mails zu Ihrem Konto, etwa den Link zum Zurücksetzen Ihres Passworts. Resend erhält dafür Ihre E-Mail-Adresse und den Inhalt dieser E-Mail; versendet wird aus der EU (Irland).",
       "<bold>KI-Anbieter</bold> — für Zusammenfassungen, Fragen, Erklärungen, Lunas Antworten und die Suche werden der Text Ihrer Dokumente, Ihre Fragen und Ihr Gesprächsverlauf an <bold>OpenAI</bold>, <bold>Groq</bold> und <bold>Google (Gemini)</bold> übermittelt; <bold>OpenRouter</bold> springt ein, wenn diese nicht erreichbar sind. Ihr Name und Ihre E-Mail-Adresse sind nicht Teil dieser Anfragen.",
       "<bold>LlamaIndex (LlamaParse)</bold> — wenn diese Verarbeitungs-Engine beim Hochladen ausgewählt ist, werden hochgeladene Dokumente zur Textextraktion dorthin übermittelt.",
       "<bold>Microsoft (Edge Text-to-Speech)</bold> — beim Vorlesen wird Text übermittelt, um Sprachausgabe zu erzeugen."
@@ -56,7 +57,7 @@
     "section7Title": "7. Cookies und lokale Speicherung",
     "section7Body": "Learnstation verwendet <bold>keine Tracking-Cookies</bold> und keine Werbe-Tracker (kein Google Analytics, kein Facebook Pixel). Zur Sitzungsverwaltung und für Einstellungen wird ausschließlich der lokale Speicher des Browsers (localStorage) verwendet.",
     "section8Title": "8. Drittlandübermittlung",
-    "section8Body": "Einige der oben genannten Auftragsverarbeiter haben ihren Sitz in den USA oder können Daten dort verarbeiten (Supabase, OpenAI, Groq, Google, OpenRouter, LlamaIndex, Microsoft). Für diese Übermittlungen gelten die EU-Standardvertragsklauseln (SCCs) bzw. das EU-U.S. Data Privacy Framework als Schutzgarantien gemäß Art. 46 DSGVO.",
+    "section8Body": "Einige der oben genannten Auftragsverarbeiter haben ihren Sitz in den USA oder können Daten dort verarbeiten (Supabase, OpenAI, Groq, Google, OpenRouter, LlamaIndex, Microsoft, Resend). Für diese Übermittlungen gelten die EU-Standardvertragsklauseln (SCCs) bzw. das EU-U.S. Data Privacy Framework als Schutzgarantien gemäß Art. 46 DSGVO.",
     "backHome": "← Zurück zur Startseite"
   }
 }

@@ -1,3 +1,5 @@
+> Historical (2026-10-10). Kept for the record; it describes the code as it was then.
+
 # Viewer implementation audit
 
 *2026-09-17 · branch `claude/viewer-implementation-audit-72b762` @ a696be1 · read-only pass, no code changed.*

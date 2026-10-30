@@ -19,11 +19,11 @@
     "endorsed": "Endorsed",
     "endorsedHint": "Endorsed by the Owner. Still community-authored.",
     "star": {
-      "own_one": "{{count}} stars. You can’t star your own Space.",
+      "own_one": "{{count}} star. You can’t star your own Space.",
       "own_other": "{{count}} stars. You can’t star your own Space.",
-      "starred_one": "Starred. {{count}} stars. Tap to remove.",
+      "starred_one": "Starred. {{count}} star. Tap to remove.",
       "starred_other": "Starred. {{count}} stars. Tap to remove.",
-      "star_one": "Star this Space. {{count}} stars.",
+      "star_one": "Star this Space. {{count}} star.",
       "star_other": "Star this Space. {{count}} stars.",
       "ownHint": "You can’t star your own Space."
     },
@@ -48,7 +48,7 @@
     },
     "noSpaces": {
       "title": "No Spaces yet",
-      "body": "A Space is where you keep one subject — its material, its practice, and the people learning it with you.",
+      "body": "A Space is where you keep one subject — its Material, its practice, and the people learning it with you.",
       "create": "Create your first Space",
       "join": "Join with a code"
     },
@@ -120,7 +120,7 @@
     "yesterday": "Yesterday",
     "empty": {
       "title": "Nothing yet",
-      "body": "When someone likes or endorses your work, or a Space you are in publishes something, it turns up here."
+      "body": "When a Space you are in publishes something, it turns up here."
     },
     "items": {
       "levelUp": {
@@ -224,11 +224,11 @@
       "join": "Join with a code",
       "liveBody": "Nothing to pick up yet. Start with something you're learning.",
       "find": "Find a Space",
-      "bring": "Bring in a file"
+      "bring": "Bring in Material"
     },
     "answer": {
-      "thinking": "Reading your material…",
-      "failed": "Couldn’t reach the tutor just now. Ask again in a moment.",
+      "thinking": "Reading your Material…",
+      "failed": "Couldn’t reach Luna just now. Ask again in a moment.",
       "from": "From {{space}}",
       "citation": "{{lesson}} · page {{page}}",
       "lesson": "Lesson"
@@ -237,12 +237,12 @@
       "reviewFirst": "What should I review first?",
       "explainSimply": "Explain {{lesson}} more simply",
       "quizMe": "Quiz me on {{space}}",
-      "notWired": "Not wired up yet — I can’t answer “{{question}}” until the assistant is connected."
+      "notWired": "Not wired up yet — I can’t answer “{{question}}” until Luna is connected."
     }
   },
   "hub": {
     "discover": {
-      "title": "Find your next space",
+      "title": "Find your next Space",
       "desc": "Browse Spaces across every subject people here are learning. Join in one click — leave whenever you want.",
       "notJoined_one": "<b>{{count}}</b> Space you have not joined",
       "notJoined_other": "<b>{{count}}</b> Spaces you have not joined",
@@ -318,10 +318,10 @@
       "pending": "You have asked to join. Waiting on the Owner."
     },
     "chips": {
-      "yours": "Your spaces",
+      "yours": "Your Spaces",
       "newLessons_one": "{{count}} new Lesson",
       "newLessons_other": "{{count}} new Lessons",
-      "discover": "Discover spaces"
+      "discover": "Discover Spaces"
     },
     "activity": {
       "sharedCheatSheet": "{{name}} shared a cheat sheet in {{lesson}}",
@@ -395,8 +395,8 @@
     },
     "newSpace": {
       "title": "New Space",
-      "description": "A Space is one subject, its material, and the people learning it with you. You can change any of this later.",
-      "descriptionLive": "A Space is one subject, its material, and the people learning it with you.",
+      "description": "A Space is one subject, its Material, and the people learning it with you. You can change any of this later.",
+      "descriptionLive": "A Space is one subject, its Material, and the people learning it with you.",
       "name": "Name",
       "namePlaceholder": "Database Systems",
       "whoPublishes": "Who can publish Lessons",
@@ -428,7 +428,7 @@
       "description": "It starts as a draft in {{space}}. Only you and the people who maintain this Space can see a draft — nothing is published until you say so.",
       "titleLabel": "What is it about",
       "titlePlaceholder": "Normalization",
-      "noUpload": "In the finished product you would attach material here and the Lesson would build itself from it. This design build creates the draft and stops there.",
+      "noUpload": "This creates the draft only.",
       "create": "Create the draft and open it"
     },
     "contribute": {
@@ -571,11 +571,11 @@
     },
     "curiousMind": {
       "name": "Curious Mind",
-      "description": "Asked the AI tutor your first question."
+      "description": "Asked Luna your first question."
     },
     "inquisitive": {
       "name": "Inquisitive",
-      "description": "Asked the AI tutor twenty questions."
+      "description": "Asked Luna twenty questions."
     },
     "quickThinker": {
       "name": "Quick Thinker",
@@ -613,5 +613,8 @@
       "name": "10 Streak Champion",
       "description": "Ten correct answers in a row."
     }
+  },
+  "people": {
+    "runTheSpace": "The people who run this Space"
   }
 }

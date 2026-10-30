@@ -58,22 +58,22 @@
       "widen": "Überall suchen"
     },
     "failed": {
-      "spaces": "Deine Spaces konnten nicht geladen werden",
-      "space": "Dieser Space konnte nicht geladen werden",
-      "lesson": "Diese Lektion konnte nicht geladen werden",
-      "idea": "Diese Idee konnte nicht geladen werden",
-      "practice": "Diese Übung konnte nicht geladen werden",
-      "person": "Dieses Profil konnte nicht geladen werden",
-      "library": "Deine Bibliothek konnte nicht geladen werden",
-      "material": "Dieses Material konnte nicht geladen werden",
-      "work": "Deine Arbeit konnte nicht geladen werden",
-      "profile": "Dein Profil konnte nicht geladen werden",
-      "settings": "Deine Einstellungen konnten nicht geladen werden",
-      "people": "Deine Leute konnten nicht geladen werden",
-      "moments": "Deine Momente konnten nicht geladen werden",
-      "history": "Dein Lernverlauf konnte nicht geladen werden",
-      "rank": "Dein Rang konnte nicht geladen werden",
-      "next": "Dein nächster Schritt konnte nicht geladen werden",
+      "spaces": "Wir konnten deine Spaces nicht laden",
+      "space": "Wir konnten diesen Space nicht laden",
+      "lesson": "Wir konnten diese Lektion nicht laden",
+      "idea": "Wir konnten diese Idee nicht laden",
+      "practice": "Wir konnten diese Übung nicht laden",
+      "person": "Wir konnten dieses Profil nicht laden",
+      "library": "Wir konnten deine Bibliothek nicht laden",
+      "material": "Wir konnten dieses Material nicht laden",
+      "work": "Wir konnten deine Arbeit nicht laden",
+      "profile": "Wir konnten dein Profil nicht laden",
+      "settings": "Wir konnten deine Einstellungen nicht laden",
+      "people": "Wir konnten deine Leute nicht laden",
+      "moments": "Wir konnten deine Momente nicht laden",
+      "history": "Wir konnten deinen Lernverlauf nicht laden",
+      "rank": "Wir konnten deinen Rang nicht laden",
+      "next": "Wir konnten deinen nächsten Schritt nicht laden",
       "body": "Die Verbindung ist unterwegs abgebrochen. Von deinen Sachen ist nichts verloren.",
       "retry": "Noch mal versuchen"
     },
@@ -120,12 +120,12 @@
     "yesterday": "Gestern",
     "empty": {
       "title": "Noch nichts da",
-      "body": "Wenn jemand deine Arbeit likt oder empfiehlt, siehst du es hier. Genauso, wenn ein Space, in dem du bist, etwas veröffentlicht."
+      "body": "Wenn ein Space, in dem du bist, etwas veröffentlicht, siehst du es hier."
     },
     "items": {
       "levelUp": {
-        "title": "Stufe {{level}}",
-        "message": "Du hast Stufe {{level}} erreicht."
+        "title": "Level {{level}}",
+        "message": "Du hast Level {{level}} erreicht."
       },
       "materialAdded": {
         "title": "Material zu deinem Space hinzugefügt",
@@ -150,7 +150,7 @@
         "message": "Jemand hat „{{title}}“ abgeschlossen. Das bringt XP."
       },
       "contributor": {
-        "title": "Abzeichen erhalten: Mitwirkend",
+        "title": "Badge erhalten: Mitwirkend",
         "message": "Du hast deinen ersten Beitrag in einem Space veröffentlicht."
       },
       "promoted": {
@@ -228,7 +228,7 @@
     },
     "answer": {
       "thinking": "Dein Material wird gelesen…",
-      "failed": "Der Tutor ist gerade nicht erreichbar. Frag gleich noch einmal.",
+      "failed": "Wir konnten Luna gerade nicht erreichen. Frag gleich noch einmal.",
       "from": "Aus {{space}}",
       "citation": "{{lesson}} · Seite {{page}}",
       "lesson": "Lektion"
@@ -237,7 +237,7 @@
       "reviewFirst": "Was soll ich zuerst wiederholen?",
       "explainSimply": "Erklär mir {{lesson}} einfacher",
       "quizMe": "Frag mich zu {{space}} ab",
-      "notWired": "Noch nicht angeschlossen: Auf „{{question}}“ kann ich erst antworten, wenn der Assistent verbunden ist."
+      "notWired": "Noch nicht angeschlossen: Auf „{{question}}“ kann ich erst antworten, wenn Luna verbunden ist."
     }
   },
   "hub": {
@@ -406,7 +406,7 @@
       "create": "Erstellen und öffnen",
       "liveNote": "Er ist erst privat: nur du siehst ihn.",
       "creating": "Wird angelegt…",
-      "failed": "Das hat gerade nicht geklappt. Nichts hat sich geändert – versuch es noch einmal."
+      "failed": "Wir konnten den Space gerade nicht anlegen. Nichts hat sich geändert – versuch es noch einmal."
     },
     "join": {
       "title": "Mit Code beitreten",
@@ -428,7 +428,7 @@
       "description": "Sie beginnt als Entwurf in {{space}}. Einen Entwurf sehen nur du und die Leute, die den Space pflegen. Veröffentlicht wird erst, wenn du es sagst.",
       "titleLabel": "Worum geht es",
       "titlePlaceholder": "Normalisierung",
-      "noUpload": "Im fertigen Produkt hängst du hier Material an, und die Lektion baut sich daraus auf. Dieser Design-Build legt nur den Entwurf an.",
+      "noUpload": "Das legt nur den Entwurf an.",
       "create": "Entwurf anlegen und öffnen"
     },
     "contribute": {
@@ -485,7 +485,7 @@
   "join": {
     "join": "Beitreten",
     "joining": "Beitritt läuft…",
-    "failed": "Beitreten hat gerade nicht geklappt. Nichts hat sich geändert – versuch es noch einmal.",
+    "failed": "Wir konnten dich gerade nicht aufnehmen. Nichts hat sich geändert – versuch es noch einmal.",
     "inside": "Darin",
     "toOpen": "Tritt bei, um {{title}} zu öffnen.",
     "privacy": "Die Leute, die diesen Space pflegen, können sehen, wie seine Seiten gelesen werden.",
@@ -542,7 +542,7 @@
       "description": "Fünf Lektionen abgeschlossen."
     },
     "graduate": {
-      "name": "Absolvent",
+      "name": "Absolvent:in",
       "description": "Zehn Lektionen abgeschlossen."
     },
     "scholar": {
@@ -571,11 +571,11 @@
     },
     "curiousMind": {
       "name": "Neugierig",
-      "description": "Dem KI-Tutor deine erste Frage gestellt."
+      "description": "Luna deine erste Frage gestellt."
     },
     "inquisitive": {
       "name": "Wissbegierig",
-      "description": "Dem KI-Tutor zwanzig Fragen gestellt."
+      "description": "Luna zwanzig Fragen gestellt."
     },
     "quickThinker": {
       "name": "Schnell im Kopf",
@@ -590,16 +590,16 @@
       "description": "Feedback geteilt, damit wir besser werden."
     },
     "level5": {
-      "name": "Stufe 5",
-      "description": "Stufe 5 erreicht."
+      "name": "Level 5",
+      "description": "Level 5 erreicht."
     },
     "level10": {
-      "name": "Stufe 10",
-      "description": "Stufe 10 erreicht."
+      "name": "Level 10",
+      "description": "Level 10 erreicht."
     },
     "level25": {
-      "name": "Stufe 25",
-      "description": "Stufe 25 erreicht."
+      "name": "Level 25",
+      "description": "Level 25 erreicht."
     },
     "examReady": {
       "name": "Prüfungsbereit",
@@ -613,5 +613,8 @@
       "name": "Zehn in Folge",
       "description": "Zehn richtige Antworten in Folge."
     }
+  },
+  "people": {
+    "runTheSpace": "Die Leute, die diesen Space pflegen"
   }
 }

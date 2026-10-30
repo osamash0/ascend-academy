@@ -1,8 +1,8 @@
 # Learnstation — Setup Guide
 
-> The canonical quickstart lives in [README.md](README.md) (“Run with Docker”).
+> The canonical quickstart lives in [README.md](../README.md) (“Run with Docker”).
 > This guide covers the manual/local path and project-specific details.
-> Last refreshed: 2026-07-11.
+> Last refreshed: 2026-07-11; paths and the migration section corrected 2026-10-30.
 
 ## Prerequisites
 
@@ -43,9 +43,10 @@ pip install -r backend/requirements-dev.txt
 
 ## Database
 
-Schema is managed as plain SQL migrations in `supabase/migrations/` (70+
-files). Apply them with the Supabase CLI (`supabase db push`) or by running
-them in the dashboard SQL editor in filename order. There is no Alembic.
+Schema is managed as plain SQL migrations in `supabase/migrations/` (136
+files). Against a fresh database apply them in filename order with psql.
+Against prod apply one at a time by hand, never with `supabase db push`:
+`docs/runbooks/apply-a-migration-by-hand.md`. There is no Alembic.
 
 ## Run
 
@@ -92,6 +93,6 @@ pytest -m db backend/tests   # DB/RLS tests (needs Docker for testcontainers)
 | ESLint crashes with `structuredClone is not defined` | Your shell is on Node < 17 — switch to Node 20+ (`nvm use 20`) |
 | Parser v3/v4 fails inside Docker | Expected — the image ships the lean requirement set; use `PARSER_VERSION=5` (default) or `2` |
 
-More detail: [backend/README.md](backend/README.md) ·
-[PRODUCTION_INFRA_GUIDE.md](PRODUCTION_INFRA_GUIDE.md) ·
-[project_docs/](project_docs/)
+More detail: [backend/README.md](../backend/README.md) ·
+[runbooks/local-dev.md](runbooks/local-dev.md) ·
+[START_HERE.md](START_HERE.md)

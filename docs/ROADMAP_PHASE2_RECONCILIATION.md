@@ -1,7 +1,9 @@
+> Historical (2026-10-30). Kept for the record; it describes the code as it was then.
+
 # Phase 2 reconciliation — verification record
 
 *Run 2026-09-17 against `main` @ `a696be1`, per
-`docs/OVERNIGHT-PROMPT-ROADMAP-PHASE2.md`. Output: `docs/ROADMAP_10X.md` §5
+`docs/prompts/OVERNIGHT-PROMPT-ROADMAP-PHASE2.md`. Output: `docs/ROADMAP_10X.md` §5
 rewritten, §11 *Corrections* added, two flag declarations added to
 `.env.example`. No behaviour changed.*
 

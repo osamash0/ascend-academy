@@ -13,5 +13,7 @@ export const FEATURES = {
   reviewEngine: on(import.meta.env.VITE_FEATURE_REVIEW_ENGINE),
   globalSearch: on(import.meta.env.VITE_FEATURE_GLOBAL_SEARCH),
   studentUploads: on(import.meta.env.VITE_FEATURE_STUDENT_UPLOADS),
+  examMode: on(import.meta.env.VITE_FEATURE_EXAM_MODE),
+  studyGuide: on(import.meta.env.VITE_FEATURE_STUDY_GUIDE),
   askLuna: on(import.meta.env.VITE_FEATURE_ASK_LUNA),
 } as const;

@@ -164,7 +164,7 @@ describe('the reader has a fixture for every shape, and renders each one', () =>
      */
     expect(spaceById('s-crypto')!.groundingEnabled).toBe(false);
     await open(SHAPES.textOnly.space, SHAPES.textOnly.lesson);
-    fireEvent.click(screen.getByRole('button', { name: 'Tutor' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Luna' }));
     expect(screen.queryByText(/Grounded — answers draw on/)).toBeNull();
   });
 
@@ -172,7 +172,7 @@ describe('the reader has a fixture for every shape, and renders each one', () =>
     // The other half, so "no marker" cannot pass by the marker never rendering.
     expect(spaceById('s-dbs')!.groundingEnabled).toBe(true);
     await open(SHAPES.both.space, SHAPES.both.lesson);
-    fireEvent.click(screen.getByRole('button', { name: 'Tutor' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Luna' }));
     expect(screen.getByText(/Grounded — answers draw on/)).toBeTruthy();
   });
 });

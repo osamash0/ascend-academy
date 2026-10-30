@@ -1,3 +1,5 @@
+> Historical (2026-07-30). Kept for the record; it describes the code as it was then. See `docs/SECURITY_CI.md` for the present state.
+
 # Foundation 10x — Database & Backend Platform Roadmap
 
 > Status: PROPOSED (2026-07-18) · Owner: Abdullah · Companion to `docs/ROADMAP_10X.md`
@@ -718,7 +720,7 @@ threshold into rollups; a documented retention policy.
 
 ## 14. Security & threat-model track
 
-> Extends the existing `threat_model.md`. P0-1 (RPC lockdown) is the acute fix; this track is
+> Extends the existing `docs/threat_model.md`. P0-1 (RPC lockdown) is the acute fix; this track is
 > the systematic pass. **GDPR is first-class here** — the product targets DACH universities,
 > so EU data-protection is a requirement, not a nice-to-have.
 

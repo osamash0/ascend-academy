@@ -5,15 +5,10 @@
     "evening": "Guten Abend",
     "night": "Schön, dich zu sehen"
   },
-  "welcomeBack": "Willkommen zurück, {{name}}",
   "subtitle_one": "Bereit, deine Lernreise fortzusetzen? Du hast <bold>1 Kurs</bold> in Bearbeitung.",
   "subtitle_other": "Bereit, deine Lernreise fortzusetzen? Du hast <bold>{{count}} Kurse</bold> in Bearbeitung.",
   "level": "Level {{level}}",
   "xp": "{{count}} XP",
-  "dayStreak_one": "{{count}}-Tage-Serie",
-  "dayStreak_other": "{{count}}-Tage-Serie",
-  "progressToLevel": "Fortschritt zu Level {{level}}",
-  "xpProgress": "{{current}} / 100 XP",
   "stats": {
     "coursesStarted": "Begonnene Kurse",
     "quizAccuracy": "Quiz-Genauigkeit",
@@ -30,11 +25,7 @@
     "inProgress": "In Bearbeitung",
     "completed": "Abgeschlossen"
   },
-  "continueLearning": "Weiterlernen",
-  "yourCourses": "Deine Kurse",
-  "resumeFromSlide": "Weiter ab Folie {{slide}}",
   "percentComplete": "{{percent}}% abgeschlossen",
-  "slidesProgress": "{{completed}} / {{total}} Folien",
   "noCourses": "Noch keine Kurse",
   "noCoursesDescription": "Von deinen Dozent:innen hochgeladene Vorlesungen erscheinen hier.",
   "streakBanner": "Du hast eine {{count}}-Tage-Serie! Bleib dran!",
@@ -43,8 +34,6 @@
   "courseFallback": "Kurs",
   "lectureCount_one": "{{count}} Vorlesung",
   "lectureCount_other": "{{count}} Vorlesungen",
-  "recentAchievements": "Aktuelle Erfolge",
-  "viewAll": "Alle anzeigen",
   "viewCourse": "Kurs ansehen",
   "browseCourses": {
     "title": "Kurse durchsuchen",

@@ -49,7 +49,35 @@ export function SearchPalette({
   const [cursor, setCursor] = useState(0);
   useEffect(() => setCursor(0), [q]);
 
+  /*
+   * Focus goes back where it came from (LS-048). The palette opens from the
+   * Search button and from ⌘K, with no Radix trigger, so Radix had nothing to
+   * return to on close and a keyboard user restarted from the top of the page.
+   * It is read in onOpenAutoFocus, before focus moves into the palette, so the
+   * input takes focus there rather than through `autoFocus`, which moved it
+   * first and made Radix skip the handler. After opening a result the new page
+   * owns focus, so nothing is handed back.
+   */
+  const inputRef = useRef<HTMLInputElement>(null);
+  const returnTo = useRef<HTMLElement | null>(null);
+  const went = useRef(false);
+  const onOpenAutoFocus = (e: Event) => {
+    went.current = false;
+    const from = document.activeElement;
+    returnTo.current = from instanceof HTMLElement && from.tagName !== 'BODY' ? from : null;
+    e.preventDefault();
+    inputRef.current?.focus();
+  };
+  const onCloseAutoFocus = (e: Event) => {
+    const back = returnTo.current;
+    returnTo.current = null;
+    if (went.current || !back?.isConnected) return;
+    e.preventDefault();
+    back.focus();
+  };
+
   const go = (hit: Hit) => {
+    went.current = true;
     onOpenChange(false);
     setQ('');
     navigate(hit.href);
@@ -105,7 +133,11 @@ export function SearchPalette({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-xl gap-0 overflow-hidden p-0">
+      <DialogContent
+        className="max-w-xl gap-0 overflow-hidden p-0"
+        onOpenAutoFocus={onOpenAutoFocus}
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         {/* Radix requires a title, and without one the dialog is announced as
             an unnamed "dialog". Visually hidden: the placeholder is the on-screen
             label, and a placeholder is not an accessible name. */}
@@ -113,6 +145,7 @@ export function SearchPalette({
         <div className="flex items-center gap-3 border-b border-white/[0.08] px-4">
           <Search aria-hidden className="h-4 w-4 shrink-0 text-quiet" />
           <input
+            ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onInputKey}
@@ -126,7 +159,6 @@ export function SearchPalette({
             aria-controls="v4-search-results"
             aria-activedescendant={flat[cursor] ? `v4-hit-${flat[cursor].id}` : undefined}
             autoComplete="off"
-            autoFocus
             className="h-14 w-full bg-transparent text-[16px] outline-none placeholder:text-faint"
           />
         </div>

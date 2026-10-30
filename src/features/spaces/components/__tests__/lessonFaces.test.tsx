@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent, act, within, cleanup } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, type RefObject } from 'react';
 import LessonFacesScreen from '../../screens/LessonFacesScreen';
 
@@ -403,14 +403,20 @@ describe('the page shape belongs to its Lesson', () => {
       return null;
     };
     mockAspect = 842 / 595;
+    /*
+     * The browser's own history, as in the app: the reader writes `?page=` only
+     * while window.location is still on its Lesson, and a MemoryRouter never
+     * moves window.location, so under one the write would never come.
+     */
+    window.history.replaceState(null, '', '/v4/space/s-dbs/lesson/l-s-dbs-4/faces');
     try {
       render(
-        <MemoryRouter initialEntries={['/v4/space/s-dbs/lesson/l-s-dbs-4/faces']}>
+        <BrowserRouter>
           <Nav />
           <Routes>
             <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<LessonFacesScreen />} />
           </Routes>
-        </MemoryRouter>,
+        </BrowserRouter>,
       );
       expect(await screen.findByTestId('scroll', {}, { timeout: 4000 })).toBeInTheDocument();
       /*
@@ -429,6 +435,7 @@ describe('the page shape belongs to its Lesson', () => {
       expect(screen.queryByTestId('scroll')).toBeNull();
     } finally {
       mockAspect = 405 / 720;
+      window.history.replaceState(null, '', '/');
     }
   });
 });
@@ -558,5 +565,37 @@ describe('a Lesson that is not there (LS-061)', () => {
     );
     expect(await screen.findByText('That Lesson isn’t here', {}, { timeout: 4000 })).toBeInTheDocument();
     expect(screen.queryByText(/connection dropped/i)).toBeNull();
+  });
+});
+
+describe('Back closes Explain, with the real browser address (LS-056)', () => {
+  beforeEach(() => {
+    mockPages = 12;
+  });
+  afterEach(() => {
+    mockPages = 0;
+    window.history.replaceState(null, '', '/');
+  });
+  it('opening Explain adds one entry; Back closes it and keeps the page', async () => {
+    window.history.replaceState(null, '', '/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=1');
+    render(
+      <BrowserRouter>
+        <Routes>
+          <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<LessonFacesScreen />} />
+        </Routes>
+      </BrowserRouter>,
+    );
+    await waitFor(() => expect(screen.queryByTestId('document') ?? screen.queryByTestId('scroll')).not.toBeNull(), { timeout: 4000 });
+    const before = window.history.length;
+    fireEvent.click(screen.getByRole('tab', { name: 'Explain' }));
+    await waitFor(() => expect(window.location.search).toContain('view=explain'));
+    expect(window.history.length).toBe(before + 1);
+    await act(async () => {
+      window.history.back();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Page' })).toHaveAttribute('aria-selected', 'true'));
+    expect(window.location.pathname).toBe('/v4/space/s-dbs/lesson/l-s-dbs-4/faces');
+    expect(window.location.search).not.toContain('view=');
   });
 });

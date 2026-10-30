@@ -1,3 +1,5 @@
+> Historical (2026-06-05). Kept for the record; it describes the code as it was then. See `docs/superpowers/specs/2026-10-26-how-its-landing-design.md` for the present state.
+
 # Professor Analytics Redesign — Consolidated Brief
 
 > Phase 1 deliverable. Fuses the research vision with the verified backend data model.

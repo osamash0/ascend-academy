@@ -33,6 +33,7 @@ import type { Lecture } from '@/types/domain';
 import { StudentRoutes } from '@/lib/routes';
 
 import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
+import { FEATURES } from '@/lib/featureFlags';
 
 interface CourseFactsFormState {
   instructor: string;
@@ -426,7 +427,8 @@ export default function ProfessorCourseDetail() {
       </div>
 
       {courseId && <CourseFactsCard courseId={courseId} />}
-      {courseId && <StudyGuideCard courseId={courseId} />}
+      {/* Only while the study guide's backend is on (LS-032). */}
+      {courseId && FEATURES.studyGuide && <StudyGuideCard courseId={courseId} />}
 
       {course.lectures.length === 0 ? (
         <div className="glass-card p-10 text-center space-y-3">

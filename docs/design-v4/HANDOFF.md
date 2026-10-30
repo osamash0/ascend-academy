@@ -1,3 +1,5 @@
+> Historical (2026-08-30). Kept for the record; it describes the code as it was then. See `docs/design-v4/01-foundations.md` for the present state.
+
 # Learnstation design session — handoff
 
 ## Who you are in this session

@@ -1,3 +1,5 @@
+> Historical (2026-10-10). Kept for the record; it describes the code as it was then. See `docs/READER_TWO_FACES_PHASE_A2.md` for the present state.
+
 # Lesson Reader · Two Faces — Phase A (design, no code)
 
 *2026-09-17. Follows `docs/VIEWER_IMPLEMENTATION_AUDIT.md`. References read: Learnstation view 1 + 2, Moonlight, Redacto.*

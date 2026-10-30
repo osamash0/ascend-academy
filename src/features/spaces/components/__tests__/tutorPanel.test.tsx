@@ -380,7 +380,7 @@ const renderReader = async (spaceId: string, lessonId: string) => {
 /** Open the rail on the Tutor tab, the way the header does. */
 const openTutor = async (spaceId = SPACE, lessonId = WRITTEN) => {
   const r = await renderReader(spaceId, lessonId);
-  const btn = screen.getByRole('button', { name: 'Tutor' });
+  const btn = screen.getByRole('button', { name: 'Luna' });
   btn.focus();
   fireEvent.click(btn);
   return r;
@@ -503,7 +503,7 @@ describe('the conversation survives the rail', () => {
     fireEvent.click(within(rail).getByRole('tab', { name: 'Notes' }));
     expect(screen.queryByText(expected.text), 'the tutor is not even showing').toBeNull();
 
-    fireEvent.click(within(rail).getByRole('tab', { name: 'Tutor' }));
+    fireEvent.click(within(rail).getByRole('tab', { name: 'Luna' }));
     expect(screen.getByText(expected.text)).toBeTruthy();
     expect(screen.getByText('Concrete example', { selector: 'span' })).toBeTruthy();
   });
@@ -513,7 +513,7 @@ describe('the conversation survives the rail', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close companions' }));
     expect(screen.queryByRole('complementary', RAIL)).toBeNull();
 
-    const again = screen.getByRole('button', { name: 'Tutor' });
+    const again = screen.getByRole('button', { name: 'Luna' });
     again.focus();
     fireEvent.click(again);
     expect(screen.getByText(expected.text)).toBeTruthy();
@@ -532,7 +532,7 @@ describe('the conversation survives the rail', () => {
     const first = await askOnce();
     const rail = screen.getByRole('complementary', RAIL);
     fireEvent.click(within(rail).getByRole('tab', { name: 'Notes' }));
-    fireEvent.click(within(rail).getByRole('tab', { name: 'Tutor' }));
+    fireEvent.click(within(rail).getByRole('tab', { name: 'Luna' }));
 
     fireEvent.click(within(rail).getByRole('button', { name: 'Explain more simply' }));
     const second = await askTutor(WRITTEN, 'Explain more simply');
@@ -555,7 +555,7 @@ describe('the conversation survives the rail', () => {
     });
     await waitFor(() => expect(screen.getByRole('banner')).toBeTruthy(), { timeout: 3000 });
 
-    const open = screen.getByRole('button', { name: 'Tutor' });
+    const open = screen.getByRole('button', { name: 'Luna' });
     open.focus();
     fireEvent.click(open);
     expect(screen.queryByText(expected.text)).toBeNull();
