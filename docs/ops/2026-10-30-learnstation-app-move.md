@@ -1,4 +1,4 @@
-STATUS: IN PROGRESS — step 2
+STATUS: IN PROGRESS — step 3
 
 | step | status | before → after | evidence (UTC) | rollback |
 | --- | --- | --- | --- | --- |
@@ -11,7 +11,7 @@ STATUS: IN PROGRESS — step 2
 | 0f: Site URL readback | done by Abi | `http://localhost:3000` → unchanged during recon; planned replacement `https://learnstation.app` after first go. | 2026-10-30T15:11:49Z: Abi explicitly supplied the current Site URL field value. | Read-only; none. |
 | 0g: recovery subject readback | done by Abi | `Learnstation: Passwort zurücksetzen · Reset your password` → unchanged; already matches requested value. | 2026-10-30T15:12:34Z: Abi supplied the current subject. | Read-only; none. |
 | 1: DNS | done | No apex/www records → A `@` = `195.201.221.137`, CNAME `www` = `learnstation.app`, both DNS only, TTL 300. | 2026-10-30T15:15:21Z: Cloudflare final GET succeeds, six records; original four mail records unchanged. Both `dig @1.1.1.1` and `dig @8.8.8.8` resolve apex A, www CNAME and www A correctly; outputs below. | Delete only A ID `6c96e98ae307209f2e48fa97d2724072` and www CNAME ID `5b8eda11583b8e291ec907145126eb18`; retain all four mail records. |
-| 2: TLS/nginx | pending | Only DuckDNS and sslip certificates/sites observed → planned additional apex/www certificate and site. | Existing certificate issuers/expiries and nginx behavior below; `nginx -t`: syntax OK, test successful. | Restore backed-up nginx files, remove only the new enabled site, test nginx and reload; leave old certificates/sites intact. |
+| 2: TLS/nginx | done | Only old sites/certs → separate apex/www HTTPS site and Let's Encrypt certificate; www and new HTTP hosts 301 to apex, preserving URI. | 2026-10-30T15:19Z–15:23Z: apex 200 with TLS verification 0; www 301 with path/query intact; Let's Encrypt YE1, expires 2027-01-28T14:20:41Z; `nginx -t` passes; all three renewal dry runs succeed; old site files byte-identical. | Disable only new enabled symlink, test nginx and reload; leave original sites/certificates in place. Backups `.bak-20261030-1519` and `.bak-20261030-1521`; details below. |
 | 3: CORS | pending | `https://learnstation.duckdns.org,https://195-201-221-137.sslip.io` → append `https://learnstation.app`. | Only the `CORS_ALLOWED_ORIGINS` line was read from `.env`; API healthy. | Restore `.env` backup and recreate only `api`, without building/pulling. |
 | 4: Auth URLs | pending | Site URL `http://localhost:3000`; allow list contains DuckDNS and sslip wildcard entries → Site URL `https://learnstation.app`, add `https://learnstation.app/**`, preserve both existing entries. | Abi's URL Configuration readback recorded below. Connector exposes no Auth configuration read/write tools; later dashboard change required. | Restore `http://localhost:3000`; remove only the newly added apex redirect entry, preserving both original entries. |
 | 5: recovery email/tracking/test | pending | Reported subject/body already match requested template; open/click tracking OFF → preserve these values; test after new-domain/Auth URL readiness. | Subject/body readback done by Abi; Resend settings verified by connector. No test mail requested/sent. | No template/tracking change needed from current baseline; restore Auth URLs per step 4 if migration is rolled back. |
@@ -30,6 +30,8 @@ The server remains on `deploy/legal-20261030`. No checkout, image, worker, front
 STOP 1: BEFORE-value recon complete at 2026-10-30T15:12:34Z. Abi explicitly replied **“go and do 1 with Cloudflare”** at the 2026-10-30T15:14Z checkpoint. Proceed with **step 1 only** using the connected Cloudflare API; stop after DNS verification/logging. The draft PR remains pending due to connector 403; Abi explicitly requested proceeding with step 1 despite that outstanding documentation item. No approval inferred for the step 6 STOP point.
 
 STOP 2: After Abi tests the new domain, wait for another explicit **go** before redirecting either old hostname. Not received.
+
+2026-10-30T15:18:01Z: Abi said **“continue next”** after step 1; proceeding with **step 2 TLS/nginx only**, then stopping ahead of CORS. This does not authorize the step 6 redirects.
 
 ## Read-only recon evidence
 
@@ -169,7 +171,83 @@ learnstation.app.
 
 Rollback: in this zone, delete only the two new record IDs listed above (Cloudflare → learnstation.app → DNS → Records → apex A / www CNAME → Delete). Re-read the zone to confirm only the four original mail records remain, and verify public DNS after TTL expiration. No mail record or zone setting needs changing.
 
-Stopped after step 1 as Abi requested. Step 2 has **not** started: no apex/www certificate issued, nginx edited/reloaded, CORS changed or container recreated. Because `.app` requires HTTPS, DNS completion alone does not make the new website ready for browser use. The next step is certificate/nginx setup; old-host redirects remain gated on the separate step 6 go.
+At the end of step 1, stopped as Abi requested: step 2 had not yet started, and DNS completion alone did not make the new website ready for browser use. Abi subsequently authorized step 2 below. Old-host redirects remain gated on the separate step 6 go.
+
+## Step 2 execution
+
+2026-10-30T15:18:00Z, BEFORE read: `nginx -t` passes and nginx is active. Only the original two enabled sites and original two certificates exist. New `/etc/nginx/sites-available/learnstation.app` and enabled symlink are absent. Both new names resolve on the server to `195.201.221.137`. Certbot version is 2.9.0. Existing certificate expiries and proxy configuration still match recon.
+
+Original site file SHA-256 values (to verify they remain unchanged):
+
+```text
+0d25556b8a382fb034db970de91fa7d5d4eadee2038b31df4a33b5f99c623c8b  /etc/nginx/sites-available/ascend-academy
+571e8af0a049676fdfc88086151039d55d8d9e5714461d30fc1be8b5fef55eeb  /etc/nginx/sites-available/195-201-221-137.sslip.io
+```
+
+2026-10-30T15:19:03Z: copied all 15 existing nginx regular files and `/etc/letsencrypt/options-ssl-nginx.conf` to sibling `.bak-20261030-1519` paths before any mutation. Enabled symlinks were not duplicated into the wildcard-included sites-enabled directory. Created the previously absent `/etc/nginx/sites-available/learnstation.app` and enabled symlink, initially HTTP-only with both new server names. `nginx -t` passed before `systemctl reload nginx`.
+
+2026-10-30T15:19:03Z–15:19:15Z: `certbot certonly --nginx --cert-name learnstation.app -d learnstation.app -d www.learnstation.app --non-interactive` succeeded using the existing ACME account. Certificate: `/etc/letsencrypt/live/learnstation.app/fullchain.pem`. Private key was generated by Certbot on the server and not read or copied into this log.
+
+2026-10-30T15:19:41Z: read the HTTP-only config, then backed it up to `/etc/nginx/sites-available/learnstation.app.bak-20261030-1519` before replacing it with the final config. Apex HTTPS mirrors DuckDNS's complete `location /` proxy block (HTTP/1.1, four proxy headers, 100M limit, 120s timeout), with the new certificate. www HTTPS returns `301 https://learnstation.app$request_uri`; both new HTTP hosts return the same 301 inside `location /`, allowing Certbot's challenge location to take precedence. TLS includes match the old app site. `nginx -t` passed before `systemctl reload nginx`. No restart occurred.
+
+Certificate evidence, `openssl x509 -in /etc/letsencrypt/live/learnstation.app/fullchain.pem -noout -issuer -dates -ext subjectAltName`:
+
+```text
+issuer=C = US, O = Let's Encrypt, CN = YE1
+notBefore=Oct 30 14:20:42 2026 GMT
+notAfter=Jan 28 14:20:41 2027 GMT
+DNS:learnstation.app, DNS:www.learnstation.app
+```
+
+2026-10-30T15:20Z, external verification with `curl --max-time 20 -sSI <URL>` (TLS verification enabled):
+
+```text
+https://learnstation.app/                                      HTTP/1.1 200 OK
+https://www.learnstation.app/reset-password?probe=step2         HTTP/1.1 301 Moved Permanently
+Location: https://learnstation.app/reset-password?probe=step2
+http://learnstation.app/reset-password?probe=step2              HTTP/1.1 301 Moved Permanently
+Location: https://learnstation.app/reset-password?probe=step2
+http://www.learnstation.app/reset-password?probe=step2          HTTP/1.1 301 Moved Permanently
+Location: https://learnstation.app/reset-password?probe=step2
+https://learnstation.duckdns.org/                              HTTP/1.1 200 OK
+https://195-201-221-137.sslip.io/                               HTTP/1.1 502 Bad Gateway
+```
+
+The initial apex-only local DNS lookup failed once (`curl: (6) Could not resolve host`), then the ordinary hostname check succeeded with 200. A separate `curl --resolve learnstation.app:443:195.201.221.137 -sSI https://learnstation.app/` also returned 200 with TLS hostname verification enabled. No DNS changes were made in step 2.
+
+`cmp` confirms both original site files and `/etc/nginx/nginx.conf` are byte-for-byte unchanged from their `.bak-20261030-1519` backups after certificate issuance and final config reload. Their original SHA-256 values above still apply. Container statuses show the same running frontend/worker/API/Redis instances; none recreated. nginx is active. `certbot.timer` is enabled and active.
+
+2026-10-30T15:21:01Z: checked all three renewal configs use the nginx authenticator/installer, with no configured hooks; pre/post/deploy hook directories are empty. Copied all nginx files, TLS options, and the three renewal configs to `.bak-20261030-1521` paths before the renewal test. `nginx -t` passed. Initial `certbot renew --dry-run --non-interactive` inserted a 357-second random scheduling delay before validation. At 15:22:16Z, verified the exact command/PID and interrupted only that sleeping test process, then reran with Certbot's supported `--no-random-sleep-on-renew` flag (also used by the existing timer).
+
+2026-10-30T15:22:28Z–15:23:01Z, `certbot renew --dry-run --non-interactive --no-random-sleep-on-renew` exited **0**:
+
+```text
+Congratulations, all simulated renewals succeeded:
+  /etc/letsencrypt/live/195-201-221-137.sslip.io/fullchain.pem (success)
+  /etc/letsencrypt/live/learnstation.app/fullchain.pem (success)
+  /etc/letsencrypt/live/learnstation.duckdns.org/fullchain.pem (success)
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+UNCHANGED /etc/nginx/sites-available/ascend-academy
+UNCHANGED /etc/nginx/sites-available/195-201-221-137.sslip.io
+UNCHANGED /etc/nginx/nginx.conf
+UNCHANGED FINAL APEX CONFIG
+active
+```
+
+2026-10-30T15:23Z, final post-renewal external checks:
+
+```text
+$ curl -sS -I -o /dev/null -w 'apex HTTPS status=%{http_code} ssl_verify_result=%{ssl_verify_result}\n' https://learnstation.app/
+apex HTTPS status=200 ssl_verify_result=0
+$ curl -sSI 'https://www.learnstation.app/reset-password?probe=step2-final'
+HTTP/1.1 301 Moved Permanently
+Location: https://learnstation.app/reset-password?probe=step2-final
+```
+
+Rollback for step 2: remove only `/etc/nginx/sites-enabled/learnstation.app`, run `nginx -t`, then `systemctl reload nginx`. Keep the issued certificate and its private key on the server; no revocation/deletion is needed to restore old-host service. Original sites and nginx.conf are unchanged and need no restoration. If a later change requires restoring a file, first back up its current version, then restore its recorded backup before testing/reloading. `/etc/nginx/sites-available/learnstation.app.bak-20261030-1519` is the temporary HTTP-only config; the `.bak-20261030-1521` version is the final HTTPS config. Do not confuse the two.
+
+Step 2 complete. Stopped ahead of step 3: no `.env`, CORS, container, server checkout, database or Supabase Auth settings changed during this step.
 
 ## Exact proposed changes for first go (steps 1–5)
 
@@ -199,8 +277,8 @@ Stopped after step 1 as Abi requested. Step 2 has **not** started: no apex/www c
 
 - Recon complete: Cloudflare/Resend connector checks and Supabase Auth dashboard readbacks passed. Later Supabase Auth changes still require Abi's dashboard action; do not scrape dashboards or extract tokens from files.
 - Create the single draft ops log PR through an authorized GitHub connector or Abi's dashboard; existing create attempt failed with 403. Record the PR link once created.
-- Step 1 complete and verified; stopped at Abi's requested scope. Next: step 2 TLS/nginx. All step 0 BEFORE values are recorded. Required early draft PR remains pending.
-- Complete steps 1–5 and Abi's test; obtain second explicit go before step 6. Moving to the new address signs everyone out once because sessions are stored per site address.
+- Steps 1–2 complete and verified. Stopped before step 3 CORS/API recreation. Required early draft PR remains pending.
+- Complete steps 3–5 and Abi's test; obtain second explicit go before step 6. Moving to the new address signs everyone out once because sessions are stored per site address.
 - Create `feat/reset-link-own-domain` from current `origin/main` for the separate, undeployed code PR. Preserve existing implicit recovery, add token-hash verification and meaningful tests; run touched Vitest tests and `npx tsc --noEmit -p tsconfig.app.json`. Rerun the known intermittent deck-measurement timeout once if encountered; do not skip it.
 - **Only after the code PR is separately deployed:** change the recovery link to `{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery`. Until then retain `{{ .ConfirmationURL }}`.
 - Update only deployment/runbook references to the old address, finish evidence, update status and mark ops PR ready at completion.
@@ -209,7 +287,7 @@ Stopped after step 1 as Abi requested. Step 2 has **not** started: no apex/www c
 
 Cloudflare and Resend are now connected and verified. The correct Supabase connection is Learnstation → osama's org → Ascend Academy, but its exposed tools lack Auth settings operations.
 
-**Draft PR handoff (GitHub connector returned 403):** open [the prepared branch comparison](https://github.com/osamash0/ascend-academy/compare/main...ops/learnstation-app-move?expand=1) → Create pull request → title `ops: move the site to learnstation.app (log)` → choose **Create draft pull request** from the button menu. Base: `main`; compare: `ops/learnstation-app-move`. Description: `Records migration recon, BEFORE/AFTER evidence, rollback instructions and Abi's two checkpoints. Step 1 DNS complete and verified; TLS/nginx setup pending. Mail records preserved.` Return the PR link so its creation can be recorded as **done by Abi**. Do not create a second PR if one already exists.
+**Draft PR handoff (GitHub connector returned 403):** open [the prepared branch comparison](https://github.com/osamash0/ascend-academy/compare/main...ops/learnstation-app-move?expand=1) → Create pull request → title `ops: move the site to learnstation.app (log)` → choose **Create draft pull request** from the button menu. Base: `main`; compare: `ops/learnstation-app-move`. Description: `Records migration recon, BEFORE/AFTER evidence, rollback instructions and Abi's two checkpoints. DNS and TLS/nginx complete; all three renewal simulations pass. CORS/Auth URL changes pending. Mail records preserved.` Return the PR link so its creation can be recorded as **done by Abi**. Do not create a second PR if one already exists.
 
 Current readbacks are complete. After first go, make only the Supabase URL changes when the agent reaches step 4 and confirms HTTPS/API readiness:
 
