@@ -115,6 +115,11 @@ const TOC_WIDTH = 260;
  * 20px over the safe area (6px at least), and the pill stands 8px clear of it.
  * A short window has no timeline band to clear; its controls float.
  */
+/** The browser's address is this Lesson's reader (not one navigated to since). */
+function onThisLesson(lessonId: string | undefined): boolean {
+  return typeof window !== 'undefined' && !!lessonId && window.location.pathname.endsWith(`/lesson/${lessonId}/faces`);
+}
+
 const PILL_BOTTOM = 'bottom-[max(34px,calc(env(safe-area-inset-bottom)+28px))]';
 const PILL_BOTTOM_SHORT = 'bottom-[max(20px,calc(env(safe-area-inset-bottom)+8px))]';
 
@@ -220,6 +225,13 @@ export default function LessonFacesScreen() {
    */
   useEffect(() => {
     if (!numPages || params.get('page') === String(pdfPage)) return;
+    /*
+     * Only while the browser is still on this Lesson. An effect left over from
+     * the Lesson just left resolves "?page=" against that Lesson's path, so
+     * writing it after a navigation bounced the reader back to the old Lesson
+     * (a deck finishing its load as you moved on, or Luna moving you).
+     */
+    if (!onThisLesson(lessonId)) return;
     setParams(
       (prev) => {
         const nextParams = new URLSearchParams(prev);
