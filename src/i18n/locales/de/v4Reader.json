@@ -162,7 +162,7 @@
   },
   "select": {
     "label": "Was du mit dem markierten Satz machen willst",
-    "ask": "Tutor fragen",
+    "ask": "Luna fragen",
     "saveNote": "Als Notiz speichern",
     "saved": "In deinen Notizen gespeichert."
   },
@@ -193,7 +193,7 @@
       "source": "Quelle"
     },
     "rail": {
-      "tutor": "Tutor",
+      "tutor": "Luna",
       "notes": "Notizen"
     },
     "cleared_one": "{{cleared}} von {{count}} Idee geschafft",
@@ -227,7 +227,7 @@
     "retry": "Noch mal versuchen",
     "ask": {
       "placeholder": "Frag zu dieser Seite – oder nach einem Werkzeug …",
-      "placeholderTutor": "Frag den KI-Tutor zu dieser Seite …",
+      "placeholderTutor": "Frag Luna zu dieser Seite …",
       "label": "Zu dieser Seite fragen",
       "send": "Fragen"
     },

@@ -1,7 +1,7 @@
 # Testing — How to Run, Write, and Debug
 
 This is the operator's manual for the Learnstation test suite. The architectural
-"why" lives in [`TESTING_STRATEGY.md`](../TESTING_STRATEGY.md); this document is
+"why" lives in [`TESTING_STRATEGY.md`](../docs/TESTING_STRATEGY.md); this document is
 the "how".
 
 ---

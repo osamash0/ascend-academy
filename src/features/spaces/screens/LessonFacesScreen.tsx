@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, ListChecks, Maximize, Minimize, Moon, PanelLeftClose, PanelLeftOpen, Smartphone, Sun, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -128,9 +128,16 @@ function onTabKeys(e: ReactKeyboardEvent<HTMLElement>, count: number, current: n
   e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')[next]?.focus();
 }
 
-/** The browser's address is this Lesson's reader (not one navigated to since). */
-function onThisLesson(lessonId: string | undefined): boolean {
-  return typeof window !== 'undefined' && !!lessonId && window.location.pathname.endsWith(`/lesson/${lessonId}/faces`);
+/**
+ * The browser's address is this Lesson's reader (not one navigated to since).
+ * `browserRouted`: the router drives the browser's address (the app's
+ * BrowserRouter). An in-memory router (tests) never moves it, so there is
+ * nothing to compare with and the write goes ahead.
+ */
+function onThisLesson(lessonId: string | undefined, browserRouted: boolean): boolean {
+  if (typeof window === 'undefined' || !lessonId) return false;
+  if (!browserRouted) return true;
+  return window.location.pathname.endsWith(`/lesson/${lessonId}/faces`);
 }
 
 /*
@@ -166,6 +173,10 @@ export default function LessonFacesScreen() {
   const panel = useMediaQuery(PANEL);
   /* `?page=34&view=explain` — the Lesson overview's way in, at a page and a view. */
   const [params, setParams] = useSearchParams();
+  /* Whether the router drives the browser's address; see `onThisLesson`. */
+  const routeLocation = useLocation();
+  const browserRouted = useRef(true);
+  browserRouted.current = typeof window !== 'undefined' && window.location.pathname === routeLocation.pathname;
   const askedPage = Number(params.get('page')) || null;
   const askedView = params.get('view');
   /* `&spot=words` — a search hit: light those words on the page once it is up. */
@@ -271,7 +282,7 @@ export default function LessonFacesScreen() {
      * writing it after a navigation bounced the reader back to the old Lesson
      * (a deck finishing its load as you moved on, or Luna moving you).
      */
-    if (!onThisLesson(lessonId)) return;
+    if (!onThisLesson(lessonId, browserRouted.current)) return;
     setParams(
       (prev) => {
         const nextParams = new URLSearchParams(prev);
@@ -447,15 +458,40 @@ export default function LessonFacesScreen() {
    * back over: there is nothing of ours behind it.
    */
   const pushedView = useRef(false);
+  /*
+   * Which side moved since the last run. Back and Forward move the address
+   * first, while the view still says Explain; read as "the view wants
+   * Explain" that pushed `&view=explain` straight back, so Back never closed
+   * it (seen live 2026-10-30). Now an address that moved on its own decides
+   * the view, and a view that moved decides the address.
+   */
+  const lastUrlView = useRef(params.get('view'));
+  const lastView = useRef(view);
   useEffect(() => {
     pushedView.current = false;
   }, [lessonId]);
   useEffect(() => {
     const inUrl = params.get('view');
     const want = view === 'slide' ? null : view;
+    const urlMoved = inUrl !== lastUrlView.current;
+    const viewMoved = view !== lastView.current;
+    lastUrlView.current = inUrl;
+    lastView.current = view;
     if (inUrl === want) return;
+    if (urlMoved && !viewMoved) {
+      /* Back, Forward or a link: the address decides which view is open. */
+      if (inUrl === 'explain' || inUrl === 'text') {
+        setView(inUrl);
+        return;
+      }
+      pushedView.current = false;
+      setView('slide');
+      setCompanion(null);
+      setSpot(null);
+      return;
+    }
     /* Same guard as `?page=`: never write into a Lesson navigated away from. */
-    if (!onThisLesson(lessonId)) return;
+    if (!onThisLesson(lessonId, browserRouted.current)) return;
     if (want && !inUrl) {
       pushedView.current = true;
       setParams((prev) => {
@@ -480,22 +516,6 @@ export default function LessonFacesScreen() {
       { replace: true },
     );
   }, [view, params, setParams, navigate, lessonId]);
-  /* Back and Forward: the address decides which view is open. */
-  useEffect(() => {
-    const onPop = () => {
-      const v = new URLSearchParams(window.location.search).get('view');
-      if (v === 'explain' || v === 'text') {
-        setView(v);
-        return;
-      }
-      pushedView.current = false;
-      setView('slide');
-      setCompanion(null);
-      setSpot(null);
-    };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
   const lunaOn = lunaEnabled(spaceId, lessonId);
   const [lunaOpen, setLunaOpen] = useState(() => params.get('luna') === '1' && lights.lunaReady);
   /* Explain and text dock in the same place: whichever opens, Luna steps aside. No session while she is still reading. */

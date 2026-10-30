@@ -1,3 +1,5 @@
+> Historical (2026-08-30). Kept for the record; it describes the code as it was then.
+
 # Notes · Spaces screen — known gaps
 *Feeds into Doc 2 (Navigation & Modes), states section. Recorded 2026-08-29.*
 

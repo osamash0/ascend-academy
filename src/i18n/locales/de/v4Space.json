@@ -123,11 +123,11 @@
       "publishHint": "Füge zuerst eine Lektion hinzu, dann kannst du ihn sichtbar machen.",
       "preparing": "Wird vorbereitet…",
       "preparingHint": "Das dauert ein paar Minuten. Du kannst die Seite verlassen; es läuft weiter.",
-      "fileFailed": "Konnte nicht hinzugefügt werden. Versuch eine andere Datei oder später noch einmal.",
+      "fileFailed": "Wir konnten es nicht hinzufügen. Versuch eine andere Datei oder später noch einmal.",
       "dismiss": "{{name}} ausblenden",
-      "uploadFailed": "Das ließ sich gerade nicht senden. Nichts hat sich geändert – versuch es noch einmal.",
-      "publishFailed": "Das ließ sich gerade nicht ändern. Nichts hat sich geändert – versuch es noch einmal.",
-      "manager": "Mehr in der Kursverwaltung"
+      "uploadFailed": "Wir konnten das gerade nicht senden. Nichts hat sich geändert – versuch es noch einmal.",
+      "publishFailed": "Wir konnten das gerade nicht ändern. Nichts hat sich geändert – versuch es noch einmal.",
+      "manager": "Mehr im klassischen Verwaltungsbereich"
     },
     "leave": {
       "open": "Diesen Space verlassen",
@@ -135,7 +135,7 @@
       "yes": "Verlassen",
       "keep": "Bleiben",
       "leaving": "Wird verlassen…",
-      "failed": "Verlassen hat gerade nicht geklappt. Nichts hat sich geändert – versuch es noch einmal."
+      "failed": "Wir konnten dich gerade nicht austragen. Nichts hat sich geändert – versuch es noch einmal."
     }
   },
   "map": {
@@ -146,7 +146,7 @@
     "beginWeak": "Fang mit {{idea}} an – sie ist rot",
     "beginDark": "Fang mit {{idea}} an – sie ist noch nicht geprüft",
     "loading": "Wir finden heraus, welche Ideen aufeinander aufbauen…",
-    "failed": "Die Verbindungen zwischen den Ideen ließen sich gerade nicht erstellen. Die Sterne öffnen trotzdem ihre Seiten.",
+    "failed": "Wir konnten die Verbindungen zwischen den Ideen gerade nicht erstellen. Die Sterne öffnen trotzdem ihre Seiten.",
     "hint": "Zeig auf eine Idee, um zu sehen, worauf sie aufbaut. Drück sie, um sie zu lesen."
   },
   "runway": {
@@ -193,7 +193,7 @@
       "saving": "Wird in deinem Verlauf gespeichert …",
       "saved": "In deinem Verlauf gespeichert",
       "saveFailed": "Wir konnten diesen Durchlauf nicht in deinem Verlauf speichern",
-      "unkept": "Durchläufe mit deinen eigenen Dateien werden noch nicht gespeichert",
+      "unkept": "Durchläufe mit deinem eigenen Material werden noch nicht gespeichert",
       "verdict": {
         "flawless": "Alles richtig.",
         "strong": "Stark. Ein, zwei Ideen noch festigen.",
@@ -366,7 +366,7 @@
       "processing": "Wird verarbeitet",
       "draft": "Entwurf",
       "needsReview": "Zu prüfen",
-      "sourceRemoved": "Quelldatei entfernt",
+      "sourceRemoved": "Quellmaterial entfernt",
       "label": "Lektion {{order}}. {{title}}. Von {{author}}. {{percent}} % abgeschlossen.",
       "open": "Öffnen"
     },
@@ -439,7 +439,7 @@
     "title": "Verwalten",
     "titleSpace": "Space verwalten",
     "loading": "Wird geladen …",
-    "failed": "Da ist etwas schiefgelaufen",
+    "failed": "Wir konnten den Space nicht laden",
     "notFound": "Space nicht gefunden",
     "notFoundHint": "Diesen Space gibt es nicht, oder du hast keinen Zugriff darauf.",
     "notYours": "Das ist nicht dein Space",

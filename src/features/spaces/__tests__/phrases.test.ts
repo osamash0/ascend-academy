@@ -49,8 +49,8 @@ describe('live notifications, stored in English, read in German', () => {
 
   it('a level-up keeps its number', () => {
     expect(notificationText(t, row('Level 3!', 'You leveled up to Level 3. Keep going!', 'streak'))).toEqual({
-      title: 'Stufe 3',
-      message: 'Du hast Stufe 3 erreicht.',
+      title: 'Level 3',
+      message: 'Du hast Level 3 erreicht.',
     });
   });
 
@@ -70,7 +70,7 @@ describe('live notifications, stored in English, read in German', () => {
   it('a live Moment (an earned badge) reads in German', () => {
     expect(momentText(t, { id: 'm', title: 'Curious Mind', detail: 'Asked the AI tutor your first question.', at: null })).toEqual({
       title: 'Neugierig',
-      detail: 'Dem KI-Tutor deine erste Frage gestellt.',
+      detail: 'Luna deine erste Frage gestellt.',
     });
   });
 });

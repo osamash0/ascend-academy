@@ -1,3 +1,5 @@
+> Historical (2026-10-30). Kept for the record; it describes the code as it was then. See `CLAUDE.md` for the present state.
+
 # Learnstation
 
 A FastAPI + Vite/React/Supabase platform for AI-assisted lecture authoring,

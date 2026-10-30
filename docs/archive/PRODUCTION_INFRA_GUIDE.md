@@ -1,3 +1,5 @@
+> Historical (2026-10-30). Kept for the record; it describes the code as it was then. See `docs/runbooks/deploy-main-to-prod.md` for the present state.
+
 # Production Infrastructure Best Practices
 
 This document outlines the infrastructure and deployment best practices for the Learnstation platform to ensure maximum uptime, resilience under load, and proper monitoring.

@@ -1,3 +1,5 @@
+> Historical (2026-10-30). Kept for the record; it describes the code as it was then. See `docs/prompts/V4_SCENARIO_TESTING_PROMPT.md` for the present state.
+
 # Prompt: continue the full-app audit with a populated student account
 
 Copy everything in the fenced block below into a **new Claude Code session** opened in

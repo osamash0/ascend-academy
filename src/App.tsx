@@ -190,8 +190,9 @@ const appHome = (role: string | null | undefined): string =>
  * the v4 room that replaced it, so old links, bookmarks and redirects never
  * open a second app with its own settings, tour and progress numbers.
  * Professors and admins, and everyone when v4 is off, get the page itself.
- * Classic tools with no v4 room yet (review, exams, materials, study guide)
- * are not wrapped and stay reachable by URL.
+ * My Materials goes to the v4 Library, which brings files in. Classic tools
+ * with no v4 room yet (review, exams, study guide) are not wrapped and stay
+ * reachable by URL, while their backend is on (ClassicTool, LS-032).
  */
 export function StudentV4Redirect({
   to,
@@ -372,6 +373,25 @@ function SettingsWrapper() {
   );
 }
 
+/**
+ * A classic study tool, open only while its backend is on (LS-032).
+ *
+ * The backend mounts each tool's routes behind a FEATURE_* flag and the prod
+ * build copies it into the matching VITE_FEATURE_* flag. Without this gate the
+ * page opened with its backend off and every request behind it was a 404, so
+ * the address now answers as an unknown one does.
+ */
+export function ClassicTool({
+  feature,
+  children,
+}: {
+  feature: 'reviewEngine' | 'examMode' | 'studyGuide' | 'studentUploads';
+  children: React.ReactNode;
+}) {
+  if (!FEATURES[feature]) return <ProtectedNotFound />;
+  return <>{children}</>;
+}
+
 export function ProtectedNotFound() {
   const { user, role } = useAuth();
 
@@ -454,8 +474,8 @@ function AppRoutes() {
             {/* The old Studio and list-view paths still land somewhere real. */}
             <Route path="/v4/library/studio" element={<LibraryTo to="/v4/library" />} />
             <Route path="/v4/library/studio/c/:canvasId" element={<LibraryCanvasRedirect />} />
-            <Route path="/v4/library/uploads" element={<LibraryTo to="/v4/library?f=reading&select=1" />} />
-            <Route path="/v4/library/drafts" element={<LibraryTo to="/v4/library?f=shared&select=1" />} />
+            <Route path="/v4/library/uploads" element={<LibraryTo to="/v4/library?f=reading" />} />
+            <Route path="/v4/library/drafts" element={<LibraryTo to="/v4/library?f=shared" />} />
             <Route path="/v4/library/impact" element={<LibraryTo to="/v4/library?f=shared" />} />
             <Route path="/v4/home" element={<V4Home />} />
             <Route path="/v4/social" element={<V4Social />} />
@@ -539,9 +559,11 @@ function AppRoutes() {
           path={StudentRoutes.REVIEW}
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <ReviewSession />
-              </ConsoleLayout>
+              <ClassicTool feature="reviewEngine">
+                <ConsoleLayout>
+                  <ReviewSession />
+                </ConsoleLayout>
+              </ClassicTool>
             </ProtectedRoute>
           }
         />
@@ -549,9 +571,13 @@ function AppRoutes() {
           path={StudentRoutes.MY_MATERIALS}
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <MyMaterialsPage />
-              </ConsoleLayout>
+              <StudentV4Redirect to="/v4/library">
+                <ClassicTool feature="studentUploads">
+                  <ConsoleLayout>
+                    <MyMaterialsPage />
+                  </ConsoleLayout>
+                </ClassicTool>
+              </StudentV4Redirect>
             </ProtectedRoute>
           }
         />
@@ -559,9 +585,11 @@ function AppRoutes() {
           path="/exam/report/:examId"
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <MockExamReport />
-              </ConsoleLayout>
+              <ClassicTool feature="examMode">
+                <ConsoleLayout>
+                  <MockExamReport />
+                </ConsoleLayout>
+              </ClassicTool>
             </ProtectedRoute>
           }
         />
@@ -569,9 +597,11 @@ function AppRoutes() {
           path="/exam/take/:examId"
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <MockExamTake />
-              </ConsoleLayout>
+              <ClassicTool feature="examMode">
+                <ConsoleLayout>
+                  <MockExamTake />
+                </ConsoleLayout>
+              </ClassicTool>
             </ProtectedRoute>
           }
         />
@@ -579,9 +609,11 @@ function AppRoutes() {
           path="/exam/:courseId"
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <MockExamConfig />
-              </ConsoleLayout>
+              <ClassicTool feature="examMode">
+                <ConsoleLayout>
+                  <MockExamConfig />
+                </ConsoleLayout>
+              </ClassicTool>
             </ProtectedRoute>
           }
         />
@@ -589,9 +621,11 @@ function AppRoutes() {
           path="/course/:courseId/study-guide"
           element={
             <ProtectedRoute allowedRoles={['student', 'professor']}>
-              <ConsoleLayout>
-                <StudyGuide />
-              </ConsoleLayout>
+              <ClassicTool feature="studyGuide">
+                <ConsoleLayout>
+                  <StudyGuide />
+                </ConsoleLayout>
+              </ClassicTool>
             </ProtectedRoute>
           }
         />

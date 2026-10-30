@@ -19,8 +19,8 @@ const at = (path: string) =>
         <Route path="/v4/library/m/:materialId" element={<StudioCanvasScreen />} />
         <Route path="/v4/library/studio" element={<To to="/v4/library" />} />
         <Route path="/v4/library/studio/c/:canvasId" element={<CanvasRedirect />} />
-        <Route path="/v4/library/uploads" element={<To to="/v4/library?f=reading&select=1" />} />
-        <Route path="/v4/library/drafts" element={<To to="/v4/library?f=shared&select=1" />} />
+        <Route path="/v4/library/uploads" element={<To to="/v4/library?f=reading" />} />
+        <Route path="/v4/library/drafts" element={<To to="/v4/library?f=shared" />} />
         <Route path="/v4/library/impact" element={<To to="/v4/library?f=shared" />} />
       </Routes>
       <Probe />
@@ -44,8 +44,8 @@ describe('redirects', () => {
   it.each([
     ['/v4/library/studio', '/v4/library'],
     ['/v4/library/studio/c/c-norm', '/v4/library/m/m-norm'],
-    ['/v4/library/uploads', '/v4/library?f=reading&select=1'],
-    ['/v4/library/drafts', '/v4/library?f=shared&select=1'],
+    ['/v4/library/uploads', '/v4/library?f=reading'],
+    ['/v4/library/drafts', '/v4/library?f=shared'],
     ['/v4/library/impact', '/v4/library?f=shared'],
   ])('%s → %s', async (from, to) => {
     at(from);

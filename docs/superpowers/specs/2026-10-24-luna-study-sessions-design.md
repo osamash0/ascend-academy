@@ -244,7 +244,7 @@ Data in `src/features/spaces/data/`:
 | backend integration (AI stubbed) | start → plan → accept → turns with moves → wrap → keep → practice → cards scheduled |
 | frontend vitest | conductor (move → page turn + spotlight; reading ahead sets `reading_at`), PlanStrip states, WrapCard actions, memory card edit/delete/forget, demo mode renders nothing, seam ratchet unchanged |
 | gates | `npx tsc -p tsconfig.app.json`, vitest for touched areas, backend pytest |
-| real | scenario **S8** in `docs/V4_SCENARIO_TESTING_PROMPT.md`, in the browser, English (Data Integration) and German (Softwaretechnik), with screenshot proof |
+| real | scenario **S8** in `docs/prompts/V4_SCENARIO_TESTING_PROMPT.md`, in the browser, English (Data Integration) and German (Softwaretechnik), with screenshot proof |
 
 ## Out of scope (later specs)
 

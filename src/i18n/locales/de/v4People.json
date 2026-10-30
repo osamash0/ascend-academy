@@ -16,8 +16,8 @@
     },
     "ranking": {
       "about": "Nach XP sortiert. XP gibt es fürs Lernen und für Arbeit von dir, die anderen geholfen hat.",
-      "hidden": "Hier sehen dich nur deine Freunde.",
-      "showMe": "Meinen Spaces zeigen",
+      "hidden": "Hier sehen dich nur deine Freund:innen.",
+      "showMe": "Mich meinen Spaces zeigen",
       "showMeFailed": "Das wurde nicht gespeichert. Versuch es noch einmal."
     },
     "sharedSpaces_one": "{{count}} gemeinsamer Space",
@@ -128,11 +128,11 @@
         "detail": "„{{title}}“ hat einem anderen Mitglied gefallen."
       },
       "endorsed": {
-        "title": "Ein Owner hat deine Arbeit empfohlen",
-        "detail": "Ein Owner hat „{{title}}“ empfohlen."
+        "title": "Ein:e Inhaber:in hat deine Arbeit empfohlen",
+        "detail": "Ein:e Inhaber:in hat „{{title}}“ empfohlen."
       },
       "used": {
-        "title": "Jemand hat mit deinem Material gelernt",
+        "title": "Jemand hat mit dem gelernt, was du gemacht hast",
         "detail": "Jemand hat dein Übungsset abgeschlossen."
       },
       "space": {

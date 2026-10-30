@@ -203,7 +203,7 @@ describe('the /read reader, in German', () => {
     expect(screen.getByRole('complementary', { name: 'Begleiter beim Lesen' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Notizen' })).toBeInTheDocument();
     expect(leftover(passages())).toEqual([]);
-    fireEvent.click(screen.getByRole('tab', { name: 'Tutor' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Luna' }));
     await act(async () => {});
     expect(leftover(passages())).toEqual([]);
     fireEvent.click(screen.getByRole('button', { name: 'Begleiter schließen' }));

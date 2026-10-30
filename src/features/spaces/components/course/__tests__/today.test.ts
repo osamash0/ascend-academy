@@ -39,6 +39,12 @@ describe('today’s session', () => {
     expect(steps[2].why).toMatchObject({ key: 'plan.today.fading', params: { count: 12 } });
   });
 
+  it('resumes where you are but counts what is left from the furthest page (LS-055)', () => {
+    // Read to page 60, then looked back at page 50.
+    const steps = planToday({ lectures: LECTURES, marks: [], weak: [], resume: { lectureId: 'norm', page: 50, pages: 82, furthest: 60 }, now: NOW });
+    expect(steps[0]).toMatchObject({ kind: 'read', page: 50, why: { key: 'plan.today.resume', params: { page: 50, count: 22 } } });
+  });
+
   it('on a first visit, just starts at the beginning', () => {
     const steps = planToday({ lectures: LECTURES, marks: [], weak: [], resume: null, now: NOW });
     expect(steps).toHaveLength(1);
