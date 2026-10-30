@@ -76,9 +76,9 @@ Outside v4: `/` landing with the honest demo, `/auth`, `/onboarding` (first run 
 
 ## State of the world, 2026-10-30
 
-- **main** @ 35a30d73 = prod (full deploy 2026-10-30 15:24 UTC). Flags on: v4, v4 reader, Luna sessions.
+- **Prod** (checked 2026-10-30 evening): server checkout `main` @ 70cfa292; the frontend was built from it (18:12 and 20:05 UTC), api/worker run the 15:20 UTC build of 35a30d73, recreated at 20:06 with student uploads on. Flags on: v4, v4 reader, Luna sessions, student uploads. Live at https://learnstation.app; status at https://status.learnstation.app.
 - **Merged this week (2026-10-24 to 2026-10-30):** PRs #110 to #150: audit weeks 1 and 2, sign-up and first run on the stage, instant reader (#139), Luna lights up (#145), the Space engine and reader telemetry behind "How it's landing" (#133, #142), legal pages with the real operator (#141, #144, #150), privacy of people views (#146), punch-list fixes (#117, #118, #140, #143, #147, #148).
 - **Main is green again** since 35a30d73 (15:16 UTC). #149 scoped the reader's address guard to router-driven addresses and fixed the one deterministic red test.
-- **Merged after the deploy, not live yet:** #149, the documentation reset (#151, #152, #154: this file, `CLAUDE.md`, the inventory, the runbooks, the copy pass), #153 (Back closes Explain; Read on counts from the furthest page), #155 (LS-032: classic study tools open only while their backend is on).
-- **Known gaps:** no Sentry DSN on the server; usage is near zero since August; the learnstation.app domain move is in progress (log at `docs/ops/2026-10-30-learnstation-app-move.md` on branch `ops/learnstation-app-move`, when it lands).
+- **Merged after the last build, not live yet:** #159 (legal pages use hello@ and privacy@, Cloudflare named as processor), #160 (token-hash password-reset links), #161 (worker heartbeat beside the job pool). #158 is scripts and a runbook; those scripts already run on the server.
+- **Known gaps:** no Sentry DSN on the server; usage is near zero since August; after #160 is deployed, the Supabase Reset Password template still has to switch to the token-hash link (`docs/runbooks/deploy-main-to-prod.md`). The domain move is done (log: `docs/ops/2026-10-30-learnstation-app-move.md`).
 - **Agreed direction:** drop anything, read instantly, AI lights up, ghost Spaces. Generic for any learner, never exam- or university-biased. Feature freeze until real students use it.

@@ -4,7 +4,7 @@ Drop a PDF. Read it at once. Luna, the AI, lights the pages up while you read.
 
 Learnstation is a reading-first learning app for anyone with material to get through: lecture slides, a paper, a chapter. You put it into a Space, the reader opens it page by page before any AI has run, and explanations, questions, checkpoints and practice arrive beside the page as Luna reads behind you. Spaces hold people and Lessons; the Library holds everything you have dropped. English and German from one setting, including the AI's answers.
 
-Live at https://learnstation.duckdns.org. Public repository; the production secrets are not in it.
+Live at [learnstation.app](https://learnstation.app). Public repository; the production secrets are not in it.
 
 ## Run it
 
@@ -56,4 +56,4 @@ Branch from `origin/main`, keep a pull request to one concern, write the title i
 
 ## Operator
 
-The repository has no license file; all rights stay with the operator named in the Impressum at https://learnstation.duckdns.org/impressum.
+The repository has no license file; all rights stay with the operator named in the [Impressum](https://learnstation.app/impressum).
