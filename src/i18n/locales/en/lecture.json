@@ -27,17 +27,13 @@
   },
   "recap": {
     "title": "Lecture Recap",
-    "missedQuestions": "Questions you missed",
-    "yourFirstAnswer": "Your first answer",
-    "yourRetryAnswer": "Your retry answer",
     "correctAnswer": "Correct answer",
     "backToDashboard": "Back to dashboard"
   },
   "completion": {
     "completed": "Lecture completed!",
     "xpEarned": "XP earned: {{xp}}",
-    "accuracy": "Accuracy: {{percent}}%",
-    "continueButton": "Continue"
+    "accuracy": "Accuracy: {{percent}}%"
   },
   "pdf": {
     "loadErrorTitle": "Couldn't load the source PDF",

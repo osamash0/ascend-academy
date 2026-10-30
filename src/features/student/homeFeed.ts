@@ -263,6 +263,8 @@ export function buildWidgets(
   /** Roadmap 3.1 ("My Materials") — undefined means the feature is off or
    * its count hasn't loaded yet, so the widget stays hidden either way. */
   myMaterialsCount?: number,
+  /** The study guide's backend is on (FEATURE_STUDY_GUIDE); off, no widget leads to it (LS-032). */
+  studyGuideOn = true,
 ): Widget[] {
   const views = buildViews(lectures, byId);
   const widgets: Widget[] = [];
@@ -308,7 +310,7 @@ export function buildWidgets(
 
   // Study Guide widget — appears when the student has at least one course with lectures.
   const coursesWithLectures = buildCourseProgress(views).filter(c => c.total > 0 && c.courseId !== UNCATEGORIZED);
-  if (coursesWithLectures.length > 0) {
+  if (studyGuideOn && coursesWithLectures.length > 0) {
     const top = coursesWithLectures[0];
     widgets.push({ kind: 'studyGuide', courseId: top.courseId, courseTitle: top.title });
   }

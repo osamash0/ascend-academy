@@ -1,3 +1,5 @@
+> Historical (2026-10-11). Kept for the record; it describes the code as it was then. See `docs/START_HERE.md` for the present state.
+
 # Milestone: 2026-08 consolidation
 
 Tag: `milestone/2026-08-consolidation` — `main` @ `75017b4`, 2026-08-17.

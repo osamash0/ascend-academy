@@ -1,7 +1,7 @@
 # Continuous security in CI (S-6)
 
 > Implements Foundation 10x roadmap §14, S-6: "Security findings should be
-> caught continuously, not in one-off audits." Companion to `threat_model.md`
+> caught continuously, not in one-off audits." Companion to `docs/threat_model.md`
 > and the roadmap's other security items (S-1 RPC-exposure audit, S-2 GDPR
 > posture, S-3 rate-limit hardening, S-4 upload security, S-5 secrets/supply
 > chain, P2-1 RLS-as-boundary). Those are separate, larger initiatives; this

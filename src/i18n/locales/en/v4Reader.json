@@ -145,7 +145,7 @@
     "backToPage": "Back to page {{page}}"
   },
   "spine": {
-    "label": "Concepts in this Lesson"
+    "label": "Ideas in this Lesson"
   },
   "toc": {
     "label": "Contents of this Lesson",
@@ -162,7 +162,7 @@
   },
   "select": {
     "label": "What to do with the selected sentence",
-    "ask": "Ask the tutor",
+    "ask": "Ask Luna",
     "saveNote": "Save as note",
     "saved": "Saved to your notes."
   },
@@ -193,7 +193,7 @@
       "source": "Source"
     },
     "rail": {
-      "tutor": "Tutor",
+      "tutor": "Luna",
       "notes": "Notes"
     },
     "cleared_one": "{{cleared}} of {{count}} idea cleared",
@@ -227,7 +227,7 @@
     "retry": "Try again",
     "ask": {
       "placeholder": "Ask about this page — or ask for a tool…",
-      "placeholderTutor": "Ask the tutor about this page…",
+      "placeholderTutor": "Ask Luna about this page…",
       "label": "Ask about this page",
       "send": "Ask"
     },
@@ -313,7 +313,7 @@
   },
   "timeline": {
     "label": "{{unit}} {{page}} of {{total}}",
-    "slide": "Slide",
+    "slide": "Page",
     "page": "Page",
     "at": "{{unit}} {{page}}",
     "soon": "Luna soon",

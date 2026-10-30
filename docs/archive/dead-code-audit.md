@@ -1,3 +1,5 @@
+> Historical (2026-10-30). Kept for the record; it describes the code as it was then.
+
 ## Dead Code Audit Goal
 
 To audit the project for unused code before deployment or a major refactor, run the goal

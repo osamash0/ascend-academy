@@ -1,3 +1,5 @@
+> Historical (2026-08-18). Kept for the record; it describes the code as it was then.
+
 # Milestone 4 — Overnight Fix Plan & Log
 
 **Source:** `Milestone-4/APP_AUDIT_REPORT.md` (the canonical consolidated audit — 135 findings, supersedes the other 5 documents in that folder) plus `Milestone-4/PROBLEMS.md` (ranked open-problem table) and `Milestone-4/AUDIT_ADDENDUM_previously_uncovered.md`.

@@ -1,3 +1,5 @@
+> Historical (2026-10-30). Kept for the record; it describes the code as it was then.
+
 # Analytics Improvements
 
 ## Bug Fixes

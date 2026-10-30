@@ -43,7 +43,7 @@ describe('bringing something in', () => {
     at();
     await settle();
     expect(input()).toHaveAttribute('accept', '.pdf,.pptx,image/*');
-    expect(screen.getByText('PDF, PPTX or a photo — drop it, or click')).toBeInTheDocument();
+    expect(screen.getByText('A PDF — drop it, or click')).toBeInTheDocument();
   });
 
   it('puts a developing cover first, then reads, writes and is ready with an announcement', async () => {

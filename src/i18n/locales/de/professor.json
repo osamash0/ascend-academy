@@ -1,6 +1,5 @@
 {
   "defaultName": "Professor:in",
-  "commandCenter": "Dashboard",
   "greeting": "{{greeting}}, {{name}}.",
   "summary": "<bold>{{students}} Studierende</bold> sind aktiv dabei. Die durchschnittliche Genauigkeit liegt bei <bold>{{accuracy}}%</bold> in deinen <bold>{{lectures}} Kursen</bold>.",
   "createLecture": "Vorlesung erstellen",
@@ -10,10 +9,6 @@
     "averageScore": "Durchschnittsnote",
     "quizAttempts": "Quiz-Versuche"
   },
-  "lectures_status": {
-    "activeProtocol": "Live",
-    "noSourcePdf": "Kein Quell-PDF"
-  },
   "lectures": {
     "sectionTitle": "Deine Vorlesungen",
     "sectionSubtitle": "Verwalte deine interaktiven Lernmaterialien",
@@ -21,13 +16,11 @@
     "table": {
       "details": "Vorlesungsdetails",
       "slideCount": "Folienanzahl",
-      "launchDate": "Veröffentlicht am",
       "status": "Status",
       "actions": "Aktionen"
     },
     "status": {
-      "active": "Live",
-      "noPdf": "Keine Quell-PDF"
+      "active": "Live"
     },
     "uncategorized": "Ohne Kategorie",
     "courseAssignment": "Kurszuordnung",

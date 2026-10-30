@@ -1,3 +1,5 @@
+> Historical (2026-07-21). Kept for the record; it describes the code as it was then. See `docs/SECURITY_CI.md` for the present state.
+
 # RPC / PostgREST Exposure Audit (S-1)
 
 > Deliverable for `docs/ROADMAP_10X_FOUNDATION.md` §14, **S-1 · Systematic

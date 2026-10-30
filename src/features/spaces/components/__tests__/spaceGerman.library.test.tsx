@@ -189,7 +189,7 @@ describe('the One Library shelf, in German', () => {
   it('the first cell and an empty shelf invite in German', async () => {
     await open();
     expect(screen.getByLabelText('Etwas hinzufügen')).toBeInTheDocument();
-    expect(screen.getByText('PDF, PPTX oder ein Foto – hier ablegen oder klicken')).toBeInTheDocument();
+    expect(screen.getByText('Ein PDF – hier ablegen oder klicken')).toBeInTheDocument();
     clean();
   });
 
@@ -254,7 +254,7 @@ describe('the One Library shelf, in German', () => {
     fireEvent.click(screen.getByRole('tab', { name: /^Deine Worte/ }));
     expect(await screen.findByRole('heading', { name: 'Deine Worte' })).toBeInTheDocument();
     expect(
-      screen.getByText('Jede Notiz und jede Antwort, nach der du gefragt hast, weiterhin an ihrer Seite.'),
+      screen.getByText('Jede Notiz, die du geschrieben hast, weiterhin an ihrer Seite.'),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/^Antwort ·/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/^Notiz ·/).length).toBeGreaterThan(0);

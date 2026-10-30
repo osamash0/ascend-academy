@@ -59,14 +59,14 @@ describe('the rail is chrome around panels it does not own', () => {
     // disagree about what is showing.
     const onTabChange = vi.fn();
     mountRail({ tab: 'notes', onTabChange });
-    fireEvent.click(screen.getByRole('tab', { name: 'Tutor' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Luna' }));
     expect(onTabChange).toHaveBeenCalledWith('tutor');
   });
 
   it('says which tab is showing', () => {
     mountRail({ tab: 'tutor' });
     const tabs = screen.getByRole('tablist', { name: 'Companions' });
-    expect(within(tabs).getByRole('tab', { name: 'Tutor' }).getAttribute('aria-selected')).toBe(
+    expect(within(tabs).getByRole('tab', { name: 'Luna' }).getAttribute('aria-selected')).toBe(
       'true',
     );
     expect(within(tabs).getByRole('tab', { name: 'Notes' }).getAttribute('aria-selected')).toBe(
@@ -324,7 +324,7 @@ describe('the path keys belong to whatever is nearer the reader', () => {
 
   it('does not walk the path from a tablist, which owns arrow keys itself', async () => {
     await renderWithDestination();
-    press('Tutor');
+    press('Luna');
     const tab = within(
       screen.getByRole('complementary', { name: 'Reader companions' }),
     ).getByRole('tab', { name: 'Notes' });
@@ -357,16 +357,16 @@ describe('the rail comes and goes with the header buttons', () => {
 
   it('opens on the tab that summoned it', async () => {
     await renderReader();
-    press('Tutor');
+    press('Luna');
     const rail = screen.getByRole('complementary', { name: 'Reader companions' });
-    expect(within(rail).getByRole('tab', { name: 'Tutor' }).getAttribute('aria-selected')).toBe(
+    expect(within(rail).getByRole('tab', { name: 'Luna' }).getAttribute('aria-selected')).toBe(
       'true',
     );
   });
 
   it('swaps panels from inside the rail, and the header agrees', async () => {
     await renderReader();
-    press('Tutor');
+    press('Luna');
     const rail = screen.getByRole('complementary', { name: 'Reader companions' });
     fireEvent.click(within(rail).getByRole('tab', { name: 'Notes' }));
     expect(within(rail).getByRole('tab', { name: 'Notes' }).getAttribute('aria-selected')).toBe(
@@ -374,7 +374,7 @@ describe('the rail comes and goes with the header buttons', () => {
     );
     // The header's two buttons are the same state, seen from outside.
     expect(screen.getByRole('button', { name: 'Notes' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByRole('button', { name: 'Tutor' }).getAttribute('aria-pressed')).toBe(
+    expect(screen.getByRole('button', { name: 'Luna' }).getAttribute('aria-pressed')).toBe(
       'false',
     );
   });
@@ -412,7 +412,7 @@ describe('focus goes in, and comes back the way it went', () => {
 
   it('returns to the button that opened it — closed from the rail', async () => {
     await renderReader();
-    const opener = press('Tutor');
+    const opener = press('Luna');
     fireEvent.click(screen.getByRole('button', { name: 'Close companions' }));
     expect(document.activeElement).toBe(opener);
   });
@@ -486,7 +486,7 @@ describe('a panel beside the page and a panel over it are different things', () 
       const { container } = await renderReader();
       expect(inertNodes(container), 'inert before anything was summoned').toHaveLength(0);
 
-      press('Tutor');
+      press('Luna');
       const inert = inertNodes(container);
       expect(inert.length, 'the covered page is still reachable').toBeGreaterThan(0);
       expect(
@@ -519,14 +519,14 @@ describe('a panel beside the page and a panel over it are different things', () 
     const restore = atWidth(false);
     try {
       const { container } = await renderReader();
-      press('Tutor');
+      press('Luna');
       expect(container.querySelector('header[inert]'), 'the way out went inert').toBeNull();
       expect(
         inertNodes(container).some((n) => n.querySelector('header')),
         'the header is inside something inert',
       ).toBe(false);
       expect(screen.getByRole('link', { name: 'Leave the reader' })).toBeTruthy();
-      expect(screen.getByRole('button', { name: 'Tutor' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Luna' })).toBeTruthy();
     } finally {
       restore();
     }
@@ -544,7 +544,7 @@ describe('a panel beside the page and a panel over it are different things', () 
     const restore = atWidth(true);
     try {
       const { container } = await renderReader();
-      press('Tutor');
+      press('Luna');
       expect(screen.getByRole('complementary', { name: 'Reader companions' })).toBeTruthy();
       expect(inertNodes(container), 'the docked reader was taken out of reach').toHaveLength(0);
     } finally {

@@ -39,6 +39,7 @@ import {
 import type { Lecture } from '@/types/domain';
 import type { ScheduleEntry } from '@/features/student/courseSchedules';
 import { SharedRoutes, StudentRoutes } from '@/lib/routes';
+import { FEATURES } from '@/lib/featureFlags';
 
 export interface CourseDetailsProps {
   isOpen: boolean;
@@ -320,9 +321,12 @@ export function CourseDetailsSheet({
               <h3 className="text-lg font-bold">Study tools</h3>
               <p className="text-sm text-muted-foreground">Use the material in this course to review, test yourself, or prepare for an exam.</p>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={() => navigate(StudentRoutes.STUDY_GUIDE(courseId))}>
-                  <FileText className="mr-1.5 h-4 w-4" /> Study guide
-                </Button>
+                {/* Each tool only while its backend is on (LS-032). */}
+                {FEATURES.studyGuide && (
+                  <Button variant="outline" size="sm" onClick={() => navigate(StudentRoutes.STUDY_GUIDE(courseId))}>
+                    <FileText className="mr-1.5 h-4 w-4" /> Study guide
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -331,9 +335,11 @@ export function CourseDetailsSheet({
                 >
                   <BookOpen className="mr-1.5 h-4 w-4" /> Worksheets
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => navigate(StudentRoutes.EXAM(courseId))}>
-                  <ClipboardList className="mr-1.5 h-4 w-4" /> Mock exam
-                </Button>
+                {FEATURES.examMode && (
+                  <Button variant="outline" size="sm" onClick={() => navigate(StudentRoutes.EXAM(courseId))}>
+                    <ClipboardList className="mr-1.5 h-4 w-4" /> Mock exam
+                  </Button>
+                )}
               </div>
             </section>
 

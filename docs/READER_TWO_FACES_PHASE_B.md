@@ -1,3 +1,5 @@
+> Historical (2026-10-10). Kept for the record; it describes the code as it was then.
+
 # Lesson Reader · Two Faces — Phase B (prototype)
 
 *2026-09-18. Builds the survivor of `READER_TWO_FACES_PHASE_A.md` (Focal Plane, since renamed) on the ground mapped in `VIEWER_IMPLEMENTATION_AUDIT.md`. Branch `claude/viewer-implementation-audit-72b762`, uncommitted.*

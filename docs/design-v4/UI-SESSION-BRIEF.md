@@ -1,3 +1,5 @@
+> Historical (2026-08-30). Kept for the record; it describes the code as it was then. See `docs/START_HERE.md` for the present state.
+
 # Brief · UI session
 
 For the parallel session building the v4 UI. The docs session works from `01-foundations.md`; you work from this.

@@ -1,3 +1,5 @@
+> Historical (2026-07-13). Kept for the record; it describes the code as it was then.
+
 # Curriculum Progress Schema
 
 To support the `FullJourneyPath` visual curriculum map, we need to extend our Supabase schema to represent curriculum paths and student progress through those paths.

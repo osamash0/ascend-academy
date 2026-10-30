@@ -102,7 +102,7 @@ describe('the header says where you are and how to leave', () => {
       .find((el) => el.getAttribute('aria-hidden') === 'true');
 
   /** The controls column — the thing that was flexible when it had no reason to be. */
-  const rightColumn = () => screen.getByRole('button', { name: 'Tutor' }).parentElement;
+  const rightColumn = () => screen.getByRole('button', { name: 'Luna' }).parentElement;
 
   it('yields the row to the segment when there is one', () => {
     mount({ showToggle: true });
@@ -233,7 +233,7 @@ describe('the view toggle appears only when there is something to toggle to', ()
 describe('the two companions announce whether they are open', () => {
   it('reads unpressed while the rail is closed', () => {
     mount();
-    expect(screen.getByRole('button', { name: 'Tutor' }).getAttribute('aria-pressed')).toBe(
+    expect(screen.getByRole('button', { name: 'Luna' }).getAttribute('aria-pressed')).toBe(
       'false',
     );
     expect(screen.getByRole('button', { name: 'Notes' }).getAttribute('aria-pressed')).toBe(
@@ -244,7 +244,7 @@ describe('the two companions announce whether they are open', () => {
   it('presses only the tab that is actually showing', () => {
     mount({ railOpen: true, railTab: 'notes' });
     expect(screen.getByRole('button', { name: 'Notes' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByRole('button', { name: 'Tutor' }).getAttribute('aria-pressed')).toBe(
+    expect(screen.getByRole('button', { name: 'Luna' }).getAttribute('aria-pressed')).toBe(
       'false',
     );
   });
@@ -252,7 +252,7 @@ describe('the two companions announce whether they are open', () => {
   it('asks for the tab it was pressed for', () => {
     const onRailToggle = vi.fn();
     mount({ onRailToggle });
-    fireEvent.click(screen.getByRole('button', { name: 'Tutor' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Luna' }));
     expect(onRailToggle).toHaveBeenCalledWith('tutor');
   });
 });
@@ -304,7 +304,7 @@ describe('the reader mounts the header instead of an inline row', () => {
 
   it('opens and closes a companion from the header', async () => {
     await renderReader();
-    const tutor = screen.getByRole('button', { name: 'Tutor' });
+    const tutor = screen.getByRole('button', { name: 'Luna' });
     fireEvent.click(tutor);
     expect(tutor.getAttribute('aria-pressed')).toBe('true');
     // Pressing the open tab again closes it rather than reopening it.
@@ -314,9 +314,9 @@ describe('the reader mounts the header instead of an inline row', () => {
 
   it('swaps companions rather than stacking them', async () => {
     await renderReader();
-    fireEvent.click(screen.getByRole('button', { name: 'Tutor' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Luna' }));
     fireEvent.click(screen.getByRole('button', { name: 'Notes' }));
-    expect(screen.getByRole('button', { name: 'Tutor' }).getAttribute('aria-pressed')).toBe(
+    expect(screen.getByRole('button', { name: 'Luna' }).getAttribute('aria-pressed')).toBe(
       'false',
     );
     expect(screen.getByRole('button', { name: 'Notes' }).getAttribute('aria-pressed')).toBe('true');
