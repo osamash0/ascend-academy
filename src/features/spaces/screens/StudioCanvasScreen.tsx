@@ -7,6 +7,8 @@ import { ChevronLeft, Moon, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { EarlyReader } from '../components/reader/EarlyReader';
+import { holdCurtain } from '../components/reader/curtain';
+import { IN_PLACE } from '../components/inPlace';
 import { ListSkeleton, NotFound, SpacesError } from '../components/states';
 import { nextSuggestions, useAsk } from '../data/useAsk';
 import { useCanvas } from '../data/useSpaces';
@@ -70,6 +72,9 @@ export default function StudioCanvasScreen() {
    * reader's own handover or the shelf's poll — opens it at this page.
    */
   const earlyPage = useRef<number | null>(null);
+  /* The early reader has been on screen here: a Lesson appearing is a handover, not a link. */
+  const readingEarly = useRef(false);
+  const handed = useRef(false);
   const readyLesson = item?.opens.kind === 'lesson' ? item.opens.lessonId : '';
   const releaseId = useRef<string | undefined>(undefined);
   releaseId.current = item?.id;
@@ -583,31 +588,51 @@ export default function StudioCanvasScreen() {
   const frame = (children: React.ReactNode) => root(<div className="mx-auto max-w-3xl p-8">{children}</div>);
   if (state === 'loading') return frame(<ListSkeleton />);
   if (state === 'error') return frame(<SpacesError what="material" />);
-  // A real upload still being read: read it now; the Lesson takes over when it exists.
-  if (item?.opens.kind === 'lesson' && !item.opens.lessonId) {
-    const spaceId = item.opens.spaceId;
-    return (
+  /*
+   * One handover, whichever side saw the Lesson first: the reader still on
+   * screen is held there until the Lesson has painted, and the Lesson opens
+   * at the page you are on.
+   */
+  const handOver = (from: { id: string; spaceId: string }, lessonId: string, page: number, run: boolean) => {
+    if (handed.current) return;
+    handed.current = true;
+    holdCurtain(document.querySelector('[data-early-reader]'));
+    releaseLocalFile(from.id, lessonId);
+    const query = [`page=${Math.max(1, page)}`, run ? `run=${from.id}` : ''].filter(Boolean).join('&');
+    navigate(`/v4/space/${from.spaceId}/lesson/${lessonId}/faces?${query}`, { replace: true, state: IN_PLACE });
+  };
+  const early = (it: ShelfItem, spaceId: string, then?: () => void) => (
+    <>
       <EarlyReader
-        uploadId={item.id}
-        filename={item.filename}
-        refused={item.stage === 'failed'}
-        onRetry={canResend(item.id) ? () => resend(item.id) : undefined}
+        uploadId={it.id}
+        filename={it.filename}
+        refused={it.stage === 'failed'}
+        onRetry={canResend(it.id) ? () => resend(it.id) : undefined}
         initialPage={askedPage ?? 1}
         onPage={(p) => {
           earlyPage.current = p;
         }}
-        onResolved={(to, page) => navigate(`/v4/library/m/${to}?page=${page}`, { replace: true })}
-        onReady={(lessonId, page) => {
-          releaseLocalFile(item.id, lessonId);
-          navigate(`/v4/space/${spaceId}/lesson/${lessonId}/faces?page=${page}&run=${item.id}`, { replace: true });
-        }}
+        /* Still this screen: the reader, and the file it has open, stay as they are. */
+        onResolved={(to, page) => navigate(`/v4/library/m/${to}?page=${page}`, { replace: true, state: IN_PLACE })}
+        onReady={(lessonId, page) => handOver({ id: it.id, spaceId }, lessonId, page, true)}
       />
-    );
+      {then && <Then run={then} />}
+    </>
+  );
+  // A real upload still being read: read it now; the Lesson takes over when it exists.
+  if (item?.opens.kind === 'lesson' && !item.opens.lessonId) {
+    readingEarly.current = true;
+    return early(item, item.opens.spaceId);
+  }
+  if (item?.opens.kind === 'lesson' && readingEarly.current) {
+    /* The shelf saw the Lesson first: the reader stays one more frame, so the handover can hold it on screen. */
+    const { lessonId, spaceId } = item.opens;
+    const at = earlyPage.current ?? askedPage ?? 1;
+    return early(item, spaceId, () => handOver({ id: item.id, spaceId }, lessonId, at, item.stage !== 'ready'));
   }
   if (item?.opens.kind === 'lesson') {
-    /* The shelf saw the Lesson first, or the swap landed on one already made: the place still holds. */
-    const at = earlyPage.current ?? askedPage;
-    const query = [at && at > 1 ? `page=${at}` : '', item.stage !== 'ready' ? `run=${item.id}` : '']
+    /* A link or a swap that lands on a Lesson already made: the asked page still holds. */
+    const query = [askedPage ? `page=${askedPage}` : '', item.stage !== 'ready' ? `run=${item.id}` : '']
       .filter(Boolean)
       .join('&');
     return (
@@ -856,4 +881,11 @@ export default function StudioCanvasScreen() {
       )}
     </>,
   );
+}
+
+/** Runs once, after the frame it is part of is on screen (and before it is painted over). */
+function Then({ run }: { run: () => void }) {
+  const ran = useRef(run);
+  useLayoutEffect(() => ran.current(), []);
+  return null;
 }

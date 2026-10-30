@@ -10,6 +10,7 @@ import { useIdle } from './useIdle';
 import { useFullscreen } from './useFullscreen';
 import { ReaderTimeline } from './ReaderTimeline';
 import { shapeOf } from './pageShape';
+import { LessonFacesRoute } from '../../screens/lazyScreens';
 
 /**
  * Your own file, readable the moment it lands. Luna reads along in the
@@ -40,6 +41,10 @@ export function EarlyReader({ uploadId, filename, onReady, refused, initialPage 
   const fs = useFullscreen();
   const reduce = !!useReducedMotion();
   useEffect(warmPdfWorker, []);
+  /* The Lesson this file becomes: fetched while you read, so the handover has nothing to wait for but the Lesson's own data. */
+  useEffect(() => {
+    void LessonFacesRoute.preload().catch(() => {});
+  }, []);
   const { reading, url } = useEarlyReading(uploadId);
   const [page, setPage] = useState(initialPage);
   const [pages, setPages] = useState(0);
@@ -131,7 +136,7 @@ export function EarlyReader({ uploadId, filename, onReady, refused, initialPage 
   const gone = !url && uploadId.startsWith('sending-') && !resolvedTo;
 
   return (
-    <div className="fixed inset-0 z-40 bg-black text-white">
+    <div data-early-reader className="fixed inset-0 z-40 bg-black text-white">
       {gone && (
         <div className="absolute inset-x-0 bottom-16 top-12 flex flex-col items-center justify-center gap-6 px-6 text-center">
           <p className="max-w-[44ch] text-[15px] leading-relaxed text-quiet">{tl('gone')}</p>

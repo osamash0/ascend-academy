@@ -32,6 +32,7 @@ import { useLights } from '../components/reader/lights';
 import { useReadingProgress } from '../data/reading';
 import { ReaderTimeline } from '../components/reader/ReaderTimeline';
 import { shapeOf } from '../components/reader/pageShape';
+import { liftCurtain } from '../components/reader/curtain';
 import { GlassPill } from '../components/reader/glass/GlassPill';
 import { useFullscreen } from '../components/reader/useFullscreen';
 import { readPrefs, writePrefs, type ReaderPrefs } from '../data/readerPrefs';
@@ -244,6 +245,9 @@ export default function LessonFacesScreen() {
 
   const pdfRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
+  /* The pages the scroll has painted, and the one the handover still waits for (see `onRenderPage`). */
+  const painted = useRef(new Set<number>());
+  const curtainAt = useRef<number | null>(null);
 
   const liveReader = !!spaceId && isLive(spaceId);
   /* The practice bench: the lecture's real questions when live. */
@@ -373,6 +377,7 @@ export default function LessonFacesScreen() {
     /* The next file is measured afresh: a deck after a document must not open as one. */
     setAspect(null);
     setNumPages(0);
+    painted.current = new Set();
   }
 
   const engage = useCallback(() => setEngaged(true), []);
@@ -558,13 +563,41 @@ export default function LessonFacesScreen() {
   /* The reading whose scroll has painted its first page: only then do the slots exist, at their real size. */
   const [scrollReady, setScrollReady] = useState<string | undefined>(undefined);
   const landedFor = useRef<string | undefined>(undefined);
+  /*
+   * From the early reader, its pages are held on screen (`curtain.ts`) until
+   * this one has painted the page you were on; then they fade into it. A deck
+   * lifts on its first paint, a document once the page it lands on has painted.
+   */
+  const onRenderPage = useCallback((p: number) => {
+    painted.current.add(p);
+    if (p === curtainAt.current) liftCurtain();
+  }, []);
+  const onPagerPaint = useCallback((canvas: HTMLCanvasElement | null) => {
+    setAccent(sampleAccent(canvas));
+    /* A tall first page is a document: the scroll that replaces the pager is what lifts it. */
+    if (!canvas || shapeOf(canvas.height / canvas.width) === 'slides') liftCurtain();
+  }, []);
+  /* Anything but the reader (an error, nothing to read) has nothing to wait for; leaving takes it down too. */
+  const nothingToPaint =
+    state === 'error' ||
+    content.state === 'error' ||
+    (state !== 'loading' && content.state !== 'loading' && (!space || !lesson || !content.bundle || !content.pdfUrl || sections.length === 0));
+  useEffect(() => {
+    if (nothingToPaint) liftCurtain();
+  }, [nothingToPaint]);
+  useEffect(() => liftCurtain, []);
   useEffect(() => {
     if (scrollReady !== lessonId || landedFor.current === lessonId || !pdfRef.current) return;
     landedFor.current = lessonId;
     const page = pdfPageRef.current;
-    if (page <= 1) return;
+    curtainAt.current = Math.max(1, page);
+    if (page <= 1) {
+      if (painted.current.has(1)) liftCurtain();
+      return;
+    }
     scrollSettling.current = true;
     scrollToPdfPage(pdfRef.current, page, 0.38, 'auto');
+    if (painted.current.has(page)) liftCurtain();
     const t = window.setTimeout(() => {
       scrollSettling.current = false;
     }, 400);
@@ -1433,6 +1466,7 @@ export default function LessonFacesScreen() {
               setAccent(sampleAccent(canvas));
               setScrollReady(lessonId);
             }}
+            onRenderPage={onRenderPage}
             scrollRef={pdfRef}
             className="absolute inset-0 overflow-y-auto"
           />
@@ -1446,7 +1480,7 @@ export default function LessonFacesScreen() {
             maxHeight={box.h}
             onLoad={setNumPages}
             onAspect={setAspect}
-            onFirstRender={(canvas) => setAccent(sampleAccent(canvas))}
+            onFirstRender={onPagerPaint}
             rootRef={pdfRef}
             overlay={<Spotlight words={spot} />}
             zoomable
