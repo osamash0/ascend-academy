@@ -319,6 +319,7 @@
     "readOn": "Lies einfach weiter – nichts wartet auf sie",
     "failed": "Luna konnte dieses Material nicht lesen. Lesen kannst du es hier trotzdem.",
     "refused": "Nur auf diesem Gerät gespeichert",
+    "already": "Das ist schon in deiner Bibliothek. Du liest es gerade von diesem Gerät.",
     "retry": "Erneut versuchen"
   },
   "lights": {

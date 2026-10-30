@@ -83,6 +83,37 @@ describe('EarlyReader on a temporary id', () => {
   });
 });
 
+describe('EarlyReader with nothing to show', () => {
+  beforeEach(() => {
+    uploadsMock.to = null;
+  });
+  it('a file already in your Library says so calmly, still shows it, and leads back', () => {
+    state.reading = null;
+    render(<EarlyReader uploadId="sending-1" filename="a.pdf" onReady={() => {}} already />);
+    expect(screen.getByRole('status')).toHaveTextContent('already in your Library');
+    expect(screen.getByTestId('pager')).toBeInTheDocument();
+    expect(screen.queryByText(/Luna is reading along/)).toBeNull();
+    expect(screen.getAllByRole('link', { name: 'Back to Library' })[0]).toHaveAttribute('href', '/v4/library');
+  });
+
+  it('a temporary id whose file is gone is never a blank page', () => {
+    state.reading = null;
+    state.url = null;
+    render(<EarlyReader uploadId="sending-1" filename="a.pdf" onReady={() => {}} />);
+    expect(screen.getByText(/only on this device/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Back to Library' }).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Luna is reading along/)).toBeNull();
+  });
+
+  it('a temporary id already answered for is not called gone while it moves', () => {
+    state.reading = null;
+    state.url = null;
+    uploadsMock.to = 'run-9';
+    render(<EarlyReader uploadId="sending-1" filename="a.pdf" onReady={() => {}} />);
+    expect(screen.queryByText(/only on this device/i)).toBeNull();
+  });
+});
+
 describe('EarlyReader', () => {
   it('shows the file at once, with Luna’s progress on the timeline and the page once', () => {
     render(<EarlyReader uploadId="run-1" filename="Normalization.pdf" onReady={() => {}} />);

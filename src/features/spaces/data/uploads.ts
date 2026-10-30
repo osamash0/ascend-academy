@@ -30,6 +30,12 @@ const files = new Map<string, File>();
 const kept = new Map<string, File>();
 /** Temporary `sending-N` ids that became a shelf id once the server accepted the file. */
 const resolved = new Map<string, string>();
+/**
+ * Duplicates whose Lesson is not on your shelf (archived, or from another
+ * pipeline): there is no cover to move to, so the file is read from this
+ * device under its temporary id.
+ */
+const offShelf = new Set<string>();
 /** Brought in during this visit: these develop in front of you. */
 const broughtIn = new Set<string>();
 let seq = 0;
@@ -109,6 +115,9 @@ export function resolvedUploadId(id: string): string | null {
 /** Has this temporary id been accepted (its real cover may still be on its way)? */
 export const isSettling = (id: string): boolean => resolved.has(id);
 
+/** A duplicate with no cover to move to: its reader keeps your file, on the temporary id. */
+export const duplicateOffShelf = (id: string): boolean => offShelf.has(id);
+
 /** Can this failed upload be sent again from here? */
 export const canResend = (id: string): boolean => files.has(id);
 
@@ -125,6 +134,8 @@ async function refresh(): Promise<void> {
   // An accepted file whose real cover is now on the shelf: the temporary one is done.
   const shelf = new Set((fetched ?? []).map((u) => u.id));
   sending = sending.filter((u) => !(resolved.has(u.id) && shelf.has(resolved.get(u.id)!)));
+  // A temporary id whose real cover is here lets its copy go; the one under the real id stays, and so does the link.
+  for (const [tmp, to] of resolved) if (shelf.has(to)) kept.delete(tmp);
   notify();
 }
 
@@ -173,6 +184,8 @@ async function send(id: string, file: File): Promise<void> {
   files.delete(id);
   const keptId = r.run_id ?? r.lecture_id;
   if (keptId) kept.set(keptId, file);
+  // Readable on the temporary id too, until its real cover takes over: the reader opened on it never goes blank.
+  kept.set(id, file);
   if (r.run_id) {
     broughtIn.add(r.run_id);
     // Set before the shelf is re-read: the temporary cover steps aside as the real one arrives.
@@ -187,7 +200,12 @@ async function send(id: string, file: File): Promise<void> {
   }
   if (!r.run_id) {
     const held = r.lecture_id ? fetched?.find((u) => u.lessonId === r.lecture_id)?.id : undefined;
-    if (held) resolved.set(id, held);
+    if (held) {
+      resolved.set(id, held);
+      kept.delete(id);
+    }
+    // Already yours, but not on the shelf (or the shelf could not be read): no cover to move to, so your file stays readable here.
+    else offShelf.add(id);
   }
   /* Re-read, the real cover is there; missed, the temporary one stays until the poll brings it. */
   if (reread || !resolved.has(id)) sending = sending.filter((u) => u.id !== id);
@@ -315,6 +333,7 @@ export function __resetUploads(): void {
   kept.clear();
   urls = new WeakMap();
   resolved.clear();
+  offShelf.clear();
   broughtIn.clear();
   hidden.clear();
   if (timer) clearTimeout(timer);

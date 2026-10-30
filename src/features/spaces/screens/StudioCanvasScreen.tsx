@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { canResend, isSettling, releaseLocalFile, resend } from '../data/uploads';
+import { canResend, duplicateOffShelf, isSettling, localFileFor, releaseLocalFile, resend } from '../data/uploads';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, Moon, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -617,6 +617,16 @@ export default function StudioCanvasScreen() {
       />
     );
   }
+  /*
+   * Already in your Library, but its Lesson is not on the shelf (archived, or
+   * read by another pipeline): there is nothing to move to, so you keep
+   * reading your own file, with a calm line and the way back.
+   */
+  const already = !item && materialId?.startsWith('sending-') && duplicateOffShelf(materialId) ? localFileFor(materialId) : null;
+  if (already && materialId)
+    return (
+      <EarlyReader uploadId={materialId} filename={already.name} initialPage={askedPage ?? 1} already onReady={() => {}} />
+    );
   /* A temporary id after a reload: the file was only in this tab, and it is gone. Said calmly, with the way back. */
   if (!item && materialId?.startsWith('sending-'))
     return frame(

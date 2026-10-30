@@ -112,6 +112,27 @@ describe('the temporary id resolves', () => {
     await waitFor(() => expect(resolvedUploadId(id)).toBe('run-old'));
   });
 
+  it('a duplicate whose Lesson is not on the shelf stays readable from this device', async () => {
+    const { bringInLive, uploadsNow, localFileFor, duplicateOffShelf } = await import('../../data/uploads');
+    setLiveWorld(emptyWorld({ canUpload: true }));
+    repo.bringIn.mockResolvedValue({ status: 'duplicate', lecture_id: 'lec-hidden' });
+    repo.uploads.mockResolvedValue({ uploads: [] });
+    const [id] = bringInLive([pdf('again.pdf')]);
+    await waitFor(() => expect(uploadsNow().some((u) => u.id === id)).toBe(false));
+    expect(duplicateOffShelf(id)).toBe(true);
+    expect(localFileFor(id)?.name).toBe('again.pdf');
+  });
+
+  it('accepted, the file stays readable on its temporary id while the shelf is re-read', async () => {
+    const { bringInLive, localFileFor, isSettling } = await import('../../data/uploads');
+    setLiveWorld(emptyWorld({ canUpload: true }));
+    repo.bringIn.mockResolvedValue({ status: 'queued', run_id: 'run-1' });
+    repo.uploads.mockReturnValue(new Promise(() => {})); // the re-read never answers
+    const [id] = bringInLive([pdf('a.pdf')]);
+    await waitFor(() => expect(isSettling(id)).toBe(true));
+    expect(localFileFor(id)?.name).toBe('a.pdf');
+  });
+
   it('a refused file never resolves, and its failed cover stays', async () => {
     const { bringInLive, resolvedUploadId, uploadsNow } = await import('../../data/uploads');
     setLiveWorld(emptyWorld({ canUpload: true }));
