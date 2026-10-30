@@ -1,3 +1,5 @@
+> Historical (2026-10-30). Kept for the record; it describes the code as it was then. See `CLAUDE.md (commands that gate)` for the present state.
+
 # Deployment Readiness Report
 
 > Generated for Task #56 (Deployment readiness check). Run against the dev

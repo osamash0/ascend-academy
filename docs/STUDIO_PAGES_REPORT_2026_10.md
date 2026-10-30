@@ -1,3 +1,5 @@
+> Historical (2026-10-16). Kept for the record; it describes the code as it was then.
+
 MuPDF error: format error: corrupt object stream (67 0 R)
 
 # Studio pages: geometry report

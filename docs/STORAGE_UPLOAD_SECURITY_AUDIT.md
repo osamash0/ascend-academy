@@ -1,3 +1,5 @@
+> Historical (2026-07-30). Kept for the record; it describes the code as it was then. See `docs/STORAGE_TAKEDOWN.md` for the present state.
+
 # Storage & Upload Security Audit (S-4) + General Security/Bug Review
 
 > Deliverable for `docs/ROADMAP_10X_FOUNDATION.md` §14, **S-4 · Storage & upload

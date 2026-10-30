@@ -1,3 +1,5 @@
+> Historical (2026-10-30). Kept for the record; it describes the code as it was then.
+
 # Cleanup Sprint Notes — 2026-07-11
 
 Three-phase maintenance sprint: audit & cleanup → Docker optimization → docs refresh.

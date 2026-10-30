@@ -1,3 +1,5 @@
+> Historical (2026-09-17). Kept for the record; it describes the code as it was then. See `docs/superpowers/specs/2026-10-26-library-and-spaces-design.md` for the present state.
+
 # Ascend Academy — 10x Roadmap & Build Plan
 
 > Status: PROPOSED (2026-07-06) · Owner: Abdullah · Horizon: ~1 semester (3 phases)

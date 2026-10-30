@@ -1,3 +1,5 @@
+> Historical (2026-07-30). Kept for the record; it describes the code as it was then. See `docs/SECURITY_CI.md` for the present state.
+
 # Foundation 10x — Database & Backend Platform Roadmap
 
 > Status: PROPOSED (2026-07-18) · Owner: Abdullah · Companion to `docs/ROADMAP_10X.md`

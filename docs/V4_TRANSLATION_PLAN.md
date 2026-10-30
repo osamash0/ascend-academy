@@ -1,3 +1,5 @@
+> Historical (2026-10-18). Kept for the record; it describes the code as it was then. See `docs/V4_GLOSSARY.md` for the present state.
+
 # Translating v4 — plan
 
 *2026-10-11. Scope: everything a reader sees in `src/features/spaces` (the v4 app: Home, Spaces, the Space page, the reader, rehearsal, Library/Studio, Social, Profile, Settings). Status: decisions taken (Abi, 2026-10-11: "go with your recommendations") — the words are in `docs/V4_GLOSSARY.md`. **All slices done (0–6)**: v4 is German for German readers, and `npm run lint` keeps it so.*
