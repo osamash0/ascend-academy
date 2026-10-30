@@ -611,13 +611,13 @@ class TestPerSlideQuizRegeneration:
 
         first_response = (
             '['
-            '{"page_number":1,"title":"S1","content":"...","summary":"",'
+            '{"page_number":1,"title":"S1","content":"...","summary":"Summary 1.",'
             '  "questions":[{"question":"What is TCP?","options":'
             '   ["Reliable","Stateless","Hop","ARP"],"answer":"A"}]},'
-            '{"page_number":2,"title":"S2","content":"...","summary":"",'
+            '{"page_number":2,"title":"S2","content":"...","summary":"Summary 2.",'
             '  "questions":[{"question":"What is IP?","options":'
             '   ["x","y","z","All of the above"],"answer":"D"}]},'
-            '{"page_number":3,"title":"S3","content":"...","summary":"",'
+            '{"page_number":3,"title":"S3","content":"...","summary":"Summary 3.",'
             '  "questions":[{"question":"What is NAT?","options":'
             '   ["dup","dup","b","c"],"answer":"A"}]}'
             ']'
@@ -670,11 +670,11 @@ class TestPerSlideQuizRegeneration:
         seen_prompts: List[str] = []
         clean_response = (
             '['
-            '{"page_number":1,"title":"S1","content":"x","summary":"",'
+            '{"page_number":1,"title":"S1","content":"x","summary":"Summary 1.",'
             '  "questions":[{"question":"q1?","options":["a","b","c","d"],"answer":"A"}]},'
-            '{"page_number":2,"title":"S2","content":"x","summary":"",'
+            '{"page_number":2,"title":"S2","content":"x","summary":"Summary 2.",'
             '  "questions":[{"question":"q2?","options":["e","f","g","h"],"answer":"B"}]},'
-            '{"page_number":3,"title":"S3","content":"x","summary":"",'
+            '{"page_number":3,"title":"S3","content":"x","summary":"Summary 3.",'
             '  "questions":[{"question":"q3?","options":["i","j","k","l"],"answer":"C"}]}'
             ']'
         )
@@ -706,12 +706,12 @@ class TestPerSlideQuizRegeneration:
 
         first_response = (
             '['
-            '{"page_number":1,"title":"S1","content":"x","summary":"",'
+            '{"page_number":1,"title":"S1","content":"x","summary":"Summary 1.",'
             '  "questions":[{"question":"q1?","options":'
             '   ["x","x","y","All of the above"],"answer":"A"}]},'
-            '{"page_number":2,"title":"S2","content":"x","summary":"",'
+            '{"page_number":2,"title":"S2","content":"x","summary":"Summary 2.",'
             '  "questions":[{"question":"q2?","options":["a","b","c","d"],"answer":"A"}]},'
-            '{"page_number":3,"title":"S3","content":"x","summary":"",'
+            '{"page_number":3,"title":"S3","content":"x","summary":"Summary 3.",'
             '  "questions":[{"question":"q3?","options":["e","f","g","h"],"answer":"B"}]}'
             ']'
         )
@@ -719,7 +719,7 @@ class TestPerSlideQuizRegeneration:
         # still degenerate (duplicate "z"s).
         regen_response = (
             '['
-            '{"page_number":1,"title":"S1","content":"x","summary":"",'
+            '{"page_number":1,"title":"S1","content":"x","summary":"Summary 1.",'
             '  "questions":[{"question":"q1-v2?","options":'
             '   ["z","z","w","v"],"answer":"A"}]}'
             ']'
@@ -748,12 +748,12 @@ class TestPerSlideQuizRegeneration:
 
         first_response = (
             '['
-            '{"page_number":1,"title":"S1","content":"x","summary":"",'
+            '{"page_number":1,"title":"S1","content":"x","summary":"Summary 1.",'
             '  "questions":[{"question":"q1?","options":'
             '   ["x","x","y","All of the above"],"answer":"A"}]},'
-            '{"page_number":2,"title":"S2","content":"x","summary":"",'
+            '{"page_number":2,"title":"S2","content":"x","summary":"Summary 2.",'
             '  "questions":[{"question":"q2?","options":["a","b","c","d"],"answer":"A"}]},'
-            '{"page_number":3,"title":"S3","content":"x","summary":"",'
+            '{"page_number":3,"title":"S3","content":"x","summary":"Summary 3.",'
             '  "questions":[{"question":"q3?","options":["e","f","g","h"],"answer":"B"}]}'
             ']'
         )

@@ -1864,6 +1864,82 @@ async def generate_deck_quiz(
     return out
 
 
+def _current_run_id() -> Optional[str]:
+    """The parse run this call belongs to, for log lines (None outside a parse)."""
+    from backend.services.ai.call_context import current_llm_call_context
+    return current_llm_call_context().run_id
+
+
+def _batch_item_summary(item: Dict[str, Any]) -> str:
+    """The item's summary as stripped text; "" when absent or not text."""
+    summary = item.get("summary")
+    if isinstance(summary, list):
+        summary = " ".join(str(part) for part in summary if part)
+    return summary.strip() if isinstance(summary, str) else ""
+
+
+def _as_int(value: Any) -> Optional[int]:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return None
+
+
+def _map_batch_reply(
+    parsed: List[Any],
+    slides: List[Dict[str, Any]],
+    active_slides: List[Dict[str, Any]],
+    context_only_indices: set,
+) -> Dict[int, Dict[str, Any]]:
+    """Map a batch reply's items onto slide indices; keep only usable ones.
+
+    An item names its slide by ``page_number`` (the N of ``=== SLIDE N ===``,
+    also accepted as a digit string) or by the ``index`` the marker echoes.
+    Items for context-only slides are dropped. List position is used only
+    when NO item names a slide and the counts line up: aligning by position
+    otherwise cross-wires slides when the model reorders, merges or skips one.
+
+    An item counts only when it carries a summary. Prod 2026-10-30: a reply
+    of 8 items without one was aligned by position and stored as 8 empty
+    slides, with nothing logged.
+    """
+    page_to_idx = {s["page_number"]: s["index"] for s in slides}
+    known_indices = {s["index"] for s in slides}
+    keyed: Dict[int, Dict[str, Any]] = {}
+    unkeyed: List[Dict[str, Any]] = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        idx = page_to_idx.get(_as_int(item.get("page_number")))
+        if idx is None:
+            echoed = _as_int(item.get("index"))
+            idx = echoed if echoed in known_indices else None
+        if idx is None:
+            unkeyed.append(item)
+            continue
+        if idx in context_only_indices:
+            continue
+        if idx in keyed and _batch_item_summary(keyed[idx]):
+            continue  # keep the first usable entry for a slide
+        keyed[idx] = item
+
+    if not keyed and not context_only_indices and len(unkeyed) == len(active_slides):
+        keyed = {s["index"]: item for s, item in zip(active_slides, unkeyed)}
+
+    usable: Dict[int, Dict[str, Any]] = {}
+    for idx, item in keyed.items():
+        summary = _batch_item_summary(item)
+        if not summary:
+            continue
+        item["index"] = idx
+        item["summary"] = summary
+        usable[idx] = item
+    return usable
+
+
 async def batch_analyze_text_slides(
     slides: List[Dict[str, Any]],
     ai_model: str = "groq",
@@ -1872,6 +1948,7 @@ async def batch_analyze_text_slides(
     batch_size: Optional[int] = None,
     context_overlap: Optional[int] = None,
     source_language: str = "en",
+    retry_missing: bool = True,
 ) -> List[Dict[str, Any]]:
     """Analyze a batch of slides in (typically) ONE LLM call.
 
@@ -1890,6 +1967,13 @@ async def batch_analyze_text_slides(
     On LLM-call exception or unusable JSON the function RAISES — callers
     such as :func:`_process_text_batch_safe` then fall back to per-slide
     retry for active (non-context) slides.
+
+    Reply items are matched to slides by their ``page_number`` (or echoed
+    ``index``), and only an item with a non-empty summary counts. Active
+    slides the reply leaves out are asked again once as a smaller batch
+    (``retry_missing``); any still missing come back as rows flagged
+    ``missing_from_batch=True`` with an empty summary, which callers must
+    treat as "no result", never as content.
 
     Defaults for ``batch_size`` / ``context_overlap`` come from
     ``QUIZ_BATCH_CONFIG`` (env-tunable via ``QUIZ_BATCH_SIZE`` /
@@ -1933,6 +2017,7 @@ async def batch_analyze_text_slides(
                 batch_size=bs,
                 context_overlap=ov,
                 source_language=source_language,
+                retry_missing=retry_missing,
             )
             merged.extend(window_results)
         return merged
@@ -2026,59 +2111,7 @@ async def batch_analyze_text_slides(
         raise
 
     parsed = as_slide_item_list(parse_json_response(raw))
-
-    # Only the non-context (active) slides should appear in the output.
-    active_slides = [s for s in slides if s["index"] not in context_only_indices]
-    page_to_idx = {s["page_number"]: s["index"] for s in active_slides}
-    results: List[Dict] = []
-
-    # When there are context slides we cannot trust positional alignment:
-    # a misbehaving model might include a context entry and drop an active
-    # one while still returning a list of equal length, which would silently
-    # attach context content to an active index. Force the page_number-keyed
-    # branch in that case so context entries get filtered out.
-    if (
-        isinstance(parsed, list)
-        and len(parsed) == len(active_slides)
-        and not context_only_indices
-    ):
-        for s, item in zip(active_slides, parsed):
-            if isinstance(item, dict):
-                item["index"] = s["index"]
-                results.append(item)
-            else:
-                results.append({"index": s["index"], "title": f"Slide {s['index']+1}",
-                                 "content": s["text"], "parse_error": "bad_item"})
-    elif isinstance(parsed, list):
-        for item in parsed:
-            if not isinstance(item, dict):
-                continue
-            idx = page_to_idx.get(item.get("page_number"))
-            if idx is not None:
-                item["index"] = idx
-                results.append(item)
-        # Drop any LLM-emitted entries for context-only slides (the prompt
-        # forbids them, but defensively filter in case the model misbehaves).
-        results = [r for r in results if r["index"] not in context_only_indices]
-
-        # If we couldn't extract anything usable for the active slides,
-        # raise so the outer per-slide retry path takes over instead of
-        # silently returning empty fallback rows for every slide.
-        if active_slides and not results:
-            logger.error(
-                "Batch response yielded zero usable items for %d active "
-                "slides; raising for per-slide retry.",
-                len(active_slides),
-            )
-            raise ValueError("batch_analyze_text_slides: unusable JSON response")
-
-        found = {r["index"] for r in results}
-        for s in active_slides:
-            if s["index"] not in found:
-                logger.warning("Slide %d missing from batch response — using fallback", s["index"])
-                results.append({"index": s["index"], "title": f"Slide {s['index']+1}",
-                                 "content": s["text"], "summary": "", "questions": []})
-    else:
+    if not isinstance(parsed, list):
         # parse_json_response normally returns [] on garbage input, so this
         # branch is rare — but guard against non-list/non-dict outputs.
         logger.error(
@@ -2086,6 +2119,22 @@ async def batch_analyze_text_slides(
             type(parsed).__name__,
         )
         raise ValueError("batch_analyze_text_slides: unusable JSON response")
+
+    # Only the non-context (active) slides should appear in the output.
+    active_slides = [s for s in slides if s["index"] not in context_only_indices]
+    usable = _map_batch_reply(parsed, slides, active_slides, context_only_indices)
+
+    # Nothing usable for the active slides: raise so the caller's per-slide
+    # retry takes over instead of storing a batch of empty slides.
+    if active_slides and not usable:
+        logger.error(
+            "Batch response yielded zero usable items for %d active "
+            "slides (run %s); raising for per-slide retry.",
+            len(active_slides), _current_run_id(),
+        )
+        raise ValueError("batch_analyze_text_slides: unusable JSON response")
+
+    results: List[Dict] = list(usable.values())
 
     # Validate the per-slide MCQ. To honour the one-shot regenerate contract
     # for per-slide quizzes too — without burning N extra LLM calls — we
@@ -2111,6 +2160,51 @@ async def batch_analyze_text_slides(
 
     if failing:
         await _regenerate_failing_slide_quizzes(failing, slides, idx_to_plan, ai_model=ai_model)
+
+    # Slides the reply left out (or answered without a summary) are asked
+    # again once, on their own, as a smaller batch. Whatever is still missing
+    # comes back as a row flagged ``missing_from_batch`` so the caller retries
+    # it per slide instead of storing it as if it were content.
+    missing = [s for s in active_slides if s["index"] not in usable]
+    if missing and retry_missing:
+        logger.warning(
+            "Batch reply had no usable entry for slide(s) %s (run %s); "
+            "retrying them as a smaller batch.",
+            [s["index"] for s in missing], _current_run_id(),
+        )
+        try:
+            retried = await batch_analyze_text_slides(
+                [{k: v for k, v in s.items() if k != "context_only"} for s in missing],
+                ai_model=ai_model,
+                blueprint=blueprint,
+                batch_size=bs,
+                context_overlap=ov,
+                source_language=source_language,
+                retry_missing=False,
+            )
+        except Exception as exc:
+            from backend.services.llm_client import LLMBudgetExceededError
+            if isinstance(exc, LLMBudgetExceededError):
+                raise
+            logger.warning("Retry batch for missing slides failed: %s", exc)
+            retried = []
+        for r in retried:
+            if isinstance(r, dict) and not r.get("missing_from_batch"):
+                results.append(r)
+                usable[r["index"]] = r
+        missing = [s for s in active_slides if s["index"] not in usable]
+
+    if retry_missing:
+        for s in missing:
+            logger.warning(
+                "Slide %d missing from batch response (run %s); returning it "
+                "flagged for the caller's per-slide retry.",
+                s["index"], _current_run_id(),
+            )
+    for s in missing:
+        results.append({"index": s["index"], "title": f"Slide {s['index']+1}",
+                         "content": s["text"], "summary": "", "questions": [],
+                         "missing_from_batch": True})
 
     # Stable order by slide index — model output order is not guaranteed,
     # and downstream SSE consumers (and our own coverage assertions) read
