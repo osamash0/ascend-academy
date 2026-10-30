@@ -11,6 +11,7 @@ import { Scene, SURFACES } from '../components/Scene';
 import { ghostPill, stageAccentFor, stageCard } from '../components/stage';
 import { useScreenState } from '../data/useSpaces';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
+import { ReaderExit } from '../components/reader/ReaderHeader';
 import { spaceById, visibleLesson } from '../data/world';
 
 /**
@@ -190,14 +191,23 @@ export default function PracticeScreen() {
 
   // All four states, on every screen.
   if (screenState === 'loading' || practice.state === 'loading') return chrome(<DetailSkeleton />);
-  if (screenState === 'error' || practice.state === 'error') return chrome(<SpacesError what="practice" />);
+  if (screenState === 'error') return chrome(<SpacesError what="practice" />);
 
+  /* Not here beats "connection dropped": an unknown Lesson's practice answers 404 too (LS-061). */
   if (!space || !lesson)
     return chrome(
       <NotFound
         what="lesson"
         back={space ? { to: `/v4/space/${space.id}`, space: space.name } : { to: '/v4/spaces', place: 'spaces' }}
       />,
+    );
+  if (practice.state === 'error')
+    return chrome(
+      <>
+        {/* A way out besides "Try again", as the reader has. */}
+        <ReaderExit to={`/v4/space/${space.id}/lesson/${lesson.id}`} />
+        <SpacesError what="practice" />
+      </>,
     );
 
   const backToLesson = `/v4/space/${space.id}/lesson/${lesson.id}`;

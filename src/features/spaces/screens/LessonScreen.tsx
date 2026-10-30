@@ -128,7 +128,6 @@ export default function LessonScreen() {
     );
 
   const Icon = topicIcon(lesson.title, lesson.id);
-  const cleared = lesson.concepts.filter((c) => c.progress === 'cleared').length;
   const done = lesson.progress === 'done';
   // Resume where you stopped: the first idea not yet cleared, else the first.
   const firstConcept =
@@ -160,6 +159,25 @@ export default function LessonScreen() {
       gist: written?.a?.title ?? pick.title ?? c.name,
     };
   });
+  /*
+   * The header's segments. Live, they are the reader's ideas lit by your check
+   * and rehearsal results, the same lights as "The ideas" below, so the screen
+   * says it once (LS-059: a passed check showed "Tested right" under
+   * "0 of 9 ideas cleared"). Before the deck has loaded there is nothing to
+   * count yet; the demo keeps the server's concepts.
+   */
+  const ideaLights =
+    live && ideas.length > 0 && !ideasPending
+      ? lightIdeas(lesson.id, ideas.map((x) => ({ first_page: x.firstPage })), history?.marks ?? [])
+      : null;
+  const segments: { id: string; progress: 'cleared' | 'discovered' | 'untouched' }[] = ideaLights
+    ? ideas.map((it, i) => ({
+        id: it.concept.id,
+        progress: ideaLights[i] === 'lit' || ideaLights[i] === 'fading' ? 'cleared' : ideaLights[i] === 'weak' ? 'discovered' : 'untouched',
+      }))
+    : live
+      ? []
+      : lesson.concepts.map((c) => ({ id: c.id, progress: c.progress }));
   const tools = toolsFor(lesson.id);
   const readerAt = (page: number, view?: 'explain') =>
     `/v4/space/${space.id}/lesson/${lesson.id}/faces?page=${page}${view ? `&view=${view}` : ''}`;
@@ -305,10 +323,10 @@ export default function LessonScreen() {
             </div>
 
             {/* Progress as the ideas themselves: one segment each, lit when cleared. */}
-            {lesson.concepts.length > 0 && (
+            {segments.length > 0 && (
               <div className="flex flex-col items-center gap-2">
                 <div aria-hidden className="flex gap-1">
-                  {lesson.concepts.map((c) => (
+                  {segments.map((c) => (
                     <span
                       key={c.id}
                       className={cn(
@@ -319,7 +337,7 @@ export default function LessonScreen() {
                   ))}
                 </div>
                 <p className="text-[12.5px] tabular-nums text-quiet">
-                  {t('lesson.cleared', { cleared, count: lesson.concepts.length })}
+                  {t('lesson.cleared', { cleared: segments.filter((c) => c.progress === 'cleared').length, count: segments.length })}
                 </p>
               </div>
             )}
