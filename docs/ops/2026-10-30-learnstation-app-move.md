@@ -1,19 +1,20 @@
-STATUS: BLOCKED — step 0: recovery subject readback and draft PR permission pending
+STATUS: BLOCKED — step 0: draft PR creation and first checkpoint go pending
 
 | step | status | before → after | evidence (UTC) | rollback |
 | --- | --- | --- | --- | --- |
-| 0: recon | pending | Server, Cloudflare and Resend baseline verified; Supabase project/org, Auth URLs, SMTP ON and recovery body confirmed; recovery subject still unknown. No production setting changed by the agent. | Connector/SSH evidence and Abi readbacks below. Site URL is `http://localhost:3000`; preserve two old redirect entries. | No production change to undo. |
+| 0: recon | done | Server, Cloudflare and Resend baseline verified; Supabase project/org, Auth URLs, SMTP ON and recovery subject/body confirmed. No production setting changed by the agent. | Connector/SSH evidence and Abi readbacks below. Site URL `http://localhost:3000`; email subject/body already match requested values. | No production change to undo. |
 | 0a: Cloudflare inventory | done | Four mail records, all `proxied=false` → unchanged. | `GET /zones` and `GET /zones/{zone_id}/dns_records`: success, HTTP 200, total_count=4, one page. | Read-only; none. |
 | 0b: Resend baseline | done | Verified EU domain, sending enabled, receiving/open/click tracking disabled → unchanged. | Resend `list_domains` and `get_domain`: verified, eu-west-1, sending enabled, receiving disabled, open_tracking=false, click_tracking=false; DKIM/SPF verified. | Read-only; none. |
 | 0c: redirect allow-list readback | done by Abi | `https://learnstation.duckdns.org/**` and `https://195-201-221-137.sslip.io/**` → unchanged. Site URL still unknown. | 2026-10-30T15:07:09Z: Abi pasted the current URL Configuration page text; its Site URL input value was not included. | Read-only; none. |
 | 0d: custom SMTP readback | done by Abi | Custom SMTP ON; Learnstation sender, Resend host/port/username confirmed → unchanged. | 2026-10-30T15:09:28Z: Abi explicitly confirmed the switch is on; supplied non-secret SMTP details below. Password not requested/read/changed. | Read-only; none. |
 | 0e: recovery body readback | done by Abi | Abi reports the exact requested bilingual body using `{{ .ConfirmationURL }}` → no body edit needed if this is the saved current value. | 2026-10-30T15:10:49Z: full HTML supplied in response to the request for current template content; matches the body preserved below. Subject still unknown. | No body change performed; preserve reported body. |
 | 0f: Site URL readback | done by Abi | `http://localhost:3000` → unchanged during recon; planned replacement `https://learnstation.app` after first go. | 2026-10-30T15:11:49Z: Abi explicitly supplied the current Site URL field value. | Read-only; none. |
+| 0g: recovery subject readback | done by Abi | `Learnstation: Passwort zurücksetzen · Reset your password` → unchanged; already matches requested value. | 2026-10-30T15:12:34Z: Abi supplied the current subject. | Read-only; none. |
 | 1: DNS | pending | Cloudflare has no apex/www records; public resolvers returned no apex A or www CNAME → planned A `@` = `195.201.221.137`, CNAME `www` = `learnstation.app`, both DNS only. | Cloudflare list: exactly four preserved mail records. `dig @1.1.1.1` and `dig @8.8.8.8`: no apex A or www CNAME answers. | Delete only the two newly created records; retain all four mail records. |
 | 2: TLS/nginx | pending | Only DuckDNS and sslip certificates/sites observed → planned additional apex/www certificate and site. | Existing certificate issuers/expiries and nginx behavior below; `nginx -t`: syntax OK, test successful. | Restore backed-up nginx files, remove only the new enabled site, test nginx and reload; leave old certificates/sites intact. |
 | 3: CORS | pending | `https://learnstation.duckdns.org,https://195-201-221-137.sslip.io` → append `https://learnstation.app`. | Only the `CORS_ALLOWED_ORIGINS` line was read from `.env`; API healthy. | Restore `.env` backup and recreate only `api`, without building/pulling. |
 | 4: Auth URLs | pending | Site URL `http://localhost:3000`; allow list contains DuckDNS and sslip wildcard entries → Site URL `https://learnstation.app`, add `https://learnstation.app/**`, preserve both existing entries. | Abi's URL Configuration readback recorded below. Connector exposes no Auth configuration read/write tools; later dashboard change required. | Restore `http://localhost:3000`; remove only the newly added apex redirect entry, preserving both original entries. |
-| 5: recovery email/tracking/test | pending | Current subject unknown; reported body already matches requested template; open/click tracking OFF → specified subject, retain reported body and tracking/receiving OFF. | Abi supplied the full bilingual body; Resend settings verified by connector; await current subject. No test mail requested/sent. | Restore recorded subject if changed; preserve reported body; keep receiving and tracking OFF. |
+| 5: recovery email/tracking/test | pending | Reported subject/body already match requested template; open/click tracking OFF → preserve these values; test after new-domain/Auth URL readiness. | Subject/body readback done by Abi; Resend settings verified by connector. No test mail requested/sent. | No template/tracking change needed from current baseline; restore Auth URLs per step 4 if migration is rolled back. |
 | 6: old host redirects | pending | DuckDNS serves app on 3000; sslip points at separate gateway on 3001, currently 502 → proposed 301 to apex after second explicit go. | `curl -I`: DuckDNS 200; sslip 502; localhost:3001 connection refused. | Restore both backed-up old site files, run `nginx -t`, reload. Keep their certificates. |
 | 7: recovery link code PR | pending | Existing implicit recovery flow → add token-hash verification while retaining implicit flow, separate undeployed branch/PR. | No application source changed or deployed. | Close/revert the separate code PR; no live effect until separately deployed. |
 | 8: finish | pending | Deployment/runbook address updates and completed evidence pending. | Ops log branch created from `origin/main` at `e2de2766bad4d2fb88a1eaaf3e80b3813654a9aa`, first commit `08682528` pushed. GitHub create_pull_request rejected with HTTP 403, Resource not accessible by integration; draft PR not created. | Revert documentation-only changes if required. |
@@ -26,7 +27,7 @@ This log contains observations from 2026-10-30 in UTC. Handoff assertions are di
 
 The server remains on `deploy/legal-20261030`. No checkout, image, worker, frontend, database, migration or application deployment changes are authorized by this log. Other PRs are outside scope.
 
-STOP 1: Complete BEFORE-value recon, present steps 1–5, then wait for Abi's explicit **go**. Not received.
+STOP 1: BEFORE-value recon complete at 2026-10-30T15:12:34Z. Exact steps 1–5 are below and presented to Abi for explicit **go**. Not received. The required early draft PR also remains pending due to connector 403; dashboard handoff below.
 
 STOP 2: After Abi tests the new domain, wait for another explicit **go** before redirecting either old hostname. Not received.
 
@@ -66,13 +67,15 @@ https://learnstation.duckdns.org/**
 https://195-201-221-137.sslip.io/**
 ```
 
-The initial paste included the Site URL label/help text but omitted the input value; the later explicit readback below resolves this. The current recovery email subject is still unverified.
+The initial paste included the Site URL label/help text but omitted the input value; the later explicit readback below resolves this.
 
 Recorded 2026-10-30T15:09:28Z, **done by Abi** (read-only): Abi supplied sender email `noreply@learnstation.app`, sender name `Learnstation`, SMTP host `smtp.resend.com`, port `465`, username `resend`, then explicitly confirmed **Enable custom SMTP is ON**. These values match the handoff. The SMTP password was not requested, read or changed.
 
 Recorded 2026-10-30T15:10:49Z, **done by Abi** (template readback): Abi supplied the full HTML body in response to the request for current template content. It matches the bilingual body preserved below exactly, including both `{{ .ConfirmationURL }}` links. No edit/save was reported, and the connector cannot independently verify the saved value. Do not infer the previous default body or a completed template change from this readback.
 
-Recorded 2026-10-30T15:11:49Z, **done by Abi** (read-only): Abi explicitly reports Site URL **`http://localhost:3000`**. This is the BEFORE value, not a proposed production setting. After first go and once new-domain HTTPS is ready, step 4 replaces it with `https://learnstation.app` while preserving the two existing redirect entries and adding `https://learnstation.app/**`. Only the current recovery subject remains missing from Auth recon.
+Recorded 2026-10-30T15:11:49Z, **done by Abi** (read-only): Abi explicitly reports Site URL **`http://localhost:3000`**. This is the BEFORE value, not a proposed production setting. After first go and once new-domain HTTPS is ready, step 4 replaces it with `https://learnstation.app` while preserving the two existing redirect entries and adding `https://learnstation.app/**`.
+
+Recorded 2026-10-30T15:12:34Z, **done by Abi** (read-only): Abi supplies current recovery subject **`Learnstation: Passwort zurücksetzen · Reset your password`**. It already matches the requested subject. Together with the reported body, no recovery-template edit is needed from this baseline. All step 0 settings now have recorded BEFORE values; the agent has made no production changes.
 
 ### Public DNS
 
@@ -134,11 +137,11 @@ Container names use the `ascend-academy-prod-` prefix. No containers changed.
 
 ## Exact proposed changes for first go (steps 1–5)
 
-1. **Cloudflare:** add DNS-only A `@` → `195.201.221.137` and DNS-only CNAME `www` → `learnstation.app`; preserve all mail records. Verify using `dig +short` against both 1.1.1.1 and 8.8.8.8. If connector access remains unavailable, Abi must make the dashboard changes after the checkpoint and provide readback.
+1. **Cloudflare:** use the connected API to add DNS-only A `@` → `195.201.221.137` and DNS-only CNAME `www` → `learnstation.app`; preserve all mail records. Verify using `dig +short` against both 1.1.1.1 and 8.8.8.8.
 2. **Server TLS/nginx:** back up every existing server file before editing it using `.bak-20261030-<HHMM>` in UTC; inventory any new paths as previously absent. Provision a separate HTTP challenge site if needed, issue a certificate with `certbot certonly --nginx -d learnstation.app -d www.learnstation.app`, then configure apex HTTPS with DuckDNS's exact proxy behavior/headers and www HTTPS → `301 https://learnstation.app$request_uri`. HTTP should redirect to apex HTTPS after issuance. Keep both old site files unchanged. Run `nginx -t` before each nginx reload; never restart. Verify certificate issuer/expiry, HTTPS behavior and `certbot renew --dry-run`.
 3. **CORS:** back up `/root/ascend-academy/.env`, append `https://learnstation.app` to `CORS_ALLOWED_ORIGINS`, retaining both old origins. Recreate only API with `docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate api`, without `--build` or pulling images. Verify GET `/api/v1/courses` returns 401 and an OPTIONS preflight allows `Origin: https://learnstation.app`.
-4. **Supabase:** after recording the current values, set Site URL to `https://learnstation.app`, add redirect URL `https://learnstation.app/**`, and retain DuckDNS/other existing allow-list entries. Leave SMTP settings/password untouched. Use connector or Abi dashboard action only.
-5. **Email/Resend:** after recording BEFORE values, set subject to `Learnstation: Passwort zurücksetzen · Reset your password`; use the exact body below, retaining `{{ .ConfirmationURL }}`. Set open/click tracking OFF and keep receiving OFF. Ask Abi to sign in on the apex, request his own password reset and open a Lesson. Record his report of inbox/spam and link hostname without recording the live link/token. Then STOP before step 6.
+4. **Supabase (done by Abi when reached):** Authentication → URL Configuration → change Site URL from `http://localhost:3000` to `https://learnstation.app` → Save changes; Redirect URLs → Add URL → `https://learnstation.app/**` → Save. Preserve both existing DuckDNS and sslip entries. Wait until new-domain HTTPS/API verification succeeds before making this change. Request saved-value readback and record evidence. Leave SMTP settings/password untouched; connector lacks these Auth operations.
+5. **Email/Resend/test:** preserve the current subject `Learnstation: Passwort zurücksetzen · Reset your password` and exact bilingual body below, retaining `{{ .ConfirmationURL }}`; Abi's readback already matches. Preserve open/click tracking OFF and receiving OFF. Ask Abi to sign in on the apex, request his own password reset and open a Lesson. Record his report of inbox/spam, link hostname and whether sign-in/reset/Lesson worked, without recording the live link/token. Then STOP before step 6.
 
 ### Recovery email body (requested; current body reported by Abi)
 
@@ -158,9 +161,9 @@ Container names use the `ascend-academy-prod-` prefix. No containers changed.
 
 ## Open items
 
-- Cloudflare/Resend are connected and their baseline checks passed. Supabase Auth settings still require dashboard readback; do not scrape dashboards or extract tokens from files.
+- Recon complete: Cloudflare/Resend connector checks and Supabase Auth dashboard readbacks passed. Later Supabase Auth changes still require Abi's dashboard action; do not scrape dashboards or extract tokens from files.
 - Create the single draft ops log PR through an authorized GitHub connector or Abi's dashboard; existing create attempt failed with 403. Record the PR link once created.
-- Complete step 0's current recovery subject readback and obtain first explicit go before production changes. Site URL, redirect allow list, SMTP ON and recovery body readbacks are recorded.
+- Obtain first explicit go before production changes. All step 0 BEFORE values are recorded. Required early draft PR remains pending.
 - Complete steps 1–5 and Abi's test; obtain second explicit go before step 6. Moving to the new address signs everyone out once because sessions are stored per site address.
 - Create `feat/reset-link-own-domain` from current `origin/main` for the separate, undeployed code PR. Preserve existing implicit recovery, add token-hash verification and meaningful tests; run touched Vitest tests and `npx tsc --noEmit -p tsconfig.app.json`. Rerun the known intermittent deck-measurement timeout once if encountered; do not skip it.
 - **Only after the code PR is separately deployed:** change the recovery link to `{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery`. Until then retain `{{ .ConfirmationURL }}`.
@@ -170,13 +173,13 @@ Container names use the `ascend-academy-prod-` prefix. No containers changed.
 
 Cloudflare and Resend are now connected and verified. The correct Supabase connection is Learnstation → osama's org → Ascend Academy, but its exposed tools lack Auth settings operations.
 
-**Draft PR handoff (GitHub connector returned 403):** open [the prepared branch comparison](https://github.com/osamash0/ascend-academy/compare/main...ops/learnstation-app-move?expand=1) → Create pull request → title `ops: move the site to learnstation.app (log)` → choose **Create draft pull request** from the button menu. Base: `main`; compare: `ops/learnstation-app-move`. Description: `Records migration recon, BEFORE/AFTER evidence, rollback instructions and Abi's two checkpoints. Step 0 awaits Supabase Auth settings; no production changes made.` Return the PR link so its creation can be recorded as **done by Abi**. Do not create a second PR if one already exists.
+**Draft PR handoff (GitHub connector returned 403):** open [the prepared branch comparison](https://github.com/osamash0/ascend-academy/compare/main...ops/learnstation-app-move?expand=1) → Create pull request → title `ops: move the site to learnstation.app (log)` → choose **Create draft pull request** from the button menu. Base: `main`; compare: `ops/learnstation-app-move`. Description: `Records migration recon, BEFORE/AFTER evidence, rollback instructions and Abi's two checkpoints. Recon complete; awaiting first go. No production changes made.` Return the PR link so its creation can be recorded as **done by Abi**. Do not create a second PR if one already exists.
 
-If dashboard handoff is needed, read these values first without changing anything:
+Current readbacks are complete. After first go, make only the Supabase URL changes when the agent reaches step 4 and confirms HTTPS/API readiness:
 
 - **Cloudflare:** baseline read complete through connector; no manual DNS change needed before first go.
 - **Supabase → project lkiiideqjoiksnycgplc → Authentication → URL Configuration:** readback complete: Site URL `http://localhost:3000`, plus the two old Redirect URLs. After first go and HTTPS readiness: Site URL `https://learnstation.app`; add `https://learnstation.app/**`, retain both existing entries.
-- **Supabase → Authentication → Emails → SMTP Settings:** readback complete, custom SMTP ON; leave unchanged. **Emails → Templates → Reset Password:** send the current subject from its input. Body readback is complete and matches the requested template above. Later target subject: `Learnstation: Passwort zurücksetzen · Reset your password`.
+- **Supabase → Authentication → Emails → SMTP Settings:** readback complete, custom SMTP ON; leave unchanged. **Emails → Templates → Reset Password:** current subject `Learnstation: Passwort zurücksetzen · Reset your password` and body already match requested values; preserve both and `{{ .ConfirmationURL }}` links.
 - **Resend:** baseline read complete through connector; verified, sending enabled, receiving OFF, both tracking switches OFF. Leave these values unchanged.
 
-No dashboard configuration changes have been reported. Site URL, redirect allow-list, SMTP and recovery body readbacks are marked **done by Abi**; this does not imply a settings change.
+No dashboard configuration changes have been reported. Site URL, redirect allow-list, SMTP and recovery subject/body readbacks are marked **done by Abi**; this does not imply a settings change.
