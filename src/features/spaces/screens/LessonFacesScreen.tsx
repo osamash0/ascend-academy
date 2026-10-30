@@ -458,13 +458,38 @@ export default function LessonFacesScreen() {
    * back over: there is nothing of ours behind it.
    */
   const pushedView = useRef(false);
+  /*
+   * Which side moved since the last run. Back and Forward move the address
+   * first, while the view still says Explain; read as "the view wants
+   * Explain" that pushed `&view=explain` straight back, so Back never closed
+   * it (seen live 2026-10-30). Now an address that moved on its own decides
+   * the view, and a view that moved decides the address.
+   */
+  const lastUrlView = useRef(params.get('view'));
+  const lastView = useRef(view);
   useEffect(() => {
     pushedView.current = false;
   }, [lessonId]);
   useEffect(() => {
     const inUrl = params.get('view');
     const want = view === 'slide' ? null : view;
+    const urlMoved = inUrl !== lastUrlView.current;
+    const viewMoved = view !== lastView.current;
+    lastUrlView.current = inUrl;
+    lastView.current = view;
     if (inUrl === want) return;
+    if (urlMoved && !viewMoved) {
+      /* Back, Forward or a link: the address decides which view is open. */
+      if (inUrl === 'explain' || inUrl === 'text') {
+        setView(inUrl);
+        return;
+      }
+      pushedView.current = false;
+      setView('slide');
+      setCompanion(null);
+      setSpot(null);
+      return;
+    }
     /* Same guard as `?page=`: never write into a Lesson navigated away from. */
     if (!onThisLesson(lessonId, browserRouted.current)) return;
     if (want && !inUrl) {
@@ -491,22 +516,6 @@ export default function LessonFacesScreen() {
       { replace: true },
     );
   }, [view, params, setParams, navigate, lessonId]);
-  /* Back and Forward: the address decides which view is open. */
-  useEffect(() => {
-    const onPop = () => {
-      const v = new URLSearchParams(window.location.search).get('view');
-      if (v === 'explain' || v === 'text') {
-        setView(v);
-        return;
-      }
-      pushedView.current = false;
-      setView('slide');
-      setCompanion(null);
-      setSpot(null);
-    };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
   const lunaOn = lunaEnabled(spaceId, lessonId);
   const [lunaOpen, setLunaOpen] = useState(() => params.get('luna') === '1' && lights.lunaReady);
   /* Explain and text dock in the same place: whichever opens, Luna steps aside. No session while she is still reading. */
