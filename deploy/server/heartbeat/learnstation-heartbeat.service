@@ -1,0 +1,8 @@
+[Unit]
+Description=Learnstation heartbeat (ping Better Stack when healthy)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/learnstation-heartbeat.sh
