@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent, act, within, cleanup } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, type RefObject } from 'react';
 import LessonFacesScreen from '../../screens/LessonFacesScreen';
 
@@ -221,8 +221,11 @@ describe('Explain answers the page as an interface', () => {
 describe('another Lesson, opened in place', () => {
   it('opens at the page and the words it was asked for (a search hit, a Luna move)', async () => {
     let go: (to: string) => void = () => {};
+    let at = '';
     const Nav = () => {
       go = useNavigate();
+      const loc = useLocation();
+      at = loc.pathname + loc.search;
       return null;
     };
     jumps.length = 0;
@@ -392,8 +395,11 @@ describe('a document scrolls', () => {
 describe('the page shape belongs to its Lesson', () => {
   it('a deck opened after a document is measured afresh, not shown as a scroll', async () => {
     let go: (to: string) => void = () => {};
+    let at = '';
     const Nav = () => {
       go = useNavigate();
+      const loc = useLocation();
+      at = loc.pathname + loc.search;
       return null;
     };
     mockAspect = 842 / 595;
@@ -410,9 +416,10 @@ describe('the page shape belongs to its Lesson', () => {
       /*
        * Let the reader settle first: its `?page=` write is a pending effect
        * that would otherwise land after the navigation below and replace the
-       * new Lesson's URL with this one's.
+       * new Lesson's URL with this one's. Flush it, then see it has landed.
        */
       await act(async () => {});
+      await waitFor(() => expect(at).toContain('page='), { timeout: 4000 });
       /* Another Lesson, then this one again as a landscape file: the old shape must not carry over. */
       await act(async () => go('/v4/space/s-dbs/lesson/l-s-dbs-3/faces'));
       await screen.findByText('Nothing to read yet', {}, { timeout: 4000 });
