@@ -46,7 +46,7 @@ const ENGLISH_CHROME = [
   /* 'Processing' alone is not listed: a demo Lesson is called "Query Processing". */
   'Draft',
   'Needs review',
-  'Source file removed',
+  'Source Material removed',
   'complete',
   'Lessons cleared',
   'ideas cleared',

@@ -161,7 +161,7 @@ describe('a Space with nothing in it', () => {
     expect(screen.getByRole('button', { name: 'Add a Lesson' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Make it visible' })).toBeDisabled();
     expect(screen.getByText('Add a Lesson first, then you can make it visible.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /more in the course manager/i })).toHaveAttribute('href', `/professor/courses/${SPACE}`);
+    expect(screen.getByRole('link', { name: /more in the classic manager/i })).toHaveAttribute('href', `/professor/courses/${SPACE}`);
     expect(screen.queryByText('Rehearse for the exam')).not.toBeInTheDocument();
   });
 

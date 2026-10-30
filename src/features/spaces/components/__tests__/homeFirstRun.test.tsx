@@ -35,7 +35,7 @@ describe('Home, right after first run', () => {
 
   it('offers a file to bring in beside a Space to find', () => {
     mount();
-    expect(screen.getByRole('link', { name: /bring in a file/i })).toHaveAttribute('href', '/v4/library');
+    expect(screen.getByRole('link', { name: /bring in material/i })).toHaveAttribute('href', '/v4/library');
     expect(screen.getByRole('button', { name: /find a space/i })).toBeInTheDocument();
   });
 });

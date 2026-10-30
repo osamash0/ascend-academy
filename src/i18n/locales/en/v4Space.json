@@ -99,7 +99,7 @@
       "in_one": "Exam in {{count}} day",
       "in_other": "Exam in {{count}} days",
       "today": "Exam today",
-      "passed": "Exam passed",
+      "passed": "Exam over",
       "clear": "Clear the exam date"
     },
     "minutes_one": "~{{count}} min",
@@ -127,7 +127,7 @@
       "dismiss": "Dismiss {{name}}",
       "uploadFailed": "Couldn’t send that just now. Nothing changed — try again.",
       "publishFailed": "Couldn’t change that just now. Nothing changed — try again.",
-      "manager": "More in the course manager"
+      "manager": "More in the classic manager"
     },
     "leave": {
       "open": "Leave this Space",
@@ -193,9 +193,9 @@
       "saving": "Saving to your history…",
       "saved": "Saved to your history",
       "saveFailed": "Couldn’t save this one to your history",
-      "unkept": "Rehearsals of your own files are not kept yet",
+      "unkept": "Rehearsals of your own Materials are not kept yet",
       "verdict": {
-        "flawless": "Flawless.",
+        "flawless": "Every one right.",
         "strong": "Strong — a couple of ideas to tighten.",
         "close": "Getting there.",
         "again": "Worth another pass."
@@ -260,7 +260,7 @@
     "rehearse": "Rehearse this Lesson",
     "cleared_one": "{{cleared}} of {{count}} ideas cleared",
     "cleared_other": "{{cleared}} of {{count}} ideas cleared",
-    "materialRemoved": "The original file was removed. This Lesson still works.",
+    "materialRemoved": "The original Material was removed. This Lesson still works.",
     "teachBackTitle": "Teach-back · {{idea}}",
     "community": {
       "title": "From the community",
@@ -366,7 +366,7 @@
       "processing": "Processing",
       "draft": "Draft",
       "needsReview": "Needs review",
-      "sourceRemoved": "Source file removed",
+      "sourceRemoved": "Source Material removed",
       "label": "Lesson {{order}}. {{title}}. By {{author}}. {{percent}}% complete.",
       "open": "Open"
     },

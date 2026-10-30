@@ -62,10 +62,8 @@
         "body": "Lade Material in einem Space hoch, dann entsteht daraus eine Lektion. Die Datei bleibt deine und erscheint hier."
       },
       "contribution": {
-        "title": "Noch nichts veröffentlicht",
-        "body": "Teil eine Zusammenfassung, ein durchgerechnetes Beispiel oder Übungsfragen mit einem Space. Was du veröffentlichst, erscheint hier. Und du siehst, wie es ankam."
-      },
-      "toSpaces": "Zu deinen Spaces"
+        "title": "Noch nichts veröffentlicht"
+      }
     },
     "shelf": {
       "title": "Bibliothek",
@@ -99,7 +97,7 @@
       },
       "nothing": {
         "query": "Nichts in deinem Regal passt zu „{{q}}“.",
-        "shared": "Noch nichts geteilt. Wenn eine Seite für andere bereit ist, teile sie direkt auf der Seite.",
+        "shared": "Noch nichts geteilt.",
         "reading": "Nichts mehr zu lesen. Hier ist alles durchgelesen."
       },
       "state": {
@@ -135,19 +133,19 @@
       "bring": {
         "label": "Etwas hinzufügen",
         "cellTitle": "Etwas hinzufügen",
-        "cellHint": "PDF, PPTX oder ein Foto – hier ablegen oder klicken",
+        "cellHint": "Ein PDF – hier ablegen oder klicken",
         "emptyTitle": "Dein erstes Material hinzufügen",
-        "emptyHint": "PDF, PPTX oder ein Foto. Daraus wird eine Seite zum Lesen, Fragen und Merken.",
+        "emptyHint": "Ein PDF. Daraus wird eine Lektion, die nur du siehst – zum Lesen, Fragen und Üben.",
         "veil": "Zum Hinzufügen hier ablegen",
         "cellHintLive": "Ein PDF – hier ablegen oder klicken",
         "emptyHintLive": "Ein PDF. Daraus wird eine Lektion, die nur du siehst – zum Lesen, Fragen und Üben."
       },
       "words": {
         "title": "Deine Worte",
-        "lede": "Jede Notiz und jede Antwort, nach der du gefragt hast, weiterhin an ihrer Seite.",
+        "lede": "Jede Notiz, die du geschrieben hast, weiterhin an ihrer Seite.",
         "newNote": "Neue Notiz",
         "placeholder": "Schreib es auf, solange es frisch ist …",
-        "empty": "Noch nichts geschrieben. Notizen und Antworten, nach denen du fragst, sammeln sich hier.",
+        "empty": "Noch nichts geschrieben. Notizen, die du schreibst, sammeln sich hier.",
         "note": "Notiz",
         "answer": "Antwort",
         "itsLesson": "Zur Lektion",
@@ -246,7 +244,7 @@
       },
       "ledeLive": "Was du hinzugefügt hast, und deine Worte aus jeder Lektion.",
       "ledeWords": "Deine Worte, aus jeder Lektion.",
-      "wordsEmpty": "Notizen, die du in einer Lektion schreibst, sammeln sich hier – jede nur einen Tipp von der Seite entfernt, auf der sie entstand."
+      "wordsEmpty": "Notizen, die du in einer Lektion schreibst, sammeln sich hier – jede nur ein Tippen von der Seite entfernt, auf der sie entstand."
     }
   },
   "studio": {
@@ -256,7 +254,7 @@
       "impact": "Wie deine Arbeit ankam"
     },
     "loading": "Wird geladen …",
-    "failed": "Etwas ist schiefgelaufen",
+    "failed": "Da ist bei uns etwas schiefgelaufen",
     "selected_one": "{{count}} ausgewählt",
     "selected_other": "{{count}} ausgewählt",
     "selectRow": "Diese Zeile auswählen",
@@ -296,9 +294,7 @@
     "impact": {
       "subtitle_one": "{{count}} veröffentlichter Beitrag",
       "subtitle_other": "{{count}} veröffentlichte Beiträge",
-      "intro": "Jeder Beitrag, den du veröffentlicht hast, und was daraus geworden ist. Likes stehen bei jedem Eintrag einzeln. Sie zeigen, was anderen geholfen hat, und ergeben nie eine Punktzahl.",
       "emptyTitle": "Noch nichts veröffentlicht",
-      "emptyBody": "Teile eine Zusammenfassung, ein durchgerechnetes Beispiel oder Übungsfragen mit einem Space. Dann erscheint es hier, zusammen mit dem, was daraus geworden ist.",
       "needsNewHome": "Braucht einen neuen Platz"
     },
     "canvas": {

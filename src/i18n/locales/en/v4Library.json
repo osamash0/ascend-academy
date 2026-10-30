@@ -62,10 +62,8 @@
         "body": "Upload material inside a Space and a Lesson builds itself from it. The file stays yours, and it lists here."
       },
       "contribution": {
-        "title": "Nothing published yet",
-        "body": "Share a summary, a worked example or a set of practice questions with a Space. Whatever you publish lands here, with how it landed."
-      },
-      "toSpaces": "Go to your Spaces"
+        "title": "Nothing published yet"
+      }
     },
     "shelf": {
       "title": "Library",
@@ -99,7 +97,7 @@
       },
       "nothing": {
         "query": "Nothing on your shelf is called “{{q}}”.",
-        "shared": "Nothing shared yet. When a page is ready for others, share it from the page itself.",
+        "shared": "Nothing shared yet.",
         "reading": "Nothing left to read. Everything here is read through."
       },
       "state": {
@@ -135,19 +133,19 @@
       "bring": {
         "label": "Bring something in",
         "cellTitle": "Bring something in",
-        "cellHint": "PDF, PPTX or a photo — drop it, or click",
+        "cellHint": "A PDF — drop it, or click",
         "emptyTitle": "Bring in your first file",
-        "emptyHint": "PDF, PPTX or a photo. It becomes a page you can read, ask and remember.",
+        "emptyHint": "A PDF. It becomes a Lesson only you can see — read it, ask it, practise it.",
         "veil": "Drop to bring it in",
         "cellHintLive": "A PDF — drop it, or click",
         "emptyHintLive": "A PDF. It becomes a Lesson only you can see — read it, ask it, practise it."
       },
       "words": {
         "title": "Your words",
-        "lede": "Every note and every answer you asked for, each one still attached to its page.",
+        "lede": "Every note you wrote, each one still attached to its page.",
         "newNote": "New note",
         "placeholder": "Write it down while it is fresh…",
-        "empty": "Nothing written yet. Notes you write and answers you ask for gather here.",
+        "empty": "Nothing written yet. Notes you write gather here.",
         "note": "Note",
         "answer": "Answer",
         "itsLesson": "its Lesson",
@@ -296,9 +294,7 @@
     "impact": {
       "subtitle_one": "{{count}} published contribution",
       "subtitle_other": "{{count}} published contributions",
-      "intro": "Every contribution you’ve published, and what happened to it. Likes are shown per item — they say what people found useful, and never add up to a score.",
       "emptyTitle": "Nothing published yet",
-      "emptyBody": "Share a summary, a worked example or a set of practice questions with a Space, and it will show up here with how it landed.",
       "needsNewHome": "Needs a new home"
     },
     "canvas": {

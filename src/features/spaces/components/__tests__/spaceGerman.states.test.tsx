@@ -44,7 +44,7 @@ describe('the states, in German', () => {
   it.each(FAILED)('a failure to load "%s" is one German sentence', (what) => {
     render(<SpacesError what={what} onRetry={() => {}} />);
     expect(screen.getByRole('button', { name: /Noch mal versuchen/ })).toBeInTheDocument();
-    expect(text()).toMatch(/konnte(n)? nicht geladen werden/);
+    expect(text()).toMatch(/^Wir konnten .* nicht laden/);
     expect(text()).not.toMatch(ENGLISH);
     expect(text()).not.toMatch(RAW);
   });
@@ -63,7 +63,7 @@ describe('the states, in German', () => {
 
   it('a Material is "das Material" in both', () => {
     const { unmount } = render(<SpacesError what="material" onRetry={() => {}} />);
-    expect(screen.getByText('Dieses Material konnte nicht geladen werden')).toBeInTheDocument();
+    expect(screen.getByText('Wir konnten dieses Material nicht laden')).toBeInTheDocument();
     unmount();
     render(
       <MemoryRouter>

@@ -1,6 +1,5 @@
 {
   "defaultName": "Professor",
-  "commandCenter": "Dashboard",
   "greeting": "{{greeting}}, {{name}}.",
   "summary": "<bold>{{students}} students</bold> are actively engaged. Average accuracy is <bold>{{accuracy}}%</bold> across your <bold>{{lectures}} courses</bold>.",
   "createLecture": "Create Lecture",
@@ -10,10 +9,6 @@
     "averageScore": "Average Score",
     "quizAttempts": "Quiz Attempts"
   },
-  "lectures_status": {
-    "activeProtocol": "Live",
-    "noSourcePdf": "No Source PDF"
-  },
   "lectures": {
     "sectionTitle": "Your Lectures",
     "sectionSubtitle": "Manage your interactive learning materials",
@@ -21,13 +16,11 @@
     "table": {
       "details": "Lecture Details",
       "slideCount": "Slide Count",
-      "launchDate": "Launch Date",
       "status": "Status",
       "actions": "Actions"
     },
     "status": {
-      "active": "Live",
-      "noPdf": "No Source PDF"
+      "active": "Live"
     },
     "uncategorized": "Uncategorized",
     "courseAssignment": "Course assignment",

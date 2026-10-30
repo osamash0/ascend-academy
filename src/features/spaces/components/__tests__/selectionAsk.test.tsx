@@ -28,7 +28,7 @@ import { readSource } from './sources';
 const SPACE = 's-dbs';
 const WRITTEN = 'l-s-dbs-4';
 
-const ASK = 'Ask the tutor';
+const ASK = 'Ask Luna';
 const SAVE = 'Save as note';
 const RAIL = { name: 'Reader companions' } as const;
 
@@ -153,7 +153,7 @@ describe('the popover follows the selection, and only inside the prose', () => {
      * asking about the Lesson. The header is the same story with a breadcrumb.
      */
     await renderReader();
-    const btn = screen.getByRole('button', { name: 'Tutor' });
+    const btn = screen.getByRole('button', { name: 'Luna' });
     btn.focus();
     fireEvent.click(btn);
     const rail = screen.getByRole('complementary', RAIL);
@@ -203,7 +203,7 @@ describe('what the two actions do with the sentence', () => {
     fireEvent.click(screen.getByRole('button', { name: ASK }));
 
     const rail = screen.getByRole('complementary', RAIL);
-    expect(within(rail).getByRole('tab', { name: 'Tutor' }).getAttribute('aria-selected')).toBe(
+    expect(within(rail).getByRole('tab', { name: 'Luna' }).getAttribute('aria-selected')).toBe(
       'true',
     );
     expect(within(rail).getByText(`“${quote}”`)).toBeTruthy();
@@ -364,7 +364,7 @@ describe('the popover goes away for all four reasons', () => {
      * disappears. A real key press targets the focused element.
      */
     const { container } = await renderReader();
-    const btn = screen.getByRole('button', { name: 'Tutor' });
+    const btn = screen.getByRole('button', { name: 'Luna' });
     btn.focus();
     fireEvent.click(btn);
     twoParagraphs(container);
@@ -388,7 +388,7 @@ describe('the popover is an extra route, not the only one', () => {
      * a mounting mistake there could shadow the header.
      */
     await renderReader();
-    for (const name of ['Tutor', 'Notes'] as const) {
+    for (const name of ['Luna', 'Notes'] as const) {
       const btn = screen.getByRole('button', { name });
       btn.focus();
       fireEvent.click(btn);
