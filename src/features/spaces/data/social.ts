@@ -55,6 +55,25 @@ export const declineRequest = (personId: string): void => {
   void answer(personId, 'decline');
 };
 
+/**
+ * Whether the people in the viewer's Spaces see them (LS-036): off until they
+ * switch it on. The demo has no one to hide from, so it reads as on.
+ */
+export const showInSpacesNow = (): boolean => {
+  const world = liveWorld();
+  return world ? world.showInSpaces === true : true;
+};
+
+/** Switch it, and say what the server kept. Throws if the change did not save. */
+export async function setShowInSpaces(on: boolean): Promise<boolean> {
+  const world = liveWorld();
+  if (!world) return on;
+  const repo = await loadLiveRepository();
+  const { showInSpaces } = await repo.setShowInSpaces(on);
+  world.showInSpaces = showInSpaces;
+  return showInSpaces;
+}
+
 function answer(personId: string, verdict: 'accept' | 'decline'): Promise<void> {
   return loadLiveRepository()
     .then((repo) => repo.answerFriendRequest(personId, verdict))

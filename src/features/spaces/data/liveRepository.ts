@@ -245,6 +245,9 @@ export function createLiveRepository(http: V4Transport) {
     deleteNote: (id: string) => http.delete<{ deleted: true }>(`${root}/notes/${idPath(id)}`),
     /* Mark every notification read. */
     markNotificationsRead: () => http.post<{ marked: number }>(`${root}/notifications/read-all`, {}),
+    /* Whether the people in your Spaces see you (LS-036). */
+    setShowInSpaces: (on: boolean) =>
+      http.patch<{ showInSpaces: boolean }>(`${root}/me/visibility`, { showInSpaces: on }),
     /* Make a Space on the stage: a course you own, empty and private to start (LS-050). */
     createSpace: (name: string) => http.post<{ id: string }>(`${root}/spaces`, { name }),
     /* Publish your Space, or make it private again (owners only, LS-072). */

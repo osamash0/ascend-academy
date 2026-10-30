@@ -29,6 +29,11 @@ export interface World {
   streakDays: number;
   /** The viewer's XP total, from the XP ledger. */
   xp: number;
+  /**
+   * Whether the people in the viewer's Spaces see them: rankings and Space
+   * cards (LS-036). Off by default; friends see each other either way.
+   */
+  showInSpaces?: boolean;
   /** The viewer's latest notifications, newest first. */
   notifications: AppNotification[];
   /** What the viewer has done: study days (newest first), the XP ledger, Moments. */

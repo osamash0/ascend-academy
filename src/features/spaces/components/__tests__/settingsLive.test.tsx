@@ -34,12 +34,13 @@ describe('v4 Settings shows only what is real', () => {
     expect(screen.getByText(/switches below/i)).toBeInTheDocument();
   });
 
-  it('live: no unsaved switch and no notice; language and your data remain', async () => {
+  it('live: no unsaved switch and no notice; language, who sees you (stored, LS-036) and your data', async () => {
     vi.stubEnv('VITE_V4_DATA_MODE', 'live');
     mount();
     expect(await screen.findByRole('button', { name: 'Export' }, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.getByText('Deutsch')).toBeInTheDocument();
-    expect(screen.queryAllByRole('switch')).toHaveLength(0);
+    // The one switch live is the stored "Show me to the people in my Spaces".
+    expect(screen.getAllByRole('switch').map((s) => s.getAttribute('aria-labelledby'))).toEqual(['show-in-spaces-label']);
     expect(screen.queryByText(/switches below/i)).not.toBeInTheDocument();
   });
 });

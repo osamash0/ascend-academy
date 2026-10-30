@@ -26,7 +26,7 @@
       "<bold>Learning events:</bold> reading time per page, quiz answers with timestamps and self-rated understanding.",
       "<bold>What you write:</bold> questions to the AI tutor and the conversation history, your written explanations in practice, search queries, notes and feedback messages.",
       "<bold>Documents you upload:</bold> the files, the text extracted from them and the summaries and questions generated from that text.",
-      "<bold>Social data:</bold> friend connections and friend requests, and whether you appear on the leaderboard.",
+      "<bold>Social data:</bold> friendships and friend requests. Whether the people in your Spaces see you (name, picture and XP in rankings and on the Space) is your choice in Settings; it is off until you switch it on. Friends always see each other.",
       "<bold>Technical data:</bold> IP address, browser type and the pages you request, in server logs kept for a short time."
     ],
     "section3Title": "3. Purpose and legal basis",

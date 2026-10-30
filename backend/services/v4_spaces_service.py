@@ -17,11 +17,9 @@ from backend.services.v4_reader_service import POSTER_BUCKET, signed_pdf_url
 
 
 def _person(row: Any) -> Dict[str, Any]:
-    """profiles row → Person. Content is never anonymous, so a missing name
-    falls back to the email's local part rather than to nothing."""
+    """profiles row → Person. A missing name reads "Learner": never the
+    email's local part, which other people would see (LS-036)."""
     name = (row["display_name"] or row["full_name"] or "").strip()
-    if not name and row["email"]:
-        name = row["email"].split("@", 1)[0]
     return {"id": str(row["user_id"]), "name": name or "Learner", "avatarUrl": row["avatar_url"]}
 
 
@@ -34,6 +32,16 @@ async def get_person(user_id: str) -> Optional[Dict[str, Any]]:
             user_id,
         )
     return _person(row) if row else None
+
+
+async def set_show_in_spaces(user_id: str, on: bool) -> bool:
+    """Switch whether the people in the viewer's Spaces see them (LS-036)."""
+    conn_cm = await get_db_connection()
+    async with conn_cm as conn:
+        return await conn.fetchval(
+            "UPDATE public.profiles SET show_in_spaces = $2 WHERE user_id = $1::uuid RETURNING show_in_spaces",
+            user_id, on,
+        )
 
 
 async def create_space(user_id: str, name: str, description: Optional[str] = None) -> str:
@@ -192,6 +200,12 @@ SELECT course_id, user_id, display_name, full_name, email, avatar_url FROM (
   JOIN public.profiles p ON p.user_id = e.user_id
   WHERE e.course_id = ANY($2::uuid[])
     AND e.user_id <> $1::uuid AND e.user_id <> c.professor_id
+    -- LS-036: seen by the people in your Spaces only if you said so; friends always.
+    AND (p.show_in_spaces OR EXISTS (
+         SELECT 1 FROM friend_requests f
+         WHERE f.status = 'accepted'
+           AND ((f.requester_id = $1::uuid AND f.addressee_id = e.user_id)
+             OR (f.addressee_id = $1::uuid AND f.requester_id = e.user_id))))
 ) t
 WHERE n <= 3
 """
@@ -258,7 +272,7 @@ async def get_world(user_id: str) -> Dict[str, Any]:
             list(author_ids),
         )
         viewer_row = await conn.fetchrow(
-            "SELECT user_id, display_name, full_name, email, avatar_url, current_streak, total_xp "
+            "SELECT user_id, display_name, full_name, email, avatar_url, current_streak, total_xp, show_in_spaces "
             "FROM public.profiles WHERE user_id = $1::uuid",
             user_id,
         )
@@ -425,6 +439,8 @@ async def get_world(user_id: str) -> Dict[str, Any]:
         "streakDays": (viewer_row["current_streak"] or 0) if viewer_row else 0,
         # The XP ledger's running total (grant_xp keeps profiles.total_xp).
         "xp": (viewer_row["total_xp"] or 0) if viewer_row else 0,
+        # Whether the people in the viewer's Spaces see them (LS-036). Off by default.
+        "showInSpaces": bool(viewer_row["show_in_spaces"]) if viewer_row else False,
         "notifications": [_notification(r) for r in notes],
         "record": record,
         "social": social,
@@ -677,7 +693,10 @@ async def _social(conn: Any, user_id: str) -> Dict[str, Any]:
         SELECT p.user_id, p.display_name, p.full_name, p.email, p.avatar_url, COALESCE(p.total_xp, 0) AS xp
         FROM profiles p
         WHERE p.user_id = ANY($1::uuid[])
-          AND (p.user_id = ANY($2::uuid[]) OR NOT COALESCE({internal}, false))
+          -- A friend you chose is shown whatever their settings; anyone else
+          -- only if they switched on "Show me to the people in my Spaces"
+          -- (LS-036) and is a real student, not a test or staff account.
+          AND (p.user_id = ANY($2::uuid[]) OR (p.show_in_spaces AND NOT COALESCE({internal}, false)))
         ORDER BY xp DESC
         LIMIT {_RACE_SIZE - 1}
         """,

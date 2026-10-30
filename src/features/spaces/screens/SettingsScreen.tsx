@@ -15,6 +15,7 @@ import { Avatar } from '../components/Avatar';
 import { formatNumber } from '../i18n/format';
 import { dataMode } from '../data/liveRepository';
 import { LiveAccountData } from '../components/LiveAccountData';
+import { useShowInSpaces } from '../data/useShowInSpaces';
 
 /**
  * Settings — a Studio screen hanging off Profile.
@@ -163,6 +164,31 @@ function LanguageSection() {
   );
 }
 
+/**
+ * Who sees you (LS-036): off until you switch it on (Art. 25(2) GDPR). Stored
+ * on the server and honoured by every ranking and Space card; friends see
+ * each other either way.
+ */
+function LiveVisibilitySection() {
+  const { t } = useTranslation('v4Settings');
+  const { on, change } = useShowInSpaces();
+  return (
+    <Section title={t('sections.visibility.title')}>
+      <Toggle
+        id="show-in-spaces"
+        label={t('sections.visibility.spaces.label')}
+        description={t('sections.visibility.spaces.hint')}
+        value={on}
+        onChange={(next) => {
+          void change(next).then((saved) => {
+            if (!saved) toast.error(t('sections.visibility.spaces.failed'));
+          });
+        }}
+      />
+    </Section>
+  );
+}
+
 export default function SettingsScreen() {
   const viewer = useViewer();
   const { t } = useTranslation('v4Settings');
@@ -223,6 +249,8 @@ export default function SettingsScreen() {
         NEEDS-BACKEND: notification and visibility preferences.
       */}
       <LanguageSection />
+
+      {live && <LiveVisibilitySection />}
 
       {!live && (
         <>

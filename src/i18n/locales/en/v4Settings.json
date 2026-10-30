@@ -42,6 +42,11 @@
       "activity": {
         "label": "Show what I am reading",
         "hint": "Lets members of a Space see which Lessons you have open. Off by default — nobody asked to be watched."
+      },
+      "spaces": {
+        "label": "Show me to the people in my Spaces",
+        "hint": "Your name, picture and XP appear in their rankings and on the Space. Off: only your friends see you there.",
+        "failed": "That did not save. Try again."
       }
     },
     "data": {

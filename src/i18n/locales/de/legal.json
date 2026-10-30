@@ -26,7 +26,7 @@
       "<bold>Lern-Events:</bold> Lesedauer pro Seite, Quizantworten mit Zeitstempel und Selbsteinschätzung des Verständnisses.",
       "<bold>Was Sie schreiben:</bold> Fragen an den KI-Tutor und der Gesprächsverlauf, Ihre geschriebenen Erklärungen beim Üben, Suchanfragen, Notizen und Feedback-Nachrichten.",
       "<bold>Hochgeladene Dokumente:</bold> die Dateien, der daraus extrahierte Text sowie die daraus erzeugten Zusammenfassungen und Fragen.",
-      "<bold>Soziale Daten:</bold> Freundschaften und Freundschaftsanfragen sowie Ihre Sichtbarkeit in der Rangliste.",
+      "<bold>Soziale Daten:</bold> Freundschaften und Freundschaftsanfragen. Ob die Personen in Ihren Spaces Sie sehen (Name, Profilbild und XP in Ranglisten und am Space), entscheiden Sie in den Einstellungen; ab Werk ist das ausgeschaltet. Freunde sehen einander immer.",
       "<bold>Technische Daten:</bold> IP-Adresse, Browser-Typ und aufgerufene Seiten in Server-Logs, die nur kurz aufbewahrt werden."
     ],
     "section3Title": "3. Zweck und Rechtsgrundlage",
