@@ -1,16 +1,18 @@
-STATUS: BLOCKED — step 0: connector access and dashboard BEFORE values pending
+STATUS: BLOCKED — step 0: Supabase Auth BEFORE values and draft PR permission pending
 
 | step | status | before → after | evidence (UTC) | rollback |
 | --- | --- | --- | --- | --- |
-| 0: recon | pending | Existing production inspected; no production setting changed. Cloudflare record list, Supabase Auth configuration and Resend configuration still unverified. | 2026-10-30T14:57:28Z–14:58:10Z: SSH inspection, `certbot certificates`, `nginx -t`, Compose status and public DNS results below. | No production change to undo. |
-| 1: DNS | pending | Apex A and www CNAME: no answers at either public resolver → planned A `@` = `195.201.221.137`, CNAME `www` = `learnstation.app`, both DNS only. | `dig @1.1.1.1` and `dig @8.8.8.8` returned no apex A or www CNAME answers. Cloudflare inventory/proxy state pending. | Delete only the two newly created records; retain all four mail records. |
+| 0: recon | pending | Server, Cloudflare and Resend baseline verified; Supabase project/org confirmed; Auth configuration still unknown. No production setting changed. | SSH/DNS evidence below; 2026-10-30T15:05Z–15:06Z connector reads: four DNS-only mail records; Resend verified, receiving/tracking OFF; Ascend Academy ACTIVE_HEALTHY in osama's org. | No production change to undo. |
+| 0a: Cloudflare inventory | done | Four mail records, all `proxied=false` → unchanged. | `GET /zones` and `GET /zones/{zone_id}/dns_records`: success, HTTP 200, total_count=4, one page. | Read-only; none. |
+| 0b: Resend baseline | done | Verified EU domain, sending enabled, receiving/open/click tracking disabled → unchanged. | Resend `list_domains` and `get_domain`: verified, eu-west-1, sending enabled, receiving disabled, open_tracking=false, click_tracking=false; DKIM/SPF verified. | Read-only; none. |
+| 1: DNS | pending | Cloudflare has no apex/www records; public resolvers returned no apex A or www CNAME → planned A `@` = `195.201.221.137`, CNAME `www` = `learnstation.app`, both DNS only. | Cloudflare list: exactly four preserved mail records. `dig @1.1.1.1` and `dig @8.8.8.8`: no apex A or www CNAME answers. | Delete only the two newly created records; retain all four mail records. |
 | 2: TLS/nginx | pending | Only DuckDNS and sslip certificates/sites observed → planned additional apex/www certificate and site. | Existing certificate issuers/expiries and nginx behavior below; `nginx -t`: syntax OK, test successful. | Restore backed-up nginx files, remove only the new enabled site, test nginx and reload; leave old certificates/sites intact. |
 | 3: CORS | pending | `https://learnstation.duckdns.org,https://195-201-221-137.sslip.io` → append `https://learnstation.app`. | Only the `CORS_ALLOWED_ORIGINS` line was read from `.env`; API healthy. | Restore `.env` backup and recreate only `api`, without building/pulling. |
 | 4: Auth URLs | pending | Current Site URL and redirect allow list unknown → Site URL `https://learnstation.app`, add `https://learnstation.app/**`, preserve old entries. | Connector exposes no Auth configuration read/write tools; BEFORE values required. | Restore recorded Site URL and redirect allow list. |
-| 5: recovery email/tracking/test | pending | Current subject/body and tracking settings unknown → requested bilingual template using `{{ .ConfirmationURL }}`, specified subject, open/click tracking OFF. | Await connector access or Abi dashboard readback. No test mail requested/sent. | Restore recorded subject/body and tracking settings. |
+| 5: recovery email/tracking/test | pending | Current subject/body unknown; open/click tracking already OFF → requested bilingual template using `{{ .ConfirmationURL }}`, specified subject; keep tracking/receiving OFF. | Resend settings verified by connector; await Supabase subject/body readback. No test mail requested/sent. | Restore recorded subject/body; keep receiving and tracking OFF. |
 | 6: old host redirects | pending | DuckDNS serves app on 3000; sslip points at separate gateway on 3001, currently 502 → proposed 301 to apex after second explicit go. | `curl -I`: DuckDNS 200; sslip 502; localhost:3001 connection refused. | Restore both backed-up old site files, run `nginx -t`, reload. Keep their certificates. |
 | 7: recovery link code PR | pending | Existing implicit recovery flow → add token-hash verification while retaining implicit flow, separate undeployed branch/PR. | No application source changed or deployed. | Close/revert the separate code PR; no live effect until separately deployed. |
-| 8: finish | pending | Deployment/runbook address updates and completed evidence pending. | Ops log branch created from `origin/main` at `e2de2766bad4d2fb88a1eaaf3e80b3813654a9aa`. Draft PR pending at initial commit. | Revert documentation-only changes if required. |
+| 8: finish | pending | Deployment/runbook address updates and completed evidence pending. | Ops log branch created from `origin/main` at `e2de2766bad4d2fb88a1eaaf3e80b3813654a9aa`, first commit `08682528` pushed. GitHub create_pull_request rejected with HTTP 403, Resource not accessible by integration; draft PR not created. | Revert documentation-only changes if required. |
 
 ## Scope and checkpoints
 
@@ -30,7 +32,26 @@ STOP 2: After Abi tests the new domain, wait for another explicit **go** before 
 
 - 2026-10-30T14:57Z: plugin search for `Cloudflare Resend` returned an empty plugin list. Separate searches for `Cloudflare` and `Resend` also returned empty lists. This does not establish that no integration exists outside the surfaced catalog.
 - Supabase plugin is installed/enabled. Available tool inventory has project/database/Edge Function operations, but no Auth configuration or email-template read/write operation. No SQL or credential-based workaround attempted.
-- Abi requested connecting the missing providers before dashboard handoff. Connection setup pending. No external dashboard action is marked **done by Abi** without a report/readback.
+- Abi connected Cloudflare and Resend after requesting a pause. Both now support the required read-only checks; results are below. No production configuration action is marked **done by Abi** without a report/readback.
+- 2026-10-30T15:00Z: GitHub connector `create_pull_request`, base `main`, head `ops/learnstation-app-move`, draft=true, returned HTTP 403: `Resource not accessible by integration`. No PR was created. Per rule 4, no CLI/browser workaround attempted; dashboard draft-creation handoff below.
+- 2026-10-30T15:05Z: Supabase `list_projects` on the Learnstation connection confirms **Ascend Academy**, project `lkiiideqjoiksnycgplc`, region `eu-west-1`, status `ACTIVE_HEALTHY`; `get_organization` confirms **osama's org**, organization `kbodqbgqptugjxjpctbt`. Use this connection for the migration. The other connection exposes a different project and is outside scope.
+
+### Cloudflare record inventory (verified)
+
+2026-10-30T15:05Z–15:06Z: `GET /zones?name=learnstation.app` returns one active full zone; `GET /zones/09f8045d57baa5b18239a2168f4a4288/dns_records?per_page=100&page=1` returns success, HTTP 200, exactly four records, one page.
+
+| type | name | content | proxied | TTL |
+| --- | --- | --- | --- | --- |
+| CNAME | rsend.learnstation.app | rsend-euw1.forge.rmta.net | false | 3600 |
+| CNAME | send.learnstation.app | send.forge.rmta.net | false | 3600 |
+| TXT | _dmarc.learnstation.app | `v=DMARC1; p=none;` | false | Auto (1) |
+| TXT | resend._domainkey.learnstation.app | Public DKIM key omitted | false | 3600 |
+
+No apex A, apex AAAA or www record exists. Preserve all four listed records unchanged.
+
+### Resend baseline (verified)
+
+2026-10-30T15:05Z: `list_domains` and `get_domain` return `learnstation.app`, status **verified**, region **eu-west-1**, sending **enabled**, receiving **disabled**, open tracking **false**, click tracking **false**. DKIM and both SPF CNAME records show **verified**. No configuration change needed for receiving/tracking. No test email sent.
 
 ### Public DNS
 
@@ -45,7 +66,7 @@ dig @8.8.8.8 www.learnstation.app CNAME +noall +answer
 
 All four returned no answer records. This is not a Cloudflare record inventory and does not verify proxy settings.
 
-Handoff-only mail inventory, awaiting confirmation: CNAME `rsend` → `rsend-euw1.forge.rmta.net`; CNAME `send` → `send.forge.rmta.net`; TXT `resend._domainkey`; TXT `_dmarc` = `v=DMARC1; p=none;`. Preserve all four exactly. Do not include DKIM key text in readback.
+The later Cloudflare connector inventory above confirms the handoff's four mail records and DNS-only state. Preserve all four exactly.
 
 ### nginx and certificates
 
@@ -116,8 +137,9 @@ Container names use the `ascend-academy-prod-` prefix. No containers changed.
 
 ## Open items
 
-- Connect Cloudflare/Resend if supported; establish a supported Supabase Auth configuration route. Do not scrape dashboards or extract tokens from files.
-- Complete step 0's missing Cloudflare/Supabase/Resend BEFORE values and obtain first explicit go before production changes.
+- Cloudflare/Resend are connected and their baseline checks passed. Supabase Auth settings still require dashboard readback; do not scrape dashboards or extract tokens from files.
+- Create the single draft ops log PR through an authorized GitHub connector or Abi's dashboard; existing create attempt failed with 403. Record the PR link once created.
+- Complete step 0's missing Supabase Auth BEFORE values and obtain first explicit go before production changes.
 - Complete steps 1–5 and Abi's test; obtain second explicit go before step 6. Moving to the new address signs everyone out once because sessions are stored per site address.
 - Create `feat/reset-link-own-domain` from current `origin/main` for the separate, undeployed code PR. Preserve existing implicit recovery, add token-hash verification and meaningful tests; run touched Vitest tests and `npx tsc --noEmit -p tsconfig.app.json`. Rerun the known intermittent deck-measurement timeout once if encountered; do not skip it.
 - **Only after the code PR is separately deployed:** change the recovery link to `{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery`. Until then retain `{{ .ConfirmationURL }}`.
@@ -125,13 +147,15 @@ Container names use the `ascend-academy-prod-` prefix. No containers changed.
 
 ## Values for Abi
 
-Connection setup requested by Abi; Cloudflare and Resend were not found in the surfaced plugin catalog. Supabase is installed, but its exposed tools lack Auth settings operations.
+Cloudflare and Resend are now connected and verified. The correct Supabase connection is Learnstation → osama's org → Ascend Academy, but its exposed tools lack Auth settings operations.
+
+**Draft PR handoff (GitHub connector returned 403):** open [the prepared branch comparison](https://github.com/osamash0/ascend-academy/compare/main...ops/learnstation-app-move?expand=1) → Create pull request → title `ops: move the site to learnstation.app (log)` → choose **Create draft pull request** from the button menu. Base: `main`; compare: `ops/learnstation-app-move`. Description: `Records migration recon, BEFORE/AFTER evidence, rollback instructions and Abi's two checkpoints. Step 0 awaits Supabase Auth settings; no production changes made.` Return the PR link so its creation can be recorded as **done by Abi**. Do not create a second PR if one already exists.
 
 If dashboard handoff is needed, read these values first without changing anything:
 
-- **Cloudflare → learnstation.app → DNS → Records:** names/types/targets and DNS-only/proxied state; omit DKIM key text. Later changes: A `@` → `195.201.221.137`, CNAME `www` → `learnstation.app`, both grey cloud/DNS only.
+- **Cloudflare:** baseline read complete through connector; no manual DNS change needed before first go.
 - **Supabase → project lkiiideqjoiksnycgplc → Authentication → URL Configuration:** current Site URL and every Redirect URL. Later values: Site URL `https://learnstation.app`; add `https://learnstation.app/**`, retain existing entries.
 - **Supabase → Authentication → Emails → SMTP Settings:** enabled/disabled only; do not reveal or change the password. **Emails → Templates → Reset Password:** current subject and HTML body. Later subject/body: exactly as above.
-- **Resend → Domains → learnstation.app:** verification, sending and receiving status; **Configuration:** open/click tracking settings. Later target: verified, sending enabled, receiving OFF, both tracking switches OFF.
+- **Resend:** baseline read complete through connector; verified, sending enabled, receiving OFF, both tracking switches OFF. Leave these values unchanged.
 
 No dashboard changes have been reported or marked done by Abi yet.
