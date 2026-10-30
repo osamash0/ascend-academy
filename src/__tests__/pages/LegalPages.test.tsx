@@ -31,6 +31,13 @@ describe('Datenschutz', () => {
     expect(text).toContain('Abdullah Abobaker');
     expect(container.querySelector(`a[href="mailto:${MAIL}"]`)).not.toBeNull();
     for (const used of ['Supabase', 'Hetzner', 'OpenAI', 'Groq', 'Gemini', 'OpenRouter']) expect(text).toContain(used);
-    for (const unused of ['Sentry', 'Resend', 'Cloudflare', 'Mistral', 'Ollama', '[']) expect(text).not.toContain(unused);
+    for (const unused of ['Sentry', 'Cloudflare', 'Mistral', 'Ollama', '[']) expect(text).not.toContain(unused);
+  });
+
+  it('names Resend, which sends the account emails, among the processors and the US transfers', () => {
+    const { container } = renderWithProviders(<Datenschutz />, { initialEntries: ['/datenschutz'] });
+    const text = container.textContent ?? '';
+    expect(text).toContain('Resend (Plus Five Five, Inc., USA)');
+    expect(text).toMatch(/Microsoft, Resend\)/);
   });
 });

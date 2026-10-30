@@ -15,7 +15,7 @@
   },
   "privacy": {
     "title": "Privacy Policy",
-    "lastUpdated": "Last updated: 29 October 2026",
+    "lastUpdated": "Last updated: 30 October 2026",
     "section1Title": "1. Controller",
     "section1Body": "Abdullah Abobaker\nWettergasse 6\n35037 Marburg\nGermany\nEmail:",
     "section2Title": "2. Data we collect",
@@ -38,6 +38,7 @@
     "section4Items": [
       "<bold>Supabase Inc.</bold> — sign-in, database and file storage (servers in the EU, Ireland).",
       "<bold>Hetzner Online GmbH (Germany)</bold> — hosting of the application server.",
+      "<bold>Resend (Plus Five Five, Inc., USA)</bold> — sends the emails that belong to your account, such as the link to reset your password. Resend receives your email address and the content of that email; the emails are sent from the EU (Ireland).",
       "<bold>AI providers</bold> — for summaries, questions, explanations, Luna’s answers and search, the text of your documents, your questions and your conversation history are sent to <bold>OpenAI</bold>, <bold>Groq</bold> and <bold>Google (Gemini)</bold>; <bold>OpenRouter</bold> steps in when those are unreachable. Your name and email address are not part of these requests.",
       "<bold>LlamaIndex (LlamaParse)</bold> — when that parsing engine is selected at upload, uploaded documents are sent there to extract their text.",
       "<bold>Microsoft (Edge text-to-speech)</bold> — text is sent to produce spoken audio when you use the read-aloud feature."
@@ -56,7 +57,7 @@
     "section7Title": "7. Cookies and local storage",
     "section7Body": "Learnstation does not use <bold>tracking cookies</bold> or advertising trackers (no Google Analytics, no Facebook Pixel). Only the browser's localStorage is used for session management and settings.",
     "section8Title": "8. International data transfer",
-    "section8Body": "Some processors listed above are based in the United States or may process data there (Supabase, OpenAI, Groq, Google, OpenRouter, LlamaIndex, Microsoft). For these transfers the EU Standard Contractual Clauses (SCCs) or the EU-U.S. Data Privacy Framework apply as safeguards under Art. 46 GDPR.",
+    "section8Body": "Some processors listed above are based in the United States or may process data there (Supabase, OpenAI, Groq, Google, OpenRouter, LlamaIndex, Microsoft, Resend). For these transfers the EU Standard Contractual Clauses (SCCs) or the EU-U.S. Data Privacy Framework apply as safeguards under Art. 46 GDPR.",
     "backHome": "← Back to home"
   }
 }
