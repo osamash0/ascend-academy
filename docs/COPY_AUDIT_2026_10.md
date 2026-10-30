@@ -115,21 +115,21 @@ A key was deleted only when its full path, its parent path and its leaf word app
 
 ## Parked: findings that need code, not copy
 
-1. `src/components/UploadsIndicator.tsx:69` shows the toast **"Lecture created."** after an upload, hard-coded in English, on the v4 Home. It should be a `v4Spaces` key saying Lesson. Seen live on sign-in.
-2. `src/features/spaces/components/course/OwnerBar.tsx:151` links the Space owner to `ProfessorRoutes.COURSE_DETAIL` (the classic manager). PR #126 retired the classic rooms for students, so check that a student owner can still open it; if not, the link is a dead end.
+1. `src/components/UploadsIndicator.tsx:69` toasts **"Lecture created."** after an upload, hard-coded in English. **Corrected 2026-10-30:** this is not v4. `UploadsIndicator` mounts only in the classic `ConsoleTopBar`; it showed because the local build had no v4 flags and sign-in landed on `/dashboard`. Classic-room copy, left alone with the rest of decision 3.
+2. `src/features/spaces/components/course/OwnerBar.tsx:151` links the Space owner to `ProfessorRoutes.COURSE_DETAIL` (the classic manager). **Checked 2026-10-30:** the route allows `['professor', 'student']`, so a student owner can open it. Not a dead end; no change.
 3. `src/hooks/useLectureSubmit.ts:150,327` toast **"Success!" / "Lecture created successfully."**, hard-coded; classic rooms only.
 4. `node scripts/check-vocabulary.mjs src/features/spaces` reports 189 violations in TSX (string literals and JSX text with course/lecture/slide/folder). Most are identifiers and comments the law exempts in spirit but the script counts; a pass to silence it is a separate PR.
 5. One fact once: on `/v4/home` the signed-in name appears in the top-bar account chip and again in the greeting line. Layout decision, not copy.
 6. `v4Reader` `timeline.slide` and `timeline.page` are two keys for one word now; the reader picks by material kind. Collapse to one when convenient.
-7. The avatar button on Home and `/auth` is labelled "Luna. Say hi." in both languages: a hard-coded aria-label, not an i18n key.
-8. The author chip on a Lesson shows the role word from the data ("Professor") untranslated; the glossary says "Leute, die den Space pflegen" and never the bare word. Needs a key per role.
+7. The avatar button on Home and `/auth` was labelled "Luna. Say hi." in both languages, hard-coded. **Fixed** in the follow-up PR: `avatar:hero.sayHi`, German "Luna. Sag hallo."
+8. The author chip on a Lesson read "Professor" in German mode. **Corrected 2026-10-30:** that is not a role word. The server sends the owner's profile name (`COALESCE(full_name, display_name)`), and the account that owns Datenbanksysteme is named "Professor". Data, not copy. The real finding behind it: when the owner has no name, `useReader.ts` fell back to a hard-coded English "Course team" (banned word). **Fixed** in the follow-up PR: `v4Spaces:people.runTheSpace`, "The people who run this Space" / "Die Leute, die diesen Space pflegen", with a test.
 
 ## Walk
 
 Signed in as the default test account on a local build with `VITE_V4_DATA_MODE=live`, `VITE_FEATURE_V4=1`, `VITE_FEATURE_LUNA_SESSIONS=1`. Rooms read through the accessibility tree (the stage is WebGL, so screenshots are black): Home, Spaces hub, a Lesson (Datenbanksysteme, Lektion 1), Library, Settings, in English and then in German.
 
 - Every string on those screens came from the glossary vocabulary in both languages (Space, Lektion, Seite, Bibliothek, Leute, Inhaber:in, Bearbeiter:innen). No Folie, Kurs, Vorlesung or Sie anywhere.
-- Home: the greeting, the ask box ("Luna fragen"), the continue card and "Zuletzt angesehen" read cleanly. The avatar button is labelled "Luna. Say hi." in German mode: hard-coded in TSX, parked as 7 below.
-- Lesson: "Lektion 1 · 66 Seiten", the ideas list, practice, notes and "Erklär's zurück" are all German. The author chip reads "Professor" in German mode; the glossary bans the bare word. It comes from the role data, not a translation key, parked as 8 below.
+- Home: the greeting, the ask box ("Luna fragen"), the continue card and "Zuletzt angesehen" read cleanly. The avatar button is labelled "Luna. Say hi." in German mode: hard-coded in TSX, parked as 7 below, since fixed.
+- Lesson: "Lektion 1 · 66 Seiten", the ideas list, practice, notes and "Erklär's zurück" are all German. The author chip reads "Professor": the owning account's profile name, see 8 below.
 - Library: the live "bring" hint already says "Ein PDF – hier ablegen oder klicken"; the shelf, tabs and counts are consistent. Settings: language, the one live visibility switch, export and delete, nothing promised that is not there.
 - One fact once: the top bar shows the name, rank and XP once; Settings repeats "Rang 1 · 70 XP" under the avatar on the same screen as the top bar is hidden there, so no duplicate. Home repeats the name (chip and greeting), parked as 5.

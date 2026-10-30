@@ -23,6 +23,7 @@
  * blink. Pure SVG + Motion; no data, no network — `loadout` is a prop.
  */
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   AnimatePresence,
   animate,
@@ -72,6 +73,7 @@ export function LunaHero({
   sleepy = false,
   className,
 }: LunaHeroProps) {
+  const { t } = useTranslation('avatar');
   const reduce = useReducedMotion() ?? false;
   const uid = 'lh' + useId().replace(/[^a-zA-Z0-9]/g, '');
   const lo = { ...DEFAULT_LOADOUT, ...loadout };
@@ -278,7 +280,7 @@ export function LunaHero({
     <motion.button
       ref={ref}
       type="button"
-      aria-label="Luna. Say hi."
+      aria-label={t('hero.sayHi')}
       onClick={greet}
       onPointerEnter={() => setHover(true)}
       onPointerLeave={() => setHover(false)}

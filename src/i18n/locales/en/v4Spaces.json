@@ -613,5 +613,8 @@
       "name": "10 Streak Champion",
       "description": "Ten correct answers in a row."
     }
+  },
+  "people": {
+    "runTheSpace": "The people who run this Space"
   }
 }

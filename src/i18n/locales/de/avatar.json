@@ -193,5 +193,8 @@
     "hint": "Wähl unten dein Foto, und dein Crew-Ausweis wird zum Lernführerschein.",
     "edit": "Im Anzugspind bearbeiten",
     "mine": "Mein Ausweis"
+  },
+  "hero": {
+    "sayHi": "Luna. Sag hallo."
   }
 }
