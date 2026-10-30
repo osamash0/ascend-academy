@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -113,16 +113,31 @@ const SHEET_PAD = { y: 16, side: 56 };
 const TOC_ALONE = 1180;
 const TOC_WITH_PANEL = 1640;
 const TOC_WIDTH = 260;
-/*
- * The page line sits above the timeline, never on it: the timeline's row is
- * 20px over the safe area (6px at least), and the pill stands 8px clear of it.
- * A short window has no timeline band to clear; its controls float.
+/**
+ * Arrow keys inside a tab switch move between its tabs (and select), Home/End
+ * jump to the ends; the page does not turn (LS-054). `pick` gets the new index.
  */
+function onTabKeys(e: ReactKeyboardEvent<HTMLElement>, count: number, current: number, pick: (i: number) => void) {
+  const to =
+    e.key === 'ArrowRight' ? current + 1 : e.key === 'ArrowLeft' ? current - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? count - 1 : null;
+  if (to === null) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const next = (to + count) % count;
+  pick(next);
+  e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')[next]?.focus();
+}
+
 /** The browser's address is this Lesson's reader (not one navigated to since). */
 function onThisLesson(lessonId: string | undefined): boolean {
   return typeof window !== 'undefined' && !!lessonId && window.location.pathname.endsWith(`/lesson/${lessonId}/faces`);
 }
 
+/*
+ * The page line sits above the timeline, never on it: the timeline's row is
+ * 20px over the safe area (6px at least), and the pill stands 8px clear of it.
+ * A short window has no timeline band to clear; its controls float.
+ */
 const PILL_BOTTOM = 'bottom-[max(34px,calc(env(safe-area-inset-bottom)+28px))]';
 const PILL_BOTTOM_SHORT = 'bottom-[max(20px,calc(env(safe-area-inset-bottom)+8px))]';
 
@@ -422,6 +437,65 @@ export default function LessonFacesScreen() {
 
   /* Luna: a study session beside the page. Live only; nothing renders without it. */
   const navigate = useNavigate();
+
+  /*
+   * Explain and Text get a history entry of their own (`&view=explain`), so
+   * browser or Android Back closes the view and leaves you on the page,
+   * instead of leaving the Lesson (LS-056). Closing it with × or Esc steps
+   * back over that entry, so Back never lands on a duplicate. A view the
+   * Lesson was opened with (a link with `&view=`) is replaced, not stepped
+   * back over: there is nothing of ours behind it.
+   */
+  const pushedView = useRef(false);
+  useEffect(() => {
+    pushedView.current = false;
+  }, [lessonId]);
+  useEffect(() => {
+    const inUrl = params.get('view');
+    const want = view === 'slide' ? null : view;
+    if (inUrl === want) return;
+    /* Same guard as `?page=`: never write into a Lesson navigated away from. */
+    if (!onThisLesson(lessonId)) return;
+    if (want && !inUrl) {
+      pushedView.current = true;
+      setParams((prev) => {
+        const n = new URLSearchParams(prev);
+        n.set('view', want);
+        return n;
+      });
+      return;
+    }
+    if (!want && pushedView.current) {
+      pushedView.current = false;
+      navigate(-1);
+      return;
+    }
+    setParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        if (want) n.set('view', want);
+        else n.delete('view');
+        return n;
+      },
+      { replace: true },
+    );
+  }, [view, params, setParams, navigate, lessonId]);
+  /* Back and Forward: the address decides which view is open. */
+  useEffect(() => {
+    const onPop = () => {
+      const v = new URLSearchParams(window.location.search).get('view');
+      if (v === 'explain' || v === 'text') {
+        setView(v);
+        return;
+      }
+      pushedView.current = false;
+      setView('slide');
+      setCompanion(null);
+      setSpot(null);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const lunaOn = lunaEnabled(spaceId, lessonId);
   const [lunaOpen, setLunaOpen] = useState(() => params.get('luna') === '1' && lights.lunaReady);
   /* Explain and text dock in the same place: whichever opens, Luna steps aside. No session while she is still reading. */
@@ -643,6 +717,8 @@ export default function LessonFacesScreen() {
       if (paging && (studio || el?.closest('[role="slider"]'))) return;
       /* Space turns the page, but a focused button keeps its own space. */
       if (e.key === ' ' && el?.closest('button, a, [role="tab"], select, summary')) return;
+      /* Arrows inside a tab switch move between its tabs, not the page (LS-054). */
+      if (e.key.startsWith('Arrow') && el?.closest('[role="tablist"]')) return;
       const by =
         e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ' ? 1 : e.key === 'ArrowLeft' || e.key === 'PageUp' ? -1 : 0;
       const step = view === 'slide' && shape === 'slides' ? (e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0) : 0;
@@ -853,19 +929,31 @@ export default function LessonFacesScreen() {
         <DetailSkeleton />
       </>,
     );
-  if (state === 'error' || content.state === 'error')
+  if (state === 'error')
     return chrome(
       <>
         <ReaderExit to={exitTo} />
         <SpacesError what="lesson" />
       </>,
     );
+  /*
+   * A Lesson that isn't there (removed, or a mistyped link) is "not here",
+   * not "the connection dropped": its content fails with a 404 too, so this
+   * check comes before the content's error (LS-061).
+   */
   if (!space || !lesson)
     return chrome(
       <NotFound
         what="lesson"
         back={space ? { to: `/v4/space/${space.id}`, space: space.name } : { to: '/v4/spaces', place: 'spaces' }}
       />,
+    );
+  if (content.state === 'error')
+    return chrome(
+      <>
+        <ReaderExit to={exitTo} />
+        <SpacesError what="lesson" />
+      </>,
     );
 
   const back = `/v4/space/${space.id}/lesson/${lesson.id}`;
@@ -1241,6 +1329,9 @@ export default function LessonFacesScreen() {
         role="tablist"
         aria-label={tr('views.label')}
         className={cn('flex rounded-full p-1', overPage)}
+        onKeyDown={(e) =>
+          onTabKeys(e, VIEWS.length, Math.max(0, VIEWS.findIndex((v) => v.id === view)), (i) => pickView(VIEWS[i].id))
+        }
       >
         {views.map((v) => {
           const on = view === v.id;
@@ -1250,6 +1341,7 @@ export default function LessonFacesScreen() {
               type="button"
               role="tab"
               aria-selected={on}
+              tabIndex={on ? 0 : -1}
               onClick={() => {
                 pickView(v.id);
               }}
@@ -1685,6 +1777,7 @@ function PointDots({
     <div
       role="tablist"
       aria-label={tr('screen.points.label')}
+      onKeyDown={(e) => onTabKeys(e, items.length, Math.max(0, items.findIndex((b) => b.i === beat)), (k) => onPick(items[k].i))}
       onPointerEnter={() => setOpen(true)}
       onPointerLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}
@@ -1701,6 +1794,7 @@ function PointDots({
             type="button"
             role="tab"
             aria-selected={on}
+            tabIndex={on ? 0 : -1}
             aria-label={b.label}
             title={open ? undefined : b.label}
             onClick={() => onPick(b.i)}

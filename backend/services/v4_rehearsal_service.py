@@ -527,12 +527,18 @@ async def history(course_id: UUID, user_id: str) -> dict[str, Any]:
         }
 
     ideas: dict[tuple[str, str], dict[str, Any]] = {}
-    for row in rows:  # newest first: the first sighting of an idea is its latest result
+    decided_by: dict[tuple[str, str], Any] = {}  # the attempt an idea's latest result comes from
+    for row in rows:  # newest first: the first attempt that tests an idea gives its latest result
         results = row["results"] if isinstance(row["results"], list) else json.loads(row["results"])
         for r in results:
             key = (r["lecture_id"], r["idea"].strip().lower())
             e = ideas.get(key)
+            if e is not None and decided_by[key] == row["id"] and not r["correct"]:
+                # Two answers on one idea in the same attempt: it is right only if both were.
+                # A miss listed second used to be dropped, so a 1/2 check showed "No weak spots" (LS-057).
+                e["latest_correct"] = False
             if e is None:
+                decided_by[key] = row["id"]
                 e = ideas[key] = {
                     "lecture_id": r["lecture_id"],
                     "lecture_title": titles.get(r["lecture_id"], ""),

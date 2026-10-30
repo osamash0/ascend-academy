@@ -525,3 +525,38 @@ describe('the keys keep to what exists', () => {
     expect(screen.getByRole('tab', { name: 'Page' })).toHaveAttribute('aria-selected', 'true');
   });
 });
+
+describe('the view switch is a real tab switch (LS-054)', () => {
+  beforeEach(() => {
+    mockPages = 12;
+  });
+  afterEach(() => {
+    mockPages = 0;
+  });
+  it('arrows move between Page, Explain and Text, and never turn the page', async () => {
+    await renderFaces();
+    const pageTab = screen.getByRole('tab', { name: 'Page' });
+    expect(pageTab).toHaveAttribute('tabindex', '0');
+    expect(screen.getByRole('tab', { name: 'Explain' })).toHaveAttribute('tabindex', '-1');
+    pageTab.focus();
+    jumps.length = 0;
+    fireEvent.keyDown(pageTab, { key: 'ArrowRight' });
+    const explain = await screen.findByRole('tab', { name: 'Explain', selected: true });
+    expect(explain).toHaveFocus();
+    expect(jumps.some((p) => p > 1)).toBe(false);
+  });
+});
+
+describe('a Lesson that is not there (LS-061)', () => {
+  it('says so, with a way back, instead of "the connection dropped"', async () => {
+    render(
+      <MemoryRouter initialEntries={['/v4/space/s-dbs/lesson/no-such-lesson/faces?page=1']}>
+        <Routes>
+          <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<LessonFacesScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText('That Lesson isn’t here', {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.queryByText(/connection dropped/i)).toBeNull();
+  });
+});

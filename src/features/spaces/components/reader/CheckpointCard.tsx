@@ -97,6 +97,8 @@ export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onO
 
   return (
     <AnimatePresence>
+      {/* Lifted clear of the reader's pager and the Explain ask bar, which sit in the
+          bottom ~100px: at bottom-5 the card covered the Next arrow (LS-053). */}
       {idea && !open && (
         <motion.div
           key={`offer-${ideaKey}`}
@@ -106,7 +108,7 @@ export function CheckpointCard({ idea, lectureTitle, load, pageHref, onDone, onO
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: reduce ? 0 : 8 }}
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed bottom-5 left-5 right-5 z-[44] rounded-3xl border border-white/[0.09] bg-[#0b0b0c] p-5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] sm:left-auto sm:w-80"
+          className="fixed bottom-[max(112px,calc(env(safe-area-inset-bottom)+104px))] left-5 right-5 z-[44] rounded-3xl border border-white/[0.09] bg-[#0b0b0c] p-5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] sm:left-auto sm:w-80"
         >
           <button
             type="button"

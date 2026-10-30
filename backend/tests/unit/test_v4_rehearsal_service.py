@@ -76,6 +76,46 @@ def test_history_marks_each_idea_by_its_latest_answer(monkeypatch):
     assert [w["idea"] for w in h["weak"]] == ["BCNF"]
 
 
+def test_a_miss_in_the_same_attempt_makes_the_idea_weak(monkeypatch):
+    # LS-057: a two-question checkpoint on one idea, right then wrong, is a weak spot.
+    import asyncio
+    import datetime
+    import uuid
+
+    import backend.services.v4_rehearsal_service as svc
+
+    now = datetime.datetime(2026, 10, 10, tzinfo=datetime.timezone.utc)
+    checkpoint = [
+        {"lecture_id": LEC, "page": 2, "idea": "Architecture", "kind": "choice", "correct": True},
+        {"lecture_id": LEC, "page": 3, "idea": "Architecture", "kind": "choice", "correct": False},
+    ]
+    older_pass = [{"lecture_id": LEC, "page": 2, "idea": "Architecture", "kind": "choice", "correct": True}]
+    attempts = [
+        {"id": uuid.uuid4(), "title": "Checkpoint", "score": 1, "total": 2, "results": checkpoint, "created_at": now},
+        {"id": uuid.uuid4(), "title": "Checkpoint", "score": 1, "total": 1, "results": older_pass, "created_at": now},
+    ]
+
+    class Conn:
+        async def fetch(self, sql, *args):
+            return attempts if "v4_rehearsal_attempts" in sql else [{"id": LEC, "title": "Introduction"}]
+
+    class Ctx:
+        async def __aenter__(self):
+            return Conn()
+
+        async def __aexit__(self, *exc):
+            return False
+
+    async def connect():
+        return Ctx()
+
+    monkeypatch.setattr(svc, "get_db_connection", connect)
+    h = asyncio.run(svc.history(uuid.uuid4(), str(uuid.uuid4())))
+    assert [w["idea"] for w in h["weak"]] == ["Architecture"]
+    assert h["steady_count"] == 0
+    assert [m["correct"] for m in h["marks"]] == [False]
+
+
 def test_a_checkpoint_stays_inside_its_idea_and_is_written_once(monkeypatch):
     import asyncio
     import uuid
