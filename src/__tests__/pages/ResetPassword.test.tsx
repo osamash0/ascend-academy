@@ -8,15 +8,23 @@
  *   - react-router useNavigate
  *   - useToast
  */
-import { render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { StrictMode } from 'react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { sharedSupabaseMock as supabaseMock } from '@/test/sharedSupabaseMock';
 
+const verifyOtpMock = vi.hoisted(() => vi.fn());
+
 vi.mock('@/integrations/supabase/client', async () => {
   const m = await import('@/test/sharedSupabaseMock');
-  return { supabase: m.sharedSupabaseMock };
+  return {
+    supabase: {
+      ...m.sharedSupabaseMock,
+      auth: { ...m.sharedSupabaseMock.auth, verifyOtp: verifyOtpMock },
+    },
+  };
 });
 
 const toastMock = vi.fn();
@@ -38,12 +46,13 @@ vi.mock('@/components/LanguageToggle', () => ({
 import ResetPassword from '@/pages/ResetPassword';
 import i18n from '@/i18n';
 
-function renderPage() {
-  return render(
+function renderPage(strict = false) {
+  const page = (
     <BrowserRouter>
       <ResetPassword />
     </BrowserRouter>
   );
+  return render(strict ? <StrictMode>{page}</StrictMode> : page);
 }
 
 beforeEach(async () => {
@@ -52,9 +61,89 @@ beforeEach(async () => {
   vi.clearAllMocks();
   toastMock.mockClear();
   navigateMock.mockClear();
+  verifyOtpMock.mockReset();
+  window.history.replaceState(null, '', '/reset-password');
+});
+
+afterEach(() => {
+  window.history.replaceState(null, '', '/');
 });
 
 describe('ResetPassword', () => {
+  it('waits for token-hash verification before showing the password form', async () => {
+    window.history.replaceState(null, '', '/reset-password?token_hash=fixture-hash&type=recovery');
+    const verified = { data: { session: { access_token: 'test-recovery-session' } }, error: null };
+    let finishVerification: (value: typeof verified) => void;
+    verifyOtpMock.mockReturnValueOnce(new Promise<typeof verified>((resolve) => {
+      finishVerification = resolve;
+    }));
+
+    renderPage();
+    expect(verifyOtpMock).toHaveBeenCalledWith({ token_hash: 'fixture-hash', type: 'recovery' });
+    expect(screen.getByText(/Verifying your reset link/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^New password/i)).not.toBeInTheDocument();
+    expect(supabaseMock.auth.getSession).not.toHaveBeenCalled();
+
+    await act(async () => { finishVerification(verified); });
+    expect(screen.getByLabelText(/^New password/i)).toBeInTheDocument();
+  });
+
+  it('verifies a single-use token only once during StrictMode effect replay', async () => {
+    window.history.replaceState(null, '', '/reset-password?token_hash=fixture-hash&type=recovery');
+    verifyOtpMock.mockResolvedValueOnce({ data: { session: { access_token: 'test-recovery-session' } }, error: null });
+
+    renderPage(true);
+    expect(await screen.findByLabelText(/^New password/i)).toBeInTheDocument();
+    expect(verifyOtpMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an expired token instead of falling back to an existing login', async () => {
+    window.history.replaceState(null, '', '/reset-password?token_hash=expired-fixture&type=recovery');
+    verifyOtpMock.mockResolvedValueOnce({ data: { session: null }, error: { message: 'Expired token' } });
+
+    renderPage();
+    expect(await screen.findByText(/This reset link is invalid or has expired/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^New password/i)).not.toBeInTheDocument();
+    expect(supabaseMock.auth.getSession).not.toHaveBeenCalled();
+    expect(supabaseMock.auth.onAuthStateChange).not.toHaveBeenCalled();
+  });
+
+  it('shows the invalid-link state when verification fails to reach the server', async () => {
+    window.history.replaceState(null, '', '/reset-password?token_hash=fixture-hash&type=recovery');
+    verifyOtpMock.mockRejectedValueOnce(new Error('Network unavailable'));
+
+    renderPage();
+    expect(await screen.findByText(/This reset link is invalid or has expired/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^New password/i)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    '?token_hash=fixture-hash&type=signup',
+    '?token_hash=fixture-hash',
+    '?token_hash=&type=recovery',
+  ])('rejects malformed recovery parameters: %s', async (query) => {
+    window.history.replaceState(null, '', `/reset-password${query}`);
+    renderPage();
+
+    expect(await screen.findByText(/This reset link is invalid or has expired/i)).toBeInTheDocument();
+    expect(verifyOtpMock).not.toHaveBeenCalled();
+    expect(supabaseMock.auth.getSession).not.toHaveBeenCalled();
+  });
+
+  it('keeps implicit PASSWORD_RECOVERY events working for previously sent links', async () => {
+    supabaseMock.auth.getSession.mockResolvedValueOnce({ data: { session: null }, error: null });
+    const listener = vi.fn();
+    supabaseMock.auth.onAuthStateChange.mockImplementationOnce((callback) => {
+      listener.mockImplementation(callback);
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+
+    renderPage();
+    act(() => { listener('PASSWORD_RECOVERY', null); });
+    expect(screen.getByLabelText(/^New password/i)).toBeInTheDocument();
+    expect(verifyOtpMock).not.toHaveBeenCalled();
+  });
+
   it('shows verifying state initially, then transitions to invalid if no session arrives', async () => {
     supabaseMock.auth.getSession.mockResolvedValueOnce({ data: { session: null }, error: null });
     
