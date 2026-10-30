@@ -84,8 +84,9 @@ export default function LibraryScreen() {
   const [sort, setSort] = useState<ShelfSort>('recent');
   const [grouped, setGrouped] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  // Your words has no covers, so Select never stands over it.
-  const selecting = params.get('select') === '1' && filter !== 'words';
+  // Your words has no covers, so Select never stands over it; nor does an
+  // empty shelf, where a removal bar would have nothing to remove (LS-063).
+  const selecting = params.get('select') === '1' && filter !== 'words' && items.length > 0;
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
   const orphans = contributions.filter((c) => c.orphaned);
   /*

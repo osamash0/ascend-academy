@@ -454,8 +454,8 @@ function AppRoutes() {
             {/* The old Studio and list-view paths still land somewhere real. */}
             <Route path="/v4/library/studio" element={<LibraryTo to="/v4/library" />} />
             <Route path="/v4/library/studio/c/:canvasId" element={<LibraryCanvasRedirect />} />
-            <Route path="/v4/library/uploads" element={<LibraryTo to="/v4/library?f=reading&select=1" />} />
-            <Route path="/v4/library/drafts" element={<LibraryTo to="/v4/library?f=shared&select=1" />} />
+            <Route path="/v4/library/uploads" element={<LibraryTo to="/v4/library?f=reading" />} />
+            <Route path="/v4/library/drafts" element={<LibraryTo to="/v4/library?f=shared" />} />
             <Route path="/v4/library/impact" element={<LibraryTo to="/v4/library?f=shared" />} />
             <Route path="/v4/home" element={<V4Home />} />
             <Route path="/v4/social" element={<V4Social />} />

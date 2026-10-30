@@ -119,6 +119,14 @@ describe('Select', () => {
     expect(await screen.findByText('1 shared · 1 already in a Space')).toBeInTheDocument();
   });
 
+  it('never stands over an empty shelf, where there is nothing to remove (LS-063)', async () => {
+    for (const i of [...shelf.getItems()]) shelf.remove(i.id);
+    at();
+    await screen.findByRole('heading', { level: 1 }, { timeout: 3000 });
+    expect(screen.queryByRole('group', { name: 'Selection' })).toBeNull();
+    expect(screen.queryByText(/selected/)).toBeNull();
+  });
+
   it('Select all checks every cover', async () => {
     at();
     const user = userEvent.setup();
