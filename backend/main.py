@@ -273,6 +273,8 @@ if settings.feature_v4_reader:
 if settings.feature_v4:
     from backend.api.v1.v4_spaces import router as v4_spaces_router
     v1_router.include_router(v4_spaces_router)
+    from backend.api.v1.v4_landing import router as v4_landing_router
+    v1_router.include_router(v4_landing_router)
 
 if settings.feature_luna_sessions:
     from backend.api.v1.v4_luna import router as v4_luna_router

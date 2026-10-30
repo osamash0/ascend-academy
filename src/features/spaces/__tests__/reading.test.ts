@@ -67,19 +67,32 @@ describe('useReadingProgress', () => {
     expect(recordMock).toHaveBeenLastCalledWith('lec-1', 1, 20, expect.any(String), 2);
   });
 
-  it('time the tab is hidden is not counted', async () => {
+  it('a tab sent to the background reports its page at once, and counts on from its return', async () => {
     const { rerender } = renderHook(({ page }) => useReadingProgress('lec-1', page, true), { initialProps: { page: 1 } });
     await flush();
     at('10:00:05');
     visibility = 'hidden';
     act(() => void document.dispatchEvent(new Event('visibilitychange')));
+    expect(beaconMock).toHaveBeenCalledWith('lec-1', 1, 5, expect.any(String));
     at('10:05:05');
     visibility = 'visible';
     act(() => void document.dispatchEvent(new Event('visibilitychange')));
     at('10:05:15');
     rerender({ page: 2 });
     await flush();
-    expect(recordMock).toHaveBeenLastCalledWith('lec-1', 1, 15, expect.any(String), 2);
+    expect(recordMock).toHaveBeenLastCalledWith('lec-1', 1, 10, expect.any(String), 2);
+  });
+
+  it('a tab closed after it was hidden is reported once', async () => {
+    renderHook(() => useReadingProgress('lec-1', 3, true));
+    await flush();
+    at('10:00:30');
+    visibility = 'hidden';
+    act(() => void document.dispatchEvent(new Event('visibilitychange')));
+    at('10:00:31');
+    act(() => void window.dispatchEvent(new Event('pagehide')));
+    expect(beaconMock).toHaveBeenCalledTimes(1);
+    expect(beaconMock).toHaveBeenCalledWith('lec-1', 3, 30, expect.any(String));
   });
 
   it('closing the tab reports the open page as a beacon, once', async () => {
@@ -147,6 +160,24 @@ describe('useReadingProgress', () => {
     rerender({ page: 3, covered: false });
     await flush();
     expect(recordMock).toHaveBeenLastCalledWith('lec-1', 2, 10, expect.any(String), 3);
+  });
+
+  it('a page Luna turns to is not the reader turning back', async () => {
+    const steered = { current: null as number | null };
+    const { rerender } = renderHook(({ page }) => useReadingProgress('lec-1', page, true, false, steered), {
+      initialProps: { page: 5 },
+    });
+    await flush();
+    at('10:00:20');
+    steered.current = 2;
+    rerender({ page: 2 });
+    await flush();
+    expect(recordMock).toHaveBeenLastCalledWith('lec-1', 5, 20, expect.any(String), undefined);
+    expect(steered.current).toBeNull();
+    at('10:00:30');
+    rerender({ page: 1 });
+    await flush();
+    expect(recordMock).toHaveBeenLastCalledWith('lec-1', 2, 10, expect.any(String), 1);
   });
 
   it('leaves no listeners behind when the reader goes', async () => {

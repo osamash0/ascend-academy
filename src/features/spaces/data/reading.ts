@@ -9,13 +9,24 @@ import { endSession, startSession } from './readingSession';
  * long it was really read, the reading session, and the page now in view (an
  * earlier one is a way back). Time the page is covered (`covered`: Explain
  * when it fills the screen over the page, a checkpoint, the teach-back, the
- * break room, the practice bench), or in a hidden tab, is not counted. Closing
- * the reader reports the open page; closing the tab reports it too, as a
- * beacon, because nothing after `pagehide` is sure to run.
+ * break room, the practice bench), or in a hidden tab, is not counted; a tab
+ * being hidden reports its page at once, since a phone may close it without
+ * warning. Closing the reader reports the open page; closing the tab reports
+ * it too, as a beacon, because nothing after `pagehide` is sure to run.
+ *
+ * A page reached without the reader turning to it (`steered`: Luna's move, or
+ * a document's scroll passing it) is reported without the page now in view,
+ * so it is never counted as the reader turning back.
  *
  * Fire-and-forget: a failed report must never interrupt reading. Live only.
  */
-export function useReadingProgress(lessonId: string | undefined, page: number, live: boolean, covered = false): void {
+export function useReadingProgress(
+  lessonId: string | undefined,
+  page: number,
+  live: boolean,
+  covered = false,
+  steered?: { current: number | null },
+): void {
   const clock = useRef<{ page: number; at: number; paused: number; pausedAt: number | null } | null>(null);
   const session = useRef<string | null>(null);
   const repo = useRef<LiveRepository | null>(null);
@@ -53,13 +64,28 @@ export function useReadingProgress(lessonId: string | undefined, page: number, l
       })
       .catch(() => {});
 
-    const onVisibility = () => syncPause();
+    const onVisibility = () => {
+      if (document.visibilityState !== 'hidden') {
+        syncPause();
+        return;
+      }
+      /*
+       * A phone may never fire `pagehide` for a tab it closes in the
+       * background: report the page now, and count on from the return.
+       */
+      const c = clock.current;
+      if (!c) return;
+      const now = Date.now();
+      const secs = seconds(c, now);
+      if (secs >= 1 && repo.current) repo.current.recordReadingBeacon(lessonId, c.page, secs, id);
+      clock.current = { page: c.page, at: now, paused: 0, pausedAt: now };
+    };
     const onPageHide = () => {
       const c = clock.current;
       if (!c) return;
       const secs = seconds(c, Date.now());
       clock.current = null;
-      if (repo.current) repo.current.recordReadingBeacon(lessonId, c.page, secs, id);
+      if (secs >= 1 && repo.current) repo.current.recordReadingBeacon(lessonId, c.page, secs, id);
     };
     const onPageShow = (e: PageTransitionEvent) => {
       /* Back from the page cache: the page in view is open again, from now. */
@@ -90,12 +116,17 @@ export function useReadingProgress(lessonId: string | undefined, page: number, l
   /* The page changed: report the one left, start the next. */
   useEffect(() => {
     pageRef.current = page;
+    /* A page Luna or a scroll reached is not the reader turning back. */
+    const guided = steered?.current === page;
+    if (steered) steered.current = null;
     if (!live || !lessonId || page < 1) return;
     const now = Date.now();
     const left = clock.current;
-    if (left && left.page !== page) send(repo.current, lessonId, left.page, seconds(left, now), session.current, page);
+    if (left && left.page !== page) {
+      send(repo.current, lessonId, left.page, seconds(left, now), session.current, guided ? undefined : page);
+    }
     if (!left || left.page !== page) clock.current = { page, at: now, paused: 0, pausedAt: isPaused() ? now : null };
-  }, [lessonId, page, live]);
+  }, [lessonId, page, live, steered]);
 
   /* Covered or uncovered: move the pause clock. */
   useEffect(() => {

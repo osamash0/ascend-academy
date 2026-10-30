@@ -7,26 +7,12 @@ import pytest
 
 pytestmark = pytest.mark.db
 
-asyncpg = pytest.importorskip("asyncpg")
-
 
 @pytest.fixture
-def svc(pg_dsn, monkeypatch):
-    """Route get_db_connection at the throwaway database."""
+def svc(throwaway_db):
+    """The Spaces service, with every connection on the throwaway database."""
     import backend.services.v4_spaces_service as service
 
-    class _Conn:
-        async def __aenter__(self):
-            self.c = await asyncpg.connect(pg_dsn)
-            return self.c
-
-        async def __aexit__(self, *exc):
-            await self.c.close()
-
-    async def _get():
-        return _Conn()
-
-    monkeypatch.setattr(service, "get_db_connection", _get)
     return service
 
 

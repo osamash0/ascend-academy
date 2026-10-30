@@ -3,6 +3,9 @@ import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import type { Landing } from './types';
 
+/** A figure's number slot. A week with nothing to say is an en dash, never 0 or 0%. */
+const show = (value: number | null, unit = '') => (value === null ? '–' : `${value}${unit}`);
+
 /**
  * Three figures, each with its last eight weeks.
  *
@@ -14,9 +17,9 @@ export function Figures({ landing, accent }: { landing: Landing; accent: string 
   const reduce = useReducedMotion();
   const { reading, landing: lands, cleared } = landing.figures;
   const rows = [
-    { key: 'reading', number: `${reading.value}`, label: t('figures.reading', { members: landing.members }), history: reading.history, color: 'hsl(var(--foreground))' },
-    { key: 'landing', number: `${lands.value}%`, label: t('figures.landing'), history: lands.history, color: accent },
-    { key: 'cleared', number: `${cleared.value}%`, label: t('figures.cleared'), history: cleared.history, color: 'hsl(var(--success))' },
+    { key: 'reading', number: show(reading.value), label: t('figures.reading', { members: landing.members }), history: reading.history, color: 'hsl(var(--foreground))' },
+    { key: 'landing', number: show(lands.value, '%'), label: t('figures.landing'), history: lands.history, color: accent },
+    { key: 'cleared', number: show(cleared.value, '%'), label: t('figures.cleared'), history: cleared.history, color: 'hsl(var(--success))' },
   ];
   return (
     <motion.dl
@@ -39,10 +42,12 @@ export function Figures({ landing, accent }: { landing: Landing; accent: string 
 /**
  * The last weeks as bars: baseline at zero, the latest in the figure's
  * colour, the rest in ink at a fifth. A series over time, drawn for the data.
+ * A week with nothing to say keeps its slot and draws no bar: a short bar
+ * would claim a value.
  */
-function History({ values, color, className }: { values: number[]; color: string; className?: string }) {
+function History({ values, color, className }: { values: (number | null)[]; color: string; className?: string }) {
   const reduce = useReducedMotion();
-  const max = Math.max(1, ...values);
+  const max = Math.max(1, ...values.filter((v): v is number => v !== null));
   const w = 8;
   const gap = 3;
   const h = 28;
@@ -50,6 +55,7 @@ function History({ values, color, className }: { values: number[]; color: string
   return (
     <svg aria-hidden width={width} height={h} viewBox={`0 0 ${width} ${h}`} className={className}>
       {values.map((v, i) => {
+        if (v === null) return null;
         const bh = Math.max(2, (v / max) * h);
         const last = i === values.length - 1;
         const x = i * (w + gap);

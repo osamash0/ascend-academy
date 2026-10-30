@@ -420,3 +420,38 @@ def make_progress(db_conn):
         return pid
 
     return _make
+
+
+@pytest.fixture
+def throwaway_db(pg_dsn, monkeypatch):
+    """Route every backend ``get_db_connection`` at the throwaway database.
+
+    Services import ``get_db_connection`` by name, so patching one module
+    leaves every module it calls on the real pool (built from ``.env``).
+    This patches the function in ``backend.core.database`` (so modules
+    imported later bind the fake) and in every loaded ``backend.*`` module
+    that already holds it, so a DB test can never reach the ``.env`` database.
+    """
+    import sys
+
+    import asyncpg
+
+    import backend.core.database as database
+
+    original = database.get_db_connection
+
+    class _Conn:
+        async def __aenter__(self):
+            self.c = await asyncpg.connect(pg_dsn)
+            return self.c
+
+        async def __aexit__(self, *exc):
+            await self.c.close()
+
+    async def _get():
+        return _Conn()
+
+    for name, module in list(sys.modules.items()):
+        if (name == "backend" or name.startswith("backend.")) and getattr(module, "get_db_connection", None) is original:
+            monkeypatch.setattr(module, "get_db_connection", _get)
+    return _get
