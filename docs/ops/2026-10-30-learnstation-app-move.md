@@ -6,6 +6,7 @@ STATUS: BLOCKED — step 0: Supabase Auth BEFORE values and draft PR permission 
 | 0a: Cloudflare inventory | done | Four mail records, all `proxied=false` → unchanged. | `GET /zones` and `GET /zones/{zone_id}/dns_records`: success, HTTP 200, total_count=4, one page. | Read-only; none. |
 | 0b: Resend baseline | done | Verified EU domain, sending enabled, receiving/open/click tracking disabled → unchanged. | Resend `list_domains` and `get_domain`: verified, eu-west-1, sending enabled, receiving disabled, open_tracking=false, click_tracking=false; DKIM/SPF verified. | Read-only; none. |
 | 0c: redirect allow-list readback | done by Abi | `https://learnstation.duckdns.org/**` and `https://195-201-221-137.sslip.io/**` → unchanged. Site URL still unknown. | 2026-10-30T15:07:09Z: Abi pasted the current URL Configuration page text; its Site URL input value was not included. | Read-only; none. |
+| 0d: custom SMTP readback | done by Abi | Custom SMTP ON; Learnstation sender, Resend host/port/username confirmed → unchanged. | 2026-10-30T15:09:28Z: Abi explicitly confirmed the switch is on; supplied non-secret SMTP details below. Password not requested/read/changed. | Read-only; none. |
 | 1: DNS | pending | Cloudflare has no apex/www records; public resolvers returned no apex A or www CNAME → planned A `@` = `195.201.221.137`, CNAME `www` = `learnstation.app`, both DNS only. | Cloudflare list: exactly four preserved mail records. `dig @1.1.1.1` and `dig @8.8.8.8`: no apex A or www CNAME answers. | Delete only the two newly created records; retain all four mail records. |
 | 2: TLS/nginx | pending | Only DuckDNS and sslip certificates/sites observed → planned additional apex/www certificate and site. | Existing certificate issuers/expiries and nginx behavior below; `nginx -t`: syntax OK, test successful. | Restore backed-up nginx files, remove only the new enabled site, test nginx and reload; leave old certificates/sites intact. |
 | 3: CORS | pending | `https://learnstation.duckdns.org,https://195-201-221-137.sslip.io` → append `https://learnstation.app`. | Only the `CORS_ALLOWED_ORIGINS` line was read from `.env`; API healthy. | Restore `.env` backup and recreate only `api`, without building/pulling. |
@@ -63,7 +64,9 @@ https://learnstation.duckdns.org/**
 https://195-201-221-137.sslip.io/**
 ```
 
-The paste includes the Site URL label/help text but omits the input value. This is **unknown**, not evidence that the field is blank. SMTP enabled/disabled and the current recovery email subject/body are still unverified. A follow-up requests those three remaining values without changes or credentials.
+The paste includes the Site URL label/help text but omits the input value. This is **unknown**, not evidence that the field is blank. The current recovery email subject/body are still unverified.
+
+Recorded 2026-10-30T15:09:28Z, **done by Abi** (read-only): Abi supplied sender email `noreply@learnstation.app`, sender name `Learnstation`, SMTP host `smtp.resend.com`, port `465`, username `resend`, then explicitly confirmed **Enable custom SMTP is ON**. These values match the handoff. The SMTP password was not requested, read or changed. Only Site URL and the current recovery subject/body remain missing from Auth recon.
 
 ### Public DNS
 
@@ -151,7 +154,7 @@ Container names use the `ascend-academy-prod-` prefix. No containers changed.
 
 - Cloudflare/Resend are connected and their baseline checks passed. Supabase Auth settings still require dashboard readback; do not scrape dashboards or extract tokens from files.
 - Create the single draft ops log PR through an authorized GitHub connector or Abi's dashboard; existing create attempt failed with 403. Record the PR link once created.
-- Complete step 0's missing Supabase Auth BEFORE values (Site URL, SMTP enabled/disabled, recovery subject/body) and obtain first explicit go before production changes. Redirect allow list readback is recorded.
+- Complete step 0's missing Supabase Auth BEFORE values (Site URL and recovery subject/body) and obtain first explicit go before production changes. Redirect allow list and SMTP ON readback are recorded.
 - Complete steps 1–5 and Abi's test; obtain second explicit go before step 6. Moving to the new address signs everyone out once because sessions are stored per site address.
 - Create `feat/reset-link-own-domain` from current `origin/main` for the separate, undeployed code PR. Preserve existing implicit recovery, add token-hash verification and meaningful tests; run touched Vitest tests and `npx tsc --noEmit -p tsconfig.app.json`. Rerun the known intermittent deck-measurement timeout once if encountered; do not skip it.
 - **Only after the code PR is separately deployed:** change the recovery link to `{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery`. Until then retain `{{ .ConfirmationURL }}`.
@@ -167,7 +170,7 @@ If dashboard handoff is needed, read these values first without changing anythin
 
 - **Cloudflare:** baseline read complete through connector; no manual DNS change needed before first go.
 - **Supabase → project lkiiideqjoiksnycgplc → Authentication → URL Configuration:** send the value inside the Site URL input, or explicitly say blank. The two Redirect URLs have been recorded from Abi's readback. Later values: Site URL `https://learnstation.app`; add `https://learnstation.app/**`, retain both existing entries.
-- **Supabase → Authentication → Emails → SMTP Settings:** enabled/disabled only; do not reveal or change the password. **Emails → Templates → Reset Password:** current subject and HTML body. Later subject/body: exactly as above.
+- **Supabase → Authentication → Emails → SMTP Settings:** readback complete, custom SMTP ON; leave unchanged. **Emails → Templates → Reset Password:** send the current subject and HTML body from the editors (or a screenshot of that template page). Later subject/body: exactly as above.
 - **Resend:** baseline read complete through connector; verified, sending enabled, receiving OFF, both tracking switches OFF. Leave these values unchanged.
 
-No dashboard configuration changes have been reported. The redirect allow-list readback is marked **done by Abi**; this does not imply a settings change.
+No dashboard configuration changes have been reported. The redirect allow-list and SMTP readbacks are marked **done by Abi**; this does not imply a settings change.
