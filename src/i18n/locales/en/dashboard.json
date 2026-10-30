@@ -5,15 +5,10 @@
     "evening": "Good evening",
     "night": "Good to see you"
   },
-  "welcomeBack": "Welcome back, {{name}}",
   "subtitle_one": "Ready to continue your learning journey? You have <bold>1 course</bold> in progress.",
   "subtitle_other": "Ready to continue your learning journey? You have <bold>{{count}} courses</bold> in progress.",
   "level": "Level {{level}}",
   "xp": "{{count}} XP",
-  "dayStreak_one": "{{count}} day streak",
-  "dayStreak_other": "{{count}} day streak",
-  "progressToLevel": "Progress to Level {{level}}",
-  "xpProgress": "{{current}} / 100 XP",
   "stats": {
     "coursesStarted": "Courses Started",
     "quizAccuracy": "Quiz Accuracy",
@@ -30,11 +25,7 @@
     "inProgress": "In Progress",
     "completed": "Completed"
   },
-  "continueLearning": "Continue Learning",
-  "yourCourses": "Your Courses",
-  "resumeFromSlide": "Resume from slide {{slide}}",
   "percentComplete": "{{percent}}% Complete",
-  "slidesProgress": "{{completed}} / {{total}} Slides",
   "noCourses": "No courses yet",
   "noCoursesDescription": "Lectures uploaded by your professors will appear here.",
   "streakBanner": "You're on a {{count}}-day streak! Keep the momentum going!",
@@ -43,8 +34,6 @@
   "courseFallback": "Course",
   "lectureCount_one": "{{count}} lecture",
   "lectureCount_other": "{{count}} lectures",
-  "recentAchievements": "Recent Achievements",
-  "viewAll": "View all",
   "viewCourse": "View course",
   "browseCourses": {
     "title": "Browse courses",
