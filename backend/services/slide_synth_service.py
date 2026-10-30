@@ -85,7 +85,9 @@ async def synthesize_slide(
         return None
 
     target = next((r for r in results if r.get("index") == idx), None)
-    if target is None:
+    # A missing_from_batch row is a placeholder; caching it would pin an
+    # empty slide for good.
+    if target is None or target.get("missing_from_batch"):
         logger.warning("synthesize_slide: no result for idx %d in batch response", idx)
         return None
 

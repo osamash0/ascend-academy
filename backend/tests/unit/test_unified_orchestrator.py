@@ -630,6 +630,28 @@ async def test_parse_pdf_unified_marks_needs_review_on_synthesis_exception(monke
     assert slide_events[2]["needs_review"] is False
 
 
+async def test_parse_pdf_unified_warns_with_run_id_when_a_slide_ends_up_empty(monkeypatch, caplog):
+    """Prod 2026-10-30: slides were stored with an empty summary and nothing
+    in the log said so. Every such slide now leaves a WARNING naming the run."""
+    import logging
+
+    rec, run = _patch_common(monkeypatch, pages=["text 0", "text 1", "text 2"])
+
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+        summary = "" if idx == 1 else f"sum{idx}"
+        return {"title": f"S{idx}", "content": text, "summary": summary, "slide_type": "text", "vision_routed": False}
+
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    with caplog.at_level(logging.WARNING, logger=uo.logger.name):
+        await _run("h", OWNER, filename="Deck.pdf")
+
+    empty = [r for r in caplog.records if "stored without a summary" in r.getMessage()]
+    assert len(empty) == 1
+    assert empty[0].levelno == logging.WARNING
+    assert "slide 1 " in empty[0].getMessage()
+    assert str(run.run_id) in empty[0].getMessage()
+
+
 async def test_parse_pdf_unified_marks_needs_review_on_vision_rescue(monkeypatch):
     rec, run = _patch_common(monkeypatch, pages=["text 0", "", "text 2"])
 

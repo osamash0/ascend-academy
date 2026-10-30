@@ -1,0 +1,188 @@
+{
+ "slides": [
+  {
+   "page_number": 9,
+   "title": "Einen neuen Branch anlegen",
+   "content": "# Einen neuen Branch anlegen\n\nDas Anlegen eines neuen Branches hat verschiedene Gründe:\n\n- **Neuen Entwicklungsschritt anfangen:** Ein neuer Branch ermöglicht e",
+   "summary": "In diesem Abschnitt lernen wir, wie man einen neuen Branch anlegt, um die Softwareentwicklung sicherer und effizienter zu gestalten. Dies bildet die Grundlage für die folgenden Themen zur Branch-Verwaltung und Integration.",
+   "questions": [
+    {
+     "question": "Welcher Grund spricht am stärksten für das Anlegen eines neuen Branches?",
+     "options": [
+      "Fehler fixen",
+      "Den Hauptzweig stabil halten",
+      "Neue Features entwickeln",
+      "Testfälle schreiben"
+     ],
+     "answer": "B",
+     "explanation": "Das Anlegen eines neuen Branches hilft, den Hauptzweig stabil zu halten, während Änderungen und neue Features entwickelt werden.",
+     "concept": "Einen neuen Branch anlegen",
+     "cognitive_level": "apply"
+    }
+   ],
+   "slide_type": "content_slide",
+   "is_metadata": false
+  },
+  {
+   "page_number": 10,
+   "title": "Im Branch arbeiten",
+   "content": "# Im Branch arbeiten\n\n- **HEAD zeigt auf Branch testing:** Zeigt an, dass man sich im aktuellen Arbeitszweig befindet.\n- **Änderungen durchführen:** Alle vorgen",
+   "summary": "Dieser Abschnitt erläutert, wie Benutzer in einem Branch arbeiten und Änderungen durchführen können. Dies ist ein wesentlicher Schritt in der Softwareentwicklung, der auf dem Anlegen eines Branches aufbaut.",
+   "questions": [
+    {
+     "question": "Was passiert, nachdem Änderungen in einem Branch durchgeführt wurden?",
+     "options": [
+      "Sie werden sofort im Hauptzweig sichtbar.",
+      "Sie müssen im Branch eingecheckt werden.",
+      "Der Branch wird automatisch gelöscht.",
+      "HEAD ändert sich auf den Hauptzweig."
+     ],
+     "answer": "B",
+     "explanation": "Änderungen müssen im Branch eingecheckt werden, um sie zu speichern und später verfügbar zu machen.",
+     "concept": "Im Branch arbeiten",
+     "cognitive_level": "apply"
+    }
+   ],
+   "slide_type": "content_slide",
+   "is_metadata": false
+  },
+  {
+   "page_number": 11,
+   "title": "Branches wechseln",
+   "content": "# Branches wechseln\n\n- **HEAD zeigt auf master:** Dies bedeutet, dass der aktuelle Branch der Hauptzweig der Entwicklung ist.\n- **HEAD zeigt auf iss53:** Hier w",
+   "summary": "In diesem Teil wird erklärt, wie man zwischen verschiedenen Branches wechselt, was es ermöglicht, verschiedene Entwicklungsstränge zu verwalten. Dies ist ein wichtiger Schritt, um an verschiedenen Aufgaben zu arbeiten.",
+   "questions": [
+    {
+     "question": "Was passiert, wenn man zu einem anderen Branch wechselt?",
+     "options": [
+      "Alle Änderungen werden gelöscht.",
+      "HEAD zeigt auf den neuen Branch.",
+      "Der ursprüngliche Branch wird gesperrt.",
+      "Die Änderungen im vorherigen Branch werden nicht gespeichert."
+     ],
+     "answer": "B",
+     "explanation": "Wenn man zu einem anderen Branch wechselt, zeigt HEAD auf den neuen Branch, was die aktuelle Arbeitsumgebung ändert.",
+     "concept": "Branches wechseln",
+     "cognitive_level": "apply"
+    }
+   ],
+   "slide_type": "content_slide",
+   "is_metadata": false
+  },
+  {
+   "page_number": 12,
+   "title": "Branches integrieren",
+   "content": "# Branches integrieren\n\n- **Branch in den Master-Branch mischen:** Dieser Prozess erlaubt es, die Entwicklungen aus einem Branch in den Hauptzweig zu integriere",
+   "summary": "Hier lernen wir, wie Branches in den Hauptzweig integriert werden. Dies ist der nächste Schritt, nachdem man in einem Branch gearbeitet hat, und es baut auf dem vorherigen Wissen zum Arbeiten mit Branches auf.",
+   "questions": [
+    {
+     "question": "Welches Ziel hat die Integration eines Branches in den Master-Branch?",
+     "options": [
+      "Alle Änderungen zurückzusetzen.",
+      "Entwicklungen verfügbar zu machen.",
+      "Den Branch zu löschen.",
+      "Die Version des Master-Branches zu verringern."
+     ],
+     "answer": "B",
+     "explanation": "Das Ziel der Integration eines Branches in den Master-Branch ist es, die neuen Entwicklungen für alle Benutzer verfügbar zu machen.",
+     "concept": "Branches integrieren",
+     "cognitive_level": "apply"
+    }
+   ],
+   "slide_type": "content_slide",
+   "is_metadata": false
+  },
+  {
+   "page_number": 13,
+   "title": "Versionen mischen",
+   "content": "# Versionen mischen\n\n## Drei-Wege-Mischen:\n- **Basis-Version:** Der Ausgangspunkt für alle Entwicklungen.\n- **Version V1 und V2:** Diese Versionen basieren beid",
+   "summary": "In diesem Abschnitt wird das Konzept des Drei-Wege-Mischens erklärt. Dies ist ein fortgeschrittener Schritt bei der Integration von Branches und baut auf dem vorherigen Wissen zur Branch-Integration auf.",
+   "questions": [
+    {
+     "question": "Was ist ein wichtiges Element beim Drei-Wege-Mischen?",
+     "options": [
+      "Die Basis-Version ist irrelevant.",
+      "Alle Versionen sind gleich alt.",
+      "Die Basis-Version dient als Referenz.",
+      "Die neue Version sollte verworfen werden."
+     ],
+     "answer": "C",
+     "explanation": "Die Basis-Version ist als Referenz notwendig, um die Unterschiede zwischen den beiden abgeleiteten Versionen zu erkennen und korrekt zu mischen.",
+     "concept": "Versionen mischen",
+     "cognitive_level": "apply"
+    }
+   ],
+   "slide_type": "content_slide",
+   "is_metadata": false
+  },
+  {
+   "page_number": 14,
+   "title": "Änderungen in einen Branch mischen",
+   "content": "# Änderungen in einen Branch mischen\n\n- **Änderungen als Patch sammeln:** Alle relevanten Änderungen werden gesammelt und dann in den Master-Branch eingespielt.",
+   "summary": "Hier wird beschrieben, wie Änderungen gesammelt und in den Hauptzweig eingespielt werden. Dies ist ein wichtiger Teil des Prozesses, um sicherzustellen, dass alle Entwicklungen aktuell im Master-Branch sind.",
+   "questions": [
+    {
+     "question": "Was ist der Zweck des Sammelns von Änderungen zur Integration in den Master-Branch?",
+     "options": [
+      "Änderungen sofort zu veröffentlichen.",
+      "Änderungen zu testen.",
+      "Eine stabile Software-Version zu gewährleisten.",
+      "Den Branch zu löschen."
+     ],
+     "answer": "C",
+     "explanation": "Der Zweck des Sammelns und Einspielens von Änderungen ist es, sicherzustellen, dass die Software im Master-Branch stabil und aktuell ist.",
+     "concept": "Änderungen in einen Branch mischen",
+     "cognitive_level": "apply"
+    }
+   ],
+   "slide_type": "content_slide",
+   "is_metadata": false
+  },
+  {
+   "page_number": 15,
+   "title": "Master auf den neuesten Stand bringen",
+   "content": "# Master auf den neuesten Stand bringen\n\n- **Neuer Stand ohne Konflikte:** Wenn der Master-Branch aktualisiert wird, ist es im besten Fall wichtig, dass keine K",
+   "summary": "In diesem Abschnitt wird die Bedeutung der Aktualisierung des Master-Branches behandelt. Dies stellt sicher, dass der Master zeitgemäß und stabil bleibt, was kritisch für die Softwareentwicklung ist.",
+   "questions": [
+    {
+     "question": "Was ist eine wichtige Voraussetzung, um den Master-Branch ohne Konflikte zu aktualisieren?",
+     "options": [
+      "Die Änderungen müssen umfangreich sein.",
+      "Der Branch muss bereits gelöscht sein.",
+      "Es müssen vorherige Konflikte gelöst sein.",
+      "Die Änderungen müssen im Hauptzweig nicht vorhanden sein."
+     ],
+     "answer": "C",
+     "explanation": "Um den Master-Branch ohne Konflikte zu aktualisieren, müssen alle vorherigen Konflikte gelöst sein, um die Integrität der Software zu gewährleisten.",
+     "concept": "Master auf den neuesten Stand bringen",
+     "cognitive_level": "apply"
+    }
+   ],
+   "slide_type": "content_slide",
+   "is_metadata": false
+  },
+  {
+   "page_number": 16,
+   "title": "Hotfix in den Branch iss53 mischen",
+   "content": "# Hotfix in den Branch iss53 mischen\n\nWelche Antwort ist richtig?\n- a. `checkout hotfix; merge iss53`\n- b. `checkout iss53; merge hotfix`",
+   "summary": "Diese Frage testet das Verständnis der richtigen Vorgehensweise beim Mischen eines Hotfixes in einen spezifischen Branch. Der korrekte Prozess ist entscheidend für die erfolgreiche Fehlerbehebung.",
+   "questions": [
+    {
+     "question": "Welche der folgenden Befehle führt korrekt das Mischen eines Hotfixes in den Branch iss53 durch?",
+     "options": [
+      "`checkout hotfix; merge iss53`",
+      "`checkout iss53; merge hotfix`",
+      "`merge iss53; checkout hotfix`",
+      "`checkout master; merge hotfix`"
+     ],
+     "answer": "B",
+     "explanation": "Um den Hotfix korrekt in den Branch iss53 zu integrieren, muss zuerst auf den Branch gewechselt (`checkout iss53`) und dann der Hotfix gemischt werden (`merge hotfix`).",
+     "concept": "Hotfix in den Branch iss53 mischen",
+     "cognitive_level": "apply"
+    }
+   ],
+   "slide_type": "content_slide",
+   "is_metadata": false
+  }
+ ]
+}

@@ -355,13 +355,22 @@ async def _synthesize_text_slide_batch(
     missing: List[tuple[int, str]] = []
     for idx, text in text_items:
         item = by_index.get(idx)
-        if not isinstance(item, dict):
+        # A row flagged missing_from_batch (or with no summary) is the batch's
+        # placeholder, not content: retry it per slide rather than store it
+        # empty (prod 2026-10-30, 4.pdf slides 20-23).
+        summary = item.get("summary") if isinstance(item, dict) else None
+        if (
+            not isinstance(item, dict)
+            or item.get("missing_from_batch")
+            or not isinstance(summary, str)
+            or not summary.strip()
+        ):
             missing.append((idx, text))
             continue
         out[idx] = {
-            "title": (item.get("title") or "").strip(),
+            "title": str(item.get("title") or "").strip(),
             "content": text,
-            "summary": (item.get("summary") or "").strip(),
+            "summary": summary.strip(),
             "slide_type": item.get("slide_type") or "text",
             "vision_routed": False,
             "route": "batch",
@@ -370,9 +379,10 @@ async def _synthesize_text_slide_batch(
         # The batch response omitted individual slides (rare) — per-slide
         # retry just for those, not the whole batch.
         logger.warning(
-            "Batch synthesis response missing %d of %d slide(s) — per-slide "
-            "retry for the missing ones only",
-            len(missing), len(text_items),
+            "Batch synthesis response missing %d of %d slide(s) %s (run %s) — "
+            "per-slide retry for the missing ones only",
+            len(missing), len(text_items), [i for i, _ in missing],
+            current_llm_call_context().run_id,
         )
         out.update(await _synthesize_text_slides_individually(
             missing, lecture_context, ai_model, pdf_bytes, carried_instructions,
@@ -1078,7 +1088,7 @@ async def parse_pdf_unified(
                 raw_title = (res.get("title") or "").strip()
                 title = raw_title or _first_line(raw_slides[i]) or f"Slide {i + 1}"
                 vision_routed = bool(res.get("vision_routed", False))
-                raw_summary = (res.get("summary") or "").strip()
+                raw_summary = str(res.get("summary") or "").strip()
                 needs_review, review_reason = (
                     _review_flag_for(
                         synthesis_failed=synthesis_failed,
@@ -1089,6 +1099,11 @@ async def parse_pdf_unified(
                     if ai_mode
                     else (False, None)
                 )
+                if review_reason == "empty_content":
+                    logger.warning(
+                        "slide %d stored without a %s after synthesis (run %s, route %s)",
+                        i, "summary" if not raw_summary else "title", run_uuid, route,
+                    )
                 slide_provenance.append(_provenance_entry(
                     i, route, ai_model=ai_model, synthesis_failed=synthesis_failed,
                     needs_review=needs_review, review_reason=review_reason,
