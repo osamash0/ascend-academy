@@ -1,3 +1,5 @@
+> Historical (2026-09-17). Kept for the record; it describes the code as it was then. See `docs/SECURITY_CI.md` for the present state.
+
 # Secrets & Supply-Chain Audit (S-5)
 
 > Companion to `docs/ROADMAP_10X_FOUNDATION.md` §14 S-5. Findings from a local run of

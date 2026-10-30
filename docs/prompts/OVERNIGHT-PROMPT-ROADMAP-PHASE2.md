@@ -1,3 +1,5 @@
+> Historical (2026-10-30). Kept for the record; it describes the code as it was then. See `docs/ROADMAP_PHASE2_RECONCILIATION.md` for the present state.
+
 # Overnight goal · make ROADMAP_10X Phase 2 true
 
 *A self-contained overnight brief. Abi is asleep — you cannot ask him anything.

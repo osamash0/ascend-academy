@@ -1,3 +1,5 @@
+> Historical (2026-10-10). Kept for the record; it describes the code as it was then. See `src/features/spaces/screens/LessonFacesScreen.tsx` for the present state.
+
 # Lesson Reader · Two Faces — Phase A, second pass (design, no code)
 
 *2026-09-18. Starts over from the three references after the first prototype. Supersedes `READER_TWO_FACES_PHASE_A.md`. Nothing here is built.*

@@ -1,3 +1,5 @@
+> Historical (2026-10-11). Kept for the record; it describes the code as it was then.
+
 # Deck Lab — old vs new slide selection (no LLM calls)
 
 <!--

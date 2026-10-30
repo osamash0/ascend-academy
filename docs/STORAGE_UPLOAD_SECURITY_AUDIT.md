@@ -1,3 +1,5 @@
+> Historical (2026-07-30). Kept for the record; it describes the code as it was then. See `docs/STORAGE_TAKEDOWN.md` for the present state.
+
 # Storage & Upload Security Audit (S-4) + General Security/Bug Review
 
 > Deliverable for `docs/ROADMAP_10X_FOUNDATION.md` §14, **S-4 · Storage & upload
@@ -97,7 +99,7 @@ Per `docs/ROADMAP_10X_FOUNDATION.md` §14:
   Noted, not removed — dependency cleanup is the dead-code-audit skill's
   territory.
 - A full `requirements.txt` lockfile (S-5's own deferred item, P4-4's scope).
-- `docs/threat_model.md` is referenced by three other docs
+- `docs/threat_model.md` (then at the repo root) is referenced by three other docs
   (`SECURITY_CI.md`, `GDPR_DATA_PROTECTION.md`, `RPC_EXPOSURE_AUDIT.md`) as a
   companion document but does not exist in the repo. Dangling reference,
   noted here rather than silently left for the next person to trip over.

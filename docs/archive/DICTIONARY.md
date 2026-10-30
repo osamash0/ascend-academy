@@ -1,3 +1,5 @@
+> Historical (2026-10-30). Kept for the record; it describes the code as it was then. See `docs/START_HERE.md` for the present state.
+
 # Project Dictionary & Directory Guide
 
 This document provides a comprehensive overview of the **Learnstation** codebase, explaining where specific features and logic are located.

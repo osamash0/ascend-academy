@@ -1,6 +1,93 @@
 # Changelog
 
-All notable changes to Learnstation are documented in this file.
+All notable changes to Learnstation are documented in this file. Since 2026-06 the unit is the merged pull request; one line each, grouped by area, newest first. Earlier sections are release notes.
+
+## 2026-10-24 to 2026-10-30 — v4 and Luna live for real people
+
+**Reader and Luna**
+- #139 instant reader: cinema and scroll, timeline, read before Luna is done
+- #145 Luna lights up: faces arrive page by page while she reads (LS-039)
+- #143 looking back no longer wipes progress (LS-055); the reader no longer bounces back a Lesson
+- #147 reader confusions from the punch list (LS-053/054/056/057/059/061)
+- #135 Luna provider fallback within 20 s, opener at once, content-page planning
+- #131 the PDF is fetched in 16 KB pieces; #132 the reader's copy is stored with its objects packed; #119 the deck opens without a blank wait
+- #125 Luna study sessions, a study partner beside the reader (flagged; on in prod since 2026-10-29)
+
+**Spaces, Home, Library**
+- #126 one app for students: classic rooms retired, New Space made on the stage (LS-050)
+- #128 / #130 the owner runs their Space on the stage: add Lessons, publish (LS-072)
+- #137 each Space seen through its own first page
+- #148 Spaces basics: Open says what it does, chips open, members can leave (LS-073/077/078)
+- #122 a shared Lesson link to a Space you have not joined offers Join (LS-045)
+- #117 Settings shows only real controls, the hub can make a Space, Studio stops flagging junk (LS-003..005)
+- #118 buttons say where they go, Home and Space agree, nothing falls off a phone (LS-006..013)
+- #140 six papercuts from the 2026-10-29 rehearsal
+- #133 the reader records what the analytics engine needs; #142 the Space engine behind the owner's door ("How it's landing", plans 1 and 2)
+- #146 the people in your Spaces see you only if you say so (LS-036)
+
+**Sign-up, first run, auth**
+- #115 sign-up and first run on the v4 stage; #113 Start opens sign-up, shared links survive sign-in, a missing Space says so
+- #124 a shared link survives sign-up, email confirmation and first run (LS-047)
+- #123 / #127 "Pick one for me" rolls a friendly alias and never lands on the name it started from
+- #116 new passwords need 8 characters; sign-in still accepts older ones
+- #111 no redirect loop for admins or a failed role; v4 can sign out, export and delete
+
+**Language**
+- #120 German mode stops speaking English (LS-014..017, 019); #109 the German Library guard reads text node by text node
+- #105 v4 in German: Social, people, Profile, Rank, History, Settings, and the guard that keeps it
+
+**Legal, privacy, security**
+- #141 / #144 real operator and full postal address in the Impressum and privacy policy, only services in use (LS-001, LS-002); #150 names Resend, which now sends the account emails
+- #110 audit week 1: tutor visibility, broken title endpoints, fail-closed controls, Sentry PII, honest privacy page, RLS scoping
+- #112 audit week 2: erasure gaps, upload quota bypass, failed AI as errors, shared rate limits, tutor-event minimisation, embedding accounting
+- #114 the public lecture-pdfs bucket is closed on prod; owner-only PDF writes
+- #129 an account that owns lessons can be deleted again (LS-112)
+- #134 no committed default passwords for seed accounts
+- #136 v4 and feature flags reach the prod frontend build (LS-037, LS-032)
+
+**Dependencies and CI**
+- #106 / #108 the advisories that turned CI red: Pillow 13, pypdf 6.21.2, zod 4
+
+**AI spend and content**
+- #98 parse-time calls are attributed to the uploader; students' monthly parse spend is capped
+- #96 v4 on real data: the world, Home, reading, practice, Social, notes, search
+- #95 real pages pipeline: files in, Studio pages out (flag off)
+
+## 2026-10-10 to 2026-10-19 — the reader, Luna's face, launch prep
+
+- #75 Reader: deck reader, Explain, checkpoints, fading light, exam rehearsal; #83 Teach it back, exam date plan, map of what builds on what
+- #68 the Lesson Reader (design-v4)
+- #76 / #87 / #88 Luna avatar system, Ask Luna tutor, one avatar app-wide with photo upload, server-side unlock guard
+- #80 / #81 / #82 Home: Luna alive; puffy suit, 17 looks, the Learnstation ID card
+- #78 one look across the app: monochrome brand, the stage everywhere, a landing page that is the product; #86 practice that lights up
+- #104 the landing demo shows what the reader really does; #100 the live page fills its frame; #93 top bar fits phones
+- #97 / #102 one language setting, the reader, Space page, shell, Home, hub, dialogs and Library in German
+- #84 AI and parser: plan the deck first, ground the quiz, fix two live cost bugs; #74 silent failures made loud, provider chains revived; #99 importing the orchestrator never overwrites the process env
+- #92 launch prep: OpenAI-only AI, real users, Launch Control, catalog enrichment
+- #90 complete data export and ordered, retried account erasure
+- #77 / #79 revoke anon EXECUTE on SECURITY DEFINER functions
+- #72 / #73 / #103 parser: stranded runs swept, course ownership checked on upload, code in a reply no longer discards the batch
+- #89 an internal university wiki export removed from the public repo; #101 nightly gitleaks no longer re-trips
+
+## 2026-08-28 to 2026-09-17 — the v4 design rebuild and the thesis apparatus
+
+- #55 / #56 / #57 / #58 / #59 / #60 / #61 / #62 Learnstation v4 design rebuild: Library Studio, Profile and Social cells, Rank, study history, Moments, Discover, Luna asks first on Home
+- #51 / #52 / #69 thesis figures, the LaTeX skeleton, the evaluation harness that produces the thesis's numbers
+- #53 / #54 real ai_model on the Ask-across-course path; lectures readable again (409 dead end, concepts 403, language detection)
+- #63 / #65 / #66 / #67 / #70 / #71 CI honesty: SCA advisories, the nightly gitleaks and AI-eval reds, the secrets audit corrected, phase 2 of the roadmap reconciled
+
+## 2026-08-17 to 2026-08-18 — the consolidation and the Milestone-4 fix night
+
+- #9 / #10 / #11 / #13 milestone consolidation: the security and platform fleet landed, stranded commits recovered, the baseline recorded
+- #12 Supabase egress overage fixed: hero key art served from WebP posters
+- #17 to #26 the whole-app audit report, consolidated and ranked
+- #27 all 18 tsc errors cleared so tsconfig.app.json can gate CI
+- #28 to #50 the audit fixes: ProtectedRoute fails closed (#29), fabricated telemetry removed (#30, #48), enrollment-scoped reads (#28), honest upload job states (#37), error-vs-empty states (#33, #36), legal-page reachability (#34), and the rest of the M- and R-numbered findings
+- #14 / #15 / #16 / #21 / #22 onboarding re-entry, batch-upload failures surfaced, JSON-mode envelope, dashboard no longer hammering Supabase
+
+## 2026-07-18
+
+- #8 student course library, onboarding, AI content improvements, load-test tooling
 
 ## [3.0.0] - 2026-06-09
 
