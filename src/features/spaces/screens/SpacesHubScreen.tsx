@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import { useViewer } from '../data/viewer';
 import {
@@ -78,6 +79,7 @@ import { ListSkeleton, SpacesError } from '../components/states';
  */
 
 export default function SpacesHubScreen() {
+  const navigate = useNavigate();
   const viewer = useViewer();
   const { t } = useTranslation('v4Spaces');
   const screenState = useScreenState();
@@ -358,7 +360,14 @@ export default function SpacesHubScreen() {
               </Pressable>
             ))}
           </div>
-          <SpaceChipRow spaces={sortedMine} selected={selected} onSelect={setSelected} />
+          <SpaceChipRow
+            spaces={sortedMine}
+            selected={selected}
+            onSelect={setSelected}
+            onOpen={(id) =>
+              id === DISCOVER_ID ? railsRef.current?.scrollIntoView({ block: 'start' }) : navigate(`/v4/space/${id}`)
+            }
+          />
           <NewSpaceDialog open={newOpen} onOpenChange={setNewOpen} />
         </section>
 

@@ -15,6 +15,7 @@ import { planToday, type TodayStep } from '../components/course/today';
 import { useViewer } from '../data/viewer';
 import { spaceById } from '../data/world';
 import { OwnerBar } from '../components/course/OwnerBar';
+import { LeaveSpace } from '../components/course/LeaveSpace';
 import { daysBetween, localToday, planExam } from '../components/course/examPlan';
 import { ExamRunway } from '../components/course/ExamRunway';
 import { examDateFor, setExamDate } from '../data/examDate';
@@ -405,6 +406,13 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             </motion.li>
           ))}
         </ol>
+        )}
+
+        {/* A member can leave; an owner runs the Space from the bar above instead. */}
+        {space?.viewerRole === 'member' && !space.personal && (
+          <div className="mt-20 flex justify-center">
+            <LeaveSpace spaceId={course.id} name={course.title} />
+          </div>
         )}
       </div>
     </div>,

@@ -109,6 +109,21 @@ async def join_space(course_id: str, user_id: str) -> bool:
     return True
 
 
+async def leave_space(course_id: str, user_id: str) -> None:
+    """Leave a Space you joined: the enrolment goes, nothing else (LS-077).
+
+    Reading progress, notes and rehearsals stay keyed to the lectures, so
+    joining again picks up where you were. Idempotent; an owner holds no
+    enrolment in their own Space, so for them this changes nothing.
+    """
+    conn_cm = await get_db_connection()
+    async with conn_cm as conn:
+        await conn.execute(
+            "DELETE FROM course_enrollments WHERE user_id = $1::uuid AND course_id = $2::uuid",
+            user_id, course_id,
+        )
+
+
 # ── The viewer's world: Spaces and their Lessons ─────────────────────────────
 #
 # A course is a Space, a lecture is a Lesson (the reader already reads them
