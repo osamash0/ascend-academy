@@ -13,6 +13,8 @@ import { NoteEditor } from '../components/NoteEditor';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import {
   fetchCheckpoint,
+  recordCheckIn,
+  recordCheckpointAnswer,
   teachBack,
   isLive,
   saveRehearsal,
@@ -143,7 +145,7 @@ export default function LessonFacesScreen() {
   const reduce = useReducedMotion();
   const panel = useMediaQuery(PANEL);
   /* `?page=34&view=explain` — the Lesson overview's way in, at a page and a view. */
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const askedPage = Number(params.get('page')) || null;
   const askedView = params.get('view');
   /* `&spot=words` — a search hit: light those words on the page once it is up. */
@@ -213,8 +215,6 @@ export default function LessonFacesScreen() {
   const textRef = useRef<HTMLDivElement>(null);
 
   const liveReader = !!spaceId && isLive(spaceId);
-  /* Count the reading: progress, visits and the streak, page by page. */
-  useReadingProgress(lessonId, pdfPage, liveReader && numPages > 0);
   /* The practice bench: the lecture's real questions when live. */
   const lights = useLights(run, pdfPage, {
     total: numPages || run?.pages || 0,
@@ -236,6 +236,25 @@ export default function LessonFacesScreen() {
     if (!spaceId || !lessonId || !numPages || !isLive(spaceId)) return;
     markTrail(lessonId, { page: pdfPage, pages: numPages, course: spaceId });
   }, [spaceId, lessonId, pdfPage, numPages]);
+
+  /*
+   * Keep `?page=` on the page in view, so a refresh or a shared link opens
+   * where you are rather than where you came in. Replaced, not pushed: Back
+   * leaves the Lesson instead of stepping through every page turned. A turn
+   * clears the lit words, so their `spot` goes with it.
+   */
+  useEffect(() => {
+    if (!numPages || params.get('page') === String(pdfPage)) return;
+    setParams(
+      (prev) => {
+        const nextParams = new URLSearchParams(prev);
+        nextParams.set('page', String(pdfPage));
+        nextParams.delete('spot');
+        return nextParams;
+      },
+      { replace: true },
+    );
+  }, [pdfPage, numPages, params, setParams]);
 
   useEffect(() => {
     if (anchor || sections.length === 0) return;
@@ -632,6 +651,19 @@ export default function LessonFacesScreen() {
   /* The idea being explained back, if any. */
   const [teaching, setTeaching] = useState<{ id: string; name: string; first: number; last: number } | null>(null);
   /*
+   * Count the reading: progress, visits and the streak, page by page. Time
+   * the page is covered is not reading it, so it is not counted: Explain when
+   * it fills the screen over the page (narrow), a checkpoint, the teach-back,
+   * the break room, the practice bench. Luna sits beside or below the page,
+   * and the text view is still the page's words, so reading goes on there.
+   */
+  useReadingProgress(
+    lessonId,
+    pdfPage,
+    liveReader && numPages > 0,
+    (view === 'explain' && !panel) || checkpointOpen || Boolean(teaching) || care.resting || Boolean(bench),
+  );
+  /*
    * A slide is landscape; a phone held upright shows it at a third of the
    * screen. Said once, and gone for good the first time the phone is turned.
    */
@@ -748,6 +780,15 @@ export default function LessonFacesScreen() {
   /* A question handed to Explain from outside it — words selected on the page. */
   const [queued, setQueued] = useState<{ question: string; n: number } | null>(null);
   const queuedN = useRef(0);
+  /*
+   * The page Explain was opened on, from the moment it becomes the view
+   * (a `?view=explain` way in included) until it stops being it. Explain is
+   * fetched again for each page turned while it stays open; only the page it
+   * was opened on is the learner asking for help.
+   */
+  const [explainOpenedOn, setExplainOpenedOn] = useState<number | null>(null);
+  if (view === 'explain' && explainOpenedOn === null) setExplainOpenedOn(pdfPage);
+  if (view !== 'explain' && explainOpenedOn !== null) setExplainOpenedOn(null);
   /* Explain is asked only while it is the view: turning pages costs nothing. */
   const explainBlock = blockOf(pdfPage);
   const explained = useExplain(
@@ -756,6 +797,7 @@ export default function LessonFacesScreen() {
     pdfPage,
     { title: explainBlock?.title ?? lesson?.title ?? '', markdown: explainBlock?.markdown ?? '' },
     view === 'explain',
+    explainOpenedOn === pdfPage,
   );
 
   const chrome = (body: React.ReactNode) => (
@@ -984,8 +1026,15 @@ export default function LessonFacesScreen() {
   const chapters = chaptersOf(sections, numPages || Math.max(...sections.flatMap((x) => x.blocks.map((b) => b.page))));
   const strip = chapters.length >= 2;
   const stageTop = short ? 0 : 88 + (strip ? 48 : 0);
-  /* The stage's own width decides whether the masthead can sit centred beside the switch. */
-  const narrowHead = vw - (docked ? panelWidth : 0) - (showToc ? TOC_WIDTH : 0) < 980;
+  /*
+   * The stage's own width decides whether the masthead can sit centred beside the switch.
+   * The controls on the right grow by Luna's button (or her offer), so the masthead
+   * keeps clear of them: 980 and 248px were measured before Luna had a button there,
+   * and at ~1000px the Space's name ran under "Study with Luna".
+   */
+  const lunaControls = lunaOn && !lunaOpen ? (lunaOffer ? 360 : 168) : 0;
+  const narrowHead =
+    vw - (docked ? panelWidth : 0) - (showToc ? TOC_WIDTH : 0) < 980 + 2 * lunaControls;
   const block = blockOf(pdfPage);
   /* Points are a slide's; a document has none. */
   const beats = shape === 'slides' ? beatsOf(pdfPage) : [];
@@ -1063,9 +1112,13 @@ export default function LessonFacesScreen() {
           /* Below sm the switch needs the top row; the strip names where you are. */
           'pointer-events-none absolute inset-x-0 top-0 z-20 hidden h-[88px] items-center',
           !short && 'sm:flex',
-          narrowHead ? 'justify-start pl-16 pr-[248px]' : 'justify-center px-20',
+          narrowHead ? 'justify-start pl-16' : 'justify-center px-20',
         )}
-        style={{ right: docked ? panelWidth : 0, left: showToc ? TOC_WIDTH : 0 }}
+        style={{
+          right: docked ? panelWidth : 0,
+          left: showToc ? TOC_WIDTH : 0,
+          ...(narrowHead && { paddingRight: 248 + lunaControls }),
+        }}
       >
         <div className={cn('min-w-0', !narrowHead && 'text-center')}>
           <p className="mb-1 truncate text-[12.5px] text-quiet">
@@ -1422,6 +1475,10 @@ export default function LessonFacesScreen() {
           if (offer) setTeaching(offer);
           dismissOffer();
         }}
+        onCheckIn={
+          liveReader && offer ? (rating) => recordCheckIn(lesson.id, offer.first, offer.last, offer.name, rating) : undefined
+        }
+        onAnswer={liveReader ? (id, answer, span) => recordCheckpointAnswer(lesson.id, span.first, span.last, id, answer) : undefined}
         onDismiss={dismissOffer}
       />
       <TeachBack

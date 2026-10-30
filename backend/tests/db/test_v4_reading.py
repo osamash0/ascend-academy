@@ -46,11 +46,11 @@ async def test_reading_writes_progress_visits_streak_and_events(
 
     uid = str(student)
     # A glance does not count as reading, but it is still a visit.
-    assert await reading.record_reading(lecture, uid, 1, 0.5) == {"pagesRead": 0, "percentComplete": 0}
-    assert await reading.record_reading(lecture, uid, 1, 12) == {"pagesRead": 1, "percentComplete": 33}
-    assert (await reading.record_reading(lecture, uid, 1, 30))["pagesRead"] == 1  # counted once
-    await reading.record_reading(lecture, uid, 2, 9)
-    assert await reading.record_reading(lecture, uid, 3, 9) == {"pagesRead": 3, "percentComplete": 100}
+    assert await reading.record_reading(lecture, uid, 1, 0.5, session_id="s1") == {"pagesRead": 0, "percentComplete": 0}
+    assert await reading.record_reading(lecture, uid, 1, 12, session_id="s1") == {"pagesRead": 1, "percentComplete": 33}
+    assert (await reading.record_reading(lecture, uid, 1, 30, session_id="s1"))["pagesRead"] == 1  # counted once
+    await reading.record_reading(lecture, uid, 2, 9, session_id="s1")
+    assert await reading.record_reading(lecture, uid, 3, 9, session_id="s1") == {"pagesRead": 3, "percentComplete": 100}
 
     with db_conn.cursor() as cur:
         cur.execute("SELECT completed_slides, last_slide_viewed, completed_at IS NOT NULL "
@@ -76,5 +76,5 @@ async def test_a_page_past_the_end_is_refused(reading, make_user, make_lecture, 
     from fastapi import HTTPException
 
     with pytest.raises(HTTPException) as err:
-        await reading.record_reading(lecture, str(prof), 9, 10)
+        await reading.record_reading(lecture, str(prof), 9, 10, session_id="s1")
     assert err.value.status_code == 422

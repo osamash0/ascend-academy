@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import i18n from '@/i18n';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FOLD_THRESHOLD, MAP_PALETTE } from '../SpaceMap';
-import { ascentSpaces } from '../AscentMap';
-import { allSpaces } from '../../mocks/spaces';
+import { AscentMap, ascentSpaces } from '../AscentMap';
+import { allSpaces, visibleSpaces } from '../../mocks/spaces';
 import { lessonsForSpace } from '../../mocks/lessons';
 
 /**
@@ -124,5 +127,60 @@ describe('Ascent draws Spaces, not Lessons', () => {
   it('has something to draw against the fixtures', () => {
     // A map guard that runs over an empty list passes and proves nothing.
     expect(ascentSpaces(allSpaces).length).toBeGreaterThan(1);
+  });
+});
+
+describe('Ascent is a night sky that shows rather than counts', () => {
+  /*
+   * 2026-10-26: the bodies were hollow 9px circles with "0/10" under each and
+   * "0 / 2 Spaces cleared · 0/11 Lessons" above. Now each Space is a window onto its first page
+   * with its real name, and the counts live only in the accessible names.
+   */
+  const mount = () => {
+    const spaces = ascentSpaces(visibleSpaces());
+    render(
+      <MemoryRouter>
+        <AscentMap spaces={spaces} />
+      </MemoryRouter>,
+    );
+    return spaces;
+  };
+
+  it('draws a window per Space, named with its real name', async () => {
+    await i18n.changeLanguage('en');
+    const spaces = mount();
+    for (const s of spaces.slice(0, FOLD_THRESHOLD)) {
+      expect(document.querySelector(`[data-space-window="${s.id}"]`), `${s.id} has no window`).toBeTruthy();
+    }
+    const labels = [...document.querySelectorAll('svg text')].map((t) => t.textContent ?? '');
+    for (const s of spaces) {
+      expect(labels.some((l) => s.name.startsWith(l.replace(/…$/, ''))), `${s.name} is not named`).toBe(true);
+    }
+  });
+
+  it('prints no counters, but keeps them for screen readers', async () => {
+    await i18n.changeLanguage('en');
+    const { container } = render(
+      <MemoryRouter>
+        <AscentMap spaces={ascentSpaces(visibleSpaces())} />
+      </MemoryRouter>,
+    );
+    const visible = [...container.querySelectorAll('text, p')].map((n) => n.textContent ?? '').join(' ');
+    expect(visible).not.toMatch(/\d+\s*\/\s*\d+/);
+    expect(visible).not.toMatch(/Spaces cleared/);
+    expect(screen.getByRole('group', { name: /^Your journey: \d+ of \d+ Spaces cleared/ })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /\d+ of \d+ Lessons cleared\.$/ }).length).toBeGreaterThan(1);
+  });
+
+  it('says "here you are" at most once, on the most recent Space', async () => {
+    await i18n.changeLanguage('en');
+    mount();
+    expect(screen.queryAllByText('here you are').length).toBeLessThanOrEqual(1);
+  });
+
+  it('shows the legend in plain words', async () => {
+    await i18n.changeLanguage('en');
+    mount();
+    expect(screen.getByText(/Gold: done · White: you are here · Faint: still open/)).toBeTruthy();
   });
 });

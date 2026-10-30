@@ -1,22 +1,23 @@
 {
   "imprint": {
     "title": "Imprint",
-    "section5": "Information pursuant to § 5 TMG",
-    "addressLines": "[First and last name / Company name]\n[Street and number]\n[Postal code and city]\nGermany",
+    "section5": "Information pursuant to § 5 DDG",
+    "addressLines": "Abdullah Abobaker\n35037 Marburg\nGermany",
     "contact": "Contact",
     "email": "Email",
-    "responsible": "Responsible for content under § 55 (2) RStV",
-    "responsibleAddress": "[First and last name]\n[Street and number]\n[Postal code and city]",
+    "responsible": "Responsible for content under § 18 (2) MStV",
+    "responsibleAddress": "Abdullah Abobaker\n35037 Marburg",
     "disclaimer": "Disclaimer",
     "liability": "Liability for content",
     "liabilityBody": "The contents of our pages have been created with the greatest care. However, we cannot guarantee the accuracy, completeness, or timeliness of the content.",
-    "backHome": "← Back to home"
+    "backHome": "← Back to home",
+    "project": "Learnstation is a private, non-commercial project."
   },
   "privacy": {
     "title": "Privacy Policy",
-    "lastUpdated": "Last updated: October 2026",
+    "lastUpdated": "Last updated: 29 October 2026",
     "section1Title": "1. Controller",
-    "section1Body": "[First and last name]\n[Street and number]\n[Postal code and city]\nEmail:",
+    "section1Body": "Abdullah Abobaker\n35037 Marburg\nGermany\nEmail:",
     "section2Title": "2. Data we collect",
     "section2Intro": "When you use Learnstation, we process the following personal data:",
     "section2Items": [
@@ -26,25 +27,23 @@
       "<bold>What you write:</bold> questions to the AI tutor and the conversation history, your written explanations in practice, search queries, notes and feedback messages.",
       "<bold>Documents you upload:</bold> the files, the text extracted from them and the summaries and questions generated from that text.",
       "<bold>Social data:</bold> friend connections and friend requests, and whether you appear on the leaderboard.",
-      "<bold>Technical data:</bold> IP address, browser type and the pages you request, in server logs and error reports kept for a short time."
+      "<bold>Technical data:</bold> IP address, browser type and the pages you request, in server logs kept for a short time."
     ],
     "section3Title": "3. Purpose and legal basis",
     "section3Items": [
       "<bold>Performance of contract (Art. 6(1)(b) GDPR):</bold> account data, learning progress, your uploads and the AI features (summaries, questions, tutor answers) are required to provide the service you signed up for.",
-      "<bold>Legitimate interest (Art. 6(1)(f) GDPR):</bold> learning events are collected to improve teaching and to show the people who maintain a Space where learners struggle; server logs and error reports are kept to run the service securely and reliably."
+      "<bold>Legitimate interest (Art. 6(1)(f) GDPR):</bold> learning events are collected to improve teaching and to show the people who maintain a Space where learners struggle; server logs are kept to run the service securely and reliably."
     ],
     "section4Title": "4. Processors",
     "section4Items": [
-      "<bold>Supabase Inc.</bold> — sign-in, database and file storage.",
+      "<bold>Supabase Inc.</bold> — sign-in, database and file storage (servers in the EU, Ireland).",
       "<bold>Hetzner Online GmbH (Germany)</bold> — hosting of the application server.",
-      "<bold>AI providers</bold> — to generate summaries, questions and tutor answers, the text of your documents, your questions and your conversation history are sent to <bold>OpenAI</bold>. Depending on the server configuration, <bold>Groq</bold>, <bold>Google (Gemini)</bold>, <bold>Cloudflare</bold>, <bold>Mistral</bold> and <bold>OpenRouter</bold> can be used as fallbacks for the same purpose. Your name and email address are not part of these requests.",
-      "<bold>LlamaIndex (LlamaParse)</bold> — when that parsing engine is selected, uploaded documents are sent there to extract their text.",
-      "<bold>Microsoft (Edge text-to-speech)</bold> — text is sent to produce spoken audio when you use the read-aloud feature.",
-      "<bold>Sentry (Functional Software, Inc.)</bold> — error monitoring. Error reports contain technical data about the failure (browser, page, device); identifying fields are removed before sending. There is no session recording.",
-      "<bold>Resend, Inc.</bold> — transactional email, for example when you send feedback."
+      "<bold>AI providers</bold> — for summaries, questions, explanations, Luna’s answers and search, the text of your documents, your questions and your conversation history are sent to <bold>OpenAI</bold>, <bold>Groq</bold> and <bold>Google (Gemini)</bold>; <bold>OpenRouter</bold> steps in when those are unreachable. Your name and email address are not part of these requests.",
+      "<bold>LlamaIndex (LlamaParse)</bold> — when that parsing engine is selected at upload, uploaded documents are sent there to extract their text.",
+      "<bold>Microsoft (Edge text-to-speech)</bold> — text is sent to produce spoken audio when you use the read-aloud feature."
     ],
     "section5Title": "5. Retention period",
-    "section5Body": "Your data is stored as long as your account is active. After account deletion, all personal data is deleted within 30 days. AI tutor conversations and learning events are kept for as long as your account exists. Server logs and error reports are kept for a short period only.",
+    "section5Body": "Your data is stored as long as your account is active. After account deletion, all personal data is deleted within 30 days. AI tutor conversations and learning events are kept for as long as your account exists. Server logs are kept for a short period only.",
     "section6Title": "6. Your rights",
     "section6Intro": "Under the GDPR, you have the following rights:",
     "section6Items": [
@@ -55,9 +54,9 @@
       "<bold>Right to lodge a complaint:</bold> you have the right to file a complaint with a data protection authority."
     ],
     "section7Title": "7. Cookies and local storage",
-    "section7Body": "Learnstation does not use <bold>tracking cookies</bold> or advertising trackers (no Google Analytics, no Facebook Pixel). Only the browser's localStorage is used for session management and settings. Error monitoring (see processors) receives technical error data without a session recording.",
+    "section7Body": "Learnstation does not use <bold>tracking cookies</bold> or advertising trackers (no Google Analytics, no Facebook Pixel). Only the browser's localStorage is used for session management and settings.",
     "section8Title": "8. International data transfer",
-    "section8Body": "Some processors listed above are based in the United States or may process data there (Supabase, OpenAI, Groq, Google, Cloudflare, Mistral, OpenRouter, LlamaIndex, Microsoft, Sentry, Resend). For these transfers the EU Standard Contractual Clauses (SCCs) or the EU-U.S. Data Privacy Framework apply as safeguards under Art. 46 GDPR.",
+    "section8Body": "Some processors listed above are based in the United States or may process data there (Supabase, OpenAI, Groq, Google, OpenRouter, LlamaIndex, Microsoft). For these transfers the EU Standard Contractual Clauses (SCCs) or the EU-U.S. Data Privacy Framework apply as safeguards under Art. 46 GDPR.",
     "backHome": "← Back to home"
   }
 }

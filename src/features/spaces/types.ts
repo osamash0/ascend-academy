@@ -169,6 +169,20 @@ export interface Space {
    * only you see it, and it has no Members, Manage or rehearsals.
    */
   personal?: boolean;
+
+  /**
+   * Page 1 of the Space's first Lesson, as a small poster image — the Space's
+   * cover on the hub and on Ascent. Null while there is none yet.
+   */
+  cover?: string | null;
+  /**
+   * A few of the people learning here, newest first: never the viewer, never
+   * the Owner (shown apart). Only for Spaces the viewer is in — a Space you
+   * are only browsing shows its Owner and a count, not strangers' faces.
+   */
+  faces?: Person[];
+  /** Where the viewer stopped reading here: the Lesson and its page. */
+  lastPlace?: { lessonId: string; lessonTitle: string; page: number } | null;
 }
 
 /** A file someone uploaded. Deleting it never breaks its Lesson. */

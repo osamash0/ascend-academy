@@ -54,3 +54,72 @@ def test_unknown_event_type_rejected_by_db(db_conn, make_user):
     with pytest.raises(psycopg.errors.CheckViolation):
         with db_conn.cursor() as cur:
             _insert_event(cur, uid, "totally_made_up_event")
+
+
+def test_checkpoint_attempt_accepted(db_conn, make_user):
+    uid = make_user()
+    with db_conn.cursor() as cur:
+        _insert_event(cur, uid, "checkpoint_attempt", '{"lectureId": "L1", "page": 3}')
+        cur.execute(
+            "SELECT count(*) FROM public.learning_events WHERE user_id = %s AND event_type = 'checkpoint_attempt'",
+            (str(uid),),
+        )
+        assert cur.fetchone()[0] == 1
+
+
+# ── Professors do not read v4 reader questions verbatim ──────────────────────
+# 20261027000000 re-declares "Professors view events for their enrolled
+# students" with one extra condition: an `ai_tutor_query` whose
+# event_data.source is 'v4_reader' is not returned. Spec §0: owners see v4
+# questions only as themes over >= 5 askers, never verbatim.
+
+
+def _as_user(cur, uid: uuid.UUID) -> None:
+    cur.execute("SET ROLE authenticated")
+    cur.execute("SELECT set_config('request.jwt.claim.sub', %s, false)", (str(uid),))
+    cur.execute("SELECT set_config('request.jwt.claim.role', %s, false)", ("authenticated",))
+
+
+def _reset_user(cur) -> None:
+    cur.execute("RESET ROLE")
+    cur.execute("SELECT set_config('request.jwt.claim.sub', '', false)")
+    cur.execute("SELECT set_config('request.jwt.claim.role', '', false)")
+
+
+def test_professor_jwt_cannot_read_v4_reader_questions_of_an_enrolled_member(
+    db_conn, make_user, make_course, make_course_enrollment
+):
+    prof = make_user(role="professor")
+    member = make_user()
+    course = make_course(prof)
+    make_course_enrollment(member, course)
+
+    with db_conn.cursor() as cur:
+        # Written as the superuser, the way the backend's asyncpg writer does.
+        _insert_event(cur, member, "slide_view", '{"lectureId": "L1", "page": 2}')
+        _insert_event(
+            cur,
+            member,
+            "ai_tutor_query",
+            '{"lectureId": "L1", "source": "v4_reader", "kind": "ask", '
+            '"query": "why is the second derivative negative here"}',
+        )
+        # The legacy Ask has no `source` key: NULL must not hide it.
+        _insert_event(cur, member, "ai_tutor_query", '{"lectureId": "L1", "query": "legacy"}')
+
+        _as_user(cur, prof)
+        try:
+            cur.execute(
+                "SELECT event_type, event_data->>'source' FROM public.learning_events "
+                "WHERE user_id = %s",
+                (str(member),),
+            )
+            seen = sorted(cur.fetchall(), key=lambda r: (r[0], r[1] or ""))
+        finally:
+            _reset_user(cur)
+
+    assert ("slide_view", None) in seen, "the member's slide_view must stay readable"
+    assert ("ai_tutor_query", None) in seen, "a legacy ai_tutor_query (no source) stays readable"
+    assert ("ai_tutor_query", "v4_reader") not in seen, (
+        "a professor JWT must not read a v4 reader question: " + repr(seen)
+    )

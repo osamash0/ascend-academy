@@ -81,6 +81,11 @@ VALID_PAYLOADS: dict[str, dict] = {
         "study_goal": "exam",
         "onboarding_version": 1,
     },
+    # v4 reader (plan 1): a checkpoint or teach-back result, graded on the server.
+    "checkpoint_attempt": {
+        "lectureId": "L1", "slideId": "sl1", "page": 12, "idea": "BCNF", "kind": "choice",
+        "correct": False, "sessionId": "s1", "timestamp": "2026-10-27T00:00:00Z", "source": "v4_reader",
+    },
 }
 
 
@@ -90,7 +95,7 @@ def test_registry_covers_exactly_the_audited_catalog():
     site — no more, no less. A change here without updating the migration
     (or vice versa) is a bug."""
     assert KNOWN_EVENT_TYPES == set(VALID_PAYLOADS)
-    assert len(KNOWN_EVENT_TYPES) == 16
+    assert len(KNOWN_EVENT_TYPES) == 17
 
 
 @pytest.mark.parametrize("event_type", sorted(VALID_PAYLOADS))
@@ -156,3 +161,42 @@ def test_ai_tutor_query_no_longer_accepts_the_model_reply():
     validate_event("ai_tutor_query", payload)
     with pytest.raises(pydantic.ValidationError):
         validate_event("ai_tutor_query", {**payload, "response": "because"})
+
+
+def test_v4_slide_view_carries_page_and_source_and_may_lack_a_slide_row():
+    validate_event("slide_view", {
+        "lectureId": "L1", "slideId": None, "page": 3, "duration_seconds": 40,
+        "sessionId": "s1", "timestamp": "2026-10-27T00:00:00Z", "source": "v4_reader",
+    })
+
+
+def test_v4_help_query_names_explain_or_ask_and_nothing_else():
+    base = {"lectureId": "L1", "slideId": "sl1", "page": 12, "sessionId": "s1", "query": "",
+            "timestamp": "2026-10-27T00:00:00Z", "source": "v4_reader"}
+    validate_event("ai_tutor_query", {**base, "kind": "explain"})
+    validate_event("ai_tutor_query", {**base, "kind": "ask", "query": "Why BCNF?"})
+    with pytest.raises(ValidationError):
+        validate_event("ai_tutor_query", {**base, "kind": "chat"})
+
+
+def test_v4_check_in_is_a_confidence_rating_on_an_idea():
+    validate_event("confidence_rating", {
+        "lectureId": "L1", "slideId": None, "page": 9, "idea": "Joins", "rating": "confused",
+        "sessionId": "s1", "timestamp": "2026-10-27T00:00:00Z", "source": "v4_reader",
+    })
+
+
+def test_v4_back_navigation_and_completion_validate():
+    validate_event("slide_back_navigation", {
+        "lectureId": "L1", "fromSlideId": "a", "toSlideId": "b", "fromPage": 8, "toPage": 7,
+        "sessionId": "s1", "timestamp": "2026-10-27T00:00:00Z", "source": "v4_reader",
+    })
+    validate_event("lecture_complete", {
+        "lectureId": "L1", "sessionId": "s1", "completed_at": "2026-10-27T00:00:00Z",
+        "total_duration_seconds": 900, "source": "v4_reader",
+    })
+
+
+def test_checkpoint_attempt_rejects_an_unknown_kind():
+    with pytest.raises(ValidationError):
+        validate_event("checkpoint_attempt", {**VALID_PAYLOADS["checkpoint_attempt"], "kind": "essay"})

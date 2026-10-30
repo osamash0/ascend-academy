@@ -614,6 +614,9 @@ def get_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]
     result = []
     for e in events_data:
         ev_data = e.get("event_data", {})
+        # v4 reader questions reach owners only as themes over 5+ askers, never verbatim (spec §0).
+        if ev_data.get("source") == "v4_reader":
+            continue
         query_text = ev_data.get("query", "").strip()
         if not query_text:
             continue
@@ -639,6 +642,32 @@ def get_lecture_insights(lecture_id: str, token: str = None) -> Dict[str, Any]:
         "computedAt": datetime.now(timezone.utc).isoformat() + "Z",
         "insights": insights,
     }
+
+
+def _feed_and_ticker(ticker_rows) -> tuple:
+    """The AI-question feed and the live ticker, built from the dashboard's ticker rows."""
+    ai_query_feed = []
+    live_ticker = []
+    for r in ticker_rows:
+        evd = json.loads(r["event_data"]) if isinstance(r["event_data"], str) else r["event_data"]
+        # v4 reader questions reach owners only as themes over 5+ askers, never verbatim (spec §0).
+        if r["type"] == "ai_tutor_query" and evd.get("source") == "v4_reader":
+            continue
+        slide_title = evd.get("slideTitle", "Unknown Slide")
+
+        if r["type"] == "ai_tutor_query":
+            q_text = evd.get("query", "").strip()
+            if q_text:
+                ai_query_feed.append({"slide_title": slide_title, "query_text": q_text, "created_at": r["time"]})
+                if len(live_ticker) < 15:
+                    live_ticker.append({"type": r["type"], "description": f'Asked AI Tutor: "{q_text[:40]}..."', "time": r["time"]})
+        elif len(live_ticker) < 15:
+            if r["type"] == "slide_back_navigation":
+                desc = f"Navigated backwards from {evd.get('fromSlideId', 'Unknown')} (Revision)"
+            else:
+                desc = f"{'Passed' if evd.get('correct') else 'Failed'} quiz on {slide_title}"
+            live_ticker.append({"type": r["type"], "description": desc, "time": r["time"]})
+    return ai_query_feed, live_ticker
 
 
 @cached_analytic_async("dashboard")
@@ -803,24 +832,7 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
             "revisions": r["revisions"]
         })
 
-    ai_query_feed = []
-    live_ticker = []
-    for r in ticker_rows:
-        evd = json.loads(r["event_data"]) if isinstance(r["event_data"], str) else r["event_data"]
-        slide_title = evd.get("slideTitle", "Unknown Slide")
-        
-        if r["type"] == "ai_tutor_query":
-            q_text = evd.get("query", "").strip()
-            if q_text:
-                ai_query_feed.append({"slide_title": slide_title, "query_text": q_text, "created_at": r["time"]})
-                if len(live_ticker) < 15:
-                    live_ticker.append({"type": r["type"], "description": f'Asked AI Tutor: "{q_text[:40]}..."', "time": r["time"]})
-        elif len(live_ticker) < 15:
-            if r["type"] == "slide_back_navigation":
-                desc = f"Navigated backwards from {evd.get('fromSlideId', 'Unknown')} (Revision)"
-            else:
-                desc = f"{'Passed' if evd.get('correct') else 'Failed'} quiz on {slide_title}"
-            live_ticker.append({"type": r["type"], "description": desc, "time": r["time"]})
+    ai_query_feed, live_ticker = _feed_and_ticker(ticker_rows)
 
     # Compute miss-rates from raw counts (kept out of SQL to avoid div-by-zero noise)
     retry_performance = []
@@ -990,23 +1002,6 @@ def _calculate_dropoff_map(slides_data: list, progress_data: list, student_count
         }
         for s in slides_data if s["slide_number"] in dropout_by_slide
     ]
-
-
-def _generate_live_feeds(events_data: list) -> tuple:
-    ticker, queries = [], []
-    sorted_events = sorted(events_data, key=lambda x: x.get("created_at", ""), reverse=True)
-    for e in sorted_events:
-        evt, evd = e.get("event_type"), e.get("event_data", {})
-        if evt == "ai_tutor_query":
-            q_text = evd.get("query", "").strip()
-            if q_text: queries.append({"slide_title": evd.get("slideTitle", "Unknown Slide"), "query_text": q_text, "created_at": e.get("created_at", "")})
-        if len(ticker) < 15 and evt in ["ai_tutor_query", "slide_back_navigation", "quiz_attempt"]:
-            slide_title = evd.get("slideTitle", "Unknown Slide")
-            if evt == "ai_tutor_query": desc = f'Asked AI Tutor on {slide_title}: "{evd.get("query", "")[:40]}..."'
-            elif evt == "slide_back_navigation": desc = f"Navigated backwards from {evd.get('fromSlideId', 'Unknown')} (Revision)"
-            else: desc = f"{'Passed' if evd.get('correct') else 'Failed'} quiz on {slide_title}"
-            ticker.append({"type": evt, "description": desc, "time": e.get("created_at", "")})
-    return ticker, queries
 
 
 # ── Professor course-wide overview ───────────────────────────────────────────

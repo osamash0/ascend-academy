@@ -173,6 +173,8 @@ export interface V4Transport {
   delete<T>(path: string): Promise<T>;
   /** A multipart POST (a file). Optional: only bringing files in needs it. */
   upload?<T>(path: string, form: FormData): Promise<T>;
+  /** A keepalive POST that outlives the page; false when it could not go. Optional: only the reader's last page needs it. */
+  beacon?(path: string, body: unknown): boolean;
 }
 
 /** What the background upload answers: one row per file, queued or failed at once. */
@@ -189,6 +191,22 @@ export interface LessonBatchRow {
   lecture_id: string | null;
   title: string | null;
 }
+
+/** A checkpoint answer, as the reader grades it (components/rehearsal/grade.ts `Answer`). */
+export type CheckpointAnswer =
+  | { kind: 'choice'; index: number }
+  | { kind: 'order'; order: number[] }
+  | { kind: 'fdHolds'; holds: number[] }
+  | { kind: 'closure'; attrs: string[] }
+  | { kind: 'bcnf'; violating: number[] };
+
+/** What a progress ping says: the page left, its seconds, the reading session, and the page now in view. */
+const readingBody = (page: number, seconds: number, session?: string | null, toPage?: number) => ({
+  page,
+  seconds,
+  session_id: session ?? '',
+  ...(toPage ? { to_page: toPage } : {}),
+});
 
 const root = '/api/v1/v4';
 const idPath = (id: string) => encodeURIComponent(id);
@@ -251,23 +269,35 @@ export function createLiveRepository(http: V4Transport) {
     /* The reader, on real courses and lectures (`/v4/reader`, FEATURE_V4_READER). */
     readerCourse: (id: string) => http.get<ReaderCourse>(`${root}/reader/courses/${idPath(id)}`),
     readerLecture: (id: string) => http.get<ReaderLecture>(`${root}/reader/lectures/${idPath(id)}`),
-    /** The page just left, and how long it was open. Writes progress, visits, streak. */
-    recordReading: (id: string, page: number, seconds: number) =>
-      http.post<{ pagesRead: number; percentComplete: number }>(`${root}/reader/lectures/${idPath(id)}/progress`, {
-        page,
-        seconds,
-      }),
+    /** The page just left, how long it was open (net of covered time), and where the reader went. */
+    recordReading: (id: string, page: number, seconds: number, session?: string | null, toPage?: number) =>
+      http.post<{ pagesRead: number; percentComplete: number }>(
+        `${root}/reader/lectures/${idPath(id)}/progress`,
+        readingBody(page, seconds, session, toPage),
+      ),
+    /** The page open as the tab closes: a beacon when the transport has one, else a best-effort post. */
+    recordReadingBeacon: (id: string, page: number, seconds: number, session?: string | null): boolean => {
+      const path = `${root}/reader/lectures/${idPath(id)}/progress`;
+      const body = readingBody(page, seconds, session);
+      if (http.beacon?.(path, body)) return true;
+      void http.post(path, body).catch(() => {});
+      return false;
+    },
     /** The lecture's real quiz questions, as PracticeQuestions. */
     practice: (id: string) => http.get<{ questions: PracticeQuestion[] }>(`${root}/reader/lectures/${idPath(id)}/practice`),
-    /** Graded on the server; logs a quiz_attempt and grants XP once per question. */
-    answerPractice: (id: string, questionId: string, answer: string) =>
+    /** Graded on the server; logs a first try or a retry and grants XP once per question. */
+    answerPractice: (id: string, questionId: string, answer: string, session?: string | null) =>
       http.post<{ correct: boolean; correctAnswer: string; explanation: string; xp: number }>(
         `${root}/reader/lectures/${idPath(id)}/practice/answer`,
-        { question_id: questionId, answer },
+        { question_id: questionId, answer, session_id: session ?? '' },
       ),
     readerIdeas: (id: string) => http.get<{ concepts: ReaderConcept[] }>(`${root}/reader/lectures/${idPath(id)}/ideas`),
-    explainPage: (id: string, page: number) =>
-      http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/explain`, {}),
+    /** `opened`: false when Explain was already open and the reader turned to this page; that is not asking for help here. */
+    explainPage: (id: string, page: number, session?: string | null, opened = true) =>
+      http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/explain`, {
+        session_id: session ?? '',
+        opened,
+      }),
     courseMap: (id: string) => http.get<ReaderCourseMap>(`${root}/reader/courses/${idPath(id)}/map`),
     findInCourse: (id: string, q: string) =>
       http.get<{ results: ReaderFind[] }>(`${root}/reader/courses/${idPath(id)}/find?q=${encodeURIComponent(q)}`),
@@ -282,15 +312,24 @@ export function createLiveRepository(http: V4Transport) {
       http.post<{ id: string; created_at: string }>(`${root}/reader/courses/${idPath(courseId)}/rehearsals`, body),
     checkpoint: (lectureId: string, body: { first: number; last: number; idea: string }) =>
       http.post<Checkpoint>(`${root}/reader/lectures/${idPath(lectureId)}/checkpoint`, body),
-    teachBack: (lectureId: string, body: { first: number; last: number; idea: string; explanation: string }) =>
+    teachBack: (lectureId: string, body: { first: number; last: number; idea: string; explanation: string; session_id?: string }) =>
       http.post<TeachBack>(`${root}/reader/lectures/${idPath(lectureId)}/teach-back`, body),
+    /** The quiet check-in at an idea's checkpoint. */
+    checkIn: (lectureId: string, body: { first: number; last: number; idea: string; rating: 'got_it' | 'confused'; session_id: string }) =>
+      http.post<void>(`${root}/reader/lectures/${idPath(lectureId)}/check-in`, body),
+    /** One checkpoint answer, graded and recorded on the server. */
+    answerCheckpoint: (
+      lectureId: string,
+      body: { first: number; last: number; question_id: number; answer: CheckpointAnswer; session_id: string },
+    ) => http.post<{ correct: boolean }>(`${root}/reader/lectures/${idPath(lectureId)}/checkpoint/answer`, body),
     courseLinks: (courseId: string) =>
       http.get<{ links: ReaderLink[]; cached: boolean; complete: boolean }>(`${root}/reader/courses/${idPath(courseId)}/links`),
     rehearsalHistory: (courseId: string) => http.get<RehearsalHistory>(`${root}/reader/courses/${idPath(courseId)}/rehearsals`),
-    askPage: (id: string, page: number, question: string, thread: { question: string; title: string }[]) =>
+    askPage: (id: string, page: number, question: string, thread: { question: string; title: string }[], session?: string | null) =>
       http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/ask`, {
         question,
         thread,
+        session_id: session ?? '',
       }),
     /* Your complete record (GDPR Art. 20): every table the server exports, not what the browser can read. */
     exportAccount: () => http.get<unknown>('/api/auth/export-data'),
@@ -334,5 +373,6 @@ function withLanguage(http: V4Transport): V4Transport {
     patch: <T>(path: string, body: unknown) => http.patch<T>(tag(path), body),
     delete: <T>(path: string) => http.delete<T>(tag(path)),
     upload: http.upload ? <T>(path: string, form: FormData) => http.upload!<T>(tag(path), form) : undefined,
+    beacon: http.beacon ? (path: string, body: unknown) => http.beacon!(tag(path), body) : undefined,
   };
 }

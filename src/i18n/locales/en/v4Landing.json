@@ -1,0 +1,156 @@
+{
+  "_about": "v4 'How it's landing' — the owner's view of a Space, the questions people send, and the reader's way of sending one",
+  "door": {
+    "title": "How it’s landing",
+    "pill": "How it’s landing",
+    "lede": {
+      "act": "One page is asking for you. The rest is landing.",
+      "watch": "Nothing urgent. A few pages are worth a look.",
+      "calm": "It's landing. Nothing needs you today.",
+      "floor_one": "{{count}} person has been reading. Patterns show once five people have been through a page.",
+      "floor_other": "{{count}} people have been reading. Patterns show once five people have been through a page.",
+      "actPage": "One page is asking for you: {{lesson}}, page {{page}}. The rest is landing."
+    },
+    "ownOnly": "Your own reading is never counted."
+  },
+  "figures": {
+    "reading": "of {{members}} members read this week",
+    "landing": "of pages are landing",
+    "cleared": "cleared checkpoints first try"
+  },
+  "light": {
+    "act": "needs you",
+    "watch": "worth a look",
+    "calm": "landing",
+    "few": "too few to say yet"
+  },
+  "questions": {
+    "title": "Questions for you",
+    "none": "No one has sent a question yet. When someone does, it lands here first.",
+    "someone": "Someone",
+    "page": "Page {{page}}",
+    "answer": "Answer",
+    "placeholder": "Write an answer",
+    "them": "Answer them",
+    "everyone": "Answer for everyone",
+    "everyoneHint": "Shows on that page for every member",
+    "answered": {
+      "them": "Answered · just them",
+      "everyone": "Answered · for everyone"
+    },
+    "close": "Close",
+    "when": {
+      "now": "just now",
+      "hours_one": "{{count}} hour ago",
+      "hours_other": "{{count}} hours ago",
+      "days_one": "yesterday",
+      "days_other": "{{count}} days ago"
+    }
+  },
+  "lessons": {
+    "title": "Lessons",
+    "readers_one": "{{count}} reader",
+    "readers_other": "{{count}} readers",
+    "open": "Open {{lesson}}",
+    "mapLede": "Each cell is a page. The brighter it is, the more people needed help there; a labelled one opens that page.",
+    "cell": "Page {{page}} of {{lesson}}"
+  },
+  "feed": {
+    "title": "What needs you",
+    "openPage": "Open page {{page}}"
+  },
+  "kind": {
+    "confusion_hotspot": {
+      "headline": "A page where many ask for help",
+      "summary": "On page {{page}} of {{lesson}}, {{askers}} people opened Explain or asked, and {{foggy}}% said it was still foggy.",
+      "why": "Help-seeking this concentrated usually means a step is missing on the page itself, not in the people reading it."
+    },
+    "silent_misleader": {
+      "headline": "A page that hides a trap",
+      "summary": "{{clicked}}% said page {{page}} had clicked, then {{missed}}% of them missed its checkpoint.",
+      "why": "The page reads as clear and tests as wrong. Something on it is plausible and incorrect at the same time."
+    },
+    "skipped_slide": {
+      "headline": "A page that's being passed over",
+      "summary": "People stay a median of {{seconds}} s on page {{page}} of {{lesson}} before moving on.",
+      "why": "Either the page carries nothing new, or it looks like it doesn't. If it matters, it needs a reason to stop."
+    },
+    "speed_bump": {
+      "headline": "A page people come back to, later",
+      "summary": "{{backs}} people turned back to page {{page}} from the page right after it.",
+      "why": "The next page needs something this one didn't make obvious. Naming it here saves the trip back."
+    },
+    "overpacked": {
+      "headline": "A page that asks too much at once",
+      "summary": "Page {{page}} holds people {{ratio}}× longer than the rest of {{lesson}}, and many ask for help there.",
+      "why": "Long, uneven time plus help-seeking is the shape of two ideas on one page."
+    },
+    "leaky_bucket": {
+      "headline": "A Lesson that feels heavy",
+      "summary": "{{pct}}% of readers stopped right after page {{page}} of {{lesson}}.",
+      "why": "A drop this sharp is a wall, not fatigue. The page before it is where to look."
+    },
+    "confusion_block": {
+      "headline": "A stretch where the thread got lost",
+      "summary": "Pages {{first}}–{{last}} of {{lesson}} ran foggy for most who read them.",
+      "why": "One missing link early in a stretch makes every page after it harder."
+    },
+    "quiz_misalignment": {
+      "headline": "A question that tests something else",
+      "summary": "Page {{page}} read easily, yet only {{pct}}% passed its practice first try.",
+      "why": "When the page is clear and the question is missed, the question is asking about something the page doesn't teach."
+    },
+    "calibration_gap": {
+      "headline": "Sure, and still missed it",
+      "summary": "On page {{page}}, {{pct}}% who said it had clicked still missed the checkpoint.",
+      "why": "Confidence without accuracy is the hardest kind to spot from the front of a room. This is where it is."
+    },
+    "healthy": {
+      "headline": "{{lesson}} is landing well",
+      "summary": "Few asked for help, and most cleared its checkpoints first try.",
+      "why": "Nothing to change. Worth knowing which Lesson to point at when you build the next one."
+    }
+  },
+  "picture": {
+    "page": "p. {{page}}"
+  },
+  "themes": {
+    "title": "What people asked on page {{page}}",
+    "count_one": "{{count}} person asked · shown as themes, never word for word",
+    "count_other": "{{count}} people asked · shown as themes, never word for word",
+    "few": "Themes appear once five different people have asked on a page."
+  },
+  "grid": {
+    "title": "Clicked vs. missed on page {{page}}",
+    "clickedCleared": "Said clicked, cleared it",
+    "clickedMissed": "Said clicked, missed it",
+    "foggyCleared": "Said foggy, cleared it",
+    "foggyMissed": "Said foggy, missed it",
+    "people_one": "{{count}} person",
+    "people_other": "{{count}} people",
+    "few": "Not enough check-ins and checkpoints yet to compare."
+  },
+  "reader": {
+    "line": "Still foggy? Send it to the Space.",
+    "send": "Send it to the Space",
+    "title": "Send it to the Space",
+    "who": "The people who run this Space will see it, and you'll hear back here.",
+    "yourQuestion": "Your question",
+    "page": "Page {{page}} · {{lesson}}",
+    "anonymous": "Without my name",
+    "sendNow": "Send",
+    "cancel": "Not now",
+    "sent": "Sent. I'll tell you when they answer.",
+    "answeredLuna": "They answered your question about page {{page}}. Want to read it?",
+    "read": "Read it",
+    "answered": {
+      "title": "The people who run this Space answered",
+      "everyone": "Answered for everyone",
+      "yours": "Your question"
+    },
+    "checkin": {
+      "clicked": "Clicked",
+      "foggy": "Still foggy"
+    }
+  }
+}

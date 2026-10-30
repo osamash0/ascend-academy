@@ -89,6 +89,7 @@ export default function JoinSpaceScreen({ spaceId, lessonId }: { spaceId: string
           {t('join.failed')}
         </p>
       )}
+      <p className="mt-4 max-w-[52ch] text-[13px] leading-relaxed text-quiet">{t('join.privacy')}</p>
 
       <h2 className="mt-14 text-[13px] font-medium text-quiet">{t('join.inside')}</h2>
       <ol className="mt-4 space-y-1">
