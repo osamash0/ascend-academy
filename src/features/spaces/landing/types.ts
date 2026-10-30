@@ -104,10 +104,14 @@ export interface LandingQuestion {
   answer?: LandingAnswer;
 }
 
-/** A figure with its last eight weeks, oldest first, in the figure's own unit. */
+/**
+ * A figure with its last eight weeks, oldest first, in the figure's own unit.
+ * `null` is a week with nothing to say: fewer than `floor` people that week.
+ * It is not zero, and the door never draws or states it as one.
+ */
 export interface Figure {
-  value: number;
-  history: number[];
+  value: number | null;
+  history: (number | null)[];
 }
 
 export interface Landing {

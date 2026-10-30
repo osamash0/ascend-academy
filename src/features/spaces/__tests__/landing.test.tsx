@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import i18n from '@/i18n';
 import LandingScreen from '../landing/LandingScreen';
+import { Figures } from '../landing/Figures';
+import type { Landing } from '../landing/types';
 import { SendSheet } from '../landing/SendToSpace';
 import { AnsweredHere } from '../landing/AnsweredHere';
 import { ledeKey } from '../landing/copy';
@@ -45,6 +47,23 @@ describe('the owner’s door', () => {
     expect(screen.getByText('of 184 members read this week')).toBeInTheDocument();
     expect(screen.getByText('71%')).toBeInTheDocument();
     expect(screen.getByText('78%')).toBeInTheDocument();
+  });
+
+  it('a figure with nothing to say shows a dash, never a percent, and no bar for that week', () => {
+    const quiet: Landing = {
+      ...dbsLanding,
+      figures: { ...dbsLanding.figures, landing: { value: null, history: [null, null, 40, null, 55, 60, null, null] } },
+    };
+    const { container } = render(<Figures landing={quiet} accent="#06b6d4" />);
+    const column = screen.getByText('of pages are landing').parentElement!;
+    expect(column.querySelector('dd')).toHaveTextContent(/^–$/);
+    expect(column.textContent).not.toContain('%');
+    // The other two keep their numbers.
+    expect(screen.getByText('78%')).toBeInTheDocument();
+    expect(screen.getByText('131')).toBeInTheDocument();
+    // Three weeks drew a bar; the five with nothing to say kept their slot and drew none.
+    const bars = container.querySelectorAll('svg')[1].querySelectorAll('rect');
+    expect(bars).toHaveLength(3);
   });
 
   it('draws every Lesson as its pages, and a lit page opens that page', () => {
