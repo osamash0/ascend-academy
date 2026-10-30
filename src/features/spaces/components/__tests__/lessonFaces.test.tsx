@@ -567,3 +567,35 @@ describe('a Lesson that is not there (LS-061)', () => {
     expect(screen.queryByText(/connection dropped/i)).toBeNull();
   });
 });
+
+describe('Back closes Explain, with the real browser address (LS-056)', () => {
+  beforeEach(() => {
+    mockPages = 12;
+  });
+  afterEach(() => {
+    mockPages = 0;
+    window.history.replaceState(null, '', '/');
+  });
+  it('opening Explain adds one entry; Back closes it and keeps the page', async () => {
+    window.history.replaceState(null, '', '/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=1');
+    render(
+      <BrowserRouter>
+        <Routes>
+          <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<LessonFacesScreen />} />
+        </Routes>
+      </BrowserRouter>,
+    );
+    await waitFor(() => expect(screen.queryByTestId('document') ?? screen.queryByTestId('scroll')).not.toBeNull(), { timeout: 4000 });
+    const before = window.history.length;
+    fireEvent.click(screen.getByRole('tab', { name: 'Explain' }));
+    await waitFor(() => expect(window.location.search).toContain('view=explain'));
+    expect(window.history.length).toBe(before + 1);
+    await act(async () => {
+      window.history.back();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Page' })).toHaveAttribute('aria-selected', 'true'));
+    expect(window.location.pathname).toBe('/v4/space/s-dbs/lesson/l-s-dbs-4/faces');
+    expect(window.location.search).not.toContain('view=');
+  });
+});

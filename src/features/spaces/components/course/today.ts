@@ -1,5 +1,6 @@
 import { proofs, FADE_AFTER_DAYS, daysSince, type Mark } from './light';
 import { phrase, type Phrase, type Words } from './phrase';
+import { readTo } from '../../data/trail';
 
 /**
  * Today's session: three things, in the order they pay off.
@@ -39,7 +40,7 @@ interface Input {
   lectures: Lecture[];
   marks: Mark[];
   weak: { lecture_id: string; idea: string; page: number }[];
-  resume: { lectureId: string; page: number; pages: number } | null;
+  resume: { lectureId: string; page: number; pages: number; furthest?: number } | null;
   now?: number;
 }
 
@@ -61,8 +62,14 @@ export function planToday({ lectures, marks, weak, resume, now = Date.now() }: I
 
   /* 1. Reading on. */
   const resumeLec = resume ? byId.get(resume.lectureId) : undefined;
-  if (resume && resumeLec && resume.page < resume.pages) {
-    const left = resume.pages - resume.page;
+  /*
+   * Resume where you are, but count what is left from the furthest page you
+   * reached: looking back at page 2 of a deck read to page 6 left "25 pages
+   * left" when 21 were (LS-055, seen live 2026-10-30).
+   */
+  const leftToRead = resume ? resume.pages - readTo(resume) : 0;
+  if (resume && resumeLec && leftToRead > 0) {
+    const left = leftToRead;
     steps.push({
       kind: 'read',
       title: resumeLec.title,
