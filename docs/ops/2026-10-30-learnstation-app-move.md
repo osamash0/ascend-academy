@@ -1,4 +1,4 @@
-STATUS: IN PROGRESS — step 7
+STATUS: BLOCKED — step 8: GitHub connector 403 prevents PR creation and ready-state finalization
 
 | step | status | before → after | evidence (UTC) | rollback |
 | --- | --- | --- | --- | --- |
@@ -19,8 +19,10 @@ STATUS: IN PROGRESS — step 7
 | 5b: Lesson and delivery report | done by Abi | Results unknown → Lesson opens; inbox delivery observed after an earlier Gmail “not spam” action. | 2026-10-30T15:44:12Z: explicit user report. Do not claim this proves inbox placement for a fresh recipient. | User test only; no settings change. |
 | 5c: second Gmail delivery test | done by Abi | Only one mailbox tested → reset email also lands in inbox for another Gmail account. | 2026-10-30T15:45:51Z: explicit user report. No recipient address collected; prior filtering/training history of this second account not reported. | User test only; no settings change. |
 | 6: old host redirects | done | DuckDNS app proxy and sslip gateway route → both old hosts return 301 to new apex over HTTP/HTTPS, preserving URI; certificates retained. | 2026-10-30T15:49:40Z–15:50:54Z: nginx test/reload passed; all four `curl -I` probes return 301 with exact Location; all three renewal simulations passed; apex 200; certificates/apex config/container IDs unchanged. | Restore both old site files from `.bak-20261030-1549`, test nginx, reload. Keep certificates. |
-| 7: recovery link code PR | pending | Existing implicit recovery flow → add token-hash verification while retaining implicit flow, separate undeployed branch/PR. | No application source changed or deployed. | Close/revert the separate code PR; no live effect until separately deployed. |
-| 8: finish | pending | Deployment/runbook address updates and completed evidence pending. | Ops log branch created from `origin/main` at `e2de2766bad4d2fb88a1eaaf3e80b3813654a9aa`, first commit `08682528` pushed. GitHub create_pull_request rejected with HTTP 403, Resource not accessible by integration; draft PR not created. | Revert documentation-only changes if required. |
+| 7: recovery link code PR | pending | Implicit-only landing page → token-hash recovery verification added on separate branch, existing implicit flow preserved; PR creation blocked. | `feat/reset-link-own-domain` pushed, code commit `0ec4cd5e`, main-sync merge `636011b5`. 14 targeted tests, app TypeScript and focused ESLint pass. GitHub create PR returned 403 at 2026-10-30T18:28:30Z. NOT DEPLOYED. | Close/revert the separate code PR; no live effect until separately deployed. |
+| 7a: code and local validation | done | Form previously relied on implicit session → explicit recovery hash must verify before form appears; invalid/error paths fail closed. | 14/14 tests, including implicit event, pending verification, expired/malformed link, network error and StrictMode; `npx tsc --noEmit -p tsconfig.app.json` exit 0; focused ESLint exit 0. | Revert the two-file feature change on its own branch. |
+| 8: finish | pending | Live migration/evidence complete; current docs updated → two PRs and ops ready state still require dashboard action. | Both create attempts rejected with HTTP 403, Resource not accessible by integration. No workaround attempted. Ops branch synced with current main without force-pushing. | Revert documentation-only changes if required. |
+| 8a: current deployment docs | done | README/agent production facts/deploy smoke command used DuckDNS → canonical learnstation.app, DNS-only/TLS/Auth/rollback references documented. | Updated README.md, CLAUDE.md production section, docs/runbooks/deploy-main-to-prod.md; historical audits/notes/archived guides unchanged by this task. `git diff --check` passes. | Revert these documentation changes. |
 
 ## Scope and checkpoints
 
@@ -397,6 +399,36 @@ c7780069bc5305e73b815a36dd23635ffbdf75ecfa143fe6279ec609b5ca79ec  /etc/nginx/sit
 
 Rollback: first back up the current versions, then restore these two site files from their respective **`.bak-20261030-1549`** backups, run `nginx -t`, and `systemctl reload nginx`. Do not alter certificates or the apex site. Everyone signs in once at the new site address because browser sessions are stored per site address. Step 6 complete; remaining code work is separate and must not be deployed.
 
+## Step 7 implementation and validation — separate branch, not deployed
+
+Created `feat/reset-link-own-domain` from `origin/main` at `35a30d73`. Code commit **`0ec4cd5e`** changes only `src/pages/ResetPassword.tsx` and `src/__tests__/pages/ResetPassword.test.tsx`. Current main later advanced; merged it without rewriting history (merge **`636011b5`**, main snapshot `70cfa292`) and reran the required checks. Both the feature branch and ops branch preserve main's subsequent documentation reorganization; no other PR was changed.
+
+Behavior: `/reset-password?token_hash=…&type=recovery` calls `supabase.auth.verifyOtp({ token_hash, type: 'recovery' })`. The form stays hidden until verification returns a session. Wrong/missing type, empty/expired hash, missing recovery session or network failure yields the existing invalid-link state. An already signed-in session cannot bypass explicit token verification. A shared in-component promise avoids consuming the single-use token twice during React StrictMode effect replay. Existing implicit `PASSWORD_RECOVERY` events and `getSession()` fallback remain supported for already-sent emails.
+
+Validation observed by 2026-10-30T18:28:30Z:
+
+```text
+$ npx vitest run src/__tests__/pages/ResetPassword.test.tsx src/__tests__/ResetPassword.i18n.test.tsx
+Test Files  2 passed (2)
+Tests       14 passed (14)
+$ npx tsc --noEmit -p tsconfig.app.json
+exit 0
+$ npx eslint src/pages/ResetPassword.tsx src/__tests__/pages/ResetPassword.test.tsx
+exit 0
+```
+
+The targeted tests and app TypeScript check also passed after syncing current main. No known intermittent deck-measurement timeout was encountered in these targeted files; no test was skipped. Dependencies came from the lockfile via local `npm ci --ignore-scripts`; no production install/build/deploy occurred.
+
+2026-10-30T18:28:30Z: GitHub connector `create_pull_request`, base `main`, head `feat/reset-link-own-domain`, draft=false, returned **403 Resource not accessible by integration**. No code PR was created by that call. The earlier ops PR create attempt also failed with 403; a later connector read filtered to our ops head returned no existing PR. Per rule 4, no gh/browser/token workaround attempted. Exact two-PR dashboard handoff is below.
+
+**The code is not deployed.** The live recovery template still uses `{{ .ConfirmationURL }}`. The future own-domain template link is an explicit post-deployment follow-up, not a live change in this migration.
+
+## Step 8 documentation and remaining metadata
+
+Updated current README live/Impressum links, CLAUDE.md's production address, and `docs/runbooks/deploy-main-to-prod.md`'s public smoke check to `https://learnstation.app`, with TLS verification enabled. Added DNS-only routing, legacy redirects/certificate retention, current Auth/CORS settings and this log's rollback reference to the deploy runbook. Kept historical notes, audits and archived infrastructure/deployment reports unchanged. Current main's cleanup moved the old production guide into the archive; it was not resurrected or edited.
+
+Live steps 1–6 and code implementation/tests are complete. Final status remains **BLOCKED** solely because required PR creation and ops ready-state metadata cannot be completed with the connector's permissions. Once Abi creates the two PRs and supplies their links, record those actions as done by Abi, update this status, and finish the ops PR ready state. No deployment or template switch is part of that metadata action.
+
 ## Exact proposed changes for first go (steps 1–5)
 
 1. **Cloudflare:** use the connected API to add DNS-only A `@` → `195.201.221.137` and DNS-only CNAME `www` → `learnstation.app`; preserve all mail records. Verify using `dig +short` against both 1.1.1.1 and 8.8.8.8.
@@ -424,20 +456,22 @@ Rollback: first back up the current versions, then restore these two site files 
 ## Open items
 
 - Recon complete: Cloudflare/Resend connector checks and Supabase Auth dashboard readbacks passed. Later Supabase Auth changes still require Abi's dashboard action; do not scrape dashboards or extract tokens from files.
-- Create the single draft ops log PR through an authorized GitHub connector or Abi's dashboard; existing create attempt failed with 403. Record the PR link once created.
+- Create exactly one ops log PR and one separate code PR through Abi's dashboard; both connector create calls failed with 403. Record links and mark the ops PR ready. No PR numbers/URLs are claimed until created.
 - Steps 1–3 complete and verified; step 4 reported done by Abi. The concurrent server deployment was recorded; this agent changed only CORS and recreated API using its existing image. Required early draft PR remains pending.
 - Steps 5–6 complete: functional tests/two Gmail inbox reports recorded; both old hosts redirect with preserved URI, retained certificates and passing renewal tests. Users sign in once at the new address. Remaining work is the separate undeployed code PR and documentation/PR finalization.
-- Create `feat/reset-link-own-domain` from current `origin/main` for the separate, undeployed code PR. Preserve existing implicit recovery, add token-hash verification and meaningful tests; run touched Vitest tests and `npx tsc --noEmit -p tsconfig.app.json`. Rerun the known intermittent deck-measurement timeout once if encountered; do not skip it.
+- `feat/reset-link-own-domain` is implemented, tested and pushed; remains undeployed. Targeted Vitest: 14 pass; app TypeScript/focused ESLint: pass. Its PR creation is the remaining step 7 metadata item.
 - **Only after the code PR is separately deployed:** change the recovery link to `{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery`. Until then retain `{{ .ConfirmationURL }}`.
-- Update only deployment/runbook references to the old address, finish evidence, update status and mark ops PR ready at completion.
+- Deployment/runbook references and evidence are updated. After the two PR links and ops ready state are verified, set the first line to STATUS: COMPLETE. Until then retain the blocked status.
 
 ## Values for Abi
 
 Cloudflare and Resend are now connected and verified. The correct Supabase connection is Learnstation → osama's org → Ascend Academy, but its exposed tools lack Auth settings operations.
 
-**Draft PR handoff (GitHub connector returned 403):** open [the prepared branch comparison](https://github.com/osamash0/ascend-academy/compare/main...ops/learnstation-app-move?expand=1) → Create pull request → title `ops: move the site to learnstation.app (log)` → choose **Create draft pull request** from the button menu. Base: `main`; compare: `ops/learnstation-app-move`. Description: `Records migration recon, BEFORE/AFTER evidence, rollback instructions and Abi's two checkpoints. Steps 1–5 complete; functional tests pass and two Gmail inbox deliveries reported. Awaiting second go before old-host redirects.` Return the PR link so its creation can be recorded as **done by Abi**. Do not create a second PR if one already exists.
+**Ops PR (connector returned 403):** open [the prepared ops comparison](https://github.com/osamash0/ascend-academy/compare/main...ops/learnstation-app-move?expand=1) → Create pull request → title **`ops: move the site to learnstation.app (log)`** → choose **Create draft pull request** from the button menu. Base `main`, compare `ops/learnstation-app-move`. Body: `Moves production to learnstation.app and records BEFORE/AFTER evidence, backups, rollback instructions and both approval checkpoints. DNS, TLS, CORS, Auth URL update, user tests and old-host redirects are complete. The separate recovery-code branch is tested but not deployed. Only PR metadata remains pending.` Once the log records both PR links and final status, use **Ready for review** on this same PR. Do not create a duplicate.
 
-Steps 1–6 are complete, including functional tests/two Gmail inbox deliveries and verified old-host redirects. Everyone signs in once at the new address. Remaining work: separate undeployed recovery code PR, then PR/log finalization.
+**Code PR (connector returned 403):** open [the prepared code comparison](https://github.com/osamash0/ascend-academy/compare/main...feat/reset-link-own-domain?expand=1) → Create pull request → title **`feat(auth): accept password reset links on the app domain`**. Base `main`, compare `feat/reset-link-own-domain`. Body: `Verifies token_hash recovery links before showing the reset form, preserves already-sent implicit links, and handles invalid links and StrictMode replay. 14 targeted tests, app TypeScript and focused ESLint pass. NOT DEPLOYED: keep the live template on ConfirmationURL until a separate deployment.` Return both PR links; no merge or deploy is requested.
+
+Steps 1–6 are complete, including functional tests/two Gmail inbox deliveries and verified old-host redirects. Everyone signs in once at the new address. Step 7's code/tests are pushed and undeployed. Only the two PRs and ops log ready/final status are blocked on GitHub permissions/dashboard action.
 
 - **Cloudflare:** step 1 complete through connector; apex A and www CNAME are DNS only, TTL 300, verified at both public resolvers. No manual DNS change needed.
 - **Supabase → project lkiiideqjoiksnycgplc → Authentication → URL Configuration:** change reported **done by Abi**: Site URL `https://learnstation.app`, add `https://learnstation.app/**`, keep both existing entries. Reset/new-password login reported working; email evidence points back to the new reset destination. No further settings change requested now.
