@@ -44,12 +44,12 @@ export { useGround } from './ground';
 
 export const SURFACES = {
   /**
-   * Choosing. The Spaces hub keeps the console texture (Abi, 2026-10-10:
-   * "I like the spaces UI"); every other room moved onto the stage that
-   * day so the product reads as one place lit by its subject, not two
-   * grounds with a seam where the lecture overview begins.
+   * The Spaces hub kept the console texture on 2026-10-10 ("I like the
+   * spaces UI") when every other room moved onto the stage. On 2026-10-26
+   * it joined them as a night sky (Abi): its Spaces are planets on the same
+   * black, so the product reads as one place from the hub inward.
    */
-  spaces: 'browse',
+  spaces: 'stage',
   home: 'stage',
   spaceOverview: 'stage',
   spaceMembers: 'stage',

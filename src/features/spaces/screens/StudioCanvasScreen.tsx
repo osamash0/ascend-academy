@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { canResend, isSettling, releaseLocalFile, resend } from '../data/uploads';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, Moon, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { EarlyReader } from '../components/reader/EarlyReader';
 import { ListSkeleton, NotFound, SpacesError } from '../components/states';
 import { nextSuggestions, useAsk } from '../data/useAsk';
 import { useCanvas } from '../data/useSpaces';
@@ -55,7 +57,26 @@ const BACK_ON_MS = 4000;
 export default function StudioCanvasScreen() {
   const { t } = useTranslation('v4Library', { keyPrefix: 'studio.canvas' });
   const { materialId } = useParams<{ materialId: string }>();
-  const { state: shelfState, item } = useShelfItem(materialId);
+  const navigate = useNavigate();
+  const { state: shelfState, item: shelfItem } = useShelfItem(materialId);
+  const [params] = useSearchParams();
+  const askedPage = Number(params.get('page')) > 0 ? Number(params.get('page')) : null;
+  /* A file opened under its temporary id keeps its reader until the swap to the real id lands. */
+  const lastEarly = useRef<typeof shelfItem>(null);
+  if (shelfItem?.opens.kind === 'lesson' && !shelfItem.opens.lessonId) lastEarly.current = shelfItem;
+  const item = shelfItem ?? (materialId && isSettling(materialId) ? lastEarly.current : null);
+  /*
+   * The page the early reader is on. Whichever notices the Lesson first — the
+   * reader's own handover or the shelf's poll — opens it at this page.
+   */
+  const earlyPage = useRef<number | null>(null);
+  const readyLesson = item?.opens.kind === 'lesson' ? item.opens.lessonId : '';
+  const releaseId = useRef<string | undefined>(undefined);
+  releaseId.current = item?.id;
+  /* The Lesson has taken over: the copy on this device can go. */
+  useEffect(() => {
+    if (releaseId.current && readyLesson) releaseLocalFile(releaseId.current, readyLesson);
+  }, [readyLesson]);
   const canvasId = item?.opens.kind === 'canvas' ? item.opens.canvasId : undefined;
   const { state: canvasState, canvas, pages, material } = useCanvas(canvasId);
   const state = shelfState !== 'ready' ? shelfState : item?.opens.kind === 'lesson' ? 'ready' : canvasState;
@@ -562,23 +583,50 @@ export default function StudioCanvasScreen() {
   const frame = (children: React.ReactNode) => root(<div className="mx-auto max-w-3xl p-8">{children}</div>);
   if (state === 'loading') return frame(<ListSkeleton />);
   if (state === 'error') return frame(<SpacesError what="material" />);
-  // A real upload still being read has no Lesson to open yet.
-  if (item?.opens.kind === 'lesson' && !item.opens.lessonId)
+  // A real upload still being read: read it now; the Lesson takes over when it exists.
+  if (item?.opens.kind === 'lesson' && !item.opens.lessonId) {
+    const spaceId = item.opens.spaceId;
+    return (
+      <EarlyReader
+        uploadId={item.id}
+        filename={item.filename}
+        refused={item.stage === 'failed'}
+        onRetry={canResend(item.id) ? () => resend(item.id) : undefined}
+        initialPage={askedPage ?? 1}
+        onPage={(p) => {
+          earlyPage.current = p;
+        }}
+        onResolved={(to, page) => navigate(`/v4/library/m/${to}?page=${page}`, { replace: true })}
+        onReady={(lessonId, page) => {
+          releaseLocalFile(item.id, lessonId);
+          navigate(`/v4/space/${spaceId}/lesson/${lessonId}/faces?page=${page}`, { replace: true });
+        }}
+      />
+    );
+  }
+  if (item?.opens.kind === 'lesson') {
+    /* The shelf saw the Lesson first, or the swap landed on one already made: the place still holds. */
+    const at = earlyPage.current ?? askedPage;
+    return (
+      <Navigate
+        replace
+        to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}/faces${at && at > 1 ? `?page=${at}` : ''}`}
+      />
+    );
+  }
+  /* A temporary id after a reload: the file was only in this tab, and it is gone. Said calmly, with the way back. */
+  if (!item && materialId?.startsWith('sending-'))
     return frame(
-      <div className="py-24 text-center">
-        <p className="text-[17px] font-semibold">
-          {item.stage === 'failed' ? t('reading.failedTitle') : t('reading.title')}
-        </p>
-        <p className="mx-auto mt-2 max-w-[44ch] text-[14.5px] leading-relaxed opacity-70">
-          {item.stage === 'failed' ? t('reading.failedBody') : t('reading.body', { filename: item.filename })}
-        </p>
-        <Link to="/v4/library" className="mt-6 inline-block text-[14px] underline underline-offset-4">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
+        <p className="max-w-[44ch] text-[15px] leading-relaxed text-quiet">{t('reading.gone')}</p>
+        <Link
+          to="/v4/library"
+          className="console-focusable inline-flex h-11 items-center rounded-full bg-[rgb(var(--studio-chip))] px-6 text-[14px] font-medium text-foreground"
+        >
           {t('reading.back')}
         </Link>
       </div>,
     );
-  if (item?.opens.kind === 'lesson')
-    return <Navigate replace to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}`} />;
   if (!item || !doc || !material)
     return frame(<NotFound what="material" back={{ to: '/v4/library', place: 'library' }} />);
 

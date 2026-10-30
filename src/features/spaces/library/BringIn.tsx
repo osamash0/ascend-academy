@@ -19,17 +19,26 @@ const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer
  * `enabled` is false while the shelf is not on screen (loading, error).
  * `onBrought` hears the ids of what just came in.
  */
-export function useBringIn(enabled: boolean, onBrought?: (ids: string[]) => void) {
+export function useBringIn(
+  enabled: boolean,
+  onBrought?: (ids: string[]) => void,
+  /** The first file's shelf id, at once (a real upload only): open it. */
+  onOpen?: (id: string) => void,
+) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [veil, setVeil] = useState(false);
   const depth = useRef(0);
   const onBroughtRef = useRef(onBrought);
   onBroughtRef.current = onBrought;
+  const onOpenRef = useRef(onOpen);
+  onOpenRef.current = onOpen;
 
   /* The development itself runs in a store (demo: timed; live: the real pipeline), not in a cover. */
   const bringFiles = useCallback((files: FileList | File[] | null | undefined) => {
     const ids = bringFilesIn(Array.from(files ?? []), importWillFail());
     if (ids.length) onBroughtRef.current?.(ids);
+    /* A real file opens at once, from this device, under its temporary id; the demo world stays on the shelf. */
+    if (ids[0]?.startsWith('sending-')) onOpenRef.current?.(ids[0]);
   }, []);
 
   useEffect(() => {

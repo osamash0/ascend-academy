@@ -6,6 +6,8 @@
     "text": "Text"
   },
   "screen": {
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen",
     "empty": {
       "title": "Nothing to read yet",
       "body": "{{lesson}} has its ideas and its practice, but no Material and no text yet."
@@ -33,7 +35,7 @@
       "night": "Night paper",
       "nightHint": "Night paper — dark pages for long sessions"
     },
-    "turnPhone": "Turn your phone sideways for a bigger page",
+    "turnPhone": "Turn your phone sideways, or double-tap to zoom",
     "gotIt": "Got it",
     "hint": {
       "plain": "← → turns the page. Select words to ask about them.",
@@ -308,5 +310,20 @@
       "tabs": "Companions",
       "close": "Close companions"
     }
+  },
+  "timeline": {
+    "label": "{{unit}} {{page}} of {{total}}",
+    "slide": "Slide",
+    "page": "Page",
+    "at": "{{unit}} {{page}}",
+    "soon": "Luna soon",
+    "count": "{{page}} / {{total}}"
+  },
+  "early": {
+    "reading": "Luna is reading along",
+    "readOn": "Read on — nothing waits for her",
+    "failed": "Luna could not read this one. You can still read it here.",
+    "refused": "Saved on this device only",
+    "retry": "Try again"
   }
 }

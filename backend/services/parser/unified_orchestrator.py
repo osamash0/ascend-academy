@@ -59,7 +59,7 @@ from backend.services.ai.call_context import (
     push_llm_call_context,
 )
 from backend.services.llm_client import LLMBudgetExceededError
-from backend.services.parser import repos, persist, poster
+from backend.services.parser import compact_pdf, repos, persist, poster
 from backend.services.parser.storage import _fetch_pdf_bytes
 
 # In-flight lock TTL (Roadmap P2-3): must comfortably outlast the worker's
@@ -660,16 +660,19 @@ async def _attach_completed_blueprint_material(run_id: UUID, lecture_id: UUID) -
 
 
 async def _store_lecture_pdf(lecture_id: UUID, filename: str, pdf_bytes: bytes) -> Optional[str]:
-    """Upload the source PDF to the lecture-pdfs bucket at the path the lecture
-    viewer resolves (``lectures/{id}/{name}``). Non-fatal."""
+    """Upload the PDF to the lecture-pdfs bucket at the path the lecture
+    viewer resolves (``lectures/{id}/{name}``), rewritten so its first page
+    arrives sooner (see compact_pdf). Non-fatal."""
     name = os.path.basename(filename or "lecture.pdf") or "lecture.pdf"
     path = f"lectures/{lecture_id}/{name}"
 
     def _upload() -> None:
         from backend.core.database import get_client
+        # Only the copy the reader is served; the original stays in pdf-uploads.
+        reading_copy = compact_pdf.compact_for_reading(pdf_bytes)
         sb = get_client(use_admin=True)
         sb.storage.from_("lecture-pdfs").upload(
-            path, pdf_bytes,
+            path, reading_copy,
             # `cache-control` is hyphenated for the Python client (the JS client
             # spells it `cacheControl`). Omitting it entirely -- as this call used
             # to -- stores the object as `no-cache`, so the CDN never caches it and

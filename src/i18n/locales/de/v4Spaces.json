@@ -331,7 +331,26 @@
       "draftsWaiting_other": "{{count}} Entwürfe warten auf dich",
       "archivedMarch": "Im März archiviert",
       "finishedPath": "Du hast den Pfad abgeschlossen"
-    }
+    },
+    "hero": {
+      "lastOpened": "Zuletzt geöffnet"
+    },
+    "people": {
+      "by": "von {{name}}",
+      "byYou": "von dir",
+      "one": "{{name}} lernt hier",
+      "two": "{{a}} und {{b}} lernen hier",
+      "withOthers_one": "{{names}} und {{count}} weitere Person lernen hier",
+      "withOthers_other": "{{names}} und {{count}} andere lernen hier",
+      "count_one": "{{n}} Person lernt hier",
+      "count_other": "{{n}} Menschen lernen hier",
+      "more": "{{count}} weitere"
+    },
+    "place": {
+      "last": "Du warst zuletzt auf Seite {{page}} · {{title}}",
+      "start": "Fang mit {{title}} an"
+    },
+    "window": "{{name}}. {{done}} von {{total}} Lektionen geschafft."
   },
   "tiles": {
     "label": {
@@ -355,8 +374,8 @@
   },
   "ascent": {
     "empty": "Noch leuchtet nichts. Dein Weg füllt sich, sobald du in einem Space vorankommst.",
-    "cleared": "<b>{{cleared}}</b><n> / {{total}}</n> Spaces abgeschlossen",
-    "lessons": "<n>{{done}}/{{total}}</n> Lektionen",
+    "legend": "Gold: geschafft · Weiß: hier bist du · Blass: noch offen",
+    "here": "hier bist du gerade",
     "folded": "{{count}} weitere eingeklappt",
     "label": "Dein Weg: {{cleared}} von {{total}} Spaces abgeschlossen, {{done}} von {{lessons}} Lektionen.",
     "node": "{{name}}. {{done}} von {{total}} Lektionen abgeschlossen.",

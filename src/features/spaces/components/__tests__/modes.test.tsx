@@ -48,22 +48,11 @@ const MODE: Record<string, Mode> = {
   'HomeScreen.tsx': 'learn',
   'SpacesScreen.tsx': 'learn',
   /*
-   * Learn in mode — minimal chrome, one primary action, no multi-select — but
-   * it supplies its own ground rather than going through `Scene`.
-   *
-   * `SPACES-HUB-HANDOFF.md` replaces the visual system for this one page: bg
-   * `#0a0b0d` with full-bleed cover art and three scrims, which is what
-   * `Scene`/`DepthScene` exists to provide and cannot provide *this*. Forcing
-   * it through Scene would put the console texture under art designed to own
-   * the screen.
-   *
-   * A separate value rather than a quiet exemption, because the thing Scene
-   * actually guarantees is `reducedMotion="user"` — and that now comes from
-   * `MotionRoot` at the route level, which this screen does sit under. The
-   * assertion below checks that instead, so the guarantee is still enforced,
-   * just at its new home.
+   * The hub supplied its own ground until 2026-10-26 — full-bleed cover art
+   * and scrims that Scene could not provide. The covers are gone (night sky),
+   * so it renders through Scene on the stage like every other Learn room.
    */
-  'SpacesHubScreen.tsx': 'own-ground',
+  'SpacesHubScreen.tsx': 'learn',
   'SpaceScreen.tsx': 'learn',
   // A real course read as a journey through its lectures (live mode).
   'CourseScreen.tsx': 'learn',

@@ -180,6 +180,17 @@ async def v4_uploads(request: Request, user: Any = Depends(require_student)):
     return {"uploads": await service.uploads_for(_uid(user))}
 
 
+@router.get("/uploads/{run_id}/reading")
+@limiter.limit("120/minute")
+async def v4_upload_reading(run_id: UUID, request: Request, user: Any = Depends(require_student)):
+    """Read your own file while Luna is still reading it: a signed link and her progress."""
+    _uploads_on()
+    view = await service.early_reading(_uid(user), str(run_id))
+    if view is None:
+        raise HTTPException(status_code=404, detail="Nothing of yours by that id.")
+    return view
+
+
 @router.delete("/uploads/{upload_id}")
 @limiter.limit("30/minute")
 async def v4_remove_upload(upload_id: UUID, request: Request, user: Any = Depends(require_student)):

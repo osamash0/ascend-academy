@@ -18,7 +18,13 @@ const world = (over: Partial<World>): World =>
   emptyWorld({
     spaces: [space('dbs')],
     lessons: [lesson('dbs', 1), lesson('dbs', 2), lesson('dbs', 3)],
-    streakDays: 3,
+    streakDays: 9, // the stored counter: Home must not read it
+    record: {
+      // Three days in a row, then a gap: the run is 3.
+      studyDays: ['2026-10-11', '2026-10-10', '2026-10-09', '2026-10-07'].map((date) => ({ date, summary: '' })),
+      xpEvents: [],
+      moments: [],
+    },
     ...over,
   });
 

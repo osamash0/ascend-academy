@@ -7,6 +7,29 @@ const step = (id: string, status: PlanStep['status']): PlanStep => ({
 });
 
 describe('lunaReducer', () => {
+  it('the opener shows at once while the plan is drafted, and stays first without doubling', () => {
+    let s = lunaReducer(initialLuna, { type: 'opening', opener: 'I have an exam soon' });
+    expect(s.thread).toEqual([{ kind: 'learner', id: 'opener', text: 'I have an exam soon' }]);
+    expect(s.busy).toBe(true);
+    expect(s.planning).toBe(true);
+    s = lunaReducer(s, { type: 'started', session: { id: 's1', plan: [] } as never, say: 'Here is a plan.', opener: 'I have an exam soon' });
+    expect(s.thread.map((t) => t.kind)).toEqual(['learner', 'luna']);
+    expect(s.planning).toBe(false);
+    expect(s.busy).toBe(false);
+  });
+
+  it('a plan that fails keeps the opener and says what went wrong', () => {
+    let s = lunaReducer(initialLuna, { type: 'opening', opener: 'I don\'t get this page' });
+    s = lunaReducer(s, { type: 'failed', detail: 'Something went wrong.' });
+    expect(s.thread).toEqual([{ kind: 'learner', id: 'opener', text: 'I don\'t get this page' }]);
+    expect(s.error).toBe('Something went wrong.');
+    expect(s.busy).toBe(false);
+    expect(s.planning).toBe(false);
+    s = lunaReducer(s, { type: 'opening', opener: 'again' });
+    expect(s.thread).toEqual([{ kind: 'learner', id: 'opener', text: 'again' }]);
+    expect(s.error).toBeNull();
+  });
+
   it('builds the thread from events in arrival order', () => {
     let s = lunaReducer(initialLuna, {
       type: 'started',

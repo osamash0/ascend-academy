@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, useReducedMotion } from 'motion/react';
 import { CheckSquare, Layers, Search } from 'lucide-react';
@@ -93,11 +93,17 @@ export default function LibraryScreen() {
    * would hide it, the shelf goes back to Everything (no toast to chase).
    */
   const accepts = shelfAcceptsFiles();
-  const bring = useBringIn(state === 'ready' && accepts, (ids) => {
-    const brought = shelfActions.getItems().filter((i) => ids.includes(i.id));
-    const hidden = filter === 'words' || filterItems(brought, filter, q, shelfTitle).length < brought.length;
-    if (hidden) setParam({ f: null, q: null });
-  });
+  const navigate = useNavigate();
+  const bring = useBringIn(
+    state === 'ready' && accepts,
+    (ids) => {
+      const brought = shelfActions.getItems().filter((i) => ids.includes(i.id));
+      const hidden = filter === 'words' || filterItems(brought, filter, q, shelfTitle).length < brought.length;
+      if (hidden) setParam({ f: null, q: null });
+    },
+    /* The first file opens straight into reading; the rest stay on the shelf. */
+    (id) => navigate(`/v4/library/m/${id}`),
+  );
 
   /* Back from a page: focus comes home to the cover (or Continue card) you opened. */
   useEffect(() => {

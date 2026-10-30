@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useViewer } from '../data/viewer';
-import { formatNumber } from '../i18n/format';
 import {
   actionFor,
   hubInitialSelection,
@@ -25,7 +24,9 @@ import { Pressable } from '../components/Pressable';
 import { useScreenState } from '../data/useSpaces';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { HeroCover } from '../components/hub/HeroCover';
-import { MobileNavSpacer } from '../components/MobileNav';
+import { SpaceLife } from '../components/hub/People';
+import { Scene, SURFACES } from '../components/Scene';
+import { StarField } from '../components/sky/StarField';
 import { DISCOVER_ID, SpaceChipRow } from '../components/hub/SpaceChipRow';
 import {
   CompactCard,
@@ -66,6 +67,14 @@ import { ListSkeleton, SpacesError } from '../components/states';
  *     spec's scroll behaviour is worth having; its navigation is not.
  *   • **Presence renders only where it is real.** `online` is optional and
  *     absent means unknown, not zero. NEEDS-BACKEND.
+ *
+ * **A night sky, on the stage** (Abi, 2026-10-26). The hashed cover gradients
+ * are gone: they washed the page in a colour per Space and broke the
+ * monochrome black stage every other room stands on. Each Space is now a
+ * round window onto its own first page, calm black and white, ringed in gold
+ * as you finish its path, over a faint field of stars. The page renders through `Scene` on the stage like
+ * the other rooms, so the ground, the top bar's scroll pane and the phone's
+ * bottom-bar spacer all come from the one place.
  */
 
 export default function SpacesHubScreen() {
@@ -126,6 +135,20 @@ export default function SpacesHubScreen() {
   const space = shown === DISCOVER_ID ? undefined : hubSpaceById(shown);
 
   /*
+   * "Last opened" is said only when it is true: the Space of yours you were
+   * most recently active in. Any other selection is a Space you are looking
+   * at, not one you last opened, so it gets no label.
+   */
+  const lastOpenedId = useMemo(
+    () =>
+      mine.reduce<(typeof mine)[number] | undefined>(
+        (best, s) => (!best || +new Date(s.lastActiveAt) > +new Date(best.lastActiveAt) ? s : best),
+        undefined,
+      )?.id,
+    [mine],
+  );
+
+  /*
    * Discover is a scope for the whole page, not a section inside it.
    *
    * "chip row selects → hero reacts → rails discover" is the page's stated
@@ -161,12 +184,14 @@ export default function SpacesHubScreen() {
            * "curated weekly" went with it: nothing curates anything weekly.
            */
           meta: (
+            <p>
             <Trans
               t={t}
               i18nKey="hub.discover.notJoined"
               count={discoverable.length}
               components={{ b: <b className="font-medium text-quiet" /> }}
             />
+            </p>
           ),
           /*
            * Stays on this page. It used to be a Link to `/v4/spaces-legacy` —
@@ -181,31 +206,13 @@ export default function SpacesHubScreen() {
       : {
           title: space.name,
           desc: space.description ?? '',
-          meta: (
-            <>
-              {space.visibility === 'public' ? t('hub.meta.public') : t('hub.meta.invite')} ·{' '}
-              <Trans
-                t={t}
-                i18nKey="hub.meta.members"
-                count={space.memberCount}
-                values={{ n: formatNumber(space.memberCount) }}
-                components={{ b: <b className="font-medium text-quiet" /> }}
-              />
-              {space.online !== undefined && space.online > 0 && (
-                <>
-                  {' · '}
-                  <Trans
-                    t={t}
-                    i18nKey="hub.meta.online"
-                    values={{ n: formatNumber(space.online) }}
-                    components={{ b: <b className="font-medium text-quiet" /> }}
-                  />
-                </>
-              )}
-              {' · '}
-              {t('badges.lessons', { count: space.lessonCount })}
-            </>
-          ),
+          /*
+           * Said, not tabulated (Abi, 2026-10-26: "give a life to the
+           * informations"): who made it, who learns here with their faces,
+           * and where you stopped — instead of "Public · 128 members · 12
+           * Lessons".
+           */
+          meta: <SpaceLife space={space} />,
           /* The mock's state machine decides; the label is said here. */
           action: {
             ...actionFor(membershipOf(space)),
@@ -216,21 +223,24 @@ export default function SpacesHubScreen() {
         };
 
   const chrome = (body: React.ReactNode) => (
-    <div className="min-h-screen bg-[#0a0b0d] text-white">
+    <Scene surface={SURFACES.spaces} status="progress" motionKey="spaces" accent={null}>
       <SpacesTopBar active="spaces" viewer={viewer} />
       {body}
-    </div>
+    </Scene>
   );
 
   if (screenState === 'loading') return chrome(<ListSkeleton label="spaces" />);
   if (screenState === 'error') return chrome(<SpacesError what="spaces" />);
 
   return (
-    <div className="min-h-screen bg-[#0a0b0d] text-white">
-      <HeroCover spaceId={effective} name={hero.title} />
+    <Scene surface={SURFACES.spaces} status="progress" motionKey="spaces" accent={null}>
+      {/* The sky stays put while the page scrolls over it. */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
+        <StarField seed="spaces-hub" count={70} />
+      </div>
 
       {/*
-        The bar floats over the art rather than sitting above it.
+        The bar floats over the hero rather than sitting above it.
 
         Ours is `sticky`, so it occupies flow height — which pushed the hero
         down by 38px and left the chip row 4px below the fold, on a page whose
@@ -243,10 +253,12 @@ export default function SpacesHubScreen() {
         <SpacesTopBar active="spaces" viewer={viewer} />
       </div>
 
-      <div className="relative z-[2]">
+      <div data-hub className="relative z-[2]">
         {/* ── Calm hero: 100vh, copy anchored left at ~34vh ── */}
-        <section className="flex h-screen flex-col justify-end px-[22px] sm:px-16">
-          <div className="mb-auto max-w-[560px] pt-[20vh] sm:pt-[34vh]">
+        <section className="relative flex h-screen flex-col justify-end px-[22px] sm:px-16">
+          {/* The selected Space through its window, right of the copy. */}
+          <HeroCover space={space} swapping={swapping} />
+          <div className="relative mb-auto max-w-[560px] pt-[30vh] sm:pt-[34vh]">
             {/*
               Out fast, swap, in — the spec's phrasing, and the mock's actual
               mechanism: one element that dips to transparent, has its content
@@ -268,6 +280,14 @@ export default function SpacesHubScreen() {
                 animate={{ opacity: swapping ? 0 : 1, y: swapping ? 8 : 0 }}
                 transition={{ duration: 0.2 }}
               >
+                {/*
+                  One quiet line above the name, and only when it is true.
+                  The slot keeps its height either way, so the title does not
+                  jump as the selection moves.
+                */}
+                <p className="mb-3 min-h-[1.25em] text-[13px] text-label">
+                  {space && space.id === lastOpenedId ? t('hub.hero.lastOpened') : null}
+                </p>
                 {/* Weight 300 — the one light weight in the product. */}
                 <h1 className="mb-[22px] text-[clamp(46px,5.6vw,74px)] font-light leading-[1.03] tracking-[-1px]">
                   {hero.title}
@@ -281,11 +301,11 @@ export default function SpacesHubScreen() {
                   `text-label` (0.58), not `text-white/40`.
                   BUILD-PROMPT §4: "do not reintroduce raw text-white/40
                   … measured as AA failures". This is the hero's meta
-                  line — information, not decoration — and it sits over
-                  artwork, where the backdrop is lightest. Still below the
+                  line — information, not decoration — and it sits beside
+                  the window, on the stage. Still below the
                   0.62 emphasis nested inside it, so the hierarchy holds.
                 */}
-                <p className="mb-[30px] text-[13.5px] text-label">{hero.meta}</p>
+                <div className="mb-[30px] text-[13.5px] text-label">{hero.meta}</div>
                 <HubPill
                   to={hero.to}
                   onPress={hero.onPress}
@@ -343,15 +363,10 @@ export default function SpacesHubScreen() {
         </section>
 
         {/*
-          The rails sit on the flat background with a soft top shadow, so
-          scrolling past the hero feels like the art ending rather than a
-          section boundary.
+          The rails stand on the same stage and the same sky as the hero —
+          one night, no section boundary drawn across it.
         */}
-        <div
-          ref={railsRef}
-          className="relative z-[2] bg-[#0a0b0d] pb-[110px] pt-14"
-          style={{ boxShadow: '0 -60px 80px -20px rgba(10,11,13,.9)' }}
-        >
+        <div ref={railsRef} className="relative z-[2] pb-[110px] pt-14">
           {/* Empty rails are not rendered. Each of these can legitimately be
               empty — a new account has no Spaces and nothing to jump back to. */}
           {/*
@@ -424,15 +439,6 @@ export default function SpacesHubScreen() {
           )}
         </div>
       </div>
-      {/*
-        This screen builds its own full-bleed chrome instead of rendering
-        through `Scene` — deliberate, since the console texture would fight the
-        hero art. But bypassing Scene means inheriting none of its duties, and
-        one of those is real: `SpacesTopBar` mounts the mobile bottom bar, and
-        the spacer that reserves room for it lives in Scene. Without this, the
-        last rail sits under the bar on every phone.
-      */}
-      <MobileNavSpacer />
-    </div>
+    </Scene>
   );
 }

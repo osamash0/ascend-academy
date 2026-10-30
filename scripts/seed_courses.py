@@ -7,7 +7,14 @@ sys.path.append(str(Path(__file__).parent.parent))
 from backend.core.database import supabase_admin
 
 PROF_EMAIL = "prof@admin.com"
-PROF_PASSWORD = "Academy2026!"
+# Never commit a password here: the repo is public. Read it at run time.
+PROF_PASSWORD = os.environ.get("SEED_ACCOUNT_PASSWORD")
+
+def _require_password(value):
+    """Refuse to create an account without a password supplied at run time."""
+    if not value:
+        sys.exit("Set SEED_ACCOUNT_PASSWORD in your environment before creating accounts.")
+    return value
 
 COURSES = [
     # Semester 1
@@ -52,7 +59,7 @@ def get_or_create_user(email, role="professor", full_name="User"):
     try:
         res = supabase_admin.auth.admin.create_user({
             "email": email,
-            "password": PROF_PASSWORD,
+            "password": _require_password(PROF_PASSWORD),
             "email_confirm": True,
             "app_metadata": {"role": role}
         })

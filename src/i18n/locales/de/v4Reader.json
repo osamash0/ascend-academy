@@ -6,6 +6,8 @@
     "text": "Text"
   },
   "screen": {
+    "fullscreen": "Vollbild",
+    "exitFullscreen": "Vollbild beenden",
     "empty": {
       "title": "Noch nichts zu lesen",
       "body": "{{lesson}} hat schon Ideen und Übungen, aber noch kein Material und keinen Text."
@@ -33,7 +35,7 @@
       "night": "Nachtpapier",
       "nightHint": "Nachtpapier – dunkle Seiten für lange Sitzungen"
     },
-    "turnPhone": "Dreh dein Handy quer für eine größere Seite",
+    "turnPhone": "Dreh dein Handy quer oder tipp doppelt zum Zoomen",
     "gotIt": "Verstanden",
     "hint": {
       "plain": "← → blättert um. Markier Wörter, um danach zu fragen.",
@@ -308,5 +310,20 @@
       "tabs": "Begleiter",
       "close": "Begleiter schließen"
     }
+  },
+  "timeline": {
+    "label": "{{unit}} {{page}} von {{total}}",
+    "slide": "Seite",
+    "page": "Seite",
+    "at": "{{unit}} {{page}}",
+    "soon": "Luna liest noch",
+    "count": "{{page}} / {{total}}"
+  },
+  "early": {
+    "reading": "Luna liest mit",
+    "readOn": "Lies einfach weiter – nichts wartet auf sie",
+    "failed": "Luna konnte dieses Material nicht lesen. Lesen kannst du es hier trotzdem.",
+    "refused": "Nur auf diesem Gerät gespeichert",
+    "retry": "Erneut versuchen"
   }
 }

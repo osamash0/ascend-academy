@@ -139,6 +139,16 @@ services:
         VITE_LAZY_PDF_IMPORT: ${VITE_LAZY_PDF_IMPORT:-false}
         VITE_ANON_SALT: ${VITE_ANON_SALT:-learnstation-analytics-2026}
         VITE_AI_PROVIDER_MODE: ${VITE_AI_PROVIDER_MODE:-multi}
+        # One switch per feature (LS-037/LS-032): each UI flag follows the
+        # backend flag in .env, so a screen never ships without its routes.
+        # v4 also needs FEATURE_V4_READER=1 for the reader.
+        VITE_FEATURE_V4: ${FEATURE_V4:-0}
+        VITE_V4_DATA_MODE: ${VITE_V4_DATA_MODE:-live}
+        VITE_FEATURE_STUDENT_UPLOADS: ${FEATURE_STUDENT_UPLOADS:-0}
+        VITE_FEATURE_REVIEW_ENGINE: ${FEATURE_REVIEW_ENGINE:-0}
+        VITE_FEATURE_GLOBAL_SEARCH: ${FEATURE_GLOBAL_SEARCH:-0}
+        VITE_FEATURE_ASK_LUNA: ${FEATURE_ASK_LUNA:-0}
+        VITE_FEATURE_LUNA_SESSIONS: ${FEATURE_LUNA_SESSIONS:-0}
     platform: linux/amd64
     networks:
       - ascend_net

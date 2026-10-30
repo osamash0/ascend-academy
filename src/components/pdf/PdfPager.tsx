@@ -12,6 +12,8 @@ import { pdfOptions } from './worker';
  * height both — so a slide is always seen entire, never scrolled. The pages
  * either side of it are painted too, off to the left and right on the same
  * track, so a turn slides an already-drawn page in rather than a blank one.
+ * At rest they are invisible: one page fills the frame and its neighbours
+ * never peek in; they only show while a turn carries them across.
  *
  * The page is the caller's: this component is told which page to show and
  * reports the reader's wish to turn (`onPageChange`). Turning by wheel and by
@@ -20,6 +22,12 @@ import { pdfOptions } from './worker';
  *
  * Each slot carries `data-pdf-page` and the text layer is on, as in
  * `PdfScroll`, so a selection can be traced to its page.
+ *
+ * With `zoomable`, a double tap (or double click) zooms the page in view until
+ * it fills the box's height — the way a landscape slide becomes readable on a
+ * phone held upright. Zoomed, a drag pans across the page instead of turning
+ * it; a second double tap, or a turn by any other means, fits it whole again.
+ * The zoomed page is drawn at its zoomed size, so its text stays sharp.
  *
  * The page in view is drawn first. Its neighbours wait until it is up, so on
  * opening they never compete with it for the worker or the file's bytes.
@@ -33,6 +41,8 @@ interface Props {
   maxWidth: number;
   maxHeight: number;
   onLoad?: (numPages: number) => void;
+  /** Page 1's height / width once known — lets the caller choose a layout. */
+  onAspect?: (heightOverWidth: number) => void;
   /** The canvas of the first page to paint — for sampling, never for drawing. */
   onFirstRender?: (canvas: HTMLCanvasElement | null) => void;
   rootRef: RefObject<HTMLDivElement>;
@@ -41,6 +51,8 @@ interface Props {
   overlay?: ReactNode;
   /** Vertical wheel travel, when the caller wants it for something other than turning. */
   onStep?: (by: 1 | -1) => void;
+  /** Double tap zooms the page in view to the box's height; drag pans it. */
+  zoomable?: boolean;
 }
 
 /** How many pages either side of the current one are kept painted. */
@@ -49,6 +61,12 @@ const NEIGHBOURS = 1;
 const WHEEL_STEP = 50;
 const WHEEL_REST = 420;
 const SWIPE_MIN = 48;
+/** Two taps this close in time and place are a double tap. */
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_PX = 32;
+/** Zoom to the box's height, but never less than this, nor more than the cap. */
+const ZOOM_MIN = 1.6;
+const ZOOM_MAX = 3;
 
 export function PdfPager({
   file,
@@ -57,11 +75,13 @@ export function PdfPager({
   maxWidth,
   maxHeight,
   onLoad,
+  onAspect,
   onFirstRender,
   rootRef,
   className,
   overlay,
   onStep,
+  zoomable = false,
 }: Props) {
   const reduce = useReducedMotion();
   const [numPages, setNumPages] = useState(0);
@@ -81,6 +101,42 @@ export function PdfPager({
 
   const width = Math.max(200, Math.floor(Math.min(maxWidth, maxHeight / aspect)));
   const height = Math.round(width * aspect);
+
+  /* Zoom: 1 is the whole page; above 1, the page in view is drawn larger and panned. */
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const zoomed = zoom > 1;
+  const fill = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, maxHeight / height));
+  /* How far the zoomed page may move before its edge leaves the box's edge. */
+  const bound = useCallback(
+    (p: { x: number; y: number }, z: number) => {
+      const bx = Math.max(0, (width * z - maxWidth) / 2);
+      const by = Math.max(0, (height * z - maxHeight) / 2);
+      return { x: Math.min(bx, Math.max(-bx, p.x)), y: Math.min(by, Math.max(-by, p.y)) };
+    },
+    [width, height, maxWidth, maxHeight],
+  );
+  /* A new page, a new file or a new box always starts whole. */
+  const [zoomKey, setZoomKey] = useState(`${file}|${page}|${maxWidth}x${maxHeight}`);
+  const nextKey = `${file}|${page}|${maxWidth}x${maxHeight}`;
+  if (zoomKey !== nextKey) {
+    setZoomKey(nextKey);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }
+  /* Zoom in toward the point tapped, so what you tapped stays under your finger. */
+  const toggleZoom = (clientX: number, clientY: number) => {
+    if (zoomed) {
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+      return;
+    }
+    const r = rootRef.current?.getBoundingClientRect();
+    const dx = r ? clientX - (r.left + r.width / 2) : 0;
+    const dy = r ? clientY - (r.top + r.height / 2) : 0;
+    setZoom(fill);
+    setPan(bound({ x: -dx * (fill - 1), y: -dy * (fill - 1) }, fill));
+  };
 
   const turn = useCallback(
     (by: number) => {
@@ -120,10 +176,19 @@ export function PdfPager({
     };
   }, [rootRef, turn, onStep]);
 
-  /* Touch: a sideways swipe turns. A mouse drag stays a text selection. */
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  /*
+   * Touch: a sideways swipe turns, or — zoomed — a drag pans. A double tap
+   * zooms. A mouse drag stays a text selection; a double click zooms.
+   */
+  const touchStart = useRef<{ x: number; y: number; pan: { x: number; y: number } } | null>(null);
+  const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
   const onPointerDown = (e: React.PointerEvent) => {
-    touchStart.current = e.pointerType === 'touch' ? { x: e.clientX, y: e.clientY } : null;
+    touchStart.current = e.pointerType === 'touch' ? { x: e.clientX, y: e.clientY, pan } : null;
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const s = touchStart.current;
+    if (!s || !zoomed) return;
+    setPan(bound({ x: s.pan.x + e.clientX - s.x, y: s.pan.y + e.clientY - s.y }, zoom));
   };
   const onPointerUp = (e: React.PointerEvent) => {
     const s = touchStart.current;
@@ -131,12 +196,33 @@ export function PdfPager({
     if (!s) return;
     const dx = e.clientX - s.x;
     const dy = e.clientY - s.y;
+    const still = Math.abs(dx) < 10 && Math.abs(dy) < 10;
+    if (zoomable && still) {
+      const now = performance.now();
+      const prev = lastTap.current;
+      if (prev && now - prev.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < DOUBLE_TAP_PX) {
+        lastTap.current = null;
+        toggleZoom(e.clientX, e.clientY);
+      } else lastTap.current = { t: now, x: e.clientX, y: e.clientY };
+      return;
+    }
+    if (zoomed) return;
     if (Math.abs(dx) > SWIPE_MIN && Math.abs(dx) > Math.abs(dy) * 1.4) turn(dx < 0 ? 1 : -1);
   };
+  const onDoubleClick = (e: React.MouseEvent) => {
+    if (!zoomable) return;
+    window.getSelection()?.removeAllRanges();
+    toggleZoom(e.clientX, e.clientY);
+  };
 
-  const onPageLoad = useCallback((p: { width: number; height: number }) => {
-    if (p.width > 0) setAspect(p.height / p.width);
-  }, []);
+  const onPageLoad = useCallback(
+    (p: { width: number; height: number; pageNumber?: number }) => {
+      if (p.width <= 0) return;
+      setAspect(p.height / p.width);
+      if (p.pageNumber === 1 || p.pageNumber === undefined) onAspect?.(p.height / p.width);
+    },
+    [onAspect],
+  );
 
   const reach = painted ? NEIGHBOURS : 0;
   const shown: number[] = [];
@@ -149,9 +235,13 @@ export function PdfPager({
     <div
       ref={rootRef}
       onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerCancel={() => (touchStart.current = null)}
+      onDoubleClick={zoomable ? onDoubleClick : undefined}
+      data-zoomed={zoomed || undefined}
       className={className}
-      style={{ touchAction: 'pan-y' }}
+      style={{ touchAction: zoomed ? 'none' : 'pan-y' }}
     >
       <Document
         file={file}
@@ -172,6 +262,10 @@ export function PdfPager({
         <div className="relative h-full w-full">
           {shown.map((p) => {
             const offset = p - page;
+            /* The page in view takes the zoom; its neighbours stay at the fitted size. */
+            const z = offset === 0 ? zoom : 1;
+            const w = Math.round(width * z);
+            const h = Math.round(height * z);
             return (
               <motion.div
                 key={p}
@@ -180,14 +274,23 @@ export function PdfPager({
                 aria-hidden={offset !== 0 || undefined}
                 {...(offset !== 0 ? { inert: '' } : {})}
                 initial={false}
-                animate={{ x: offset * step, opacity: offset === 0 ? 1 : 0.35, scale: offset === 0 ? 1 : 0.94 }}
-                transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
+                animate={{
+                  x: offset === 0 ? pan.x : offset * step,
+                  y: offset === 0 ? pan.y : 0,
+                  opacity: offset === 0 ? 1 : 0,
+                  scale: offset === 0 ? 1 : 0.94,
+                }}
+                transition={
+                  reduce || (zoomed && touchStart.current)
+                    ? { duration: 0 }
+                    : { type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }
+                }
                 className="absolute left-1/2 top-1/2 overflow-hidden rounded-xl bg-white shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_2px_6px_rgba(0,0,0,0.3),0_28px_64px_-16px_rgba(0,0,0,0.65)]"
-                style={{ width, height, marginLeft: -width / 2, marginTop: -height / 2 }}
+                style={{ width: w, height: h, marginLeft: -w / 2, marginTop: -h / 2 }}
               >
                 <Page
                   pageNumber={p}
-                  width={width}
+                  width={w}
                   renderTextLayer={offset === 0}
                   renderAnnotationLayer={false}
                   onLoadSuccess={onPageLoad}

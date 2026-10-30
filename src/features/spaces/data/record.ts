@@ -34,12 +34,16 @@ export const xpEventsNow = (): XpEvent[] => liveWorld()?.record.xpEvents ?? rank
 export const momentsNow = (): Moment[] => liveWorld()?.record.moments ?? fixtureMoments();
 
 /** Newest first, de-duplicated — two entries for one day is still one day. */
-const orderedDays = (): string[] =>
-  [...new Set(studyDaysNow().map((d) => d.date))].sort((a, b) => asUtc(b) - asUtc(a));
+const ordered = (days: StudyDay[]): string[] =>
+  [...new Set(days.map((d) => d.date))].sort((a, b) => asUtc(b) - asUtc(a));
+const orderedDays = (): string[] => ordered(studyDaysNow());
 
-/** Consecutive days ending at the most recent one studied. */
-export const currentRun = (): number => {
-  const days = orderedDays();
+/**
+ * Consecutive days ending at the most recent one studied, over the days given.
+ * Home and Profile both count with this, so they cannot disagree about one run.
+ */
+export const runIn = (studyDays: StudyDay[]): number => {
+  const days = ordered(studyDays);
   if (days.length === 0) return 0;
   let run = 1;
   for (let i = 1; i < days.length; i += 1) {
@@ -48,6 +52,9 @@ export const currentRun = (): number => {
   }
   return run;
 };
+
+/** Consecutive days ending at the most recent one studied. */
+export const currentRun = (): number => runIn(studyDaysNow());
 
 /** The longest stretch of consecutive days anywhere in the record. */
 export const longestRun = (): number => {

@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ChevronLeft, ChevronRight, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Smartphone, Sun, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ListChecks, Maximize, Minimize, Moon, PanelLeftClose, PanelLeftOpen, Smartphone, Sun, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PdfPager, sampleAccent, warmPdfWorker } from '@/components/pdf';
+import { PdfPager, PdfScroll, sampleAccent, scrollToPdfPage, warmPdfWorker } from '@/components/pdf';
 import { addNote, deleteNote, notesError, notesForLesson, subscribeNotes, updateNote } from '../data/notes';
 import { submitAnswer, usePracticeQuestions } from '../data/practice';
 import { Scene, SURFACES } from '../components/Scene';
@@ -27,7 +27,10 @@ import {
 } from '../data/useReader';
 import { markTrail } from '../data/trail';
 import { useReadingProgress } from '../data/reading';
+import { ReaderTimeline } from '../components/reader/ReaderTimeline';
+import { shapeOf } from '../components/reader/pageShape';
 import { GlassPill } from '../components/reader/glass/GlassPill';
+import { useFullscreen } from '../components/reader/useFullscreen';
 import { readPrefs, writePrefs, type ReaderPrefs } from '../data/readerPrefs';
 import { useIdle } from '../components/reader/useIdle';
 import { ChapterStrip, chaptersOf } from '../components/reader/ChapterStrip';
@@ -107,8 +110,21 @@ const SHEET_PAD = { y: 16, side: 56 };
 const TOC_ALONE = 1180;
 const TOC_WITH_PANEL = 1640;
 const TOC_WIDTH = 260;
+/*
+ * The page line sits above the timeline, never on it: the timeline's row is
+ * 20px over the safe area (6px at least), and the pill stands 8px clear of it.
+ * A short window has no timeline band to clear; its controls float.
+ */
+const PILL_BOTTOM = 'bottom-[max(34px,calc(env(safe-area-inset-bottom)+28px))]';
+const PILL_BOTTOM_SHORT = 'bottom-[max(20px,calc(env(safe-area-inset-bottom)+8px))]';
 
 type View = 'slide' | 'explain' | 'text';
+/*
+ * Present-or-absent, never `inert={false}` (React 18 writes "false", which is
+ * still inert). Spread it, or nothing.
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- typed as nothing so it spreads onto motion and plain divs alike
+const INERT = { inert: '' } as {};
 /* Labels live in the v4Reader namespace (views.page / views.explain / views.text). */
 const VIEWS: { id: View; label: 'page' | 'explain' | 'text' }[] = [
   { id: 'slide', label: 'page' },
@@ -127,7 +143,7 @@ export default function LessonFacesScreen() {
   const reduce = useReducedMotion();
   const panel = useMediaQuery(PANEL);
   /* `?page=34&view=explain` — the Lesson overview's way in, at a page and a view. */
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const askedPage = Number(params.get('page')) || null;
   const askedView = params.get('view');
   /* `&spot=words` — a search hit: light those words on the page once it is up. */
@@ -158,6 +174,7 @@ export default function LessonFacesScreen() {
   const [engaged, setEngaged] = useState(false);
   const [companion, setCompanion] = useState<CompanionState | null>(null);
   const [bench, setBench] = useState<'practice' | null>(null);
+  const fs = useFullscreen();
   const [quote, setQuote] = useState<string | undefined>(undefined);
   const [turns, setTurns] = useState<Turn[]>([]);
   const turnId = useRef(0);
@@ -176,6 +193,8 @@ export default function LessonFacesScreen() {
   const foundNonce = useRef(0);
   const [box, setBox] = useState({ w: MAX_SHEET, h: 600 });
   const [numPages, setNumPages] = useState(0);
+  const [aspect, setAspect] = useState<number | null>(null);
+  const shape = shapeOf(aspect);
   /* The page in view. The document is a deck: one page, turned sideways. */
   const [pdfPage, setPdfPage] = useState(() => askedPage ?? 1);
 
@@ -192,6 +211,25 @@ export default function LessonFacesScreen() {
     if (!spaceId || !lessonId || !numPages || !isLive(spaceId)) return;
     markTrail(lessonId, { page: pdfPage, pages: numPages, course: spaceId });
   }, [spaceId, lessonId, pdfPage, numPages]);
+
+  /*
+   * Keep `?page=` on the page in view, so a refresh or a shared link opens
+   * where you are rather than where you came in. Replaced, not pushed: Back
+   * leaves the Lesson instead of stepping through every page turned. A turn
+   * clears the lit words, so their `spot` goes with it.
+   */
+  useEffect(() => {
+    if (!numPages || params.get('page') === String(pdfPage)) return;
+    setParams(
+      (prev) => {
+        const nextParams = new URLSearchParams(prev);
+        nextParams.set('page', String(pdfPage));
+        nextParams.delete('spot');
+        return nextParams;
+      },
+      { replace: true },
+    );
+  }, [pdfPage, numPages, params, setParams]);
 
   useEffect(() => {
     if (anchor || sections.length === 0) return;
@@ -235,8 +273,8 @@ export default function LessonFacesScreen() {
     const ro = new ResizeObserver(read);
     ro.observe(el);
     return () => ro.disconnect();
-    /* `ready`: the pager mounts a render after the bundle, once there is an anchor. */
-  }, [ready]);
+    /* `ready`: the pager mounts a render after the bundle, once there is an anchor. `shape`: the scroll replaces the pager. */
+  }, [ready, shape]);
 
   /* Luna's offer to study together; it belongs to the Lesson it was made in. */
   const [lunaOffer, setLunaOffer] = useState(false);
@@ -258,6 +296,9 @@ export default function LessonFacesScreen() {
     setFound(null);
     setPdfPage(askedPage ?? 1);
     setLunaOffer(false);
+    /* The next file is measured afresh: a deck after a document must not open as one. */
+    setAspect(null);
+    setNumPages(0);
   }
 
   const engage = useCallback(() => setEngaged(true), []);
@@ -266,6 +307,17 @@ export default function LessonFacesScreen() {
     setBench(null);
     setView('text');
   }, [engage]);
+  /* The tabs and the 1-3 keys switch the face the same way. */
+  const pickView = useCallback(
+    (id: View) => {
+      engage();
+      setSpot(null);
+      setBeat(-1);
+      if (id !== 'text') setCompanion(null);
+      setView(id);
+    },
+    [engage],
+  );
   const closeStudio = useCallback(() => {
     setView('slide');
     setCompanion(null);
@@ -309,8 +361,10 @@ export default function LessonFacesScreen() {
       setAnchor(a);
       setPdfPage(page);
       setBeat(-1);
+      /* A document has no pager to turn: take the scroll to the page. */
+      if (shape === 'document' && pdfRef.current) scrollToPdfPage(pdfRef.current, page, 0.38, reduce ? 'auto' : 'smooth');
     },
-    [sections, engage],
+    [sections, engage, shape, reduce],
   );
 
   /* Luna: a study session beside the page. Live only; nothing renders without it. */
@@ -344,9 +398,43 @@ export default function LessonFacesScreen() {
     readingAt: useCallback(() => pdfPageRef.current, []),
     active: lunaOn && lunaOpen,
   });
+  /*
+   * `?page=N` on a document: the scroll mounts at the top, so take it to the
+   * page once, and ignore the page reports of that scroll until it has settled
+   * (they would otherwise overwrite the asked page with an intermediate one).
+   */
+  const scrollSettling = useRef(false);
+  /* The reading whose scroll has painted its first page: only then do the slots exist, at their real size. */
+  const [scrollReady, setScrollReady] = useState<string | undefined>(undefined);
+  const landedFor = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (scrollReady !== lessonId || landedFor.current === lessonId || !pdfRef.current) return;
+    landedFor.current = lessonId;
+    const page = pdfPageRef.current;
+    if (page <= 1) return;
+    scrollSettling.current = true;
+    scrollToPdfPage(pdfRef.current, page, 0.38, 'auto');
+    const t = window.setTimeout(() => {
+      scrollSettling.current = false;
+    }, 400);
+    return () => {
+      window.clearTimeout(t);
+      scrollSettling.current = false;
+    };
+  }, [scrollReady, lessonId]);
+  const onScrollPage = useCallback(
+    (page: number) => {
+      if (!scrollSettling.current) onPdfPage(page);
+    },
+    [onPdfPage],
+  );
   const turnPage = useCallback(
-    (by: number) => onPdfPage(Math.min(Math.max(1, pdfPage + by), numPages || 1)),
-    [onPdfPage, pdfPage, numPages],
+    (by: number) => {
+      const to = Math.min(Math.max(1, pdfPage + by), numPages || 1);
+      onPdfPage(to);
+      if (shape === 'document' && pdfRef.current) scrollToPdfPage(pdfRef.current, to, 0.38, reduce ? 'auto' : 'smooth');
+    },
+    [onPdfPage, pdfPage, numPages, shape, reduce],
   );
 
   const blockOf = useCallback(
@@ -464,14 +552,37 @@ export default function LessonFacesScreen() {
    * Arrow keys and Page Up/Down turn the page. Not in a field, not inside
    * the studio (its text scrolls with them), not while practising.
    */
+  const { toggle: toggleFull, supported: canFull } = fs;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (bench || e.metaKey || e.ctrlKey || e.altKey) return;
       const el = e.target instanceof Element ? e.target : null;
       if (el?.closest('input, textarea, [contenteditable="true"], [data-studio="text"]')) return;
+      /* Where there is no full screen (an iPhone), F is just a letter. */
+      if ((e.key === 'f' || e.key === 'F') && canFull) {
+        e.preventDefault();
+        toggleFull();
+        return;
+      }
+      /* One key per view tab, in the order they stand. */
+      const face = VIEWS[Number(e.key) - 1];
+      if (/^[1-9]$/.test(e.key) && face) {
+        e.preventDefault();
+        pickView(face.id);
+        return;
+      }
+      /*
+       * Space and Page Up/Down are the layer's own while Explain or Text
+       * replaces the page (its text scrolls with them), and the timeline's
+       * while it has focus.
+       */
+      const paging = e.key === ' ' || e.key === 'PageDown' || e.key === 'PageUp';
+      if (paging && (studio || el?.closest('[role="slider"]'))) return;
+      /* Space turns the page, but a focused button keeps its own space. */
+      if (e.key === ' ' && el?.closest('button, a, [role="tab"], select, summary')) return;
       const by =
-        e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'PageUp' ? -1 : 0;
-      const step = view === 'slide' ? (e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0) : 0;
+        e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ' ? 1 : e.key === 'ArrowLeft' || e.key === 'PageUp' ? -1 : 0;
+      const step = view === 'slide' && shape === 'slides' ? (e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0) : 0;
       if (!by && !step) return;
       e.preventDefault();
       if (by) turnPage(by);
@@ -479,7 +590,7 @@ export default function LessonFacesScreen() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [bench, turnPage, stepBeat, view]);
+  }, [bench, turnPage, stepBeat, view, studio, toggleFull, canFull, pickView, shape]);
 
   /* `\` toggles the studio. Not in a field, not while practising. */
   useEffect(() => {
@@ -564,7 +675,8 @@ export default function LessonFacesScreen() {
       const h = slot.offsetHeight;
       const next = {
         left: Math.round(stage.offsetLeft + (stage.clientWidth - w) / 2),
-        top: Math.round(stage.offsetTop + (stage.clientHeight - h) / 2),
+        /* A document's pages scroll: the strip sits on the stage's top edge, not a page's. */
+        top: shape === 'document' ? stage.offsetTop : Math.round(stage.offsetTop + (stage.clientHeight - h) / 2),
         width: Math.round(w),
       };
       setFrame((f) => (f && f.left === next.left && f.top === next.top && f.width === next.width ? f : next));
@@ -579,7 +691,7 @@ export default function LessonFacesScreen() {
       ro.disconnect();
       mo.disconnect();
     };
-  }, [pdfPage, ready, numPages]);
+  }, [pdfPage, ready, numPages, shape]);
 
   /*
    * Checkpoints. The ideas as page ranges; turning forward off an idea's
@@ -863,7 +975,8 @@ export default function LessonFacesScreen() {
     </div>
   );
 
-  const docked = (studio || (lunaOn && lunaOpen)) && panel;
+  /* Explain and Text replace the page; only Luna's session sits beside it. */
+  const docked = lunaOn && lunaOpen && panel;
   /* The panel's width beside the page: half-ish, never cramped, never vast. */
   const panelWidth = Math.round(Math.min(680, Math.max(440, vw * 0.42)));
   /* The full contents only when pinned; otherwise the spine's hairline index. */
@@ -880,15 +993,30 @@ export default function LessonFacesScreen() {
   const chapters = chaptersOf(sections, numPages || Math.max(...sections.flatMap((x) => x.blocks.map((b) => b.page))));
   const strip = chapters.length >= 2;
   const stageTop = short ? 0 : 88 + (strip ? 48 : 0);
-  /* The stage's own width decides whether the masthead can sit centred beside the switch. */
-  const narrowHead = vw - (docked ? panelWidth : 0) - (showToc ? TOC_WIDTH : 0) < 980;
+  /*
+   * The stage's own width decides whether the masthead can sit centred beside the switch.
+   * The controls on the right grow by Luna's button (or her offer), so the masthead
+   * keeps clear of them: 980 and 248px were measured before Luna had a button there,
+   * and at ~1000px the Space's name ran under "Study with Luna".
+   */
+  const lunaControls = lunaOn && !lunaOpen ? (lunaOffer ? 360 : 168) : 0;
+  const narrowHead =
+    vw - (docked ? panelWidth : 0) - (showToc ? TOC_WIDTH : 0) < 980 + 2 * lunaControls;
   const block = blockOf(pdfPage);
-  const beats = beatsOf(pdfPage);
+  /* Points are a slide's; a document has none. */
+  const beats = shape === 'slides' ? beatsOf(pdfPage) : [];
   /* The slide view keeps a band under the page for its points. */
   /* The first-visit hint takes a line of its own under the points. */
   const hintShown = !prefs.hinted && !engaged && view === 'slide';
   const lunaSheet = lunaOn && lunaOpen && !panel;
-  const stageBottom = short ? 0 : (view === 'slide' && beats.length >= 2 ? 128 : 88) + (hintShown ? 22 : 0);
+  /* The points band sits above the lifted page line. */
+  const beatsBottom = hintShown ? 102 : 80;
+  const stageBottom = short ? 0 : (view === 'slide' && beats.length >= 2 ? beatsBottom + 64 : 88) + (hintShown ? 22 : 0);
+  /*
+   * Explain or Text replacing the page: what is behind it is out of reach —
+   * no tabbing into a page you cannot see. The view switch stays: Page is the way back.
+   */
+  const behind = studio && !bench ? INERT : undefined;
 
   return chrome(
     <div
@@ -935,7 +1063,7 @@ export default function LessonFacesScreen() {
         }}
       />
 
-      <motion.div {...fade}>
+      <motion.div {...fade} {...behind}>
         <ReaderExit to={back} />
       </motion.div>
 
@@ -947,9 +1075,13 @@ export default function LessonFacesScreen() {
           /* Below sm the switch needs the top row; the strip names where you are. */
           'pointer-events-none absolute inset-x-0 top-0 z-20 hidden h-[88px] items-center',
           !short && 'sm:flex',
-          narrowHead ? 'justify-start pl-16 pr-[248px]' : 'justify-center px-20',
+          narrowHead ? 'justify-start pl-16' : 'justify-center px-20',
         )}
-        style={{ right: docked ? panelWidth : 0, left: showToc ? TOC_WIDTH : 0 }}
+        style={{
+          right: docked ? panelWidth : 0,
+          left: showToc ? TOC_WIDTH : 0,
+          ...(narrowHead && { paddingRight: 248 + lunaControls }),
+        }}
       >
         <div className={cn('min-w-0', !narrowHead && 'text-center')}>
           <p className="mb-1 truncate text-[12.5px] text-quiet">
@@ -968,7 +1100,7 @@ export default function LessonFacesScreen() {
       </motion.header>
 
       {/* How to look at the page: alone, explained, or as text. */}
-      <motion.div {...fade} className="absolute top-5 z-[41] flex items-center gap-2" style={{ right: docked ? panelWidth + 20 : 20 }}>
+      <motion.div {...fade} className={cn('absolute top-5 flex items-center gap-2', studio ? 'z-[43]' : 'z-[41]')} style={{ right: docked ? panelWidth + 20 : 20 }}>
       {lunaOn && !lunaOpen && (
         <div className={cn('flex items-center gap-2 rounded-full p-1', overPage)}>
           {lunaOffer && (
@@ -1008,6 +1140,17 @@ export default function LessonFacesScreen() {
             {prefs.tocPinned ? <PanelLeftClose aria-hidden className="h-4 w-4" /> : <PanelLeftOpen aria-hidden className="h-4 w-4" />}
           </button>
         )}
+        {fs.supported && (
+          <button
+            type="button"
+            onClick={fs.toggle}
+            aria-label={fs.full ? tr('screen.exitFullscreen') : tr('screen.fullscreen')}
+            title={fs.full ? tr('screen.exitFullscreen') : tr('screen.fullscreen')}
+            className="console-focusable flex h-8 w-8 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
+          >
+            {fs.full ? <Minimize aria-hidden className="h-4 w-4" /> : <Maximize aria-hidden className="h-4 w-4" />}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setPref({ night: !night })}
@@ -1033,11 +1176,7 @@ export default function LessonFacesScreen() {
               role="tab"
               aria-selected={on}
               onClick={() => {
-                engage();
-                setSpot(null);
-                setBeat(-1);
-                if (v.id !== 'text') setCompanion(null);
-                setView(v.id);
+                pickView(v.id);
               }}
               className={cn(
                 'console-focusable relative h-8 rounded-full px-4 text-[13px] transition-colors',
@@ -1058,7 +1197,7 @@ export default function LessonFacesScreen() {
       </div>
       </motion.div>
 
-      <motion.div {...fade}>
+      <motion.div {...fade} {...behind}>
       {showToc ? (
         <div className="absolute bottom-24 left-0 top-[120px] z-20 overflow-y-auto overflow-x-hidden pl-8 pr-4" style={{ width: TOC_WIDTH }}>
           <LessonToc sections={sections} conceptId={anchor.conceptId} page={pdfPage} onPage={goToPage} />
@@ -1084,6 +1223,7 @@ export default function LessonFacesScreen() {
       */}
       <div
         ref={stageRef}
+        {...behind}
         className={cn('absolute', night && '[&_[data-pdf-page]]:bg-[#141414] [&_[data-pdf-page]_canvas]:[filter:invert(0.9)_hue-rotate(180deg)]')}
         style={{
           top: stageTop,
@@ -1093,23 +1233,42 @@ export default function LessonFacesScreen() {
           right: docked ? panelWidth : 0,
         }}
       >
-        <PdfPager
-          file={content.pdfUrl}
-          page={pdfPage}
-          onPageChange={onPdfPage}
-          onStep={view === 'slide' ? stepBeat : undefined}
-          maxWidth={box.w}
-          maxHeight={box.h}
-          onLoad={setNumPages}
-          onFirstRender={(canvas) => setAccent(sampleAccent(canvas))}
-          rootRef={pdfRef}
-          overlay={<Spotlight words={spot} />}
-          className="absolute inset-0 overflow-hidden"
-        />
+        {shape === 'document' ? (
+          <PdfScroll
+            key={content.pdfUrl}
+            file={content.pdfUrl}
+            width={Math.min(box.w, 900)}
+            anchorLine={0.38}
+            onPage={onScrollPage}
+            onLoad={setNumPages}
+            onFirstRender={(canvas) => {
+              setAccent(sampleAccent(canvas));
+              setScrollReady(lessonId);
+            }}
+            scrollRef={pdfRef}
+            className="absolute inset-0 overflow-y-auto"
+          />
+        ) : (
+          <PdfPager
+            file={content.pdfUrl}
+            page={pdfPage}
+            onPageChange={onPdfPage}
+            onStep={view === 'slide' ? stepBeat : undefined}
+            maxWidth={box.w}
+            maxHeight={box.h}
+            onLoad={setNumPages}
+            onAspect={setAspect}
+            onFirstRender={(canvas) => setAccent(sampleAccent(canvas))}
+            rootRef={pdfRef}
+            overlay={<Spotlight words={spot} />}
+            zoomable
+            className="absolute inset-0 overflow-hidden"
+          />
+        )}
       </div>
 
-      {portraitPhone && !prefs.turned && ready && (
-        <motion.div {...fade} className="absolute inset-x-4 top-[72px] z-30 flex justify-center">
+      {shape === 'slides' && portraitPhone && !prefs.turned && ready && (
+        <motion.div {...fade} {...behind} className="absolute inset-x-4 top-[72px] z-30 flex justify-center">
           <p className="flex items-center gap-2 rounded-full bg-white/[0.08] py-1.5 pl-4 pr-1.5 text-[12.5px] text-foreground">
             <Smartphone aria-hidden className="h-3.5 w-3.5 rotate-90 text-quiet" />
             {tr('screen.turnPhone')}
@@ -1129,6 +1288,7 @@ export default function LessonFacesScreen() {
       {strip && !short && (
         <motion.div
           {...fade}
+          {...behind}
           className="absolute z-20"
           style={
             frame
@@ -1148,8 +1308,9 @@ export default function LessonFacesScreen() {
       */}
       {view === 'slide' && beats.length >= 2 && (
         <div
+          {...behind}
           className="pointer-events-none absolute z-20 flex flex-col items-center justify-end gap-2 px-6"
-          style={{ bottom: hintShown ? 88 : 66, height: 64, left: showToc ? TOC_WIDTH : 0, right: 0 }}
+          style={{ bottom: beatsBottom, height: 64, left: showToc ? TOC_WIDTH : 0, right: 0 }}
         >
           <AnimatePresence mode="wait" initial={false}>
             {beat >= 0 && (
@@ -1174,7 +1335,9 @@ export default function LessonFacesScreen() {
       {/* The page line: where you are, and the turn. */}
       <motion.div
         {...fade}
-        className="pointer-events-none absolute bottom-5 z-30 flex flex-col items-center gap-2 px-4"
+        {...behind}
+        data-testid="page-line"
+        className={cn('pointer-events-none absolute z-30 flex flex-col items-center gap-2 px-4', short ? PILL_BOTTOM_SHORT : PILL_BOTTOM)}
         style={{ left: showToc ? TOC_WIDTH : 0, right: docked ? panelWidth : 0 }}
       >
         {hintShown && !short && (
@@ -1197,10 +1360,6 @@ export default function LessonFacesScreen() {
           >
             <ChevronLeft aria-hidden className="h-4 w-4" />
           </button>
-          <span className="min-w-[4.5rem] shrink-0 text-center tabular-nums text-quiet">
-            <span className="text-foreground">{pdfPage}</span>
-            {numPages > 0 && <span className="text-faint"> / {numPages}</span>}
-          </span>
           <button
             type="button"
             onClick={() => turnPage(1)}
@@ -1213,19 +1372,21 @@ export default function LessonFacesScreen() {
         </GlassPill>
       </motion.div>
 
-      {/* Where you are in the deck, as a hairline that stays when everything else has gone. */}
+      {/* Where you are, and how far Luna has read: a timeline awake, a hairline asleep. */}
       {numPages > 0 && (
         <div
-          aria-hidden
-          className="pointer-events-none absolute bottom-0 z-30 h-[2px] bg-white/[0.05]"
+          {...behind}
+          data-testid="timeline-row"
+          className={cn('absolute bottom-0 z-30 px-4 pb-[max(6px,env(safe-area-inset-bottom))]', quiet && 'px-0 pb-0')}
           style={{ left: showToc ? TOC_WIDTH : 0, right: docked ? panelWidth : 0 }}
         >
-          <motion.div
-            className="h-full origin-left"
-            style={{ background: 'var(--reader-accent, hsl(var(--secondary)))', opacity: 0.75 }}
-            initial={false}
-            animate={{ scaleX: pdfPage / numPages }}
-            transition={{ duration: reduce ? 0 : 0.5, ease: [0.16, 1, 0.3, 1] }}
+          <ReaderTimeline
+            page={pdfPage}
+            total={numPages}
+            read={numPages}
+            quiet={quiet}
+            onSeek={(p) => goToPage(p)}
+            unit={shape === 'document' ? 'page' : 'slide'}
           />
         </div>
       )}
@@ -1286,6 +1447,7 @@ export default function LessonFacesScreen() {
       <Studio
         open={view === 'explain' && !bench}
         label={tr('views.explain')}
+        mode="replace"
         where={section.name}
         page={anchor.page}
         onClose={escapeStudio}
@@ -1326,6 +1488,7 @@ export default function LessonFacesScreen() {
 
       <Studio
         open={view === 'text' && !bench}
+        mode="replace"
         where={section.name}
         page={anchor.page}
         onClose={escapeStudio}
