@@ -193,5 +193,8 @@
     "hint": "Choose your photo below and your Crew ID becomes a Learner Licence.",
     "edit": "Edit in Suit Locker",
     "mine": "My ID"
+  },
+  "hero": {
+    "sayHi": "Luna. Say hi."
   }
 }

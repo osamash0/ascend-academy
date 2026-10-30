@@ -100,7 +100,7 @@ const initials = (s: string) =>
     .join('');
 
 export function spaceFromCourse(c: ReaderCourse): Space {
-  const owner = { id: `course-${c.id}`, name: c.author ?? 'Course team', avatarUrl: null };
+  const owner = { id: `course-${c.id}`, name: c.author ?? i18n.t('v4Spaces:people.runTheSpace'), avatarUrl: null };
   return {
     id: c.id,
     name: c.title,
@@ -122,7 +122,7 @@ export function spaceFromCourse(c: ReaderCourse): Space {
 }
 
 function lessonFrom(c: ReaderCourse, l: ReaderCourse['lectures'][number], concepts: ReaderConcept[] = []): Lesson {
-  const owner = { id: `course-${c.id}`, name: c.author ?? 'Course team', avatarUrl: null };
+  const owner = { id: `course-${c.id}`, name: c.author ?? i18n.t('v4Spaces:people.runTheSpace'), avatarUrl: null };
   // What the world knows about this Lesson for this viewer: their progress
   // and the size of its practice bank. Absent outside a loaded world.
   const known = liveWorld()?.lessons.find((x) => x.id === l.id);

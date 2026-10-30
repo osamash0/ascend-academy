@@ -613,5 +613,8 @@
       "name": "Zehn in Folge",
       "description": "Zehn richtige Antworten in Folge."
     }
+  },
+  "people": {
+    "runTheSpace": "Die Leute, die diesen Space pflegen"
   }
 }
