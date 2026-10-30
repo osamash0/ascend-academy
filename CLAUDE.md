@@ -36,7 +36,7 @@ CI runs on pull requests and on pushes to `main`, plus a nightly at 03:17 UTC (D
 
 ## Prod (dated facts; the deploy runbook is `docs/runbooks/deploy-main-to-prod.md`)
 
-- Hetzner CX23 at `195.201.221.137`, Ubuntu 24.04, Docker. Live at https://learnstation.duckdns.org (learnstation.app bought 2026-10-30, move in progress).
+- Hetzner CX23 at `195.201.221.137`, Ubuntu 24.04, Docker. Live at https://learnstation.app (moved 2026-10-30). www and both old hosts redirect to the apex; Cloudflare is DNS only. Evidence/rollback: `docs/ops/2026-10-30-learnstation-app-move.md`.
 - Containers from `docker-compose.prod.yml`: `api`, `worker`, `frontend` (nginx on 3000, proxies `/api/` to `api:8000` unchanged), `redis`, `redis-queue`.
 - Deploys are manual over SSH; there is no deploy automation. Last full deploy: main @ 35a30d73, 2026-10-30 15:24 UTC. Rollback images are tagged `pre-deploy-main-<date>`.
 - Flags on in prod (2026-10-30): `FEATURE_V4`, `FEATURE_V4_READER`, `FEATURE_LUNA_SESSIONS`. Each `VITE_FEATURE_*` is derived from its backend flag in the compose file. `VITE_*` values are baked at image build, so any frontend change needs a rebuild, not a restart.
