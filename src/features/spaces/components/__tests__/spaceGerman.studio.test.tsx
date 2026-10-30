@@ -496,7 +496,7 @@ describe('the Studio canvas, in German', () => {
 
     window.history.replaceState({}, '', '/?mock=error');
     await mount();
-    expect(screen.getByText('Dieses Material konnte nicht geladen werden')).toBeInTheDocument();
+    expect(screen.getByText('Wir konnten dieses Material nicht laden')).toBeInTheDocument();
     clean();
   });
 
