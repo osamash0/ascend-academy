@@ -4,15 +4,16 @@ Mounted under ``/api/v1/v4/reader`` when ``FEATURE_V4_READER`` is on. Unlike
 the rest of v4 it needs no v4 schema: a course is read as the reader's Space
 and a lecture as its Lesson, straight from ``courses``/``lectures``/``slides``.
 """
-from typing import Any
+from typing import Any, Literal, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.auth_middleware import _user_id, verify_token
 from backend.core.rate_limit import limiter
 from backend.services import v4_reader_service as service
+from backend.services import v4_telemetry as telemetry
 from backend.services.v4_personal import is_personal
 
 router = APIRouter(prefix="/v4/reader", tags=["v4-reader"])
@@ -68,23 +69,42 @@ async def reader_ideas(request: Request, lecture_id: UUID, user: Any = Depends(v
     return {"concepts": await service.get_ideas(lecture_id, uid)}
 
 
+class _Session(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    session_id: str = Field(default="", max_length=64)
+    #: False when Explain was only left open while the reader turned to this page: that is not asking for help here.
+    #: Absent means opened, so an older client keeps counting what it counted.
+    opened: bool = True
+
+
 @router.post("/lectures/{lecture_id}/pages/{page}/explain")
 @limiter.limit("30/minute")
 async def reader_explain(
     request: Request,
     lecture_id: UUID,
     page: int = Path(ge=1, le=2000),
+    body: Optional[_Session] = None,
     user: Any = Depends(verify_token),
 ):
     uid = await _lecture_access(lecture_id, user)
+    # Opening Explain on this page is asking for help with it, cached answer or not. The answer is also fetched for
+    # each page turned while Explain stays open; those the reader did not open are not help.
+    if body is None or body.opened:
+        await telemetry.record_help(
+            lecture_id, uid, page, "explain", "", telemetry.session_or_new(body.session_id if body else "")
+        )
     return await service.explain_page(lecture_id, page, user_id=uid, locale=await _lang(request, uid))
 
 
 class _Reading(BaseModel):
     model_config = ConfigDict(extra="forbid")
     page: int = Field(ge=1, le=2000)
-    #: Time spent on the page being left; under 2 s it is not counted as read.
+    #: Time spent on the page being left, net of time it was covered or hidden; under 2 s it is not counted as read.
     seconds: float = Field(ge=0, le=6 * 3600)
+    #: One per open reader (the browser's), so one sitting can be told from the next.
+    session_id: str = Field(default="", max_length=64)
+    #: The page now in view, when the reader moved; an earlier page is a way back.
+    to_page: int | None = Field(default=None, ge=1, le=2000)
 
 
 @router.post("/lectures/{lecture_id}/progress")
@@ -96,11 +116,14 @@ async def reader_progress(
     user: Any = Depends(verify_token),
 ):
     """The page the reader just left. Writes the rows the old reader writes —
-    progress, visits, streak, a slide_view event — so v4 reading counts."""
+    progress, visits, streak, a slide_view — plus the way back and the finish."""
     from backend.services.v4_reading_service import record_reading
+    from backend.services.v4_telemetry import session_or_new
 
     uid = await _lecture_access(lecture_id, user)
-    return await record_reading(lecture_id, uid, body.page, body.seconds)
+    return await record_reading(
+        lecture_id, uid, body.page, body.seconds, session_id=session_or_new(body.session_id), to_page=body.to_page
+    )
 
 
 @router.get("/lectures/{lecture_id}/practice")
@@ -117,6 +140,7 @@ class _Answer(BaseModel):
     model_config = ConfigDict(extra="forbid")
     question_id: UUID
     answer: str = Field(min_length=1, max_length=2000)
+    session_id: str = Field(default="", max_length=64)
 
 
 @router.post("/lectures/{lecture_id}/practice/answer")
@@ -127,11 +151,12 @@ async def reader_practice_answer(
     body: _Answer,
     user: Any = Depends(verify_token),
 ):
-    """Grade on the server, log a quiz_attempt, and grant XP once per question."""
+    """Grade on the server, log a first try or a retry, and grant XP once per question."""
     from backend.services.v4_practice_service import answer
+    from backend.services.v4_telemetry import session_or_new
 
     uid = await _lecture_access(lecture_id, user)
-    return await answer(lecture_id, uid, body.question_id, body.answer)
+    return await answer(lecture_id, uid, body.question_id, body.answer, session_id=session_or_new(body.session_id))
 
 
 class _Turn(BaseModel):
@@ -144,6 +169,7 @@ class AskBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     question: str = Field(min_length=2, max_length=400)
     thread: list[_Turn] = Field(default_factory=list, max_length=8)
+    session_id: str = Field(default="", max_length=64)
 
 
 @router.post("/lectures/{lecture_id}/pages/{page}/ask")
@@ -156,6 +182,7 @@ async def reader_ask(
     user: Any = Depends(verify_token),
 ):
     uid = await _lecture_access(lecture_id, user)
+    await telemetry.record_help(lecture_id, uid, page, "ask", body.question, telemetry.session_or_new(body.session_id))
     return await service.ask_page(
         lecture_id,
         page,
@@ -246,6 +273,7 @@ class TeachBody(BaseModel):
     last: int = Field(ge=1, le=2000)
     idea: str = Field(min_length=1, max_length=120)
     explanation: str = Field(min_length=1, max_length=2000)
+    session_id: str = Field(default="", max_length=64)
 
 
 @router.post("/lectures/{lecture_id}/teach-back")
@@ -254,7 +282,7 @@ async def reader_teach_back(request: Request, body: TeachBody, lecture_id: UUID,
     from backend.services.v4_teachback_service import teach_back
 
     uid = await _lecture_access(lecture_id, user)
-    return await teach_back(
+    result = await teach_back(
         lecture_id,
         body.first,
         body.last,
@@ -263,6 +291,65 @@ async def reader_teach_back(request: Request, body: TeachBody, lecture_id: UUID,
         user_id=uid,
         locale=await _lang(request, uid),
     )
+    # The judge's verdict, not the browser's: solid counts as cleared.
+    await telemetry.record_checkpoint(
+        lecture_id, uid,
+        page=int(result["first"]), idea=str(result["idea"]), kind="teach",
+        correct=result.get("verdict") == "solid", session_id=telemetry.session_or_new(body.session_id),
+    )
+    return result
+
+
+class CheckpointAnswerBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    #: The span as the checkpoint was served (its `first`/`last`), which names its cache entry.
+    first: int = Field(ge=1, le=2000)
+    last: int = Field(ge=1, le=2000)
+    question_id: int = Field(ge=1, le=10)
+    answer: dict[str, Any]
+    session_id: str = Field(default="", max_length=64)
+
+
+@router.post("/lectures/{lecture_id}/checkpoint/answer")
+@limiter.limit("60/minute")
+async def reader_checkpoint_answer(
+    request: Request, body: CheckpointAnswerBody, lecture_id: UUID, user: Any = Depends(verify_token)
+):
+    """Grade one checkpoint answer here, against the checkpoint as served, and record it."""
+    from backend.services.v4_rehearsal_service import cached_checkpoint, grade_answer
+
+    uid = await _lecture_access(lecture_id, user)
+    cp = await cached_checkpoint(lecture_id, body.first, body.last, await _lang(request, uid))
+    q = next((q for q in (cp or {}).get("questions", []) if q.get("id") == body.question_id), None)
+    if not cp or q is None:
+        raise HTTPException(status_code=409, detail="That checkpoint is no longer open.")
+    correct = grade_answer(q, body.answer)
+    await telemetry.record_checkpoint(
+        lecture_id, uid,
+        page=int(q["page"]), idea=str(cp.get("idea") or q.get("idea") or ""), kind=str(q["kind"]),
+        correct=correct, session_id=telemetry.session_or_new(body.session_id),
+    )
+    return {"correct": correct}
+
+
+class CheckInBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    first: int = Field(ge=1, le=2000)
+    last: int = Field(ge=1, le=2000)
+    idea: str = Field(min_length=1, max_length=120)
+    rating: Literal["got_it", "confused"]
+    session_id: str = Field(default="", max_length=64)
+
+
+@router.post("/lectures/{lecture_id}/check-in", status_code=204)
+@limiter.limit("30/minute")
+async def reader_check_in(request: Request, body: CheckInBody, lecture_id: UUID, user: Any = Depends(verify_token)):
+    """The quiet check-in at an idea's checkpoint: clicked, or still foggy."""
+    uid = await _lecture_access(lecture_id, user)
+    await telemetry.record_check_in(
+        lecture_id, uid, body.first, body.idea, body.rating, telemetry.session_or_new(body.session_id)
+    )
+    return Response(status_code=204)
 
 
 @router.get("/courses/{course_id}/links")

@@ -488,6 +488,7 @@
     "failed": "Beitreten hat gerade nicht geklappt. Nichts hat sich geändert – versuch es noch einmal.",
     "inside": "Darin",
     "toOpen": "Tritt bei, um {{title}} zu öffnen.",
+    "privacy": "Die Leute, die diesen Space pflegen, können sehen, wie seine Seiten gelesen werden.",
     "members_one": "<b>{{n}}</b> Mitglied",
     "members_other": "<b>{{n}}</b> Mitglieder"
   },

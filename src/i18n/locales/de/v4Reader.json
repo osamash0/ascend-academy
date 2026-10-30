@@ -85,6 +85,11 @@
       "start": "Eine Frage",
       "teach": "Erklär's zurück"
     },
+    "checkin": {
+      "label": "Wie ist es angekommen?",
+      "clicked": "Hat klick gemacht",
+      "foggy": "Noch nebelig"
+    },
     "panel": {
       "label": "Checkpoint: {{name}}",
       "heading": "Checkpoint · Seiten {{first}}–{{last}}",

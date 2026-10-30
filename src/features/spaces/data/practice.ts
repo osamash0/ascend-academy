@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { practiceForLesson, type PracticeQuestion } from '../mocks/practice';
 import type { LoadState } from '../types';
 import { loadLiveRepository } from './liveRepository';
+import { currentSession } from './readingSession';
 
 export { gradeAnswer, type Graded, type PracticeQuestion } from '../mocks/practice';
 
@@ -63,5 +64,5 @@ export interface ServerGrade {
 /** Live only: grade on the server, log the attempt, grant XP once per question. */
 export async function submitAnswer(lessonId: string, questionId: string, answer: string): Promise<ServerGrade> {
   const repo = await loadLiveRepository();
-  return repo.answerPractice(lessonId, questionId, answer);
+  return repo.answerPractice(lessonId, questionId, answer, currentSession(lessonId));
 }

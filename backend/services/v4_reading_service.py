@@ -8,13 +8,14 @@ writing the same rows the old reader (src/pages/LectureView.tsx) writes.
 """
 from __future__ import annotations
 
-import json
 from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
 
 from backend.core.database import get_db_connection
+from backend.repositories.event_repo import record_event
+from backend.services.v4_telemetry import SOURCE, now_iso, slide_id_for
 
 #: A page glanced at for less than this is not counted as read.
 MIN_SECONDS_TO_COUNT = 2
@@ -62,8 +63,31 @@ UPDATE profiles SET
 WHERE user_id = $1::uuid
 """
 
+# The cast is guarded in SQL: one stored row with an odd duration ("40.0" passes
+# the registry as it is stored raw) must not abort the progress transaction and,
+# with it, the finish. Whole and decimal seconds count (rounded); anything else is 0.
+_SECONDS_READ_SQL = """
+SELECT COALESCE(SUM(CASE WHEN event_data->>'duration_seconds' ~ '^[0-9]+(\\.[0-9]+)?$'
+                         THEN round((event_data->>'duration_seconds')::numeric) ELSE 0 END), 0)
+FROM learning_events
+WHERE user_id = $1::uuid AND event_type = 'slide_view' AND event_data->>'lectureId' = $2
+"""
 
-async def record_reading(lecture_id: UUID, user_id: str, page: int, seconds: float) -> dict[str, Any]:
+
+async def record_reading(
+    lecture_id: UUID,
+    user_id: str,
+    page: int,
+    seconds: float,
+    *,
+    session_id: str,
+    to_page: int | None = None,
+) -> dict[str, Any]:
+    """The page just left. Progress, visit and streak as the old reader writes
+    them; then, for the insight engine, a slide_view (read for 2 s or more),
+    a way back (the next page is an earlier one), and the finish (the last
+    unread page). Events go through ``record_event``: a refused one never
+    rolls back the progress around it."""
     async with await get_db_connection() as conn:
         async with conn.transaction():
             lec = await conn.fetchrow(
@@ -79,12 +103,6 @@ async def record_reading(lecture_id: UUID, user_id: str, page: int, seconds: flo
             counted = seconds >= MIN_SECONDS_TO_COUNT
             row = await conn.fetchrow(_PROGRESS_SQL, user_id, lecture_id, page, counted)
             read = len(row["completed_slides"] or [])
-            if total and read >= total and row["completed_at"] is None:
-                await conn.execute(
-                    "UPDATE student_progress SET completed_at = now() "
-                    "WHERE user_id = $1::uuid AND lecture_id = $2",
-                    user_id, lecture_id,
-                )
 
             if not await conn.fetchval(_RECENT_VISIT_SQL, user_id, lecture_id):
                 await conn.execute(
@@ -96,25 +114,33 @@ async def record_reading(lecture_id: UUID, user_id: str, page: int, seconds: flo
 
             await conn.execute(_STREAK_SQL, user_id)
 
+            stamp = now_iso()
+            here = await slide_id_for(conn, lecture_id, page)
             if counted:
-                slide_id = await conn.fetchval(
-                    "SELECT id FROM slides WHERE lecture_id = $1 AND slide_number = $2 LIMIT 1",
-                    lecture_id, page,
-                )
-                # Same event shape as the old reader's slide_view, so the
-                # professor's analytics count v4 reading without a change.
+                await record_event(conn, user_id, "slide_view", {
+                    "lectureId": str(lecture_id), "slideId": here, "page": page,
+                    "duration_seconds": round(seconds), "sessionId": session_id,
+                    "timestamp": stamp, "source": SOURCE,
+                })
+            if to_page is not None and to_page < page:
+                await record_event(conn, user_id, "slide_back_navigation", {
+                    "lectureId": str(lecture_id), "fromSlideId": here,
+                    "toSlideId": await slide_id_for(conn, lecture_id, to_page),
+                    "fromPage": page, "toPage": to_page, "sessionId": session_id,
+                    "timestamp": stamp, "source": SOURCE,
+                })
+
+            if total and read >= total and row["completed_at"] is None:
                 await conn.execute(
-                    "INSERT INTO learning_events (user_id, event_type, event_data) "
-                    "VALUES ($1::uuid, 'slide_view', $2::jsonb)",
-                    user_id,
-                    json.dumps({
-                        "lectureId": str(lecture_id),
-                        "slideId": str(slide_id) if slide_id else None,
-                        "page": page,
-                        "duration_seconds": round(seconds),
-                        "source": "v4_reader",
-                    }),
+                    "UPDATE student_progress SET completed_at = now() "
+                    "WHERE user_id = $1::uuid AND lecture_id = $2",
+                    user_id, lecture_id,
                 )
+                await record_event(conn, user_id, "lecture_complete", {
+                    "lectureId": str(lecture_id), "sessionId": session_id, "completed_at": stamp,
+                    "total_duration_seconds": int(await conn.fetchval(_SECONDS_READ_SQL, user_id, str(lecture_id))),
+                    "source": SOURCE,
+                })
 
     if total and read >= total:
         percent = 100

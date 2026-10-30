@@ -80,11 +80,14 @@ class LectureStart(_EventPayload):
 
 class SlideView(_EventPayload):
     lectureId: str
-    slideId: str
+    # Optional: a v4 page whose lecture has no slides row still counts as reading.
+    slideId: str | None = None
     slideTitle: str | None = None
     duration_seconds: int
     sessionId: str
     timestamp: str
+    page: int | None = None
+    source: str | None = None
 
 
 class QuizAttempt(_EventPayload):
@@ -97,6 +100,7 @@ class QuizAttempt(_EventPayload):
     sessionId: str
     timestamp: str
     time_to_answer_seconds: int | None = None
+    source: str | None = None
 
 
 class QuizRetryAttempt(_EventPayload):
@@ -110,15 +114,18 @@ class QuizRetryAttempt(_EventPayload):
     reviewIndex: int
     sessionId: str
     timestamp: str
+    source: str | None = None
 
 
 class LectureComplete(_EventPayload):
     lectureId: str
-    xpEarned: int
-    correctAnswers: int
+    # The old reader sends both; the v4 reader grants XP elsewhere and leaves them out.
+    xpEarned: int | None = None
+    correctAnswers: int | None = None
     sessionId: str
     completed_at: str
     total_duration_seconds: int | None = None
+    source: str | None = None
 
 
 class AiTutorQuery(_EventPayload):
@@ -131,6 +138,10 @@ class AiTutorQuery(_EventPayload):
     # being kept forever next to the question (audit Q-B-F4). extra="forbid"
     # on the base turns any attempt to send it into a validation error.
     timestamp: str
+    page: int | None = None
+    #: v4: which reader move asked for help. Explain sends an empty query.
+    kind: Literal["explain", "ask"] | None = None
+    source: str | None = None
 
 
 class MicroQuizAttempt(_EventPayload):
@@ -153,15 +164,22 @@ class SlideBackNavigation(_EventPayload):
     toSlideId: str | None = None
     sessionId: str
     timestamp: str
+    fromPage: int | None = None
+    toPage: int | None = None
+    source: str | None = None
 
 
 class ConfidenceRating(_EventPayload):
     lectureId: str
-    slideId: str
+    # Optional: the v4 check-in rates an idea (a page range), anchored on its first page.
+    slideId: str | None = None
     slideTitle: str | None = None
     rating: Literal["got_it", "unsure", "confused"]
     sessionId: str
     timestamp: str
+    page: int | None = None
+    idea: str | None = None
+    source: str | None = None
 
 
 # ── Backend-written event payloads ───────────────────────────────────────────
@@ -218,6 +236,22 @@ class OnboardingCompleted(_EventPayload):
     onboarding_version: int | None = None
 
 
+class CheckpointAttempt(_EventPayload):
+    """A checkpoint or teach-back result from the v4 reader, graded on the
+    server (`v4_rehearsal_service.grade_answer`, the teach-back judge), so an
+    owner's view never rests on the browser's word. One row per question."""
+
+    lectureId: str
+    slideId: str | None = None
+    page: int
+    idea: str
+    kind: Literal["choice", "order", "fdHolds", "closure", "bcnf", "teach"]
+    correct: bool
+    sessionId: str
+    timestamp: str
+    source: str | None = None
+
+
 # ── Registry ──────────────────────────────────────────────────────────────────
 # Single source of truth: every valid `event_type` value + its payload model.
 # MUST stay in lockstep with the CHECK constraint added by
@@ -242,6 +276,7 @@ EVENT_REGISTRY: dict[str, type[_EventPayload]] = {
     "review_graded": ReviewGraded,
     "lecture_uploaded": LectureUploaded,
     "onboarding_completed": OnboardingCompleted,
+    "checkpoint_attempt": CheckpointAttempt,
 }
 
 KNOWN_EVENT_TYPES: frozenset[str] = frozenset(EVENT_REGISTRY)

@@ -5,10 +5,12 @@ import type { LectureConcept, LocalizedLectureBundle } from '@/types/domain';
 import type { Lesson, LoadState, Space } from '../types';
 import type { ExplainAnswer } from '../components/reader/iui/spec';
 import { composeFromText, explainFor } from '../mocks/explain';
+import { currentSession } from './readingSession';
 import {
   dataMode,
   loadLiveRepository,
   type Checkpoint,
+  type CheckpointAnswer,
   type ReaderLink,
   type TeachBack,
   type ReaderConcept,
@@ -284,6 +286,8 @@ export function useExplain(
   page: number,
   source: { title: string; markdown: string },
   enabled = true,
+  /** False when Explain was open before this page came up: the answer is still fetched, but it is not a request for help here. */
+  opened = true,
 ): ExplainResult {
   const live = isLive(spaceId, lessonId);
   const lang = useLang();
@@ -294,13 +298,13 @@ export function useExplain(
     if (!live || !lessonId || !enabled) return;
     let alive = true;
     setResult({ state: 'loading', answer: null, fallback: false });
-    once(answers, `${lessonId}:${page}:${lang}`, async () => (await loadLiveRepository()).explainPage(lessonId, page))
+    once(answers, `${lessonId}:${page}:${lang}`, async () => (await loadLiveRepository()).explainPage(lessonId, page, currentSession(lessonId), opened))
       .then((a) => alive && setResult({ state: 'ready', answer: a, fallback: false }))
       .catch(() => alive && setResult({ state: 'ready', answer: composeFromText(title, markdown), fallback: true }));
     return () => {
       alive = false;
     };
-  }, [live, lessonId, page, title, markdown, enabled, lang]);
+  }, [live, lessonId, page, title, markdown, enabled, opened, lang]);
 
   if (!live) return { state: 'ready', answer: explainFor(lessonId ?? '', page, source), fallback: false };
   return result;
@@ -328,7 +332,7 @@ export function useAsker(
     const repo = await loadLiveRepository();
     /* Past this, an answer is not coming: say so and offer to try again. */
     return Promise.race([
-      repo.askPage(lessonId, page, question, thread),
+      repo.askPage(lessonId, page, question, thread, currentSession(lessonId)),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Ask timed out')), ASK_TIMEOUT_MS)),
     ]);
   };
@@ -482,9 +486,23 @@ export function fetchCheckpoint(lectureId: string, first: number, last: number, 
 /** Read an explanation against the idea's key points. The first time for an idea also writes those. */
 export function teachBack(lectureId: string, first: number, last: number, idea: string, explanation: string): Promise<TeachBack> {
   return Promise.race([
-    loadLiveRepository().then((repo) => repo.teachBack(lectureId, { first, last, idea, explanation })),
+    loadLiveRepository().then((repo) => repo.teachBack(lectureId, { first, last, idea, explanation, session_id: currentSession(lectureId) ?? '' })),
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Teach-back timed out')), 120_000)),
   ]);
+}
+
+/** The check-in at an idea's checkpoint. Fire-and-forget: it never holds the reader up. */
+export function recordCheckIn(lectureId: string, first: number, last: number, idea: string, rating: 'got_it' | 'confused'): void {
+  void loadLiveRepository()
+    .then((repo) => repo.checkIn(lectureId, { first, last, idea: idea.slice(0, 120), rating, session_id: currentSession(lectureId) ?? '' }))
+    .catch(() => {});
+}
+
+/** One checkpoint answer, for the server to grade and record. The reader still grades it at once for the learner. */
+export function recordCheckpointAnswer(lectureId: string, first: number, last: number, questionId: number, answer: CheckpointAnswer): void {
+  void loadLiveRepository()
+    .then((repo) => repo.answerCheckpoint(lectureId, { first, last, question_id: questionId, answer, session_id: currentSession(lectureId) ?? '' }))
+    .catch(() => {});
 }
 
 /**

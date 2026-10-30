@@ -13,6 +13,8 @@ import { NoteEditor } from '../components/NoteEditor';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import {
   fetchCheckpoint,
+  recordCheckIn,
+  recordCheckpointAnswer,
   teachBack,
   isLive,
   saveRehearsal,
@@ -182,8 +184,6 @@ export default function LessonFacesScreen() {
   const textRef = useRef<HTMLDivElement>(null);
 
   const liveReader = !!spaceId && isLive(spaceId);
-  /* Count the reading: progress, visits and the streak, page by page. */
-  useReadingProgress(lessonId, pdfPage, liveReader && numPages > 0);
   /* The practice bench: the lecture's real questions when live. */
   const practice = usePracticeQuestions(lessonId, liveReader);
 
@@ -518,6 +518,19 @@ export default function LessonFacesScreen() {
   /* The idea being explained back, if any. */
   const [teaching, setTeaching] = useState<{ id: string; name: string; first: number; last: number } | null>(null);
   /*
+   * Count the reading: progress, visits and the streak, page by page. Time
+   * the page is covered is not reading it, so it is not counted: Explain when
+   * it fills the screen over the page (narrow), a checkpoint, the teach-back,
+   * the break room, the practice bench. Luna sits beside or below the page,
+   * and the text view is still the page's words, so reading goes on there.
+   */
+  useReadingProgress(
+    lessonId,
+    pdfPage,
+    liveReader && numPages > 0,
+    (view === 'explain' && !panel) || checkpointOpen || Boolean(teaching) || care.resting || Boolean(bench),
+  );
+  /*
    * A slide is landscape; a phone held upright shows it at a third of the
    * screen. Said once, and gone for good the first time the phone is turned.
    */
@@ -633,6 +646,15 @@ export default function LessonFacesScreen() {
   /* A question handed to Explain from outside it — words selected on the page. */
   const [queued, setQueued] = useState<{ question: string; n: number } | null>(null);
   const queuedN = useRef(0);
+  /*
+   * The page Explain was opened on, from the moment it becomes the view
+   * (a `?view=explain` way in included) until it stops being it. Explain is
+   * fetched again for each page turned while it stays open; only the page it
+   * was opened on is the learner asking for help.
+   */
+  const [explainOpenedOn, setExplainOpenedOn] = useState<number | null>(null);
+  if (view === 'explain' && explainOpenedOn === null) setExplainOpenedOn(pdfPage);
+  if (view !== 'explain' && explainOpenedOn !== null) setExplainOpenedOn(null);
   /* Explain is asked only while it is the view: turning pages costs nothing. */
   const explainBlock = blockOf(pdfPage);
   const explained = useExplain(
@@ -641,6 +663,7 @@ export default function LessonFacesScreen() {
     pdfPage,
     { title: explainBlock?.title ?? lesson?.title ?? '', markdown: explainBlock?.markdown ?? '' },
     view === 'explain',
+    explainOpenedOn === pdfPage,
   );
 
   const chrome = (body: React.ReactNode) => (
@@ -1244,6 +1267,10 @@ export default function LessonFacesScreen() {
           if (offer) setTeaching(offer);
           dismissOffer();
         }}
+        onCheckIn={
+          liveReader && offer ? (rating) => recordCheckIn(lesson.id, offer.first, offer.last, offer.name, rating) : undefined
+        }
+        onAnswer={liveReader ? (id, answer, span) => recordCheckpointAnswer(lesson.id, span.first, span.last, id, answer) : undefined}
         onDismiss={dismissOffer}
       />
       <TeachBack

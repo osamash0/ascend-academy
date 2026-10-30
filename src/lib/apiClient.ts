@@ -10,6 +10,13 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 let sessionPromise: Promise<any> | null = null;
 
+/*
+ * The last access token a request used. A page that is being hidden cannot
+ * await a session refresh, so the one request that must survive it — the
+ * reader's last page — goes out with this.
+ */
+let lastToken: string | null = null;
+
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -28,6 +35,7 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
     throw new Error('Unauthenticated');
   }
   if (supabaseSession.access_token) {
+    lastToken = supabaseSession.access_token;
     headers.Authorization = `Bearer ${supabaseSession.access_token}`;
   }
 
@@ -96,6 +104,27 @@ export const apiClient = {
   put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
+
+  /**
+   * Fire-and-forget POST that outlives the page (`keepalive`): for what a
+   * closing tab must still report. Synchronous on purpose — no awaits before
+   * the request leaves. False when no request has seen a token yet.
+   */
+  beacon: (path: string, body: unknown): boolean => {
+    if (!lastToken) return false;
+    try {
+      void fetch(buildUrl(path), {
+        method: 'POST',
+        keepalive: true,
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${lastToken}` },
+        body: JSON.stringify(body),
+      }).catch(() => {});
+      return true;
+    } catch {
+      return false;
+    }
+  },
 
   /** Stream variant — returns the raw Response for SSE/NDJSON consumers. */
   stream: async (path: string, body: unknown, signal?: AbortSignal): Promise<Response> => {
