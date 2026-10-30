@@ -44,7 +44,7 @@ export default function Datenschutz() {
                     <section>
                         <h2 className="text-xl font-semibold text-foreground mb-3">{t('privacy.section1Title')}</h2>
                         <p className="whitespace-pre-line">
-                            {t('privacy.section1Body')} <a href="mailto:kontakt@learnstation.de" className="text-primary hover:underline">kontakt@learnstation.de</a>
+                            {t('privacy.section1Body')} <a href="mailto:binsalah8@gmail.com" className="text-primary hover:underline">binsalah8@gmail.com</a>
                         </p>
                     </section>
 

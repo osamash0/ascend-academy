@@ -25,12 +25,13 @@ export default function Impressum() {
                     <section>
                         <h2 className="text-xl font-semibold text-foreground mb-2">{t('imprint.section5')}</h2>
                         <p className="whitespace-pre-line">{t('imprint.addressLines')}</p>
+                        <p className="mt-2">{t('imprint.project')}</p>
                     </section>
 
                     <section>
                         <h2 className="text-xl font-semibold text-foreground mb-2">{t('imprint.contact')}</h2>
                         <p>
-                            {t('imprint.email')}: <a href="mailto:kontakt@learnstation.de" className="text-primary hover:underline">kontakt@learnstation.de</a>
+                            {t('imprint.email')}: <a href="mailto:binsalah8@gmail.com" className="text-primary hover:underline">binsalah8@gmail.com</a>
                         </p>
                     </section>
 
