@@ -327,7 +327,7 @@ async def reader_checkpoint_answer(
     await telemetry.record_checkpoint(
         lecture_id, uid,
         page=int(q["page"]), idea=str(cp.get("idea") or q.get("idea") or ""), kind=str(q["kind"]),
-        correct=correct, session_id=telemetry.session_or_new(body.session_id),
+        correct=correct, session_id=telemetry.session_or_new(body.session_id), question_id=body.question_id,
     )
     return {"correct": correct}
 

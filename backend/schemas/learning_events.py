@@ -247,6 +247,9 @@ class CheckpointAttempt(_EventPayload):
     idea: str
     kind: Literal["choice", "order", "fdHolds", "closure", "bcnf", "teach"]
     correct: bool
+    #: The checkpoint question answered (its id within the checkpoint), so a
+    #: replayed answer can be told from a new question. Absent on teach-back rows.
+    questionId: int | None = None
     sessionId: str
     timestamp: str
     source: str | None = None
