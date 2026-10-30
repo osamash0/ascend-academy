@@ -163,6 +163,14 @@ describe('buildWidgets', () => {
     }
   });
 
+  it('offers the study guide only while its backend is on (LS-032)', () => {
+    const lectures = [lecture({ id: 'a', course_id: 'c1', course: { id: 'c1', title: 'DB' } })];
+    const on = buildWidgets(lectures, indexProgress([]), [], profile, 0, undefined, true);
+    expect(on.find((w) => w.kind === 'studyGuide')).toBeDefined();
+    const off = buildWidgets(lectures, indexProgress([]), [], profile, 0, undefined, false);
+    expect(off.find((w) => w.kind === 'studyGuide')).toBeUndefined();
+  });
+
   it('surfaces recent achievements in the trophies widget', () => {
     const achievements: Achievement[] = Array.from({ length: 5 }, (_, i) => ({
       id: `t${i}`, badge_name: `Badge ${i}`, badge_description: null, badge_icon: null,

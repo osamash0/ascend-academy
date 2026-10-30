@@ -10,6 +10,9 @@ import { server } from "@/test/server";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
 
+const flags = vi.hoisted(() => ({ studyGuide: true }) as Record<string, boolean>);
+vi.mock("@/lib/featureFlags", () => ({ FEATURES: flags }));
+
 vi.mock("@/integrations/supabase/client", async () => {
   const m = await import("@/test/sharedSupabaseMock");
   return { supabase: m.sharedSupabaseMock };
@@ -249,6 +252,20 @@ describe("ProfessorCourseDetail — Study guide card", () => {
   // The card is a thin entry point to the dedicated /course/:id/study-guide
   // page (src/pages/StudyGuide.tsx), which owns generation/regeneration/
   // printing — no need to stub GET .../study-guide here at all.
+
+  beforeEach(() => {
+    flags.studyGuide = true;
+  });
+
+  it("has no entry point while the study guide's backend is off (LS-032)", async () => {
+    flags.studyGuide = false;
+    stubCourse();
+    stubEmptyCourseContext();
+    renderAtRoute();
+
+    expect((await screen.findAllByText(/course facts/i)).length).toBeGreaterThan(0);
+    expect(screen.queryByTestId("study-guide-card")).not.toBeInTheDocument();
+  });
 
   it("renders an entry point to the study guide", async () => {
     stubCourse();

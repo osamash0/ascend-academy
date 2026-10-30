@@ -115,7 +115,7 @@ export default function StudentDashboard() {
   // The "brains": hero / bento widgets / browse rows.
   const hero = useMemo(() => selectHero(deferredLectures, byId), [deferredLectures, byId]);
   const widgets = useMemo(
-    () => buildWidgets(deferredLectures, byId, achievements, profile, reviewDueCount, myMaterialsCount),
+    () => buildWidgets(deferredLectures, byId, achievements, profile, reviewDueCount, myMaterialsCount, FEATURES.studyGuide),
     [deferredLectures, byId, achievements, profile, reviewDueCount, myMaterialsCount],
   );
   // Pass courseVisits so buildRows can apply LIFS ordering.

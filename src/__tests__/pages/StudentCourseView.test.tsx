@@ -32,6 +32,9 @@ vi.mock("framer-motion", async () => {
   return { ...actual, AnimatePresence: Passthrough, motion: motionProxy };
 });
 
+const flags = vi.hoisted(() => ({ studyGuide: true, examMode: true }) as Record<string, boolean>);
+vi.mock("@/lib/featureFlags", () => ({ FEATURES: flags }));
+
 const useStudentDashboardMock = vi.fn();
 vi.mock("@/features/student/hooks/useStudentDashboard", () => ({
   useStudentDashboard: () => useStudentDashboardMock(),
@@ -84,5 +87,28 @@ describe("StudentCourseView — R23 error vs. empty-course state", () => {
 
     expect(screen.getByText("Empty Course")).toBeInTheDocument();
     expect(screen.queryByText(/couldn't load this course/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("StudentCourseView — study tools follow their backend (LS-032)", () => {
+  const emptyCourse = () =>
+    useStudentDashboardMock.mockReturnValue({ data: { lectures: [], progress: [] }, isLoading: false, isError: false, refetch: vi.fn() });
+
+  it("shows the exam and study guide buttons when both are on", () => {
+    flags.studyGuide = true;
+    flags.examMode = true;
+    emptyCourse();
+    renderAtRoute();
+    expect(screen.getByRole("button", { name: /prepare for exam/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /study guide/i })).toBeInTheDocument();
+  });
+
+  it("hides both when their backends are off", () => {
+    flags.studyGuide = false;
+    flags.examMode = false;
+    emptyCourse();
+    renderAtRoute();
+    expect(screen.queryByRole("button", { name: /prepare for exam/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /study guide/i })).not.toBeInTheDocument();
   });
 });

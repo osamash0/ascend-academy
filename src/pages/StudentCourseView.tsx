@@ -104,7 +104,8 @@ export default function StudentCourseView() {
             </motion.button>
 
             <div className="flex items-center gap-2">
-              {courseId && courseId !== '__uncat__' && (
+              {/* Each tool only while its backend is on (LS-032). */}
+              {FEATURES.examMode && courseId && courseId !== '__uncat__' && (
                 <button
                   onClick={() => navigate(StudentRoutes.EXAM(courseId))}
                   className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
@@ -113,7 +114,7 @@ export default function StudentCourseView() {
                   {t('exam:generate.title')}
                 </button>
               )}
-              {courseId && courseId !== '__uncat__' && (
+              {FEATURES.studyGuide && courseId && courseId !== '__uncat__' && (
                 <button
                   onClick={() => navigate(StudentRoutes.STUDY_GUIDE(courseId))}
                   className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
