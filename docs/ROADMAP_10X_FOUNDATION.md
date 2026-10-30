@@ -720,7 +720,7 @@ threshold into rollups; a documented retention policy.
 
 ## 14. Security & threat-model track
 
-> Extends the existing `threat_model.md`. P0-1 (RPC lockdown) is the acute fix; this track is
+> Extends the existing `docs/threat_model.md`. P0-1 (RPC lockdown) is the acute fix; this track is
 > the systematic pass. **GDPR is first-class here** — the product targets DACH universities,
 > so EU data-protection is a requirement, not a nice-to-have.
 

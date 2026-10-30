@@ -6,9 +6,9 @@ Statuses: **current** = describes the code on `main` today; **historical** = a d
 
 | Path | Last commit | What it is | Status | See instead |
 |---|---|---|---|---|
-| `CHANGELOG.md` | 2026-06-09 | Merged pull requests by date | current |  |
+| `CHANGELOG.md` | 2026-10-30 | Merged pull requests by date | current |  |
 | `CLAUDE.md` | 2026-10-30 | The one page a Claude session reads first: layout, gates, prod facts, rules, traps | current |  |
-| `README.md` | 2026-08-28 | What Learnstation is, how to run it, where the docs are | current |  |
+| `README.md` | 2026-10-30 | What Learnstation is, how to run it, where the docs are | current |  |
 | `docs/AVATAR_SYSTEM.md` | 2026-10-11 | Luna avatar: rules, where it lives, the unlock guard | current |  |
 | `docs/BRAND_VOICE.md` | 2026-10-13 | Calm Competence: tone, do/don't vocabulary, German register, voice checklist | current |  |
 | `docs/GDPR_DATA_PROTECTION.md` | 2026-10-16 | Data-protection posture: sub-processors, erasure, export | current |  |

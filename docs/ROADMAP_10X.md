@@ -5,7 +5,7 @@
 > Status: PROPOSED (2026-07-06) · Owner: Abdullah · Horizon: ~1 semester (3 phases)
 > **§5 (Phase 2) revised 2026-09-17** against the code — 2.2 was already shipped and 2.1
 > already built as `scheduler.py`. See §11 *Corrections* before planning any Phase 2 work.
-> Companion docs: `FEATURE_AUDIT.xlsx` (pre-launch stabilization), `docs/ANALYTICS_IMPROVEMENTS.md`, `docs/analytics-redesign/`
+> Companion docs: `FEATURE_AUDIT.xlsx` (pre-launch stabilization), `docs/docs/archive/ANALYTICS_IMPROVEMENTS_2026_04.md`, `docs/analytics-redesign/`
 
 ---
 
