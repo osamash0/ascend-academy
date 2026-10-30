@@ -17,11 +17,9 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 
-# Read by the app but deliberately not shipped, with the reason.
-NOT_SHIPPED = {
-    # Browser error reporting stays off until the privacy policy names Sentry (LS-002).
-    "VITE_SENTRY_DSN",
-}
+# Read by the app but deliberately not shipped, with the reason. Empty since
+# the privacy policy names Sentry (2026-10-30): VITE_SENTRY_DSN ships too.
+NOT_SHIPPED: set[str] = set()
 
 
 def _used_in_src() -> set[str]:

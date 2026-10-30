@@ -52,9 +52,19 @@ export function scrubEvent<E extends ScrubbableEvent>(event: E): E {
   return event;
 }
 
+/** True when the DSN sends to Sentry's EU region (`o123.ingest.de.sentry.io`), as the privacy policy promises. */
+export function isEuDsn(dsn: string): boolean {
+  try {
+    return new URL(dsn).hostname.endsWith(".de.sentry.io");
+  } catch {
+    return false;
+  }
+}
+
 export function buildSentryOptions(dsn: string): BrowserOptions {
   return {
     dsn,
+    environment: import.meta.env.MODE,
     integrations: [Sentry.browserTracingIntegration()],
     tracesSampleRate: TRACES_SAMPLE_RATE,
     sendDefaultPii: false,

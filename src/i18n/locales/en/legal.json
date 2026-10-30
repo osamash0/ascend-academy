@@ -27,12 +27,12 @@
       "<bold>What you write:</bold> questions to the AI tutor and the conversation history, your written explanations in practice, search queries, notes and feedback messages.",
       "<bold>Documents you upload:</bold> the files, the text extracted from them and the summaries and questions generated from that text.",
       "<bold>Social data:</bold> friendships and friend requests. Whether the people in your Spaces see you (name, picture and XP in rankings and on the Space) is your choice in Settings; it is off until you switch it on. Friends always see each other.",
-      "<bold>Technical data:</bold> IP address, browser type and the pages you request, in server logs kept for a short time."
+      "<bold>Technical data:</bold> IP address, browser type and the pages you request, in server logs kept for a short time. When something in the app or on the server fails, an error report (see Sentry below)."
     ],
     "section3Title": "3. Purpose and legal basis",
     "section3Items": [
       "<bold>Performance of contract (Art. 6(1)(b) GDPR):</bold> account data, learning progress, your uploads and the AI features (summaries, questions, tutor answers) are required to provide the service you signed up for.",
-      "<bold>Legitimate interest (Art. 6(1)(f) GDPR):</bold> learning events are collected to improve teaching and to show the people who maintain a Space where learners struggle; server logs are kept to run the service securely and reliably."
+      "<bold>Legitimate interest (Art. 6(1)(f) GDPR):</bold> learning events are collected to improve teaching and to show the people who maintain a Space where learners struggle; server logs and error reports are kept to run the service securely and reliably."
     ],
     "section4Title": "4. Processors",
     "section4Items": [
@@ -40,6 +40,7 @@
       "<bold>Hetzner Online GmbH (Germany)</bold> — hosting of the application server.",
       "<bold>Resend (Plus Five Five, Inc., USA)</bold> — sends the emails that belong to your account, such as the link to reset your password. Resend receives your email address and the content of that email; the emails are sent from the EU (Ireland).",
       "<bold>Cloudflare, Inc. (USA)</bold> — forwards emails you send to hello@learnstation.app or privacy@learnstation.app to our inbox, and stores encrypted copies of the database backups. The backups are encrypted before they leave our server, so Cloudflare cannot read them; they are deleted after 30 days at the latest.",
+      "<bold>Sentry (Functional Software, Inc., USA)</bold> — error monitoring. When the app or the server hits an error, a report is sent: what failed and where in the code, the address of the page (without the part after “?”), browser and operating system, and the time. It does not contain your name, your email address, cookies, the contents of requests or what you write, and nothing records your screen. Sentry receives your IP address when a report is sent but does not store it. Reports are stored in the EU (Germany) and deleted after 90 days at the latest.",
       "<bold>AI providers</bold> — for summaries, questions, explanations, Luna’s answers and search, the text of your documents, your questions and your conversation history are sent to <bold>OpenAI</bold>, <bold>Groq</bold> and <bold>Google (Gemini)</bold>; <bold>OpenRouter</bold> steps in when those are unreachable. Your name and email address are not part of these requests.",
       "<bold>LlamaIndex (LlamaParse)</bold> — when that parsing engine is selected at upload, uploaded documents are sent there to extract their text.",
       "<bold>Microsoft (Edge text-to-speech)</bold> — text is sent to produce spoken audio when you use the read-aloud feature."
@@ -58,7 +59,7 @@
     "section7Title": "7. Cookies and local storage",
     "section7Body": "Learnstation does not use <bold>tracking cookies</bold> or advertising trackers (no Google Analytics, no Facebook Pixel). Only the browser's localStorage is used for session management and settings.",
     "section8Title": "8. International data transfer",
-    "section8Body": "Some processors listed above are based in the United States or may process data there (Supabase, OpenAI, Groq, Google, OpenRouter, LlamaIndex, Microsoft, Resend, Cloudflare). For these transfers the EU Standard Contractual Clauses (SCCs) or the EU-U.S. Data Privacy Framework apply as safeguards under Art. 46 GDPR.",
+    "section8Body": "Some processors listed above are based in the United States or may process data there (Supabase, OpenAI, Groq, Google, OpenRouter, LlamaIndex, Microsoft, Resend, Cloudflare, Sentry). For these transfers the EU Standard Contractual Clauses (SCCs) or the EU-U.S. Data Privacy Framework apply as safeguards under Art. 46 GDPR.",
     "backHome": "← Back to home"
   }
 }

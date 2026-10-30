@@ -11,16 +11,14 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
-import sentry_sdk
 from backend.core.config import settings
 from backend.core.logging_config import setup_logging, set_correlation_id
+from backend.core import sentry
 
 # Initialize JSON structured logging
 setup_logging()
 
-if os.environ.get("SENTRY_DSN"):
-    from backend.core.sentry import build_sentry_options
-    sentry_sdk.init(**build_sentry_options(os.environ["SENTRY_DSN"], env=settings.env))
+sentry.init_sentry(settings.env)
 
 from backend.api.v1.analytics import router as analytics_router
 from backend.api.v1.auth import router as auth_router
