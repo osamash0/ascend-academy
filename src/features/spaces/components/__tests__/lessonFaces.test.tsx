@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor, fireEvent, act, within, cleanup } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
-import type { RefObject } from 'react';
+import { useEffect, type RefObject } from 'react';
 import LessonFacesScreen from '../../screens/LessonFacesScreen';
 
 /*
@@ -10,16 +10,39 @@ import LessonFacesScreen from '../../screens/LessonFacesScreen';
  * scroll ref, and a jump is recorded rather than performed.
  */
 const jumps: number[] = [];
+let mockAspect = 405 / 720;
+/* How many pages the stand-in pager says the file has; 0 keeps it silent (no timeline). */
+let mockPages = 0;
+const scrolled: number[] = [];
 vi.mock('@/components/pdf', () => ({
   PdfPage: ({ page }: { page: number }) => <div data-testid="sheet" data-page={page} />,
-  PdfPager: ({ rootRef, page, overlay }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: { props?: { words?: string | null } } }) => {
+  PdfPager: ({ rootRef, page, overlay, onAspect, onLoad }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: { props?: { words?: string | null } }; onAspect?: (a: number) => void; onLoad?: (n: number) => void }) => {
     jumps.push(page);
+    useEffect(() => {
+      onAspect?.(mockAspect);
+      if (mockPages) onLoad?.(mockPages);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
     /* The words the Spotlight would light, recorded rather than drawn. */
     return (
       <div ref={rootRef} data-testid="document" data-spot={overlay?.props?.words ?? ''}>
         Page {page}
       </div>
     );
+  },
+  PdfScroll: ({ scrollRef, onLoad, onFirstRender }: { scrollRef: RefObject<HTMLDivElement>; onLoad?: (n: number) => void; onFirstRender?: (c: null) => void }) => {
+    /* Like the real one: the file opens first, the first page paints later. */
+    useEffect(() => {
+      onLoad?.(10);
+      const t = setTimeout(() => {
+        scrolled.push(-1); // marker: first render
+        onFirstRender?.(null);
+      }, 50);
+      return () => clearTimeout(t);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    return <div ref={scrollRef} data-testid="scroll" />;
+  },
+  scrollToPdfPage: (_c: HTMLElement, page: number) => {
+    scrolled.push(page);
   },
   pdfPageId: (p: number) => `pdf-page-${p}`,
   sampleAccent: () => null,
@@ -35,7 +58,8 @@ const renderFaces = async (path = '/v4/space/s-dbs/lesson/l-s-dbs-4/faces') => {
       </Routes>
     </MemoryRouter>,
   );
-  await screen.findByTestId('document', {}, { timeout: 4000 });
+  /* The pager, or the scroll that replaces it for a portrait file. */
+  await waitFor(() => expect(screen.queryByTestId('document') ?? screen.queryByTestId('scroll')).not.toBeNull(), { timeout: 4000 });
   await act(async () => {});
   return utils;
 };
@@ -164,7 +188,7 @@ describe('a Lesson with nothing to read', () => {
 });
 
 describe('Explain answers the page as an interface', () => {
-  it('composes an answer for the page in view, beside the document', async () => {
+  it('composes an answer for the page in view', async () => {
     await renderFaces();
     fireEvent.click(screen.getByRole('tab', { name: 'Explain' }));
     const panel = await screen.findByRole('complementary', { name: 'Explain' });
@@ -205,5 +229,258 @@ describe('another Lesson, opened in place', () => {
     await screen.findByTestId('document', {}, { timeout: 4000 });
     await waitFor(() => expect(pageLine()).toHaveTextContent('Page 2'));
     expect(pageLine()).toHaveAttribute('data-spot', 'relation');
+  });
+});
+
+describe('Explain and Text replace the page', () => {
+  it('Explain covers the whole stage instead of docking beside the page', async () => {
+    await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?view=explain');
+    const layer = await screen.findByRole('complementary', { name: 'Explain' });
+    expect(layer).toHaveAttribute('data-mode', 'replace');
+  });
+
+  it('Text covers the whole stage too', async () => {
+    await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?view=text');
+    const layer = await screen.findByRole('complementary');
+    expect(layer).toHaveAttribute('data-mode', 'replace');
+  });
+
+  it('keeps the view switch above the layer, and Page brings the page back', async () => {
+    await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?view=explain');
+    const layer = await screen.findByRole('complementary', { name: 'Explain' });
+    const pageTab = screen.getByRole('tab', { name: 'Page' });
+    expect(pageTab.closest('div.absolute')).toHaveClass('z-[43]');
+    fireEvent.click(pageTab);
+    await waitFor(() => expect(layer).not.toBeInTheDocument());
+    expect(screen.queryByRole('complementary', { name: 'Explain' })).toBeNull();
+  });
+
+  it('has no close button of its own; Escape still closes it and returns the page', async () => {
+    await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?view=explain');
+    const layer = await screen.findByRole('complementary', { name: 'Explain' });
+    expect(within(layer).queryByRole('button', { name: /close|schließen/i })).toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(layer).not.toBeInTheDocument());
+    expect(screen.getByRole('tab', { name: 'Page' })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+describe('the face keys', () => {
+  it('2 opens Explain, 1 returns to the page', async () => {
+    await renderFaces();
+    fireEvent.keyDown(window, { key: '2' });
+    expect(await screen.findByRole('tab', { name: 'Explain', selected: true })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: '1' });
+    expect(await screen.findByRole('tab', { name: 'Page', selected: true })).toBeInTheDocument();
+  });
+
+  it('f typed in a field does not toggle full screen', async () => {
+    const request = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(document.documentElement, 'requestFullscreen', { value: request, configurable: true });
+    await renderFaces();
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    fireEvent.keyDown(input, { key: 'f' });
+    expect(request).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: 'f' });
+    expect(request).toHaveBeenCalled();
+    input.remove();
+  });
+});
+
+describe('a document scrolls', () => {
+  it('a portrait file opens as a scroll, not a deck', async () => {
+    mockAspect = 842 / 595;
+    try {
+      await renderFaces();
+      expect(await screen.findByTestId('scroll')).toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByTestId('document')).not.toBeInTheDocument());
+    } finally {
+      mockAspect = 405 / 720;
+    }
+  });
+
+  it('seeking on the timeline scrolls to the page and keys do not step beats', async () => {
+    mockAspect = 842 / 595;
+    scrolled.length = 0;
+    try {
+      await renderFaces();
+      await screen.findByTestId('scroll');
+      const slider = await screen.findByRole('slider');
+      fireEvent.keyDown(slider, { key: 'ArrowRight' });
+      await waitFor(() => expect(scrolled.filter((p) => p > 0).length).toBeGreaterThan(0));
+      scrolled.length = 0;
+      fireEvent.keyDown(window, { key: 'PageDown' });
+      await waitFor(() => expect(scrolled.filter((p) => p > 0).length).toBeGreaterThan(0));
+      const ev = new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true, bubbles: true });
+      window.dispatchEvent(ev);
+      expect(ev.defaultPrevented).toBe(false);
+    } finally {
+      mockAspect = 405 / 720;
+    }
+  });
+
+  it('points belong to slides: a document has no points band', async () => {
+    const dots = () => screen.queryByRole('tablist', { name: 'Points on this page' });
+    /* The control: some page of this fixture carries points. */
+    let page = 0;
+    for (let p = 1; p <= 12 && !page; p++) {
+      await renderFaces(`/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=${p}`);
+      if (dots()) page = p;
+      cleanup();
+    }
+    expect(page).toBeGreaterThan(0);
+    mockAspect = 842 / 595;
+    try {
+      await renderFaces(`/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=${page}`);
+      await screen.findByTestId('scroll');
+      expect(dots()).not.toBeInTheDocument();
+    } finally {
+      mockAspect = 405 / 720;
+    }
+  });
+
+  it('?page=N lands on that page once a document has loaded', async () => {
+    mockAspect = 842 / 595;
+    scrolled.length = 0;
+    try {
+      await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=3');
+      await screen.findByTestId('scroll');
+      await waitFor(() => expect(scrolled).toContain(-1));
+      /* Not before the first page has painted; after it, once, to page 3. */
+      expect(scrolled.slice(0, scrolled.indexOf(-1))).not.toContain(3);
+      await waitFor(() => expect(scrolled.slice(scrolled.indexOf(-1))).toContain(3));
+    } finally {
+      mockAspect = 405 / 720;
+    }
+  });
+
+  it('a landscape file stays a pager', async () => {
+    await renderFaces();
+    expect(screen.queryByTestId('scroll')).not.toBeInTheDocument();
+  });
+});
+
+describe('the page shape belongs to its Lesson', () => {
+  it('a deck opened after a document is measured afresh, not shown as a scroll', async () => {
+    let go: (to: string) => void = () => {};
+    const Nav = () => {
+      go = useNavigate();
+      return null;
+    };
+    mockAspect = 842 / 595;
+    try {
+      render(
+        <MemoryRouter initialEntries={['/v4/space/s-dbs/lesson/l-s-dbs-4/faces']}>
+          <Nav />
+          <Routes>
+            <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<LessonFacesScreen />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+      expect(await screen.findByTestId('scroll', {}, { timeout: 4000 })).toBeInTheDocument();
+      /* Another Lesson, then this one again as a landscape file: the old shape must not carry over. */
+      await act(async () => go('/v4/space/s-dbs/lesson/l-s-dbs-3/faces'));
+      await screen.findByText('Nothing to read yet', {}, { timeout: 4000 });
+      mockAspect = 405 / 720;
+      await act(async () => go('/v4/space/s-dbs/lesson/l-s-dbs-4/faces'));
+      expect(await screen.findByTestId('document', {}, { timeout: 4000 })).toBeInTheDocument();
+      expect(screen.queryByTestId('scroll')).toBeNull();
+    } finally {
+      mockAspect = 405 / 720;
+    }
+  });
+});
+
+describe('the page line and the timeline', () => {
+  beforeEach(() => {
+    mockPages = 12;
+  });
+  afterEach(() => {
+    mockPages = 0;
+  });
+  it('the pill stands above the timeline row, not on it', async () => {
+    await renderFaces();
+    const line = screen.getByTestId('page-line');
+    const row = screen.getByTestId('timeline-row');
+    /* The row is 20px tall over the safe area; the pill is lifted clear of it. */
+    expect(row).toHaveClass('bottom-0');
+    expect(line.className).toContain('bottom-[max(34px,calc(env(safe-area-inset-bottom)+28px))]');
+    expect(line.className).not.toMatch(/bottom-\[max\(20px/);
+  });
+
+  it('the timeline shows where you are, once', async () => {
+    await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=3');
+    const count = await screen.findByTestId('timeline-count');
+    expect(count.textContent).toMatch(/^3 \/ \d+$/);
+  });
+});
+
+describe('Explain and Text keep what is behind them out of reach', () => {
+  beforeEach(() => {
+    mockPages = 12;
+  });
+  afterEach(() => {
+    mockPages = 0;
+  });
+  it('the stage, the page line and the timeline are inert; the view switch is not', async () => {
+    await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?view=explain');
+    await screen.findByRole('complementary', { name: 'Explain' });
+    expect(screen.getByTestId('page-line')).toHaveAttribute('inert');
+    expect(screen.getByTestId('timeline-row')).toHaveAttribute('inert');
+    expect(screen.getByTestId('document').closest('[inert]')).not.toBeNull();
+    expect(screen.getByRole('link', { name: 'Leave the reader' }).closest('[inert]')).not.toBeNull();
+    expect(screen.getByRole('tab', { name: 'Page' }).closest('[inert]')).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'Page' }));
+    await waitFor(() => expect(screen.getByTestId('page-line')).not.toHaveAttribute('inert'));
+    expect(screen.getByTestId('timeline-row')).not.toHaveAttribute('inert');
+  });
+
+  it('Space and Page Down do not turn the page under the layer', async () => {
+    await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?view=explain');
+    await screen.findByRole('complementary', { name: 'Explain' });
+    fireEvent.keyDown(window, { key: 'PageDown' });
+    fireEvent.keyDown(window, { key: ' ' });
+    await act(async () => {});
+    expect(pageLine()).toHaveTextContent('Page 1');
+  });
+});
+
+describe('the keys keep to what exists', () => {
+  beforeEach(() => {
+    mockPages = 12;
+  });
+  afterEach(() => {
+    mockPages = 0;
+  });
+  it('Page Down on the focused timeline does not turn the page', async () => {
+    await renderFaces();
+    const slider = await screen.findByRole('slider');
+    fireEvent.keyDown(slider, { key: 'PageDown' });
+    await act(async () => {});
+    expect(pageLine()).toHaveTextContent('Page 1');
+    fireEvent.keyDown(window, { key: 'PageDown' });
+    await waitFor(() => expect(pageLine()).toHaveTextContent('Page 2'));
+  });
+
+  it('F without full screen (an iPhone) is left alone', async () => {
+    const had = Object.getOwnPropertyDescriptor(document.documentElement, 'requestFullscreen');
+    Object.defineProperty(document.documentElement, 'requestFullscreen', { value: undefined, configurable: true });
+    try {
+      await renderFaces();
+      const ev = new KeyboardEvent('keydown', { key: 'f', cancelable: true, bubbles: true });
+      window.dispatchEvent(ev);
+      expect(ev.defaultPrevented).toBe(false);
+    } finally {
+      if (had) Object.defineProperty(document.documentElement, 'requestFullscreen', had);
+    }
+  });
+
+  it('a number past the last view tab is no key', async () => {
+    await renderFaces();
+    const ev = new KeyboardEvent('keydown', { key: '4', cancelable: true, bubbles: true });
+    window.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+    expect(screen.getByRole('tab', { name: 'Page' })).toHaveAttribute('aria-selected', 'true');
   });
 });

@@ -436,11 +436,8 @@
         "tryAgain": "Noch mal versuchen"
       },
       "reading": {
-        "title": "Wird noch gelesen",
-        "failedTitle": "Das konnten wir nicht lesen",
-        "body": "{{filename}} öffnet sich als Lektion, sobald es gelesen ist. Das dauert ein, zwei Minuten.",
-        "failedBody": "Daraus ist nichts entstanden. Füg es noch einmal hinzu, oder eine andere Kopie davon.",
-        "back": "Zurück zur Bibliothek"
+        "back": "Zurück zur Bibliothek",
+        "gone": "Das war nur auf diesem Gerät, und nach dem Neuladen ist es weg. Hol es aus deiner Bibliothek noch einmal herein."
       }
     }
   }

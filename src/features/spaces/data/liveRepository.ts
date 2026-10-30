@@ -9,6 +9,15 @@ import type { PracticeQuestion } from '../mocks/practice';
 import type { Upload, World } from './world';
 import type { AskAnswer } from './assistant';
 
+/** An upload as the early reader sees it (GET /v4/uploads/:run/reading). */
+export interface EarlyReading {
+  pdfUrl: string | null;
+  pages: number;
+  pagesRead: number;
+  stage: 'developing' | 'ready' | 'failed';
+  lessonId: string | null;
+}
+
 /** A course, read as the reader's Space: its lectures in order. */
 export interface ReaderCourse {
   id: string;
@@ -214,6 +223,8 @@ export function createLiveRepository(http: V4Transport) {
     },
     /* Your uploads, as the shelf shows them — polled while one develops. */
     uploads: () => http.get<{ uploads: Upload[] }>(`${root}/uploads`),
+    /* An upload before its Lesson exists: the file link and how far Luna has read. */
+    readingFor: (runId: string) => http.get<EarlyReading>(`${root}/uploads/${idPath(runId)}/reading`),
     /* Remove an upload for good: its Lesson (lecture id) or a failed run (run id). */
     removeUpload: (id: string) => http.delete<{ removed: true }>(`${root}/uploads/${idPath(id)}`),
     /* Home's ask bar: the grounded course tutor. */

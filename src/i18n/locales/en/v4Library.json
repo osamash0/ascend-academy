@@ -436,11 +436,8 @@
         "tryAgain": "Try again"
       },
       "reading": {
-        "title": "Still being read",
-        "failedTitle": "This file could not be read",
-        "body": "{{filename}} opens as a Lesson as soon as it has been read. It takes a minute or two.",
-        "failedBody": "Nothing was made from it. Try bringing it in again, or another copy of it.",
-        "back": "Back to Library"
+        "back": "Back to Library",
+        "gone": "This one was only on this device, and a reload let it go. Bring it in again from your Library."
       }
     }
   }
