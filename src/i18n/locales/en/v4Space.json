@@ -128,6 +128,14 @@
       "uploadFailed": "Couldn’t send that just now. Nothing changed — try again.",
       "publishFailed": "Couldn’t change that just now. Nothing changed — try again.",
       "manager": "More in the course manager"
+    },
+    "leave": {
+      "open": "Leave this Space",
+      "ask": "Leave {{name}}? Your notes and progress stay, and you can join again any time.",
+      "yes": "Leave",
+      "keep": "Stay",
+      "leaving": "Leaving…",
+      "failed": "Couldn’t leave just now. Nothing changed — try again."
     }
   },
   "map": {

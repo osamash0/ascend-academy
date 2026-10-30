@@ -77,9 +77,12 @@ async def test_world_reads_courses_as_spaces_and_lectures_as_lessons(
         assert cur.fetchone() == (1,)
     joined_world = await svc.get_world(str(stranger))
     assert {s["id"]: s["viewerRole"] for s in joined_world["spaces"]}[str(open_course)] == "member"
-    # Undo, so the stranger below still holds no role anywhere.
+    # Leaving undoes it (LS-077), twice is harmless, and the stranger below holds no role anywhere.
+    await svc.leave_space(str(open_course), str(stranger))
+    await svc.leave_space(str(open_course), str(stranger))
     with db_conn.cursor() as cur:
-        cur.execute("DELETE FROM course_enrollments WHERE user_id = %s", (str(stranger),))
+        cur.execute("SELECT count(*) FROM course_enrollments WHERE user_id = %s", (str(stranger),))
+        assert cur.fetchone() == (0,)
 
     assert world["viewer"]["id"] == str(student)
     # A stranger sees the open courses but holds no role in them.

@@ -257,7 +257,7 @@
     },
     "action": {
       "member": "Enter",
-      "joinable": "Join",
+      "joinable": "Open",
       "request": "Request access",
       "pending": "Requested"
     },

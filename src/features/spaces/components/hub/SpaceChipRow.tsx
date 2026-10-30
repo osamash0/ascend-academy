@@ -18,9 +18,11 @@ import { StarCluster } from './HeroCover';
  * Spaces. With it, crossing chips costs nothing and resting on one commits.
  * Click and the arrow keys bypass the delay entirely — those are deliberate.
  *
- * The chips are buttons, not links. They select; they do not navigate. The
- * hero's pill is what navigates, and the spec's whole structure depends on
- * that separation — a link here would take you off the page you are browsing.
+ * The chips are buttons, not links. Hover, focus and the arrows select; they
+ * do not navigate, so browsing the row never takes you off the page. A click
+ * (or Enter) on the chip that is *already* selected opens it, the same as the
+ * hero's pill (LS-078): since hover has usually selected it, one deliberate
+ * click opens, and on touch the first tap selects and the second opens.
  *
  * Arrow keys are on the row rather than the window: a global handler would
  * steal ←/→ from every text field on the page, and the row is focusable, so
@@ -39,10 +41,13 @@ export function SpaceChipRow({
   spaces,
   selected,
   onSelect,
+  onOpen,
 }: {
   spaces: Space[];
   selected: string;
   onSelect: (id: string) => void;
+  /** The selected chip clicked again: open it, as the hero's pill does. */
+  onOpen?: (id: string) => void;
 }) {
   const { t } = useTranslation('v4Spaces');
   const hoverTimer = useRef<number | null>(null);
@@ -114,7 +119,8 @@ export function SpaceChipRow({
               aria-selected={isSelected}
               onClick={() => {
                 cancelHover();
-                onSelect(s.id);
+                if (isSelected && onOpen) onOpen(s.id);
+                else onSelect(s.id);
               }}
               onMouseEnter={() => hoverSelect(s.id)}
               onFocus={() => onSelect(s.id)}
@@ -191,7 +197,8 @@ export function SpaceChipRow({
           aria-selected={selected === DISCOVER_ID}
           onClick={() => {
             cancelHover();
-            onSelect(DISCOVER_ID);
+            if (selected === DISCOVER_ID && onOpen) onOpen(DISCOVER_ID);
+            else onSelect(DISCOVER_ID);
           }}
           onMouseEnter={() => hoverSelect(DISCOVER_ID)}
           onFocus={() => onSelect(DISCOVER_ID)}

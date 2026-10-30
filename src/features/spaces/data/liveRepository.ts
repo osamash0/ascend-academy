@@ -260,6 +260,8 @@ export function createLiveRepository(http: V4Transport) {
       http.get<{ batch_id: string; lectures: LessonBatchRow[] }>(`/api/upload/batches/${idPath(batchId)}`),
     /* Join an open Space (enrol in its course). Idempotent. */
     joinSpace: (id: string) => http.post<{ joined: true }>(`${root}/spaces/${idPath(id)}/join`, {}),
+    /** Leave a joined Space: the enrolment goes; notes and progress stay (LS-077). */
+    leaveSpace: (id: string) => http.delete<{ joined: false }>(`${root}/spaces/${idPath(id)}/join`),
     /* The reader, on real courses and lectures (`/v4/reader`, FEATURE_V4_READER). */
     readerCourse: (id: string) => http.get<ReaderCourse>(`${root}/reader/courses/${idPath(id)}`),
     readerLecture: (id: string) => http.get<ReaderLecture>(`${root}/reader/lectures/${idPath(id)}`),

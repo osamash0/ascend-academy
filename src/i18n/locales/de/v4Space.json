@@ -128,6 +128,14 @@
       "uploadFailed": "Das ließ sich gerade nicht senden. Nichts hat sich geändert – versuch es noch einmal.",
       "publishFailed": "Das ließ sich gerade nicht ändern. Nichts hat sich geändert – versuch es noch einmal.",
       "manager": "Mehr in der Kursverwaltung"
+    },
+    "leave": {
+      "open": "Diesen Space verlassen",
+      "ask": "{{name}} verlassen? Deine Notizen und dein Fortschritt bleiben, und du kannst jederzeit wieder beitreten.",
+      "yes": "Verlassen",
+      "keep": "Bleiben",
+      "leaving": "Wird verlassen…",
+      "failed": "Verlassen hat gerade nicht geklappt. Nichts hat sich geändert – versuch es noch einmal."
     }
   },
   "map": {

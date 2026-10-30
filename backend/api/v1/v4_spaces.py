@@ -76,6 +76,14 @@ async def v4_join_space(space_id: UUID, request: Request, user: Any = Depends(ve
     return {"joined": True}
 
 
+@router.delete("/spaces/{space_id}/join")
+@limiter.limit("30/minute")
+async def v4_leave_space(space_id: UUID, request: Request, user: Any = Depends(verify_token)):
+    """Leave a Space you joined (unenrol). Progress and notes stay. Idempotent."""
+    await service.leave_space(str(space_id), _uid(user))
+    return {"joined": False}
+
+
 class _Ask(BaseModel):
     model_config = ConfigDict(extra="forbid")
     question: str = Field(min_length=2, max_length=600)

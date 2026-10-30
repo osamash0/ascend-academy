@@ -257,7 +257,7 @@
     },
     "action": {
       "member": "Betreten",
-      "joinable": "Beitreten",
+      "joinable": "Ansehen",
       "request": "Zugang anfragen",
       "pending": "Angefragt"
     },
