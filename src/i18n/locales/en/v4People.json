@@ -15,7 +15,10 @@
       "requests": "Requests · {{n}}"
     },
     "ranking": {
-      "about": "Ranked by XP — earned from learning, and from work of yours that other people found useful."
+      "about": "Ranked by XP — earned from learning, and from work of yours that other people found useful.",
+      "hidden": "Only your friends see you here.",
+      "showMe": "Show me to my Spaces",
+      "showMeFailed": "That did not save. Try again."
     },
     "sharedSpaces_one": "{{count}} Space in common",
     "sharedSpaces_other": "{{count}} Spaces in common",

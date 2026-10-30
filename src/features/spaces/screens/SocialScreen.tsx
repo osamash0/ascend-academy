@@ -16,6 +16,8 @@ import {
   type RankedPerson,
 } from '../data/social';
 import { useViewer } from '../data/viewer';
+import { useShowInSpaces } from '../data/useShowInSpaces';
+import { dataMode } from '../data/liveRepository';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { useScreenState } from '../data/useSpaces';
@@ -45,6 +47,8 @@ type Tab = 'ranking' | 'friends' | 'requests';
 export default function SocialScreen() {
   const viewer = useViewer();
   const { t } = useTranslation('v4People');
+  const visibility = useShowInSpaces();
+  const live = dataMode(import.meta.env.VITE_V4_DATA_MODE) === 'live';
   const screenState = useScreenState();
   /*
    * Accepting or declining mutates a store outside React, so a tick re-reads
@@ -162,6 +166,24 @@ export default function SocialScreen() {
             <p className="mb-4 text-[13.5px] text-faint">
               {t('social.ranking.about')}
             </p>
+            {/* LS-036: until you say so, only your friends see you here. */}
+            {live && !visibility.on && (
+              <p className="mb-4 text-[13.5px] text-faint">
+                {t('social.ranking.hidden')}{' '}
+                <button
+                  type="button"
+                  disabled={visibility.saving}
+                  onClick={() => {
+                    void visibility.change(true).then((saved) => {
+                      if (!saved) toast.error(t('social.ranking.showMeFailed'));
+                    });
+                  }}
+                  className="console-focusable font-medium text-foreground underline underline-offset-4 hover:no-underline"
+                >
+                  {t('social.ranking.showMe')}
+                </button>
+              </p>
+            )}
             <ol className="space-y-1.5">
               {leaderboard.map((r, i) => (
                 <li

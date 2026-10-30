@@ -42,6 +42,11 @@
       "activity": {
         "label": "Zeigen, was ich gerade lese",
         "hint": "Mitglieder eines Space sehen, welche Lektionen du offen hast. Standardmäßig aus – niemand möchte beobachtet werden."
+      },
+      "spaces": {
+        "label": "Mich den Leuten in meinen Spaces zeigen",
+        "hint": "Dein Name, dein Bild und deine XP erscheinen in ihren Ranglisten und am Space. Aus: Dort sehen dich nur deine Freunde.",
+        "failed": "Das wurde nicht gespeichert. Versuch es noch einmal."
       }
     },
     "data": {

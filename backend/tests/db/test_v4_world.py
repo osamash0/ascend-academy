@@ -137,6 +137,9 @@ async def test_world_gives_each_space_a_cover_faces_and_a_last_place(
         )
     make_course_enrollment(me, course)
     make_course_enrollment(lea, course)
+    # LS-036: a face shows only for someone who chose to be seen.
+    with db_conn.cursor() as cur:
+        cur.execute("UPDATE profiles SET show_in_spaces = true WHERE user_id = %s", (str(lea),))
 
     space = {s["id"]: s for s in (await svc.get_world(str(me)))["spaces"]}[str(course)]
     assert space["cover"] == f"https://signed/lecture-posters/{tag}/first.webp"

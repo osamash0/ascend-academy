@@ -15,7 +15,10 @@
       "requests": "Anfragen · {{n}}"
     },
     "ranking": {
-      "about": "Nach XP sortiert. XP gibt es fürs Lernen und für Arbeit von dir, die anderen geholfen hat."
+      "about": "Nach XP sortiert. XP gibt es fürs Lernen und für Arbeit von dir, die anderen geholfen hat.",
+      "hidden": "Hier sehen dich nur deine Freunde.",
+      "showMe": "Meinen Spaces zeigen",
+      "showMeFailed": "Das wurde nicht gespeichert. Versuch es noch einmal."
     },
     "sharedSpaces_one": "{{count}} gemeinsamer Space",
     "sharedSpaces_other": "{{count}} gemeinsame Spaces",

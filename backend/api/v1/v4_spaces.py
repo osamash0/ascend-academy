@@ -35,6 +35,21 @@ async def v4_me(request: Request, user: Any = Depends(verify_token)):
     return person
 
 
+class _Visibility(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    showInSpaces: bool
+
+
+@router.patch("/me/visibility")
+@limiter.limit("30/minute")
+async def v4_set_visibility(request: Request, body: _Visibility, user: Any = Depends(verify_token)):
+    """Whether the people in your Spaces see you: rankings and Space cards (LS-036)."""
+    on = await service.set_show_in_spaces(_uid(user), body.showInSpaces)
+    if on is None:
+        raise HTTPException(status_code=404, detail="No profile for this account.")
+    return {"showInSpaces": on}
+
+
 class _NewSpace(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=200)

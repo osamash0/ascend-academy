@@ -1,4 +1,4 @@
-"""v4 Person shape from a profiles row: content is never anonymous."""
+"""v4 Person shape from a profiles row: never blank, never the email (LS-036)."""
 from backend.services.v4_spaces_service import _person
 
 
@@ -13,8 +13,10 @@ def test_prefers_display_name_then_full_name():
     assert _person(_row(full_name="Lea Krüger"))["name"] == "Lea Krüger"
 
 
-def test_falls_back_to_email_local_part_never_blank():
-    assert _person(_row(email="lea.k@uni-marburg.de"))["name"] == "lea.k"
+def test_a_missing_name_is_learner_never_the_email():
+    # Other people see this name; "lea.k" from lea.k@uni-marburg.de would
+    # hand them part of an email address the person never chose to show.
+    assert _person(_row(email="lea.k@uni-marburg.de"))["name"] == "Learner"
     assert _person(_row(display_name="  "))["name"] == "Learner"
 
 
