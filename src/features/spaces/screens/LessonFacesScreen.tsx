@@ -373,11 +373,15 @@ export default function LessonFacesScreen() {
   const [lunaOpen, setLunaOpen] = useState(() => params.get('luna') === '1');
   /* Explain and text dock in the same place: whichever opens, Luna steps aside. */
   if (studio && lunaOpen) setLunaOpen(false);
-  /* The page Luna last turned to, so the reading count never takes her move for the reader turning back. */
-  const lunaSteered = useRef<number | null>(null);
+  /*
+   * The page last reached without the reader turning to it (Luna's move, or a
+   * document's scroll passing it), so the reading count never takes it for a
+   * turn back.
+   */
+  const notATurn = useRef<number | null>(null);
   const lunaGoToPage = useCallback(
     (p: number) => {
-      lunaSteered.current = p;
+      notATurn.current = p;
       goToPage(p);
     },
     [goToPage],
@@ -422,9 +426,15 @@ export default function LessonFacesScreen() {
       scrollSettling.current = false;
     };
   }, [scrollReady, lessonId]);
+  /*
+   * A scroll drifts over page edges, and a jump on the timeline scrolls past
+   * every page between: the pages it reports are visits, not turns back.
+   */
   const onScrollPage = useCallback(
     (page: number) => {
-      if (!scrollSettling.current) onPdfPage(page);
+      if (scrollSettling.current) return;
+      if (page !== pdfPageRef.current) notATurn.current = page;
+      onPdfPage(page);
     },
     [onPdfPage],
   );
@@ -636,7 +646,7 @@ export default function LessonFacesScreen() {
     pdfPage,
     liveReader && numPages > 0,
     (view === 'explain' && !panel) || checkpointOpen || Boolean(teaching) || care.resting || Boolean(bench),
-    lunaSteered,
+    notATurn,
   );
   /*
    * A slide is landscape; a phone held upright shows it at a third of the

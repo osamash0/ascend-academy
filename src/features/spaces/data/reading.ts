@@ -14,8 +14,9 @@ import { endSession, startSession } from './readingSession';
  * warning. Closing the reader reports the open page; closing the tab reports
  * it too, as a beacon, because nothing after `pagehide` is sure to run.
  *
- * A page a guide turned to (`steered`: Luna) is reported without the page now
- * in view, so it is never counted as the reader turning back.
+ * A page reached without the reader turning to it (`steered`: Luna's move, or
+ * a document's scroll passing it) is reported without the page now in view,
+ * so it is never counted as the reader turning back.
  *
  * Fire-and-forget: a failed report must never interrupt reading. Live only.
  */
@@ -115,7 +116,7 @@ export function useReadingProgress(
   /* The page changed: report the one left, start the next. */
   useEffect(() => {
     pageRef.current = page;
-    /* A page a guide (Luna) turned to is not the reader turning back. */
+    /* A page Luna or a scroll reached is not the reader turning back. */
     const guided = steered?.current === page;
     if (steered) steered.current = null;
     if (!live || !lessonId || page < 1) return;

@@ -14,6 +14,15 @@ let mockAspect = 405 / 720;
 /* How many pages the stand-in pager says the file has; 0 keeps it silent (no timeline). */
 let mockPages = 0;
 const scrolled: number[] = [];
+/* The scroll's page reports, driven by hand; and what the reading count was handed, render by render. */
+let scrollReports: ((page: number) => void) | undefined;
+const counted: { page: number; notATurn?: { current: number | null } }[] = [];
+vi.mock('../../data/reading', async (original) => ({
+  ...(await original<typeof import('../../data/reading')>()),
+  useReadingProgress: (_lesson: string | undefined, page: number, _live: boolean, _covered?: boolean, notATurn?: { current: number | null }) => {
+    counted.push({ page, notATurn });
+  },
+}));
 vi.mock('@/components/pdf', () => ({
   PdfPage: ({ page }: { page: number }) => <div data-testid="sheet" data-page={page} />,
   PdfPager: ({ rootRef, page, overlay, onAspect, onLoad }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: { props?: { words?: string | null } }; onAspect?: (a: number) => void; onLoad?: (n: number) => void }) => {
@@ -29,7 +38,8 @@ vi.mock('@/components/pdf', () => ({
       </div>
     );
   },
-  PdfScroll: ({ scrollRef, onLoad, onFirstRender }: { scrollRef: RefObject<HTMLDivElement>; onLoad?: (n: number) => void; onFirstRender?: (c: null) => void }) => {
+  PdfScroll: ({ scrollRef, onPage, onLoad, onFirstRender }: { scrollRef: RefObject<HTMLDivElement>; onPage?: (p: number) => void; onLoad?: (n: number) => void; onFirstRender?: (c: null) => void }) => {
+    scrollReports = onPage;
     /* Like the real one: the file opens first, the first page paints later. */
     useEffect(() => {
       onLoad?.(10);
@@ -315,6 +325,24 @@ describe('a document scrolls', () => {
       const ev = new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true, bubbles: true });
       window.dispatchEvent(ev);
       expect(ev.defaultPrevented).toBe(false);
+    } finally {
+      mockAspect = 405 / 720;
+    }
+  });
+
+  it('scrolling back up is a visit, not a turn back; a key turning back is one', async () => {
+    mockAspect = 842 / 595;
+    try {
+      await renderFaces();
+      await screen.findByTestId('scroll');
+      await act(async () => scrollReports?.(5));
+      await act(async () => scrollReports?.(4));
+      const up = counted.at(-1)!;
+      expect(up.page).toBe(4);
+      expect(up.notATurn?.current).toBe(4);
+      fireEvent.keyDown(window, { key: 'PageUp' });
+      await waitFor(() => expect(counted.at(-1)!.page).toBe(3));
+      expect(counted.at(-1)!.notATurn?.current).not.toBe(3);
     } finally {
       mockAspect = 405 / 720;
     }
