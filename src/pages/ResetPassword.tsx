@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -13,13 +13,10 @@ import { LanguageToggle } from '@/components/LanguageToggle';
 type Status = 'verifying' | 'ready' | 'invalid' | 'done';
 
 /**
- * Password reset landing page. Supabase's recovery email links here
- * (resetPasswordForEmail redirectTo = origin/reset-password). The client has
- * detectSessionInUrl enabled (default), so the recovery token in the URL hash
- * establishes a short-lived session and fires a PASSWORD_RECOVERY event; only
- * then can updateUser({ password }) succeed. This route is intentionally NOT
- * wrapped in PublicRoute — that guard would bounce the recovery session to the
- * dashboard before the user can set a new password.
+ * Accepts recovery token-hash links verified here, and older implicit links
+ * whose URL hash the Supabase client consumes to establish a recovery session.
+ * This route is intentionally not wrapped in PublicRoute: its guard would
+ * redirect the recovery session before the user can set a new password.
  */
 export default function ResetPassword() {
   const { t } = useTranslation(['auth']);
@@ -32,14 +29,33 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Recovery tokens are single-use; reuse the request during StrictMode replay.
+  const recoveryVerification = useRef<ReturnType<typeof supabase.auth.verifyOtp> | null>(null);
 
-  // Wait for the recovery session: subscribe to PASSWORD_RECOVERY and also poll
-  // getSession() in case the URL hash was processed before this mounted. If no
-  // session materializes shortly, treat the link as invalid/expired.
   useEffect(() => {
+    let active = true;
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.has('token_hash')) {
+      const token_hash = params.get('token_hash');
+      if (!token_hash || params.get('type') !== 'recovery') {
+        setStatus('invalid');
+      } else {
+        recoveryVerification.current ??= supabase.auth.verifyOtp({ token_hash, type: 'recovery' });
+        recoveryVerification.current.then(({ data, error: verificationError }) => {
+          if (active) setStatus(!verificationError && data.session ? 'ready' : 'invalid');
+        }).catch(() => {
+          if (active) setStatus('invalid');
+        });
+      }
+      // An existing login must not bypass verification of an explicit link.
+      return () => { active = false; };
+    }
+
+    // Preserve implicit recovery links, including a hash consumed before mount.
     let settled = false;
     const markReady = () => {
-      if (!settled) {
+      if (active && !settled) {
         settled = true;
         setStatus('ready');
       }
@@ -58,6 +74,7 @@ export default function ResetPassword() {
     }, 4000);
 
     return () => {
+      active = false;
       sub.subscription.unsubscribe();
       clearTimeout(timer);
     };
