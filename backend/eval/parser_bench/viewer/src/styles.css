@@ -158,9 +158,31 @@ svg.chart line.base { stroke: var(--ink3); stroke-dasharray: 3 4; }
   .judge { grid-template-columns: 1fr; height: auto; }
   .two { grid-template-columns: 1fr; }
   header { flex-wrap: wrap; }
+  nav { flex-wrap: wrap; margin-left: 0; }
 }
 
 /* A method's own line breaks stay visible inside a paragraph (protocol deviation 1). */
 .keep-breaks p {
   white-space: pre-line;
 }
+
+/* results */
+.scroll { overflow-x: auto; max-width: 100%; }
+table.results { min-width: 760px; }
+.results td { vertical-align: middle; }
+.results .cicell { width: 26%; min-width: 220px; }
+.results .ci { min-width: 200px; }
+.results tr.anchor td { background: var(--panel); border-bottom: 1px solid var(--line2); }
+.results .verdict { white-space: nowrap; color: var(--ink3); }
+.results .verdict.better { color: var(--ok); }
+.results .verdict.worse { color: var(--bad); }
+.results .verdict.baseline { color: var(--ink2); font-style: italic; }
+.results .rec { white-space: nowrap; }
+.split { display: flex; height: 5px; width: 140px; margin-top: 5px; border-radius: 3px; overflow: hidden; background: var(--raise); }
+.split i { display: block; height: 100%; }
+.split .w { background: var(--white); }
+.split .l { background: var(--ink3); }
+.split .s { background: var(--line2); }
+.split .b { background: var(--junk); }
+.results td.heat { white-space: nowrap; }
+.tiny { font-size: 11px; color: var(--ink3); }

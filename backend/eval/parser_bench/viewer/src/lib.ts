@@ -1,5 +1,5 @@
 /* Pure helpers for the screens; tested in lib.test.ts. */
-import type { Checks, Choice, Cost, Estimate, Job, Method } from "./api";
+import type { Checks, Choice, ComparisonSummary, Cost, Estimate, Job, Method, RankingRow, Results, RunRow } from "./api";
 
 export const KEY_CHOICE: Record<string, Choice> = { "1": "left", "2": "right", "3": "same", "4": "both_bad" };
 export const CHOICE_LABEL: Record<Choice, string> = {
@@ -491,4 +491,118 @@ export function htmlToMarkdown(md: string): string {
     .replace(tableRe(), (_whole, inner: string) => BREAK + hold(tableToGfm(inner, restore)) + BREAK);
   const out = resolveBreaks(restore(convertFragment(text, false)));
   return out === source ? md : out;
+}
+
+
+// ---------------------------------------------------------------------------------------------------------
+// The Results tab: every method and its result on one page. Numbers only, never page text.
+// ---------------------------------------------------------------------------------------------------------
+
+/** The five page types, in the order of the Scoreboard, with a label a reader who did not build this understands. */
+export const PAGE_TYPES: [string, string][] = [
+  ["layout", "Layout"],
+  ["lists", "Lists"],
+  ["table_formula", "Tables & formulas"],
+  ["diagram", "Diagrams"],
+  ["dense_text", "Dense text"],
+];
+
+/** A comparison whose ranking may be shown: finished, or unlocked early (written to the lab log). */
+export function resultsReady(c: ComparisonSummary): boolean {
+  return c.status === "finished" || c.unlocked_early !== null;
+}
+
+/** The comparisons that have a ranking, newest first. */
+export function readyComparisons(comparisons: ComparisonSummary[]): ComparisonSummary[] {
+  return comparisons.filter(resultsReady).sort((a, b) => (a.started_at < b.started_at ? 1 : a.started_at > b.started_at ? -1 : 0));
+}
+
+/** The ranking best first (points, high to low; a tie keeps the server's order). */
+export function sortRanking(ranking: RankingRow[]): RankingRow[] {
+  return ranking.map((r, i) => ({ r, i })).sort((a, b) => b.r.points - a.r.points || a.i - b.i).map((x) => x.r);
+}
+
+export type VerdictKind = "baseline" | "better" | "worse" | "not";
+
+/** How a method stands against the current pipeline. "Clearly better" is the server's own H1 verdict (the corrected
+ * lower bound, unrounded), never re-derived here; "clearly worse" is a whole 95% interval below the anchor. */
+export function verdict(row: RankingRow, anchor: string, aboveAnchor: string[]): { kind: VerdictKind; label: string } {
+  if (row.entrant === anchor) return { kind: "baseline", label: "baseline" };
+  if (aboveAnchor.includes(row.entrant)) return { kind: "better", label: "✓ clearly better" };
+  if (row.hi < 1000) return { kind: "worse", label: "clearly worse" };
+  return { kind: "not", label: "not clearly better" };
+}
+
+/** Shares (0–1) of a method's duels: won, lost, same, both unusable. */
+export function recordShares(row: RankingRow): { wins: number; losses: number; same: number; both_bad: number } {
+  const n = row.wins + row.losses + row.same + row.both_bad;
+  if (!n) return { wins: 0, losses: 0, same: 0, both_bad: 0 };
+  return { wins: row.wins / n, losses: row.losses / n, same: row.same / n, both_bad: row.both_bad / n };
+}
+
+/** Peak memory as a whole number of MB; heavy methods get "≥" because the GPU memory their models use is not counted. */
+export function memoryLabel(mb: number | null | undefined, group: string | undefined): string {
+  if (mb === null || mb === undefined || Number.isNaN(mb)) return "—";
+  return `${group === "heavy" ? "≥ " : ""}${Math.round(mb).toLocaleString("en")} MB`;
+}
+
+/** Dollars each paid method spent on the benchmark pages: its newest finished benchmark run per file, summed.
+ * A run whose usage was lost (no cost_usd) adds nothing; a method with no priced run has no entry. */
+export function paidCosts(runs: RunRow[], paidTools: string[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const tool of paidTools) {
+    const newest = new Map<string, RunRow>();
+    for (const run of runs) {
+      if (run.tool !== tool || run.purpose !== "benchmark" || run.status !== "finished") continue;
+      const key = run.sha256 ?? run.file ?? run.run_id;
+      const seen = newest.get(key);
+      const at = run.finished_at ?? run.started_at ?? "";
+      if (!seen || at > (seen.finished_at ?? seen.started_at ?? "")) newest.set(key, run);
+    }
+    const priced = [...newest.values()].filter((r) => typeof r.cost_usd === "number");
+    if (priced.length) out[tool] = priced.reduce((sum, r) => sum + (r.cost_usd as number), 0);
+  }
+  return out;
+}
+
+/** "≈ $0.07" for a paid method, a dash for the rest. */
+export function costCell(dollars: number | undefined): string {
+  return dollars === undefined ? "—" : `≈ ${usd(dollars)}`;
+}
+
+/** The intro line: methods, blind duels and comparisons the ranking pools. */
+export function resultsLine(data: Pick<Results, "ranking" | "votes" | "pooled">): string {
+  const votes = data.pooled?.votes ?? data.votes;
+  const comparisons = 1 + (data.pooled?.builds_on.length ?? 0);
+  const n = data.ranking.length;
+  return `${n} method${n === 1 ? "" : "s"} judged in ${votes.toLocaleString("en")} blind duels across ${comparisons} comparison${
+    comparisons === 1 ? "" : "s"
+  } · the current pipeline = 1000 points`;
+}
+
+/** Background strength (0–0.4) of a win-score cell, proportional to the score. */
+export function heat(score: number): number {
+  return Math.round(Math.min(1, Math.max(0, score)) * 0.4 * 1000) / 1000;
+}
+
+/** The comparison ids a ranking pools, its own first. */
+export function pooledIds(data: Pick<Results, "run_id" | "pooled">): string[] {
+  return [data.run_id, ...(data.pooled?.builds_on ?? [])];
+}
+
+/** Methods that appear in no ranking, with why: not installed here (see PROTOCOL.md, deviation 3), or ready but not yet judged. */
+export function unranked(methods: Method[], ranked: string[]): { method: Method; status: string; note: string | null }[] {
+  return methods
+    .filter((m) => !ranked.includes(m.id))
+    .map((method) => {
+      if (method.needs_install) return { method, status: "not installed here", note: "did not run here — see PROTOCOL.md, deviation 3" };
+      if (!method.ready) return { method, status: "not ready", note: method.missing.join("; ") || null };
+      return { method, status: "ready, not in a judged comparison yet", note: null };
+    });
+}
+
+/** Seconds per page to one decimal; "<0.1" for the near-instant ones (a "0.0" would say nothing). */
+export function secondsCell(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  return value > 0 && value < 0.05 ? "<0.1 s / page" : `${value.toFixed(1)} s / page`;
 }

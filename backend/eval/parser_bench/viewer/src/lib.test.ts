@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Checks, Cost, Estimate, Job, Method } from "./api";
-import { KEY_CHOICE, axis, checkChips, confirmMatches, costLine, dash, estimateLine, htmlToMarkdown, jobLabel, methodState, minutesLeft, newSession, pct, splitFooter, usd } from "./lib";
+import type { Checks, ComparisonSummary, Cost, Estimate, Job, Method, RankingRow, RunRow } from "./api";
+import { KEY_CHOICE, axis, costCell, heat, secondsCell, memoryLabel, paidCosts, readyComparisons, recordShares, resultsLine, sortRanking, unranked, verdict, checkChips, confirmMatches, costLine, dash, estimateLine, htmlToMarkdown, jobLabel, methodState, minutesLeft, newSession, pct, splitFooter, usd } from "./lib";
 
 const CLEAN: Checks = {
   page: 3, footer_leaks: 0, footer_leaked: false, footer_token_share: 0, title_first: true, wrong_symbols: 0,
@@ -318,5 +318,109 @@ describe("htmlToMarkdown", () => {
     }
     expect(htmlToMarkdown("&lt;b&gt;x&lt;/b&gt;")).toBe("\\<b>x\\</b>");
     expect(htmlToMarkdown("&amp;lt;")).toBe("\\&lt;");
+  });
+});
+
+describe("results tab", () => {
+  const row = (entrant: string, points: number, lo: number, hi: number, o: Partial<RankingRow> = {}): RankingRow => ({
+    entrant, points, lo, hi, h1_lower: entrant === "current" ? null : lo - 50, duels: 10, wins: 4, losses: 3, same: 1, both_bad: 2, ...o,
+  });
+  const cmp = (run_id: string, started_at: string, o: Partial<ComparisonSummary> = {}): ComparisonSummary => ({
+    run_id, purpose: "benchmark", status: "finished", started_at, done: 1, total: 1, rounds: 1, unlocked_early: null, locked: false, pages: [], ...o,
+  });
+
+  it("words the verdict from the server's H1 list, the anchor and the interval", () => {
+    const above = ["ai_vision"];
+    expect(verdict(row("current", 1000, 1000, 1000), "current", above)).toEqual({ kind: "baseline", label: "baseline" });
+    expect(verdict(row("ai_vision", 1365, 1282, 1456), "current", above)).toEqual({ kind: "better", label: "✓ clearly better" });
+    // a lower bound above 1000 is not enough: the corrected bound (the server's list) decides
+    expect(verdict(row("pdfjs", 1003, 969, 1037), "current", above).label).toBe("not clearly better");
+    expect(verdict(row("odl", 1030, 1010, 1050, { h1_lower: 1002 }), "current", above).kind).toBe("not");
+    expect(verdict(row("old", 900, 850, 990), "current", above)).toEqual({ kind: "worse", label: "clearly worse" });
+    // an interval that still reaches 1000 is not "clearly worse"
+    expect(verdict(row("markitdown", 947, 840, 1000), "current", above).kind).toBe("not");
+  });
+
+  it("orders by points, high to low, keeping the server's order on a tie", () => {
+    const sorted = sortRanking([row("b", 900, 0, 0), row("a", 1200, 0, 0), row("c", 900, 0, 0), row("current", 1000, 1000, 1000)]);
+    expect(sorted.map((r) => r.entrant)).toEqual(["a", "current", "b", "c"]);
+  });
+
+  it("splits the record into shares that add up", () => {
+    const s = recordShares(row("x", 1, 0, 0, { wins: 1, losses: 2, same: 3, both_bad: 4 }));
+    expect([s.wins, s.losses, s.same, s.both_bad]).toEqual([0.1, 0.2, 0.3, 0.4]);
+    expect(recordShares(row("x", 1, 0, 0, { wins: 0, losses: 0, same: 0, both_bad: 0 })).wins).toBe(0);
+  });
+
+  it("marks heavy memory as a lower bound", () => {
+    expect(memoryLabel(1909.2, "heavy")).toBe("≥ 1,909 MB");
+    expect(memoryLabel(98.2, "paid")).toBe("98 MB");
+    expect(memoryLabel(null, "heavy")).toBe("—");
+  });
+
+  const run = (tool: string, file: string, cost: number | null, finished: string, o: Partial<RunRow> = {}): RunRow => ({
+    run_id: `${tool}-${file}-${finished}`, kind: "extract", tool, version: null, purpose: "benchmark", status: "finished", started_at: finished,
+    finished_at: finished, file, sha256: `sha-${file}`, pages: [], cost_usd: cost, commit: null, record_version: 1, checks_version: 1, ...o,
+  });
+
+  it("sums the newest finished benchmark run per file, for paid methods only", () => {
+    const runs = [
+      run("ai_vision", "a.pdf", 0.01, "2026-10-31T00:10:00+00:00"),
+      run("ai_vision", "a.pdf", 0.5, "2026-10-31T00:05:00+00:00"), // older re-run of the same file: ignored
+      run("ai_vision", "b.pdf", 0.02, "2026-10-31T00:11:00+00:00"),
+      run("ai_vision", "c.pdf", 9, "2026-10-31T00:12:00+00:00", { purpose: "explore" }),
+      run("ai_vision", "d.pdf", 9, "2026-10-31T00:12:00+00:00", { status: "failed" }),
+      run("ai_vision_strong", "a.pdf", 0.04, "2026-10-31T00:10:00+00:00"),
+      run("current", "a.pdf", null, "2026-10-31T00:10:00+00:00"),
+    ];
+    const costs = paidCosts(runs, ["ai_vision", "ai_vision_strong"]);
+    expect(costs.ai_vision).toBeCloseTo(0.03, 10);
+    expect(costs.ai_vision_strong).toBeCloseTo(0.04, 10);
+    expect(costs.current).toBeUndefined();
+    expect(paidCosts(runs, ["ai_vision", "ai_vision_strong"]).ai_vision_strong).toBeDefined();
+    expect(paidCosts([run("ai_vision", "a.pdf", null, "2026-10-31T00:10:00+00:00")], ["ai_vision"])).toEqual({});
+  });
+
+  it("shows seconds per page to one decimal, and near-instant as <0.1", () => {
+    expect([secondsCell(4.426), secondsCell(0.726), secondsCell(0.027), secondsCell(0.088), secondsCell(null)]).toEqual([
+      "4.4 s / page", "0.7 s / page", "<0.1 s / page", "0.1 s / page", "—",
+    ]);
+  });
+
+  it("shows cost as an approximation, or a dash", () => {
+    expect(costCell(0.0734)).toBe("≈ $0.07");
+    expect(costCell(undefined)).toBe("—");
+  });
+
+  it("picks the newest finished comparison, or one unlocked early, never one still locked", () => {
+    const list = [
+      cmp("old", "2026-10-30T20:00:00+00:00"),
+      cmp("judging", "2026-11-01T00:00:00+00:00", { status: "judging", locked: true }),
+      cmp("new", "2026-10-31T19:00:00+00:00"),
+      cmp("early", "2026-10-31T23:00:00+00:00", { status: "judging", unlocked_early: { at: "x", reason: "y" } }),
+    ];
+    expect(readyComparisons(list).map((c) => c.run_id)).toEqual(["early", "new", "old"]);
+    expect(readyComparisons([list[1]])).toEqual([]);
+  });
+
+  it("words the intro line from the pooled votes", () => {
+    const line = resultsLine({ ranking: [row("a", 1, 0, 0), row("b", 1, 0, 0)], votes: 50, pooled: { builds_on: ["x", "y"], votes: 270, new_entrants: [], sources: {}, note: "" } });
+    expect(line).toBe("2 methods judged in 270 blind duels across 3 comparisons · the current pipeline = 1000 points");
+    expect(resultsLine({ ranking: [row("a", 1, 0, 0)], votes: 1000 })).toBe("1 method judged in 1,000 blind duels across 1 comparison · the current pipeline = 1000 points");
+  });
+
+  it("shades a win-score cell in proportion, within bounds", () => {
+    expect(heat(0)).toBe(0);
+    expect(heat(0.5)).toBe(0.2);
+    expect(heat(2)).toBe(0.4);
+  });
+
+  it("lists methods that are in no ranking with why", () => {
+    const m = (id: string, o: Partial<Method>): Method => ({ id, label: id, group: "heavy", description: "", ready: true, missing: [], size_mb: 1, needs_install: false, paid: false, model: null, key_missing: null, ...o });
+    const out = unranked([m("current", {}), m("paddleocr", { ready: false, needs_install: true }), m("later", {})], ["current"]);
+    expect(out.map((u) => u.method.id)).toEqual(["paddleocr", "later"]);
+    expect(out[0].status).toBe("not installed here");
+    expect(out[0].note).toBe("did not run here — see PROTOCOL.md, deviation 3");
+    expect(out[1].note).toBeNull();
   });
 });
