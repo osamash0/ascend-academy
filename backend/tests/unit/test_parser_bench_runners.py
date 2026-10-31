@@ -760,3 +760,228 @@ def test_paddle_settings_say_unknown_for_what_cannot_be_read():
     paddle = _load("paddleocr_runner")
     assert paddle.describe(object()) == {"pipeline_version": "unknown", "paddlex_pipeline": "unknown",
                                          "use_doc_preprocessor": "unknown"}
+
+
+# paddleocr_vl_hf: fakes for torch, huggingface_hub and transformers; no model, no network
+
+class _Seq(list):
+    """A stand-in for a 1-D tensor: indexing, slicing and .shape[-1]."""
+
+    @property
+    def shape(self):
+        return (len(self),)
+
+    def __getitem__(self, key):
+        item = list.__getitem__(self, key)
+        return _Seq(item) if isinstance(key, slice) else item
+
+
+class _Inputs(dict):
+    def to(self, device):
+        self.device_seen = device
+        return self
+
+
+def _fake_vl(monkeypatch, *, generated=(11, 12, 13, 2), fail=None, mps=True, eos=2):
+    """Fake torch + huggingface_hub + transformers. `generated` is what generate() adds after the 3 prompt tokens.
+    `fail` is a callable (device, dtype name, call) -> exception or None, called on each generate()."""
+    import contextlib
+    import types
+
+    log = {"calls": [], "decode": [], "loads": [], "snapshot": None, "template": [], "env": {}}
+    torch = types.ModuleType("torch")
+    torch.bfloat16, torch.float16, torch.float32 = "bfloat16", "float16", "float32"
+    torch.backends = types.SimpleNamespace(mps=types.SimpleNamespace(is_available=lambda: mps))
+    torch.inference_mode = contextlib.nullcontext
+    torch.mps = types.SimpleNamespace(empty_cache=lambda: log.setdefault("emptied", []).append(1))
+    hub = types.ModuleType("huggingface_hub")
+
+    def snapshot_download(**kwargs):
+        log["snapshot"] = kwargs
+        return "/snap/dir"
+
+    hub.snapshot_download = snapshot_download
+    transformers = types.ModuleType("transformers")
+
+    class Processor:
+        image_processor = types.SimpleNamespace(size=types.SimpleNamespace(shortest_edge=147384))  # a SizeDict, as in 5.22.1
+
+        @classmethod
+        def from_pretrained(cls, path, **kwargs):
+            log["processor"] = (path, kwargs)
+            return cls()
+
+        def apply_chat_template(self, messages, **kwargs):
+            log["template"].append((messages, kwargs))
+            log["env"].setdefault("at_template", __import__("os").environ.get("HF_DEACTIVATE_ASYNC_LOAD"))
+            return _Inputs(input_ids=_Seq([5, 6, 7]))
+
+        def decode(self, tokens, **kwargs):
+            log["decode"].append((list(tokens), kwargs))
+            return "text " + ",".join(str(t) for t in tokens if t != 2)
+
+    class Model:
+        generation_config = types.SimpleNamespace(eos_token_id=eos)
+        device = "device-of-model"
+
+        def __init__(self, dtype):
+            self.dtype, self.where = dtype, None
+
+        @classmethod
+        def from_pretrained(cls, path, dtype=None, **kwargs):
+            log["loads"].append((path, dtype, kwargs))
+            log["env"].setdefault("at_load", __import__("os").environ.get("HF_DEACTIVATE_ASYNC_LOAD"))
+            return cls(dtype)
+
+        def to(self, device):
+            self.where = device
+            return self
+
+        def eval(self):
+            return self
+
+        def generate(self, **kwargs):
+            log["calls"].append((self.where, self.dtype, kwargs.pop("max_new_tokens"), kwargs.pop("do_sample", None)))
+            problem = fail(self.where, self.dtype, len(log["calls"])) if fail else None
+            if problem:
+                raise problem
+            return _Seq([_Seq([5, 6, 7, *generated])])
+
+    transformers.AutoProcessor, transformers.AutoModelForImageTextToText = Processor, Model
+    for name, mod in (("torch", torch), ("huggingface_hub", hub), ("transformers", transformers)):
+        monkeypatch.setitem(sys.modules, name, mod)
+    return log
+
+
+def _vl_main(tmp_path, monkeypatch, pages=2, **fake):
+    runner = _load("paddleocr_vl_hf_runner")
+    monkeypatch.setenv("HF_DEACTIVATE_ASYNC_LOAD", "x")
+    monkeypatch.delenv("HF_DEACTIVATE_ASYNC_LOAD")  # unset now, and unset again when the test ends
+    monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
+    log = _fake_vl(monkeypatch, **fake)
+    monkeypatch.setattr(runner, "version", lambda name: {"transformers": "5.22.1"}.get(name, "9.9"))
+    src, out = make_deck(tmp_path / "deck.pdf", pages), tmp_path / "out.json"
+    return runner, log, src, out
+
+
+def test_paddleocr_vl_hf_reads_every_page_with_the_card_prompt_and_decodes_only_new_tokens(tmp_path, monkeypatch):
+    runner, log, src, out = _vl_main(tmp_path, monkeypatch, pages=3)
+    runner.main(["paddleocr_vl_hf_runner.py", str(src), str(out)])
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert set(data) == {"version", "settings", "pages"}
+    assert data["pages"] == {"1": "text 11,12,13", "2": "text 11,12,13", "3": "text 11,12,13"}  # no prompt tokens, no EOS
+    assert [d[0] for d in log["decode"]] == [[11, 12, 13, 2]] * 3 and all(d[1] == {"skip_special_tokens": True} for d in log["decode"])
+    assert len(log["loads"]) == 1 and len(log["template"]) == 3  # one load per run, one chat template per page
+    for messages, kwargs in log["template"]:
+        content = messages[0]["content"]
+        assert [c["type"] for c in content] == ["image", "text"] and content[1]["text"] == "OCR:"
+        image = content[0]["image"]
+        assert image.mode == "RGB" and image.size == (842 * 2, 595 * 2)  # zoom 2 of a 842 x 595 pt page
+        assert kwargs["add_generation_prompt"] and kwargs["tokenize"] and kwargs["return_dict"] and kwargs["return_tensors"] == "pt"
+        assert kwargs["images_kwargs"] == {"size": {"shortest_edge": 147384, "longest_edge": 1280 * 28 * 28}}
+    assert all(c == ("mps", "bfloat16", 4096, False) for c in log["calls"]) and len(log["calls"]) == 3
+    assert data["version"] == "transformers 5.22.1 + PaddleOCR-VL-1.6@c5630ab"
+
+
+def test_paddleocr_vl_hf_loads_one_pinned_local_snapshot_on_one_thread_set_before_transformers(tmp_path, monkeypatch):
+    runner, log, src, out = _vl_main(tmp_path, monkeypatch, pages=1)
+    runner.main(["paddleocr_vl_hf_runner.py", str(src), str(out)])
+    import os
+
+    assert log["snapshot"] == {"repo_id": "PaddlePaddle/PaddleOCR-VL-1.6",
+                               "revision": "c5630abae1d940eafe0697512a0325494b02ab42", "local_files_only": True}
+    assert log["loads"][0][0] == "/snap/dir" and log["loads"][0][2] == {"local_files_only": True}  # never a download
+    assert log["processor"] == ("/snap/dir", {"local_files_only": True})
+    assert os.environ["HF_DEACTIVATE_ASYNC_LOAD"] == "1" and os.environ["HF_HUB_OFFLINE"] == "1"
+    assert log["env"]["at_load"] == "1"
+
+
+def test_paddleocr_vl_hf_sets_the_one_thread_switch_before_it_imports_transformers(tmp_path, monkeypatch):
+    runner, log, src, out = _vl_main(tmp_path, monkeypatch, pages=1)
+    seen = {}
+    real_import = __builtins__["__import__"] if isinstance(__builtins__, dict) else __builtins__.__import__
+
+    def watching_import(name, *args, **kwargs):
+        if name in ("transformers", "torch"):
+            seen.setdefault(name, __import__("os").environ.get("HF_DEACTIVATE_ASYNC_LOAD"))
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", watching_import)
+    runner.main(["paddleocr_vl_hf_runner.py", str(src), str(out)])
+    assert seen == {"torch": "1", "transformers": "1"}
+
+
+def test_paddleocr_vl_hf_records_its_settings_the_device_and_the_dtype_it_used(tmp_path, monkeypatch):
+    runner, log, src, out = _vl_main(tmp_path, monkeypatch, pages=2)
+    runner.main(["paddleocr_vl_hf_runner.py", str(src), str(out)])
+    s = json.loads(out.read_text(encoding="utf-8"))["settings"]
+    assert (s["repo"], s["revision"]) == (runner.REPO, runner.REVISION) == ("PaddlePaddle/PaddleOCR-VL-1.6", "c5630abae1d940eafe0697512a0325494b02ab42")
+    assert (s["device"], s["dtype"], s["prompt"], s["zoom"]) == ("mps", "bfloat16", "OCR:", 2.0)
+    assert (s["max_pixels"], s["min_pixels"], s["max_new_tokens"]) == (1280 * 28 * 28, 147384, 4096)
+    assert s["decoding"] == "greedy (do_sample False)" and s["failed_attempts"] == []
+    assert s["route"] == "transformers (element-level per the model card; whole page image)"
+    assert s["weight_loading"].startswith("one thread (HF_DEACTIVATE_ASYNC_LOAD=1")
+    assert s["truncated_pages"] == [] and s["new_tokens"] == {"1": 4, "2": 4}
+
+
+def test_paddleocr_vl_hf_reads_the_lower_pixel_bound_from_the_processors_size():
+    import types
+
+    runner = _load("paddleocr_vl_hf_runner")
+    as_object = types.SimpleNamespace(image_processor=types.SimpleNamespace(size=types.SimpleNamespace(shortest_edge=112896)))
+    as_dict = types.SimpleNamespace(image_processor=types.SimpleNamespace(size={"shortest_edge": 112896}))
+    assert runner.min_pixels_of(as_object) == runner.min_pixels_of(as_dict) == 112896  # no min_pixels attribute in 5.22.1
+
+
+def test_paddleocr_vl_hf_runner_constants_equal_the_tool_entrys():
+    from backend.eval.parser_bench import tools
+
+    runner = _load("paddleocr_vl_hf_runner")
+    assert (runner.REPO, runner.REVISION) == (tools.PADDLEOCR_VL_HF_REPO, tools.PADDLEOCR_VL_HF_REVISION)
+
+
+def test_paddleocr_vl_hf_names_a_page_that_hit_max_new_tokens_as_truncated(tmp_path, monkeypatch):
+    runner, log, src, out = _vl_main(tmp_path, monkeypatch, pages=2, generated=tuple(range(100, 100 + 4096)))
+    runner.main(["paddleocr_vl_hf_runner.py", str(src), str(out)])
+    s = json.loads(out.read_text(encoding="utf-8"))["settings"]
+    assert s["truncated_pages"] == [1, 2] and s["new_tokens"] == {"1": 4096, "2": 4096}
+    # an answer that ends with EOS exactly at the limit is complete, not truncated
+    runner, log, src, out = _vl_main(tmp_path, monkeypatch, pages=1, generated=(*range(100, 100 + 4095), 2))
+    runner.main(["paddleocr_vl_hf_runner.py", str(src), str(out)])
+    assert json.loads(out.read_text(encoding="utf-8"))["settings"]["truncated_pages"] == []
+
+
+def test_paddleocr_vl_hf_falls_back_to_the_next_dtype_and_device_and_says_so(tmp_path, monkeypatch):
+    def fail(device, dtype, call):
+        if device == "mps":
+            return NotImplementedError("op not implemented for MPS")
+
+    runner, log, src, out = _vl_main(tmp_path, monkeypatch, pages=2, fail=fail)
+    runner.main(["paddleocr_vl_hf_runner.py", str(src), str(out)])
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert [(c[0], c[1]) for c in log["calls"]] == [("mps", "bfloat16"), ("mps", "float16"), ("cpu", "float32"),
+                                                      ("cpu", "float32")]  # the first page is the trial; the model is reloaded
+    s = data["settings"]
+    assert (s["device"], s["dtype"]) == ("cpu", "float32") and len(s["failed_attempts"]) == 2
+    assert s["failed_attempts"][0].startswith("mps bfloat16: NotImplementedError") and sorted(data["pages"]) == ["1", "2"]
+
+
+def test_paddleocr_vl_hf_goes_straight_to_the_cpu_without_mps(tmp_path, monkeypatch):
+    runner, log, src, out = _vl_main(tmp_path, monkeypatch, pages=1, mps=False)
+    runner.main(["paddleocr_vl_hf_runner.py", str(src), str(out)])
+    s = json.loads(out.read_text(encoding="utf-8"))["settings"]
+    assert (s["device"], s["dtype"], s["failed_attempts"]) == ("cpu", "float32", [])
+
+
+def test_paddleocr_vl_hf_exits_non_zero_writing_nothing_when_no_device_can_run_it(tmp_path, monkeypatch):
+    runner, log, src, out = _vl_main(tmp_path, monkeypatch, pages=1, fail=lambda d, t, c: RuntimeError("boom"))
+    with pytest.raises(SystemExit) as exc:
+        runner.main(["paddleocr_vl_hf_runner.py", str(src), str(out)])
+    assert "no device and dtype could run the model" in str(exc.value) and not out.exists()
+
+
+def test_paddleocr_vl_hf_exits_non_zero_writing_nothing_when_a_later_page_fails(tmp_path, monkeypatch):
+    runner, log, src, out = _vl_main(tmp_path, monkeypatch, pages=3, fail=lambda d, t, call: RuntimeError("page 2 broke") if call == 2 else None)
+    with pytest.raises(RuntimeError, match="page 2 broke"):  # not a fallback: only the first page is the trial
+        runner.main(["paddleocr_vl_hf_runner.py", str(src), str(out)])
+    assert not out.exists()

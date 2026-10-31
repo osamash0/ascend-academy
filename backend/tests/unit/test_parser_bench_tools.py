@@ -61,7 +61,7 @@ def test_every_runner_exists_and_every_group_is_known():
         assert tool.kind in ("python", "node"), tool.id
 
 
-HEAVY = ["docling", "marker", "mineru", "paddleocr", "paddleocr_vl"]
+HEAVY = ["docling", "marker", "mineru", "paddleocr", "paddleocr_vl", "paddleocr_vl_hf"]
 
 
 def test_the_methods_are_registered():
@@ -164,6 +164,26 @@ def test_pp_structurev3_fetches_its_table_orientation_model_at_install(heavy_dir
 
 def test_the_paddle_install_sizes_cover_their_models():
     assert tools.TOOLS["paddleocr"].size_mb == 2800 and tools.TOOLS["paddleocr_vl"].size_mb == 3000
+
+
+def test_paddleocr_vl_hf_is_pinned_and_fetches_exactly_its_revision_at_install(heavy_dirs):
+    tool = tools.TOOLS["paddleocr_vl_hf"]
+    assert tool.requirements == ("transformers==5.22.1", "torch==2.15.0", "pymupdf==1.27.1", "pillow==13.0.0")
+    assert tool.import_name == "transformers" and tool.runner == "paddleocr_vl_hf_runner.py" and tool.runner_args == ()
+    assert tools.TOOLS["ai_vision"].requirements[0] in tool.requirements  # the same PyMuPDF as ai_vision renders with
+    assert tool.neighbours == tools.HEAVY_NEIGHBOURS and tool.size_mb == 3400
+    assert tools.PADDLEOCR_VL_HF_REPO == "PaddlePaddle/PaddleOCR-VL-1.6"
+    assert tools.PADDLEOCR_VL_HF_REVISION == "c5630abae1d940eafe0697512a0325494b02ab42"
+    assert len(tool.prefetch) == 1
+    step = tool.prefetch[0]
+    assert step[:3] == ("python", "-I", "-c")
+    code = step[3]
+    assert "snapshot_download" in code and tools.PADDLEOCR_VL_HF_REPO in code and tools.PADDLEOCR_VL_HF_REVISION in code
+    compile(code, "<paddleocr_vl_hf prefetch>", "exec")
+    env = tools.runner_env(tool)  # HF_HOME is what the fetch step and the runner's snapshot lookup share
+    assert env["HF_HOME"] == str(tools.models_dir(tool) / "huggingface")
+    with pytest.raises(ValueError, match="models come only from install"):
+        tools.clear_models(tool)
 
 
 def test_ai_vision_is_the_production_vision_model():
@@ -792,7 +812,8 @@ def test_the_heavy_methods_are_named_in_the_protocol():
     from backend.eval.parser_bench import store
 
     protocol = (store.REPO / "docs/thesis/experiments/parser-benchmark/PROTOCOL.md").read_text(encoding="utf-8")
-    for tool_id in HEAVY:
+    # paddleocr_vl_hf (added 2026-10-31 for explore runs, Abi) is no entrant: it is named here once a deviation takes it in
+    for tool_id in (t for t in HEAVY if t != "paddleocr_vl_hf"):
         assert f"`{tool_id}`" in protocol, tool_id
         for requirement in tools.TOOLS[tool_id].requirements:
             name, _, pinned = requirement.partition("==")

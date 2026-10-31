@@ -6,7 +6,7 @@ backend .venv, so it uses production's own PyMuPDF version. `pdfjs` runs on Node
 with this repo's node_modules. The paid methods (ai_vision, ai_vision_strong) run in their own environment
 too; they need the key file (paid.py) and a model id.
 
-Heavy methods (docling, marker, mineru, paddleocr, paddleocr_vl) download models. Each keeps them in its own
+Heavy methods (docling, marker, mineru, paddleocr, paddleocr_vl, paddleocr_vl_hf) download models. Each keeps them in its own
 folder under models_root() (every cache variable its libraries read points there, CACHE_VARS), with usage
 reporting off (QUIET_VARS). Its install resolves as PyPI stood on EXCLUDE_NEWER, imports the module, and then
 fetches the models (its own download command, then one run of its runner on a synthetic page) before it counts
@@ -138,6 +138,16 @@ MARKER_VLM_FETCH = ("python", "-I", "-c",
                     "from huggingface_hub import hf_hub_download as d\n"
                     f"[d(repo_id={MARKER_VLM_REPO!r}, filename=f) for f in {MARKER_VLM_FILES!r}]")
 
+# PaddleOCR-VL 1.6 through transformers (method paddleocr_vl_hf). The runner loads exactly this revision from the
+# method's own model folder (HF_HOME, runner_env); install fetches it with the step below, a run never downloads.
+# Apache-2.0, model.safetensors 1,917,255,968 bytes (bf16); transformers 5.22.1 has the architecture natively
+# (transformers.models.paddleocr_vl, no trust_remote_code). Revision checked 2026-10-31.
+PADDLEOCR_VL_HF_REPO = "PaddlePaddle/PaddleOCR-VL-1.6"
+PADDLEOCR_VL_HF_REVISION = "c5630abae1d940eafe0697512a0325494b02ab42"
+PADDLEOCR_VL_HF_FETCH = ("python", "-I", "-c",
+                         "from huggingface_hub import snapshot_download as d\n"
+                         f"d(repo_id={PADDLEOCR_VL_HF_REPO!r}, revision={PADDLEOCR_VL_HF_REVISION!r})")
+
 # PaddleOCR 3: both methods install the same pins (paddleocr's doc-parser extra pulls PaddleX's OCR and genai
 # clients). They differ only by the runner's --pipeline argument. Their models (PaddleX official models, in
 # PADDLE_PDX_CACHE_HOME/official_models, from Hugging Face by default) are fetched when the pipeline is built, and
@@ -193,6 +203,11 @@ TOOLS: dict[str, Tool] = {t.id: t for t in (
     Tool("paddleocr_vl", "PaddleOCR-VL", "heavy", "paddleocr_runner.py",
          "Baidu's 0.9B document VLM, tried as well; CPU", requirements=PADDLE_PINS,
          size_mb=3000, import_name="paddleocr", downloads_models=True, runner_args=("--pipeline", "vl"),
+         limit_per_page=TIME_LIMIT_PER_PAGE, exclude_newer=EXCLUDE_NEWER, neighbours=HEAVY_NEIGHBOURS),
+    Tool("paddleocr_vl_hf", "PaddleOCR-VL 1.6 (transformers)", "heavy", "paddleocr_vl_hf_runner.py",
+         "Baidu's 0.9B document VLM via Hugging Face transformers on the Mac's GPU; whole page image, prompt OCR:",
+         requirements=("transformers==5.22.1", "torch==2.15.0", "pymupdf==1.27.1", "pillow==13.0.0"),
+         size_mb=3400, import_name="transformers", downloads_models=True, prefetch=(PADDLEOCR_VL_HF_FETCH,),
          limit_per_page=TIME_LIMIT_PER_PAGE, exclude_newer=EXCLUDE_NEWER, neighbours=HEAVY_NEIGHBOURS),
 )}
 
