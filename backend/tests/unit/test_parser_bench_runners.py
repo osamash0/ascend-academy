@@ -879,7 +879,7 @@ def test_paddleocr_vl_hf_reads_every_page_with_the_card_prompt_and_decodes_only_
         assert image.mode == "RGB" and image.size == (842 * 2, 595 * 2)  # zoom 2 of a 842 x 595 pt page
         assert kwargs["add_generation_prompt"] and kwargs["tokenize"] and kwargs["return_dict"] and kwargs["return_tensors"] == "pt"
         assert kwargs["images_kwargs"] == {"size": {"shortest_edge": 147384, "longest_edge": 1280 * 28 * 28}}
-    assert all(c == ("mps", "bfloat16", 4096, False) for c in log["calls"]) and len(log["calls"]) == 3
+    assert all(c == ("mps", "float16", 4096, False) for c in log["calls"]) and len(log["calls"]) == 3
     assert data["version"] == "transformers 5.22.1 + PaddleOCR-VL-1.6@c5630ab"
 
 
@@ -890,7 +890,7 @@ def test_paddleocr_vl_hf_loads_one_pinned_local_snapshot_on_one_thread_set_befor
 
     assert log["snapshot"] == {"repo_id": "PaddlePaddle/PaddleOCR-VL-1.6",
                                "revision": "c5630abae1d940eafe0697512a0325494b02ab42", "local_files_only": True}
-    assert log["loads"][0][0] == "/snap/dir" and log["loads"][0][2] == {"local_files_only": True}  # never a download
+    assert log["loads"][0][0] == "/snap/dir" and log["loads"][0][2] == {"attn_implementation": "sdpa", "local_files_only": True}  # never a download
     assert log["processor"] == ("/snap/dir", {"local_files_only": True})
     assert os.environ["HF_DEACTIVATE_ASYNC_LOAD"] == "1" and os.environ["HF_HUB_OFFLINE"] == "1"
     assert log["env"]["at_load"] == "1"
@@ -916,7 +916,7 @@ def test_paddleocr_vl_hf_records_its_settings_the_device_and_the_dtype_it_used(t
     runner.main(["paddleocr_vl_hf_runner.py", str(src), str(out)])
     s = json.loads(out.read_text(encoding="utf-8"))["settings"]
     assert (s["repo"], s["revision"]) == (runner.REPO, runner.REVISION) == ("PaddlePaddle/PaddleOCR-VL-1.6", "c5630abae1d940eafe0697512a0325494b02ab42")
-    assert (s["device"], s["dtype"], s["prompt"], s["zoom"]) == ("mps", "bfloat16", "OCR:", 2.0)
+    assert (s["device"], s["dtype"], s["attention"], s["prompt"], s["zoom"]) == ("mps", "float16", "sdpa", "OCR:", 2.0)
     assert (s["max_pixels"], s["min_pixels"], s["max_new_tokens"]) == (1280 * 28 * 28, 147384, 4096)
     assert s["decoding"] == "greedy (do_sample False)" and s["failed_attempts"] == []
     assert s["route"] == "transformers (element-level per the model card; whole page image)"
@@ -959,11 +959,11 @@ def test_paddleocr_vl_hf_falls_back_to_the_next_dtype_and_device_and_says_so(tmp
     runner, log, src, out = _vl_main(tmp_path, monkeypatch, pages=2, fail=fail)
     runner.main(["paddleocr_vl_hf_runner.py", str(src), str(out)])
     data = json.loads(out.read_text(encoding="utf-8"))
-    assert [(c[0], c[1]) for c in log["calls"]] == [("mps", "bfloat16"), ("mps", "float16"), ("cpu", "float32"),
+    assert [(c[0], c[1]) for c in log["calls"]] == [("mps", "float16"), ("mps", "bfloat16"), ("cpu", "float32"),
                                                       ("cpu", "float32")]  # the first page is the trial; the model is reloaded
     s = data["settings"]
     assert (s["device"], s["dtype"]) == ("cpu", "float32") and len(s["failed_attempts"]) == 2
-    assert s["failed_attempts"][0].startswith("mps bfloat16: NotImplementedError") and sorted(data["pages"]) == ["1", "2"]
+    assert s["failed_attempts"][0].startswith("mps float16: NotImplementedError") and sorted(data["pages"]) == ["1", "2"]
 
 
 def test_paddleocr_vl_hf_goes_straight_to_the_cpu_without_mps(tmp_path, monkeypatch):

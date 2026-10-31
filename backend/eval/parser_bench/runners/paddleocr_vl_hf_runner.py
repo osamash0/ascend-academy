@@ -7,9 +7,10 @@ Every page of the given PDF is rendered with PyMuPDF at 2× as RGB (the zoom of 
 following the model card's example: the processor's chat template with the image size limits (the card's
 1280 * 28 * 28 pixel ceiling for the page image), greedy decoding, only the newly generated tokens decoded. The
 weights are loaded once per run from the local snapshot of one pinned revision (local_files_only: a run never
-downloads; install fetches it). bfloat16 on "mps" is tried first, as on the card; when the model cannot run
-there (an operation MPS lacks, a dtype it refuses) on the first page, the next of float16 on mps and float32 on
-the CPU is used, and settings records every attempt that failed. A page that reaches max_new_tokens is kept and
+downloads; install fetches it). float16 on "mps" with PyTorch's SDPA attention is tried first: on this M1 it
+ran about twice as fast as the card's bfloat16 (0.57 against 1.07 s per generated token, same text, 2026-10-31);
+when the model cannot run there (an operation MPS lacks, a dtype it refuses) on the first page, the next of
+bfloat16 on mps and float32 on the CPU is used, and settings records every attempt that failed. A page that reaches max_new_tokens is kept and
 named in settings ("truncated_pages").
 
 Exits non-zero, writing nothing, when any page fails: a partial result must never be scored as this method's.
@@ -46,10 +47,13 @@ def render_pages(path: str) -> list:
     return images
 
 
+ATTENTION = "sdpa"  # PyTorch scaled-dot-product attention; also the speed-up measured above
+
+
 def candidates(mps_available: bool) -> list:
     """The (device, dtype name) pairs to try, in order."""
     if mps_available:
-        return [("mps", "bfloat16"), ("mps", "float16"), ("cpu", "float32")]
+        return [("mps", "float16"), ("mps", "bfloat16"), ("cpu", "float32")]
     return [("cpu", "float32")]
 
 
@@ -111,7 +115,8 @@ def main(argv: list) -> None:
         model = None
         try:
             model = AutoModelForImageTextToText.from_pretrained(
-                snapshot, dtype=getattr(torch, dtype_name), local_files_only=True).to(device).eval()
+                snapshot, dtype=getattr(torch, dtype_name), attn_implementation=ATTENTION,
+                local_files_only=True).to(device).eval()
             first = recognise(torch, processor, model, images[0])  # the first page is the trial of this device and dtype
         except Exception as err:
             failed_attempts.append(f"{device} {dtype_name}: {type(err).__name__}: {str(err)[:200]}")
@@ -131,7 +136,7 @@ def main(argv: list) -> None:
     data = {
         "version": f"transformers {version('transformers')} + PaddleOCR-VL-1.6@{REVISION[:7]}",
         "settings": {"repo": REPO, "revision": REVISION, "route": ROUTE, "prompt": PROMPT, "zoom": ZOOM,
-                     "max_pixels": MAX_PIXELS, "min_pixels": min_pixels, "device": device, "dtype": dtype_name,
+                     "max_pixels": MAX_PIXELS, "min_pixels": min_pixels, "device": device, "dtype": dtype_name, "attention": ATTENTION,
                      "decoding": "greedy (do_sample False)", "max_new_tokens": MAX_NEW_TOKENS,
                      "truncated_pages": truncated, "new_tokens": tokens, "weight_loading": WEIGHT_LOADING,
                      "weights": "local snapshot only (local_files_only, HF_HUB_OFFLINE=1)",
