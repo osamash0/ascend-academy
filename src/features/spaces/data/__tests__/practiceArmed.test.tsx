@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import i18n from '@/i18n';
+import { useEffect, useState } from 'react';
 
 const practice = vi.fn();
 const answerPractice = vi.fn();
@@ -15,6 +16,28 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(async () => { await act(() => i18n.changeLanguage('en')); });
 
 describe('usePracticeQuestions for a Lesson still being read', () => {
+  it('does not repeatedly reset practice while a new language is loading', async () => {
+    let finishGerman!: (value: { questions: { id: string }[] }) => void;
+    practice.mockImplementation((_id, lang) => lang === 'de'
+      ? new Promise((resolve) => { finishGerman = resolve; })
+      : Promise.resolve({ questions: [{ id: 'english' }] }));
+    const { result } = renderHook(() => {
+      const bank = usePracticeQuestions('L-loading-language', true);
+      const [resets, setResets] = useState(0);
+      // Practice resets its turns when a different question bank arrives.
+      // Bound the counter so a regression fails without an endless render loop.
+      useEffect(() => { setResets((n) => Math.min(10, n + 1)); }, [bank.questions]);
+      return { ...bank, resets };
+    });
+    await waitFor(() => expect(result.current.state).toBe('ready'));
+    const before = result.current.resets;
+    await act(() => i18n.changeLanguage('de'));
+    expect(result.current.state).toBe('loading');
+    expect(result.current.resets).toBe(before + 1);
+    await act(async () => { finishGerman({ questions: [{ id: 'german' }] }); });
+    await waitFor(() => expect(result.current.questions[0]?.id).toBe('german'));
+  });
+
   it('separates languages and ignores a late reply from the previous language', async () => {
     let finishEnglish!: (value: { questions: { id: string }[] }) => void;
     practice.mockImplementation((_id, lang) => lang === 'en'

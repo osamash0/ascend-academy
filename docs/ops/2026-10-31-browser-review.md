@@ -26,4 +26,6 @@ The API logs exposed a metering bug for personal Spaces: the virtual Space id wa
 
 The rehearsal failures were traced to model page references such as `p1`, `p2` and `p3` being rejected as non-integers. A captured five-question response validates completely after normalizing those exact single-page references. Added bounded normalization, explicit integer instructions in the prompt, and tests rejecting ranges, unknown text and out-of-bounds pages. The rehearsal, telemetry and requirements checks pass 31 targeted backend tests. A provider 503 also occurred during fallback; it was not the only cause of the failed flow.
 
+Final review reproduced repeated practice resets while a language request was pending. Kept the pending question array stable; a consumer-level regression test failed before the correction and passes afterward. The updated practice frontend checks pass 26 tests.
+
 Main's pre-existing CI failure was seven pypdf advisories against 6.21.2. Updated the dev pin and Docker minimum to the published 6.21.4 security patch. No audit exceptions were added. Production is healthy, has 21 GB free disk and a 4 GB swapfile, and its checkout is 2a367069. The deployment will use a green main revision, retain rollback images, take the documented database backup, build before swapping, and verify API readiness plus browser flows afterward.

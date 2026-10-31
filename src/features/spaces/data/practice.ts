@@ -15,6 +15,9 @@ export { gradeAnswer, type Graded, type PracticeQuestion } from '../mocks/practi
  * fixture bank standing in for the real one.
  */
 const cache = new Map<string, Promise<PracticeQuestion[]>>();
+// Consumers reset their turns when this array changes. Keep the pending
+// bank stable while a different lesson/language is still being fetched.
+const loading = { state: 'loading' as const, questions: [] as PracticeQuestion[] };
 
 export function usePracticeQuestions(
   lessonId: string | undefined,
@@ -61,7 +64,7 @@ export function usePracticeQuestions(
     };
   }, [lessonId, live, armed, key, lang]);
 
-  return result.key === key ? result : { state: 'loading', questions: [] };
+  return result.key === key ? result : loading;
 }
 
 /** What the server made of an answer: its grade, and the XP it granted (0 after the first time). */
