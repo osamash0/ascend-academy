@@ -69,8 +69,15 @@ export function uploadsNow(): Upload[] {
 
 export const wasBroughtIn = (id: string): boolean => broughtIn.has(id);
 
-/** The file itself, if it was brought in on this device during this visit. */
-export const localFileFor = (uploadId: string): File | null => kept.get(uploadId) ?? files.get(uploadId) ?? null;
+/**
+ * The file itself, if it was brought in on this device during this visit. A
+ * temporary id the server has answered for is its run's file: the reader on
+ * it still shows the same file in the moment before it moves to the run.
+ */
+export const localFileFor = (uploadId: string): File | null => {
+  const to = resolved.get(uploadId);
+  return kept.get(uploadId) ?? files.get(uploadId) ?? (to ? kept.get(to) : undefined) ?? null;
+};
 
 /**
  * One object URL per File: the reader that swaps from `sending-N` to the run id

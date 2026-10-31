@@ -16,6 +16,8 @@ import i18n from "@/i18n";
 import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes, V4Routes, homeForRole, safeNextPath } from "@/lib/routes";
 import { firstRunPath, needsFirstRun, postAuthDestination } from "@/lib/firstRun";
 import { SocialProvider } from "@/features/social/store";
+// StudioCanvasScreen and LessonFacesScreen: lazy, and fetchable ahead of time (the Library and the early reader do).
+import { LessonFacesRoute, StudioCanvasRoute } from "@/features/spaces/screens/lazyScreens";
 import { ConfettiCanvas } from "@/components/ConfettiCanvas";
 import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
 import { FEATURES } from "@/lib/featureFlags";
@@ -117,7 +119,6 @@ const V4Concept = lazy(() => import("./features/spaces/screens/ConceptScreen"));
 const V4LessonLink = lazy(() => import("./features/spaces/screens/LessonLinkRoute"));
 const V4NotFound = lazy(() => import("./features/spaces/screens/NotFoundScreen"));
 const V4SpaceManage = lazy(() => import("./features/spaces/screens/SpaceManageScreen"));
-const V4StudioCanvas = lazy(() => import("./features/spaces/screens/StudioCanvasScreen"));
 const V4Social = lazy(() => import("./features/spaces/screens/SocialScreen"));
 const V4Profile = lazy(() => import("./features/spaces/screens/ProfileScreen"));
 const V4Rank = lazy(() => import("@/features/spaces/screens/RankScreen"));
@@ -127,7 +128,6 @@ const V4Practice = lazy(() => import("./features/spaces/screens/PracticeScreen")
 const V4Settings = lazy(() => import("./features/spaces/screens/SettingsScreen"));
 const V4Person = lazy(() => import("./features/spaces/screens/PersonScreen"));
 const V4Reader = lazy(() => import("./features/spaces/screens/ReaderScreen"));
-const V4LessonFaces = lazy(() => import("./features/spaces/screens/LessonFacesScreen"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const LaunchControl = lazy(() => import("./pages/LaunchControl"));
 const FriendsHub = lazy(() => import("./features/social/pages/FriendsHub"));
@@ -470,7 +470,7 @@ function AppRoutes() {
             <Route path="/v4/space/:spaceId/:tab" element={<SpaceRoute />} />
             <Route path="/v4/library" element={<V4Library />} />
             {/* Your page: the canvas, opened from a cover (One Library spec §4). */}
-            <Route path="/v4/library/m/:materialId" element={<V4StudioCanvas />} />
+            <Route path="/v4/library/m/:materialId" element={<StudioCanvasRoute />} />
             {/* The old Studio and list-view paths still land somewhere real. */}
             <Route path="/v4/library/studio" element={<LibraryTo to="/v4/library" />} />
             <Route path="/v4/library/studio/c/:canvasId" element={<LibraryCanvasRedirect />} />
@@ -495,7 +495,7 @@ function AppRoutes() {
             {/* The reader — a focus surface, like practice. */}
             <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<SpaceMemberGate><V4Reader /></SpaceMemberGate>} />
             {/* The same Lesson with two faces — beside the reader so the two can be compared. */}
-            <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<SpaceMemberGate><V4LessonFaces /></SpaceMemberGate>} />
+            <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<SpaceMemberGate><LessonFacesRoute /></SpaceMemberGate>} />
             <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<SpaceMemberGate><V4Lesson /></SpaceMemberGate>} />
             <Route path="/v4/space/:spaceId/concept/:conceptId" element={<SpaceMemberGate><V4Concept /></SpaceMemberGate>} />
             {/* A Lesson by id alone — where old /lecture/:id links land (LS-050). */}

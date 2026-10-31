@@ -31,6 +31,8 @@ interface Props {
   onLoad?: (numPages: number) => void;
   /** The canvas of the first page to paint — for sampling, never for drawing. */
   onFirstRender?: (canvas: HTMLCanvasElement | null) => void;
+  /** Each page, as it paints — so a caller can wait for the page it means. */
+  onRenderPage?: (page: number) => void;
   scrollRef: RefObject<HTMLDivElement>;
   className?: string;
   /** Vertical room above the first page and below the last. */
@@ -61,6 +63,7 @@ export function PdfScroll({
   onPage,
   onLoad,
   onFirstRender,
+  onRenderPage,
   scrollRef,
   className,
   padTop = 96,
@@ -161,6 +164,7 @@ export function PdfScroll({
                   renderAnnotationLayer={false}
                   onLoadSuccess={onPageLoad}
                   onRenderSuccess={() => {
+                    onRenderPage?.(p);
                     if (firstRender.current || !onFirstRender) return;
                     firstRender.current = true;
                     const canvas = scrollRef.current?.querySelector<HTMLCanvasElement>(

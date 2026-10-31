@@ -16,7 +16,7 @@ vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }))
 const { setLiveWorld } = await import('../data/world');
 const { UNDO_MS, bringFilesIn, canRemove, removeFromShelf, retryFor, shelfAcceptsFiles, useShelf, useShelfItem } =
   await import('../data/useShelf');
-const { __resetUploads, canResend, uploadsNow } = await import('../data/uploads');
+const { __resetUploads, canResend, localUrlFor, uploadsNow } = await import('../data/uploads');
 
 const upload = (id: string, over: Partial<Upload> = {}): Upload => ({
   id,
@@ -67,6 +67,21 @@ describe('your uploads on a real shelf', () => {
     expect(uploadsNow()[0]).toMatchObject({ id, filename: 'week3.pdf', stage: 'developing' });
     await waitFor(() => expect(uploadsNow().map((u) => u.id)).toEqual(['run-9']));
     expect(repo.bringIn).toHaveBeenCalledTimes(1);
+  });
+
+  it('a reader still on the temporary id keeps the same link while it moves to the run', async () => {
+    URL.createObjectURL = vi.fn(() => 'blob:the-file');
+    setLiveWorld(emptyWorld({ canUpload: true }));
+    repo.bringIn.mockResolvedValue({ status: 'queued', run_id: 'run-9' });
+    repo.uploads.mockResolvedValue({ uploads: [upload('run-9', { filename: 'ueb00.pdf' })] });
+
+    const [id] = bringFilesIn([new File(['%PDF'], 'ueb00.pdf')], false);
+    expect(localUrlFor(id)).toBe('blob:the-file');
+    /* The real cover is on the shelf; the reader has not swapped yet. It must never see no file. */
+    await waitFor(() => expect(uploadsNow().map((u) => u.id)).toEqual(['run-9']));
+    expect(localUrlFor(id)).toBe('blob:the-file');
+    expect(localUrlFor('run-9')).toBe('blob:the-file');
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
   });
 
   it('a refused file stays, failed, with the server’s reason — and can be sent again', async () => {
