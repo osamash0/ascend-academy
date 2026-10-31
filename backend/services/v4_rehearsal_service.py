@@ -25,7 +25,7 @@ from backend.core.database import get_db_connection
 from backend.services.localization_service import get_lecture_content_for_locale
 from backend.services.v4_reader_service import IDEAS_VERSION, _generate_json, write_in
 from backend.services.cache import get_cache, set_cache
-from backend.services.v4_personal import space_lectures
+from backend.services.v4_personal import is_personal, space_lectures
 
 logger = logging.getLogger(__name__)
 
@@ -323,10 +323,13 @@ async def compose_rehearsal(
     # chain on its own.
     questions: list[dict[str, Any]] = []
     data: Any = None
+    # A personal Space has no courses row. Keep user-level accounting, but
+    # do not write the virtual Space id into llm_calls.course_id's FK.
+    metered_course = None if is_personal(course_id, user_id) else str(course_id)
     order = ("groq", "gemini") if len(prompt) < GROQ_PROMPT_CHARS else ("gemini", "groq")
     for prefer in order:
         try:
-            data = await _generate_json(prompt, user_id=user_id, course_id=str(course_id), feature="v4_rehearsal", prefer=prefer)
+            data = await _generate_json(prompt, user_id=user_id, course_id=metered_course, feature="v4_rehearsal", prefer=prefer)
         except Exception as exc:
             if exc.__class__.__name__ == "LLMBudgetExceededError":
                 raise HTTPException(status_code=429, detail="You have reached this month's AI allowance.")

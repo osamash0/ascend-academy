@@ -1,4 +1,6 @@
 """A rehearsal question is shown only if its answer is well-defined and worth asking."""
+import pytest
+
 from backend.services.v4_rehearsal_service import validate_rehearsal
 
 LEC = "35e5687b-6469-4385-ad04-1fb5ca44b920"
@@ -164,3 +166,47 @@ def test_an_order_question_never_opens_on_its_answer():
         for _ in range(200):
             assert _shuffle(n) != list(range(n))
     assert _shuffle(1) == [0]
+
+
+@pytest.mark.parametrize("personal", [True, False])
+def test_rehearsal_accounts_for_personal_spaces_without_a_course_fk(monkeypatch, personal):
+    import asyncio
+    from contextlib import asynccontextmanager
+    from uuid import UUID
+    import backend.services.v4_rehearsal_service as svc
+
+    course = UUID("11111111-1111-1111-1111-111111111111")
+    user = str(course) if personal else "22222222-2222-2222-2222-222222222222"
+    calls = []
+
+    class Conn:
+        async def fetchval(self, *args):
+            return None if personal else "Water cycle"
+
+        async def fetch(self, *args):
+            return [{"id": UUID(LEC), "title": "Water cycle", "content_revision": 1}]
+
+    @asynccontextmanager
+    async def context():
+        yield Conn()
+
+    async def connect():
+        return context()
+
+    async def lecture_context(lecture, locale):
+        return "Three pages on evaporation, condensation and precipitation.", 3
+
+    async def generate(prompt, **kwargs):
+        calls.append(kwargs)
+        return {"title": "Water cycle", "questions": [
+            {**BASE, "page": page, "kind": "choice", "options": [
+                {"text": "Liquid to gas", "correct": True}, {"text": "Gas to liquid"}]} for page in (1, 2, 3)
+        ]}
+
+    monkeypatch.setattr(svc, "get_db_connection", connect)
+    monkeypatch.setattr(svc, "_lecture_context", lecture_context)
+    monkeypatch.setattr(svc, "_generate_json", generate)
+    result = asyncio.run(svc.compose_rehearsal(course, [UUID(LEC)], 3, weak_ideas=[], user_id=user, locale="en"))
+    assert len(result["questions"]) == 3
+    assert calls[0]["user_id"] == user
+    assert calls[0]["course_id"] == (None if personal else str(course))

@@ -26,6 +26,40 @@ describe('guideMood', () => {
 });
 
 describe('the demo shows what the reader really does', () => {
+  it('moves focus and selection with arrow keys, wrapping at either end', () => {
+    renderWithProviders(<Landing />, { initialEntries: ['/'] });
+    const page = screen.getByRole('tab', { name: 'Page' });
+    const explain = screen.getByRole('tab', { name: 'Explain' });
+    const practise = screen.getByRole('tab', { name: 'Practise' });
+
+    fireEvent.keyDown(page, { key: 'ArrowRight' });
+    expect(explain).toHaveFocus();
+    expect(explain).toHaveAttribute('aria-selected', 'true');
+    expect(page).toHaveAttribute('tabindex', '-1');
+
+    fireEvent.keyDown(explain, { key: 'Home' });
+    expect(page).toHaveFocus();
+    fireEvent.keyDown(page, { key: 'ArrowLeft' });
+    expect(practise).toHaveFocus();
+    fireEvent.keyDown(practise, { key: 'ArrowRight' });
+    expect(page).toHaveFocus();
+    fireEvent.keyDown(page, { key: 'End' });
+    expect(practise).toHaveFocus();
+    expect(screen.getAllByRole('tab').filter((tab) => tab.tabIndex === 0)).toEqual([practise]);
+  });
+
+  it('labels the focusable panel with the selected tab', () => {
+    renderWithProviders(<Landing />, { initialEntries: ['/'] });
+    const panel = screen.getByRole('tabpanel', { name: 'Page' });
+    const ask = screen.getByRole('tab', { name: 'Ask' });
+    expect(ask).toHaveAttribute('aria-controls', panel.id);
+    expect(panel).toHaveAttribute('tabindex', '0');
+
+    fireEvent.click(ask);
+    expect(screen.getByRole('tabpanel', { name: 'Ask' })).toHaveAttribute('aria-labelledby', ask.id);
+    expect(ask).toHaveAttribute('tabindex', '0');
+  });
+
   it('has the reader\'s four faces — Page, Explain, Ask, Practise — and nothing invented', () => {
     renderWithProviders(<Landing />, { initialEntries: ['/'] });
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Page', 'Explain', 'Ask', 'Practise']);

@@ -41,8 +41,8 @@ PDF_BUCKET = "lecture-pdfs"
 SIGNED_TTL = 8 * 3600
 SIGNED_REUSE = 6 * 3600
 #: Bump when the prompt or the block library changes, so stale answers age out.
-EXPLAIN_VERSION = "explain-v3"
-ASK_VERSION = "ask-v1"
+EXPLAIN_VERSION = "explain-v4"
+ASK_VERSION = "ask-v2"
 IDEAS_VERSION = "ideas-v2"  # v2: count scales with the deck, names say what is taught
 CACHE_TTL = 60 * 60 * 24 * 60  # 60 days; keyed on content_revision anyway
 
@@ -540,7 +540,10 @@ def _format_label(raw: str, blocks: list[dict[str, Any]]) -> str:
     """The model's own words for its choice — unless they are just our block names."""
     words = [w.strip().lower() for w in re.split(r"[,/+&]| and ", raw) if w.strip()]
     names = {k.lower() for k in _FORMAT_BY_BLOCK}
-    if raw.strip() and not all(w in names or w in {"block", "blocks"} for w in words):
+    # Models also return "key block", "KeyBlock" and "key_blocks". These
+    # describe our schema just as "key" does, not a format a learner needs.
+    kinds = [re.sub(r"blocks?$", "", re.sub(r"[\s_-]+", "", w)) for w in words]
+    if raw.strip() and not all(k in names or not k for k in kinds):
         return raw.strip()[:40]
     for kind in _FORMAT_BY_BLOCK:  # ordered: the most interactive block names the answer
         if any(b["type"] == kind for b in blocks):
@@ -599,18 +602,31 @@ SANDBOX_SPEC = """- {{"type":"sandbox","title":"...","caption":"one line on what
    * keep it under 250 lines; "height" is its natural height in px (160-720)."""
 
 
+SOURCE_GROUNDING_RULES = """Source grounding:
+- Preserve which person, event, place, date and quantity each detail belongs
+  to. Never merge facts from separate bullets: a contact's office is not the
+  lecture venue.
+- On factual pages (schedules, contacts, requirements), use only stated facts.
+  Do not fill in a missing room, timezone or requirement; say it is not given.
+- Invented examples are for explaining concepts only. Label them hypothetical;
+  never present them as source facts or correct answers to factual checks.
+"""
+
+
 EXPLAIN_PROMPT = """You are Learnstation's tutor. A student is on one slide of a university lecture
 and asked you to explain it. Answer as a small interface, not an essay: choose
 the blocks that make THIS slide easiest to understand. A comparison works best
 side by side; a process as steps; a slide that is a diagram or list as parts to
 explore; a definition you can test as a tool.
 
+""" + SOURCE_GROUNDING_RULES + """
 Rules:
-- Use 3 to 5 blocks. Open with the block that does the most work (usually an
-  interactive one), and end with a "check" whenever the slide teaches something
-  a student could get wrong.
-- Never just restate the slide. Add the intuition, a concrete example with real
-  values, or the mistake students make.
+- Use 1 to 5 blocks, as many as the source supports. Open with the block that
+  does the most work (usually an interactive one), and end with a "check"
+  whenever the slide teaches something a student could get wrong.
+- On conceptual pages, add intuition, a clearly hypothetical concrete example,
+  or the mistake students make. On factual pages, a faithful short summary
+  is enough; never pad it with invented details to fill more blocks.
 - "title" states the insight in plain words — NOT the slide's own title.
   Good: "A → B is a promise about every row the table will ever hold".
 - "format" names your choice in 2-4 plain words, e.g. "A table you can break",
@@ -714,6 +730,8 @@ helps most:
 - a database-theory exercise → the matching tool (fdTable, closure, bcnf);
 - seeing a process or structure work → one generated app ("sandbox").
 Do not pad: 1 to 4 blocks. Never restate the question.
+
+""" + SOURCE_GROUNDING_RULES + """
 
 Course: {course}
 Lecture: {lecture}
