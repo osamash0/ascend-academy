@@ -17,6 +17,10 @@ freezegun>=1.5
 faker>=24.0
 httpx>=0.27
 
+# ── Parser benchmark (backend/eval/parser_bench): process-tree memory and
+# machine facts; imported by the engine and its unit tests ───────────────────
+psutil==7.2.2
+
 # ── Property-based testing (deck cartographer, chaos lab) ────────────────────
 hypothesis>=6.100
 
