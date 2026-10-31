@@ -15,11 +15,12 @@ from __future__ import annotations
 import json
 import logging
 import random
+import re
 from typing import Annotated, Any, Literal, Optional, Union
 from uuid import UUID
 
 from fastapi import HTTPException
-from pydantic import BaseModel, Field, TypeAdapter, ValidationError
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_validator
 
 from backend.core.database import get_db_connection
 from backend.services.localization_service import get_lecture_content_for_locale
@@ -116,6 +117,18 @@ class _Base(BaseModel):
     idea: str = Field(min_length=1, max_length=60)
     prompt: str = Field(min_length=4, max_length=320)
     why: str = Field(default="", max_length=500)
+
+    @field_validator("page", mode="before")
+    @classmethod
+    def page_reference(cls, value: Any) -> Any:
+        # Models sometimes echo the context's p1/p2 labels. A single,
+        # explicit page reference has the same meaning as its integer;
+        # ranges, arbitrary text and out-of-bounds pages still fail.
+        if isinstance(value, str):
+            match = re.fullmatch(r"(?:p(?:age)?\.?|s(?:eite)?\.?)\s*(\d+)", value.strip(), re.IGNORECASE)
+            if match:
+                return int(match.group(1))
+        return value
 
 
 class Option(BaseModel):
@@ -218,7 +231,8 @@ def _shuffle(n: int) -> list[int]:
 
 # ─── composing ───────────────────────────────────────────────────────────
 
-KINDS = """Every question has: "lecture_id" (from the list), "page" (the slide it tests),
+KINDS = """Every question has: "lecture_id" (from the list), "page" (the slide it tests,
+as a JSON integer such as 1, never a string such as "p1"),
 "idea" (2-5 words), "prompt" (the question), "why" (1-2 sentences: the reason,
 shown after answering). Kinds:
 - {"kind":"choice","options":[{"text":"...","correct":true},{"text":"..."},{"text":"..."},{"text":"..."}]}

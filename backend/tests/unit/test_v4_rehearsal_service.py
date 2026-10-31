@@ -39,6 +39,19 @@ def test_a_question_must_point_at_a_real_page_of_a_chosen_lecture():
     assert kinds(q, {**q, "page": 99}, {**q, "lecture_id": "7142693a-dd83-4bb5-8716-83d30b1dcc7a"}) == ["order"]
 
 
+@pytest.mark.parametrize("page", ["p6", "p. 6", "Page 6", "S. 6", "Seite 6"])
+def test_model_page_labels_are_normalized_to_integer_citations(page):
+    q = {**BASE, "page": page, "kind": "order", "items": ["evaporation", "condensation", "precipitation"]}
+    [question] = validate_rehearsal({"questions": [q]}, ALLOWED)
+    assert question["page"] == 6
+
+
+@pytest.mark.parametrize("page", ["p0", "p99", "p6-7", "page six", "unknown 6"])
+def test_invalid_or_ambiguous_page_references_are_not_guessed(page):
+    q = {**BASE, "page": page, "kind": "order", "items": ["a", "b", "c"]}
+    assert validate_rehearsal({"questions": [q]}, ALLOWED) == []
+
+
 def test_history_marks_each_idea_by_its_latest_answer(monkeypatch):
     import asyncio
     import datetime
