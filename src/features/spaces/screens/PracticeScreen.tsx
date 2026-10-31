@@ -12,6 +12,7 @@ import { ghostPill, stageAccentFor, stageCard } from '../components/stage';
 import { useScreenState } from '../data/useSpaces';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { ReaderExit } from '../components/reader/ReaderHeader';
+import { PracticeLanguageNote } from '../components/PracticeLanguageNote';
 import { spaceById, visibleLesson } from '../data/world';
 
 /**
@@ -129,7 +130,7 @@ export default function PracticeScreen() {
     (choice: string) => {
       if (!turn || picked) return;
       setPicked(choice);
-      if (live && lessonId) submitAnswer(lessonId, turn.q.id, choice).catch(() => {});
+      if (live && lessonId) submitAnswer(lessonId, turn.q, choice).catch(() => {});
       const right = choice === turn.q.correctAnswer;
       if (right) setFlash((n) => n + 1);
       setMarks((m) => ({
@@ -323,7 +324,8 @@ export default function PracticeScreen() {
           transition={{ duration: 0.22 }}
           className="relative"
         >
-          <h1 className="text-[26px] font-medium leading-snug tracking-[-0.015em] sm:text-[30px]">{turn.q.prompt}</h1>
+          <PracticeLanguageNote language={turn.q.language} />
+          <h1 lang={turn.q.language} className="text-[26px] font-medium leading-snug tracking-[-0.015em] sm:text-[30px]">{turn.q.prompt}</h1>
 
           <ul className="mt-8 space-y-2.5">
             {turn.choices.map((c, i) => {
@@ -369,7 +371,7 @@ export default function PracticeScreen() {
                     >
                       {i + 1}
                     </kbd>
-                    <span className="min-w-0 flex-1">{c}</span>
+                    <span lang={turn.q.language} className="min-w-0 flex-1">{c}</span>
                     {/*
                       Which choice was right was carried by border colour and an
                       aria-hidden glyph — so re-reading the list with a screen
@@ -429,7 +431,7 @@ export default function PracticeScreen() {
                           : 'practiceScreen.feedback.comesBack',
                     )}
                   </p>
-                  <p className="text-[15px] leading-relaxed text-foreground">{withEmphasis(graded.explanation)}</p>
+                  <p lang={turn.q.language} className="text-[15px] leading-relaxed text-foreground">{withEmphasis(graded.explanation)}</p>
                 </div>
 
                 <Pressable

@@ -55,15 +55,15 @@ export function LandingNav() {
           <LanguageToggle variant="icon-dark" />
           <button
             type="button"
-            onClick={() => navigate('/auth')}
-            className="hidden rounded-full px-3 py-2 text-[14px] font-medium text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:inline-flex"
+            onClick={() => navigate(PublicRoutes.AUTH)}
+            className="inline-flex rounded-full px-3 py-2 text-[14px] font-medium text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             {t('story.nav.signIn')}
           </button>
           <button
             type="button"
             onClick={() => navigate(PublicRoutes.SIGNUP)}
-            className="inline-flex h-9 items-center whitespace-nowrap rounded-full bg-white px-4 text-[13.5px] font-semibold text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            className="hidden h-9 items-center whitespace-nowrap rounded-full bg-white px-4 text-[13.5px] font-semibold text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black sm:inline-flex"
           >
             {t('story.nav.start')}
           </button>

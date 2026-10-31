@@ -1,6 +1,8 @@
 """Explain answers are model output: only shapes the panel can draw get through."""
 from uuid import UUID
 
+import pytest
+
 from backend.services.v4_reader_service import _Idea, _ideas_to_concepts, _storage_path, validate_answer
 
 LECTURE = UUID("35e5687b-6469-4385-ad04-1fb5ca44b920")
@@ -82,6 +84,17 @@ def test_a_format_made_of_block_names_gets_a_human_label():
     blocks = [{"type": "key", "md": "x"}, {"type": "compare", "columns": [{"title": "a", "points": ["p"]}, {"title": "b", "points": ["q"]}]}]
     assert validate_answer({"title": "t", "format": "key, compare, check", "blocks": blocks})["format"] == "Side by side"
     assert validate_answer({"title": "t", "format": "A table you can break", "blocks": blocks})["format"] == "A table you can break"
+
+
+@pytest.mark.parametrize("label", ["key block", "KeyBlock", "key_blocks", "KEY-BLOCK", "text block and key blocks"])
+def test_schema_format_variants_are_not_shown_to_the_learner(label):
+    answer = validate_answer({"title": "Venue", "format": label, "blocks": [{"type": "key", "md": "The lecture is in HS B."}]})
+    assert answer["format"] == "In one line"
+
+
+def test_a_human_format_with_the_word_key_is_preserved():
+    answer = validate_answer({"title": "Venue", "format": "A key distinction", "blocks": [{"type": "key", "md": "Offices and lecture halls differ."}]})
+    assert answer["format"] == "A key distinction"
 
 
 def test_a_longer_deck_is_split_into_more_ideas_named_by_what_they_teach():

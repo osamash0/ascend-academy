@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { practiceForLesson, type PracticeQuestion } from '../mocks/practice';
 import type { LoadState } from '../types';
 import { loadLiveRepository } from './liveRepository';
@@ -14,50 +15,56 @@ export { gradeAnswer, type Graded, type PracticeQuestion } from '../mocks/practi
  * fixture bank standing in for the real one.
  */
 const cache = new Map<string, Promise<PracticeQuestion[]>>();
+// Consumers reset their turns when this array changes. Keep the pending
+// bank stable while a different lesson/language is still being fetched.
+const loading = { state: 'loading' as const, questions: [] as PracticeQuestion[] };
 
 export function usePracticeQuestions(
   lessonId: string | undefined,
   live: boolean,
   armed = true,
 ): { state: LoadState; questions: PracticeQuestion[] } {
-  const [result, setResult] = useState<{ state: LoadState; questions: PracticeQuestion[] }>(() =>
+  const { i18n } = useTranslation();
+  const lang = (i18n.language || 'en').split('-')[0];
+  const key = `${lessonId}:${lang}`;
+  const [result, setResult] = useState<{ key: string; state: LoadState; questions: PracticeQuestion[] }>(() =>
     live || !lessonId
-      ? { state: 'loading', questions: [] }
-      : { state: 'ready', questions: practiceForLesson(lessonId) },
+      ? { key, state: 'loading', questions: [] }
+      : { key, state: 'ready', questions: practiceForLesson(lessonId) },
   );
 
   useEffect(() => {
     if (!lessonId || !armed) return;
     if (!live) {
-      setResult({ state: 'ready', questions: practiceForLesson(lessonId) });
+      setResult({ key, state: 'ready', questions: practiceForLesson(lessonId) });
       return;
     }
     let alive = true;
-    if (!cache.has(lessonId)) {
+    if (!cache.has(key)) {
       cache.set(
-        lessonId,
+        key,
         loadLiveRepository()
-          .then((repo) => repo.practice(lessonId))
+          .then((repo) => repo.practice(lessonId, lang))
           .then((r) => r.questions),
       );
     }
     cache
-      .get(lessonId)!
+      .get(key)!
       .then((questions) => {
         /* An empty answer is not kept: a Lesson still being read may have questions later. */
-        if (questions.length === 0) cache.delete(lessonId);
-        if (alive) setResult({ state: questions.length ? 'ready' : 'empty', questions });
+        if (questions.length === 0) cache.delete(key);
+        if (alive) setResult({ key, state: questions.length ? 'ready' : 'empty', questions });
       })
       .catch(() => {
-        cache.delete(lessonId);
-        if (alive) setResult({ state: 'error', questions: [] });
+        cache.delete(key);
+        if (alive) setResult({ key, state: 'error', questions: [] });
       });
     return () => {
       alive = false;
     };
-  }, [lessonId, live, armed]);
+  }, [lessonId, live, armed, key, lang]);
 
-  return result;
+  return result.key === key ? result : loading;
 }
 
 /** What the server made of an answer: its grade, and the XP it granted (0 after the first time). */
@@ -67,7 +74,9 @@ export interface ServerGrade {
 }
 
 /** Live only: grade on the server, log the attempt, grant XP once per question. */
-export async function submitAnswer(lessonId: string, questionId: string, answer: string): Promise<ServerGrade> {
+export async function submitAnswer(lessonId: string, question: PracticeQuestion, answer: string): Promise<ServerGrade> {
   const repo = await loadLiveRepository();
-  return repo.answerPractice(lessonId, questionId, answer, currentSession(lessonId));
+  const index = question.choices.indexOf(answer);
+  const canonical = question.answerValues?.[index] ?? answer;
+  return repo.answerPractice(lessonId, question.id, canonical, currentSession(lessonId));
 }

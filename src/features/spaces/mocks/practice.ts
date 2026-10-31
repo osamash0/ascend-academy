@@ -17,6 +17,10 @@ export interface PracticeQuestion {
   choices: string[];
   correctAnswer: string;
   explanation: string;
+  /** Actual language of the question, including an untranslated fallback. */
+  language?: 'en' | 'de';
+  /** Canonical server values, in the same order as the displayed choices. */
+  answerValues?: string[];
 }
 
 const QUESTIONS: Record<string, PracticeQuestion[]> = {

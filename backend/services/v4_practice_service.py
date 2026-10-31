@@ -28,9 +28,11 @@ from backend.services.v4_telemetry import now_iso
 XP_PER_CORRECT = 10
 
 _QUESTIONS_SQL = """
-SELECT q.id, q.question_text, q.options, q.correct_answer, q.metadata, s.slide_number
+SELECT q.id, q.question_text, q.options, q.correct_answer, q.metadata, s.slide_number,
+       l.source_language
 FROM quiz_questions q
 JOIN slides s ON s.id = q.slide_id
+JOIN lectures l ON l.id = s.lecture_id
 WHERE s.lecture_id = $1
 ORDER BY s.slide_number, q.created_at
 """
@@ -76,6 +78,11 @@ def to_question(row: Any, lecture_id: str) -> Optional[dict[str, Any]]:
         return None
     meta = _meta(row["metadata"])
     explanation = str(meta.get("explanation") or "").strip()
+    language = row.get("source_language")
+    fallback = (
+        f"Die Antwort steht auf Seite {row['slide_number']} dieser Lektion."
+        if language == "de" else f"The answer is on page {row['slide_number']} of this Lesson."
+    )
     return {
         "id": str(row["id"]),
         "lessonId": lecture_id,
@@ -84,14 +91,55 @@ def to_question(row: Any, lecture_id: str) -> Optional[dict[str, Any]]:
         "correctAnswer": choices[idx],
         # Every question explains itself; where the generator left none, say
         # where the answer lives rather than nothing.
-        "explanation": explanation or f"The answer is on page {row['slide_number']} of this Lesson.",
+        "explanation": explanation or fallback,
+        **({"language": language} if language in ("en", "de") else {}),
     }
 
 
-async def questions_for(lecture_id: UUID) -> list[dict[str, Any]]:
+async def _localized_snapshot(lecture_id: UUID, locale: str) -> dict[str, Any] | None:
+    # The canonical grader must not initialize AI providers just by importing
+    # this module. Localization generation is not part of a practice read.
+    from backend.services.localization_service import get_localized_lecture
+
+    return await get_localized_lecture(lecture_id, locale)
+
+
+async def questions_for(lecture_id: UUID, *, locale: str | None = None) -> list[dict[str, Any]]:
     async with await get_db_connection() as conn:
         rows = await conn.fetch(_QUESTIONS_SQL, lecture_id)
-    return [q for q in (to_question(r, str(lecture_id)) for r in rows) if q]
+    questions = [q for q in (to_question(r, str(lecture_id)) for r in rows) if q]
+    if not locale or not questions:
+        return questions
+    snapshot = await _localized_snapshot(lecture_id, locale)
+    if not snapshot:
+        return questions
+    translated = {
+        str(q.get("id")): (q, slide.get("slide_number"))
+        for slide in snapshot.get("slides", []) for q in slide.get("questions", [])
+    }
+    result = []
+    for original in questions:
+        entry = translated.get(original["id"])
+        if not entry:
+            result.append(original)
+            continue
+        q, page = entry
+        choices = _choices(q.get("options"))
+        correct = original["choices"].index(original["correctAnswer"])
+        # A translation must preserve option order and answer identity. A
+        # malformed snapshot falls back to the original, never a new grade.
+        if (len(choices) != len(original["choices"]) or len(set(choices)) != len(choices)
+                or q.get("correct_answer") != correct or not str(q.get("question_text") or "").strip()):
+            result.append(original)
+            continue
+        localized = to_question({
+            "id": original["id"], "question_text": q.get("question_text") or original["prompt"],
+            "options": choices, "correct_answer": correct,
+            "metadata": {"explanation": q.get("explanation")},
+            "slide_number": page, "source_language": locale,
+        }, str(lecture_id))
+        result.append({**localized, "answerValues": original["choices"]})
+    return result
 
 
 async def answer(

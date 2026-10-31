@@ -1803,7 +1803,7 @@ export default function LessonFacesScreen() {
         lessonTitle={lesson.title}
         questions={practice.questions}
         onClose={closeBench}
-        onAnswer={liveReader ? (q, a) => submitAnswer(lesson.id, q.id, a) : undefined}
+        onAnswer={liveReader ? (q, a) => submitAnswer(lesson.id, q, a) : undefined}
       />
 
       {pagerShowing && <LessonPager spaceId={space.id} prev={prev} next={next} keys={false} />}
