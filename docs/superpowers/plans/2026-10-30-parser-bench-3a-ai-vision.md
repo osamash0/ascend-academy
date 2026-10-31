@@ -1300,7 +1300,7 @@ import pytest
 
 from backend.eval.parser_bench import paid
 
-KEY = "sk-test-SECRET-0123456789"
+KEY = "sk-test-SECRET-0123456789"  # gitleaks:allow — made-up test value, not a credential
 
 
 def key_file(folder, text=KEY, mode=0o600):
@@ -1672,7 +1672,7 @@ from backend.eval.parser_bench import paid
 from backend.tests.unit.parser_bench_fixtures import make_deck
 
 RUNNER = Path(bench_pkg.__file__).parent / "runners" / "ai_vision_runner.py"
-KEY = "sk-test-SECRET-0123456789"
+KEY = "sk-test-SECRET-0123456789"  # gitleaks:allow — made-up test value, not a credential
 
 
 def _load():
