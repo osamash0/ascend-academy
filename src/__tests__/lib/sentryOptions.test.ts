@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { buildSentryOptions } from "@/lib/sentryOptions";
+import { buildSentryOptions, isEuDsn } from "@/lib/sentryOptions";
 
 describe("buildSentryOptions", () => {
   const opts = buildSentryOptions("https://key@o1.ingest.sentry.io/1");
@@ -49,5 +49,20 @@ describe("buildSentryOptions", () => {
     expect(out!.request.query_string).toBeUndefined();
     expect(out!.request.url).toBe("https://learnstation.example/lecture/42");
     expect(out!.breadcrumbs[0].data).toEqual({ url: "/api/v1/ai/chat" });
+  });
+
+  it("says which environment a report came from", () => {
+    expect(opts.environment).toBe(import.meta.env.MODE);
+  });
+});
+
+/* The privacy policy says reports are stored in the EU: any other DSN leaves Sentry off. */
+describe("isEuDsn", () => {
+  it("accepts only Sentry's EU region", () => {
+    expect(isEuDsn("https://k@o1.ingest.de.sentry.io/2")).toBe(true);
+    expect(isEuDsn("https://k@o1.ingest.us.sentry.io/2")).toBe(false);
+    expect(isEuDsn("https://k@o1.ingest.sentry.io/2")).toBe(false);
+    expect(isEuDsn("https://k@evil.example/de.sentry.io/2")).toBe(false);
+    expect(isEuDsn("not a dsn")).toBe(false);
   });
 });

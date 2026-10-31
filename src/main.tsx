@@ -4,10 +4,11 @@ import "./index.css";
 import "./i18n";
 
 import * as Sentry from "@sentry/react";
-import { buildSentryOptions } from "@/lib/sentryOptions";
+import { buildSentryOptions, isEuDsn } from "@/lib/sentryOptions";
 
-if (import.meta.env.VITE_SENTRY_DSN) {
-  Sentry.init(buildSentryOptions(import.meta.env.VITE_SENTRY_DSN));
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
+if (sentryDsn && isEuDsn(sentryDsn)) {
+  Sentry.init(buildSentryOptions(sentryDsn));
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

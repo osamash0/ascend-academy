@@ -34,7 +34,15 @@ describe('Datenschutz', () => {
     expect(container.querySelector(`a[href="mailto:${PRIVACY}"]`)).not.toBeNull();
     expect(text).not.toContain('gmail.com');
     for (const used of ['Supabase', 'Hetzner', 'OpenAI', 'Groq', 'Gemini', 'OpenRouter']) expect(text).toContain(used);
-    for (const unused of ['Sentry', 'Mistral', 'Ollama', '[']) expect(text).not.toContain(unused);
+    for (const unused of ['Mistral', 'Ollama', '[']) expect(text).not.toContain(unused);
+  });
+
+  it('names Sentry, the error monitor, with EU storage, among the processors and the US transfers', () => {
+    const { container } = renderWithProviders(<Datenschutz />, { initialEntries: ['/datenschutz'] });
+    const text = container.textContent ?? '';
+    expect(text).toContain('Sentry (Functional Software, Inc., USA)');
+    expect(text).toMatch(/stored in the EU \(Germany\)/);
+    expect(text).toMatch(/Cloudflare, Sentry\)/);
   });
 
   it('names Resend, which sends the account emails, among the processors and the US transfers', () => {
@@ -48,6 +56,6 @@ describe('Datenschutz', () => {
     const { container } = renderWithProviders(<Datenschutz />, { initialEntries: ['/datenschutz'] });
     const text = container.textContent ?? '';
     expect(text).toContain('Cloudflare, Inc. (USA)');
-    expect(text).toMatch(/Resend, Cloudflare\)/);
+    expect(text).toMatch(/Resend, Cloudflare, /);
   });
 });

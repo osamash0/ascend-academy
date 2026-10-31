@@ -27,12 +27,12 @@
       "<bold>Was Sie schreiben:</bold> Fragen an den KI-Tutor und der Gesprächsverlauf, Ihre geschriebenen Erklärungen beim Üben, Suchanfragen, Notizen und Feedback-Nachrichten.",
       "<bold>Hochgeladene Dokumente:</bold> die Dateien, der daraus extrahierte Text sowie die daraus erzeugten Zusammenfassungen und Fragen.",
       "<bold>Soziale Daten:</bold> Freundschaften und Freundschaftsanfragen. Ob die Personen in Ihren Spaces Sie sehen (Name, Profilbild und XP in Ranglisten und am Space), entscheiden Sie in den Einstellungen; ab Werk ist das ausgeschaltet. Freunde sehen einander immer.",
-      "<bold>Technische Daten:</bold> IP-Adresse, Browser-Typ und aufgerufene Seiten in Server-Logs, die nur kurz aufbewahrt werden."
+      "<bold>Technische Daten:</bold> IP-Adresse, Browser-Typ und aufgerufene Seiten in Server-Logs, die nur kurz aufbewahrt werden. Wenn in der App oder auf dem Server etwas fehlschlägt, ein Fehlerbericht (siehe Sentry unten)."
     ],
     "section3Title": "3. Zweck und Rechtsgrundlage",
     "section3Items": [
       "<bold>Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO):</bold> Kontodaten, Lernfortschritt, Ihre Uploads und die KI-Funktionen (Zusammenfassungen, Fragen, Tutor-Antworten) sind erforderlich, um den Dienst bereitzustellen, für den Sie sich registriert haben.",
-      "<bold>Berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO):</bold> Lern-Events werden erhoben, um die Lehre zu verbessern und den Personen, die einen Space pflegen, zu zeigen, wo Lernende Schwierigkeiten haben; Server-Logs dienen dem sicheren und zuverlässigen Betrieb."
+      "<bold>Berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO):</bold> Lern-Events werden erhoben, um die Lehre zu verbessern und den Personen, die einen Space pflegen, zu zeigen, wo Lernende Schwierigkeiten haben; Server-Logs und Fehlerberichte dienen dem sicheren und zuverlässigen Betrieb."
     ],
     "section4Title": "4. Auftragsverarbeiter",
     "section4Items": [
@@ -40,6 +40,7 @@
       "<bold>Hetzner Online GmbH (Deutschland)</bold> — Hosting des Anwendungsservers.",
       "<bold>Resend (Plus Five Five, Inc., USA)</bold> — versendet die E-Mails zu Ihrem Konto, etwa den Link zum Zurücksetzen Ihres Passworts. Resend erhält dafür Ihre E-Mail-Adresse und den Inhalt dieser E-Mail; versendet wird aus der EU (Irland).",
       "<bold>Cloudflare, Inc. (USA)</bold> — leitet E-Mails, die Sie an hello@learnstation.app oder privacy@learnstation.app schreiben, an unser Postfach weiter und speichert verschlüsselte Kopien der Datenbank-Sicherungen. Die Sicherungen werden verschlüsselt, bevor sie unseren Server verlassen, Cloudflare kann sie also nicht lesen; sie werden spätestens nach 30 Tagen gelöscht.",
+      "<bold>Sentry (Functional Software, Inc., USA)</bold> — Fehlerüberwachung. Tritt in der App oder auf dem Server ein Fehler auf, wird ein Bericht gesendet: was fehlgeschlagen ist und an welcher Stelle im Code, die Adresse der Seite (ohne den Teil nach „?“), Browser und Betriebssystem sowie der Zeitpunkt. Er enthält weder Ihren Namen noch Ihre E-Mail-Adresse, keine Cookies, keine Inhalte von Anfragen und nichts, was Sie schreiben; Ihr Bildschirm wird nicht aufgezeichnet. Sentry erhält beim Senden Ihre IP-Adresse, speichert sie aber nicht. Die Berichte werden in der EU (Deutschland) gespeichert und spätestens nach 90 Tagen gelöscht.",
       "<bold>KI-Anbieter</bold> — für Zusammenfassungen, Fragen, Erklärungen, Lunas Antworten und die Suche werden der Text Ihrer Dokumente, Ihre Fragen und Ihr Gesprächsverlauf an <bold>OpenAI</bold>, <bold>Groq</bold> und <bold>Google (Gemini)</bold> übermittelt; <bold>OpenRouter</bold> springt ein, wenn diese nicht erreichbar sind. Ihr Name und Ihre E-Mail-Adresse sind nicht Teil dieser Anfragen.",
       "<bold>LlamaIndex (LlamaParse)</bold> — wenn diese Verarbeitungs-Engine beim Hochladen ausgewählt ist, werden hochgeladene Dokumente zur Textextraktion dorthin übermittelt.",
       "<bold>Microsoft (Edge Text-to-Speech)</bold> — beim Vorlesen wird Text übermittelt, um Sprachausgabe zu erzeugen."
@@ -58,7 +59,7 @@
     "section7Title": "7. Cookies und lokale Speicherung",
     "section7Body": "Learnstation verwendet <bold>keine Tracking-Cookies</bold> und keine Werbe-Tracker (kein Google Analytics, kein Facebook Pixel). Zur Sitzungsverwaltung und für Einstellungen wird ausschließlich der lokale Speicher des Browsers (localStorage) verwendet.",
     "section8Title": "8. Drittlandübermittlung",
-    "section8Body": "Einige der oben genannten Auftragsverarbeiter haben ihren Sitz in den USA oder können Daten dort verarbeiten (Supabase, OpenAI, Groq, Google, OpenRouter, LlamaIndex, Microsoft, Resend, Cloudflare). Für diese Übermittlungen gelten die EU-Standardvertragsklauseln (SCCs) bzw. das EU-U.S. Data Privacy Framework als Schutzgarantien gemäß Art. 46 DSGVO.",
+    "section8Body": "Einige der oben genannten Auftragsverarbeiter haben ihren Sitz in den USA oder können Daten dort verarbeiten (Supabase, OpenAI, Groq, Google, OpenRouter, LlamaIndex, Microsoft, Resend, Cloudflare, Sentry). Für diese Übermittlungen gelten die EU-Standardvertragsklauseln (SCCs) bzw. das EU-U.S. Data Privacy Framework als Schutzgarantien gemäß Art. 46 DSGVO.",
     "backHome": "← Zurück zur Startseite"
   }
 }

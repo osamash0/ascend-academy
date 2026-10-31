@@ -21,6 +21,7 @@ import time
 from arq.connections import RedisSettings
 from arq.cron import cron
 
+from backend.core import sentry
 from backend.core.config import settings
 from backend.core.worker_heartbeat import WORKER_HEARTBEAT_KEY, WORKER_HEARTBEAT_TTL_SECONDS
 from backend.services import erasure
@@ -34,6 +35,9 @@ from backend.services.nudge_scheduler import (
 from backend.services.parser.unified_orchestrator import parse_pdf_unified
 from backend.services.review.card_factory import generate_review_cards
 from backend.workers.dlq import capture_dlq_on_job_end
+
+# Parses run here: a failed job reaches Sentry like an API error (arq is picked up automatically).
+sentry.init_sentry(settings.env)
 
 logger = logging.getLogger(__name__)
 

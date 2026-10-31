@@ -151,6 +151,8 @@ services:
         VITE_FEATURE_GLOBAL_SEARCH: ${FEATURE_GLOBAL_SEARCH:-0}
         VITE_FEATURE_ASK_LUNA: ${FEATURE_ASK_LUNA:-0}
         VITE_FEATURE_LUNA_SESSIONS: ${FEATURE_LUNA_SESSIONS:-0}
+        # The browser's own Sentry project; empty = off. EU region only (*.de.sentry.io).
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
     platform: linux/amd64
     networks:
       - ascend_net
