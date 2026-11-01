@@ -296,3 +296,36 @@ After round 1 the scoreboard is computed. If the top method's 95% interval overl
 - **Checks and HTML.** `normalize.py` and the checks are unchanged (checks version 3), so pooling with the earlier comparisons stays valid. HTML tag names in an output count as invented words, and HTML tables are not counted as tables.
 - **Default OCR inside the heavy methods.** As with `pymupdf4llm` (§9), a method may OCR pages it judges image-like; its invented-word share then reflects its OCR, not only the text layer.
 - **The time limit includes start-up.** On the 6- and 7-page sheets, model loading weighs more per page than on the decks; with the page subset, the sheets give 6 and 5 pages.
+
+**4. 2026-11-01, before any benchmark run of `paddleocr_vl_mlx` and before the fourth comparison: PaddleOCR-VL-1.6 through MLX, and a fourth comparison against the same opponents.** The text above stays; where this deviation and the text above differ, this deviation applies from this commit on.
+
+*Why.* Deviation 3 recorded `paddleocr_vl` (the official PaddleOCR-VL pipeline on PaddlePaddle) as not tried: PaddlePaddle runs on the CPU only here, its sibling PP-StructureV3 needed a 13 GB footprint on this 8 GB Mac, and PaddleOCR-VL's model card asks macOS users to use Docker. After the third comparison Abi asked to try the model itself, PaddleOCR-VL-1.6 (0.9B, Apache-2.0), on the Mac's GPU. Two routes were built:
+
+| id | What runs | Exact version | Licence of the code | Model weights (size; licence) | Device | Outcome |
+|---|---|---|---|---|---|---|
+| `paddleocr_vl_hf` | the model through Hugging Face transformers (`AutoModelForImageTextToText`), whole page image at zoom 2, the model card's prompt `OCR:`, greedy decoding, at most 4096 new tokens; float16 with SDPA attention first, then bfloat16, then float32 on the CPU | transformers 5.22.1, torch 2.15.0, pymupdf 1.27.1, pillow 13.0.0 | Apache-2.0 (transformers); BSD-3-Clause (torch) | `PaddlePaddle/PaddleOCR-VL-1.6` at revision `c5630abae1d940eafe0697512a0325494b02ab42`; 1.9 GB; Apache-2.0 | MPS | **Did not run here.** About 1–2 generated tokens per second on this M1: an explore run of five pages (three non-benchmark pages and their neighbours) was stopped at its limit of 600 s on 2026-10-31. Its environment and model files were deleted with Abi's OK on 2026-11-01; its code stays. |
+| `paddleocr_vl_mlx` | the same model, 4-bit, through MLX (`mlx_vlm.load`, `generate`), whole page image at zoom 2, prompt `OCR:` through the model's chat template, temperature 0.0 (greedy), at most 4096 generated tokens | mlx-vlm 0.7.11, mlx 0.32.4, transformers 5.22.1, pymupdf 1.27.1; Python 3.12.13 | MIT (mlx-vlm, mlx); Apache-2.0 (transformers); AGPL-3.0 or commercial (pymupdf, as for every method here) | `mlx-community/PaddleOCR-VL-1.6-4bit` at revision `c8987b277bdd8aaec8bd265d154f391bd03ad165`: a 4-bit community conversion of `PaddlePaddle/PaddleOCR-VL-1.6`, not the official weights; 682 MB; Apache-2.0 | the Mac's GPU through MLX (Metal) | Entrant-to-be, if it stays within the time limit |
+
+- **What `paddleocr_vl_mlx` is, exactly.** The model alone, reading each whole page image. It is not the official PaddleOCR-VL pipeline: there is no layout stage (PP-DocLayoutV3) and no reading-order step before the model. The model card states that the transformers route recognises single elements and recommends the official pipeline for page-level parsing; here the whole page is given to the model as one element. Its output is plain text with line breaks, not Markdown structure.
+- **Quantisation.** The weights are 4-bit. On the one page compared during the speed test, the 4-bit model generated exactly as many tokens (170) as the full-precision model through transformers; no further equivalence was checked. Results are for this 4-bit conversion.
+- **Measured before this deviation (explore, 2026-11-01).** Install 1.5 minutes; live test 48.8 s for six synthetic pages; three explore runs on nine non-benchmark pages (Software engineering deck 2 pages 10–12, DBS normalisation 50–52, SR processes 55–57, each with its neighbours): 16.2, 9.6 and 9.1 s/page with start-up, peak 828–1123 MB resident (a lower bound: memory MLX holds on the GPU is not counted, as noted after deviation 3).
+- **Models and network.** The weights are fetched at install into `~/.cache/learnstation-parser-bench/models/paddleocr_vl_mlx/` and read from there only (offline) in every run. `HF_HUB_DISABLE_TELEMETRY`, `DO_NOT_TRACK` and `ORT_DISABLE_TELEMETRY` are 1, as for every heavy method. No benchmark data leaves the Mac.
+- **Input and time limit.** As for the heavy methods in deviation 3: the page set's pages and 1 neighbour on each side (60 pages), cut with PyMuPDF; the 120 s/page limit over the pages given, start-up included; a warm-up first.
+
+*Changes to the bench since deviation 3* (`bench_drift` at this commit names them; none changes a judged run, a vote or the analysis):
+- 212ac5a7: ONNX Runtime's telemetry switched off for every heavy runner (lab log, 2026-10-31); runners keep their copy of the PDF inside the run's own folder; docstrings.
+- a972e062: the viewer's Results tab (display only).
+- f710b504, 6cbd4af1: `paddleocr_vl_hf`. 70a4d4a4: `paddleocr_vl_mlx`.
+
+*The fourth comparison.*
+- **Entrants.** The ten judged methods, with the runs their comparisons judged, plus `paddleocr_vl_mlx` with its newest finished benchmark runs under this commit. `compare.json` records `builds_on: ["cmp-2026-10-30_8825", "cmp-2026-10-31_04de", "cmp-2026-10-31_0f86"]`, `new_entrants: ["paddleocr_vl_mlx"]` and `opponents`.
+- **Round 1, against the same chosen opponents** as deviation 3: `ai_vision_strong`, `ai_vision`, `pymupdf4llm` and `current`. 4 pairs × 3 = 12 duels on three page types each, + round(12 / 9) = 1 hidden repeat = **13 duels**. The schedule seed is **20261103**, fixed before any vote; the schedule's sha256 is `be326763edccf064a30d502b903e023198af85f90f07aa68a1d8113cf5cbb574` (pinned in the unit tests).
+- **One scale.** Bradley–Terry over every counted vote of all four comparisons, `current` = 1000, the same prior; the bootstrap seeded with 20261103.
+- **H1.** Bonferroni over k = entrants − 1 = 10 challengers. The earlier verdicts stay primary for their methods (deviations 2 and 3); this pooled verdict is the one for `paddleocr_vl_mlx`. The round-1-only sensitivity line as before.
+- **Round 2** under deviation 3's rule: only while the pooled top two overlap and are a pair this comparison schedules.
+
+*Threats (§9), added.*
+- **Less blind than before.** On 2026-11-01, before this deviation, Abi looked at `paddleocr_vl_mlx`'s outputs, with its name, on the nine non-benchmark pages above, next to every other method. Its style (plain text, no Markdown structure) may be recognisable in the duels. It has not been shown on any benchmark page.
+- **Few duels.** 13 duels give a wide interval; the verdict for `paddleocr_vl_mlx` rests on its 12 round-1 duels against four opponents.
+- **Not the official pipeline, and 4-bit.** A verdict on `paddleocr_vl_mlx` is a verdict on this route and this conversion, not on PaddleOCR-VL's official pipeline or its full-precision weights.
+- **Release dates.** mlx-vlm 0.7.11 was 3 days old when pinned; the community conversion was last updated on 2026-08-12.

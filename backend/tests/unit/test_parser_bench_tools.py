@@ -834,11 +834,9 @@ def test_the_heavy_methods_are_named_in_the_protocol():
     from backend.eval.parser_bench import store
 
     protocol = (store.REPO / "docs/thesis/experiments/parser-benchmark/PROTOCOL.md").read_text(encoding="utf-8")
-    # paddleocr_vl_hf and paddleocr_vl_mlx (added 2026-10-31 and 2026-11-01 for explore runs, Abi) are no entrants: each
-    # is named here once a deviation takes it in
-    for tool_id in (t for t in HEAVY if t not in ("paddleocr_vl_hf", "paddleocr_vl_mlx")):
+    for tool_id in HEAVY:  # paddleocr_vl_hf and paddleocr_vl_mlx are named by deviation 4
         assert f"`{tool_id}`" in protocol, tool_id
         for requirement in tools.TOOLS[tool_id].requirements:
             name, _, pinned = requirement.partition("==")
             assert f"{name.split('[')[0]} {pinned}" in protocol, requirement
-    assert "2026-10-31" in protocol and "20261102" in protocol and "120 s/page" in protocol
+    assert "2026-10-31" in protocol and "20261102" in protocol and "120 s/page" in protocol and "20261103" in protocol

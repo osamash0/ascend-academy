@@ -234,6 +234,14 @@ def test_the_third_comparison_schedule_for_the_three_methods_that_ran():
     assert len(duels) == 50 and sum(d["repeat_of"] is not None for d in duels) == 5
     assert _digest(duels) == "dee5c66225f8f4b7fa2f50adf0e7b6cc500b370bc2fe523224608f279d0b5fac"
 
+
+def test_the_fourth_comparison_schedule_is_fixed_before_any_vote():
+    # paddleocr_vl_mlx against the same four opponents, after the three judged comparisons (PROTOCOL.md deviation 4)
+    ten = [*SEVEN, "docling", "marker", "mineru"]
+    duels = schedule.round1([*ten, "paddleocr_vl_mlx"], _page_set(), 20261103, new={"paddleocr_vl_mlx"}, opponents=OPPONENTS)
+    assert len(duels) == 13 and sum(d["repeat_of"] is not None for d in duels) == 1
+    assert _digest(duels) == "be326763edccf064a30d502b903e023198af85f90f07aa68a1d8113cf5cbb574"
+
 def test_new_methods_meet_each_other_and_only_the_chosen_opponents():
     duels = schedule.round1(ELEVEN, PAGES, seed=5, new=HEAVY, opponents=OPPONENTS)
     first = [d for d in duels if d["repeat_of"] is None]
