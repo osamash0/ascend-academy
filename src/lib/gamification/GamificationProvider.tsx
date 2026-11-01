@@ -12,6 +12,7 @@ import {
   awardBadge as awardBadgeRpc,
   evaluateBadges,
   grantXp as grantXpRpc,
+  grantQuizXp as grantQuizXpRpc,
   type BadgeDefinition,
 } from '@/services/gamificationService';
 
@@ -20,8 +21,10 @@ interface GamificationContextValue {
   evaluate: () => void;
   /** Award an event badge by key (immediate). */
   awardBadge: (key: string) => Promise<void>;
-  /** Add XP with a reason + optional one-time dedupe key. */
+  /** Claim the fixed reward for a persisted completion or review. */
   grantXp: (xp: number, reason: string, dedupeKey?: string) => Promise<void>;
+  /** The server checks the answer and awards at most once per question. */
+  grantQuizXp: (questionId: string, selectedIndex: number) => Promise<void>;
 }
 
 const GamificationContext = createContext<GamificationContextValue | undefined>(undefined);
@@ -132,6 +135,12 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     invalidate();
   }, [refreshProfile, invalidate]);
 
+  const grantQuizXp = useCallback(async (questionId: string, selectedIndex: number) => {
+    await grantQuizXpRpc(questionId, selectedIndex);
+    await refreshProfile();
+    invalidate();
+  }, [refreshProfile, invalidate]);
+
   useEffect(() => () => { if (evalTimer.current) clearTimeout(evalTimer.current); }, []);
 
   const current = queue[0];
@@ -151,8 +160,8 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
   }, [current]);
 
   const value = useMemo(
-    () => ({ evaluate, awardBadge, grantXp }),
-    [evaluate, awardBadge, grantXp],
+    () => ({ evaluate, awardBadge, grantXp, grantQuizXp }),
+    [evaluate, awardBadge, grantXp, grantQuizXp],
   );
 
   return (

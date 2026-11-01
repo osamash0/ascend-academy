@@ -24,8 +24,8 @@ export interface BadgeDefinition {
 }
 
 /**
- * Add XP with a reason. Pass a stable `dedupeKey` for one-time grants
- * (e.g. `lecture:<id>`) so the same event can never be counted twice.
+ * Claim a fixed completion/review reward with its canonical activity key.
+ * The database validates the source record, amount and deduplication key.
  * Fire-and-forget safe: callers should not block the UI on this.
  */
 export async function grantXp(
@@ -39,6 +39,15 @@ export async function grantXp(
     p_dedupe_key: dedupeKey ?? null,
   });
   if (error) console.warn('grantXp failed', error);
+}
+
+/** Submit a quiz answer for a fixed reward, once per question across readers. */
+export async function grantQuizXp(questionId: string, selectedIndex: number): Promise<void> {
+  const { error } = await rpc('grant_quiz_xp', {
+    p_question_id: questionId,
+    p_selected_index: selectedIndex,
+  });
+  if (error) console.warn('grantQuizXp failed', error);
 }
 
 /**

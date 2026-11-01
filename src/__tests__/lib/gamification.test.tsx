@@ -27,11 +27,13 @@ import { badgeLabel, categoryLabel } from '@/lib/gamification/badgeLabel';
 
 // gamificationService is the I/O boundary — mock the whole module
 const grantXpRpcMock = vi.fn().mockResolvedValue(undefined);
+const grantQuizXpRpcMock = vi.fn().mockResolvedValue(undefined);
 const awardBadgeRpcMock = vi.fn().mockResolvedValue(null);
 const evaluateBadgesMock = vi.fn().mockResolvedValue([]);
 
 vi.mock('@/services/gamificationService', () => ({
   grantXp: (...args: unknown[]) => grantXpRpcMock(...args),
+  grantQuizXp: (...args: unknown[]) => grantQuizXpRpcMock(...args),
   awardBadge: (...args: unknown[]) => awardBadgeRpcMock(...args),
   evaluateBadges: () => evaluateBadgesMock(),
 }));
