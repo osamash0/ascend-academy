@@ -159,8 +159,64 @@ function Check({ check, accent, onCommit }: { check: LunaCheck; accent: string; 
   );
 }
 
+/**
+ * The phone's page: one row above the thread, where the aside would be on a
+ * desk. The page number, the words Luna lit, and the door into the reader.
+ * Only once she has been somewhere — a phone has no room for a cover, and
+ * the thread's own dots already say she is reading.
+ */
+function PageRow({ lesson, accent, spot }: { lesson: HomeLesson; accent: string; spot: LunaMove | null }) {
+  const { t } = useTranslation('v4Luna');
+  return (
+    <AnimatePresence initial={false}>
+      {spot && (
+        <motion.div
+          key="row"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0, transition: { duration: 0.15 } }}
+          className="relative mb-4 h-16 md:hidden"
+        >
+          <AnimatePresence initial={false}>
+          <motion.div
+            key={`${spot.page}-${spot.spot ?? ''}`}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, transition: { duration: 0.15 } }}
+            transition={{ duration: 0.3, ease: EASE }}
+            className="absolute inset-0"
+          >
+            <Link
+              to={pagePath(lesson.spaceId, spot)}
+              aria-label={t('homeChat.openPageLabel', { lesson: lesson.title, page: spot.page })}
+              className="console-focusable flex h-full items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3"
+              style={{ boxShadow: `inset 2px 0 0 ${accent}` }}
+            >
+              <span className="flex shrink-0 flex-col items-center leading-none">
+                <span className="text-[10px] text-quiet">{t('homeChat.page')}</span>
+                <span className="mt-0.5 text-[22px] font-medium tabular-nums tracking-[-0.02em]">{spot.page}</span>
+              </span>
+              <span className="min-w-0 flex-1 line-clamp-2 text-[13px] leading-[1.4]">
+                {spot.spot ? (
+                  <span className="rounded px-1 box-decoration-clone" style={{ background: `color-mix(in srgb, ${accent} 22%, transparent)` }}>{spot.spot}</span>
+                ) : (
+                  <span className="text-quiet">{lesson.title}</span>
+                )}
+              </span>
+              <ArrowUpRight aria-hidden className="h-4 w-4 shrink-0 text-quiet" />
+            </Link>
+          </motion.div>
+          </AnimatePresence>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 /** The thread: Luna's plan, her words and blocks, your questions, the way forward. */
-export function HomeChat({ luna, lesson, accent, onSpot }: { luna: Luna; lesson: HomeLesson; accent: string; onSpot: (m: LunaMove) => void }) {
+export function HomeChat({
+  luna, lesson, accent, spot, onSpot,
+}: { luna: Luna; lesson: HomeLesson; accent: string; spot: LunaMove | null; onSpot: (m: LunaMove) => void }) {
   const { t } = useTranslation('v4Luna');
   const { state } = luna;
   const busy = state.busy || state.planning;
@@ -181,6 +237,7 @@ export function HomeChat({ luna, lesson, accent, onSpot }: { luna: Luna; lesson:
 
   return (
     <div className="flex min-h-0 flex-col">
+      <PageRow lesson={lesson} accent={accent} spot={spot} />
       {state.plan.length > 0 && (
         <div className="mb-5 md:pl-[4.75rem]">
           <PlanStrip plan={state.plan} accepted={accepted} onAccept={() => void luna.act('accept_plan')} onSkip={() => void luna.act('skip_step')} />

@@ -480,7 +480,7 @@ export default function HomeScreen() {
             exit={{ opacity: 0, transition: { duration: 0.15 } }}
             className="mt-5 grid min-h-0 flex-1 gap-12 md:mt-7 md:grid-cols-[minmax(0,1fr)_20rem]"
           >
-            <HomeChat luna={luna} lesson={lesson} accent={accent ?? '#ffffff'} onSpot={setSpot} />
+            <HomeChat luna={luna} lesson={lesson} accent={accent ?? '#ffffff'} spot={spot} onSpot={setSpot} />
             <HomePage luna={luna} lesson={lesson} accent={accent ?? '#ffffff'} spot={spot} onSpot={setSpot} />
           </motion.div>
         )}
