@@ -1106,7 +1106,7 @@ export default function HomeChatLab() {
               {chatting && (
                 <motion.div key="who" initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ delay: 0.25 }} className="min-w-0">
                   <p className="text-[15px] font-medium">Luna</p>
-                  <p className="truncate text-[12.5px] text-quiet">{SPACE.name}</p>
+                  <p className="truncate text-[12.5px] text-quiet">{live ? next.spaceName : SPACE.name}</p>
                 </motion.div>
               )}
             </AnimatePresence>
