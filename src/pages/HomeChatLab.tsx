@@ -52,6 +52,11 @@ import { SpacesTopBar } from '@/features/spaces/components/SpacesTopBar';
 import { Masthead, Sep, Skylight, UpNext, StageRow, ghostPillSm, stageAccentFor } from '@/features/spaces/components/stage';
 import { useHome } from '@/features/spaces/data/useSpaces';
 import { useViewer } from '@/features/spaces/data/viewer';
+import { askSuggestionsNow } from '@/features/spaces/data/assistant';
+import { say } from '@/features/spaces/data/phrases';
+import { lunaLive, type LunaMove } from '@/features/spaces/data/lunaSession';
+import { useLunaSession } from '@/features/spaces/data/useLunaSession';
+import { BlockView } from '@/features/spaces/components/reader/iui/Blocks';
 import { lessonsForSpace } from '@/features/spaces/mocks/lessons';
 import type { MaterialPage } from '@/features/spaces/types';
 import { cn } from '@/lib/utils';
@@ -506,6 +511,46 @@ function FocusPage({ page, line, accent, reading }: { page: MaterialPage | null;
   );
 }
 
+/**
+ * Live: where Luna is on the real Lesson. The reader draws the page itself;
+ * here the page is named and the words she lit are quoted, and the card is
+ * the door into the reader at that page with the same words lit.
+ */
+function LiveFocus({ spot, accent, reading, title, space, to }: { spot: LunaMove | null; accent: string; reading: boolean; title: string; space: string; to: string | null }) {
+  return (
+    <div className="relative aspect-[16/10] w-full">
+      <AnimatePresence initial={false}>
+        {spot && to ? (
+          <motion.div key={`${spot.page}-${spot.spot ?? ''}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.2 } }} transition={{ duration: 0.35, ease: EASE }} className="absolute inset-0">
+            <Link to={to} aria-label={`Open ${title}, page ${spot.page}, in the reader`} className="console-focusable group flex h-full w-full flex-col justify-between rounded-xl border border-white/[0.10] bg-white/[0.03] px-6 py-5" style={{ boxShadow: `0 0 0 2px ${accent}` }}>
+              <span className="flex items-start justify-between">
+                <span className="text-[12.5px] text-quiet">Page</span>
+                <ArrowUpRight aria-hidden className="h-4 w-4 text-quiet opacity-0 transition-opacity group-hover:opacity-100" />
+              </span>
+              <span className="text-[44px] font-medium leading-none tabular-nums tracking-[-0.03em]">{spot.page}</span>
+              {spot.spot ? (
+                <span className="mt-3 line-clamp-2 text-[13.5px] leading-[1.5]">
+                  <span className="rounded px-1 box-decoration-clone" style={{ background: `color-mix(in srgb, ${accent} 22%, transparent)` }}>{spot.spot}</span>
+                </span>
+              ) : (
+                <span className="mt-3 text-[13px] text-quiet">{title}</span>
+              )}
+            </Link>
+          </motion.div>
+        ) : (
+          <motion.div key="cover" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.2 } }} className="absolute inset-0 flex flex-col justify-end overflow-hidden rounded-xl border border-white/[0.08] px-6 py-5" style={{ background: `linear-gradient(160deg, color-mix(in srgb, ${accent} 16%, transparent), transparent 70%)` }}>
+            <span className="text-[12.5px] text-quiet">{space}</span>
+            <span className="mt-1 text-[22px] font-medium tracking-[-0.02em]">{title}</span>
+            <motion.span className="mt-3 text-[12.5px] text-quiet" animate={reading ? { opacity: [0.45, 1, 0.45] } : { opacity: 0.7 }} transition={reading ? { duration: 1.6, repeat: Infinity, ease: 'easeInOut' } : undefined}>
+              {reading ? 'Luna is reading' : 'Ask about it'}
+            </motion.span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function Thumb({ page, lit, focused, accent, onPick }: { page: MaterialPage; lit: boolean; focused: boolean; accent: string; onPick: () => void }) {
   return (
     <motion.li layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="relative list-none">
@@ -687,7 +732,18 @@ function FlowBlock({ block, accent, focus, onHover }: { block: Extract<Block, { 
  * A check you commit to. The card grades, not the model: which option is
  * right is data the tutor wrote, the hint ladder and the feedback are ours.
  */
-function CheckBlock({ block, accent, onAnswered }: { block: Extract<Block, { type: 'check' }>; accent: string; onAnswered: () => void }) {
+function CheckBlock({
+  block,
+  accent,
+  onAnswered,
+  onCommit,
+}: {
+  block: Extract<Block, { type: 'check' }>;
+  accent: string;
+  onAnswered: () => void;
+  /** The first committed answer, right or wrong — what a live session records. */
+  onCommit?: (correct: boolean) => void;
+}) {
   const [picked, setPicked] = useState<number | null>(null);
   const [tries, setTries] = useState(0);
   const [result, setResult] = useState<'right' | 'wrong' | null>(null);
@@ -695,6 +751,7 @@ function CheckBlock({ block, accent, onAnswered }: { block: Extract<Block, { typ
     if (picked === null) return;
     const ok = block.options[picked].correct;
     setResult(ok ? 'right' : 'wrong');
+    if (tries === 0) onCommit?.(ok);
     setTries((n) => n + 1);
     if (ok) onAnswered();
   };
@@ -794,6 +851,40 @@ export default function HomeChatLab() {
   const [sent, setSent] = useState(0);
   const [hover, setHover] = useState<Spot | null>(null);
   const [pinned, setPinned] = useState<Spot | null>(null);
+  const [glance, setGlance] = useState<{ x: number; y: number } | null>(null);
+
+  /*
+   * Live: the real Luna session, scoped to the Lesson Home already points at.
+   * Same API the reader uses; nothing new on the backend. Where she goes
+   * (`move`) and what she lights (`spot`) drive the right-hand page.
+   */
+  const live = lunaLive();
+  const [liveSpot, setLiveSpot] = useState<LunaMove | null>(null);
+  const onMove = useCallback((m: LunaMove) => {
+    setLiveSpot(m);
+    setGlance({ x: 0.95, y: 0.1 });
+    window.setTimeout(() => setGlance(null), 1100);
+  }, []);
+  const luna = useLunaSession({
+    spaceId: next?.spaceId ?? '',
+    lessonId: next?.lessonId ?? '',
+    onMove,
+    readingAt: () => liveSpot?.page ?? 1,
+    active: live && mode === 'chat' && next !== null,
+  });
+  const ls = luna.state;
+  const liveBusy = live && (ls.busy || ls.planning);
+  const liveAccepted = ls.plan.some((s) => s.status !== 'todo');
+  const liveOpen = ls.plan.some((s) => s.status === 'todo' || s.status === 'current');
+  const liveLastLuna = [...ls.thread].reverse().find((i) => i.kind === 'luna');
+  const liveCheckOpen = liveLastLuna?.kind === 'luna' && Boolean(liveLastLuna.check);
+  const liveCanContinue = Boolean(ls.sessionId) && liveAccepted && !ls.busy && !ls.wrap && !ls.offerWrap && liveOpen && !liveCheckOpen;
+  const liveCanAccept = Boolean(ls.sessionId) && !liveAccepted && !ls.busy && !ls.wrap && ls.plan.length > 0;
+  const livePages = useMemo(() => {
+    const seen: number[] = [];
+    ls.thread.forEach((i) => i.kind === 'move' && !seen.includes(i.move.page) && seen.push(i.move.page));
+    return seen;
+  }, [ls.thread]);
 
   const pages = useMemo(() => lessonsForSpace(SPACE.id).find((l) => l.id === LESSON.id)?.material?.pages ?? [], []);
   const pageOf = (n: number | null | undefined) => (n == null ? null : pages.find((p) => p.page === n) ?? null);
@@ -813,6 +904,13 @@ export default function HomeChatLab() {
   const ask = useCallback(
     (q: string) => {
       setSent((n) => n + 1);
+      if (live) {
+        setMode('chat');
+        setPinned(null);
+        if (luna.state.sessionId) void luna.send(q);
+        else void luna.start(q);
+        return;
+      }
       const id = Date.now();
       if (TEACH.test(q)) {
         setPlan({ steps: PLAN.map((s) => s.title), current: 0 });
@@ -822,7 +920,7 @@ export default function HomeChatLab() {
       const a = ANSWERS.find((x) => x.match.test(q)) ?? null;
       begin({ id, kind: 'ask', question: q, answerId: a?.id ?? null, blocks: a?.blocks ?? FALLBACK });
     },
-    [begin],
+    [begin, live, luna],
   );
 
   const nextStep = useCallback(() => {
@@ -898,7 +996,6 @@ export default function HomeChatLab() {
   }, [turns]);
   const focus: Spot | null = hover ?? pinned ?? current;
 
-  const [glance, setGlance] = useState<{ x: number; y: number } | null>(null);
   const currentPage = current?.page ?? null;
   useEffect(() => {
     if (currentPage === null) return;
@@ -918,8 +1015,18 @@ export default function HomeChatLab() {
 
   const chatting = mode === 'chat';
   const lunaSize = chatting ? 64 : 340;
+  /* What Luna is doing, whichever world this is. */
+  const reading = live ? liveBusy : thinking;
+  const strip = live
+    ? ls.plan.length > 0
+      ? { steps: ls.plan.map((s) => s.title), current: Math.max(0, ls.plan.findIndex((s) => s.status === 'current')) }
+      : null
+    : plan;
 
   if (state !== 'ready' || !next) return null;
+
+  const liveReaderPath = (m: LunaMove) =>
+    `/v4/space/${next.spaceId}/lesson/${m.lecture_id}/faces?page=${m.page}${m.spot ? `&spot=${encodeURIComponent(m.spot)}` : ''}&luna=1`;
 
   const renderBlock = (x: Turn, b: Block, i: number): ReactNode => {
     const visible = i < x.at || (i === x.at && b.type === 'text');
@@ -989,7 +1096,7 @@ export default function HomeChatLab() {
                 loadout={loadout}
                 size={lunaSize}
                 accent={accent}
-                attention={thinking || asking ? 'listening' : streaming ? 'typing' : 'idle'}
+                attention={reading || asking ? 'listening' : streaming ? 'typing' : 'idle'}
                 nudge={keys}
                 cheer={sent}
                 glance={glance}
@@ -1048,18 +1155,96 @@ export default function HomeChatLab() {
                 className="mt-5 grid min-h-0 flex-1 gap-12 md:mt-7 md:grid-cols-[minmax(0,1fr)_20rem]"
               >
                 <div className="flex min-h-0 flex-col">
-                  <div className="mb-4 md:hidden">
-                    <PageRow page={pageOf(focus?.page)} line={focus?.line} accent={accent} reading={thinking} />
-                  </div>
-                  {plan && (
+                  {!live && (
+                    <div className="mb-4 md:hidden">
+                      <PageRow page={pageOf(focus?.page)} line={focus?.line} accent={accent} reading={reading} />
+                    </div>
+                  )}
+                  {strip && (
                     <div className="mb-5 md:pl-[4.75rem]">
-                      <PlanStrip steps={plan.steps} current={plan.current} />
+                      <PlanStrip steps={strip.steps} current={strip.current} />
                     </div>
                   )}
                   <div className="relative min-h-0 flex-1">
                     <div ref={scrollRef} className="h-full overflow-y-auto pr-2 [scrollbar-width:thin]">
                       <ol ref={contentRef} className="space-y-8 pb-3 md:pl-[4.75rem]">
-                        {turns.map((x, idx) => (
+                        {/* Live: the real session's thread, through the reader's own block renderer. */}
+                        {live &&
+                          ls.thread.map((item) => {
+                            if (item.kind === 'learner')
+                              return (
+                                <motion.li key={item.id} initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE }} className="flex justify-end">
+                                  <span className="inline-block max-w-[85%] rounded-2xl bg-white/[0.07] px-4 py-2 text-[14.5px] leading-6">{item.text}</span>
+                                </motion.li>
+                              );
+                            if (item.kind === 'move')
+                              return (
+                                <motion.li key={item.id} {...ARRIVE}>
+                                  <button type="button" onClick={() => setLiveSpot(item.move)} className="console-focusable inline-flex items-center gap-1.5 text-[12.5px] text-quiet hover:text-foreground">
+                                    <ArrowRight aria-hidden className="h-3 w-3" />
+                                    Page {item.move.page}
+                                  </button>
+                                </motion.li>
+                              );
+                            const toks = words(item.md ?? '');
+                            return (
+                              <motion.li key={item.id} className="max-w-[60ch] space-y-5">
+                                {item.md && (
+                                  <p className="text-[16px] leading-[1.8] text-foreground">
+                                    <Arriving tokens={toks} upTo={toks.length} />
+                                  </p>
+                                )}
+                                {item.blocks.map((b, i) => (
+                                  <motion.div key={i} {...ARRIVE}>
+                                    <BlockView block={b} onSpot={(w) => liveSpot && setLiveSpot({ ...liveSpot, spot: w ?? undefined })} onAsk={(q) => void luna.send(q)} />
+                                  </motion.div>
+                                ))}
+                                {item.check && (
+                                  <CheckBlock
+                                    block={{ type: 'check', question: item.check.question, options: item.check.options, hint: 'Look at the page once more, then try again.' }}
+                                    accent={accent}
+                                    onAnswered={() => undefined}
+                                    onCommit={(ok) => void luna.answerCheck(item.check!.question, ok)}
+                                  />
+                                )}
+                              </motion.li>
+                            );
+                          })}
+                        {live && (
+                          <>
+                            {liveBusy && (
+                              <li aria-label="Luna is reading" className="inline-flex items-center gap-1.5 py-2">
+                                {[0, 1, 2].map((i) => (
+                                  <motion.span key={i} className="h-1.5 w-1.5 rounded-full bg-white/50" animate={{ opacity: [0.25, 1, 0.25] }} transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.18, ease: 'easeInOut' }} />
+                                ))}
+                              </li>
+                            )}
+                            {ls.error && <li className="text-[13px] text-quiet">{ls.error}</li>}
+                            {(liveCanAccept || liveCanContinue || (ls.offerWrap && !ls.wrap)) && (
+                              <li className="flex flex-wrap gap-2">
+                                {liveCanAccept && (
+                                  <button type="button" onClick={() => void luna.act('accept_plan')} className="console-focusable inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-[13.5px] font-semibold text-slate-900">
+                                    Start
+                                    <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                                {liveCanContinue && (
+                                  <button type="button" onClick={() => void luna.act('continue')} className="console-focusable inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-[13.5px] font-semibold text-slate-900">
+                                    Next
+                                    <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                                {ls.offerWrap && !ls.wrap && (
+                                  <button type="button" onClick={() => void luna.wrapUp()} className={ghostPillSm}>
+                                    Wrap up
+                                  </button>
+                                )}
+                              </li>
+                            )}
+                            {ls.wrap && <li className="text-[13.5px] text-quiet">That was the session. Open the Lesson to keep reading.</li>}
+                          </>
+                        )}
+                        {!live && turns.map((x, idx) => (
                           <motion.li key={x.id} className="space-y-5">
                             {/* Your question, risen from the pill — or the step you moved to. */}
                             {x.kind === 'ask' ? (
@@ -1127,7 +1312,7 @@ export default function HomeChatLab() {
                       </ol>
                     </div>
                     <AnimatePresence>
-                      {!isAtBottom && turns.length > 0 && (
+                      {!isAtBottom && (live ? ls.thread.length : turns.length) > 0 && (
                         <motion.button
                           key="newest"
                           type="button"
@@ -1147,13 +1332,17 @@ export default function HomeChatLab() {
 
                 {/* The page she is on, large; the trail of pages she has cited, small. */}
                 <aside className="hidden min-h-0 flex-col md:flex">
-                  <FocusPage page={pageOf(focus?.page)} line={focus?.line} accent={accent} reading={thinking} />
+                  {live ? (
+                    <LiveFocus spot={liveSpot} accent={accent} reading={liveBusy} title={next.lessonTitle} space={next.spaceName} to={liveSpot ? liveReaderPath(liveSpot) : null} />
+                  ) : (
+                    <FocusPage page={pageOf(focus?.page)} line={focus?.line} accent={accent} reading={reading} />
+                  )}
                   <div className="mt-2.5 flex items-baseline justify-between text-[12.5px]">
-                    <span className="text-quiet">{LESSON.title}</span>
+                    <span className="text-quiet">{live ? next.lessonTitle : LESSON.title}</span>
                     <AnimatePresence>
-                      {focus && (
+                      {(live ? liveSpot : focus) && (
                         <motion.span key="open" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                          <Link to={readerPath(focus.page)} className="console-focusable rounded text-foreground underline-offset-4 hover:underline">
+                          <Link to={live && liveSpot ? liveReaderPath(liveSpot) : readerPath(focus!.page)} className="console-focusable rounded text-foreground underline-offset-4 hover:underline">
                             Open in the reader
                           </Link>
                         </motion.span>
@@ -1161,13 +1350,28 @@ export default function HomeChatLab() {
                     </AnimatePresence>
                   </div>
                   <div className="relative mt-5">
-                    {cited.length > 1 && <span aria-hidden className="pointer-events-none absolute left-2 right-2 top-1/2 h-px bg-white/[0.10]" />}
+                    {(live ? livePages : cited).length > 1 && <span aria-hidden className="pointer-events-none absolute left-2 right-2 top-1/2 h-px bg-white/[0.10]" />}
                     <motion.ul layout className="relative flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       <AnimatePresence initial={false}>
-                        {cited.map((n) => {
-                          const page = pageOf(n);
-                          return page ? <Thumb key={n} page={page} lit={lit.has(n)} focused={focus?.page === n} accent={accent} onPick={() => setPinned({ page: n })} /> : null;
-                        })}
+                        {live
+                          ? livePages.map((n) => (
+                              <motion.li key={n} layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="list-none">
+                                <button
+                                  type="button"
+                                  onClick={() => setLiveSpot({ lecture_id: next.lessonId, page: n })}
+                                  aria-label={`Show page ${n}`}
+                                  aria-pressed={liveSpot?.page === n}
+                                  className="console-focusable flex aspect-[16/10] w-[4.25rem] items-center justify-center rounded-md bg-white/[0.04] text-[12px] tabular-nums"
+                                  style={{ boxShadow: liveSpot?.page === n ? `0 0 0 2px ${accent}` : '0 0 0 1px rgba(255,255,255,0.10)' }}
+                                >
+                                  {n}
+                                </button>
+                              </motion.li>
+                            ))
+                          : cited.map((n) => {
+                              const page = pageOf(n);
+                              return page ? <Thumb key={n} page={page} lit={lit.has(n)} focused={focus?.page === n} accent={accent} onPick={() => setPinned({ page: n })} /> : null;
+                            })}
                       </AnimatePresence>
                     </motion.ul>
                   </div>
@@ -1189,7 +1393,9 @@ export default function HomeChatLab() {
           >
             <AskBar
               placeholder={chatting ? 'Ask Luna more…' : t('home.askPlaceholder')}
-              suggestions={chatting ? [] : ['Teach me normalization step by step', 'Explain normalization more simply', 'Show me an example']}
+              suggestions={
+                chatting ? [] : live ? askSuggestionsNow().map((p) => say(t, p)) : ['Teach me normalization step by step', 'Explain normalization more simply', 'Show me an example']
+              }
               model="auto"
               busy={busy}
               onSubmit={ask}
