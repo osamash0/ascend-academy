@@ -545,9 +545,9 @@ export function InlineLecturePlayer({
 
         queryClient.invalidateQueries({ queryKey: ['student-progress', user?.id] });
 
-        // XP, level-ups and count-based badges are handled by the gamification
-        // engine. The day-streak stays owned by record_daily_activity().
-        await gamification.grantXp(10, 'quiz_correct');
+        // The server validates the answer and shares the live reader's
+        // per-question reward key, so reopening either reader cannot farm XP.
+        await gamification.grantQuizXp(currentQuestion.id, selectedIndex);
 
         // In-session correct-answer streak → "On Fire" (5) / "Unstoppable" (10).
         correctStreakRef.current += 1;
