@@ -61,7 +61,7 @@ def test_every_runner_exists_and_every_group_is_known():
         assert tool.kind in ("python", "node"), tool.id
 
 
-HEAVY = ["docling", "marker", "mineru", "paddleocr", "paddleocr_vl", "paddleocr_vl_hf"]
+HEAVY = ["docling", "marker", "mineru", "paddleocr", "paddleocr_vl", "paddleocr_vl_hf", "paddleocr_vl_mlx"]
 
 
 def test_the_methods_are_registered():
@@ -182,6 +182,28 @@ def test_paddleocr_vl_hf_is_pinned_and_fetches_exactly_its_revision_at_install(h
     compile(code, "<paddleocr_vl_hf prefetch>", "exec")
     env = tools.runner_env(tool)  # HF_HOME is what the fetch step and the runner's snapshot lookup share
     assert env["HF_HOME"] == str(tools.models_dir(tool) / "huggingface")
+    with pytest.raises(ValueError, match="models come only from install"):
+        tools.clear_models(tool)
+
+
+def test_paddleocr_vl_mlx_is_pinned_and_fetches_exactly_its_revision_at_install(heavy_dirs):
+    tool = tools.TOOLS["paddleocr_vl_mlx"]
+    assert tool.requirements == ("mlx-vlm==0.7.11", "mlx==0.32.4", "transformers==5.22.1", "pymupdf==1.27.1")
+    assert tool.import_name == "mlx_vlm" and tool.runner == "paddleocr_vl_mlx_runner.py" and tool.runner_args == ()
+    assert tools.TOOLS["ai_vision"].requirements[0] in tool.requirements  # the same PyMuPDF as ai_vision renders with
+    assert tool.neighbours == tools.HEAVY_NEIGHBOURS and tool.size_mb == 1500
+    assert tool.exclude_newer == tools.EXCLUDE_NEWER and tool.limit_per_page == tools.TIME_LIMIT_PER_PAGE
+    assert tools.PADDLEOCR_VL_MLX_REPO == "mlx-community/PaddleOCR-VL-1.6-4bit"
+    assert tools.PADDLEOCR_VL_MLX_REVISION == "c8987b277bdd8aaec8bd265d154f391bd03ad165"
+    assert len(tool.prefetch) == 1
+    step = tool.prefetch[0]
+    assert step[:3] == ("python", "-I", "-c")
+    code = step[3]
+    assert "snapshot_download" in code and tools.PADDLEOCR_VL_MLX_REPO in code and tools.PADDLEOCR_VL_MLX_REVISION in code
+    compile(code, "<paddleocr_vl_mlx prefetch>", "exec")
+    env = tools.runner_env(tool)  # HF_HOME is what the fetch step and the runner's snapshot lookup share
+    assert env["HF_HOME"] == str(tools.models_dir(tool) / "huggingface")
+    assert tools.models_dir(tool) != tools.models_dir(tools.TOOLS["paddleocr_vl_hf"])  # own folder, own revision
     with pytest.raises(ValueError, match="models come only from install"):
         tools.clear_models(tool)
 
@@ -812,8 +834,9 @@ def test_the_heavy_methods_are_named_in_the_protocol():
     from backend.eval.parser_bench import store
 
     protocol = (store.REPO / "docs/thesis/experiments/parser-benchmark/PROTOCOL.md").read_text(encoding="utf-8")
-    # paddleocr_vl_hf (added 2026-10-31 for explore runs, Abi) is no entrant: it is named here once a deviation takes it in
-    for tool_id in (t for t in HEAVY if t != "paddleocr_vl_hf"):
+    # paddleocr_vl_hf and paddleocr_vl_mlx (added 2026-10-31 and 2026-11-01 for explore runs, Abi) are no entrants: each
+    # is named here once a deviation takes it in
+    for tool_id in (t for t in HEAVY if t not in ("paddleocr_vl_hf", "paddleocr_vl_mlx")):
         assert f"`{tool_id}`" in protocol, tool_id
         for requirement in tools.TOOLS[tool_id].requirements:
             name, _, pinned = requirement.partition("==")

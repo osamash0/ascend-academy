@@ -6,7 +6,7 @@ backend .venv, so it uses production's own PyMuPDF version. `pdfjs` runs on Node
 with this repo's node_modules. The paid methods (ai_vision, ai_vision_strong) run in their own environment
 too; they need the key file (paid.py) and a model id.
 
-Heavy methods (docling, marker, mineru, paddleocr, paddleocr_vl, paddleocr_vl_hf) download models. Each keeps them in its own
+Heavy methods (docling, marker, mineru, paddleocr, paddleocr_vl, paddleocr_vl_hf, paddleocr_vl_mlx) download models. Each keeps them in its own
 folder under models_root() (every cache variable its libraries read points there, CACHE_VARS), with usage
 reporting off (QUIET_VARS). Its install resolves as PyPI stood on EXCLUDE_NEWER, imports the module, and then
 fetches the models (its own download command, then one run of its runner on a synthetic page) before it counts
@@ -148,6 +148,17 @@ PADDLEOCR_VL_HF_FETCH = ("python", "-I", "-c",
                          "from huggingface_hub import snapshot_download as d\n"
                          f"d(repo_id={PADDLEOCR_VL_HF_REPO!r}, revision={PADDLEOCR_VL_HF_REVISION!r})")
 
+# PaddleOCR-VL 1.6, 4-bit, through MLX (method paddleocr_vl_mlx): the community conversion of the official model
+# (base PaddlePaddle/PaddleOCR-VL-1.6) that mlx-vlm loads. The runner loads exactly this revision from the method's
+# own model folder (HF_HOME, runner_env); install fetches it with the step below, a run never downloads.
+# Apache-2.0, 682 MB. Revision checked 2026-11-01. The pins (mlx-vlm 0.7.11, 2026-10-28; mlx 0.32.4, 2026-10-14;
+# transformers 5.22.1, 2026-10-30) were all on PyPI before EXCLUDE_NEWER, so the install keeps that date.
+PADDLEOCR_VL_MLX_REPO = "mlx-community/PaddleOCR-VL-1.6-4bit"
+PADDLEOCR_VL_MLX_REVISION = "c8987b277bdd8aaec8bd265d154f391bd03ad165"
+PADDLEOCR_VL_MLX_FETCH = ("python", "-I", "-c",
+                          "from huggingface_hub import snapshot_download as d\n"
+                          f"d(repo_id={PADDLEOCR_VL_MLX_REPO!r}, revision={PADDLEOCR_VL_MLX_REVISION!r})")
+
 # PaddleOCR 3: both methods install the same pins (paddleocr's doc-parser extra pulls PaddleX's OCR and genai
 # clients). They differ only by the runner's --pipeline argument. Their models (PaddleX official models, in
 # PADDLE_PDX_CACHE_HOME/official_models, from Hugging Face by default) are fetched when the pipeline is built, and
@@ -208,6 +219,11 @@ TOOLS: dict[str, Tool] = {t.id: t for t in (
          "Baidu's 0.9B document VLM via Hugging Face transformers on the Mac's GPU; whole page image, prompt OCR:",
          requirements=("transformers==5.22.1", "torch==2.15.0", "pymupdf==1.27.1", "pillow==13.0.0"),
          size_mb=3400, import_name="transformers", downloads_models=True, prefetch=(PADDLEOCR_VL_HF_FETCH,),
+         limit_per_page=TIME_LIMIT_PER_PAGE, exclude_newer=EXCLUDE_NEWER, neighbours=HEAVY_NEIGHBOURS),
+    Tool("paddleocr_vl_mlx", "PaddleOCR-VL 1.6 (MLX, 4-bit)", "heavy", "paddleocr_vl_mlx_runner.py",
+         "Baidu's 0.9B document VLM, 4-bit, through Apple's MLX on the Mac's GPU; whole page image, prompt OCR:",
+         requirements=("mlx-vlm==0.7.11", "mlx==0.32.4", "transformers==5.22.1", "pymupdf==1.27.1"),
+         size_mb=1500, import_name="mlx_vlm", downloads_models=True, prefetch=(PADDLEOCR_VL_MLX_FETCH,),
          limit_per_page=TIME_LIMIT_PER_PAGE, exclude_newer=EXCLUDE_NEWER, neighbours=HEAVY_NEIGHBOURS),
 )}
 

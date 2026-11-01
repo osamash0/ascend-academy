@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -984,4 +985,155 @@ def test_paddleocr_vl_hf_exits_non_zero_writing_nothing_when_a_later_page_fails(
     runner, log, src, out = _vl_main(tmp_path, monkeypatch, pages=3, fail=lambda d, t, call: RuntimeError("page 2 broke") if call == 2 else None)
     with pytest.raises(RuntimeError, match="page 2 broke"):  # not a fallback: only the first page is the trial
         runner.main(["paddleocr_vl_hf_runner.py", str(src), str(out)])
+    assert not out.exists()
+
+
+# paddleocr_vl_mlx: fakes for mlx, huggingface_hub and mlx_vlm; no model, no network, no mlx import
+
+def _fake_mlx(monkeypatch, *, tokens=(40, 41), fail=None, texts=None):
+    """Fake mlx.core + huggingface_hub + mlx_vlm. `tokens` is generation_tokens per call (the last repeats);
+    `fail` is a callable (call number) -> exception or None, called on each generate()."""
+    import types
+
+    log = {"snapshot": None, "load": None, "template": None, "generate": [], "env": {}, "pngs": []}
+    mlx = types.ModuleType("mlx")
+    core = types.ModuleType("mlx.core")
+    core.default_device = lambda: "Device(gpu, 0)"
+    mlx.core = core
+    hub = types.ModuleType("huggingface_hub")
+
+    def snapshot_download(**kwargs):
+        log["snapshot"] = kwargs
+        return "/snap/mlx"
+
+    hub.snapshot_download = snapshot_download
+    vlm = types.ModuleType("mlx_vlm")
+    utils = types.ModuleType("mlx_vlm.prompt_utils")
+    model = types.SimpleNamespace(config={"model_type": "paddleocr_vl"})
+    processor = object()
+
+    def load(path, **kwargs):
+        log["load"] = (path, kwargs)
+        log["env"]["at_load"] = os.environ.get("HF_HUB_OFFLINE")
+        return model, processor
+
+    def apply_chat_template(proc, config, prompt, **kwargs):
+        log["template"] = (proc is processor, config, prompt, kwargs)
+        return "TEMPLATED " + prompt
+
+    def generate(mdl, proc, prompt, images, **kwargs):
+        call = len(log["generate"]) + 1
+        log["generate"].append((mdl is model, proc is processor, prompt, list(images), kwargs))
+        log["pngs"].append((images[0], open(images[0], "rb").read(8), os.path.dirname(images[0])))
+        problem = fail(call) if fail else None
+        if problem:
+            raise problem
+        count = tokens[min(call, len(tokens)) - 1]
+        return types.SimpleNamespace(text=(texts or {}).get(call, f"page {call} text"), generation_tokens=count,
+                                     generation_tps=120.0, prompt_tps=160.0)
+
+    vlm.load, vlm.generate, utils.apply_chat_template = load, generate, apply_chat_template
+    vlm.prompt_utils = utils
+    for name, mod in (("mlx", mlx), ("mlx.core", core), ("huggingface_hub", hub), ("mlx_vlm", vlm),
+                      ("mlx_vlm.prompt_utils", utils)):
+        monkeypatch.setitem(sys.modules, name, mod)
+    return log
+
+
+def _mlx_main(tmp_path, monkeypatch, pages=2, **fake):
+    runner = _load("paddleocr_vl_mlx_runner")
+    monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
+    monkeypatch.chdir(tmp_path)  # the run's cwd: the page PNGs go to a temporary folder inside it
+    log = _fake_mlx(monkeypatch, **fake)
+    monkeypatch.setattr(runner, "version", lambda name: {"mlx-vlm": "0.7.11", "mlx": "0.32.4"}.get(name, "9.9"))
+    src, out = make_deck(tmp_path / "deck.pdf", pages), tmp_path / "out.json"
+    return runner, log, src, out
+
+
+def test_paddleocr_vl_mlx_reads_every_page_with_the_card_prompt_greedily(tmp_path, monkeypatch):
+    runner, log, src, out = _mlx_main(tmp_path, monkeypatch, pages=3)
+    runner.main(["paddleocr_vl_mlx_runner.py", str(src), str(out)])
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert set(data) == {"version", "settings", "pages"}
+    assert data["pages"] == {"1": "page 1 text", "2": "page 2 text", "3": "page 3 text"}
+    assert log["load"] == ("/snap/mlx", {}) and log["template"] == (True, {"model_type": "paddleocr_vl"}, "OCR:", {"num_images": 1})
+    assert len(log["generate"]) == 3  # one load per run, one page image per generate()
+    for mdl, proc, prompt, images, kwargs in log["generate"]:
+        assert mdl and proc and prompt == "TEMPLATED OCR:" and len(images) == 1
+        assert kwargs == {"max_tokens": 4096, "temperature": 0.0, "verbose": False}
+    assert data["version"] == "mlx-vlm 0.7.11 + PaddleOCR-VL-1.6@c8987b2"
+
+
+def test_paddleocr_vl_mlx_renders_each_page_at_zoom_2_into_a_temporary_folder_inside_the_cwd(tmp_path, monkeypatch):
+    runner, log, src, out = _mlx_main(tmp_path, monkeypatch, pages=2)
+    runner.main(["paddleocr_vl_mlx_runner.py", str(src), str(out)])
+    assert len({folder for _png, _head, folder in log["pngs"]}) == 1  # one temporary folder for the run
+    for png, head, folder in log["pngs"]:
+        assert head == b"\x89PNG\r\n\x1a\n"
+        assert os.path.realpath(folder).startswith(str(tmp_path.resolve()))  # inside the run's cwd
+        assert os.path.basename(png).startswith("page-") and png.endswith(".png")
+    assert not [p for p in tmp_path.iterdir() if p.name.startswith("pvl-mlx-")]  # the folder is gone afterwards
+
+
+def test_paddleocr_vl_mlx_pages_are_842_by_595_points_at_zoom_2(tmp_path):
+    import struct
+
+    runner = _load("paddleocr_vl_mlx_runner")
+    folder = tmp_path / "png"
+    folder.mkdir()
+    files = runner.render_pages(str(make_deck(tmp_path / "deck.pdf", 2)), str(folder))
+    assert [os.path.basename(f) for f in files] == ["page-1.png", "page-2.png"]
+    width, height = struct.unpack(">II", open(files[0], "rb").read()[16:24])  # the IHDR chunk
+    assert (width, height) == (842 * 2, 595 * 2)
+
+
+def test_paddleocr_vl_mlx_loads_one_pinned_local_snapshot_offline(tmp_path, monkeypatch):
+    runner, log, src, out = _mlx_main(tmp_path, monkeypatch, pages=1)
+    runner.main(["paddleocr_vl_mlx_runner.py", str(src), str(out)])
+    assert log["snapshot"] == {"repo_id": "mlx-community/PaddleOCR-VL-1.6-4bit",
+                               "revision": "c8987b277bdd8aaec8bd265d154f391bd03ad165", "local_files_only": True}  # never a download
+    assert os.environ["HF_HUB_OFFLINE"] == "1" and log["env"]["at_load"] == "1"
+
+
+def test_paddleocr_vl_mlx_records_its_settings_and_the_tokens_of_every_page(tmp_path, monkeypatch):
+    runner, log, src, out = _mlx_main(tmp_path, monkeypatch, pages=2, tokens=(40, 41))
+    runner.main(["paddleocr_vl_mlx_runner.py", str(src), str(out)])
+    s = json.loads(out.read_text(encoding="utf-8"))["settings"]
+    assert (s["repo"], s["revision"]) == (runner.REPO, runner.REVISION) == ("mlx-community/PaddleOCR-VL-1.6-4bit", "c8987b277bdd8aaec8bd265d154f391bd03ad165")
+    assert s["base_model"] == "PaddlePaddle/PaddleOCR-VL-1.6" and s["quantisation"] == "4-bit (mlx-community conversion)"
+    assert (s["prompt"], s["zoom"], s["max_tokens"], s["device"]) == ("OCR:", 2.0, 4096, "Device(gpu, 0)")
+    assert s["decoding"] == "greedy (temperature 0.0)" and s["route"].startswith("mlx-vlm")
+    assert s["generation_tokens"] == {"1": 40, "2": 41} and s["truncated_pages"] == []
+    assert (s["mlx"], s["mlx_vlm"]) == ("0.32.4", "0.7.11") and s["renderer"] == "pymupdf 9.9"
+    assert s["weights"].startswith("local snapshot only")
+
+
+def test_paddleocr_vl_mlx_runner_constants_equal_the_tool_entrys():
+    from backend.eval.parser_bench import tools
+
+    runner = _load("paddleocr_vl_mlx_runner")
+    assert (runner.REPO, runner.REVISION) == (tools.PADDLEOCR_VL_MLX_REPO, tools.PADDLEOCR_VL_MLX_REVISION)
+
+
+def test_paddleocr_vl_mlx_names_a_page_that_reached_max_tokens_as_truncated(tmp_path, monkeypatch):
+    runner, log, src, out = _mlx_main(tmp_path, monkeypatch, pages=3, tokens=(4096, 12, 4096))
+    runner.main(["paddleocr_vl_mlx_runner.py", str(src), str(out)])
+    s = json.loads(out.read_text(encoding="utf-8"))["settings"]
+    assert s["truncated_pages"] == [1, 3] and s["generation_tokens"] == {"1": 4096, "2": 12, "3": 4096}
+
+
+def test_paddleocr_vl_mlx_exits_non_zero_writing_nothing_when_a_page_fails(tmp_path, monkeypatch):
+    runner, log, src, out = _mlx_main(tmp_path, monkeypatch, pages=3, fail=lambda call: RuntimeError("page 2 broke") if call == 2 else None)
+    with pytest.raises(RuntimeError, match="page 2 broke"):
+        runner.main(["paddleocr_vl_mlx_runner.py", str(src), str(out)])
+    assert not out.exists() and not [p for p in tmp_path.iterdir() if p.name.startswith("pvl-mlx-")]
+
+
+def test_paddleocr_vl_mlx_exits_non_zero_writing_nothing_when_the_model_cannot_load(tmp_path, monkeypatch):
+    runner, log, src, out = _mlx_main(tmp_path, monkeypatch, pages=1)
+    import mlx_vlm
+
+    monkeypatch.setattr(mlx_vlm, "load", lambda path, **kw: (_ for _ in ()).throw(OSError("no snapshot")))
+    with pytest.raises(OSError, match="no snapshot"):
+        runner.main(["paddleocr_vl_mlx_runner.py", str(src), str(out)])
     assert not out.exists()
