@@ -33,14 +33,18 @@ import { MAP_PALETTE } from '../SpaceMap';
  * Each look has a dark-page and a light-page version.
  *
  * A dark page (a photo, a dark title slide) is simply quietened. A light page
- * — most slide decks: white ground, black text — would still be the brightest
- * thing on the black stage however far it is dimmed, so it is shown at night:
- * inverted, the ground dark and the writing pale. Same page, same words.
+ * — most slide decks: white ground, black text — is shown as itself, grey
+ * paper, dimmed to about 62% so it sits calm on the black stage.
+ *
+ * It used to be inverted (ground dark, writing pale). That turned the brightest
+ * thing a learner brings in, their own white pages, into black, and made the
+ * hub read as very dark (Abi, 2026-10-31). Dimmed paper keeps the calm, lets
+ * the page light the stage a little, and looks like the reader it opens into.
  */
 export const WINDOW_LOOKS = {
   calm: {
     dark: { rest: 'grayscale(1) contrast(0.7) brightness(0.6)', lifted: 'grayscale(0.85) contrast(0.85) brightness(0.78)' },
-    light: { rest: 'grayscale(1) invert(1) contrast(0.75) brightness(0.8)', lifted: 'grayscale(1) invert(1) contrast(0.85) brightness(0.95)' },
+    light: { rest: 'grayscale(1) contrast(0.8) brightness(0.62)', lifted: 'grayscale(1) contrast(0.85) brightness(0.72)' },
   },
 } as const;
 export type WindowLook = keyof typeof WINDOW_LOOKS;
