@@ -16,13 +16,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowDown, ArrowRight, ArrowUpRight } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUpRight, Play } from 'lucide-react';
 import { useStickToBottom } from 'use-stick-to-bottom';
 import { cn } from '@/lib/utils';
 import type { LunaCheck, LunaMove, PlanStep } from '../../data/lunaSession';
 import type { useLunaSession } from '../../data/useLunaSession';
+import { Pressable } from '../Pressable';
 import { BlockView } from '../reader/iui/Blocks';
-import { ghostPillSm } from '../stage';
+import { ghostPillSm, whitePill, whitePillSm } from '../stage';
 
 type Luna = ReturnType<typeof useLunaSession>;
 
@@ -38,8 +39,6 @@ const ARRIVE = {
   animate: { opacity: 1, y: 0 },
   transition: { duration: 0.4, ease: EASE },
 } as const;
-const whitePill = 'console-focusable inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-[13.5px] font-semibold text-slate-900';
-
 /** The reader, at the page Luna went to, with the same words lit. */
 const pagePath = (spaceId: string, m: LunaMove) =>
   `/v4/space/${spaceId}/lesson/${m.lecture_id}/faces?page=${m.page}${m.spot ? `&spot=${encodeURIComponent(m.spot)}` : ''}&luna=1`;
@@ -105,10 +104,11 @@ function PlanLine({ plan, accepted, onAccept, onSkip }: { plan: PlanStep[]; acce
           {' · '}
           {plan.map((s) => s.title).join(' · ')}
         </p>
-        <button type="button" onClick={onAccept} className={cn(whitePill, 'self-start')}>
+        {/* The same white pill with the Play mark that "Continue" wears on the Up next card. */}
+        <Pressable type="button" onClick={onAccept} className={cn(whitePill, 'self-start')}>
+          <Play aria-hidden className="h-4 w-4 fill-current" />
           {t('plan.accept')}
-          <ArrowRight aria-hidden className="h-3.5 w-3.5" />
-        </button>
+        </Pressable>
       </div>
     );
   }
@@ -185,9 +185,9 @@ function Check({ check, accent, onCommit }: { check: LunaCheck; accent: string; 
         )}
       </AnimatePresence>
       {!done && (
-        <button type="button" onClick={commit} disabled={picked === null} className={cn(whitePill, 'mt-4 disabled:opacity-30')}>
+        <Pressable type="button" onClick={commit} disabled={picked === null} className={cn(whitePillSm, 'mt-4 disabled:opacity-30')}>
           {result === 'wrong' ? t('homeChat.tryAgain') : t('homeChat.check')}
-        </button>
+        </Pressable>
       )}
     </motion.div>
   );
@@ -300,10 +300,11 @@ export function HomeChat({
             {(canContinue || (state.offerWrap && !state.wrap)) && (
               <li className="flex flex-wrap gap-2">
                 {canContinue && (
-                  <button type="button" onClick={() => void luna.act('continue')} className={whitePill}>
-                    {t('homeChat.next')}
-                    <ArrowRight aria-hidden className="h-3.5 w-3.5" />
-                  </button>
+                  /* v4's one primary action: the white pill with the Play mark, pressed on the house spring. */
+                  <Pressable type="button" onClick={() => void luna.act('continue')} className={whitePill}>
+                    <Play aria-hidden className="h-4 w-4 fill-current" />
+                    {t('column.continue')}
+                  </Pressable>
                 )}
                 {state.offerWrap && !state.wrap && (
                   <button type="button" onClick={() => void luna.wrapUp()} className={ghostPillSm}>
