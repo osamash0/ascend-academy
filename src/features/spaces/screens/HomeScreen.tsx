@@ -230,6 +230,9 @@ export default function HomeScreen() {
     active: chatting,
   });
   const lunaBusy = chatting && (luna.state.busy || luna.state.planning);
+  /* A resumed session remembers where Luna was: her last move, until she moves again or you point. */
+  const lastMove = [...luna.state.thread].reverse().find((i) => i.kind === 'move');
+  const shownSpot = spot ?? (lastMove?.kind === 'move' ? lastMove.move : null);
   useEffect(() => {
     if (!chatting) return;
     const on = (e: KeyboardEvent) => e.key === 'Escape' && setChat(false);
@@ -411,10 +414,9 @@ export default function HomeScreen() {
         </motion.div>
         <AnimatePresence>
           {chatting && (
-            <motion.div key="who" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-w-0">
-              <p className="text-[15px] font-medium">{tLuna('column.label')}</p>
-              <p className="truncate text-[12.5px] text-quiet">{next.spaceName}</p>
-            </motion.div>
+            <motion.p key="who" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[15px] font-medium">
+              {tLuna('column.label')}
+            </motion.p>
           )}
         </AnimatePresence>
         <AnimatePresence>
@@ -479,10 +481,10 @@ export default function HomeScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, transition: { duration: 0.3 } }}
             exit={{ opacity: 0, transition: { duration: 0.15 } }}
-            className="mt-5 grid min-h-0 flex-1 gap-12 md:mt-7 md:grid-cols-[minmax(0,1fr)_20rem]"
+            className="mt-5 grid min-h-0 flex-1 gap-12 md:mt-6 md:grid-cols-[minmax(0,1fr)_18rem]"
           >
-            <HomeChat luna={luna} lesson={lesson} accent={accent ?? '#ffffff'} spot={spot} onSpot={setSpot} />
-            <HomePage luna={luna} lesson={lesson} accent={accent ?? '#ffffff'} spot={spot} onSpot={setSpot} />
+            <HomeChat luna={luna} lesson={lesson} accent={accent ?? '#ffffff'} spot={shownSpot} onSpot={setSpot} />
+            <HomePage luna={luna} lesson={lesson} accent={accent ?? '#ffffff'} spot={shownSpot} onSpot={setSpot} />
           </motion.div>
         )}
       </AnimatePresence>

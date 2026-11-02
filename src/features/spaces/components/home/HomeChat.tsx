@@ -2,11 +2,12 @@
  * Home's Luna thread — what Home becomes after you ask (LS-127, LS-128).
  *
  * The session itself is the reader's: `useLunaSession`, the same API, the
- * same blocks through the same `BlockView`. What is Home's is the room: the
- * thread reads down from Luna, follows her words as they arrive and lets go
- * the moment you scroll up to re-read; the page she is on stands on the right
- * with the words she lit, and a trail of the pages she has been to; the plan
- * sits above as one quiet strip; a check is graded here and reported there.
+ * same blocks through the same `BlockView`. What is Home's is the room, and
+ * the room is kept quiet on purpose. One line says where you are in the plan.
+ * The thread reads down from Luna, follows her words as they arrive and lets
+ * go the moment you scroll up to re-read. The page she is on sits beside it
+ * as a quiet card with the words she lit. A check is graded here and
+ * reported there. One white pill at a time says what comes next.
  *
  * Luna's words arrive one at a time — a short fade and a lift, opacity and
  * transform only — so an answer reads as being said rather than pasted.
@@ -18,10 +19,9 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ArrowDown, ArrowRight, ArrowUpRight } from 'lucide-react';
 import { useStickToBottom } from 'use-stick-to-bottom';
 import { cn } from '@/lib/utils';
-import type { LunaCheck, LunaMove } from '../../data/lunaSession';
+import type { LunaCheck, LunaMove, PlanStep } from '../../data/lunaSession';
 import type { useLunaSession } from '../../data/useLunaSession';
 import { BlockView } from '../reader/iui/Blocks';
-import { PlanStrip } from '../reader/luna/PlanStrip';
 import { ghostPillSm } from '../stage';
 
 type Luna = ReturnType<typeof useLunaSession>;
@@ -38,6 +38,7 @@ const ARRIVE = {
   animate: { opacity: 1, y: 0 },
   transition: { duration: 0.4, ease: EASE },
 } as const;
+const whitePill = 'console-focusable inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-[13.5px] font-semibold text-slate-900';
 
 /** The reader, at the page Luna went to, with the same words lit. */
 const pagePath = (spaceId: string, m: LunaMove) =>
@@ -86,9 +87,48 @@ function Arriving({ text }: { text: string }) {
 }
 
 /**
+ * Where you are in the plan, said once: before it is accepted, the steps in a
+ * sentence and one pill to begin; after, "Step 2 of 4 · its title" with a
+ * quiet way to skip. No pills for the steps themselves — four bordered
+ * chips above the thread read as four more things to do.
+ */
+function PlanLine({ plan, accepted, onAccept, onSkip }: { plan: PlanStep[]; accepted: boolean; onAccept: () => void; onSkip: () => void }) {
+  const { t } = useTranslation('v4Luna');
+  if (!plan.length) return null;
+  const open = plan.filter((s) => s.status !== 'skipped');
+  const idx = open.findIndex((s) => s.status === 'current');
+  if (!accepted) {
+    return (
+      <div className="flex flex-col gap-3 text-[13px] leading-[1.6] text-quiet">
+        <p>
+          <span className="text-foreground">{t('homeChat.plan')}</span>
+          {' · '}
+          {plan.map((s) => s.title).join(' · ')}
+        </p>
+        <button type="button" onClick={onAccept} className={cn(whitePill, 'self-start')}>
+          {t('plan.accept')}
+          <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+  if (idx < 0) return null;
+  return (
+    <p className="flex items-baseline gap-3 text-[13px] text-quiet">
+      <span className="tabular-nums">{t('homeChat.stepOf', { n: idx + 1, total: open.length })}</span>
+      <span className="truncate text-foreground">{open[idx].title}</span>
+      <button type="button" onClick={onSkip} className="console-focusable ml-auto shrink-0 rounded hover:text-foreground">
+        {t('homeChat.skip')}
+      </button>
+    </p>
+  );
+}
+
+/**
  * A check you commit to. Which option is right is data the tutor wrote; the
  * grading, the hint on a first miss and the reason on success are this card's.
- * The first committed answer is what the session records.
+ * The first committed answer is what the session records. No label above the
+ * question: the options say what it is.
  */
 function Check({ check, accent, onCommit }: { check: LunaCheck; accent: string; onCommit: (correct: boolean) => void }) {
   const { t } = useTranslation('v4Luna');
@@ -104,9 +144,8 @@ function Check({ check, accent, onCommit }: { check: LunaCheck; accent: string; 
     setTries((n) => n + 1);
   };
   return (
-    <motion.div {...ARRIVE} className="rounded-2xl border border-white/[0.08] bg-white/[0.02] px-5 py-4">
-      <p className="text-[12px] text-quiet">{t('check.label')}</p>
-      <p className="mt-1 text-[15.5px] font-medium leading-[1.5]">{check.question}</p>
+    <motion.div {...ARRIVE} className="rounded-2xl border border-white/[0.08] px-5 py-4">
+      <p className="text-[15.5px] font-medium leading-[1.5]">{check.question}</p>
       <ul className="mt-3 space-y-1">
         {check.options.map((o, i) => {
           const chosen = picked === i;
@@ -146,12 +185,7 @@ function Check({ check, accent, onCommit }: { check: LunaCheck; accent: string; 
         )}
       </AnimatePresence>
       {!done && (
-        <button
-          type="button"
-          onClick={commit}
-          disabled={picked === null}
-          className="console-focusable mt-4 inline-flex h-10 items-center rounded-full bg-white px-5 text-[13.5px] font-semibold text-slate-900 disabled:opacity-30"
-        >
+        <button type="button" onClick={commit} disabled={picked === null} className={cn(whitePill, 'mt-4 disabled:opacity-30')}>
           {result === 'wrong' ? t('homeChat.tryAgain') : t('homeChat.check')}
         </button>
       )}
@@ -160,60 +194,37 @@ function Check({ check, accent, onCommit }: { check: LunaCheck; accent: string; 
 }
 
 /**
- * The phone's page: one row above the thread, where the aside would be on a
- * desk. The page number, the words Luna lit, and the door into the reader.
- * Only once she has been somewhere — a phone has no room for a cover, and
- * the thread's own dots already say she is reading.
+ * The phone's page: one quiet row above the thread, where the card would be
+ * on a desk. Only once Luna has been somewhere.
  */
 function PageRow({ lesson, accent, spot }: { lesson: HomeLesson; accent: string; spot: LunaMove | null }) {
   const { t } = useTranslation('v4Luna');
   return (
     <AnimatePresence initial={false}>
       {spot && (
-        <motion.div
-          key="row"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0, transition: { duration: 0.15 } }}
-          className="relative mb-4 h-16 md:hidden"
-        >
-          <AnimatePresence initial={false}>
-          <motion.div
-            key={`${spot.page}-${spot.spot ?? ''}`}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, transition: { duration: 0.15 } }}
-            transition={{ duration: 0.3, ease: EASE }}
-            className="absolute inset-0"
+        <motion.div key="row" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.15 } }} className="mb-4 md:hidden">
+          <Link
+            to={pagePath(lesson.spaceId, spot)}
+            aria-label={t('homeChat.openPageLabel', { lesson: lesson.title, page: spot.page })}
+            className="console-focusable flex items-center gap-3 rounded-xl border border-white/[0.08] px-3 py-2.5"
           >
-            <Link
-              to={pagePath(lesson.spaceId, spot)}
-              aria-label={t('homeChat.openPageLabel', { lesson: lesson.title, page: spot.page })}
-              className="console-focusable flex h-full items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3"
-              style={{ boxShadow: `inset 2px 0 0 ${accent}` }}
-            >
-              <span className="flex shrink-0 flex-col items-center leading-none">
-                <span className="text-[10px] text-quiet">{t('homeChat.page')}</span>
-                <span className="mt-0.5 text-[22px] font-medium tabular-nums tracking-[-0.02em]">{spot.page}</span>
-              </span>
-              <span className="min-w-0 flex-1 line-clamp-2 text-[13px] leading-[1.4]">
-                {spot.spot ? (
-                  <span className="rounded px-1 box-decoration-clone" style={{ background: `color-mix(in srgb, ${accent} 22%, transparent)` }}>{spot.spot}</span>
-                ) : (
-                  <span className="text-quiet">{lesson.title}</span>
-                )}
-              </span>
-              <ArrowUpRight aria-hidden className="h-4 w-4 shrink-0 text-quiet" />
-            </Link>
-          </motion.div>
-          </AnimatePresence>
+            <span className="shrink-0 text-[12.5px] tabular-nums text-quiet">{t('homeChat.pageN', { page: spot.page })}</span>
+            <span className="min-w-0 flex-1 truncate text-[13px]">
+              {spot.spot ? (
+                <span className="rounded px-1" style={{ background: `color-mix(in srgb, ${accent} 22%, transparent)` }}>{spot.spot}</span>
+              ) : (
+                <span className="text-quiet">{lesson.title}</span>
+              )}
+            </span>
+            <ArrowUpRight aria-hidden className="h-4 w-4 shrink-0 text-quiet" />
+          </Link>
         </motion.div>
       )}
     </AnimatePresence>
   );
 }
 
-/** The thread: Luna's plan, her words and blocks, your questions, the way forward. */
+/** The thread: where you are, Luna's words and blocks, your questions, the one way forward. */
 export function HomeChat({
   luna, lesson, accent, spot, onSpot,
 }: { luna: Luna; lesson: HomeLesson; accent: string; spot: LunaMove | null; onSpot: (m: LunaMove) => void }) {
@@ -238,14 +249,14 @@ export function HomeChat({
   return (
     <div className="flex min-h-0 flex-col">
       <PageRow lesson={lesson} accent={accent} spot={spot} />
-      {state.plan.length > 0 && (
-        <div className="mb-5 md:pl-[4.75rem]">
-          <PlanStrip plan={state.plan} accepted={accepted} onAccept={() => void luna.act('accept_plan')} onSkip={() => void luna.act('skip_step')} />
+      {state.plan.length > 0 && !state.wrap && (
+        <div className="mb-4 md:pl-[4.75rem]">
+          <PlanLine plan={state.plan} accepted={accepted} onAccept={() => void luna.act('accept_plan')} onSkip={() => void luna.act('skip_step')} />
         </div>
       )}
       <div className="relative min-h-0 flex-1">
         <div ref={scrollRef} className="h-full overflow-y-auto pr-2 [scrollbar-width:thin]">
-          <ol className="space-y-8 pb-3 md:pl-[4.75rem]" ref={contentRef}>
+          <ol className="space-y-7 pb-3 md:pl-[4.75rem]" ref={contentRef}>
             {state.thread.map((item) => {
               if (item.kind === 'learner')
                 return (
@@ -289,7 +300,7 @@ export function HomeChat({
             {(canContinue || (state.offerWrap && !state.wrap)) && (
               <li className="flex flex-wrap gap-2">
                 {canContinue && (
-                  <button type="button" onClick={() => void luna.act('continue')} className="console-focusable inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-[13.5px] font-semibold text-slate-900">
+                  <button type="button" onClick={() => void luna.act('continue')} className={whitePill}>
                     {t('homeChat.next')}
                     <ArrowRight aria-hidden className="h-3.5 w-3.5" />
                   </button>
@@ -333,9 +344,9 @@ export function HomeChat({
 }
 
 /**
- * The page Luna is on, and the trail of pages she has been to. The reader
- * draws pages; here the page is named and the words she lit are quoted, and
- * the card is the door into the reader at that page with the same words lit.
+ * The page Luna is on, as a quiet card: the page named small, the words she
+ * lit as the content, the whole card the door into the reader. The pages she
+ * has been to sit below as plain numbers, only once there are two.
  */
 export function HomePage({
   luna, lesson, accent, spot, onSpot,
@@ -360,21 +371,19 @@ export function HomePage({
               <Link
                 to={pagePath(lesson.spaceId, spot)}
                 aria-label={t('homeChat.openPageLabel', { lesson: lesson.title, page: spot.page })}
-                className="console-focusable flex h-full w-full flex-col justify-between rounded-xl border border-white/[0.10] bg-white/[0.03] px-6 py-5"
-                style={{ boxShadow: `0 0 0 2px ${accent}` }}
+                className="console-focusable flex h-full w-full flex-col rounded-xl border border-white/[0.10] px-5 py-4 transition-colors hover:border-white/[0.2]"
               >
-                <span className="flex items-start justify-between">
-                  <span className="text-[12.5px] text-quiet">{t('homeChat.page')}</span>
-                  <ArrowUpRight aria-hidden className="h-4 w-4 text-quiet" />
+                <span className="flex items-baseline justify-between text-[12.5px] text-quiet">
+                  <span className="tabular-nums">{t('homeChat.pageN', { page: spot.page })}</span>
+                  <ArrowUpRight aria-hidden className="h-4 w-4" />
                 </span>
-                <span className="text-[44px] font-medium leading-none tabular-nums tracking-[-0.03em]">{spot.page}</span>
-                {spot.spot ? (
-                  <span className="mt-3 line-clamp-2 text-[13.5px] leading-[1.5]">
+                <span className="mt-auto text-[15px] leading-[1.5]">
+                  {spot.spot ? (
                     <span className="rounded px-1 box-decoration-clone" style={{ background: `color-mix(in srgb, ${accent} 22%, transparent)` }}>{spot.spot}</span>
-                  </span>
-                ) : (
-                  <span className="mt-3 text-[13px] text-quiet">{lesson.title}</span>
-                )}
+                  ) : (
+                    <span className="text-quiet">{lesson.title}</span>
+                  )}
+                </span>
               </Link>
             </motion.div>
           ) : (
@@ -383,12 +392,11 @@ export function HomePage({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, transition: { duration: 0.2 } }}
-              className="absolute inset-0 flex flex-col justify-end overflow-hidden rounded-xl border border-white/[0.08] px-6 py-5"
-              style={{ background: `linear-gradient(160deg, color-mix(in srgb, ${accent} 16%, transparent), transparent 70%)` }}
+              className="absolute inset-0 flex flex-col justify-end rounded-xl border border-white/[0.08] px-5 py-4"
             >
-              <span className="text-[22px] font-medium tracking-[-0.02em]">{lesson.title}</span>
+              <span className="text-[17px] font-medium tracking-[-0.01em]">{lesson.title}</span>
               <motion.span
-                className="mt-3 text-[12.5px] text-quiet"
+                className="mt-2 text-[12.5px] text-quiet"
                 animate={reading ? { opacity: [0.45, 1, 0.45] } : { opacity: 0.7 }}
                 transition={reading ? { duration: 1.6, repeat: Infinity, ease: 'easeInOut' } : undefined}
               >
@@ -398,39 +406,22 @@ export function HomePage({
           )}
         </AnimatePresence>
       </div>
-      <div className="mt-2.5 flex items-baseline justify-end text-[12.5px]">
-        <AnimatePresence>
-          {spot && (
-            <motion.span key="open" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <Link to={pagePath(lesson.spaceId, spot)} className="console-focusable rounded text-foreground underline-offset-4 hover:underline">
-                {t('homeChat.openPage')}
-              </Link>
-            </motion.span>
-          )}
-        </AnimatePresence>
-      </div>
-      {pages.length > 0 && (
-        <div className="relative mt-5">
-          {pages.length > 1 && <span aria-hidden className="pointer-events-none absolute left-2 right-2 top-1/2 h-px bg-white/[0.10]" />}
-          <ul className="relative flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <AnimatePresence initial={false}>
-              {pages.map((n) => (
-                <motion.li key={n} layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="list-none">
-                  <button
-                    type="button"
-                    onClick={() => onSpot({ lecture_id: lesson.id, page: n })}
-                    aria-label={t('homeChat.showPage', { page: n })}
-                    aria-pressed={spot?.page === n}
-                    className="console-focusable flex aspect-[16/10] w-[4.25rem] items-center justify-center rounded-md bg-white/[0.04] text-[12px] tabular-nums"
-                    style={{ boxShadow: spot?.page === n ? `0 0 0 2px ${accent}` : '0 0 0 1px rgba(255,255,255,0.10)' }}
-                  >
-                    {n}
-                  </button>
-                </motion.li>
-              ))}
-            </AnimatePresence>
-          </ul>
-        </div>
+      {pages.length > 1 && (
+        <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[12.5px] tabular-nums">
+          {pages.map((n) => (
+            <li key={n}>
+              <button
+                type="button"
+                onClick={() => onSpot({ lecture_id: lesson.id, page: n })}
+                aria-label={t('homeChat.showPage', { page: n })}
+                aria-pressed={spot?.page === n}
+                className={cn('console-focusable rounded px-1 transition-colors hover:text-foreground', spot?.page === n ? 'text-foreground' : 'text-quiet')}
+              >
+                {n}
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </aside>
   );

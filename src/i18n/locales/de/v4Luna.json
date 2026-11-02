@@ -108,6 +108,9 @@
     "check": "Prüfen",
     "tryAgain": "Nochmal",
     "hint": "Schau noch einmal auf die Seite und versuch es dann nochmal.",
-    "aside": "Die Seite, auf der Luna gerade ist"
+    "aside": "Die Seite, auf der Luna gerade ist",
+    "stepOf": "Schritt {{n}} von {{total}}",
+    "skip": "Überspringen",
+    "plan": "Der Plan"
   }
 }

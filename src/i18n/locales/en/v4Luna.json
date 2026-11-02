@@ -108,6 +108,9 @@
     "check": "Check",
     "tryAgain": "Try again",
     "hint": "Look at the page once more, then try again.",
-    "aside": "The page Luna is on"
+    "aside": "The page Luna is on",
+    "stepOf": "Step {{n}} of {{total}}",
+    "skip": "Skip",
+    "plan": "The plan"
   }
 }
