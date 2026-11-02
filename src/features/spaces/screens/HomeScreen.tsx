@@ -225,7 +225,8 @@ export default function HomeScreen() {
     spaceId: next?.spaceId ?? '',
     lessonId: next?.lessonId ?? '',
     onMove,
-    readingAt: () => spot?.page ?? 1,
+    /* Home has no reading position until Luna has moved somewhere: 0 = unknown. */
+    readingAt: () => spot?.page ?? 0,
     active: chatting,
   });
   const lunaBusy = chatting && (luna.state.busy || luna.state.planning);

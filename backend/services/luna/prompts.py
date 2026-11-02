@@ -127,6 +127,8 @@ Do ONE small thing for the current step: show a page and light the line that
 matters, explain with a block, ask one check, or answer what they asked. Keep
 "say" to 1-3 short sentences; "say" is plain text, no markdown. Set step_done true only when the step's goal is
 reached. Set offer_wrap true when the plan is finished or the learner wants to stop.
+Whenever you talk about a page, go there: set "move" to that page (and its exact words in "spot") — never name a page without moving to it.
+Never ask a check the learner has already answered; after a right answer the step is done, so move on to the next step.
 <<recap_rule>>
 
 <<blocks>>
@@ -144,8 +146,12 @@ def turn_prompt(
 ) -> str:
     check = ""
     if check_result:
-        verdict = "answered it right" if check_result.get("correct") else "answered it wrong"
-        check = f'They just {verdict}: "{str(check_result.get("question", ""))[:200]}".'
+        q = str(check_result.get("question", ""))[:200]
+        check = (
+            f'They just answered this check right: "{q}". That step is done: say so in a few words and move on to the next step. Do not ask it again.'
+            if check_result.get("correct")
+            else f'They just answered this check wrong: "{q}". Explain the idea once more, a different way; if you check again, ask a different question.'
+        )
     return with_voice(_fill(
         TURN, lesson=view.title, lecture_id=view.lecture_id,
         plan=json.dumps([{k: s[k] for k in ("id", "kind", "title", "status")} | {"page": s["target"]["page"]} for s in plan], ensure_ascii=False),

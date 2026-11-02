@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 from uuid import UUID
 
@@ -71,6 +72,11 @@ CanView = Callable[[str, str], Awaitable[bool]]
 
 # Gemini hung on every call in the live run, so it goes last.
 LUNA_PROVIDERS = ("groq", "openai", "gemini")
+
+
+def _same_question(q: Any) -> str:
+    """Two checks are the same question when they match ignoring case, spacing and punctuation."""
+    return re.sub(r"[^a-z0-9äöüß]+", " ", str(q or "").lower()).strip()
 
 
 def _attempt_seconds() -> float:
@@ -300,10 +306,31 @@ async def _run(
             return
 
         move = turn["move"]
+        check = turn["check"]
+        # A right answer closes the step whatever the model says, and a question the
+        # learner has already answered is never asked again (seen live: the model
+        # re-asked its own check after a right answer, and the plan stood still).
+        answered_right = bool(check_result and check_result.get("correct"))
+        asked = _same_question(check_result.get("question")) if check_result else ""
+        if check and asked and _same_question(check["question"]) == asked:
+            check = None
+        # The plan's page is the move when the model works on a step but forgets to go
+        # there (seen live: "look at page 7" in prose, no move, the page stayed put).
+        # Only for plan-driven turns, only when that page is not already where the
+        # reader is or where Luna last went, and not on the turn that closes the step.
+        target = (step or {}).get("target") or {}
+        last_move = next((t["content"] for t in reversed(recent) if t.get("role") == "move"), None)
+        if (
+            move is None and not text and not (turn["step_done"] or answered_right)
+            and target.get("lecture_id") == lecture_id and target.get("page")
+            and target["page"] != reading_at
+            and not (last_move and last_move.get("lecture_id") == lecture_id and last_move.get("page") == target["page"])
+        ):
+            move = {"lecture_id": lecture_id, "page": int(target["page"])}
         # Following, not fighting: no pulling a reader back unless they asked something.
         if move and not text and reading_at and move["lecture_id"] == lecture_id and move["page"] < reading_at:
             move = None
-        if turn["step_done"]:
+        if turn["step_done"] or answered_right:
             last = is_last(plan, step)
             plan = advance(plan)
         else:
@@ -320,7 +347,7 @@ async def _run(
         rows: list[tuple[str, dict]] = [("learner", learner)] if learner else []
         if move:
             rows.append(("move", move))
-        rows.append(("luna", {"say": turn["say"], "blocks": turn["blocks"], "check": turn["check"], "offer_wrap": offer}))
+        rows.append(("luna", {"say": turn["say"], "blocks": turn["blocks"], "check": check, "offer_wrap": offer}))
         await store.add_turns(sid, user_id, client_turn_id, rows)
         await store.update_session(
             sid, plan=plan, turn_count=min(count, MAX_TURNS),
@@ -330,8 +357,8 @@ async def _run(
         if move:
             yield "move", move
         yield "say", {"md": turn["say"]}
-        if turn["blocks"] or turn["check"]:
-            yield "blocks", {"blocks": turn["blocks"], "check": turn["check"]}
+        if turn["blocks"] or check:
+            yield "blocks", {"blocks": turn["blocks"], "check": check}
         yield "plan", {"plan": plan}
         yield "end", {"turn_count": min(count, MAX_TURNS), "offer_wrap": offer}
     except Exception as exc:
