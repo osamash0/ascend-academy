@@ -78,3 +78,940 @@
 %
 % Do not add entries you have not read. An examiner who spot-checks a citation
 % and finds it does not support the claim will check the rest.
+
+% =============================================================================
+% Academic sources. Every entry was resolved against its DOI (Crossref/DataCite),
+% arXiv record or publisher page on 2026-10-10. biblatex prints only what is
+% cited, so an unread entry here costs nothing. READ A SOURCE BEFORE CITING IT:
+% docs/thesis/evidence/REFERENCES_MAP.md says what each one is for.
+% =============================================================================
+
+% =============================================================================
+%  CANDIDATE academic bibliography for Chapter 2 and the evaluation chapter.
+%
+%  Every entry below was checked to exist on 2026-10-10 against an authoritative
+%  record: the Crossref or DataCite DOI registry, the arXiv/DataCite record, the
+%  NeurIPS / USENIX proceedings page, the GI Digital Library, or the publisher /
+%  author page given in `url`. Bibliographic fields were copied from that record,
+%  not from memory. Page ranges are given only where the registry supplied them.
+%
+%  "Verified to exist" is NOT "verified to support your sentence". Read each
+%  source (at least abstract + the section you rely on) before citing it, and
+%  check the claim in docs/thesis/evidence/REFERENCES_MAP.md against the text.
+%
+%  Layout: entries are grouped by the foundations section they mainly serve.
+%  Within each group, CORE entries come first; entries after the
+%  "--- secondary ---" marker are verified but lower priority -- use them only
+%  if the prose actually needs them. Unused entries cost nothing in biblatex.
+%
+%  To use: copy the entries you have read into thesis/references.bib.
+% =============================================================================
+
+
+% === Document Understanding and Layout Analysis (sec:document-ai) ============
+
+@inproceedings{xu2020layoutlm,
+  author    = {Xu, Yiheng and Li, Minghao and Cui, Lei and Huang, Shaohan and Wei, Furu and Zhou, Ming},
+  title     = {{LayoutLM}: Pre-training of Text and Layout for Document Image Understanding},
+  booktitle = {Proceedings of the 26th ACM SIGKDD International Conference on Knowledge Discovery \& Data Mining (KDD)},
+  pages     = {1192--1200},
+  year      = {2020},
+  publisher = {ACM},
+  doi       = {10.1145/3394486.3403172},
+  url       = {https://doi.org/10.1145/3394486.3403172},
+}
+
+@inproceedings{pfitzmann2022doclaynet,
+  author    = {Pfitzmann, Birgit and Auer, Christoph and Dolfi, Michele and Nassar, Ahmed S. and Staar, Peter},
+  title     = {{DocLayNet}: A Large Human-Annotated Dataset for Document-Layout Segmentation},
+  booktitle = {Proceedings of the 28th ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD)},
+  pages     = {3743--3751},
+  year      = {2022},
+  publisher = {ACM},
+  doi       = {10.1145/3534678.3539043},
+  url       = {https://doi.org/10.1145/3534678.3539043},
+}
+
+@misc{blecher2023nougat,
+  author        = {Blecher, Lukas and Cucurull, Guillem and Scialom, Thomas and Stojnic, Robert},
+  title         = {{Nougat}: Neural Optical Understanding for Academic Documents},
+  year          = {2023},
+  eprint        = {2308.13418},
+  eprinttype    = {arXiv},
+  doi           = {10.48550/arXiv.2308.13418},
+  url           = {https://arxiv.org/abs/2308.13418},
+}
+
+@misc{auer2024docling,
+  author        = {Auer, Christoph and Lysak, Maksym and Nassar, Ahmed and Dolfi, Michele and Livathinos, Nikolaos and Vagenas, Panos and Berrospi Ramis, Cesar and Omenetti, Matteo and Lindlbauer, Fabian and Dinkla, Kasper and others},
+  title         = {{Docling} Technical Report},
+  year          = {2024},
+  eprint        = {2408.09869},
+  eprinttype    = {arXiv},
+  doi           = {10.48550/arXiv.2408.09869},
+  url           = {https://arxiv.org/abs/2408.09869},
+  note          = {Crossref also lists a 2026 ACM DocEng talk/abstract
+                   ``Docling: Converting Complex Documents into AI-Ready
+                   Structured Representations'', doi:10.1145/3820755.3830337;
+                   cite the technical report for the system description},
+}
+
+@misc{wang2024mineru,
+  author        = {Wang, Bin and Xu, Chao and Zhao, Xiaomeng and Ouyang, Linke and Wu, Fan and Zhao, Zhiyuan and Xu, Rui and Liu, Kaiwen and Qu, Yuan and Shang, Fukai and others},
+  title         = {{MinerU}: An Open-Source Solution for Precise Document Content Extraction},
+  year          = {2024},
+  eprint        = {2409.18839},
+  eprinttype    = {arXiv},
+  doi           = {10.48550/arXiv.2409.18839},
+  url           = {https://arxiv.org/abs/2409.18839},
+}
+
+@inproceedings{lee2023lpm,
+  author    = {Lee, Dong Won and Ahuja, Chaitanya and Liang, Paul Pu and Natu, Sanika and Morency, Louis-Philippe},
+  title     = {Lecture Presentations Multimodal Dataset: Towards Understanding Multimodality in Educational Videos},
+  booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+  pages     = {20030--20041},
+  year      = {2023},
+  publisher = {IEEE},
+  doi       = {10.1109/ICCV51070.2023.01838},
+  url       = {https://doi.org/10.1109/ICCV51070.2023.01838},
+  note      = {arXiv version (2208.08080) is titled ``Multimodal Lecture
+               Presentations Dataset: Understanding Multimodality in
+               Educational Slides''},
+}
+
+% --- secondary ---
+
+@inproceedings{ouyang2025omnidocbench,
+  author    = {Ouyang, Linke and Qu, Yuan and Zhou, Hongbin and Zhu, Jiawei and Zhang, Rui and Lin, Qunshu and Wang, Bin and Zhao, Zhiyuan and Jiang, Man and Zhao, Xiaomeng and Shi, Jin and Wu, Fan and Chu, Pei and Liu, Minghao and Li, Zhenxiang and Xu, Chao and Zhang, Bo and Shi, Botian and Tu, Zhongying and He, Conghui},
+  title     = {{OmniDocBench}: Benchmarking Diverse {PDF} Document Parsing with Comprehensive Annotations},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {24838--24848},
+  year      = {2025},
+  publisher = {IEEE},
+  doi       = {10.1109/CVPR52734.2025.02313},
+  url       = {https://doi.org/10.1109/CVPR52734.2025.02313},
+}
+
+@article{tanaka2023slidevqa,
+  author    = {Tanaka, Ryota and Nishida, Kyosuke and Nishida, Kosuke and Hasegawa, Taku and Saito, Itsumi and Saito, Kuniko},
+  title     = {{SlideVQA}: A Dataset for Document Visual Question Answering on Multiple Images},
+  journal   = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume    = {37},
+  number    = {11},
+  pages     = {13636--13645},
+  year      = {2023},
+  doi       = {10.1609/aaai.v37i11.26598},
+  url       = {https://doi.org/10.1609/aaai.v37i11.26598},
+}
+
+@inproceedings{huang2022layoutlmv3,
+  author    = {Huang, Yupan and Lv, Tengchao and Cui, Lei and Lu, Yutong and Wei, Furu},
+  title     = {{LayoutLMv3}: Pre-training for Document {AI} with Unified Text and Image Masking},
+  booktitle = {Proceedings of the 30th ACM International Conference on Multimedia},
+  pages     = {4083--4091},
+  year      = {2022},
+  publisher = {ACM},
+  doi       = {10.1145/3503161.3548112},
+  url       = {https://doi.org/10.1145/3503161.3548112},
+}
+
+@inproceedings{zhong2019publaynet,
+  author    = {Zhong, Xu and Tang, Jianbin and Jimeno Yepes, Antonio},
+  title     = {{PubLayNet}: Largest Dataset Ever for Document Layout Analysis},
+  booktitle = {2019 International Conference on Document Analysis and Recognition (ICDAR)},
+  pages     = {1015--1022},
+  year      = {2019},
+  publisher = {IEEE},
+  doi       = {10.1109/ICDAR.2019.00166},
+  url       = {https://doi.org/10.1109/ICDAR.2019.00166},
+}
+
+
+% === Large Language Models for Content Generation (sec:llms) ================
+
+@inproceedings{brown2020gpt3,
+  author    = {Brown, Tom B. and Mann, Benjamin and Ryder, Nick and Subbiah, Melanie and Kaplan, Jared and Dhariwal, Prafulla and Neelakantan, Arvind and Shyam, Pranav and Sastry, Girish and Askell, Amanda and others},
+  title     = {Language Models are Few-Shot Learners},
+  booktitle = {Advances in Neural Information Processing Systems 33 (NeurIPS 2020)},
+  year      = {2020},
+  url       = {https://proceedings.neurips.cc/paper/2020/hash/1457c0d6bfcb4967418bfb8ac142f64a-Abstract.html},
+  note      = {Also arXiv:2005.14165},
+}
+
+@inproceedings{ouyang2022instructgpt,
+  author    = {Ouyang, Long and Wu, Jeff and Jiang, Xu and Almeida, Diogo and Wainwright, Carroll L. and Mishkin, Pamela and Zhang, Chong and Agarwal, Sandhini and Slama, Katarina and Ray, Alex and others},
+  title     = {Training Language Models to Follow Instructions with Human Feedback},
+  booktitle = {Advances in Neural Information Processing Systems 35 (NeurIPS 2022)},
+  year      = {2022},
+  url       = {https://proceedings.neurips.cc/paper_files/paper/2022/hash/b1efde53be364a73914f58805a001731-Abstract-Conference.html},
+  note      = {Also arXiv:2203.02155},
+}
+
+@article{ji2023hallucination,
+  author    = {Ji, Ziwei and Lee, Nayeon and Frieske, Rita and Yu, Tiezheng and Su, Dan and Xu, Yan and Ishii, Etsuko and Bang, Ye Jin and Madotto, Andrea and Fung, Pascale},
+  title     = {Survey of Hallucination in Natural Language Generation},
+  journal   = {ACM Computing Surveys},
+  volume    = {55},
+  number    = {12},
+  pages     = {1--38},
+  year      = {2023},
+  doi       = {10.1145/3571730},
+  url       = {https://doi.org/10.1145/3571730},
+}
+
+@inproceedings{zheng2023judging,
+  author    = {Zheng, Lianmin and Chiang, Wei-Lin and Sheng, Ying and Zhuang, Siyuan and Wu, Zhanghao and Zhuang, Yonghao and Lin, Zi and Li, Zhuohan and Li, Dacheng and Xing, Eric P. and others},
+  title     = {Judging {LLM}-as-a-Judge with {MT-Bench} and {Chatbot Arena}},
+  booktitle = {Advances in Neural Information Processing Systems 36 (NeurIPS 2023), Datasets and Benchmarks Track},
+  year      = {2023},
+  url       = {https://proceedings.neurips.cc/paper_files/paper/2023/hash/91f18a1287b398d378ef22505bf41832-Abstract-Datasets_and_Benchmarks.html},
+  note      = {Also arXiv:2306.05685},
+}
+
+@inproceedings{panickssery2024selfpreference,
+  author    = {Panickssery, Arjun and Bowman, Samuel R. and Feng, Shi},
+  title     = {{LLM} Evaluators Recognize and Favor Their Own Generations},
+  booktitle = {Advances in Neural Information Processing Systems 37 (NeurIPS 2024)},
+  pages     = {68772--68802},
+  year      = {2024},
+  doi       = {10.52202/079017-2197},
+  url       = {https://papers.nips.cc/paper_files/paper/2024/hash/7f1f0218e45f5414c79c0679633e47bc-Abstract-Conference.html},
+}
+
+% --- secondary ---
+
+@inproceedings{wang2024fairevaluators,
+  author    = {Wang, Peiyi and Li, Lei and Chen, Liang and Cai, Zefan and Zhu, Dawei and Lin, Binghuai and Cao, Yunbo and Kong, Lingpeng and Liu, Qi and Liu, Tianyu and Sui, Zhifang},
+  title     = {Large Language Models are not Fair Evaluators},
+  booktitle = {Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},
+  pages     = {9440--9450},
+  year      = {2024},
+  publisher = {Association for Computational Linguistics},
+  doi       = {10.18653/v1/2024.acl-long.511},
+  url       = {https://doi.org/10.18653/v1/2024.acl-long.511},
+}
+
+@misc{tam2024speakfreely,
+  author        = {Tam, Zhi Rui and Wu, Cheng-Kuang and Tsai, Yi-Lin and Lin, Chieh-Yen and Lee, Hung-yi and Chen, Yun-Nung},
+  title         = {Let Me Speak Freely? {A} Study on the Impact of Format Restrictions on Performance of Large Language Models},
+  year          = {2024},
+  eprint        = {2408.02442},
+  eprinttype    = {arXiv},
+  doi           = {10.48550/arXiv.2408.02442},
+  url           = {https://arxiv.org/abs/2408.02442},
+}
+
+@misc{willard2023guided,
+  author        = {Willard, Brandon T. and Louf, R{\'e}mi},
+  title         = {Efficient Guided Generation for Large Language Models},
+  year          = {2023},
+  eprint        = {2307.09702},
+  eprinttype    = {arXiv},
+  doi           = {10.48550/arXiv.2307.09702},
+  url           = {https://arxiv.org/abs/2307.09702},
+}
+
+@article{huang2025hallucination,
+  author    = {Huang, Lei and Yu, Weijiang and Ma, Weitao and Zhong, Weihong and Feng, Zhangyin and Wang, Haotian and Chen, Qianglong and Peng, Weihua and Feng, Xiaocheng and Qin, Bing and Liu, Ting},
+  title     = {A Survey on Hallucination in Large Language Models: Principles, Taxonomy, Challenges, and Open Questions},
+  journal   = {ACM Transactions on Information Systems},
+  volume    = {43},
+  number    = {2},
+  pages     = {1--55},
+  year      = {2025},
+  doi       = {10.1145/3703155},
+  url       = {https://doi.org/10.1145/3703155},
+}
+
+
+% === Retrieval-Augmented Generation and Groundedness (sec:rag) ==============
+
+@inproceedings{lewis2020rag,
+  author    = {Lewis, Patrick and Perez, Ethan and Piktus, Aleksandra and Petroni, Fabio and Karpukhin, Vladimir and Goyal, Naman and K{\"u}ttler, Heinrich and Lewis, Mike and Yih, Wen-tau and Rockt{\"a}schel, Tim and Riedel, Sebastian and Kiela, Douwe},
+  title     = {Retrieval-Augmented Generation for Knowledge-Intensive {NLP} Tasks},
+  booktitle = {Advances in Neural Information Processing Systems 33 (NeurIPS 2020)},
+  year      = {2020},
+  url       = {https://proceedings.neurips.cc/paper/2020/hash/6b493230205f780e1bc26945df7481e5-Abstract.html},
+  note      = {Also arXiv:2005.11401},
+}
+
+@inproceedings{karpukhin2020dpr,
+  author    = {Karpukhin, Vladimir and Oguz, Barlas and Min, Sewon and Lewis, Patrick and Wu, Ledell and Edunov, Sergey and Chen, Danqi and Yih, Wen-tau},
+  title     = {Dense Passage Retrieval for Open-Domain Question Answering},
+  booktitle = {Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  pages     = {6769--6781},
+  year      = {2020},
+  publisher = {Association for Computational Linguistics},
+  doi       = {10.18653/v1/2020.emnlp-main.550},
+  url       = {https://doi.org/10.18653/v1/2020.emnlp-main.550},
+}
+
+@misc{gao2023ragsurvey,
+  author        = {Gao, Yunfan and Xiong, Yun and Gao, Xinyu and Jia, Kangxiang and Pan, Jinliu and Bi, Yuxi and Dai, Yi and Sun, Jiawei and Wang, Meng and Wang, Haofen},
+  title         = {Retrieval-Augmented Generation for Large Language Models: A Survey},
+  year          = {2023},
+  eprint        = {2312.10997},
+  eprinttype    = {arXiv},
+  doi           = {10.48550/arXiv.2312.10997},
+  url           = {https://arxiv.org/abs/2312.10997},
+}
+
+@inproceedings{gao2023alce,
+  author    = {Gao, Tianyu and Yen, Howard and Yu, Jiatong and Chen, Danqi},
+  title     = {Enabling Large Language Models to Generate Text with Citations},
+  booktitle = {Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  pages     = {6465--6488},
+  year      = {2023},
+  publisher = {Association for Computational Linguistics},
+  doi       = {10.18653/v1/2023.emnlp-main.398},
+  url       = {https://doi.org/10.18653/v1/2023.emnlp-main.398},
+}
+
+@inproceedings{gao2023rarr,
+  author    = {Gao, Luyu and Dai, Zhuyun and Pasupat, Panupong and Chen, Anthony and Chaganty, Arun Tejasvi and Fan, Yicheng and Zhao, Vincent and Lao, Ni and Lee, Hongrae and Juan, Da-Cheng and Guu, Kelvin},
+  title     = {{RARR}: Researching and Revising What Language Models Say, Using Language Models},
+  booktitle = {Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},
+  pages     = {16477--16508},
+  year      = {2023},
+  publisher = {Association for Computational Linguistics},
+  doi       = {10.18653/v1/2023.acl-long.910},
+  url       = {https://doi.org/10.18653/v1/2023.acl-long.910},
+}
+
+@inproceedings{es2024ragas,
+  author    = {Es, Shahul and James, Jithin and Espinosa Anke, Luis and Schockaert, Steven},
+  title     = {{RAGAs}: Automated Evaluation of Retrieval Augmented Generation},
+  booktitle = {Proceedings of the 18th Conference of the European Chapter of the Association for Computational Linguistics: System Demonstrations},
+  pages     = {150--158},
+  year      = {2024},
+  publisher = {Association for Computational Linguistics},
+  doi       = {10.18653/v1/2024.eacl-demo.16},
+  url       = {https://doi.org/10.18653/v1/2024.eacl-demo.16},
+}
+
+@article{rashkin2023ais,
+  author    = {Rashkin, Hannah and Nikolaev, Vitaly and Lamm, Matthew and Aroyo, Lora and Collins, Michael and Das, Dipanjan and Petrov, Slav and Tomar, Gaurav Singh and Turc, Iulia and Reitter, David},
+  title     = {Measuring Attribution in Natural Language Generation Models},
+  journal   = {Computational Linguistics},
+  volume    = {49},
+  number    = {4},
+  pages     = {777--840},
+  year      = {2023},
+  doi       = {10.1162/coli_a_00486},
+  url       = {https://doi.org/10.1162/coli_a_00486},
+}
+
+% --- secondary ---
+
+@misc{anthropic2024contextual,
+  author       = {{Anthropic}},
+  title        = {Introducing Contextual Retrieval},
+  year         = {2024},
+  month        = sep,
+  howpublished = {Engineering blog post, 19 September 2024},
+  url          = {https://www.anthropic.com/news/contextual-retrieval},
+  urldate      = {2026-10-10},
+  note         = {Vendor blog, not peer reviewed; cite only for the technique},
+}
+
+@inproceedings{min2023factscore,
+  author    = {Min, Sewon and Krishna, Kalpesh and Lyu, Xinxi and Lewis, Mike and Yih, Wen-tau and Koh, Pang and Iyyer, Mohit and Zettlemoyer, Luke and Hajishirzi, Hannaneh},
+  title     = {{FActScore}: Fine-grained Atomic Evaluation of Factual Precision in Long Form Text Generation},
+  booktitle = {Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  pages     = {12076--12100},
+  year      = {2023},
+  publisher = {Association for Computational Linguistics},
+  doi       = {10.18653/v1/2023.emnlp-main.741},
+  url       = {https://doi.org/10.18653/v1/2023.emnlp-main.741},
+}
+
+
+% === Prompt Injection (sec:llms failure modes; sec:injection) ===============
+
+@inproceedings{greshake2023indirect,
+  author    = {Greshake, Kai and Abdelnabi, Sahar and Mishra, Shailesh and Endres, Christoph and Holz, Thorsten and Fritz, Mario},
+  title     = {Not What You've Signed Up For: Compromising Real-World {LLM}-Integrated Applications with Indirect Prompt Injection},
+  booktitle = {Proceedings of the 16th ACM Workshop on Artificial Intelligence and Security (AISec)},
+  pages     = {79--90},
+  year      = {2023},
+  publisher = {ACM},
+  doi       = {10.1145/3605764.3623985},
+  url       = {https://doi.org/10.1145/3605764.3623985},
+}
+
+@misc{perez2022ignore,
+  author        = {Perez, F{\'a}bio and Ribeiro, Ian},
+  title         = {Ignore Previous Prompt: Attack Techniques For Language Models},
+  year          = {2022},
+  eprint        = {2211.09527},
+  eprinttype    = {arXiv},
+  doi           = {10.48550/arXiv.2211.09527},
+  url           = {https://arxiv.org/abs/2211.09527},
+}
+
+@inproceedings{liu2024formalizing,
+  author    = {Liu, Yupei and Jia, Yuqi and Geng, Runpeng and Jia, Jinyuan and Gong, Neil Zhenqiang},
+  title     = {Formalizing and Benchmarking Prompt Injection Attacks and Defenses},
+  booktitle = {33rd USENIX Security Symposium (USENIX Security 24)},
+  pages     = {1831--1847},
+  year      = {2024},
+  publisher = {USENIX Association},
+  url       = {https://www.usenix.org/conference/usenixsecurity24/presentation/liu-yupei},
+  note      = {Also arXiv:2310.12815},
+}
+
+@misc{owasp2025llm,
+  author       = {{OWASP Gen AI Security Project}},
+  title        = {{OWASP} Top 10 for {LLM} Applications 2025 ({LLM01:2025} Prompt Injection)},
+  year         = {2025},
+  howpublished = {Web page},
+  url          = {https://genai.owasp.org/llmrisk/llm01-prompt-injection/},
+  urldate      = {2026-10-10},
+  note         = {List overview: https://genai.owasp.org/llm-top-10/ (titled
+                  ``2025 Top 10 Risk \& Mitigations for LLMs and Gen AI Apps'')},
+}
+
+% --- secondary ---
+
+@misc{hines2024spotlighting,
+  author        = {Hines, Keegan and Lopez, Gary and Hall, Matthew and Zarfati, Federico and Zunger, Yonatan and Kiciman, Emre},
+  title         = {Defending Against Indirect Prompt Injection Attacks With Spotlighting},
+  year          = {2024},
+  eprint        = {2403.14720},
+  eprinttype    = {arXiv},
+  doi           = {10.48550/arXiv.2403.14720},
+  url           = {https://arxiv.org/abs/2403.14720},
+}
+
+@inproceedings{zhan2025adaptive,
+  author    = {Zhan, Qiusi and Fang, Richard and Panchal, Henil Shalin and Kang, Daniel},
+  title     = {Adaptive Attacks Break Defenses Against Indirect Prompt Injection Attacks on {LLM} Agents},
+  booktitle = {Findings of the Association for Computational Linguistics: NAACL 2025},
+  pages     = {7101--7117},
+  year      = {2025},
+  publisher = {Association for Computational Linguistics},
+  doi       = {10.18653/v1/2025.findings-naacl.395},
+  url       = {https://doi.org/10.18653/v1/2025.findings-naacl.395},
+}
+
+
+% === Assessment / Question Generation (sec:assessment) ======================
+
+@article{kurdi2020aqg,
+  author    = {Kurdi, Ghader and Leo, Jared and Parsia, Bijan and Sattler, Uli and Al-Emari, Salam},
+  title     = {A Systematic Review of Automatic Question Generation for Educational Purposes},
+  journal   = {International Journal of Artificial Intelligence in Education},
+  volume    = {30},
+  number    = {1},
+  pages     = {121--204},
+  year      = {2020},
+  doi       = {10.1007/s40593-019-00186-y},
+  url       = {https://doi.org/10.1007/s40593-019-00186-y},
+}
+
+@article{haladyna2002mcq,
+  author    = {Haladyna, Thomas M. and Downing, Steven M. and Rodriguez, Michael C.},
+  title     = {A Review of Multiple-Choice Item-Writing Guidelines for Classroom Assessment},
+  journal   = {Applied Measurement in Education},
+  volume    = {15},
+  number    = {3},
+  pages     = {309--333},
+  year      = {2002},
+  doi       = {10.1207/S15324818AME1503_5},
+  url       = {https://doi.org/10.1207/S15324818AME1503_5},
+}
+
+@article{krathwohl2002bloom,
+  author    = {Krathwohl, David R.},
+  title     = {A Revision of {Bloom's} Taxonomy: An Overview},
+  journal   = {Theory Into Practice},
+  volume    = {41},
+  number    = {4},
+  pages     = {212--218},
+  year      = {2002},
+  doi       = {10.1207/s15430421tip4104_2},
+  url       = {https://doi.org/10.1207/s15430421tip4104_2},
+}
+
+@inproceedings{doughty2024mcq,
+  author    = {Doughty, Jacob and Wan, Zipiao and Bompelli, Anishka and Qayum, Jubahed and Wang, Taozhi and Zhang, Juran and Zheng, Yujia and Doyle, Aidan and Sridhar, Pragnya and Agarwal, Arav and Bogart, Christopher and Keylor, Eric and Kultur, Can and Savelka, Jaromir and Sakr, Majd},
+  title     = {A Comparative Study of {AI}-Generated ({GPT-4}) and Human-crafted {MCQs} in Programming Education},
+  booktitle = {Proceedings of the 26th Australasian Computing Education Conference (ACE)},
+  pages     = {114--123},
+  year      = {2024},
+  publisher = {ACM},
+  doi       = {10.1145/3636243.3636256},
+  url       = {https://doi.org/10.1145/3636243.3636256},
+}
+
+@inproceedings{molina2024slides,
+  author    = {Lodovico Molina, Ivo and {\v{S}}v{\'a}bensk{\'y}, Valdemar and Minematsu, Tsubasa and Chen, Li and Okubo, Fumiya and Shimada, Atsushi},
+  title     = {Comparison of Large Language Models for Generating Contextually Relevant Questions},
+  booktitle = {Technology Enhanced Learning for Inclusive and Equitable Quality Education (EC-TEL 2024)},
+  series    = {Lecture Notes in Computer Science},
+  pages     = {137--143},
+  year      = {2024},
+  publisher = {Springer},
+  doi       = {10.1007/978-3-031-72312-4_18},
+  url       = {https://doi.org/10.1007/978-3-031-72312-4_18},
+  note      = {Questions generated from university lecture slides; arXiv:2407.20578},
+}
+
+% --- secondary ---
+
+@inproceedings{meissner2024evalquiz,
+  author    = {Mei{\ss}ner, Niklas and Speth, Sandro and Kieslinger, Julian and Becker, Steffen},
+  title     = {{EvalQuiz} -- {LLM}-based Automated Generation of Self-Assessment Quizzes in Software Engineering Education},
+  booktitle = {Software Engineering im Unterricht der Hochschulen 2024 (SEUH)},
+  editor    = {Schmolitzky, Axel and Klikovits, Stefan},
+  pages     = {53--64},
+  year      = {2024},
+  publisher = {Gesellschaft f{\"u}r Informatik e.V.},
+  address   = {Bonn},
+  doi       = {10.18420/seuh2024_04},
+  url       = {https://dl.gi.de/handle/20.500.12116/43790},
+}
+
+@inproceedings{alhazmi2024distractor,
+  author    = {Alhazmi, Elaf and Sheng, Quan Z. and Zhang, Wei Emma and Zaib, Munazza and Alhazmi, Ahoud},
+  title     = {Distractor Generation in Multiple-Choice Tasks: A Survey of Methods, Datasets, and Evaluation},
+  booktitle = {Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  pages     = {14437--14458},
+  year      = {2024},
+  publisher = {Association for Computational Linguistics},
+  doi       = {10.18653/v1/2024.emnlp-main.799},
+  url       = {https://doi.org/10.18653/v1/2024.emnlp-main.799},
+}
+
+@inproceedings{elkins2023useful,
+  author    = {Elkins, Sabina and Kochmar, Ekaterina and Serban, Iulian and Cheung, Jackie C. K.},
+  title     = {How Useful Are Educational Questions Generated by Large Language Models?},
+  booktitle = {Artificial Intelligence in Education. Posters and Late Breaking Results, Workshops and Tutorials, Industry and Innovation Tracks, Practitioners, Doctoral Consortium and Blue Sky (AIED 2023)},
+  series    = {Communications in Computer and Information Science},
+  pages     = {536--542},
+  year      = {2023},
+  publisher = {Springer},
+  doi       = {10.1007/978-3-031-36336-8_83},
+  url       = {https://doi.org/10.1007/978-3-031-36336-8_83},
+}
+
+
+% === Spaced Repetition and Retrieval Practice (sec:srs; sec:srs-impl) =======
+
+@misc{wozniak1990sm2,
+  author       = {Wo{\'z}niak, Piotr},
+  title        = {Application of a Computer to Improve the Results Obtained in Working with the {SuperMemo} Method},
+  year         = {1990},
+  howpublished = {Section 3.2 of the Master's thesis ``Optimization of learning''; published on the web 1998},
+  url          = {https://super-memory.com/english/ol/sm2.htm},
+  urldate      = {2026-10-10},
+  note         = {Primary description of SM-2. Archived copy:
+                  http://web.archive.org/web/20230922203233/https://super-memory.com/english/ol/sm2.htm},
+}
+
+@book{ebbinghaus1913memory,
+  author     = {Ebbinghaus, Hermann},
+  title      = {Memory: A Contribution to Experimental Psychology},
+  translator = {Ruger, Henry A. and Bussenius, Clara E.},
+  publisher  = {Teachers College, Columbia University},
+  address    = {New York},
+  year       = {1913},
+  origdate   = {1885},
+  url        = {https://psychclassics.yorku.ca/Ebbinghaus/index.htm},
+  note       = {English translation of \emph{{\"U}ber das Ged{\"a}chtnis} (1885)},
+}
+
+@article{cepeda2006distributed,
+  author    = {Cepeda, Nicholas J. and Pashler, Harold and Vul, Edward and Wixted, John T. and Rohrer, Doug},
+  title     = {Distributed Practice in Verbal Recall Tasks: A Review and Quantitative Synthesis},
+  journal   = {Psychological Bulletin},
+  volume    = {132},
+  number    = {3},
+  pages     = {354--380},
+  year      = {2006},
+  doi       = {10.1037/0033-2909.132.3.354},
+  url       = {https://doi.org/10.1037/0033-2909.132.3.354},
+}
+
+@inproceedings{settles2016hlr,
+  author    = {Settles, Burr and Meeder, Brendan},
+  title     = {A Trainable Spaced Repetition Model for Language Learning},
+  booktitle = {Proceedings of the 54th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},
+  pages     = {1848--1858},
+  year      = {2016},
+  publisher = {Association for Computational Linguistics},
+  doi       = {10.18653/v1/P16-1174},
+  url       = {https://doi.org/10.18653/v1/P16-1174},
+}
+
+@inproceedings{ye2022ssp,
+  author    = {Ye, Junyao and Su, Jingyong and Cao, Yilong},
+  title     = {A Stochastic Shortest Path Algorithm for Optimizing Spaced Repetition Scheduling},
+  booktitle = {Proceedings of the 28th ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD)},
+  pages     = {4381--4390},
+  year      = {2022},
+  publisher = {ACM},
+  doi       = {10.1145/3534678.3539081},
+  url       = {https://doi.org/10.1145/3534678.3539081},
+  note      = {Research basis of FSRS (Free Spaced Repetition Scheduler)},
+}
+
+@article{roediger2006testing,
+  author    = {Roediger, Henry L. and Karpicke, Jeffrey D.},
+  title     = {Test-Enhanced Learning: Taking Memory Tests Improves Long-Term Retention},
+  journal   = {Psychological Science},
+  volume    = {17},
+  number    = {3},
+  pages     = {249--255},
+  year      = {2006},
+  doi       = {10.1111/j.1467-9280.2006.01693.x},
+  url       = {https://doi.org/10.1111/j.1467-9280.2006.01693.x},
+}
+
+% --- secondary ---
+
+@article{dunlosky2013techniques,
+  author    = {Dunlosky, John and Rawson, Katherine A. and Marsh, Elizabeth J. and Nathan, Mitchell J. and Willingham, Daniel T.},
+  title     = {Improving Students' Learning With Effective Learning Techniques: Promising Directions From Cognitive and Educational Psychology},
+  journal   = {Psychological Science in the Public Interest},
+  volume    = {14},
+  number    = {1},
+  pages     = {4--58},
+  year      = {2013},
+  doi       = {10.1177/1529100612453266},
+  url       = {https://doi.org/10.1177/1529100612453266},
+}
+
+@article{murre2015ebbinghaus,
+  author    = {Murre, Jaap M. J. and Dros, Joeri},
+  title     = {Replication and Analysis of {Ebbinghaus'} Forgetting Curve},
+  journal   = {PLOS ONE},
+  volume    = {10},
+  number    = {7},
+  pages     = {e0120644},
+  year      = {2015},
+  doi       = {10.1371/journal.pone.0120644},
+  url       = {https://doi.org/10.1371/journal.pone.0120644},
+}
+
+@article{su2023tkde,
+  author    = {Su, Jingyong and Ye, Junyao and Nie, Liqiang and Cao, Yilong and Chen, Yongyong},
+  title     = {Optimizing Spaced Repetition Schedule by Capturing the Dynamics of Memory},
+  journal   = {IEEE Transactions on Knowledge and Data Engineering},
+  volume    = {35},
+  number    = {10},
+  pages     = {10085--10097},
+  year      = {2023},
+  doi       = {10.1109/TKDE.2023.3251721},
+  url       = {https://doi.org/10.1109/TKDE.2023.3251721},
+}
+
+
+% === Gamification in Learning Systems (sec:gamification) ====================
+
+@inproceedings{deterding2011gamification,
+  author    = {Deterding, Sebastian and Dixon, Dan and Khaled, Rilla and Nacke, Lennart},
+  title     = {From Game Design Elements to Gamefulness: Defining ``Gamification''},
+  booktitle = {Proceedings of the 15th International Academic MindTrek Conference: Envisioning Future Media Environments},
+  pages     = {9--15},
+  year      = {2011},
+  publisher = {ACM},
+  doi       = {10.1145/2181037.2181040},
+  url       = {https://doi.org/10.1145/2181037.2181040},
+}
+
+@inproceedings{hamari2014gamification,
+  author    = {Hamari, Juho and Koivisto, Jonna and Sarsa, Harri},
+  title     = {Does Gamification Work? -- {A} Literature Review of Empirical Studies on Gamification},
+  booktitle = {2014 47th Hawaii International Conference on System Sciences (HICSS)},
+  pages     = {3025--3034},
+  year      = {2014},
+  publisher = {IEEE},
+  doi       = {10.1109/HICSS.2014.377},
+  url       = {https://doi.org/10.1109/HICSS.2014.377},
+}
+
+@article{sailer2020gamification,
+  author    = {Sailer, Michael and Homner, Lisa},
+  title     = {The Gamification of Learning: A Meta-analysis},
+  journal   = {Educational Psychology Review},
+  volume    = {32},
+  number    = {1},
+  pages     = {77--112},
+  year      = {2020},
+  doi       = {10.1007/s10648-019-09498-w},
+  url       = {https://doi.org/10.1007/s10648-019-09498-w},
+}
+
+% --- secondary ---
+
+@article{ryan2000sdt,
+  author    = {Ryan, Richard M. and Deci, Edward L.},
+  title     = {Self-Determination Theory and the Facilitation of Intrinsic Motivation, Social Development, and Well-Being},
+  journal   = {American Psychologist},
+  volume    = {55},
+  number    = {1},
+  pages     = {68--78},
+  year      = {2000},
+  doi       = {10.1037/0003-066X.55.1.68},
+  url       = {https://doi.org/10.1037/0003-066X.55.1.68},
+}
+
+
+% === AI Tutors and Positioning (sec:positioning) ============================
+
+@article{vanlehn2011tutoring,
+  author    = {VanLehn, Kurt},
+  title     = {The Relative Effectiveness of Human Tutoring, Intelligent Tutoring Systems, and Other Tutoring Systems},
+  journal   = {Educational Psychologist},
+  volume    = {46},
+  number    = {4},
+  pages     = {197--221},
+  year      = {2011},
+  doi       = {10.1080/00461520.2011.611369},
+  url       = {https://doi.org/10.1080/00461520.2011.611369},
+}
+
+@article{kasneci2023chatgpt,
+  author    = {Kasneci, Enkelejda and Sessler, Kathrin and K{\"u}chemann, Stefan and Bannert, Maria and Dementieva, Daryna and Fischer, Frank and Gasser, Urs and Groh, Georg and G{\"u}nnemann, Stephan and H{\"u}llermeier, Eyke and Krusche, Stephan and Kutyniok, Gitta and Michaeli, Tilman and Nerdel, Claudia and Pfeffer, J{\"u}rgen and Poquet, Oleksandra and Sailer, Michael and Schmidt, Albrecht and Seidel, Tina and Stadler, Matthias and Weller, Jochen and Kuhn, Jochen and Kasneci, Gjergji},
+  title     = {{ChatGPT} for Good? {On} Opportunities and Challenges of Large Language Models for Education},
+  journal   = {Learning and Individual Differences},
+  volume    = {103},
+  pages     = {102274},
+  year      = {2023},
+  doi       = {10.1016/j.lindif.2023.102274},
+  url       = {https://doi.org/10.1016/j.lindif.2023.102274},
+}
+
+@article{zawacki2019aihe,
+  author    = {Zawacki-Richter, Olaf and Mar{\'i}n, Victoria I. and Bond, Melissa and Gouverneur, Franziska},
+  title     = {Systematic Review of Research on Artificial Intelligence Applications in Higher Education -- Where Are the Educators?},
+  journal   = {International Journal of Educational Technology in Higher Education},
+  volume    = {16},
+  number    = {1},
+  year      = {2019},
+  doi       = {10.1186/s41239-019-0171-0},
+  url       = {https://doi.org/10.1186/s41239-019-0171-0},
+  pages     = {39},
+  note      = {Article number 39},
+}
+
+% --- secondary ---
+
+@article{bastani2025guardrails,
+  author    = {Bastani, Hamsa and Bastani, Osbert and Sungu, Alp and Ge, Haosen and Kabak{\c{c}}{\i}, {\"O}zge and Mariman, Rei},
+  title     = {Generative {AI} without Guardrails Can Harm Learning: Evidence from High School Mathematics},
+  journal   = {Proceedings of the National Academy of Sciences},
+  volume    = {122},
+  number    = {26},
+  pages     = {e2422633122},
+  year      = {2025},
+  doi       = {10.1073/pnas.2422633122},
+  url       = {https://doi.org/10.1073/pnas.2422633122},
+  note      = {A correction was published: doi:10.1073/pnas.2518204122},
+}
+
+@article{kestin2025aitutoring,
+  author    = {Kestin, Greg and Miller, Kelly and Klales, Anna and Milbourne, Timothy and Ponti, Gregorio},
+  title     = {{AI} Tutoring Outperforms In-Class Active Learning: An {RCT} Introducing a Novel Research-Based Design in an Authentic Educational Setting},
+  journal   = {Scientific Reports},
+  volume    = {15},
+  pages     = {17458},
+  year      = {2025},
+  doi       = {10.1038/s41598-025-97652-6},
+  url       = {https://doi.org/10.1038/s41598-025-97652-6},
+}
+
+
+% === Software Engineering Grounding (sec:idempotency; sec:failure-handling;
+%     sec:reality-vs-documented; sec:threats) ===============================
+
+@article{desilva2012erosion,
+  author    = {de Silva, Lakshitha and Balasubramaniam, Dharini},
+  title     = {Controlling Software Architecture Erosion: A Survey},
+  journal   = {Journal of Systems and Software},
+  volume    = {85},
+  number    = {1},
+  pages     = {132--151},
+  year      = {2012},
+  doi       = {10.1016/j.jss.2011.07.036},
+  url       = {https://doi.org/10.1016/j.jss.2011.07.036},
+}
+
+@article{lethbridge2003documentation,
+  author    = {Lethbridge, T. C. and Singer, J. and Forward, A.},
+  title     = {How Software Engineers Use Documentation: The State of the Practice},
+  journal   = {IEEE Software},
+  volume    = {20},
+  number    = {6},
+  pages     = {35--39},
+  year      = {2003},
+  doi       = {10.1109/MS.2003.1241364},
+  url       = {https://doi.org/10.1109/MS.2003.1241364},
+}
+
+@article{helland2012idempotence,
+  author    = {Helland, Pat},
+  title     = {Idempotence Is Not a Medical Condition},
+  journal   = {ACM Queue},
+  volume    = {10},
+  number    = {4},
+  pages     = {30--46},
+  year      = {2012},
+  doi       = {10.1145/2181796.2187821},
+  url       = {https://doi.org/10.1145/2181796.2187821},
+  note      = {Reprinted in Communications of the ACM 55(5):56--65, 2012, doi:10.1145/2160718.2160734},
+}
+
+@inproceedings{rahman2016toggles,
+  author    = {Rahman, Md Tajmilur and Querel, Louis-Philippe and Rigby, Peter C. and Adams, Bram},
+  title     = {Feature Toggles: Practitioner Practices and a Case Study},
+  booktitle = {Proceedings of the 13th International Conference on Mining Software Repositories (MSR)},
+  pages     = {201--211},
+  year      = {2016},
+  publisher = {ACM},
+  doi       = {10.1145/2901739.2901745},
+  url       = {https://doi.org/10.1145/2901739.2901745},
+}
+
+@article{runeson2009casestudy,
+  author    = {Runeson, Per and H{\"o}st, Martin},
+  title     = {Guidelines for Conducting and Reporting Case Study Research in Software Engineering},
+  journal   = {Empirical Software Engineering},
+  volume    = {14},
+  number    = {2},
+  pages     = {131--164},
+  year      = {2009},
+  doi       = {10.1007/s10664-008-9102-8},
+  url       = {https://doi.org/10.1007/s10664-008-9102-8},
+}
+
+@book{wohlin2012experimentation,
+  author    = {Wohlin, Claes and Runeson, Per and H{\"o}st, Martin and Ohlsson, Magnus C. and Regnell, Bj{\"o}rn and Wessl{\'e}n, Anders},
+  title     = {Experimentation in Software Engineering},
+  publisher = {Springer},
+  address   = {Berlin, Heidelberg},
+  year      = {2012},
+  doi       = {10.1007/978-3-642-29044-2},
+  url       = {https://doi.org/10.1007/978-3-642-29044-2},
+}
+
+% --- secondary ---
+
+@article{perry1992foundations,
+  author    = {Perry, Dewayne E. and Wolf, Alexander L.},
+  title     = {Foundations for the Study of Software Architecture},
+  journal   = {ACM SIGSOFT Software Engineering Notes},
+  volume    = {17},
+  number    = {4},
+  pages     = {40--52},
+  year      = {1992},
+  doi       = {10.1145/141874.141884},
+  url       = {https://doi.org/10.1145/141874.141884},
+}
+
+@inproceedings{aghajani2019docissues,
+  author    = {Aghajani, Emad and Nagy, Csaba and Vega-Marquez, Olga Lucero and Linares-Vasquez, Mario and Moreno, Laura and Bavota, Gabriele and Lanza, Michele},
+  title     = {Software Documentation Issues Unveiled},
+  booktitle = {2019 IEEE/ACM 41st International Conference on Software Engineering (ICSE)},
+  pages     = {1199--1210},
+  year      = {2019},
+  publisher = {IEEE},
+  doi       = {10.1109/ICSE.2019.00122},
+  url       = {https://doi.org/10.1109/ICSE.2019.00122},
+}
+
+@misc{hodgson2017toggles,
+  author       = {Hodgson, Pete},
+  title        = {Feature Toggles (aka Feature Flags)},
+  year         = {2017},
+  howpublished = {martinfowler.com},
+  url          = {https://martinfowler.com/articles/feature-toggles.html},
+  urldate      = {2026-10-10},
+  note         = {First published 2016; last significant update 9 October 2017},
+}
+
+
+% === Vector Search (sec:retrieval; sec:data-model) ==========================
+
+@article{malkov2020hnsw,
+  author    = {Malkov, Yu. A. and Yashunin, D. A.},
+  title     = {Efficient and Robust Approximate Nearest Neighbor Search Using Hierarchical Navigable Small World Graphs},
+  journal   = {IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  volume    = {42},
+  number    = {4},
+  pages     = {824--836},
+  year      = {2020},
+  doi       = {10.1109/TPAMI.2018.2889473},
+  url       = {https://doi.org/10.1109/TPAMI.2018.2889473},
+  note      = {Published online 2018 (hence the DOI); issue year 2020},
+}
+
+
+% === Usability and Perception Instruments (sec:unanswered study design) =====
+
+@incollection{brooke1996sus,
+  author    = {Brooke, John},
+  title     = {{SUS}: A ``Quick and Dirty'' Usability Scale},
+  booktitle = {Usability Evaluation in Industry},
+  editor    = {Jordan, Patrick W. and Thomas, B. and Weerdmeester, Bernard and McClelland, Ian Lyall},
+  publisher = {Taylor \& Francis},
+  address   = {London},
+  year      = {1996},
+  doi       = {10.1201/9781498710411-35},
+  url       = {https://doi.org/10.1201/9781498710411-35},
+  note      = {Pagination differs between the 1996 print (commonly cited as
+               pp.~189--194) and the CRC Press e-book record behind the DOI
+               (pp.~207--212); take pages from the copy you actually read},
+}
+
+@inproceedings{laugwitz2008ueq,
+  author    = {Laugwitz, Bettina and Held, Theo and Schrepp, Martin},
+  title     = {Construction and Evaluation of a User Experience Questionnaire},
+  booktitle = {HCI and Usability for Education and Work (USAB 2008)},
+  series    = {Lecture Notes in Computer Science},
+  pages     = {63--76},
+  year      = {2008},
+  publisher = {Springer},
+  doi       = {10.1007/978-3-540-89350-9_6},
+  url       = {https://doi.org/10.1007/978-3-540-89350-9_6},
+}
+
+@article{davis1989tam,
+  author    = {Davis, Fred D.},
+  title     = {Perceived Usefulness, Perceived Ease of Use, and User Acceptance of Information Technology},
+  journal   = {MIS Quarterly},
+  volume    = {13},
+  number    = {3},
+  pages     = {319--340},
+  year      = {1989},
+  doi       = {10.2307/249008},
+  url       = {https://doi.org/10.2307/249008},
+}
+
+@article{mcauley1989imi,
+  author    = {McAuley, Edward and Duncan, Terry and Tammen, Vance V.},
+  title     = {Psychometric Properties of the Intrinsic Motivation Inventory in a Competitive Sport Setting: A Confirmatory Factor Analysis},
+  journal   = {Research Quarterly for Exercise and Sport},
+  volume    = {60},
+  number    = {1},
+  pages     = {48--58},
+  year      = {1989},
+  doi       = {10.1080/02701367.1989.10607413},
+  url       = {https://doi.org/10.1080/02701367.1989.10607413},
+}
+
+% --- secondary ---
+
+@article{bangor2008sus,
+  author    = {Bangor, Aaron and Kortum, Philip T. and Miller, James T.},
+  title     = {An Empirical Evaluation of the System Usability Scale},
+  journal   = {International Journal of Human--Computer Interaction},
+  volume    = {24},
+  number    = {6},
+  pages     = {574--594},
+  year      = {2008},
+  doi       = {10.1080/10447310802205776},
+  url       = {https://doi.org/10.1080/10447310802205776},
+}

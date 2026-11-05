@@ -8,7 +8,6 @@ skinparam shadowing false
 skinparam defaultFontName Helvetica
 skinparam defaultFontSize 11
 skinparam roundCorner 3
-skinparam padding 3
 skinparam nodesep 18
 skinparam ranksep 24
 

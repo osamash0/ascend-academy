@@ -30,16 +30,16 @@ rectangle "**REACHABLE BY A STUDENT TODAY**" as LIVE #BFBFBF {
 }
 
 rectangle "**BROKEN HALF-STATE**\nfrontend flag ON, backend flag OFF" as HALF #DCDCDC {
-  rectangle "Review / SRS\n//nav tab renders,\nAPI returns 404//" as C1
-  rectangle "My Materials\n//page renders,\nrouter unmounted//" as C2
+  rectangle "Review / SRS\n//nav tab renders,//\n//API returns 404//" as C1
+  rectangle "My Materials\n//page renders,//\n//router unmounted//" as C2
 }
 
 rectangle "**DEAD END**\nno frontend flag at all" as DEAD #DCDCDC {
-  rectangle "Exam mode\n//'Generate exam' button always\nvisible, routes unmounted//" as D1
+  rectangle "Exam mode\n//'Generate exam' button always//\n//visible, routes unmounted//" as D1
 }
 
 rectangle "**CLEANLY HIDDEN**\nboth flags off — the only consistent gate" as HID #F2F2F2 {
-  rectangle "Global search + course tutor\n//no command palette,\nno 'Ask this course'//" as E1
+  rectangle "Global search + course tutor\n//no command palette,//\n//no 'Ask this course'//" as E1
 }
 
 rectangle "**SILENT CASCADE**" as CASC #DCDCDC {
@@ -73,18 +73,18 @@ note right of HALF
 end note
 
 note right of DEAD
-  **And local diverges from deployed
-  structurally.** backend/.env enables three
+  **And local diverges from deployed**
+  **structurally.** backend/.env enables three
   features, but .dockerignore:28 excludes
-  **/.env from the image, so prod sees only
-  the root .env. Locally 22 routers mount;
-  prod serves 17-19. This is the documented
-  cause of exam generation 404ing in prod.
+  **/.env from the image, so prod sees only**
+  **the root .env. Locally 22 routers mount;**
+  **prod serves 17-19. This is the documented**
+  **cause of exam generation 404ing in prod.**
 end note
 
 note bottom of CASC
-  **The production default is the least-tested
-  configuration.** conftest.py:32-33 force-sets
+  **The production default is the least-tested**
+  **configuration.** conftest.py:32-33 force-sets
   FEATURE_REVIEW_ENGINE=1 and FEATURE_EXAM_MODE=1,
   so the suite never exercises the shipped state.
 end note

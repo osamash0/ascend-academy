@@ -27,16 +27,33 @@ what makes it usable in continuous integration.}
 \section{Results}
 \label{sec:results}
 
-\thesisfigure{f19-results-scaffold}
-  {Scorecard results.}
+\thesisfigure{f19-results}
+  {Scorecard results: retrieval precision@k, measured against the real corpus.
+   Quiz key accuracy, tutor faithfulness and synthesis quality could not be
+   run against the live system with the harness as it exists today --- see
+   the figure's own note for why --- and are reported as not measured rather
+   than invented.}
   {fig:results}
 
-\TODO{CRITICAL --- \cref{fig:results} is currently an EMPTY SCAFFOLD. No
-evaluation run exists: the results table was never applied to the production
-database and no local scorecard has been recorded. Run the harness, then fill
-the four metric rows and the run metadata. Do NOT write prose interpreting
-results that do not exist, and do not submit with this figure as-is: either
-populate it or remove both the figure and this section.}
+\TODO{\Cref{fig:results} is now real but PARTIAL: only retrieval
+precision@k was run, against \texttt{backend/eval/data/golden\_set.json} (50
+questions, 6 real DBS lectures), at production's own k and threshold
+(\texttt{backend/services/ai/retrieval.py:30--32}). The other three scorecard
+metrics are NOT MEASURED because \texttt{backend/eval/run\_eval.py}'s golden
+sets (\texttt{golden\_sets.py}) use synthetic \texttt{deck\_id} strings that
+\texttt{LivePipeline} cannot resolve to a real lecture --- it raises rather
+than silently scoring zero. Write the prose against exactly what the figure
+shows: precision@k passes its band at both k=5 (lecture) and k=6 (course) and
+sits within a few points of the ceiling a perfect retriever could reach given
+one relevant slide per question; the refusal gate cost nothing in this
+sample (0\% false refusals); 23 of 50 questions could not be attempted in the
+course-hybrid regime because their lecture has no \texttt{course\_id} yet,
+which is a data-completeness gap worth naming on its own. Do not write a
+sentence implying quiz/tutor/synthesis quality or student learning outcomes
+were evaluated --- they were not. Full grid and per-question data in
+\texttt{thesis/results/20260917T214528Z/}.}
+
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#6.5) The 0\% false-refusal figure belongs to the course tutor's gate, which the default deployment does not expose, on $n=27$. The run was at \code{a696be1}, not \thesisCommit.}
 
 \section{Implementation Reality versus Documented Design}
 \label{sec:reality-vs-documented}
@@ -79,6 +96,8 @@ local and deployed configuration caused by environment files excluded from the
 container image; and the cascade in which a single default empties three
 database tables. Close with the observation that the production default is the
 least-tested configuration, since the test suite forces two flags on.}
+
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#6.9, \#6.11) Only two flag mismatches exist (review engine, student uploads); Exam has no frontend flag at all. Whether frontend flags are on in production is a build-time setting not visible in git. One default idles pipeline concept ingestion, but \code{concept\_mastery} is empty for an independent reason: concept cards were never built.}
 
 \subsection{The Citation Gap}
 \label{sec:citation-gap}

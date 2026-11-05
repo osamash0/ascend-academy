@@ -17,7 +17,7 @@ skinparam rectangle {
   BackgroundColor #FFFFFF
 }
 
-rectangle "**Document conversion / layout AI**\nPDF to markup or markdown\n----\nRecovers //structure//: pages, blocks,\ntables, reading order.\nProduces no assessable objects.\nNo learner model.\n\n//This system consumes tools from this\nfamily: PyMuPDF for extraction, and\nMarkItDown / LlamaParse / MinerU /\nOpenDataLoader as swappable text\nfront-ends.//" as DOC #F2F2F2
+rectangle "**Document conversion / layout AI**\nPDF to markup or markdown\n----\nRecovers //structure//: pages, blocks,\ntables, reading order.\nProduces no assessable objects.\nNo learner model.\n\n//This system consumes tools from this//\n//family: PyMuPDF for extraction, and//\n//MarkItDown / LlamaParse / MinerU ///\n//OpenDataLoader as swappable text//\n//front-ends.//" as DOC #F2F2F2
 
 rectangle "**Learning platforms / LMS**\ncourses, enrolment, grading\n----\nRich //pedagogy//: assignments,\nprogress, analytics, spaced review.\nAssumes content is **already**\nauthored and structured.\nIngestion is a manual upload." as LMS #F2F2F2
 

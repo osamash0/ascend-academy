@@ -1,11 +1,11 @@
 ' F9 -- Core physical schema.
 ' Chapter 4 (Design). ER diagram (class notation with multiplicities).
-' Claim supported: 26 of ~68 tables constitute the domain; four are dead and
-' excluded by name; three relationships carry NO database-enforced foreign key.
+' Claim supported: 29 of ~68 tables (plus auth.users) constitute the domain;
+' five are dead and excluded by name; three relationships carry NO database-enforced foreign key.
 @startuml f9-er-core
 !include _style.iuml
 
-title Core schema — 26 of ~68 tables
+title Core schema — 29 of ~68 tables
 
 hide methods
 hide circle
@@ -85,9 +85,6 @@ package "Parse pipeline" {
     lecture_id : uuid FK
     pdf_hash, pipeline_version
     user_id, batch_id, status
-  }
-  class parse_pages {
-    run_id, page_index
   }
   class slide_embeddings {
     lecture_id : uuid FK
@@ -176,7 +173,6 @@ lectures "1" -- "0..*" parse_runs
 lectures "1" -- "0..*" slide_embeddings
 lectures "1" -- "0..*" review_cards
 slides "1" -- "0..*" quiz_questions
-parse_runs "1" -- "0..*" parse_pages
 concepts "1" -- "0..*" concept_lectures
 lectures "1" -- "0..*" concept_lectures
 concepts "1" -- "0..*" review_cards
@@ -205,16 +201,19 @@ assignments .. courses : "//soft link//\nnullable, un-FK'd by design"
 
 note as N1
   **Dashed = no database-enforced foreign key.**
-  Not cosmetic. Because achievements.badge_name is
-  only conventionally tied to badge_definitions.key,
-  three badges ('review-streak-7', 'review-streak-30',
-  'centurion') were never seeded — so those
-  awardBadge() calls **silently no-op today**.
-  A missing constraint became silently dropped writes.
+  The badge link shows what a soft link costs.
+  Three badges the client awards ('review-streak-7',
+  'review-streak-30', 'centurion') were never seeded,
+  and award_badge() answers an unknown key with
+  RETURN NULL, which no caller checks -- so those
+  awards **silently no-op today**. An FK alone would
+  not have caught it: the defect is an unchecked
+  return value guarding an unseeded catalogue.
 end note
 
 note as N2
-  **Excluded, and why — four dead tables:**
+  **Excluded, and why — five dead tables:**
+  • parse_pages — every writer lives in the archived legacy pipeline
   • slide_chunks — 384-dim FastEmbed era, zero writers
   • tutor_messages — zero references outside generated types
   • concept_mastery — read but never written; permanently empty
@@ -222,8 +221,8 @@ note as N2
 
   **Also excluded:** caches, admin/eval tables, the academic
   catalog and social graph (separate sub-diagrams), and
-  slides.embedding — which exists in production with **no
-  migration defining it**, 100% NULL across 5,445 rows.
+  slides.embedding — which exists in production with **no**
+  **migration defining it**, 100% NULL across 5,445 rows.
 
   **No quizzes table exists.** A quiz is the set of
   quiz_questions reachable via slides.lecture_id.

@@ -106,9 +106,11 @@ the warning list at zero before submitting.
 - [ ] **Replace `frontmatter/declaration.tex`** with your institute's official
       wording. The placeholder is generic and almost certainly not what your
       examination regulations require. Check the rules on declaring AI-tool use
-- [ ] **F19 (Results) is an empty scaffold.** Run
-      `python -m backend.eval.run_eval` and fill it, or remove the figure and
-      §Results entirely. Do not submit a placeholder results figure
+- [ ] **F19 (Results) now has real retrieval numbers, but 3 of 4 metrics are
+      NOT MEASURED** (quiz key accuracy, tutor faithfulness, synthesis
+      quality) — `run_eval.py`'s golden sets are synthetic and cannot run
+      against `LivePipeline`. Write §Results prose against only what the
+      figure shows; do not imply the other three were evaluated
 - [ ] **F2 (Positioning) needs your related-work sources.** Its families come
       from the codebase, not a literature search; it carries an explicit
       "not a survey" caveat until you populate it

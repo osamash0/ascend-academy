@@ -34,7 +34,13 @@ all: $(MAIN).pdf
 $(MAIN).pdf: $(TEXFILES) $(FIGPDF)
 	@command -v $(LATEXMK) >/dev/null || { \
 	  echo "latexmk not found — see 'make check'"; exit 1; }
-	$(LATEXMK) -pdf -bibtex- -interaction=nonstopmode -halt-on-error \
+	@# \include writes per-chapter .aux files into matching subdirectories of
+	@# the output directory, and pdflatex will not create them: a cold build
+	@# failed its first pass without these.
+	@mkdir -p $(OUT)/chapters $(OUT)/frontmatter
+	@# No -bibtex- here: that flag stops latexmk from running biber, so every
+	@# \cite would silently render as an unresolved key.
+	$(LATEXMK) -pdf -interaction=nonstopmode -halt-on-error \
 	  -outdir=$(OUT) $(MAIN).tex
 	@cp $(OUT)/$(MAIN).pdf ./$(MAIN).pdf
 	@echo

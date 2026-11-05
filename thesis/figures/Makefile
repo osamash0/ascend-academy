@@ -21,7 +21,11 @@
 
 PLANTUML_JAR ?= $(HOME)/.local/share/plantuml/plantuml.jar
 JAVA         ?= java
-PLANTUML      = $(JAVA) -jar $(PLANTUML_JAR) -nometadata
+# headless + no Dock icon: without these, every render launches a GUI-capable
+# JVM on macOS that flashes a Java icon and steals focus from whatever the
+# user is typing in. A full rebuild did that 19 times in a row.
+JAVA_OPTS    ?= -Djava.awt.headless=true -Dapple.awt.UIElement=true
+PLANTUML      = $(JAVA) $(JAVA_OPTS) -jar $(PLANTUML_JAR) -nometadata
 PDF_FLAG     ?= -tpdf
 
 SRCDIR  = src

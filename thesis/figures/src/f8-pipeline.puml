@@ -16,7 +16,7 @@ start
 :capped streaming body read;
 
 if (valid PDF or PPTX?\nsize <= 50 MB, pages <= 300) then (no)
-  #DCDCDC:HTTP 413 / 400;
+  :HTTP 413 / 400; <<#DCDCDC>>
   stop
 else (yes)
 endif
@@ -29,7 +29,7 @@ note right
 end note
 
 if (Arq queue depth < 50?) then (no)
-  #DCDCDC:HTTP 429\nworker-liveness-aware message;
+  :HTTP 429\nworker-liveness-aware message; <<#DCDCDC>>
   stop
 else (yes)
 endif
@@ -43,7 +43,7 @@ endif
 
 if (run already completed?) then (yes)
   :replay slides + deck from DB;
-  #F2F2F2:emit complete;
+  :emit complete; <<#F2F2F2>>
   stop
 else (no)
 endif
@@ -54,16 +54,16 @@ if (acquire lock  joblock:parse:[hash]?) then (no)
 else (yes)
 endif
 
-#BFBFBF:**phase: extract**;
+:**phase: extract**; <<#BFBFBF>>
 :PyMuPDF per-page text extraction;
 :detect source language;
 if (LLM budget headroom\n>= pages + 2?) then (no)
-  #DCDCDC:InsufficientHeadroomError;
+  :InsufficientHeadroomError; <<#DCDCDC>>
   stop
 else (yes)
 endif
 
-#BFBFBF:**phase: enhance**;
+:**phase: enhance**; <<#BFBFBF>>
 :lecture title, summary, key topics;
 :create or reuse lecture row\n//re-parse keeps lecture_id//;
 :render WebP poster from page 1;
@@ -74,7 +74,7 @@ else (under 25 chars)
 endif
 :persist slides\nai_enhanced, needs_review, vision_routed;
 
-#BFBFBF:**phase: finalize**;
+:**phase: finalize**; <<#BFBFBF>>
 :generate deck quiz questions;
 :persist quiz_questions;
 :update lecture description + slide count;

@@ -1,0 +1,4895 @@
+{
+  "generated_utc": "20260917T214528Z",
+  "commit": "a696be1-dirty",
+  "golden_set": "backend/eval/data/golden_set.json",
+  "verdict": "ACCEPTED",
+  "embedding_calls": 50,
+  "embedding_median_ms": 256.8,
+  "configs": [
+    {
+      "regime": "lecture_dense",
+      "k": 3,
+      "threshold": 0.65,
+      "n": 50,
+      "slide_found": 0.84,
+      "anchor_found": 0.9,
+      "mrr": 0.7667,
+      "p_at_k": 0.28,
+      "latency_ms": 229.0,
+      "refusal": 0.02,
+      "false_refusal": 0.0,
+      "false_refusal_share": 0.0,
+      "dup_hits": 0,
+      "errors": 0,
+      "skipped": 0,
+      "per_question": [
+        {
+          "id": "58d20720-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7969,
+          "duplicate_hits": 0,
+          "latency_ms": 767.4
+        },
+        {
+          "id": "58d20720-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7421,
+          "duplicate_hits": 0,
+          "latency_ms": 256.4
+        },
+        {
+          "id": "58d20720-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.712,
+          "duplicate_hits": 0,
+          "latency_ms": 231.4
+        },
+        {
+          "id": "58d20720-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7098,
+          "duplicate_hits": 0,
+          "latency_ms": 259.2
+        },
+        {
+          "id": "58d20720-s40",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7673,
+          "duplicate_hits": 0,
+          "latency_ms": 265.0
+        },
+        {
+          "id": "58d20720-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7001,
+          "duplicate_hits": 0,
+          "latency_ms": 110.4
+        },
+        {
+          "id": "58d20720-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7628,
+          "duplicate_hits": 0,
+          "latency_ms": 228.4
+        },
+        {
+          "id": "58d20720-s64",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7623,
+          "duplicate_hits": 0,
+          "latency_ms": 219.8
+        },
+        {
+          "id": "58d20720-s72",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7797,
+          "duplicate_hits": 0,
+          "latency_ms": 230.3
+        },
+        {
+          "id": "e4c1cf2f-s7",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8213,
+          "duplicate_hits": 0,
+          "latency_ms": 260.4
+        },
+        {
+          "id": "e4c1cf2f-s14",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.6784,
+          "duplicate_hits": 0,
+          "latency_ms": 222.3
+        },
+        {
+          "id": "e4c1cf2f-s21",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7718,
+          "duplicate_hits": 0,
+          "latency_ms": 251.1
+        },
+        {
+          "id": "e4c1cf2f-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7557,
+          "duplicate_hits": 0,
+          "latency_ms": 232.7
+        },
+        {
+          "id": "e4c1cf2f-s49",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7576,
+          "duplicate_hits": 0,
+          "latency_ms": 233.3
+        },
+        {
+          "id": "e4c1cf2f-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.8351,
+          "duplicate_hits": 0,
+          "latency_ms": 236.0
+        },
+        {
+          "id": "e4c1cf2f-s63",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7719,
+          "duplicate_hits": 0,
+          "latency_ms": 229.1
+        },
+        {
+          "id": "4e69f0bb-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8203,
+          "duplicate_hits": 0,
+          "latency_ms": 258.6
+        },
+        {
+          "id": "4e69f0bb-s12",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": true,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.739,
+          "duplicate_hits": 0,
+          "latency_ms": 224.8
+        },
+        {
+          "id": "4e69f0bb-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7723,
+          "duplicate_hits": 0,
+          "latency_ms": 258.6
+        },
+        {
+          "id": "4e69f0bb-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7505,
+          "duplicate_hits": 0,
+          "latency_ms": 226.2
+        },
+        {
+          "id": "4e69f0bb-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7432,
+          "duplicate_hits": 0,
+          "latency_ms": 244.3
+        },
+        {
+          "id": "4e69f0bb-s36",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": true,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7152,
+          "duplicate_hits": 0,
+          "latency_ms": 245.4
+        },
+        {
+          "id": "4e69f0bb-s42",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7209,
+          "duplicate_hits": 0,
+          "latency_ms": 217.4
+        },
+        {
+          "id": "4e69f0bb-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6585,
+          "duplicate_hits": 0,
+          "latency_ms": 151.8
+        },
+        {
+          "id": "4e69f0bb-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7284,
+          "duplicate_hits": 0,
+          "latency_ms": 229.9
+        },
+        {
+          "id": "447baff4-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6593,
+          "duplicate_hits": 0,
+          "latency_ms": 181.9
+        },
+        {
+          "id": "447baff4-s12",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7423,
+          "duplicate_hits": 0,
+          "latency_ms": 222.4
+        },
+        {
+          "id": "447baff4-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7064,
+          "duplicate_hits": 0,
+          "latency_ms": 226.6
+        },
+        {
+          "id": "447baff4-s24",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6702,
+          "duplicate_hits": 0,
+          "latency_ms": 111.5
+        },
+        {
+          "id": "447baff4-s30",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7008,
+          "duplicate_hits": 0,
+          "latency_ms": 250.5
+        },
+        {
+          "id": "447baff4-s42",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6827,
+          "duplicate_hits": 0,
+          "latency_ms": 236.9
+        },
+        {
+          "id": "447baff4-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.3333,
+          "grounded": true,
+          "top_similarity": 0.6992,
+          "duplicate_hits": 0,
+          "latency_ms": 217.5
+        },
+        {
+          "id": "37fbaf56-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7707,
+          "duplicate_hits": 0,
+          "latency_ms": 239.8
+        },
+        {
+          "id": "37fbaf56-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.671,
+          "duplicate_hits": 0,
+          "latency_ms": 183.5
+        },
+        {
+          "id": "37fbaf56-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7292,
+          "duplicate_hits": 0,
+          "latency_ms": 220.6
+        },
+        {
+          "id": "37fbaf56-s24",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7229,
+          "duplicate_hits": 0,
+          "latency_ms": 222.7
+        },
+        {
+          "id": "37fbaf56-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.8046,
+          "duplicate_hits": 0,
+          "latency_ms": 216.7
+        },
+        {
+          "id": "37fbaf56-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8144,
+          "duplicate_hits": 0,
+          "latency_ms": 241.1
+        },
+        {
+          "id": "37fbaf56-s42",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": false,
+          "top_similarity": 0.0,
+          "duplicate_hits": 0,
+          "latency_ms": 59.0
+        },
+        {
+          "id": "37fbaf56-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7904,
+          "duplicate_hits": 0,
+          "latency_ms": 228.9
+        },
+        {
+          "id": "37fbaf56-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7118,
+          "duplicate_hits": 0,
+          "latency_ms": 107.0
+        },
+        {
+          "id": "54357028-s4",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7602,
+          "duplicate_hits": 0,
+          "latency_ms": 236.9
+        },
+        {
+          "id": "54357028-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.733,
+          "duplicate_hits": 0,
+          "latency_ms": 249.0
+        },
+        {
+          "id": "54357028-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7575,
+          "duplicate_hits": 0,
+          "latency_ms": 235.3
+        },
+        {
+          "id": "54357028-s16",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": true,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.8041,
+          "duplicate_hits": 0,
+          "latency_ms": 227.0
+        },
+        {
+          "id": "54357028-s20",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8196,
+          "duplicate_hits": 0,
+          "latency_ms": 220.5
+        },
+        {
+          "id": "54357028-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6683,
+          "duplicate_hits": 0,
+          "latency_ms": 233.2
+        },
+        {
+          "id": "54357028-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6924,
+          "duplicate_hits": 0,
+          "latency_ms": 169.3
+        },
+        {
+          "id": "54357028-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6761,
+          "duplicate_hits": 0,
+          "latency_ms": 216.4
+        },
+        {
+          "id": "54357028-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7056,
+          "duplicate_hits": 0,
+          "latency_ms": 222.7
+        }
+      ]
+    },
+    {
+      "regime": "lecture_dense",
+      "k": 5,
+      "threshold": 0.65,
+      "n": 50,
+      "slide_found": 0.92,
+      "anchor_found": 0.94,
+      "mrr": 0.7857,
+      "p_at_k": 0.184,
+      "latency_ms": 332.4,
+      "refusal": 0.02,
+      "false_refusal": 0.0,
+      "false_refusal_share": 0.0,
+      "dup_hits": 0,
+      "errors": 0,
+      "skipped": 0,
+      "per_question": [
+        {
+          "id": "58d20720-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7969,
+          "duplicate_hits": 0,
+          "latency_ms": 330.4
+        },
+        {
+          "id": "58d20720-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7421,
+          "duplicate_hits": 0,
+          "latency_ms": 351.9
+        },
+        {
+          "id": "58d20720-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.712,
+          "duplicate_hits": 0,
+          "latency_ms": 344.6
+        },
+        {
+          "id": "58d20720-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7098,
+          "duplicate_hits": 0,
+          "latency_ms": 382.8
+        },
+        {
+          "id": "58d20720-s40",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7673,
+          "duplicate_hits": 0,
+          "latency_ms": 392.9
+        },
+        {
+          "id": "58d20720-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7001,
+          "duplicate_hits": 0,
+          "latency_ms": 115.8
+        },
+        {
+          "id": "58d20720-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7628,
+          "duplicate_hits": 0,
+          "latency_ms": 361.5
+        },
+        {
+          "id": "58d20720-s64",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7623,
+          "duplicate_hits": 0,
+          "latency_ms": 360.7
+        },
+        {
+          "id": "58d20720-s72",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7797,
+          "duplicate_hits": 0,
+          "latency_ms": 361.9
+        },
+        {
+          "id": "e4c1cf2f-s7",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8213,
+          "duplicate_hits": 0,
+          "latency_ms": 348.9
+        },
+        {
+          "id": "e4c1cf2f-s14",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.6784,
+          "duplicate_hits": 0,
+          "latency_ms": 353.5
+        },
+        {
+          "id": "e4c1cf2f-s21",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7718,
+          "duplicate_hits": 0,
+          "latency_ms": 338.0
+        },
+        {
+          "id": "e4c1cf2f-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7557,
+          "duplicate_hits": 0,
+          "latency_ms": 378.2
+        },
+        {
+          "id": "e4c1cf2f-s49",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7576,
+          "duplicate_hits": 0,
+          "latency_ms": 793.0
+        },
+        {
+          "id": "e4c1cf2f-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.8351,
+          "duplicate_hits": 0,
+          "latency_ms": 355.9
+        },
+        {
+          "id": "e4c1cf2f-s63",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7719,
+          "duplicate_hits": 0,
+          "latency_ms": 343.4
+        },
+        {
+          "id": "4e69f0bb-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8203,
+          "duplicate_hits": 0,
+          "latency_ms": 448.9
+        },
+        {
+          "id": "4e69f0bb-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.2,
+          "grounded": true,
+          "top_similarity": 0.739,
+          "duplicate_hits": 0,
+          "latency_ms": 357.1
+        },
+        {
+          "id": "4e69f0bb-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7723,
+          "duplicate_hits": 0,
+          "latency_ms": 328.2
+        },
+        {
+          "id": "4e69f0bb-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7505,
+          "duplicate_hits": 0,
+          "latency_ms": 367.6
+        },
+        {
+          "id": "4e69f0bb-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7432,
+          "duplicate_hits": 0,
+          "latency_ms": 331.5
+        },
+        {
+          "id": "4e69f0bb-s36",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": true,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7152,
+          "duplicate_hits": 0,
+          "latency_ms": 377.8
+        },
+        {
+          "id": "4e69f0bb-s42",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.7209,
+          "duplicate_hits": 0,
+          "latency_ms": 335.9
+        },
+        {
+          "id": "4e69f0bb-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6585,
+          "duplicate_hits": 0,
+          "latency_ms": 108.0
+        },
+        {
+          "id": "4e69f0bb-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7284,
+          "duplicate_hits": 0,
+          "latency_ms": 283.0
+        },
+        {
+          "id": "447baff4-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6593,
+          "duplicate_hits": 0,
+          "latency_ms": 174.1
+        },
+        {
+          "id": "447baff4-s12",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7423,
+          "duplicate_hits": 0,
+          "latency_ms": 283.6
+        },
+        {
+          "id": "447baff4-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7064,
+          "duplicate_hits": 0,
+          "latency_ms": 266.1
+        },
+        {
+          "id": "447baff4-s24",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6702,
+          "duplicate_hits": 0,
+          "latency_ms": 123.6
+        },
+        {
+          "id": "447baff4-s30",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7008,
+          "duplicate_hits": 0,
+          "latency_ms": 290.6
+        },
+        {
+          "id": "447baff4-s42",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6827,
+          "duplicate_hits": 0,
+          "latency_ms": 238.8
+        },
+        {
+          "id": "447baff4-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.3333,
+          "grounded": true,
+          "top_similarity": 0.6992,
+          "duplicate_hits": 0,
+          "latency_ms": 215.0
+        },
+        {
+          "id": "37fbaf56-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7707,
+          "duplicate_hits": 0,
+          "latency_ms": 344.4
+        },
+        {
+          "id": "37fbaf56-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.671,
+          "duplicate_hits": 0,
+          "latency_ms": 188.2
+        },
+        {
+          "id": "37fbaf56-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7292,
+          "duplicate_hits": 0,
+          "latency_ms": 348.4
+        },
+        {
+          "id": "37fbaf56-s24",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7229,
+          "duplicate_hits": 0,
+          "latency_ms": 363.4
+        },
+        {
+          "id": "37fbaf56-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.8046,
+          "duplicate_hits": 0,
+          "latency_ms": 324.4
+        },
+        {
+          "id": "37fbaf56-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8144,
+          "duplicate_hits": 0,
+          "latency_ms": 317.8
+        },
+        {
+          "id": "37fbaf56-s42",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": false,
+          "top_similarity": 0.0,
+          "duplicate_hits": 0,
+          "latency_ms": 57.5
+        },
+        {
+          "id": "37fbaf56-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7904,
+          "duplicate_hits": 0,
+          "latency_ms": 339.6
+        },
+        {
+          "id": "37fbaf56-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7118,
+          "duplicate_hits": 0,
+          "latency_ms": 124.2
+        },
+        {
+          "id": "54357028-s4",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7602,
+          "duplicate_hits": 0,
+          "latency_ms": 321.1
+        },
+        {
+          "id": "54357028-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.733,
+          "duplicate_hits": 0,
+          "latency_ms": 333.3
+        },
+        {
+          "id": "54357028-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7575,
+          "duplicate_hits": 0,
+          "latency_ms": 359.3
+        },
+        {
+          "id": "54357028-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.8041,
+          "duplicate_hits": 0,
+          "latency_ms": 321.4
+        },
+        {
+          "id": "54357028-s20",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8196,
+          "duplicate_hits": 0,
+          "latency_ms": 326.2
+        },
+        {
+          "id": "54357028-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6683,
+          "duplicate_hits": 0,
+          "latency_ms": 175.3
+        },
+        {
+          "id": "54357028-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6924,
+          "duplicate_hits": 0,
+          "latency_ms": 171.1
+        },
+        {
+          "id": "54357028-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6761,
+          "duplicate_hits": 0,
+          "latency_ms": 220.9
+        },
+        {
+          "id": "54357028-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7056,
+          "duplicate_hits": 0,
+          "latency_ms": 227.7
+        }
+      ]
+    },
+    {
+      "regime": "lecture_dense",
+      "k": 6,
+      "threshold": 0.65,
+      "n": 50,
+      "slide_found": 0.92,
+      "anchor_found": 0.94,
+      "mrr": 0.7857,
+      "p_at_k": 0.1533,
+      "latency_ms": 386.2,
+      "refusal": 0.02,
+      "false_refusal": 0.0,
+      "false_refusal_share": 0.0,
+      "dup_hits": 0,
+      "errors": 0,
+      "skipped": 0,
+      "per_question": [
+        {
+          "id": "58d20720-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7969,
+          "duplicate_hits": 0,
+          "latency_ms": 446.1
+        },
+        {
+          "id": "58d20720-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7421,
+          "duplicate_hits": 0,
+          "latency_ms": 420.5
+        },
+        {
+          "id": "58d20720-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.712,
+          "duplicate_hits": 0,
+          "latency_ms": 398.8
+        },
+        {
+          "id": "58d20720-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7098,
+          "duplicate_hits": 0,
+          "latency_ms": 408.4
+        },
+        {
+          "id": "58d20720-s40",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7673,
+          "duplicate_hits": 0,
+          "latency_ms": 427.6
+        },
+        {
+          "id": "58d20720-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7001,
+          "duplicate_hits": 0,
+          "latency_ms": 114.2
+        },
+        {
+          "id": "58d20720-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7628,
+          "duplicate_hits": 0,
+          "latency_ms": 383.3
+        },
+        {
+          "id": "58d20720-s64",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7623,
+          "duplicate_hits": 0,
+          "latency_ms": 399.4
+        },
+        {
+          "id": "58d20720-s72",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7797,
+          "duplicate_hits": 0,
+          "latency_ms": 415.6
+        },
+        {
+          "id": "e4c1cf2f-s7",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8213,
+          "duplicate_hits": 0,
+          "latency_ms": 388.2
+        },
+        {
+          "id": "e4c1cf2f-s14",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.6784,
+          "duplicate_hits": 0,
+          "latency_ms": 404.7
+        },
+        {
+          "id": "e4c1cf2f-s21",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7718,
+          "duplicate_hits": 0,
+          "latency_ms": 411.9
+        },
+        {
+          "id": "e4c1cf2f-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7557,
+          "duplicate_hits": 0,
+          "latency_ms": 462.0
+        },
+        {
+          "id": "e4c1cf2f-s49",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7576,
+          "duplicate_hits": 0,
+          "latency_ms": 404.8
+        },
+        {
+          "id": "e4c1cf2f-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.8351,
+          "duplicate_hits": 0,
+          "latency_ms": 491.5
+        },
+        {
+          "id": "e4c1cf2f-s63",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7719,
+          "duplicate_hits": 0,
+          "latency_ms": 444.6
+        },
+        {
+          "id": "4e69f0bb-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8203,
+          "duplicate_hits": 0,
+          "latency_ms": 375.0
+        },
+        {
+          "id": "4e69f0bb-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.2,
+          "grounded": true,
+          "top_similarity": 0.739,
+          "duplicate_hits": 0,
+          "latency_ms": 484.4
+        },
+        {
+          "id": "4e69f0bb-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7723,
+          "duplicate_hits": 0,
+          "latency_ms": 394.7
+        },
+        {
+          "id": "4e69f0bb-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7505,
+          "duplicate_hits": 0,
+          "latency_ms": 407.1
+        },
+        {
+          "id": "4e69f0bb-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7432,
+          "duplicate_hits": 0,
+          "latency_ms": 385.1
+        },
+        {
+          "id": "4e69f0bb-s36",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": true,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7152,
+          "duplicate_hits": 0,
+          "latency_ms": 459.6
+        },
+        {
+          "id": "4e69f0bb-s42",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.7209,
+          "duplicate_hits": 0,
+          "latency_ms": 345.1
+        },
+        {
+          "id": "4e69f0bb-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6585,
+          "duplicate_hits": 0,
+          "latency_ms": 116.1
+        },
+        {
+          "id": "4e69f0bb-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7284,
+          "duplicate_hits": 0,
+          "latency_ms": 295.4
+        },
+        {
+          "id": "447baff4-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6593,
+          "duplicate_hits": 0,
+          "latency_ms": 192.8
+        },
+        {
+          "id": "447baff4-s12",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7423,
+          "duplicate_hits": 0,
+          "latency_ms": 315.6
+        },
+        {
+          "id": "447baff4-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7064,
+          "duplicate_hits": 0,
+          "latency_ms": 713.9
+        },
+        {
+          "id": "447baff4-s24",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6702,
+          "duplicate_hits": 0,
+          "latency_ms": 532.8
+        },
+        {
+          "id": "447baff4-s30",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7008,
+          "duplicate_hits": 0,
+          "latency_ms": 303.8
+        },
+        {
+          "id": "447baff4-s42",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6827,
+          "duplicate_hits": 0,
+          "latency_ms": 241.2
+        },
+        {
+          "id": "447baff4-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.3333,
+          "grounded": true,
+          "top_similarity": 0.6992,
+          "duplicate_hits": 0,
+          "latency_ms": 223.6
+        },
+        {
+          "id": "37fbaf56-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7707,
+          "duplicate_hits": 0,
+          "latency_ms": 367.3
+        },
+        {
+          "id": "37fbaf56-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.671,
+          "duplicate_hits": 0,
+          "latency_ms": 177.7
+        },
+        {
+          "id": "37fbaf56-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7292,
+          "duplicate_hits": 0,
+          "latency_ms": 452.1
+        },
+        {
+          "id": "37fbaf56-s24",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7229,
+          "duplicate_hits": 0,
+          "latency_ms": 328.0
+        },
+        {
+          "id": "37fbaf56-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.8046,
+          "duplicate_hits": 0,
+          "latency_ms": 383.4
+        },
+        {
+          "id": "37fbaf56-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8144,
+          "duplicate_hits": 0,
+          "latency_ms": 404.3
+        },
+        {
+          "id": "37fbaf56-s42",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": false,
+          "top_similarity": 0.0,
+          "duplicate_hits": 0,
+          "latency_ms": 65.4
+        },
+        {
+          "id": "37fbaf56-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7904,
+          "duplicate_hits": 0,
+          "latency_ms": 407.9
+        },
+        {
+          "id": "37fbaf56-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7118,
+          "duplicate_hits": 0,
+          "latency_ms": 111.8
+        },
+        {
+          "id": "54357028-s4",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7602,
+          "duplicate_hits": 0,
+          "latency_ms": 370.8
+        },
+        {
+          "id": "54357028-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.733,
+          "duplicate_hits": 0,
+          "latency_ms": 379.7
+        },
+        {
+          "id": "54357028-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7575,
+          "duplicate_hits": 0,
+          "latency_ms": 1177.3
+        },
+        {
+          "id": "54357028-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.8041,
+          "duplicate_hits": 0,
+          "latency_ms": 387.4
+        },
+        {
+          "id": "54357028-s20",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8196,
+          "duplicate_hits": 0,
+          "latency_ms": 355.3
+        },
+        {
+          "id": "54357028-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6683,
+          "duplicate_hits": 0,
+          "latency_ms": 183.3
+        },
+        {
+          "id": "54357028-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6924,
+          "duplicate_hits": 0,
+          "latency_ms": 187.9
+        },
+        {
+          "id": "54357028-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6761,
+          "duplicate_hits": 0,
+          "latency_ms": 243.3
+        },
+        {
+          "id": "54357028-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7056,
+          "duplicate_hits": 0,
+          "latency_ms": 234.6
+        }
+      ]
+    },
+    {
+      "regime": "lecture_dense",
+      "k": 8,
+      "threshold": 0.65,
+      "n": 50,
+      "slide_found": 0.92,
+      "anchor_found": 0.94,
+      "mrr": 0.7857,
+      "p_at_k": 0.115,
+      "latency_ms": 511.5,
+      "refusal": 0.02,
+      "false_refusal": 0.0,
+      "false_refusal_share": 0.0,
+      "dup_hits": 0,
+      "errors": 0,
+      "skipped": 0,
+      "per_question": [
+        {
+          "id": "58d20720-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7969,
+          "duplicate_hits": 0,
+          "latency_ms": 501.4
+        },
+        {
+          "id": "58d20720-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7421,
+          "duplicate_hits": 0,
+          "latency_ms": 513.6
+        },
+        {
+          "id": "58d20720-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.712,
+          "duplicate_hits": 0,
+          "latency_ms": 380.1
+        },
+        {
+          "id": "58d20720-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7098,
+          "duplicate_hits": 0,
+          "latency_ms": 607.9
+        },
+        {
+          "id": "58d20720-s40",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7673,
+          "duplicate_hits": 0,
+          "latency_ms": 593.7
+        },
+        {
+          "id": "58d20720-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7001,
+          "duplicate_hits": 0,
+          "latency_ms": 114.6
+        },
+        {
+          "id": "58d20720-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7628,
+          "duplicate_hits": 0,
+          "latency_ms": 1299.8
+        },
+        {
+          "id": "58d20720-s64",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7623,
+          "duplicate_hits": 0,
+          "latency_ms": 524.5
+        },
+        {
+          "id": "58d20720-s72",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7797,
+          "duplicate_hits": 0,
+          "latency_ms": 531.5
+        },
+        {
+          "id": "e4c1cf2f-s7",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8213,
+          "duplicate_hits": 0,
+          "latency_ms": 541.7
+        },
+        {
+          "id": "e4c1cf2f-s14",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.6784,
+          "duplicate_hits": 0,
+          "latency_ms": 520.0
+        },
+        {
+          "id": "e4c1cf2f-s21",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7718,
+          "duplicate_hits": 0,
+          "latency_ms": 501.2
+        },
+        {
+          "id": "e4c1cf2f-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7557,
+          "duplicate_hits": 0,
+          "latency_ms": 448.3
+        },
+        {
+          "id": "e4c1cf2f-s49",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7576,
+          "duplicate_hits": 0,
+          "latency_ms": 509.3
+        },
+        {
+          "id": "e4c1cf2f-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.8351,
+          "duplicate_hits": 0,
+          "latency_ms": 524.4
+        },
+        {
+          "id": "e4c1cf2f-s63",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7719,
+          "duplicate_hits": 0,
+          "latency_ms": 1309.8
+        },
+        {
+          "id": "4e69f0bb-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8203,
+          "duplicate_hits": 0,
+          "latency_ms": 514.1
+        },
+        {
+          "id": "4e69f0bb-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.2,
+          "grounded": true,
+          "top_similarity": 0.739,
+          "duplicate_hits": 0,
+          "latency_ms": 508.0
+        },
+        {
+          "id": "4e69f0bb-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7723,
+          "duplicate_hits": 0,
+          "latency_ms": 525.8
+        },
+        {
+          "id": "4e69f0bb-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7505,
+          "duplicate_hits": 0,
+          "latency_ms": 530.1
+        },
+        {
+          "id": "4e69f0bb-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7432,
+          "duplicate_hits": 0,
+          "latency_ms": 548.0
+        },
+        {
+          "id": "4e69f0bb-s36",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": true,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7152,
+          "duplicate_hits": 0,
+          "latency_ms": 536.6
+        },
+        {
+          "id": "4e69f0bb-s42",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.7209,
+          "duplicate_hits": 0,
+          "latency_ms": 349.5
+        },
+        {
+          "id": "4e69f0bb-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6585,
+          "duplicate_hits": 0,
+          "latency_ms": 117.3
+        },
+        {
+          "id": "4e69f0bb-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7284,
+          "duplicate_hits": 0,
+          "latency_ms": 318.7
+        },
+        {
+          "id": "447baff4-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6593,
+          "duplicate_hits": 0,
+          "latency_ms": 184.6
+        },
+        {
+          "id": "447baff4-s12",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7423,
+          "duplicate_hits": 0,
+          "latency_ms": 727.5
+        },
+        {
+          "id": "447baff4-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7064,
+          "duplicate_hits": 0,
+          "latency_ms": 670.1
+        },
+        {
+          "id": "447baff4-s24",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6702,
+          "duplicate_hits": 0,
+          "latency_ms": 126.2
+        },
+        {
+          "id": "447baff4-s30",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7008,
+          "duplicate_hits": 0,
+          "latency_ms": 298.7
+        },
+        {
+          "id": "447baff4-s42",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6827,
+          "duplicate_hits": 0,
+          "latency_ms": 263.5
+        },
+        {
+          "id": "447baff4-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.3333,
+          "grounded": true,
+          "top_similarity": 0.6992,
+          "duplicate_hits": 0,
+          "latency_ms": 244.0
+        },
+        {
+          "id": "37fbaf56-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7707,
+          "duplicate_hits": 0,
+          "latency_ms": 366.8
+        },
+        {
+          "id": "37fbaf56-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.671,
+          "duplicate_hits": 0,
+          "latency_ms": 214.4
+        },
+        {
+          "id": "37fbaf56-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7292,
+          "duplicate_hits": 0,
+          "latency_ms": 514.8
+        },
+        {
+          "id": "37fbaf56-s24",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7229,
+          "duplicate_hits": 0,
+          "latency_ms": 332.5
+        },
+        {
+          "id": "37fbaf56-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.8046,
+          "duplicate_hits": 0,
+          "latency_ms": 564.0
+        },
+        {
+          "id": "37fbaf56-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8144,
+          "duplicate_hits": 0,
+          "latency_ms": 516.7
+        },
+        {
+          "id": "37fbaf56-s42",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": false,
+          "top_similarity": 0.0,
+          "duplicate_hits": 0,
+          "latency_ms": 55.0
+        },
+        {
+          "id": "37fbaf56-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7904,
+          "duplicate_hits": 0,
+          "latency_ms": 1307.0
+        },
+        {
+          "id": "37fbaf56-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7118,
+          "duplicate_hits": 0,
+          "latency_ms": 514.0
+        },
+        {
+          "id": "54357028-s4",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7602,
+          "duplicate_hits": 0,
+          "latency_ms": 697.1
+        },
+        {
+          "id": "54357028-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.733,
+          "duplicate_hits": 0,
+          "latency_ms": 690.9
+        },
+        {
+          "id": "54357028-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7575,
+          "duplicate_hits": 0,
+          "latency_ms": 457.1
+        },
+        {
+          "id": "54357028-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.8041,
+          "duplicate_hits": 0,
+          "latency_ms": 584.7
+        },
+        {
+          "id": "54357028-s20",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8196,
+          "duplicate_hits": 0,
+          "latency_ms": 379.9
+        },
+        {
+          "id": "54357028-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6683,
+          "duplicate_hits": 0,
+          "latency_ms": 189.7
+        },
+        {
+          "id": "54357028-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6924,
+          "duplicate_hits": 0,
+          "latency_ms": 186.7
+        },
+        {
+          "id": "54357028-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6761,
+          "duplicate_hits": 0,
+          "latency_ms": 265.1
+        },
+        {
+          "id": "54357028-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7056,
+          "duplicate_hits": 0,
+          "latency_ms": 255.0
+        }
+      ]
+    },
+    {
+      "regime": "lecture_dense",
+      "k": 10,
+      "threshold": 0.65,
+      "n": 50,
+      "slide_found": 0.94,
+      "anchor_found": 0.94,
+      "mrr": 0.7877,
+      "p_at_k": 0.094,
+      "latency_ms": 678.2,
+      "refusal": 0.02,
+      "false_refusal": 0.0,
+      "false_refusal_share": 0.0,
+      "dup_hits": 0,
+      "errors": 0,
+      "skipped": 0,
+      "per_question": [
+        {
+          "id": "58d20720-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7969,
+          "duplicate_hits": 0,
+          "latency_ms": 708.7
+        },
+        {
+          "id": "58d20720-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7421,
+          "duplicate_hits": 0,
+          "latency_ms": 1489.7
+        },
+        {
+          "id": "58d20720-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.712,
+          "duplicate_hits": 0,
+          "latency_ms": 429.0
+        },
+        {
+          "id": "58d20720-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7098,
+          "duplicate_hits": 0,
+          "latency_ms": 656.0
+        },
+        {
+          "id": "58d20720-s40",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7673,
+          "duplicate_hits": 0,
+          "latency_ms": 650.2
+        },
+        {
+          "id": "58d20720-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7001,
+          "duplicate_hits": 0,
+          "latency_ms": 131.7
+        },
+        {
+          "id": "58d20720-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7628,
+          "duplicate_hits": 0,
+          "latency_ms": 674.6
+        },
+        {
+          "id": "58d20720-s64",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7623,
+          "duplicate_hits": 0,
+          "latency_ms": 679.8
+        },
+        {
+          "id": "58d20720-s72",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7797,
+          "duplicate_hits": 0,
+          "latency_ms": 677.1
+        },
+        {
+          "id": "e4c1cf2f-s7",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8213,
+          "duplicate_hits": 0,
+          "latency_ms": 1472.7
+        },
+        {
+          "id": "e4c1cf2f-s14",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.6784,
+          "duplicate_hits": 0,
+          "latency_ms": 683.7
+        },
+        {
+          "id": "e4c1cf2f-s21",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7718,
+          "duplicate_hits": 0,
+          "latency_ms": 646.3
+        },
+        {
+          "id": "e4c1cf2f-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7557,
+          "duplicate_hits": 0,
+          "latency_ms": 493.3
+        },
+        {
+          "id": "e4c1cf2f-s49",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7576,
+          "duplicate_hits": 0,
+          "latency_ms": 691.3
+        },
+        {
+          "id": "e4c1cf2f-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.8351,
+          "duplicate_hits": 0,
+          "latency_ms": 730.1
+        },
+        {
+          "id": "e4c1cf2f-s63",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7719,
+          "duplicate_hits": 0,
+          "latency_ms": 763.7
+        },
+        {
+          "id": "4e69f0bb-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8203,
+          "duplicate_hits": 0,
+          "latency_ms": 1510.1
+        },
+        {
+          "id": "4e69f0bb-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.2,
+          "grounded": true,
+          "top_similarity": 0.739,
+          "duplicate_hits": 0,
+          "latency_ms": 679.4
+        },
+        {
+          "id": "4e69f0bb-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7723,
+          "duplicate_hits": 0,
+          "latency_ms": 747.7
+        },
+        {
+          "id": "4e69f0bb-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7505,
+          "duplicate_hits": 0,
+          "latency_ms": 713.5
+        },
+        {
+          "id": "4e69f0bb-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7432,
+          "duplicate_hits": 0,
+          "latency_ms": 747.4
+        },
+        {
+          "id": "4e69f0bb-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.1,
+          "grounded": true,
+          "top_similarity": 0.7152,
+          "duplicate_hits": 0,
+          "latency_ms": 741.5
+        },
+        {
+          "id": "4e69f0bb-s42",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.7209,
+          "duplicate_hits": 0,
+          "latency_ms": 391.1
+        },
+        {
+          "id": "4e69f0bb-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6585,
+          "duplicate_hits": 0,
+          "latency_ms": 508.8
+        },
+        {
+          "id": "4e69f0bb-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7284,
+          "duplicate_hits": 0,
+          "latency_ms": 707.5
+        },
+        {
+          "id": "447baff4-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6593,
+          "duplicate_hits": 0,
+          "latency_ms": 220.0
+        },
+        {
+          "id": "447baff4-s12",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7423,
+          "duplicate_hits": 0,
+          "latency_ms": 421.0
+        },
+        {
+          "id": "447baff4-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7064,
+          "duplicate_hits": 0,
+          "latency_ms": 345.2
+        },
+        {
+          "id": "447baff4-s24",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6702,
+          "duplicate_hits": 0,
+          "latency_ms": 138.2
+        },
+        {
+          "id": "447baff4-s30",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7008,
+          "duplicate_hits": 0,
+          "latency_ms": 353.0
+        },
+        {
+          "id": "447baff4-s42",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6827,
+          "duplicate_hits": 0,
+          "latency_ms": 308.4
+        },
+        {
+          "id": "447baff4-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.3333,
+          "grounded": true,
+          "top_similarity": 0.6992,
+          "duplicate_hits": 0,
+          "latency_ms": 276.4
+        },
+        {
+          "id": "37fbaf56-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7707,
+          "duplicate_hits": 0,
+          "latency_ms": 458.8
+        },
+        {
+          "id": "37fbaf56-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.671,
+          "duplicate_hits": 0,
+          "latency_ms": 179.0
+        },
+        {
+          "id": "37fbaf56-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7292,
+          "duplicate_hits": 0,
+          "latency_ms": 788.7
+        },
+        {
+          "id": "37fbaf56-s24",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7229,
+          "duplicate_hits": 0,
+          "latency_ms": 473.2
+        },
+        {
+          "id": "37fbaf56-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.8046,
+          "duplicate_hits": 0,
+          "latency_ms": 1509.7
+        },
+        {
+          "id": "37fbaf56-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8144,
+          "duplicate_hits": 0,
+          "latency_ms": 906.9
+        },
+        {
+          "id": "37fbaf56-s42",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": false,
+          "top_similarity": 0.0,
+          "duplicate_hits": 0,
+          "latency_ms": 109.6
+        },
+        {
+          "id": "37fbaf56-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7904,
+          "duplicate_hits": 0,
+          "latency_ms": 758.9
+        },
+        {
+          "id": "37fbaf56-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7118,
+          "duplicate_hits": 0,
+          "latency_ms": 1101.1
+        },
+        {
+          "id": "54357028-s4",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7602,
+          "duplicate_hits": 0,
+          "latency_ms": 1064.9
+        },
+        {
+          "id": "54357028-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.733,
+          "duplicate_hits": 0,
+          "latency_ms": 2262.6
+        },
+        {
+          "id": "54357028-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7575,
+          "duplicate_hits": 0,
+          "latency_ms": 1058.9
+        },
+        {
+          "id": "54357028-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.8041,
+          "duplicate_hits": 0,
+          "latency_ms": 1353.7
+        },
+        {
+          "id": "54357028-s20",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8196,
+          "duplicate_hits": 0,
+          "latency_ms": 483.1
+        },
+        {
+          "id": "54357028-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6683,
+          "duplicate_hits": 0,
+          "latency_ms": 223.2
+        },
+        {
+          "id": "54357028-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6924,
+          "duplicate_hits": 0,
+          "latency_ms": 225.7
+        },
+        {
+          "id": "54357028-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6761,
+          "duplicate_hits": 0,
+          "latency_ms": 1111.4
+        },
+        {
+          "id": "54357028-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7056,
+          "duplicate_hits": 0,
+          "latency_ms": 308.9
+        }
+      ]
+    },
+    {
+      "regime": "course_hybrid",
+      "k": 3,
+      "threshold": 0.65,
+      "n": 50,
+      "slide_found": 0.8519,
+      "anchor_found": 0.963,
+      "mrr": 0.8333,
+      "p_at_k": 0.284,
+      "latency_ms": 378.1,
+      "refusal": 0.0,
+      "false_refusal": 0.0,
+      "false_refusal_share": 0.0,
+      "dup_hits": 0,
+      "errors": 0,
+      "skipped": 23,
+      "per_question": [
+        {
+          "id": "58d20720-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7969,
+          "duplicate_hits": 0,
+          "latency_ms": 857.9
+        },
+        {
+          "id": "58d20720-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7421,
+          "duplicate_hits": 0,
+          "latency_ms": 409.5
+        },
+        {
+          "id": "58d20720-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.712,
+          "duplicate_hits": 0,
+          "latency_ms": 436.7
+        },
+        {
+          "id": "58d20720-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7098,
+          "duplicate_hits": 0,
+          "latency_ms": 398.3
+        },
+        {
+          "id": "58d20720-s40",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7673,
+          "duplicate_hits": 0,
+          "latency_ms": 379.1
+        },
+        {
+          "id": "58d20720-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7001,
+          "duplicate_hits": 0,
+          "latency_ms": 251.7
+        },
+        {
+          "id": "58d20720-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7628,
+          "duplicate_hits": 0,
+          "latency_ms": 387.0
+        },
+        {
+          "id": "58d20720-s64",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7623,
+          "duplicate_hits": 0,
+          "latency_ms": 378.1
+        },
+        {
+          "id": "58d20720-s72",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7797,
+          "duplicate_hits": 0,
+          "latency_ms": 410.2
+        },
+        {
+          "id": "e4c1cf2f-s7",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s14",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s21",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s28",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s49",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s56",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s63",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "4e69f0bb-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8203,
+          "duplicate_hits": 0,
+          "latency_ms": 777.0
+        },
+        {
+          "id": "4e69f0bb-s12",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": true,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7687,
+          "duplicate_hits": 0,
+          "latency_ms": 913.4
+        },
+        {
+          "id": "4e69f0bb-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7723,
+          "duplicate_hits": 0,
+          "latency_ms": 394.9
+        },
+        {
+          "id": "4e69f0bb-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7505,
+          "duplicate_hits": 0,
+          "latency_ms": 424.4
+        },
+        {
+          "id": "4e69f0bb-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7432,
+          "duplicate_hits": 0,
+          "latency_ms": 365.8
+        },
+        {
+          "id": "4e69f0bb-s36",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": true,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7152,
+          "duplicate_hits": 0,
+          "latency_ms": 349.7
+        },
+        {
+          "id": "4e69f0bb-s42",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": false,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7209,
+          "duplicate_hits": 0,
+          "latency_ms": 374.2
+        },
+        {
+          "id": "4e69f0bb-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6585,
+          "duplicate_hits": 0,
+          "latency_ms": 267.1
+        },
+        {
+          "id": "4e69f0bb-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7284,
+          "duplicate_hits": 0,
+          "latency_ms": 368.0
+        },
+        {
+          "id": "447baff4-s6",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s12",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s18",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s24",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s30",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s42",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s48",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s6",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s12",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s18",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s24",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s30",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s36",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s42",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s48",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s54",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "54357028-s4",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7602,
+          "duplicate_hits": 0,
+          "latency_ms": 373.7
+        },
+        {
+          "id": "54357028-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.733,
+          "duplicate_hits": 0,
+          "latency_ms": 358.3
+        },
+        {
+          "id": "54357028-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7575,
+          "duplicate_hits": 0,
+          "latency_ms": 383.4
+        },
+        {
+          "id": "54357028-s16",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": true,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.8041,
+          "duplicate_hits": 0,
+          "latency_ms": 348.3
+        },
+        {
+          "id": "54357028-s20",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8196,
+          "duplicate_hits": 0,
+          "latency_ms": 1107.6
+        },
+        {
+          "id": "54357028-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6683,
+          "duplicate_hits": 0,
+          "latency_ms": 324.5
+        },
+        {
+          "id": "54357028-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6924,
+          "duplicate_hits": 0,
+          "latency_ms": 315.8
+        },
+        {
+          "id": "54357028-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6761,
+          "duplicate_hits": 0,
+          "latency_ms": 363.7
+        },
+        {
+          "id": "54357028-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7056,
+          "duplicate_hits": 0,
+          "latency_ms": 354.1
+        }
+      ]
+    },
+    {
+      "regime": "course_hybrid",
+      "k": 5,
+      "threshold": 0.65,
+      "n": 50,
+      "slide_found": 0.9259,
+      "anchor_found": 1.0,
+      "mrr": 0.8519,
+      "p_at_k": 0.1852,
+      "latency_ms": 475.2,
+      "refusal": 0.0,
+      "false_refusal": 0.0,
+      "false_refusal_share": 0.0,
+      "dup_hits": 0,
+      "errors": 0,
+      "skipped": 23,
+      "per_question": [
+        {
+          "id": "58d20720-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7969,
+          "duplicate_hits": 0,
+          "latency_ms": 535.1
+        },
+        {
+          "id": "58d20720-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7421,
+          "duplicate_hits": 0,
+          "latency_ms": 464.3
+        },
+        {
+          "id": "58d20720-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.712,
+          "duplicate_hits": 0,
+          "latency_ms": 476.6
+        },
+        {
+          "id": "58d20720-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7098,
+          "duplicate_hits": 0,
+          "latency_ms": 476.6
+        },
+        {
+          "id": "58d20720-s40",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7673,
+          "duplicate_hits": 0,
+          "latency_ms": 498.2
+        },
+        {
+          "id": "58d20720-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7001,
+          "duplicate_hits": 0,
+          "latency_ms": 239.4
+        },
+        {
+          "id": "58d20720-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7628,
+          "duplicate_hits": 0,
+          "latency_ms": 1237.8
+        },
+        {
+          "id": "58d20720-s64",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7623,
+          "duplicate_hits": 0,
+          "latency_ms": 461.6
+        },
+        {
+          "id": "58d20720-s72",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7797,
+          "duplicate_hits": 0,
+          "latency_ms": 472.4
+        },
+        {
+          "id": "e4c1cf2f-s7",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s14",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s21",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s28",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s49",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s56",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s63",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "4e69f0bb-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8203,
+          "duplicate_hits": 0,
+          "latency_ms": 470.5
+        },
+        {
+          "id": "4e69f0bb-s12",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": true,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7687,
+          "duplicate_hits": 0,
+          "latency_ms": 562.7
+        },
+        {
+          "id": "4e69f0bb-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7723,
+          "duplicate_hits": 0,
+          "latency_ms": 453.8
+        },
+        {
+          "id": "4e69f0bb-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7505,
+          "duplicate_hits": 0,
+          "latency_ms": 537.5
+        },
+        {
+          "id": "4e69f0bb-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7432,
+          "duplicate_hits": 0,
+          "latency_ms": 520.1
+        },
+        {
+          "id": "4e69f0bb-s36",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": true,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7152,
+          "duplicate_hits": 0,
+          "latency_ms": 462.9
+        },
+        {
+          "id": "4e69f0bb-s42",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.7209,
+          "duplicate_hits": 0,
+          "latency_ms": 517.9
+        },
+        {
+          "id": "4e69f0bb-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6585,
+          "duplicate_hits": 0,
+          "latency_ms": 245.3
+        },
+        {
+          "id": "4e69f0bb-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7284,
+          "duplicate_hits": 0,
+          "latency_ms": 449.7
+        },
+        {
+          "id": "447baff4-s6",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s12",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s18",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s24",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s30",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s42",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s48",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s6",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s12",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s18",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s24",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s30",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s36",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s42",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s48",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s54",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "54357028-s4",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7602,
+          "duplicate_hits": 0,
+          "latency_ms": 475.2
+        },
+        {
+          "id": "54357028-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.733,
+          "duplicate_hits": 0,
+          "latency_ms": 511.8
+        },
+        {
+          "id": "54357028-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7575,
+          "duplicate_hits": 0,
+          "latency_ms": 476.8
+        },
+        {
+          "id": "54357028-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.8041,
+          "duplicate_hits": 0,
+          "latency_ms": 531.1
+        },
+        {
+          "id": "54357028-s20",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8196,
+          "duplicate_hits": 0,
+          "latency_ms": 500.4
+        },
+        {
+          "id": "54357028-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6683,
+          "duplicate_hits": 0,
+          "latency_ms": 314.6
+        },
+        {
+          "id": "54357028-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6924,
+          "duplicate_hits": 0,
+          "latency_ms": 299.5
+        },
+        {
+          "id": "54357028-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6761,
+          "duplicate_hits": 0,
+          "latency_ms": 360.2
+        },
+        {
+          "id": "54357028-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7056,
+          "duplicate_hits": 0,
+          "latency_ms": 351.4
+        }
+      ]
+    },
+    {
+      "regime": "course_hybrid",
+      "k": 6,
+      "threshold": 0.65,
+      "n": 50,
+      "slide_found": 0.963,
+      "anchor_found": 1.0,
+      "mrr": 0.858,
+      "p_at_k": 0.1605,
+      "latency_ms": 542.1,
+      "refusal": 0.0,
+      "false_refusal": 0.0,
+      "false_refusal_share": 0.0,
+      "dup_hits": 0,
+      "errors": 0,
+      "skipped": 23,
+      "per_question": [
+        {
+          "id": "58d20720-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7969,
+          "duplicate_hits": 0,
+          "latency_ms": 599.7
+        },
+        {
+          "id": "58d20720-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7421,
+          "duplicate_hits": 0,
+          "latency_ms": 526.4
+        },
+        {
+          "id": "58d20720-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.712,
+          "duplicate_hits": 0,
+          "latency_ms": 564.1
+        },
+        {
+          "id": "58d20720-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7098,
+          "duplicate_hits": 0,
+          "latency_ms": 559.2
+        },
+        {
+          "id": "58d20720-s40",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7673,
+          "duplicate_hits": 0,
+          "latency_ms": 551.3
+        },
+        {
+          "id": "58d20720-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7001,
+          "duplicate_hits": 0,
+          "latency_ms": 240.3
+        },
+        {
+          "id": "58d20720-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7628,
+          "duplicate_hits": 0,
+          "latency_ms": 522.1
+        },
+        {
+          "id": "58d20720-s64",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7623,
+          "duplicate_hits": 0,
+          "latency_ms": 526.9
+        },
+        {
+          "id": "58d20720-s72",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7797,
+          "duplicate_hits": 0,
+          "latency_ms": 521.1
+        },
+        {
+          "id": "e4c1cf2f-s7",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s14",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s21",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s28",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s49",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s56",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s63",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "4e69f0bb-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8203,
+          "duplicate_hits": 0,
+          "latency_ms": 589.1
+        },
+        {
+          "id": "4e69f0bb-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.1667,
+          "grounded": true,
+          "top_similarity": 0.7687,
+          "duplicate_hits": 0,
+          "latency_ms": 610.9
+        },
+        {
+          "id": "4e69f0bb-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7723,
+          "duplicate_hits": 0,
+          "latency_ms": 534.6
+        },
+        {
+          "id": "4e69f0bb-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7505,
+          "duplicate_hits": 0,
+          "latency_ms": 594.0
+        },
+        {
+          "id": "4e69f0bb-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7432,
+          "duplicate_hits": 0,
+          "latency_ms": 627.4
+        },
+        {
+          "id": "4e69f0bb-s36",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": true,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7152,
+          "duplicate_hits": 0,
+          "latency_ms": 543.8
+        },
+        {
+          "id": "4e69f0bb-s42",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.7209,
+          "duplicate_hits": 0,
+          "latency_ms": 486.4
+        },
+        {
+          "id": "4e69f0bb-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6585,
+          "duplicate_hits": 0,
+          "latency_ms": 245.2
+        },
+        {
+          "id": "4e69f0bb-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7284,
+          "duplicate_hits": 0,
+          "latency_ms": 449.1
+        },
+        {
+          "id": "447baff4-s6",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s12",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s18",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s24",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s30",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s42",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s48",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s6",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s12",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s18",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s24",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s30",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s36",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s42",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s48",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s54",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "54357028-s4",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7602,
+          "duplicate_hits": 0,
+          "latency_ms": 542.1
+        },
+        {
+          "id": "54357028-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.733,
+          "duplicate_hits": 0,
+          "latency_ms": 544.4
+        },
+        {
+          "id": "54357028-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7575,
+          "duplicate_hits": 0,
+          "latency_ms": 583.0
+        },
+        {
+          "id": "54357028-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.8041,
+          "duplicate_hits": 0,
+          "latency_ms": 567.5
+        },
+        {
+          "id": "54357028-s20",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8196,
+          "duplicate_hits": 0,
+          "latency_ms": 809.2
+        },
+        {
+          "id": "54357028-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6683,
+          "duplicate_hits": 0,
+          "latency_ms": 368.8
+        },
+        {
+          "id": "54357028-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6924,
+          "duplicate_hits": 0,
+          "latency_ms": 368.4
+        },
+        {
+          "id": "54357028-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6761,
+          "duplicate_hits": 0,
+          "latency_ms": 382.3
+        },
+        {
+          "id": "54357028-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7056,
+          "duplicate_hits": 0,
+          "latency_ms": 359.3
+        }
+      ]
+    },
+    {
+      "regime": "course_hybrid",
+      "k": 8,
+      "threshold": 0.65,
+      "n": 50,
+      "slide_found": 0.963,
+      "anchor_found": 1.0,
+      "mrr": 0.858,
+      "p_at_k": 0.1204,
+      "latency_ms": 652.7,
+      "refusal": 0.0,
+      "false_refusal": 0.0,
+      "false_refusal_share": 0.0,
+      "dup_hits": 0,
+      "errors": 0,
+      "skipped": 23,
+      "per_question": [
+        {
+          "id": "58d20720-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7969,
+          "duplicate_hits": 0,
+          "latency_ms": 709.2
+        },
+        {
+          "id": "58d20720-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7421,
+          "duplicate_hits": 0,
+          "latency_ms": 652.7
+        },
+        {
+          "id": "58d20720-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.712,
+          "duplicate_hits": 0,
+          "latency_ms": 561.0
+        },
+        {
+          "id": "58d20720-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7098,
+          "duplicate_hits": 0,
+          "latency_ms": 666.2
+        },
+        {
+          "id": "58d20720-s40",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7673,
+          "duplicate_hits": 0,
+          "latency_ms": 653.8
+        },
+        {
+          "id": "58d20720-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7001,
+          "duplicate_hits": 0,
+          "latency_ms": 237.2
+        },
+        {
+          "id": "58d20720-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7628,
+          "duplicate_hits": 0,
+          "latency_ms": 636.7
+        },
+        {
+          "id": "58d20720-s64",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7623,
+          "duplicate_hits": 0,
+          "latency_ms": 611.4
+        },
+        {
+          "id": "58d20720-s72",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7797,
+          "duplicate_hits": 0,
+          "latency_ms": 716.3
+        },
+        {
+          "id": "e4c1cf2f-s7",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s14",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s21",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s28",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s49",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s56",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s63",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "4e69f0bb-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8203,
+          "duplicate_hits": 0,
+          "latency_ms": 723.9
+        },
+        {
+          "id": "4e69f0bb-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.1667,
+          "grounded": true,
+          "top_similarity": 0.7687,
+          "duplicate_hits": 0,
+          "latency_ms": 840.0
+        },
+        {
+          "id": "4e69f0bb-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7723,
+          "duplicate_hits": 0,
+          "latency_ms": 755.0
+        },
+        {
+          "id": "4e69f0bb-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7505,
+          "duplicate_hits": 0,
+          "latency_ms": 835.5
+        },
+        {
+          "id": "4e69f0bb-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7432,
+          "duplicate_hits": 0,
+          "latency_ms": 941.3
+        },
+        {
+          "id": "4e69f0bb-s36",
+          "category": "text",
+          "slide_found": false,
+          "anchor_found": true,
+          "reciprocal_rank": 0.0,
+          "grounded": true,
+          "top_similarity": 0.7152,
+          "duplicate_hits": 0,
+          "latency_ms": 684.4
+        },
+        {
+          "id": "4e69f0bb-s42",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.7209,
+          "duplicate_hits": 0,
+          "latency_ms": 504.5
+        },
+        {
+          "id": "4e69f0bb-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6585,
+          "duplicate_hits": 0,
+          "latency_ms": 260.0
+        },
+        {
+          "id": "4e69f0bb-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7284,
+          "duplicate_hits": 0,
+          "latency_ms": 457.9
+        },
+        {
+          "id": "447baff4-s6",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s12",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s18",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s24",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s30",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s42",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s48",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s6",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s12",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s18",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s24",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s30",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s36",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s42",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s48",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s54",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "54357028-s4",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7602,
+          "duplicate_hits": 0,
+          "latency_ms": 718.0
+        },
+        {
+          "id": "54357028-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.733,
+          "duplicate_hits": 0,
+          "latency_ms": 739.0
+        },
+        {
+          "id": "54357028-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7575,
+          "duplicate_hits": 0,
+          "latency_ms": 633.6
+        },
+        {
+          "id": "54357028-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.8041,
+          "duplicate_hits": 0,
+          "latency_ms": 810.0
+        },
+        {
+          "id": "54357028-s20",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8196,
+          "duplicate_hits": 0,
+          "latency_ms": 560.3
+        },
+        {
+          "id": "54357028-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6683,
+          "duplicate_hits": 0,
+          "latency_ms": 308.3
+        },
+        {
+          "id": "54357028-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6924,
+          "duplicate_hits": 0,
+          "latency_ms": 323.8
+        },
+        {
+          "id": "54357028-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6761,
+          "duplicate_hits": 0,
+          "latency_ms": 384.5
+        },
+        {
+          "id": "54357028-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7056,
+          "duplicate_hits": 0,
+          "latency_ms": 416.3
+        }
+      ]
+    },
+    {
+      "regime": "course_hybrid",
+      "k": 10,
+      "threshold": 0.65,
+      "n": 50,
+      "slide_found": 1.0,
+      "anchor_found": 1.0,
+      "mrr": 0.8617,
+      "p_at_k": 0.1,
+      "latency_ms": 777.6,
+      "refusal": 0.0,
+      "false_refusal": 0.0,
+      "false_refusal_share": 0.0,
+      "dup_hits": 0,
+      "errors": 0,
+      "skipped": 23,
+      "per_question": [
+        {
+          "id": "58d20720-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7969,
+          "duplicate_hits": 0,
+          "latency_ms": 898.9
+        },
+        {
+          "id": "58d20720-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7421,
+          "duplicate_hits": 0,
+          "latency_ms": 858.7
+        },
+        {
+          "id": "58d20720-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.712,
+          "duplicate_hits": 0,
+          "latency_ms": 582.9
+        },
+        {
+          "id": "58d20720-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7098,
+          "duplicate_hits": 0,
+          "latency_ms": 785.4
+        },
+        {
+          "id": "58d20720-s40",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7673,
+          "duplicate_hits": 0,
+          "latency_ms": 811.6
+        },
+        {
+          "id": "58d20720-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7001,
+          "duplicate_hits": 0,
+          "latency_ms": 220.5
+        },
+        {
+          "id": "58d20720-s56",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7628,
+          "duplicate_hits": 0,
+          "latency_ms": 777.6
+        },
+        {
+          "id": "58d20720-s64",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7623,
+          "duplicate_hits": 0,
+          "latency_ms": 844.2
+        },
+        {
+          "id": "58d20720-s72",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7797,
+          "duplicate_hits": 0,
+          "latency_ms": 836.7
+        },
+        {
+          "id": "e4c1cf2f-s7",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s14",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s21",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s28",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s49",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s56",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "e4c1cf2f-s63",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "4e69f0bb-s6",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8203,
+          "duplicate_hits": 0,
+          "latency_ms": 798.2
+        },
+        {
+          "id": "4e69f0bb-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.1667,
+          "grounded": true,
+          "top_similarity": 0.7687,
+          "duplicate_hits": 0,
+          "latency_ms": 847.5
+        },
+        {
+          "id": "4e69f0bb-s18",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.5,
+          "grounded": true,
+          "top_similarity": 0.7723,
+          "duplicate_hits": 0,
+          "latency_ms": 762.6
+        },
+        {
+          "id": "4e69f0bb-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7505,
+          "duplicate_hits": 0,
+          "latency_ms": 812.7
+        },
+        {
+          "id": "4e69f0bb-s30",
+          "category": "visual",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7432,
+          "duplicate_hits": 0,
+          "latency_ms": 829.7
+        },
+        {
+          "id": "4e69f0bb-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.1,
+          "grounded": true,
+          "top_similarity": 0.7152,
+          "duplicate_hits": 0,
+          "latency_ms": 958.8
+        },
+        {
+          "id": "4e69f0bb-s42",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.7209,
+          "duplicate_hits": 0,
+          "latency_ms": 461.5
+        },
+        {
+          "id": "4e69f0bb-s48",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6585,
+          "duplicate_hits": 0,
+          "latency_ms": 239.3
+        },
+        {
+          "id": "4e69f0bb-s54",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7284,
+          "duplicate_hits": 0,
+          "latency_ms": 435.0
+        },
+        {
+          "id": "447baff4-s6",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s12",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s18",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s24",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s30",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s42",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "447baff4-s48",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s6",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s12",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s18",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s24",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s30",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s36",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s42",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s48",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "37fbaf56-s54",
+          "skipped": "lecture has no course_id, so course_hybrid cannot be scoped"
+        },
+        {
+          "id": "54357028-s4",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7602,
+          "duplicate_hits": 0,
+          "latency_ms": 786.2
+        },
+        {
+          "id": "54357028-s8",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.733,
+          "duplicate_hits": 0,
+          "latency_ms": 780.7
+        },
+        {
+          "id": "54357028-s12",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7575,
+          "duplicate_hits": 0,
+          "latency_ms": 519.1
+        },
+        {
+          "id": "54357028-s16",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 0.25,
+          "grounded": true,
+          "top_similarity": 0.8041,
+          "duplicate_hits": 0,
+          "latency_ms": 767.7
+        },
+        {
+          "id": "54357028-s20",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.8196,
+          "duplicate_hits": 0,
+          "latency_ms": 519.4
+        },
+        {
+          "id": "54357028-s24",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6683,
+          "duplicate_hits": 0,
+          "latency_ms": 286.2
+        },
+        {
+          "id": "54357028-s28",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6924,
+          "duplicate_hits": 0,
+          "latency_ms": 291.8
+        },
+        {
+          "id": "54357028-s32",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.6761,
+          "duplicate_hits": 0,
+          "latency_ms": 346.6
+        },
+        {
+          "id": "54357028-s36",
+          "category": "text",
+          "slide_found": true,
+          "anchor_found": true,
+          "reciprocal_rank": 1.0,
+          "grounded": true,
+          "top_similarity": 0.7056,
+          "duplicate_hits": 0,
+          "latency_ms": 346.5
+        }
+      ]
+    }
+  ]
+}

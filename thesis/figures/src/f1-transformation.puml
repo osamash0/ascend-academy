@@ -52,8 +52,8 @@ B2 -[#1A1A1A]-> C3
 B1 -[#1A1A1A]-> C4
 
 note right of MID
-  The transformation is **one-way and
-  server-authoritative**: the database is
+  The transformation is **one-way and**
+  **server-authoritative**: the database is
   the single source of truth for what a
   slide "is" once parsed
   (parser/persist.py:5). The client never

@@ -49,8 +49,8 @@ end note
 
 legend bottom
   Net result: a normal student receives a retrieval-grounded, injection-hardened,
-  prompt-constrained tutor answer with **zero visible source attribution and no
-  refusal signal**. The gap between implemented and delivered is the finding.
+  prompt-constrained tutor answer with **zero visible source attribution and no**
+  **refusal signal**. The gap between implemented and delivered is the finding.
 endlegend
 
 @enduml

@@ -1,37 +1,38 @@
 ' F14 -- Trust boundaries and RLS policy patterns.
 ' Chapter 5 (Implementation). Concept diagram.
-' Claim supported: authorisation is enforced in the database, not the API. Four
-' distinct policy patterns cover 47 tables; effective visibility is the UNION
-' of applicable policies, which is the structural hazard.
+' Claim supported: authorisation has two enforcement points. RLS bounds direct
+' client access (68 tables, all RLS-enabled, four policy patterns, UNION
+' semantics as the structural hazard). The FastAPI backend mostly runs as
+' service_role or over asyncpg, bypasses RLS, and checks ownership in Python.
 @startuml f14-trust-boundaries
 !include _style.iuml
 
-title Trust boundaries — where authorisation is actually enforced
+title Trust boundaries — two enforcement points
 
 skinparam rectangle {
   BackgroundColor #FFFFFF
 }
 
 rectangle "**UNTRUSTED**" as UT #DCDCDC {
-  rectangle "Browser\n//holds the anon key,\nbaked into the bundle//" as BR
-  rectangle "Uploaded PDF text\n//professor OR student//" as PDF #DCDCDC
+  rectangle "Browser\nholds the anon key,\nbaked into the bundle" as BR
+  rectangle "Uploaded PDF text\nprofessor OR student" as PDF #DCDCDC
 }
 
 rectangle "**Identity boundary**" as ID #F2F2F2 {
   rectangle "Supabase Auth\nJWT issuer" as JWT
-  rectangle "anon\n//no claims//" as ANON
-  rectangle "authenticated\n//auth.uid() present//" as AUTH
-  rectangle "service_role\n//bypasses RLS entirely//" as SR #BFBFBF
+  rectangle "anon\nno claims" as ANON
+  rectangle "authenticated\nauth.uid() present" as AUTH
+  rectangle "service_role\nbypasses RLS entirely" as SR #BFBFBF
 }
 
-rectangle "**Postgres RLS — the real enforcement point**\n47 tables, 100% coverage, 198 policies" as RLS #F2F2F2 {
-  rectangle "**P1 Owner-scoped**\nuser_id = auth.uid()\n//xp_events, review_schedule,\nexam_attempts, notifications//" as P1
-  rectangle "**P2 Role-gated ownership**\nowner = uid AND has_role(professor)\n//courses, lectures//" as P2
-  rectangle "**P3 Enrollment-derived**\nEXISTS join via course_enrollments\nor assignment_lectures\n//slides, quiz_questions, review_cards//" as P3
-  rectangle "**P4 Backend-only**\nno anon/authenticated policy at all\n//parse_runs, slide_embeddings, caches//" as P4 #DCDCDC
+rectangle "**Postgres RLS — the boundary for direct client access**\n68 tables, every one RLS-enabled" as RLS #F2F2F2 {
+  rectangle "**P1 Owner-scoped**\nuser_id = auth.uid()\nxp_events, review_schedule,\nexam_attempts, notifications" as P1
+  rectangle "**P2 Role-gated ownership**\nowner = uid AND has_role(professor)\ncourses, lectures" as P2
+  rectangle "**P3 Enrollment-derived**\nEXISTS join via course_enrollments\nor assignment_lectures\nslides, quiz_questions, review_cards" as P3
+  rectangle "**P4 Backend-only**\nno anon/authenticated policy at all\nparse_runs, slide_embeddings, caches" as P4 #DCDCDC
 }
 
-rectangle "FastAPI\n//holds the service_role key//" as API #F2F2F2
+rectangle "**FastAPI — the boundary for backend paths**\nservice_role client + asyncpg pool,\nboth bypass RLS; ownership checked in Python" as API #F2F2F2
 
 BR --> JWT
 JWT --> ANON
@@ -68,9 +69,9 @@ note right of P4
 end note
 
 legend bottom
-  Authorisation lives in the database. The API layer adds ownership checks on top for
-  service_role paths, but is not the boundary. See F15 for how these policies were
-  hardened across five migrations, and F4 for why uploaded content is untrusted.
+  Browser-to-PostgREST traffic is bounded by RLS. Most backend traffic is not: it runs as
+  service_role or over asyncpg, so a missing ownership check there is invisible to the
+  database. See F15 for how the policies were hardened, F4 for why uploads are untrusted.
 endlegend
 
 @enduml

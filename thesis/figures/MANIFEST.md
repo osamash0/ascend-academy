@@ -30,4 +30,4 @@ system that partly no longer exists. See `docs/thesis/ARCHITECTURE_PRIMER.md` §
 | F16 | The citation gap | Concept | 6 · Evaluation | `f16-citation-gap.puml` | tutor.py:106-133, LectureView.tsx:43/1028, InlineLecturePlayer.tsx:830-832, LectureChat.tsx:413-436 |  |
 | F17 | Built versus deployed | Concept | 6 · Evaluation | `f17-flag-reality.puml` | config.py:103/109/115/121/134/139/181, featureFlags.ts:7-11, .dockerignore:28, conftest.py:32-33 |  |
 | F18 | Evaluation setup | Concept / dataflow | 6 · Evaluation | `f18-evaluation-setup.puml` | backend/eval/{golden_sets,pipeline,scorer,judge,run_eval}.py |  |
-| F19 | Results — SCAFFOLD, no data | Placeholder | 6 · Evaluation | `f19-results-scaffold.puml` | Run `python -m backend.eval.run_eval`, then fill from the Scorecard | **hero** **NEEDS DATA** |
+| F19 | Results — retrieval precision@k, real corpus (3 of 4 metrics NOT MEASURED) | Data | 6 · Evaluation | `f19-results.puml` | `python -m backend.eval.retrieval_grid` output in `thesis/results/20260917T214528Z/`; `backend/services/ai/retrieval.py:30-32` for production k/threshold defaults | **hero** |

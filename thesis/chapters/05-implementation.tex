@@ -29,10 +29,14 @@ lecture's relevant slides silently stop appearing once the candidate window
 fills with other lectures' content. The migration comment explains this; cite
 it.}
 
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.2) The comment to cite is in migration \code{20260719020001\_match\_slides\_by\_lecture.sql:4--16}. \code{retrieval.py:130} mis-cites 20260719020000.}
+
 \TODO{Also cover the query-embedding cache, and the anchoring of the current
 slide at a synthetic similarity of zero --- the code comment explains that this
 prevents refusal logic from confusing "we chose this slide as an anchor" with
 "this slide is highly relevant". A small detail that shows care.}
+
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.4) The lecture tutor no longer has refusal logic: \code{has\_scope} is assigned and never read. The similarity-zero guard protects a deleted gate. Present it as vestigial, not as care.}
 
 \subsection{Anti-Hallucination Mechanisms}
 \label{sec:anti-hallucination}
@@ -54,6 +58,8 @@ phrasings. Then state the limitation honestly: prompt-level defences against
 prompt injection are mitigations, not sound guarantees. Saying so demonstrates
 judgement; claiming otherwise invites an easy objection.}
 
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#3.2, \#5.7, \#5.8) The audience is students who chat about that lecture or course, not every student. The sanitiser runs only on the student's own message, never on retrieved slide text, so against uploaded-content injection the only defence is the prompt rule. Separately verified on 2026-10-10: the single-file upload endpoint does not check ownership of the \code{course\_id} it is given, which widened the audience to any course whose id is known. Fixed in \code{722167b0} (2026-10-10) with \code{backend/tests/integration/test\_upload\_course\_ownership.py}, deployed 2026-10-30; write it as found-then-fixed.}
+
 \section{Assessment Generation}
 \label{sec:assessment}
 
@@ -63,6 +69,8 @@ one concept-testing question per slide, four plausible same-length distractors
 reflecting real misconceptions, a preference for application over recall, and an
 explicit ban on "all of the above" style options. These are pedagogical
 decisions expressed as prompt constraints, which is worth naming as such.}
+
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.10) Four \emph{options} means \emph{three} distractors.}
 
 \section{Spaced Repetition and Exam Mode}
 \label{sec:srs-impl}
@@ -91,12 +99,14 @@ so a corrected slide stays flagged permanently. Discuss what the pipeline would
 need for review to become a genuine gate, and what that would cost in latency
 for the professor.}
 
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.16) Manual saves never clear the flag, but an AI regenerate recomputes and can clear it. Write ``a manually corrected slide stays flagged''.}
+
 \section{Authorisation}
 \label{sec:authorisation}
 
 \thesisfigure{f14-trust-boundaries}
-  {Trust boundaries. Authorisation is enforced in the database, not the API
-   layer.}
+  {Trust boundaries. Row-level security bounds direct client access; most
+   backend paths bypass it and enforce ownership in application code.}
   {fig:trust-boundaries}
 
 \TODO{Explain row-level security as the enforcement point, then the four policy
@@ -105,6 +115,8 @@ policies with a logical OR, so effective visibility is the union of every
 applicable policy rather than the intersection --- and that no test composes a
 real endpoint against real policies, so the union behaviour remains unguarded
 at the integration level. A documented, citable limitation.}
+
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.17) RLS is the boundary for direct client access only. The backend mostly uses the service-role client and asyncpg, bypasses RLS, and checks ownership in Python. The figure has been corrected to say so.}
 
 \subsection{Iterative Hardening}
 \label{sec:hardening}
@@ -120,6 +132,8 @@ the five steps and be explicit that step three (opening professor self-signup)
 \emph{introduced} the vulnerability step four closes --- an honest account of
 iterative hardening is more instructive than a tidy one.}
 
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.21) Five steps span six migrations. Step 1's header documents no attack: it created the self-insert policy that step 2 removes. Steps 4 and 5 as drawn are in reverse chronological order; check against migration timestamps.}
+
 \TODO{Then present the one fully reproduced exploit in detail, because it is a
 teaching example: as an unauthenticated role, a security-definer function with a
 caller-supplied identifier and no ownership check leaked a victim's social
@@ -127,8 +141,12 @@ graph. The root cause was a four-way conjunction including Postgres's implicit
 grant of execute permission to PUBLIC on function creation. It was reproduced
 against a real database and is covered by regression tests.}
 
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.23) The reproduction ran on plain Postgres, where only the PUBLIC grant exists. On Supabase, default privileges also grant EXECUTE to \code{anon} explicitly; include that second route.}
+
 \TODO{Also include the negative result, which is worth as much: seven other
 functions are callable by the unauthenticated role but return no rows, because
 they are security-\emph{invoker} and row-level security therefore evaluates as
 the caller. Anon-callable is not anon-readable. Presenting the contrast shows
 you understood the mechanism rather than pattern-matching on a keyword.}
+
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.24) The seven-function negative result holds, but must not read as ``the rest is benign'': a 2026-09-17 production audit found 48 anon-executable SECURITY DEFINER functions, 8 exploitable (3 leaking, 5 writable). Fixed by migration \code{20261011000000\_revoke\_anon\_security\_definer\_execute.sql} (\code{537b9806}, PR \#77), which revokes \code{anon} EXECUTE on every SECURITY DEFINER function and is guarded by \code{backend/tests/db/test\_anon\_security\_definer\_exposure.py}; applied to production 2026-10-11. Report it as found-then-fixed, and re-probe production before citing its current state.}

@@ -1,18 +1,18 @@
 ' F11 -- LLM provider failover chain and its correlated-failure flaw.
 ' Chapter 4. UML activity diagram.
-' Claim supported: the chain presents nine providers but contains roughly five
-' independent failure domains; failure classification is three-way and omits
+' Claim supported: the chain presents nine providers but only seven distinct
+' API credentials (four entries share two keys); failure classification is three-way and omits
 ' the authentication and payment classes entirely.
 @startuml f11-provider-chain
 !include _style.iuml
 
-title LLM provider failover -- nine entries, ~five failure domains
+title LLM provider failover -- nine entries, seven credentials
 
 start
 :call site\n(BULK or QUALITY chain);
 
 if (per-user monthly budget OK?) then (no)
-  #DCDCDC:LLMBudgetExceededError;
+  :LLMBudgetExceededError; <<#DCDCDC>>
   stop
 else (yes)
 endif
@@ -33,14 +33,14 @@ while (providers remaining?) is (yes)
   :call provider;
   if (outcome?) then (success)
     :record success, flush counter,\naccount cost;
-    #BFBFBF:return response;
+    :return response; <<#BFBFBF>>
     stop
   elseif (429 / "rate limit" / "quota") then
     :exponential backoff\n90s x 2^n, capped 600s;
   elseif (404 model not found) then
     :**permanent** disable\n//not cleared at UTC midnight//;
   else (401 / 402 / 403 / 5xx / network)
-    #DCDCDC:**no penalty recorded**;
+    :**no penalty recorded**; <<#DCDCDC>>
     note right
       A revoked key or exhausted credit
       balance re-fires a doomed HTTPS
@@ -52,7 +52,7 @@ while (providers remaining?) is (yes)
   endif
 endwhile (no)
 
-#DCDCDC:raise last exception;
+:raise last exception; <<#DCDCDC>>
 stop
 
 note right
@@ -76,8 +76,10 @@ note right
      stop_after_attempt(8) with
      wait_exponential(min=4, max=60) sits
      inside asyncio.wait_for(timeout=25s).
-     4+8+16s already exceeds 25s, capping
-     real attempts near three. The docstring
+     Waits are 4, 4, 8, 16 s, so attempts
+     start at 0, 4, 8 and 16 s: at most four
+     fit before the 25 s timeout, fewer once
+     real call latency counts. The docstring
      says "3x"; the code says 8.
 end note
 

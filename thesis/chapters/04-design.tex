@@ -21,6 +21,8 @@ container with no live callers, which has since been removed;
 while the asyncpg path is entirely absent, so several features are broken with
 no external signal. Cite \cref{sec:reality-vs-documented}.}
 
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#4.2) Write the \code{/health/ready} point as conditional: it reports healthy when \code{DATABASE\_URL} is unset, but whether production lacks it is not visible in git. Add the parse pipeline itself to the dependents: without the asyncpg pool, uploads fail outright.}
+
 \section{Deployment Topology}
 \label{sec:deployment}
 
@@ -35,6 +37,8 @@ state three different deployment targets, one of them is not deployable at all,
 and the TLS-terminating proxy is absent from version control. Frame this as a
 reproducibility finding --- the deployed system cannot be reconstructed from the
 repository alone --- rather than as a list of complaints.}
+
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#4.3) There are \emph{four} compose files, not three. Two name a production target (a university server, Oracle Cloud A1), and neither names the host actually used (Hetzner).}
 
 \section{The Ingestion Pipeline}
 \label{sec:pipeline}
@@ -70,12 +74,15 @@ plainly. Note that the documentation describes a richer generator-aware
 classifier, and that this code exists but is unreachable --- a good, small
 example of documentation drifting from implementation.}
 
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#4.10) The generator-aware classifier is \code{backend/\_legacy/parser\_classifier.py}, not \code{slide\_classifier.py} (that one is a layout router). If the pending cleanup branch merges, it is deleted outright: write ``existed, was archived, then deleted''.}
+
 \subsection{Idempotency}
 \label{sec:idempotency}
 
 \thesisfigure{f10-idempotency}
-  {Six independent idempotency mechanisms across four layers, guaranteeing at
-   most one unit of effective work for identical input.}
+  {Seven idempotency mechanisms across four layers. For a single owner they
+   guarantee at most one unit of effective work per identical input; two owners
+   of the same bytes each pay for a parse.}
   {fig:idempotency}
 
 \TODO{This is the strongest engineering contribution in the system --- give it
@@ -85,6 +92,8 @@ layer four: the distributed lock is best-effort and proceeds unlocked on a
 Redis error, choosing availability over strict mutual exclusion, with layers
 two and three as the correctness backstop. Defence in depth with an explicit
 weak link is a more interesting design story than a single perfect mechanism.}
+
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#4.11, \#4.13) The figure now shows \emph{seven} mechanisms (L0 parse-cache replay was missing) and the guarantee is \emph{per owner}: the unique key includes \code{user\_id}. Call the lock ``mechanism L4'', not ``layer four''; the figure files it under Layer~3. Name the edge case: a concurrent second owner returns early and stays \code{queued}.}
 
 \subsection{Failure Handling}
 \label{sec:failure-handling}
@@ -96,12 +105,14 @@ stuck in a non-terminal state, and a dead-letter table captures terminal
 failures. This is a good example of a configuration value that reads like a
 resilience guarantee and is not one.}
 
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#4.14, \#4.15) The arq source checked was 0.28.0, but the Docker image pins \code{arq>=0.26,<0.27}: name the deployed version or re-check 0.26. A job timeout is not retried either. The reconciler resolves only runs stuck in \code{extracting}, not every non-terminal state; PR~\#72 adds \code{queued}/\code{pending} if it merges.}
+
 \section{Data Model}
 \label{sec:data-model}
 
 \thesisfigurepage{f9-er-core}
-  {Core physical schema: 26 of roughly 68 tables. Dashed relationships have no
-   database-enforced foreign key.}
+  {Core physical schema: 29 of roughly 68 tables, plus the authentication
+   users table. Dashed relationships have no database-enforced foreign key.}
   {fig:er}
 
 \TODO{Justify the subset --- why 26 tables and not all 68 --- and name the four
@@ -112,6 +123,8 @@ were never seeded and their award calls silently do nothing. A missing
 constraint becoming a silently dropped write is a textbook integrity argument
 with a real instance to cite.}
 
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#4.17, \#4.18, \#4.20) The figure draws 29 tables plus \code{auth.users}, and the dead list is \emph{five}: \code{parse\_pages} joins it. The badge story is not a missing-FK story: \code{award\_badge} returns NULL for an unknown key before any insert, so an FK would not have helped. Frame it as an unchecked string-keyed contract with a swallow-unknown RPC.}
+
 \TODO{Also mention the schema-drift finding: a vector column exists in
 production with no migration defining it, is null across every row, and has
 never been scanned. It is evidence that migrations are not the sole source of
@@ -121,8 +134,8 @@ truth for the deployed database.}
 \label{sec:provider-strategy}
 
 \thesisfigure{f11-provider-chain}
-  {Provider failover. Nine registry entries, but roughly five independent
-   failure domains.}
+  {Provider failover. Nine registry entries share seven API credentials, so
+   the chain is shallower under correlated failure than it looks.}
   {fig:provider-chain}
 
 \TODO{Present the mechanism first --- registry, two ordered chains, availability
@@ -138,3 +151,5 @@ revoked key is retried indefinitely;
 that caps it near three.
 Each is a concrete, defensible finding about a resilience mechanism that looks
 stronger than it is.}
+
+\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#4.23, \#4.25) Nine entries use \emph{seven} distinct API keys, not ``roughly five'' failure domains. Waits are 4, 4, 8, 16\,s, so up to \emph{four} attempts fit in the 25\,s timeout, fewer with real latency. Each ``attempt'' is a full chain traversal. If the provider-chain repair merges, the 402 point becomes found-then-fixed.}

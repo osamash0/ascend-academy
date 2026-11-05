@@ -1,11 +1,13 @@
 ' F10 -- Layered idempotency in the content-addressed ingestion pipeline.
 ' HERO FIGURE. Chapter 4.
-' Claim supported: the pipeline guarantees at-most-once effective work for
-' identical input through six independent mechanisms at four different layers.
+' Claim supported: for one owner, the pipeline does at most one unit of
+' effective work per identical input, through seven mechanisms at four layers.
+' The key includes user_id, so two owners of identical bytes each pay a parse
+' (unified_orchestrator.py:467-473) -- the guarantee is per owner.
 @startuml f10-idempotency
 !include _style.iuml
 
-title Layered idempotency: six mechanisms, four layers
+title Layered idempotency: seven mechanisms, four layers
 
 skinparam rectangle {
   BackgroundColor #FFFFFF
@@ -14,6 +16,7 @@ skinparam rectangle {
 rectangle "**Re-submission of identical PDF bytes**" as REQ #DCDCDC
 
 package "Layer 1 -- Content" {
+  rectangle "**L0  Parse-cache replay**\nRedis cache keyed on pdf_hash\n//A hit streams cached slides; nothing is enqueued//" as L0
   rectangle "**L1  Content addressing**\nsha256(bytes) is the storage key\n//Identical bytes cannot create a second object//" as L1
 }
 
@@ -31,9 +34,10 @@ package "Layer 4 -- Cost control" {
   rectangle "**L6  Embedding dedupe**\nsha256(embedding text) checked\n//before// any paid API call" as L6
 }
 
-rectangle "**At most one unit of effective work**" as OK #BFBFBF
+rectangle "**At most one unit of effective work per owner**" as OK #BFBFBF
 
-REQ  --> L1
+REQ  --> L0
+L0   --> L1
 L1   --> L2
 L2   --> L3
 L3   --> L4
@@ -48,10 +52,17 @@ note right of L4
   exclusion is sacrificed to keep uploads
   working; L2 and L3 remain the
   correctness backstop.
+
+  **Edge case.** The lock is keyed on
+  pdf_hash alone, but L2 includes user_id.
+  A second owner arriving mid-parse returns
+  early and is left 'queued' -- a state the
+  stalled-run sweep at this revision never
+  resolves.
 end note
 
 legend bottom
-  Provenance: L1 upload.py:131 | L2 repos.py:82 + migration 20260730000000:49
+  Provenance: L0 upload.py:134 | L1 upload.py:131 | L2 repos.py:82 + migration 20260730000000:49
   L3 unified_orchestrator.py:531 | L4 job_locks.py:41 | L5 unified_orchestrator.py:641
   L6 file_parse_service.py:832
 endlegend

@@ -14,7 +14,7 @@ skinparam rectangle {
 
 rectangle "**Golden sets** (human-curated)\nbackend/eval/golden_sets.py" as GS #F2F2F2 {
   rectangle "QuizGoldenCase\n//verified correct answer index//" as G1
-  rectangle "TutorFaithfulnessCase\n//answer must be supported\nby the cited slides//" as G2
+  rectangle "TutorFaithfulnessCase\n//answer must be supported//\n//by the cited slides//" as G2
   rectangle "RetrievalCase\n//known-relevant slide set//" as G3
   rectangle "SynthesisQualityCase\n//open-ended, judged//" as G4
 }
@@ -25,10 +25,10 @@ rectangle "**Pipeline under test**\nbackend/eval/pipeline.py" as PIPE #DCDCDC {
 }
 
 rectangle "**Scorers** (pure functions, no I/O)\nbackend/eval/scorer.py" as SC #F2F2F2 {
-  rectangle "score_quiz_key_accuracy\n//fraction matching the\nhuman-verified answer//" as S1
+  rectangle "score_quiz_key_accuracy\n//fraction matching the//\n//human-verified answer//" as S1
   rectangle "score_tutor_faithfulness" as S2
   rectangle "score_retrieval_precision_at_k" as S3
-  rectangle "LLM judge\nbackend/eval/judge.py\n//JudgeFn injected, so a canned\nresponse works in unit tests//" as S4
+  rectangle "LLM judge\nbackend/eval/judge.py\n//JudgeFn injected, so a canned//\n//response works in unit tests//" as S4
 }
 
 rectangle "**Scorecard**\n4 metrics + ScoreBand per metric" as CARD #BFBFBF
