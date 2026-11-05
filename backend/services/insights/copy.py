@@ -9,29 +9,55 @@ from __future__ import annotations
 from typing import Any, Dict, Tuple
 
 
+def _shown(count: Any) -> bool:
+    """A people count may be named in text only with MIN_PEOPLE or more people behind it."""
+    from backend.services.analytics_service import MIN_PEOPLE
+
+    return int(count or 0) >= MIN_PEOPLE
+
+
 def confusion_hotspot_copy(slide: Dict[str, Any]) -> Tuple[str, str, str]:
-    """Return (headline, summary, interpretation) for a Confusion Hotspot."""
+    """Return (headline, summary, interpretation) for a Confusion Hotspot.
+
+    The slide carries raw people counts (askers, people who went back); they never reach the text
+    unless 5+ people stand behind them. Three states, never "few reached for help" for a count
+    that is merely hidden:
+      (a) a help signal at 5+: the help-seeking wording, naming only the signals at 5+;
+      (b) both truly 0: "few reached for help";
+      (c) a signal of 1 to 4 and none at 5+: a neutral reading with no help claim either way.
+    """
     num = slide["slide_number"]
     confused_pct = round(slide["confusion_rate"])
-    queries = slide["ai_query_count"]
-    back_nav = slide["back_nav_count"]
-    sought_help = queries > 0 or back_nav > 0
+    queries = int(slide.get("ai_query_count") or 0)
+    back_nav = int(slide.get("back_nav_count") or 0)
+    asked_shown, back_shown = _shown(queries), _shown(back_nav)
+    sought_help = asked_shown or back_shown
+    some_hidden = (0 < queries) or (0 < back_nav)
 
     headline = "A slide where many call for help." if sought_help else "A slide that's confusing students."
 
     bits = [f"{confused_pct}% of students rated slide {num} confused"]
-    if queries > 0:
+    if asked_shown:
         bits.append(f"{queries} asked the AI tutor about it")
-    if back_nav > 0:
+    if back_shown:
         bits.append(f"{back_nav} backtracked to it from later slides")
     summary = " · ".join(bits) + "."
 
     if sought_help:
+        signals = " and ".join(
+            name for name, shown in (("help-seeking", asked_shown), ("backtracking", back_shown)) if shown
+        )
         interpretation = (
             f"Slide {num} is acting like a wall. A high share of students flagged "
-            "confusion here, and the help-seeking and backtracking around it suggest "
+            f"confusion here, and the {signals} around it suggest "
             "the explanation isn't landing. Consider rewriting it for clarity, adding "
             "a worked example, or splitting it into two slides."
+        )
+    elif some_hidden:
+        interpretation = (
+            f"A high share of students flagged slide {num} as confusing. Consider "
+            "rewriting it for clarity, adding a worked example, or a quick "
+            "check-for-understanding here."
         )
     else:
         interpretation = (
@@ -140,13 +166,19 @@ def calibration_gap_copy(slide_number: int, overconfidence_rate: float) -> Tuple
     return headline, summary, interpretation
 
 
-def overpacked_copy(slide_number: int) -> Tuple[str, str, str]:
+def overpacked_copy(slide_number: int, askers: Any = None) -> Tuple[str, str, str]:
+    """`askers` is the people who asked the AI tutor; the help claim is made only with 5+ of them."""
+    help_shown = _shown(askers)
     headline = "A slide that asks too much at once."
-    summary = f"Slide {slide_number} draws long, uneven dwell times and heavy help-seeking."
+    summary = (
+        f"Slide {slide_number} draws long, uneven dwell times and heavy help-seeking."
+        if help_shown else f"Slide {slide_number} draws long, uneven dwell times."
+    )
     interpretation = (
         f"Slide {slide_number} shows the fingerprint of cognitive overload — some students "
-        "finish fast while others spend far longer, confusion is high, and the AI tutor "
-        "sees a lot of traffic. It's likely carrying too many new concepts at once. "
+        "finish fast while others spend far longer, confusion is high"
+        + (", and the AI tutor sees a lot of traffic. " if help_shown else ". ")
+        + "It's likely carrying too many new concepts at once. "
         "Breaking it into smaller chunks usually relieves the pressure."
     )
     return headline, summary, interpretation

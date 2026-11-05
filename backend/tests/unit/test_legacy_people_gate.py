@@ -979,3 +979,67 @@ def test_no_served_text_prints_a_withheld_count_as_zero_or_none(monkeypatch):
         assert not re.search(r"(?<![\d.])0 (asked|backtracked|students|people|skimmed)", text), text
         for small in ("3 asked", "2 backtracked", "4 skimmed"):
             assert small not in text
+
+
+# ── rebuilt/served copy never claims what a hidden count might contradict ───
+
+_HOT = dict(confusion_rate=60.0, confused=3, got_it=2, ratings_total=5)
+
+
+def _hot(monkeypatch, asked, back):
+    return _one(monkeypatch, "confusion_hotspot", _gslide(1, 6, ai_query_count=asked, back_nav_count=back, **_HOT))
+
+
+def test_a_hotspot_with_hidden_help_signals_makes_no_claim_either_way(monkeypatch):
+    out = _hot(monkeypatch, 4, 4)       # 4 askers and 4 who went back, among 6 viewers
+    assert "few reached" not in out["interpretation"] and "don't realize" not in out["interpretation"]
+    assert "wall" not in out["interpretation"] and "help-seeking" not in out["interpretation"]
+    assert out["headline"] == "A slide that's confusing students."
+    assert "asked the AI tutor" not in out["summary"] and "backtracked" not in out["summary"]
+
+
+def test_a_hotspot_with_truly_no_help_signals_says_few_reached_for_help(monkeypatch):
+    assert "few reached" in _hot(monkeypatch, 0, 0)["interpretation"]
+
+
+def test_a_hotspot_with_one_hidden_signal_and_one_zero_is_neutral_too(monkeypatch):
+    out = _hot(monkeypatch, 3, 0)
+    assert "few reached" not in out["interpretation"] and "help-seeking" not in out["interpretation"]
+
+
+def test_a_hotspot_names_only_the_help_signals_with_five_people_behind_them(monkeypatch):
+    asked = _hot(monkeypatch, 5, 3)
+    assert "help-seeking" in asked["interpretation"] and "backtracking" not in asked["interpretation"]
+    assert "5 asked the AI tutor" in asked["summary"] and "3" not in asked["summary"].split("·", 1)[1]
+    assert asked["headline"] == "A slide where many call for help."
+    back = _hot(monkeypatch, 4, 6)
+    assert "backtracking" in back["interpretation"] and "help-seeking" not in back["interpretation"]
+    both = _hot(monkeypatch, 5, 6)
+    assert "help-seeking and backtracking" in both["interpretation"]
+
+
+def test_no_hotspot_text_contains_a_sub_floor_number(monkeypatch):
+    import re
+
+    for asked, back in [(4, 4), (3, 0), (0, 2), (5, 3), (4, 6)]:
+        out = _hot(monkeypatch, asked, back)
+        text = " ".join([out["headline"], out["summary"], out["interpretation"]])
+        for small in {asked, back} & {1, 2, 3, 4}:
+            assert not re.search(rf"(?<![\d.]){small}(?![\d%.])", text.replace("60%", "")), (asked, back, text)
+        assert "None" not in text
+
+
+def _packed(monkeypatch, askers, cv=1.2):
+    slide = _gslide(1, 12, confusion_rate=45.0, median_dwell=80.0, dwell_cv=cv, ai_query_count=askers,
+                    ratings_total=5, confused=4, got_it=1)
+    return _one(monkeypatch, "overpacked", slide)
+
+
+def test_overpacked_claims_help_seeking_only_with_five_askers(monkeypatch):
+    few = _packed(monkeypatch, 4)
+    text = few["summary"] + " " + few["interpretation"]
+    assert "help-seeking" not in text and "traffic" not in text
+    none = _packed(monkeypatch, 0)               # the erratic-dwell path with nobody asking
+    assert "help-seeking" not in none["summary"] and "traffic" not in none["interpretation"]
+    many = _packed(monkeypatch, 5)
+    assert "heavy help-seeking" in many["summary"] and "a lot of traffic" in many["interpretation"]

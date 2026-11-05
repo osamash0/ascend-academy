@@ -97,16 +97,12 @@ def _withhold_small_counts(insight: Dict[str, Any], bundle: Dict[str, Any]) -> D
         for k in keys:
             if k in container:
                 container[k] = _withheld(container[k])
-    if insight["kind"] == schema.CONFUSION_HOTSPOT:
-        # The summary names how many asked and went back; say only what has 5+ people behind it. The copy
-        # leaves a clause out when its count is 0, so a withheld count (passed as 0 here) is left out of
-        # the sentence, never printed as "0 asked".
+    if insight["kind"] == schema.OVERPACKED:
+        # The detector's copy takes no counts; its help claim needs 5+ people who asked.
         number = (insight.get("targetRef") or {}).get("slideNumber")
         slide = next((s for s in bundle.get("slides", []) if s.get("slide_number") == number), None)
         if slide is not None:
-            shown = {k: (v if v is not None and v >= analytics_service.MIN_PEOPLE else 0)
-                     for k, v in ((k, slide.get(k)) for k in ("ai_query_count", "back_nav_count"))}
-            headline, summary, interpretation = copy.confusion_hotspot_copy({**slide, **shown})
+            headline, summary, interpretation = copy.overpacked_copy(number, slide.get("ai_query_count"))
             insight.update(headline=headline, summary=summary, interpretation=interpretation)
     return insight
 
