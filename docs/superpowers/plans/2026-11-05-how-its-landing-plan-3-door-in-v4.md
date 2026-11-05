@@ -876,6 +876,127 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
+### Task 4c: One member cannot crowd everyone else out of the read, or move their events in time
+
+From the backend review (2026-11-05, verified). `_EVENTS_SQL` (`backend/services/insights/sources/space.py:118-131`) takes the newest `EVENT_CAP` (200 000, line 25) events **across all members**, and the only guard is a warning (lines 170-171). The policy `"Users can insert their own events"` (`supabase/migrations/20260721010000_learning_events_partitioning_retention.sql:212-214`) lets any signed-in user insert unlimited rows of their own, with any `created_at`. One account writing 200 000 valid `slide_view` rows pushes every other member's older events out of the read: readers, figures and help shrink, pages fall under the floor, and the owner is shown a wrong door with no sign of it. The same policy lets a member back-date events into any week.
+
+Direct inserts cannot simply be revoked: the legacy rooms still write through Supabase (`src/services/studentService.ts:137`, no `created_at` sent). So:
+
+- **The read caps per member, not per Space.** Each member contributes at most `PER_MEMBER_CAP` (5 000) newest events in the window; `EVENT_CAP` stays as the outer bound.
+- **A row's time is when it was written.** A `BEFORE INSERT` trigger sets `created_at = now()` for every role but `service_role` (the backend's own writes keep theirs). No caller sends `created_at` today, so nothing breaks.
+
+**Files:**
+- Modify: `backend/services/insights/sources/space.py:23-25` (add `PER_MEMBER_CAP`), `:118-131` (`_EVENTS_SQL`), `:166-171` (pass the cap; warn per member who hit it)
+- Create: `supabase/migrations/20261105010000_learning_events_created_at_is_now.sql` (unique timestamp: check `ls supabase/migrations` and Plan 4's `20261105120000`)
+- Test: `backend/tests/unit/test_landing_space_source.py` (the SQL carries a per-user window), `backend/tests/db/test_learning_events_created_at.py` (`@pytest.mark.db`, on the throwaway Postgres)
+
+**Interfaces:**
+- Produces: `sources.space.PER_MEMBER_CAP = 5_000`. `_EVENTS_SQL` ranks with `row_number() OVER (PARTITION BY user_id ORDER BY created_at DESC)` in a CTE and keeps `rn <= $7`, then `ORDER BY created_at DESC LIMIT $6`.
+- Produces: trigger `learning_events_created_at_now` on `public.learning_events`, function `public.learning_events_stamp_created_at()` (`SECURITY INVOKER`, `SET search_path = ''`).
+
+- [ ] **Step 1: Write the failing tests**
+  - Unit: build a fake pool that records the SQL and args; assert the SQL contains `PARTITION BY user_id` and the last arg is `PER_MEMBER_CAP`.
+  - DB: as an `authenticated` user, insert an event with `created_at = now() - interval '40 days'`; read it back; assert `created_at` is within a minute of `now()`. As `service_role`, the given `created_at` is kept.
+- [ ] **Step 2: Run them to see them fail** (`.venv/bin/python -m pytest backend/tests/unit/test_landing_space_source.py -q -p no:cacheprovider`; the DB test with `-m db` against the throwaway Postgres, as in Plan 2).
+- [ ] **Step 3: Implement**
+  - The SQL:
+
+```sql
+WITH ranked AS (
+  SELECT user_id, event_type, created_at, event_data,
+         row_number() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn
+  FROM learning_events
+  WHERE created_at >= $1 AND created_at <= $2
+    AND event_type = ANY($3::text[])
+    AND user_id = ANY($4::uuid[])
+    AND event_data->>'lectureId' = ANY($5::text[])
+)
+SELECT user_id::text AS user_id, event_type, created_at,
+  jsonb_strip_nulls(jsonb_build_object({_EVENT_DATA})) AS event_data
+FROM ranked
+WHERE rn <= $7
+ORDER BY created_at DESC
+LIMIT $6
+```
+
+  - The migration:
+
+```sql
+CREATE OR REPLACE FUNCTION public.learning_events_stamp_created_at()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
+BEGIN
+  IF coalesce(current_setting('request.jwt.claim.role', true), current_user) <> 'service_role' THEN
+    NEW.created_at := now();
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS learning_events_created_at_now ON public.learning_events;
+CREATE TRIGGER learning_events_created_at_now
+  BEFORE INSERT ON public.learning_events
+  FOR EACH ROW EXECUTE FUNCTION public.learning_events_stamp_created_at();
+```
+
+  `learning_events` is partitioned (same migration file as the policy): verify on the throwaway database that a trigger on the parent fires for rows routed to a partition (Postgres 13+ does), and that the role check sees the backend's asyncpg connection as not `authenticated`. If the backend connects as `postgres` rather than `service_role`, compare against the roles that must keep their time, and say so in the migration comment.
+- [ ] **Step 4: Run the tests**, then `ruff check backend/ --select F821,F811,F841`.
+- [ ] **Step 5: Commit** (`git status && git log -1 --oneline` first). Deploy: this migration is applied by hand with psql (`docs/runbooks/apply-a-migration-by-hand.md`), probed with `pg_catalog` (`select tgname from pg_trigger where tgrelid = 'public.learning_events'::regclass`), never `supabase db push`.
+
+---
+
+### Task 4d: A Lesson people stop reading is a finding, not "landing"
+
+From the backend review (verified). `lesson_bundle` (`backend/services/insights/space_engine.py:78-80`) makes a row only for pages someone read, and `detect_leaky_bucket` (`detectors.py:196-207`) compares neighbouring rows. A fall to zero readers is never a pair: six readers who all stop after page 3 of a 30-page Lesson leave rows 1 to 3, no leak, and `lesson_light` returns `calm`. The owner sees the Lesson as landing. Second, the detector keeps only the **worst** drop, and `kept()` (`space_engine.py:127-130`) then discards it if a later page wins readers back (`_drop_persists`, line 103). A skipped page (10, 10, 3, 9, 9, 6) is chosen, discarded, and the real 33% drop after it is never looked at.
+
+The detectors stay untouched (spec §1.1). The engine gives the leak check what it needs:
+
+- **The leak check sees every page of the Lesson.** For the leak only, the bundle carries a row per page `1..lesson.pages`, zero readers where nobody read. Every other detector keeps today's rows.
+- **Only drops that persist are candidates.** Counting the people still in the Lesson at each page (they read it or anything after it) makes a skipped page invisible to the leak check, so the detector's worst-drop pick is over real stops only, and `_drop_persists` is no longer needed.
+
+**Files:**
+- Modify: `backend/services/insights/space_engine.py:78-90` (`lesson_bundle`, add `leak_rows`), `:109-132` (`lesson_insights`: run `detect_leaky_bucket` on `leak_rows`, drop the `kept()` special case)
+- Test: `backend/tests/unit/test_landing_space_engine.py`
+
+**Interfaces:**
+- Produces: `space_engine.leak_rows(lf: LessonFacts) -> list[dict]`, one `{"slide_number": n, "view_count": still}` per page `1..lf.lesson.pages`, where `still` is the number of people who read page `n` **or any later page**: the people still in the Lesson at `n`. A page skipped and returned to never reads as a stop; a page after which nobody reads on drops to what is left. Worked example: readers 10, 10, 10, 10, 3, 9, 9, 9, 6 give `still` 10, 10, 10, 10, 9, 9, 9, 9, 6, so the one leak is after page 8 (33%); six readers who stop after page 3 of 30 give 6, 6, 6, 0, …, a leak after page 3.
+
+- [ ] **Step 1: Write the failing tests**
+  - Six readers on pages 1 to 3 of a 30-page Lesson, none after: one `leaky_bucket` on page 3, and the Lesson's light is not `calm`.
+  - Readers 10, 10, 10, 10, 3, 9, 9, 9, 6 on pages 1 to 9: the one leak is after page 8, not page 4.
+  - A Lesson everyone finishes: no leak (pins today's behaviour).
+- [ ] **Step 2: Run them to see them fail.**
+- [ ] **Step 3: Implement** `leak_rows` (walk `n` from `lf.lesson.pages` down to 1, keeping a running **union** of `lf.pages.get(n, PageFacts()).readers`, so `still[n] = len(union)`; sets, not counts, so one person on two pages counts once); in `lesson_insights`, call the leak detector with `{**bundle, "slides": leak_rows(lf)}` and the others with `bundle`; keep `above_floor` (the page before the drop needs 5 readers).
+- [ ] **Step 4: Run** `test_landing_space_engine.py` and `test_landing_map.py`; then the full `-m "not db"` suite for the engine.
+- [ ] **Step 5: Commit.**
+
+---
+
+### Task 4e: A week with fewer than five readers says nothing, in every figure
+
+From the backend review (verified). `figures()` (`backend/services/insights/figures.py:49-51`) returns `reading` as raw counts per week, value and history, at any size; only `landing` and `cleared` are floored. In a Space of two, "1, 0, 1, 1, 0, 1, 1, 1" is one person's reading habit, week by week. The Figure contract already says a week with fewer than `floor` people is `null`, never 0 (`src/features/spaces/landing/types.ts`, `Figure`). Per-Lesson `readers` leaves the wire in Task 14.
+
+- **`reading`: a week under the floor is `null`**, value and history alike; the door draws a dash and no bar, as it already does for `landing`.
+- The top-level `readers` stays: it is what Luna's floor line counts ("4 people have been reading"), a count the owner of a small group would know anyway. Flagged for Abi in **Open questions**.
+
+**Files:**
+- Modify: `backend/services/insights/figures.py:49-51`
+- Test: `backend/tests/unit/test_landing_figures.py`
+
+- [ ] **Step 1: Failing test:** three members reading in weeks 6 and 7 → `reading == {"value": None, "history": [None] * 8}`; six readers in week 7 only → `history[-1] == 6`, earlier weeks `None`.
+- [ ] **Step 2: Run to fail. Step 3: Implement:** `reading = [len(r) if len(r) >= floor else None for r in readers]`. **Step 4: Run** the figures tests and `npx vitest run src/features/spaces/__tests__/landing.test.tsx` (the door already renders a null figure). **Step 5: Commit.**
+
+---
+
+### Task 4f (lower priority): the smaller review findings
+
+From the backend review (2026-11-05). Reported, not yet verified line by line; verify each before writing its test, and drop any that does not hold.
+
+1. **Themes cache keyed on the asker count, not the askers** (`backend/services/insights/themes.py:24,132`). Five askers make themes; one ages out of the window, another asks; the count is five again and month-old themes about other people's questions return. Fix: add a short hash of the sorted asker ids to `params`.
+2. **Short themes pass the echo guard** (`themes.py:60-109`): a theme of three words or fewer is never compared, so a planted name ("Anna struggled with joins" is four, but "Anna's joins" is two) can reach the owner. Fix: drop any theme containing a token that appears in exactly one asker's text and nowhere in the Lesson's page text; add a test with a planted name.
+3. **A page held under two seconds is not read** (`backend/services/v4_reading_service.py:21`, `MIN_SECONDS_TO_COUNT`). A page most people flip past has too few "readers" to say anything, so `skipped_slide` never fires on it. Fix: record the visit with its real dwell (a `slide_view` with `duration_seconds < 2` flagged `brief`), count it as a reader for the floor, exclude it from dwell medians.
+4. **First try mislabelled at the window edge** (`backend/services/insights/space_facts.py:95-119`): a question first answered before the 56-day window and again inside it counts as a first try. Fix: read each member's earliest try per question without the window bound (one extra `min(created_at)` query), or drop tries whose question has an earlier attempt.
+
+---
+
 ### Task 5: The legacy garden lists no one: no Strugglers, no Journey, no `/students`
 
 **Files:**
@@ -892,11 +1013,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `src/features/analytics/types/index.ts:113-127` (journey types; the evidence-kind union)
   - `src/features/analytics/hooks/useEvidence.ts` and `src/features/analytics/garden/useGardenState.ts` (the `studentId` field)
   - `src/services/analyticsService.ts:66-71` (`getStudentPerformance`, no caller)
+- Modify (from the backend review, 2026-11-05): `GET /lecture/{lecture_id}/confidence-by-slide` (`backend/api/v1/analytics.py:355`, service `backend/services/analytics_service.py:556-600`) and the `confidence_breakdown` evidence (`backend/services/insights/evidence.py:57-108`, route `analytics.py:289-316`) return raw per-slide counts with no floor and count the owner's own events: with one rater, `got_it: 1, total: 1` is that person. Both now count **people**, exclude the lecture's owner, and return a slide's numbers only when at least 5 people stand behind them (else the slide's entry is absent). Check `/lecture/{lecture_id}/slides` (`analytics.py:219`) for the same and floor it the same way if it holds.
 - Test: create `backend/tests/unit/test_legacy_people_gate.py`; modify `backend/tests/contract/test_response_schemas.py:72-87`
 
 **Interfaces:**
 - Produces:
   - `engine.build_insights` never returns `kind == "silent_strugglers"`.
+  - `confidence-by-slide` and `confidence_breakdown` say nothing about a slide with fewer than 5 people, and never count the owner.
   - `evidence.get_evidence("student_journey", …)` raises `ValueError("Unknown evidence kind: student_journey")`, which the route turns into 400.
   - `GET /api/analytics/lecture/{id}/students` is 404.
   - `analytics_service.get_student_performance` stays: `bundle.py:232` still reads it internally.
@@ -2387,6 +2510,8 @@ Order: **migration → backend (PR A) → frontend (PR A) → frontend (PR B)**.
 
 ## Open questions for Abi
 
+- **Floor-line count (Task 4e):** Luna's floor line still says how many people read ("4 people have been reading"). In a Space of two that is one person. Keep it (the owner of a small group knows anyway), or say only "A few people have been reading"?
+
 1. **Assignments.** The roster now lists only learners who switched on "show me in Spaces" (Task 7). Is that right? Or should assignments, a legacy professor feature with no v4 room, be switched off for good?
 2. **The direct-read residual (Decision 4).** A professor-role owner can still read members' raw event and progress rows, with user ids but no names, through Supabase RLS, because the legacy garden reads that way. Is "never by name" enough until the console's retirement? Or should closing it (moving the garden to service-role aggregates) come before the wording ships?
 
@@ -2409,6 +2534,7 @@ Order: **migration → backend (PR A) → frontend (PR A) → frontend (PR B)**.
   - short TTL for empty themes → Task 4;
   - themes in parallel → Task 4.
   - traps first in `rank()` (Abi, 2026-11-05) → Task 4b.
+  - backend review (2026-11-05): per-member event cap + `created_at` stamped on insert → Task 4c; abandoned Lessons and the hidden leak → Task 4d; `reading` floored per week → Task 4e; legacy confidence routes floored → Task 5; themes key, short themes, sub-2 s views, first try at the window edge → Task 4f.
   - None is a "won't".
 - **Abi's 2026-11-05 decisions:**
   - 1 → Tasks 1, 5, 6, 7, 8;
