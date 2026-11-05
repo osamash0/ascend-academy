@@ -11,6 +11,10 @@ only where the change is the figure's point (F16, F17, F15), labelled with their
 Production facts (flags, hosts) are as of the 2026-10-30 deploy; prod may run images
 older than the pin.
 
+Diagrams are PlantUML (`src/*.puml`). Data charts are standalone pgfplots documents
+(`src/*.tex`) that read `data/<name>.csv`; they are drawn at print width (at most 418 pt)
+so their type sizes are the printed sizes.
+
 Regenerate with `make figures` (PDF) or `make all` (PDF + SVG); sources in `src/`,
 shared style in `src/_style.iuml`. `make check` renders every source and fails on errors;
 `make fonts` checks that every PDF embeds its fonts.
@@ -52,3 +56,4 @@ are cited only for server facts the repository cannot hold (F7).
 | F17 | Built versus delivered | Concept | 6 · Evaluation | `f17-flag-reality.puml` | config.py:106-219; docker-compose.prod.yml:142-153; App.tsx:197-212, :384-395; main.py:258; v4_spaces_service.py:865-896; review/mastery.py:28-31; history: 6c95041b, 28c81ca3 | _found, then fixed_ |
 | F18 | Evaluation setup | Concept | 6 · Evaluation | `f18-evaluation-setup.puml` | backend/eval/{golden_sets,pipeline,scorer,judge,run_eval,retrieval_grid,verify_anchors,deck_lab,quiz_answer_check}.py; eval/data/golden_set.json; eval/parser_bench/{blinding,schedule,ranking,checks,results}.py; docs/thesis/experiments/parser-benchmark/PROTOCOL.md:3, :11, LAB_LOG.md:263-268 |  |
 | F19 | Results — retrieval on the real corpus | Data | 6 · Evaluation | `f19-results.puml` | thesis/results/20260917T214528Z/grid_results.{md,csv} (run at a696be1-dirty); retrieval.py:30-32 | **hero** · _course column predates b66a97c6: re-run at the pin_ |
+| F20 | Text extraction benchmark | Data (dot + interval) | 6 · Evaluation | `f20-parser-benchmark.tex` + `data/f20-parser-benchmark.csv` | comparison cmp-2026-11-01_0010 `results.json` (pooled fit, 283 votes, outside git); docs/thesis/experiments/parser-benchmark/PROTOCOL.md:11, :133, :199-200; LAB_LOG.md:263-268; backend/eval/parser_bench/ranking.py | **hero** |

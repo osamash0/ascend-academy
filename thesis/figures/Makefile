@@ -1,6 +1,8 @@
 # Thesis figure build.
 #
 #   make            build any figure whose source is newer than its PDF
+#                   (PlantUML diagrams from src/*.puml; data charts from
+#                   src/*.tex + data/*.csv, built with pdflatex/pgfplots)
 #   make all        PDF (for LaTeX) + SVG (for the review gallery)
 #   make check      fail loudly if any figure failed to render
 #   make fonts      fail loudly if any figure PDF has a font that is not embedded
@@ -44,6 +46,11 @@ SRCDIR  = src
 SOURCES = $(wildcard $(SRCDIR)/f*.puml)
 PDFS    = $(patsubst $(SRCDIR)/%.puml,%.pdf,$(SOURCES))
 SVGS    = $(patsubst $(SRCDIR)/%.puml,%.svg,$(SOURCES))
+# Data charts: standalone pgfplots documents, drawn at print width so they are
+# included at scale 1; pdfTeX embeds their fonts, so no Ghostscript pass.
+TEXSRC  = $(wildcard $(SRCDIR)/f*.tex)
+TEXPDFS = $(patsubst $(SRCDIR)/%.tex,%.pdf,$(TEXSRC))
+PDFLATEX ?= $(shell command -v pdflatex 2>/dev/null || echo /Library/TeX/texbin/pdflatex)
 
 # _style.iuml is included by every figure, so a style change rebuilds all.
 STYLE = $(SRCDIR)/_style.iuml
@@ -51,8 +58,8 @@ STYLE = $(SRCDIR)/_style.iuml
 .PHONY: all figures svg check fonts clean list
 .DEFAULT_GOAL := figures
 
-figures: $(PDFS)
-all: $(PDFS) $(SVGS)
+figures: $(PDFS) $(TEXPDFS)
+all: $(PDFS) $(TEXPDFS) $(SVGS)
 svg: $(SVGS)
 
 %.pdf: $(SRCDIR)/%.puml $(STYLE) | guard
@@ -60,6 +67,13 @@ svg: $(SVGS)
 	@test -s $@ || { echo "FAILED to render $@ — run 'make check'"; exit 1; }
 	@$(GS) $(GS_FLAGS) -sOutputFile=$@.embed $@ && mv $@.embed $@ \
 	  || { rm -f $@ $@.embed; echo "FAILED to embed fonts in $@"; exit 1; }
+	@echo "  PDF  $@"
+
+%.pdf: $(SRCDIR)/%.tex data/%.csv
+	@mkdir -p .texbuild
+	@$(PDFLATEX) -interaction=nonstopmode -halt-on-error -output-directory=.texbuild $< >/dev/null \
+	  || { echo "FAILED to build $@ — see .texbuild/$*.log"; exit 1; }
+	@cp .texbuild/$*.pdf $@
 	@echo "  PDF  $@"
 
 %.svg: $(SRCDIR)/%.puml $(STYLE) | guard
@@ -78,11 +92,11 @@ check: | guard
 
 # pdffonts prints one row per font; column 5 ("emb") must be "yes" on every row.
 fonts:
-	@bad=0; for f in $(PDFS); do \
+	@bad=0; for f in $(PDFS) $(TEXPDFS); do \
 	  pdffonts $$f | awk 'NR>2 && $$(NF-4) != "yes" {print FILENAME": "$$1; e=1} END {exit e}' FILENAME=$$f || bad=1; \
 	done; \
 	if [ $$bad = 1 ]; then echo "*** FONTS NOT EMBEDDED — run: make -B figures ***"; exit 1; \
-	else echo "all $(words $(PDFS)) figure PDFs embed every font"; fi
+	else echo "all $(words $(PDFS) $(TEXPDFS)) figure PDFs embed every font"; fi
 
 guard:
 	@test -f "$(PLANTUML_JAR)" || { \
@@ -95,4 +109,5 @@ list:
 	@echo "$(words $(SOURCES)) figures:"; for f in $(SOURCES); do echo "  $$f"; done
 
 clean:
-	rm -f $(PDFS) $(SVGS)
+	rm -f $(PDFS) $(TEXPDFS) $(SVGS)
+	rm -rf .texbuild

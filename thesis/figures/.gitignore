@@ -10,3 +10,6 @@ src/*.svg
 
 # Figure PDFs in this directory ARE committed (~125 KB total) so the thesis
 # compiles without needing Java and the PlantUML jar on hand.
+
+# pdflatex scratch for the data charts (src/*.tex); only the copied PDF is kept.
+.texbuild/

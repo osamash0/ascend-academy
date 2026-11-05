@@ -1,0 +1,100 @@
+% F20 -- Text-extraction benchmark: pooled Bradley-Terry ratings.
+% Chapter 6 (Evaluation). Dot-and-interval chart (pgfplots), built from
+% data/f20-parser-benchmark.csv, which holds numbers only (raw votes quote slide
+% text and stay outside git).
+% Claim supported: in a pre-registered, blind, pairwise comparison judged by one
+% person (283 votes over 24 pages), five methods are rated above the current
+% production extraction with a Bonferroni-corrected bound (H1 holds). Ranking by
+% points alone is not the test: Marker and Docling outscore OpenDataLoader but,
+% with few duels, their corrected lower bounds stay under 1000.
+% Sources: docs/thesis/experiments/parser-benchmark/PROTOCOL.md:11 (H1), :133 (scale),
+% :199-200 (AI vision models); LAB_LOG.md:263-268; backend/eval/parser_bench/ranking.py.
+% Built by the figures Makefile with pdflatex; the chart is drawn at its print width,
+% so it is included at scale 1 and its type sizes are the printed sizes.
+\documentclass[border=2pt]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage{tgheros}
+\renewcommand*\familydefault{\sfdefault}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\pgfplotsset{compat=1.18}
+
+\pgfplotstableread[col sep=semicolon, comment chars={\#}]{data/f20-parser-benchmark.csv}\benchdata
+
+\begin{document}
+\footnotesize
+\begin{tikzpicture}
+\begin{axis}[
+  name=main,
+  scale only axis, width=165pt, height=175pt,
+  xmin=740, xmax=1600, ymin=0.4, ymax=11.6,
+  axis x line*=bottom, axis y line*=left, y axis line style={draw=none},
+  xtick={800,1000,1200,1400,1600},
+  xmajorgrids, major grid style={black!15, line width=0.3pt},
+  xtick style={black!60}, x axis line style={black!60},
+  ytick=data, yticklabels from table={\benchdata}{label},
+  yticklabel style={font=\footnotesize, text=black},
+  ytick style={draw=none},
+  xlabel={Bradley--Terry rating (current extraction = 1000)},
+  xlabel style={font=\footnotesize},
+  xticklabel style={font=\footnotesize},
+  xticklabel={\pgfmathprintnumber[int detect, 1000 sep={}, assume math mode=true]{\tick}},
+  clip=false,
+  unbounded coords=discard,
+  legend style={
+    at={(0.5,-0.19)}, anchor=north, draw=none, fill=none,
+    legend columns=2, font=\footnotesize,
+    /tikz/every even column/.append style={column sep=10pt},
+  },
+  legend cell align=left,
+]
+  % ticks come from this plot's coordinates, in table order
+  \addplot[draw=none, mark=none, forget plot] table[x=points, y=y]{\benchdata};
+
+  % the anchor line: solid, recessive
+  \draw[black!45, line width=0.5pt] (axis cs:1000,0.4) -- (axis cs:1000,11.6);
+
+  % 95% bootstrap intervals
+  \addplot[draw=none, mark=none, forget plot,
+    error bars/.cd, x dir=both, x explicit, error mark=none,
+    error bar style={line width=0.9pt, black}]
+    table[x=points, y=y, x error minus=errminus, x error plus=errplus]{\benchdata};
+
+  % Bonferroni-corrected one-sided lower bound (k = 10)
+  \addplot[only marks, mark=|, mark size=3.2pt, mark options={line width=0.9pt, black}, forget plot]
+    table[x=h1low, y=y]{\benchdata};
+
+  % points: filled = supports H1, hollow = does not, grey diamond = the anchor
+  \addplot[only marks, mark=*, mark size=2.3pt, mark options={fill=black, draw=white, line width=0.6pt}, forget plot]
+    table[x expr={\thisrow{h1}==1 ? \thisrow{points} : nan}, y=y]{\benchdata};
+  \addplot[only marks, mark=*, mark size=2.3pt, mark options={fill=white, draw=black, line width=0.7pt}, forget plot]
+    table[x expr={(\thisrow{h1}==0 && \thisrow{anchor}==0) ? \thisrow{points} : nan}, y=y]{\benchdata};
+  \addplot[only marks, mark=diamond*, mark size=2.8pt, mark options={fill=black!45, draw=white, line width=0.5pt}, forget plot]
+    table[x expr={\thisrow{anchor}==1 ? \thisrow{points} : nan}, y=y]{\benchdata};
+
+  % right-hand table view: value and number of duels per row
+  \addplot[draw=none, mark=none, forget plot,
+    nodes near coords, point meta=explicit symbolic,
+    every node near coord/.append style={anchor=west, xshift=6pt, font=\footnotesize, text=black}]
+    table[x expr=1600, y=y, meta=value]{\benchdata};
+  \addplot[draw=none, mark=none, forget plot,
+    nodes near coords, point meta=explicit symbolic,
+    every node near coord/.append style={anchor=east, xshift=118pt, font=\footnotesize, text=black}]
+    table[x expr=1600, y=y, meta=duels]{\benchdata};
+  \node[anchor=south west, font=\footnotesize\bfseries, xshift=6pt] at (axis cs:1600,11.6) {rating [95\% interval]};
+  \node[anchor=south east, font=\footnotesize\bfseries, xshift=118pt] at (axis cs:1600,11.6) {duels};
+
+  % legend
+  \addlegendimage{only marks, mark=*, mark size=2.3pt, mark options={fill=black}}
+  \addlegendentry{rated above current (H1)}
+  \addlegendimage{only marks, mark=*, mark size=2.3pt, mark options={fill=white, draw=black}}
+  \addlegendentry{not shown to be above}
+  \addlegendimage{black, line width=0.9pt}
+  \addlegendentry{95\% bootstrap interval}
+  \addlegendimage{only marks, mark=|, mark size=3.2pt, mark options={line width=0.9pt}}
+  \addlegendentry{corrected lower bound (\textit{k} = 10)}
+\end{axis}
+\node[anchor=south, font=\small\bfseries] at ([yshift=14pt]main.north -| current bounding box.center)
+  {Text extraction: 11 methods, 283 blind pairwise votes};
+\end{tikzpicture}
+\end{document}

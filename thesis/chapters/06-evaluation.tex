@@ -55,6 +55,37 @@ were evaluated --- they were not. Full grid and per-question data in
 
 \TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#6.5) The 0\% false-refusal figure belongs to the course tutor's gate, which the default deployment does not expose, on $n=27$. The run was at \code{a696be1}, not \thesisCommit.}
 
+\subsection{Text Extraction Benchmark}
+\label{sec:parser-bench}
+
+\thesisfigure{f20-parser-benchmark}
+  {Text extraction benchmark: Bradley--Terry ratings of eleven methods from 283
+   blind pairwise votes over 24 pages, pooled over four comparisons and
+   anchored at the current production extraction (1000). Filled dots mark the
+   five methods whose Bonferroni-corrected lower bound ($k=10$) lies above 1000,
+   which is the test of hypothesis H1.}
+  {fig:parser-bench}
+
+\TODO{Evidence for \cref{fig:parser-bench}, not prose. Method first: the
+protocol was frozen on 2026-10-30, before any vote, and every later change is a
+dated deviation (four in total; \code{docs/thesis/experiments/parser-benchmark/PROTOCOL.md:3}).
+Pages: 24, chosen per source by a stated rule plus a seeded random draw (seed
+20261030, \code{PROTOCOL.md:41}). One judge, blinded to method names, with hidden
+repeat duels as a consistency check. Ratings: Bradley--Terry fitted by MM, with a
+bootstrap of 1000 resamples (seed 20261103); points $= 1000 + 400\log_{10}$ of the
+strength ratio to the anchor (\code{PROTOCOL.md:133}), so +400 points means
+10:1 odds in a duel. Result: H1 holds for AI vision (both models),
+pymupdf4llm, MinerU and OpenDataLoader. Say explicitly that H1 is decided on the
+corrected lower bound, not on rank: Marker and Docling score above
+OpenDataLoader, but with 19 and 22 duels their bounds stay below 1000. Threats,
+from the protocol itself: the judge is the author; the automatic checks use
+PyMuPDF's text layer as reference, which favours current and pymupdf4llm
+(\code{PROTOCOL.md:104, 163}); pymupdf4llm runs on a newer PyMuPDF than
+production (\code{:164}); page-by-page tools lose cross-page context
+(\code{:181}). The production parser was not changed on this basis. Numbers:
+\code{thesis/figures/data/f20-parser-benchmark.csv}; raw votes stay outside git
+because they quote slide text.}
+
 \section{Implementation Reality versus Documented Design}
 \label{sec:reality-vs-documented}
 

@@ -20,6 +20,9 @@ OUT      = build
 FIGDIR   = figures
 FIGSRC   = $(wildcard $(FIGDIR)/src/f*.puml)
 FIGPDF   = $(patsubst $(FIGDIR)/src/%.puml,$(FIGDIR)/%.pdf,$(FIGSRC))
+# Data charts (pgfplots): src/<name>.tex reads data/<name>.csv.
+FIGTEX   = $(wildcard $(FIGDIR)/src/f*.tex)
+FIGPDF  += $(patsubst $(FIGDIR)/src/%.tex,$(FIGDIR)/%.pdf,$(FIGTEX))
 
 TEXFILES = $(MAIN).tex preamble.tex metadata.tex references.bib \
            $(wildcard chapters/*.tex) $(wildcard frontmatter/*.tex)
@@ -52,6 +55,9 @@ figures:
 	@$(MAKE) --no-print-directory -C $(FIGDIR) figures
 
 $(FIGDIR)/%.pdf: $(FIGDIR)/src/%.puml
+	@$(MAKE) --no-print-directory -C $(FIGDIR) $*.pdf
+
+$(FIGDIR)/%.pdf: $(FIGDIR)/src/%.tex $(FIGDIR)/data/%.csv
 	@$(MAKE) --no-print-directory -C $(FIGDIR) $*.pdf
 
 # Fast loop while writing prose: skips biber, so citations render as [?].
