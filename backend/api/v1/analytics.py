@@ -186,7 +186,14 @@ async def _assert_course_owner_async(course_id: str, user_id: str) -> None:
 
 
 def _assert_lecture_owner(lecture_id: str, user_id: str, token: str = None) -> None:
-    """Raise 403 if the authenticated user is not the professor who owns this lecture."""
+    """Raise 403 if the authenticated user is not the professor who owns this lecture.
+
+    Ownership alone is not enough here. Since students may create courses (a v4
+    Space is a course, ``require_creator``), a student can own a lecture, and these
+    per-lecture analytics describe the lecture's *members*. Every per-lecture
+    route therefore also depends on ``require_professor``, matching the frontend,
+    which only routes professors to these pages (``App.tsx``, /professor/analytics).
+    """
     # Use the authenticated client if token provided, else default
     client = analytics_service.get_auth_client(token) if token else supabase
     
@@ -203,7 +210,7 @@ def _assert_lecture_owner(lecture_id: str, user_id: str, token: str = None) -> N
 # ── Existing endpoints (bug-fixed) ───────────────────────────────────────────
 
 @router.get("/lecture/{lecture_id}/overview", response_model=AnalyticsResponse)
-async def get_lecture_overview(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+async def get_lecture_overview(lecture_id: str, user=Depends(require_professor), creds: HTTPAuthorizationCredentials = Depends(security)):
     """Get high-level metrics for a lecture"""
     await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
@@ -217,7 +224,7 @@ async def get_lecture_overview(lecture_id: str, user=Depends(verify_token), cred
 
 
 @router.get("/lecture/{lecture_id}/slides", response_model=AnalyticsResponse)
-async def get_slide_analytics(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+async def get_slide_analytics(lecture_id: str, user=Depends(require_professor), creds: HTTPAuthorizationCredentials = Depends(security)):
     """Get per-slide analytics"""
     await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
@@ -231,7 +238,7 @@ async def get_slide_analytics(lecture_id: str, user=Depends(verify_token), creds
 
 
 @router.get("/lecture/{lecture_id}/quizzes", response_model=AnalyticsResponse)
-async def get_quiz_analytics(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+async def get_quiz_analytics(lecture_id: str, user=Depends(require_professor), creds: HTTPAuthorizationCredentials = Depends(security)):
     """Get quiz difficulty analytics"""
     await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
@@ -245,7 +252,7 @@ async def get_quiz_analytics(lecture_id: str, user=Depends(verify_token), creds:
 
 
 @router.get("/lecture/{lecture_id}/students", response_model=AnalyticsResponse)
-async def get_student_performance(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+async def get_student_performance(lecture_id: str, user=Depends(require_professor), creds: HTTPAuthorizationCredentials = Depends(security)):
     """Get anonymized per-student performance breakdown"""
     await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
@@ -259,7 +266,7 @@ async def get_student_performance(lecture_id: str, user=Depends(verify_token), c
 
 
 @router.get("/lecture/{lecture_id}/dashboard", response_model=AnalyticsResponse)
-async def get_dashboard_data(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+async def get_dashboard_data(lecture_id: str, user=Depends(require_professor), creds: HTTPAuthorizationCredentials = Depends(security)):
     """Get comprehensive advanced dashboard analytics in a single call"""
     await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
@@ -273,7 +280,7 @@ async def get_dashboard_data(lecture_id: str, user=Depends(verify_token), creds:
 
 
 @router.get("/lecture/{lecture_id}/insights", response_model=AnalyticsResponse)
-async def get_lecture_insights(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+async def get_lecture_insights(lecture_id: str, user=Depends(require_professor), creds: HTTPAuthorizationCredentials = Depends(security)):
     """Get the ranked insight feed for the Insight Garden."""
     await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
@@ -292,7 +299,7 @@ async def get_insight_evidence(
     kind: str = Query(..., description="Evidence kind: ai_queries | confidence_breakdown | student_journey"),
     slide_id: Optional[str] = Query(None),
     student_id: Optional[str] = Query(None),
-    user=Depends(verify_token),
+    user=Depends(require_professor),
     creds: HTTPAuthorizationCredentials = Depends(security),
 ):
     """Layer-3 drill-down evidence for a single insight card (on-demand, uncached)."""
@@ -319,7 +326,7 @@ async def get_insight_evidence(
 # ── New endpoints ────────────────────────────────────────────────────────────
 
 @router.get("/lecture/{lecture_id}/distractors", response_model=AnalyticsResponse)
-async def get_distractor_analysis(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+async def get_distractor_analysis(lecture_id: str, user=Depends(require_professor), creds: HTTPAuthorizationCredentials = Depends(security)):
     """
     Show which wrong answer options students select most often per question.
     Helps professors identify ambiguous distractors or conceptual gaps.
@@ -336,7 +343,7 @@ async def get_distractor_analysis(lecture_id: str, user=Depends(verify_token), c
 
 
 @router.get("/lecture/{lecture_id}/dropoff", response_model=AnalyticsResponse)
-async def get_dropoff_map(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+async def get_dropoff_map(lecture_id: str, user=Depends(require_professor), creds: HTTPAuthorizationCredentials = Depends(security)):
     """
     Show which slide students abandon the lecture on.
     Uses last_slide_viewed from student_progress for non-completers.
@@ -353,7 +360,7 @@ async def get_dropoff_map(lecture_id: str, user=Depends(verify_token), creds: HT
 
 
 @router.get("/lecture/{lecture_id}/confidence-by-slide", response_model=AnalyticsResponse)
-async def get_confidence_by_slide(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+async def get_confidence_by_slide(lecture_id: str, user=Depends(require_professor), creds: HTTPAuthorizationCredentials = Depends(security)):
     """
     Per-slide confidence breakdown (got_it / unsure / confused).
     Shows exactly which slides leave students most confused.
@@ -370,7 +377,7 @@ async def get_confidence_by_slide(lecture_id: str, user=Depends(verify_token), c
 
 
 @router.get("/lecture/{lecture_id}/ai-queries", response_model=AnalyticsResponse)
-async def get_ai_query_feed(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+async def get_ai_query_feed(lecture_id: str, user=Depends(require_professor), creds: HTTPAuthorizationCredentials = Depends(security)):
     """
     Return latest student AI tutor queries (anonymized).
     Shows professors what students are actually confused about in their own words.
@@ -386,7 +393,7 @@ async def get_ai_query_feed(lecture_id: str, user=Depends(verify_token), creds: 
         raise HTTPException(status_code=500, detail="Failed to load AI query feed.")
 
 @router.get("/lecture/{lecture_id}/retry-performance", response_model=AnalyticsResponse)
-async def get_retry_performance(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+async def get_retry_performance(lecture_id: str, user=Depends(require_professor), creds: HTTPAuthorizationCredentials = Depends(security)):
     """
     Per-question first-attempt vs second-attempt miss rates.
     Surfaces the questions students get wrong most often, plus how many
@@ -479,7 +486,7 @@ async def refresh_course_analytics_cache(
 
 
 @router.post("/lecture/{lecture_id}/cache/refresh", response_model=AnalyticsResponse)
-async def refresh_analytics_cache(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+async def refresh_analytics_cache(lecture_id: str, user=Depends(require_professor), creds: HTTPAuthorizationCredentials = Depends(security)):
     """Force-invalidate every cached analytics aggregate for a lecture.
 
     Professor-only. Returns the number of cache rows dropped so the UI can
