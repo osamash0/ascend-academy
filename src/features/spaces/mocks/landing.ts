@@ -1,6 +1,6 @@
 import type { Attention, Landing, LandingInsight, LandingLesson, LandingQuestion, Themes } from '../landing/types';
 import { stageAccentFor } from '../components/stage';
-import { lindqvist, okonkwo, weber, ferreira, viewer } from './people';
+import { lindqvist, okonkwo, weber, ferreira, keller, viewer } from './people';
 
 /**
  * How it's landing — fixtures.
@@ -16,6 +16,11 @@ import { lindqvist, okonkwo, weber, ferreira, viewer } from './people';
  *   • Linear Algebra, together: six friends, four of them reading — the Space
  *     a learner makes for a study group. Everything sits under the five-reader
  *     floor, which is the honest state and the one the screen must carry well.
+ *
+ *   • Software Engineering: a big Space, to judge what folds. 28 Lessons (one
+ *     of them 120 pages), quiet stretches between the ones that need the
+ *     owner, one Lesson with four findings, eight Lessons too new to say
+ *     anything about, 14 questions waiting and 9 answered.
  *
  * Shapes are the engine's (backend/services/insights); the figures are
  * plausible, not observed — do not treat them as real numbers. Each Lesson's
@@ -249,12 +254,99 @@ export const friendsLanding: Landing = {
   themes: [],
 };
 
+/* ── Software Engineering (a big Space) ───────────────────────────── */
+
+const BIG_TITLES = [
+  'Why software fails', 'Requirements', 'Use cases', 'Domain models', 'Architecture styles', 'Layers and boundaries',
+  'Interfaces', 'Design patterns', 'Concurrency', 'Testing basics', 'Test doubles', 'Version control in depth',
+  'Code review', 'Continuous integration', 'Build systems', 'Dependencies', 'Logging', 'Observability', 'Performance',
+  'Security basics', 'Threat models', 'Release engineering', 'Incident response', 'Postmortems', 'Technical debt',
+  'Refactoring', 'Legacy code', 'Teams and process',
+];
+
+/** Lessons with a finding: 2, 9 (four of them), 12 (the 120-page one) and 20. 21 to 28 are too new to say. */
+const BIG_INSIGHTS: LandingInsight[] = [
+  { id: 'i-big-9-hot', kind: 'confusion_hotspot', attention: 'act', severity: 0.88, lessonId: 'l-s-big-9', page: 14, metrics: { askers: 37, foggy: 52, explain: 24, ask: 19, sent: 2 } },
+  { id: 'i-big-9-trap', kind: 'silent_misleader', attention: 'act', severity: 0.74, lessonId: 'l-s-big-9', page: 21, metrics: { clicked: 71, missed: 55, pairs: 58 }, grid: { clickedCleared: 19, clickedMissed: 23, foggyCleared: 7, foggyMissed: 9 } },
+  { id: 'i-big-9-bump', kind: 'speed_bump', attention: 'watch', severity: 0.51, lessonId: 'l-s-big-9', page: 6, metrics: { backs: 19, median: 66, lessonMedian: 35 } },
+  { id: 'i-big-9-skip', kind: 'skipped_slide', attention: 'calm', severity: 0.36, lessonId: 'l-s-big-9', page: 24, metrics: { seconds: 4, views: 88, short: 70 } },
+  { id: 'i-big-12-wall', kind: 'leaky_bucket', attention: 'watch', severity: 0.6, lessonId: 'l-s-big-12', page: 83, metrics: { pct: 27, before: 71, after: 52 } },
+  { id: 'i-big-2-quiz', kind: 'quiz_misalignment', attention: 'watch', severity: 0.45, lessonId: 'l-s-big-2', page: 11, metrics: { pct: 41, median: 21, foggy: 5, attempts: 54 } },
+  { id: 'i-big-20-skip', kind: 'skipped_slide', attention: 'calm', severity: 0.33, lessonId: 'l-s-big-20', page: 3, metrics: { seconds: 2, views: 64, short: 51 } },
+];
+
+const BIG_LESSONS = lessonsFrom(
+  BIG_TITLES.map((title, i) => {
+    const order = i + 1;
+    const pages = order === 12 ? 120 : 14 + ((order * 5) % 17);
+    return { id: `l-s-big-${order}`, title, order, pages, readers: order > 20 ? Math.max(0, 4 - (order - 21)) : 140 - order * 3, light: order > 20 ? 'few' : BIG_INSIGHTS.some((f) => f.lessonId === `l-s-big-${order}` && f.attention === 'act') ? 'act' : BIG_INSIGHTS.some((f) => f.lessonId === `l-s-big-${order}`) ? 'watch' : 'calm' } satisfies LessonSeed;
+  }),
+  BIG_INSIGHTS,
+);
+
+const BIG_ASKED: [number, number, string][] = [
+  [9, 14, 'Is a race condition the same thing as a data race, or is one a kind of the other?'],
+  [9, 21, 'Page 21 says the lock makes it safe, but what if the thread dies holding it?'],
+  [12, 40, 'Why does the pipeline run the slow tests last instead of first?'],
+  [2, 11, 'Is a non-functional requirement still a requirement if nobody can test it?'],
+  [9, 6, 'What is the difference between a mutex and a semaphore with one slot?'],
+  [12, 83, 'Do we need to know the whole caching section for the exam, or only the summary?'],
+  [5, 9, 'Is hexagonal architecture just layers drawn as a hexagon?'],
+  [10, 4, 'Should a unit test ever touch the file system?'],
+  [20, 3, 'Is page 3 a typo, or does the hash really go before the salt?'],
+  [9, 23, 'Can async code deadlock if it never uses a lock?'],
+  [14, 7, 'What counts as breaking the build if the tests pass locally?'],
+  [16, 12, 'Is pinning every dependency version good practice or a trap?'],
+  [12, 101, 'Is a canary release the same as a blue-green deploy?'],
+  [3, 5, 'How detailed should a use case be before it turns into a design?'],
+  [1, 2, 'Is the Ariane 5 example on page 2 about testing or about requirements?'],
+  [2, 6, 'Who signs off a requirement when the client is not sure?'],
+  [8, 10, 'Is a singleton always an anti-pattern?'],
+  [10, 9, 'How much coverage is enough?'],
+  [11, 3, 'When is a fake better than a mock?'],
+  [13, 5, 'How long should a code review take?'],
+  [17, 8, 'Should logs ever contain a user id?'],
+  [19, 4, 'Is premature optimisation always bad?'],
+  [25, 2, 'Is technical debt always a bad thing?'],
+];
+const BIG_ASKERS = [lindqvist, null, okonkwo, weber, ferreira, keller];
+
+const BIG_QUESTIONS: LandingQuestion[] = BIG_ASKED.map(([order, page, text], i) => ({
+  id: `q-big-${i + 1}`,
+  lessonId: `l-s-big-${order}`,
+  page,
+  text,
+  asker: BIG_ASKERS[i % BIG_ASKERS.length],
+  createdAt: hoursAgo(3 + i * 9),
+  // The first fourteen wait; the last nine have been answered.
+  answer: i < 14 ? undefined : { text: 'Answered in the session on Thursday, and the page now says it too.', forEveryone: i % 2 === 0, at: hoursAgo(1 + i * 8) },
+}));
+
+export const bigLanding: Landing = {
+  spaceId: 's-big',
+  spaceName: 'Software Engineering',
+  accent: '#f59e0b',
+  members: 212,
+  readers: 154,
+  floor: 5,
+  figures: {
+    reading: { value: 154, history: [80, 96, 110, 121, 133, 140, 149, 154] },
+    landing: { value: 74, history: [52, 57, 61, 64, 68, 70, 72, 74] },
+    cleared: { value: 69, history: [61, 63, 64, 66, 66, 67, 68, 69] },
+  },
+  lessons: BIG_LESSONS,
+  insights: BIG_INSIGHTS,
+  questions: BIG_QUESTIONS,
+  themes: [],
+};
+
 /** The viewer's own study group, so the lab can show the owner side of it. */
 export const friendsOwner = viewer;
 
 export const landings: Record<string, Landing> = {
   [dbsLanding.spaceId]: dbsLanding,
   [friendsLanding.spaceId]: friendsLanding,
+  [bigLanding.spaceId]: bigLanding,
 };
 
 export const landingFor = (spaceId: string): Landing | null => landings[spaceId] ?? null;
