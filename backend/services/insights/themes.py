@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 THEMES_VERSION = "themes-v1"
 #: Themes change only when someone new asks (the key holds the asker count).
 THEMES_TTL = 60 * 60 * 24 * 30
+#: No usable theme came back (the model said nothing, or only echoes): try again within the hour, not next month.
+EMPTY_THEMES_TTL = 60 * 60
 MAX_THEMES = 3
 #: The most questions the model sees for one page.
 MAX_TEXTS = 60
@@ -131,6 +133,7 @@ async def themes_for(
             compute,
             params={"lesson": lesson_id, "page": page, "askers": askers, "lang": lang, "v": THEMES_VERSION},
             ttl_seconds=THEMES_TTL,
+            ttl_for=lambda found: THEMES_TTL if found else EMPTY_THEMES_TTL,
         )
     except Exception:  # noqa: BLE001 — a theme never costs the owner their view
         logger.warning("landing: themes for %s p%s not made", lesson_id, page, exc_info=True)

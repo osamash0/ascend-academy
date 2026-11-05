@@ -151,3 +151,22 @@ def test_a_question_written_another_way_in_unicode_is_still_a_question():
         assert themes.clean_themes({"themes": [echo, "Join order"]}, [asked]) == ["Join order"], echo
     # and the other way round: the question is the odd one, the theme is plain
     assert themes.clean_themes({"themes": [asked, "Join order"]}, [nfd]) == ["Join order"]
+
+
+def test_no_usable_theme_is_kept_an_hour_not_a_month(monkeypatch):
+    seen: dict = {}
+
+    async def generate(prompt, **kw):
+        return {"themes": []}
+
+    async def cache(key, view, compute, **kw):
+        result = await compute()
+        seen["empty"] = kw["ttl_for"](result)
+        seen["found"] = kw["ttl_for"](["What 3NF is for"])
+        return result
+
+    monkeypatch.setattr(reader, "_generate_json", generate)
+    monkeypatch.setattr(themes.analytics_cache, "get_or_compute_async", cache)
+    assert run() == []
+    assert (seen["empty"], seen["found"]) == (themes.EMPTY_THEMES_TTL, themes.THEMES_TTL)
+    assert themes.EMPTY_THEMES_TTL == 3600

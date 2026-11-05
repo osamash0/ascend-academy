@@ -294,3 +294,13 @@ def test_refresh_endpoint_invalidates_and_responds(app, patch_supabase, professo
     assert body["data"]["invalidated_rows"] == 2
     assert body["data"]["recomputed"] is True
     assert recomputes == [("L1", True)]
+
+
+@pytest.mark.asyncio
+async def test_async_ttl_can_follow_the_result(patch_supabase):
+    async def nothing():
+        return []
+
+    await analytics_cache.get_or_compute_async("L9", "themes", nothing, ttl_seconds=999, ttl_for=lambda r: 60 if not r else 999)
+    rows = [r for r in patch_supabase.tables.get("analytics_cache", []) if r["lecture_id"] == "L9"]
+    assert rows[0]["ttl_seconds"] == 60

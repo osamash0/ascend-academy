@@ -264,3 +264,35 @@ def test_there_is_no_view_of_people_whatever_the_settings(client, monkeypatch):
     url = f"/api/v1/v4/spaces/{SPACE}/landing/people/p_0123456789abcdef/journey?lesson={SPACE}"
     assert client.get(url).status_code == 404
     assert importlib.util.find_spec("backend.services.insights.people") is None
+
+
+def _foggy(page):
+    return [Event(f"m{i}", "confidence_rating", {"lectureId": L1, "page": page, "rating": "confused" if i < 8 else "got_it"},
+                  NOW - timedelta(days=1)) for i in range(10)]
+
+
+def test_only_askers_who_wrote_something_count_toward_themes(prompts):
+    worded = [_ask(f"m{i}", 3, f"Why {i}", i) for i in range(4)]
+    blank = [_ask("m5", 3, "   ", 9)]
+    body = asyncio.run(service.landing_from(_data(tuple(_reads() + _foggy(3) + worded + blank)), "en"))
+    assert any(i["kind"] == "confusion_hotspot" for i in body["insights"])
+    assert body["themes"] == [] and prompts == []
+
+
+def test_themes_for_several_pages_are_asked_for_at_once(monkeypatch):
+    started: list[int] = []
+    both = asyncio.Event()
+
+    async def slow(**kw):
+        started.append(kw["page"])
+        if len(started) == 2:
+            both.set()
+        await asyncio.wait_for(both.wait(), timeout=1)
+        return ["A theme"]
+
+    monkeypatch.setattr(service, "themes_for", slow)
+    asks = [_ask(f"m{i}", p, f"Why {p} {i}", 10 * p + i) for p in (3, 4) for i in range(6)]
+    body = asyncio.run(service.landing_from(_data(tuple(_reads() + _foggy(3) + _foggy(4) + asks)), "en"))
+    hot = sorted(i["page"] for i in body["insights"] if i["kind"] == "confusion_hotspot")
+    assert hot == [3, 4]
+    assert sorted(t["page"] for t in body["themes"]) == [3, 4]

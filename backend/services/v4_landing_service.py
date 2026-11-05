@@ -11,6 +11,7 @@ with the questions channel (Plan 4).
 """
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Optional
 from uuid import UUID
 
@@ -132,17 +133,23 @@ async def _themes(
         if insight["kind"] != "confusion_hotspot":
             continue
         pf = facts[insight["lessonId"]].pages.get(insight["page"])
-        askers = (pf.ask & pf.readers) if pf else set()
+        # An asker is a reader of the page who wrote something: an Ask opened and left empty is help, not words.
+        askers = (set(pf.ask_texts) & pf.readers) if pf else set()
         if len(askers) >= MIN_READERS:
-            by_person = {user: texts for user, texts in pf.ask_texts.items() if user in askers}
+            by_person = {user: pf.ask_texts[user] for user in askers}
             hot.append((len(askers), insight["lessonId"], insight["page"], by_person))
     hot.sort(key=lambda x: x[0], reverse=True)
-    out: list[dict[str, Any]] = []
-    for askers, lesson_id, page, by_person in hot[:THEMES_PAGES]:
-        found = await themes_for(
+    picked = hot[:THEMES_PAGES]
+    # At once, not one after another; each call already turns its own failure into no themes.
+    made = await asyncio.gather(*(
+        themes_for(
             space_id=data.space_id, owner_id=data.owner_id, lesson_id=lesson_id,
             page=page, texts=balanced_questions(by_person), askers=askers, lang=lang,
         )
-        if found:
-            out.append({"lessonId": lesson_id, "page": page, "askers": askers, "themes": found})
-    return out
+        for askers, lesson_id, page, by_person in picked
+    ))
+    return [
+        {"lessonId": lesson_id, "page": page, "askers": askers, "themes": found}
+        for (askers, lesson_id, page, _), found in zip(picked, made)
+        if found
+    ]

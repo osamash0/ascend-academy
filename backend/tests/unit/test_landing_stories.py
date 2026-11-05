@@ -409,8 +409,6 @@ def test_themes_need_five_people_who_read_the_page_and_asked(door):
     assert kinds(body, "confusion_hotspot") and body["themes"] == [] and door.prompts == []
 
 
-@pytest.mark.xfail(strict=True, reason="_themes counts pf.ask (an Ask opened), not people who wrote, so four people's "
-                                       "words reach the model — Plan 3 Task 4")
 def test_an_ask_opened_and_left_empty_is_not_a_voice_in_the_themes(door):
     """Four readers ask in words and a fifth opens Ask and writes nothing: four is under the floor, so no themes, no model call."""
     ten = range(10)
