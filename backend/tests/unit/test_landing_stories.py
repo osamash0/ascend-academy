@@ -344,8 +344,6 @@ def _trap(people, missed, lesson_id=TX):
     return out
 
 
-@pytest.mark.xfail(strict=True, reason="rank() orders by band, then severity x readers; the hotspot on more readers "
-                                       "leads — Plan 3 Task 4b")
 def test_a_trap_leads_its_band_even_against_a_louder_hotspot_on_more_readers(door):
     """Six said Transactions p.2 clicked and all missed it; ten knew they were stuck on Normalization p.3: the door opens on the trap."""
     data = space(
