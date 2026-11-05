@@ -826,6 +826,20 @@ def test_a_lecture_with_people_but_no_scorers_leaves_only_the_score_figures_out(
     assert out["mastery_rate"] is None and out["struggle_rate"] is None and out["distractor_confusion"] is None
 
 
+def test_a_distractor_pile_up_needs_five_people_on_that_wrong_answer(monkeypatch):
+    overview = {"total_students": 12, "completion_rate": 50.0, "average_score": 60.0,
+                "average_time_minutes": 10.0, "engagement_level": "Medium"}
+
+    def question(dist):
+        return {"question_id": "q", "correct_answer": 0, "answer_distribution": dist, "total_attempts": sum(dist.values())}
+
+    # Two of three wrong picks on option 1 is a share pile-up, but two people say nothing.
+    few = _bench(monkeypatch, overview, distractors=[question({"0": 6, "1": 2, "2": 1})])
+    assert few["distractor_confusion"] == 0.0
+    many = _bench(monkeypatch, overview, distractors=[question({"0": 6, "1": 5, "2": 1})])
+    assert many["distractor_confusion"] == 100.0
+
+
 def test_the_peer_summary_leaves_withheld_lectures_out_and_is_none_with_nothing_left():
     keys = analytics_service._BENCHMARK_METRIC_KEYS
     shown = {k: 10.0 for k in keys}

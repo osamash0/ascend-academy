@@ -1443,6 +1443,8 @@ async def _compute_lecture_benchmark_metrics(
     # Distractor confusion: questions where the most-picked wrong answer
     # accounts for >= 50% of all wrong picks (a clear pile-up on one
     # distractor — usually a sign of an ambiguous option or shared misconception).
+    # The picks are people (each one's first try); a pile-up needs MIN_PEOPLE people
+    # on that one wrong answer, so two people never make a "shared" misconception.
     confused_qs = 0
     relevant_qs = 0
     for d in distractors:
@@ -1456,7 +1458,7 @@ async def _compute_lecture_benchmark_metrics(
             (v for k, v in dist.items() if k != correct_idx),
             default=0,
         )
-        if (top_wrong / wrong_total) >= 0.5:
+        if top_wrong >= MIN_PEOPLE and (top_wrong / wrong_total) >= 0.5:
             confused_qs += 1
     distractor_confusion = (
         round(confused_qs / relevant_qs * 100, 1) if relevant_qs else None
