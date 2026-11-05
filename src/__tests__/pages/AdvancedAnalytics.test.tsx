@@ -243,3 +243,90 @@ describe("AdvancedAnalytics — a withheld confidence map is not asked about", (
     expect(metricFeedbackCalls()[0][1]).toMatchObject({ metric_value: { got_it: 4, unsure: 1, confused: 0 } });
   });
 });
+
+describe("AdvancedAnalytics — figures fewer than five people stand behind", () => {
+  const metricFeedbackCalls = () =>
+    apiClientPostMock.mock.calls.filter(([url]) => url === "/api/ai/metric-feedback");
+
+  const withheldOverview = {
+    uniqueStudents: null,
+    totalAttempts: null,
+    totalCorrect: null,
+    averageScore: null,
+    totalEvents: null,
+  };
+
+  function showDashboard(patch: Record<string, unknown>) {
+    useAnalyticsMock.mockReturnValue({
+      dashboard: { data: { ...mockDashboardData, ...patch }, isLoading: false, isError: false },
+    });
+  }
+
+  it("shows a dash on every overview card, never 0, and asks the model nothing when one is clicked", async () => {
+    const user = userEvent.setup();
+    apiClientPostMock.mockResolvedValue({ feedback: "should never be asked" });
+    showDashboard({ overview: withheldOverview });
+    renderPage();
+
+    const card = (await screen.findByText("Engaged Students")).closest("div.glass-card") as HTMLElement;
+    expect(card.textContent).toContain("—");
+    expect(card.textContent).not.toMatch(/\b0\b/);
+    await user.click(screen.getByText("Global Score Avg"));
+    await user.click(screen.getByText("Total Interactions"));
+
+    expect(metricFeedbackCalls()).toHaveLength(0);
+    expect(screen.getByRole("button", { name: /generate course insights/i })).toBeDisabled();
+  });
+
+  it("does not crash on a slide whose figures were all withheld", async () => {
+    showDashboard({
+      overview: withheldOverview,
+      slidePerformance: [
+        { id: "s1", name: "Quiet", avgDuration: null, correctRate: null, quizAttempts: null, aiQueries: null, revisions: null, confusionIndex: null },
+      ],
+    });
+    renderPage();
+    expect(await screen.findByText("Engaged Students")).toBeInTheDocument();
+  });
+
+  it("puts a dash where a retry-table side was withheld and never prints null", async () => {
+    const user = userEvent.setup();
+    apiClientPostMock.mockResolvedValue({ feedback: "ok" });
+    showDashboard({
+      retryPerformance: [
+        {
+          question_id: "q1",
+          question_text: "Which join keeps unmatched rows?",
+          first_attempt_total: 5,
+          first_attempt_misses: 3,
+          first_attempt_miss_rate: 60,
+          retry_total: null,
+          retry_misses: null,
+          retry_miss_rate: null,
+        },
+      ],
+    });
+    renderPage();
+
+    await user.click(await screen.findByText("Most-Missed Questions"));
+
+    const row = (await screen.findByText("Which join keeps unmatched rows?")).closest("tr") as HTMLElement;
+    const cells = within(row).getAllByRole("cell").map((c) => c.textContent);
+    expect(cells.slice(1)).toEqual(["60%", "3 / 5", "—", "—"]);
+    expect(row.textContent).not.toMatch(/null/);
+  });
+
+  it("tells the week in counts of students and never one person's event", async () => {
+    showDashboard({ liveTicker: [{ type: "quiz_attempt", people: 7 }] });
+    renderPage();
+
+    expect(await screen.findByText(/7 students answered a quiz question this week/i)).toBeInTheDocument();
+    expect(screen.queryByText(/listening for semantic events/i)).not.toBeInTheDocument();
+  });
+
+  it("says nothing about the week until five students have done something", async () => {
+    showDashboard({ liveTicker: [] });
+    renderPage();
+    expect(await screen.findByText(/shows once five students have done something this week/i)).toBeInTheDocument();
+  });
+});

@@ -1,8 +1,9 @@
+/** People, never the owner; each figure is null until five people stand behind it. */
 export interface LectureOverview {
-  total_students: number;
-  completion_rate: number;
-  average_score: number;
-  average_time_minutes: number;
+  total_students: number | null;
+  completion_rate: number | null;
+  average_score: number | null;
+  average_time_minutes: number | null;
   engagement_level: string;
 }
 
@@ -17,9 +18,10 @@ export interface SlideAnalytics {
 export interface QuizAnalytics {
   question_id: string;
   question_text: string;
-  success_rate: number;
-  difficulty: string;
-  attempts: number;
+  /** People, from each one's first try; null until five people have tried the question. */
+  success_rate: number | null;
+  difficulty: string | null;
+  attempts: number | null;
 }
 
 export interface StudentPerformance {
