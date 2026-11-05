@@ -876,7 +876,7 @@ async def ask(user_id: str, question: str, space_id: Optional[str]) -> Dict[str,
     async with conn_cm as conn:
         mine = await conn.fetch(
             """
-            SELECT c.id::text AS id, c.title,
+            SELECT c.id::text AS id, c.title, c.professor_id = $1::uuid AS owned,
                    (SELECT max(v.visited_at) FROM lecture_visits v
                      WHERE v.user_id = $1::uuid AND v.course_id = c.id) AS last_read
             FROM courses c
@@ -892,7 +892,10 @@ async def ask(user_id: str, question: str, space_id: Optional[str]) -> Dict[str,
                 "grounded": False, "citations": [], "spaceId": None, "spaceName": None}
     chosen = next((m for m in mine if m["id"] == space_id), mine[0])
 
-    result = await ask_course(user_id, False, chosen["id"], question, ai_model="auto")
+    # The tutor checks the Space against the courses a professor owns or the
+    # ones a student is enrolled in. An owner holds no enrolment in their own
+    # Space (see leave_space), so a Space you made is asked about as its owner.
+    result = await ask_course(user_id, bool(chosen["owned"]), chosen["id"], question, ai_model="auto")
     citations = [
         {
             "lessonId": str(c["lecture_id"]),
