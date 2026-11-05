@@ -1,6 +1,8 @@
 ' F9 -- Core physical schema, part 1: identity, Spaces and content, parsing.
 ' Chapter 4 (Design). ER diagram, crow's-foot ends carry the multiplicities.
-' Claim supported: of 79 tables in supabase/migrations/ at 2b8b1f7b, 36 (plus
+' Claim supported: of 79 tables in supabase/migrations/ at 2b8b1f7b (distinct CREATE
+' TABLE names, one of them learning_events_default, the event table's default
+' partition; 78 without it), 36 (plus
 ' auth.users) constitute the domain; 19 are drawn here, 17 in F9b. A Space has
 ' no table of its own; one relationship here carries NO database-enforced FK.
 ' Split from F9b because 37 boxes cannot print legibly on one A4 page.

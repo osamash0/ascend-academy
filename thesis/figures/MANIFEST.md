@@ -12,7 +12,8 @@ Production facts (flags, hosts) are as of the 2026-10-30 deploy; prod may run im
 older than the pin.
 
 Regenerate with `make figures` (PDF) or `make all` (PDF + SVG); sources in `src/`,
-shared style in `src/_style.iuml`. `make check` renders every source and fails on errors.
+shared style in `src/_style.iuml`. `make check` renders every source and fails on errors;
+`make fonts` checks that every PDF embeds its fonts.
 
 **Rules every figure follows**
 
@@ -22,9 +23,9 @@ shared style in `src/_style.iuml`. `make check` renders every source and fails o
   about **715 × 865 px** (`\thesisfigure`) or **715 × 935 px** (`\thesisfigurepage`).
 - At most two short notes per figure; arguments go in the caption and the prose.
 - No glyphs outside WinAnsi (`→`, `≤`, `≥` vanish in the PDF); write `->`, "at most".
-- **Known gap:** PlantUML's PDFs reference Helvetica without embedding it (`pdffonts`),
-  so bold and italic only show where the viewer has the font. Embedding needs a
-  Ghostscript pass, which is not installed yet.
+- Fonts are embedded: PlantUML's PDF only references Helvetica, so the build rewrites
+  every PDF once with Ghostscript (`brew install ghostscript`). `make fonts` fails if any
+  figure PDF has a font that is not embedded.
 
 **Do not cite `README.md` or `docs/` for any architectural claim** — cite code. Runbooks
 are cited only for server facts the repository cannot hold (F7).
@@ -39,8 +40,8 @@ are cited only for server facts the repository cannot hold (F7).
 | F6 | Component view (as deployed) | UML component | 4 · Design | `f6-components.puml` | docker-compose.prod.yml:15-197; nginx.conf:26-29; main.py:267-279, :379-381, :415-437; database.py:150-190; arq_worker.py:83-103, :329-359; upload_service.py:58, :327; orchestrator.py:92-138, :386-397 |  |
 | F7 | Deployment topology | UML deployment | 4 · Design | `f7-deployment.puml` | docker-compose.prod.yml:6-197; Dockerfile.frontend:59; deploy/server/heartbeat/*; deploy/server/offsite-backup/*; server facts: docs/runbooks/{deploy-main-to-prod,domain-dns-and-email,monitoring-and-backups}.md, docs/ops/2026-10-30-learnstation-app-move.md | _prod facts from runbooks_ |
 | F8 | Ingestion pipeline | UML activity + partitions | 4 · Design | `f8-pipeline.puml` | upload.py:146-266, :568-760; v4_spaces.py:180-214; materials_service.py:90-146; v4_spaces_service.py:477-536; unified_orchestrator.py:797-1451; synthesis.py:62-79, :146-183, :279 | **hero** |
-| F9 | Core schema, part 1 (19 of 79 tables) | ER | 4 · Design | `f9-er-core.puml` | supabase/migrations/ (137 files); v4_spaces_service.py:47-110; v4_personal.py:1-35. Count: distinct `CREATE TABLE` names, partitions excluded |  |
-| F9b | Core schema, part 2 (17 of 79 tables) | ER | 4 · Design | `f9b-er-learning.puml` | supabase/migrations/ (137 files); luna/store.py:203-227; review/card_factory.py:61-87; luna/session_service.py:157 | _new; needs a `\thesisfigurepage` in ch. 4_ |
+| F9 | Core schema, part 1 (19 of 79 tables) | ER | 4 · Design | `f9-er-core.puml` | supabase/migrations/ (137 files); v4_spaces_service.py:47-110; v4_personal.py:1-35. Count: distinct `CREATE TABLE` names (79), one of them `learning_events_default`, the default partition of the event table; 78 without it |  |
+| F9b | Core schema, part 2 (17 of 79 tables) | ER | 4 · Design | `f9b-er-learning.puml` | supabase/migrations/ (137 files); luna/store.py:203-227; review/card_factory.py:61-87; luna/session_service.py:157 | _new; `fig:er-learning`_ |
 | F10 | Layered idempotency | Concept / layered | 4 · Design | `f10-idempotency.puml` | cache.py:191-231, :554-556; upload.py:195-206, :630-697; file_parse_service.py:827-841, :1148; upload_service.py:105-120; materials_service.py:90-120; repos.py:44-100, :483-512; migration 20260730000000:50; unified_orchestrator.py:68, :672-703, :817-832, :947-951; job_locks.py:33-54; poster.py:116-128; reconcile.py:45-49, :95-131; arq_worker.py:67 | **hero** |
 | F11 | LLM provider failover | UML activity | 4 · Design | `f11-provider-chain.puml` | orchestrator.py:239-397, :620-742, :1002-1151, :1465-1599; llm_client.py:34-79; vision.py:117-208 |  |
 | F12 | Grounded course tutor (Home ask) | UML sequence | 5 · Implementation | `f12-tutor-sequence.puml` | HomeScreen.tsx:408-418; v4_spaces.py:101-112; v4_spaces_service.py:865-911; search_service.py:111-141; retrieval.py:30-32, :84-87; cache.py:397-440; tutor.py:69-85, :265-290, :295-304, :307-400; prompts.py:542-544 |  |
