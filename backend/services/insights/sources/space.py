@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -23,6 +24,9 @@ logger = logging.getLogger(__name__)
 WINDOW_DAYS = 56
 #: The most events one read takes, the newest; past it the oldest are not read (and a warning says so).
 EVENT_CAP = 200_000
+#: The most events one member adds to a read, their newest. A member can write any number of their
+#: own rows, so without this one account could push every other member's events out of the cap.
+PER_MEMBER_CAP = 5_000
 
 #: The events the engine reads. Luna writes none of these; her checks stay hers.
 EVENT_TYPES = (
@@ -116,16 +120,22 @@ _EVENT_DATA = ",\n    ".join(
 )
 
 _EVENTS_SQL = f"""
+WITH ranked AS (
+  SELECT user_id, event_type, created_at, event_data,
+         row_number() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn
+  FROM learning_events
+  WHERE created_at >= $1
+    AND created_at <= $2
+    AND event_type = ANY($3::text[])
+    AND user_id = ANY($4::uuid[])
+    AND event_data->>'lectureId' = ANY($5::text[])
+)
 SELECT user_id::text AS user_id, event_type, created_at,
   jsonb_strip_nulls(jsonb_build_object(
     {_EVENT_DATA}
   )) AS event_data
-FROM learning_events
-WHERE created_at >= $1
-  AND created_at <= $2
-  AND event_type = ANY($3::text[])
-  AND user_id = ANY($4::uuid[])
-  AND event_data->>'lectureId' = ANY($5::text[])
+FROM ranked
+WHERE rn <= $7
 ORDER BY created_at DESC
 LIMIT $6
 """
@@ -165,10 +175,17 @@ async def load_space_data(
             }
         if ids and members:
             rows = await conn.fetch(
-                _EVENTS_SQL, now - timedelta(days=WINDOW_DAYS), now, list(EVENT_TYPES), list(members), ids, EVENT_CAP
+                _EVENTS_SQL, now - timedelta(days=WINDOW_DAYS), now, list(EVENT_TYPES), list(members), ids,
+                EVENT_CAP, PER_MEMBER_CAP,
             )
             if len(rows) >= EVENT_CAP:
                 logger.warning("landing: space %s hit the event cap (%d); its oldest events are not read", space_id, EVENT_CAP)
+            capped = sum(1 for n in Counter(r["user_id"] for r in rows).values() if n >= PER_MEMBER_CAP)
+            if capped:
+                logger.warning(
+                    "landing: space %s: %d member(s) hit the per-member cap (%d); their oldest events are not read",
+                    space_id, capped, PER_MEMBER_CAP,
+                )
             # Read newest first so the cap keeps the newest; held oldest first.
             events = tuple(
                 Event(user_id=r["user_id"], type=r["event_type"], data=_json(r["event_data"]), at=r["created_at"])
