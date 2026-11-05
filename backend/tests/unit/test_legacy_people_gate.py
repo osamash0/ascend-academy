@@ -259,7 +259,10 @@ class _Conn:
         if "confidence_rating" in sql:
             return list(self.ratings)
         if "student_progress p" in sql:
-            return [{"student_id": p["user_id"], "quiz_score": p["quiz_score"]} for p in self.progress]
+            # the real query keeps only people who answered at least one question
+            assert "total_questions_answered > 0" in sql
+            return [{"student_id": p["user_id"], "quiz_score": p["quiz_score"]}
+                    for p in self.progress if p.get("answered", 1) > 0]
         return []
 
 
@@ -304,7 +307,7 @@ def test_the_dashboards_confidence_is_latest_per_person_and_not_the_owner(monkey
     ratings += [_drate("u3", "s1", "got_it"), _drate("u3", "s1", "confused"),   # one person, latest wins
                 _drate("u3", "s1", "confused")]
     ratings += [_drate(OWNER, "s1", "confused")]                                # owner never counts
-    assert _dash(monkeypatch, ratings)["confidenceMap"] == {"got_it": 0, "unsure": 0, "confused": 0}  # 4 people
+    assert _dash(monkeypatch, ratings)["confidenceMap"] is None  # 4 people
     ratings.append(_drate("u4", "s1", "got_it"))
     assert _dash(monkeypatch, ratings)["confidenceMap"] == {"got_it": 4, "unsure": 0, "confused": 1}
 
@@ -312,3 +315,23 @@ def test_the_dashboards_confidence_is_latest_per_person_and_not_the_owner(monkey
 def test_the_dashboard_owner_does_not_count_toward_score_bands(monkeypatch):
     progress = [{"user_id": f"u{i}", "quiz_score": 50} for i in range(4)] + [{"user_id": OWNER, "quiz_score": 50}]
     assert _dash(monkeypatch, [], progress)["scoreBands"] == []
+
+
+def test_the_dashboards_confidence_is_null_not_zero_under_the_floor(monkeypatch):
+    out = _dash(monkeypatch, [_drate(f"u{i}", "s1", "got_it") for i in range(4)])
+    assert out["confidenceMap"] is None
+    assert out["overview"]["totalEvents"] == 0
+
+
+def test_the_dashboards_confidence_is_present_at_five_people(monkeypatch):
+    out = _dash(monkeypatch, [_drate(f"u{i}", "s1", "got_it") for i in range(5)])
+    assert out["confidenceMap"] == {"got_it": 5, "unsure": 0, "confused": 0}
+    assert out["overview"]["totalEvents"] == 5
+
+
+def test_people_who_only_opened_the_lesson_do_not_make_a_score_band(monkeypatch):
+    # Five progress rows, none answered a question: nothing to draw, not [5,0,0,0,0].
+    progress = [{"user_id": f"u{i}", "quiz_score": 0, "answered": 0} for i in range(5)]
+    assert _dash(monkeypatch, [], progress)["scoreBands"] == []
+    progress += [{"user_id": f"q{i}", "quiz_score": 90, "answered": 3} for i in range(5)]
+    assert _dash(monkeypatch, [], progress)["scoreBands"] == [0, 0, 0, 0, 5]

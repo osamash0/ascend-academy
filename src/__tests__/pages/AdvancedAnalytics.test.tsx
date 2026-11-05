@@ -208,3 +208,38 @@ describe("AdvancedAnalytics — slides too few people stand behind", () => {
     expect(row.textContent).not.toMatch(/0%/);
   });
 });
+
+describe("AdvancedAnalytics — a withheld confidence map is not asked about", () => {
+  const metricFeedbackCalls = () =>
+    apiClientPostMock.mock.calls.filter(([url]) => url === "/api/ai/metric-feedback");
+
+  function showDashboard(confidenceMap: unknown) {
+    useAnalyticsMock.mockReturnValue({
+      dashboard: { data: { ...mockDashboardData, confidenceMap }, isLoading: false, isError: false },
+    });
+  }
+
+  it("says it waits for five people and sends nothing to the interpretation model", async () => {
+    const user = userEvent.setup();
+    apiClientPostMock.mockResolvedValue({ feedback: "should never be asked" });
+    showDashboard(null);
+    renderPage();
+
+    await user.click(await screen.findByText("Student Confidence"));
+
+    expect(await screen.findByText(/shows once five people have rated a page/i)).toBeInTheDocument();
+    expect(metricFeedbackCalls()).toHaveLength(0);
+  });
+
+  it("still asks for a map that has people behind it", async () => {
+    const user = userEvent.setup();
+    apiClientPostMock.mockResolvedValue({ feedback: "ok" });
+    showDashboard({ got_it: 4, unsure: 1, confused: 0 });
+    renderPage();
+
+    await user.click(await screen.findByText("Student Confidence"));
+
+    await waitFor(() => expect(metricFeedbackCalls()).toHaveLength(1));
+    expect(metricFeedbackCalls()[0][1]).toMatchObject({ metric_value: { got_it: 4, unsure: 1, confused: 0 } });
+  });
+});

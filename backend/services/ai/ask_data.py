@@ -81,7 +81,7 @@ def list_suggested_questions() -> List[str]:
     return [
         "Which slide had the highest drop-off rate?",
         "Which 3 quiz questions had the lowest correct rate?",
-        "What are students asking the AI tutor?",
+        "Which slide had the most confused readers?",
         "How many students finished the lecture?",
         "What concepts are students most confused about?",
     ]

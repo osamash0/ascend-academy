@@ -807,7 +807,7 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
             student_rows = await conn.fetch("""
                 SELECT p.user_id as "student_id", p.quiz_score as "quiz_score"
                 FROM student_progress p
-                WHERE p.lecture_id = $1::uuid
+                WHERE p.lecture_id = $1::uuid AND p.total_questions_answered > 0
             """, lecture_id)
 
             # Confidence Map: read as events, counted as people in Python (asyncpg bypasses RLS,
@@ -897,8 +897,10 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
     for r in conf_rows:
         evd = json.loads(r["event_data"]) if isinstance(r["event_data"], str) else r["event_data"]
         conf_events.append({"user_id": str(r["user_id"]) if r["user_id"] else None, "event_data": evd})
-    conf_counts = {k: 0 for k in _RATINGS}
+    # None, not zeros, when no slide reaches the floor: "not enough people" is not "nobody understood".
+    conf_counts: Optional[Dict[str, int]] = None
     for counts in _floored_counts(conf_events, owner_key).values():
+        conf_counts = conf_counts or {k: 0 for k in _RATINGS}
         for k in _RATINGS:
             conf_counts[k] += counts[k]
 
@@ -921,7 +923,7 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
     ))
 
     result = {
-        "overview": {**dict(overview_row), "totalEvents": sum(conf_counts.values()) + len(ticker_rows)},
+        "overview": {**dict(overview_row), "totalEvents": sum((conf_counts or {}).values()) + len(ticker_rows)},
         "activityByDay": [dict(r) for r in activity_rows],
         "slidePerformance": processed_slides,
         "scoreBands": score_band_counts,

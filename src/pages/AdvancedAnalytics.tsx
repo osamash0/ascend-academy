@@ -69,7 +69,8 @@ interface DashboardData {
   /** People per quiz-score band, 0-20 … 81-100; empty under five people. Never a list of learners. */
   scoreBands: number[];
   funnel: { stage: string; count: number }[];
-  confidenceMap: { got_it: number; unsure: number; confused: number };
+  /** Overall check-in counts over people; null until some page has five people's check-ins. */
+  confidenceMap: { got_it: number; unsure: number; confused: number } | null;
   liveTicker: { type: string; description: string; time: string }[];
   dropoffData: DropoffPoint[];
   aiQueryFeed: AIQueryItem[];
@@ -605,6 +606,19 @@ export default function AdvancedAnalytics() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   const handleMetricClick = async (id: string, title: string, value: unknown) => {
+    // Nothing to interpret (the backend withheld it under the five-people floor): open or close
+    // the section, and never ask the model, which would read "no data" as "zero".
+    const isEmpty =
+      value == null ||
+      (Array.isArray(value) && value.length === 0) ||
+      (typeof value === 'object' && !Array.isArray(value) && Object.keys(value as object).length === 0);
+    if (isEmpty) {
+      if (['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution', 'retryPerformance'].includes(id)) {
+        setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
+      }
+      return;
+    }
+
     // Check local cache first
     if (metricInterpretations[id]) {
       // If it's a small stat card, still set the feedback from cache
@@ -1090,7 +1104,7 @@ export default function AdvancedAnalytics() {
                 isOpen={openSections.confidence}
                 onToggle={() => handleMetricClick('confidence', 'Student Confidence', dashboardData.confidenceMap)}
               >
-                {dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused === 0 ? (
+                {!dashboardData.confidenceMap ? (
                   <p className="text-sm text-muted-foreground">Shows once five people have rated a page.</p>
                 ) : (
                 <div className="space-y-6">
