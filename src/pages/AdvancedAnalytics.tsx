@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useMemo, Fragment } from 'react';
-import { UserAvatar } from "@/features/avatar/UserAvatar";
 import { useTranslation } from 'react-i18next';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -41,6 +40,38 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+// ── Withheld figures ──────────────────────────────────────────────────────────
+
+/** A withheld figure is null (fewer than five people stand behind it). It must never reach the model, which would read it as zero. */
+function withoutNulls<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(withoutNulls) as unknown as T;
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, v]) => v != null)
+        .map(([k, v]) => [k, withoutNulls(v)]),
+    ) as T;
+  }
+  return value;
+}
+
+/** True when there is nothing for the model to interpret: no value, no rows, or rows whose every figure was withheld. */
+function carriesNoFigures(value: unknown): boolean {
+  if (value == null) return true;
+  if (Array.isArray(value)) {
+    return (
+      value.length === 0 ||
+      value.every(
+        (row) =>
+          row != null &&
+          typeof row === 'object' &&
+          !Object.values(row as Record<string, unknown>).some((v) => typeof v === 'number'),
+      )
+    );
+  }
+  return typeof value === 'object' && Object.keys(value as object).length === 0;
+}
+
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
 interface AIInsights {
@@ -49,36 +80,33 @@ interface AIInsights {
 }
 
 interface DashboardData {
+  /** Every figure is null until five people stand behind it (never 0), and never counts the owner. */
   overview: {
-    uniqueStudents: number;
-    totalAttempts: number;
-    totalCorrect: number;
-    averageScore: number;
-    totalEvents: number;
+    uniqueStudents: number | null;
+    totalAttempts: number | null;
+    averageScore: number | null;
+    totalEvents: number | null;
   };
-  activityByDay: { date: string; attempts: number }[];
+  /** People who answered a quiz question that day; null for a day with fewer than five. */
+  activityByDay: { date: string; people: number | null }[];
   slidePerformance: {
     id: string;
     name: string;
-    avgDuration: number;
-    correctRate: number;
-    quizAttempts: number;
-    aiQueries: number;
-    revisions: number;
-    confusionIndex: number;
+    /** Each figure is null until five people stand behind it. */
+    avgDuration: number | null;
+    correctRate: number | null;
+    quizAttempts: number | null;
+    aiQueries: number | null;
+    revisions: number | null;
+    confusionIndex: number | null;
   }[];
-  studentsMatrix: {
-    student_id: string;
-    student_name: string;
-    progress_percentage: number;
-    quiz_score: number;
-    typology: string;
-    ai_interactions: number;
-    revisions: number;
-  }[];
+  /** People per quiz-score band, 0-20 … 81-100; empty under five people. Never a list of learners. */
+  scoreBands: number[];
   funnel: { stage: string; count: number }[];
-  confidenceMap: { got_it: number; unsure: number; confused: number };
-  liveTicker: { type: string; description: string; time: string }[];
+  /** Overall check-in counts over people; null until some page has five people's check-ins. */
+  confidenceMap: { got_it: number; unsure: number; confused: number } | null;
+  /** People per kind of event this week; a kind appears only once five people did it. Never one person's event. */
+  liveTicker: { type: string; people: number }[];
   dropoffData: DropoffPoint[];
   aiQueryFeed: AIQueryItem[];
   confidenceBySlide: SlideConfidence[];
@@ -88,12 +116,13 @@ interface DashboardData {
 interface RetryPerformanceItem {
   question_id: string;
   question_text: string;
-  first_attempt_total: number;
-  first_attempt_misses: number;
-  first_attempt_miss_rate: number;
-  retry_total: number;
-  retry_misses: number;
-  retry_miss_rate: number;
+  /** People, each side null until five people stand behind it. */
+  first_attempt_total: number | null;
+  first_attempt_misses: number | null;
+  first_attempt_miss_rate: number | null;
+  retry_total: number | null;
+  retry_misses: number | null;
+  retry_miss_rate: number | null;
 }
 
 interface DropoffPoint {
@@ -464,9 +493,19 @@ function SlideRecommendationsSection({
                         <TableCell className="font-bold text-foreground max-w-[280px] truncate">
                           {s.title}
                         </TableCell>
-                        <TableCell className="text-center text-sm">{s.view_count}</TableCell>
-                        <TableCell className="text-center text-sm">{s.drop_off_rate.toFixed(0)}%</TableCell>
-                        <TableCell className="text-center text-sm">{(s.confusion_rate ?? 0).toFixed(0)}%</TableCell>
+                        <TableCell className="text-center text-sm">
+                          {s.view_count != null ? s.view_count : <span className="text-muted-foreground/50">—</span>}
+                        </TableCell>
+                        <TableCell className="text-center text-sm">
+                          {s.drop_off_rate != null
+                            ? `${s.drop_off_rate.toFixed(0)}%`
+                            : <span className="text-muted-foreground/50">—</span>}
+                        </TableCell>
+                        <TableCell className="text-center text-sm">
+                          {s.confusion_rate != null
+                            ? `${s.confusion_rate.toFixed(0)}%`
+                            : <span className="text-muted-foreground/50">—</span>}
+                        </TableCell>
                         <TableCell className="text-center text-sm">
                           {s.quiz_attempts && s.quiz_success_rate != null
                             ? `${s.quiz_success_rate.toFixed(0)}%`
@@ -539,7 +578,6 @@ function SlideRecommendationsSection({
 // ── Main Page Component ───────────────────────────────────────────────────────
 
 // Section visibility flags. Flip to `true` to bring a section back.
-const SHOW_PREDICTIVE_INTERVENTION_HUB = false;
 const SHOW_SPATIAL_NEURAL_MATRIX = false;
 
 export default function AdvancedAnalytics() {
@@ -604,6 +642,15 @@ export default function AdvancedAnalytics() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   const handleMetricClick = async (id: string, title: string, value: unknown) => {
+    // Nothing to interpret (the backend withheld it under the five-people floor): open or close
+    // the section, and never ask the model, which would read "no data" as "zero".
+    if (carriesNoFigures(value)) {
+      if (['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution', 'retryPerformance'].includes(id)) {
+        setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
+      }
+      return;
+    }
+
     // Check local cache first
     if (metricInterpretations[id]) {
       // If it's a small stat card, still set the feedback from cache
@@ -628,19 +675,20 @@ export default function AdvancedAnalytics() {
     setMetricLoading(true);
 
     try {
-      const context = {
+      const context = withoutNulls({
         average_score: dashboardData?.overview?.averageScore,
         total_students: dashboardData?.overview?.uniqueStudents,
         hard_slides: dashboardData?.slidePerformance
-          ?.sort((a: { correctRate: number }, b: { correctRate: number }) => a.correctRate - b.correctRate)
+          ?.filter((s: { correctRate: number | null }) => s.correctRate != null)
+          .sort((a: { correctRate: number | null }, b: { correctRate: number | null }) => (a.correctRate ?? 0) - (b.correctRate ?? 0))
           .slice(0, 2)
           .map((s: { name: string }) => s.name)
-          .join(', '),
-      };
+          .join(', ') || null,
+      });
 
       const data = await apiClient.post<{ feedback: string }>('/api/ai/metric-feedback', {
         metric_name: title,
-        metric_value: value,
+        metric_value: withoutNulls(value),
         context_stats: context,
         ai_model: aiModel,
       });
@@ -737,6 +785,14 @@ export default function AdvancedAnalytics() {
     }
   }, [resolvedLectureId, lectures, lecturesLoading]);
 
+  // Only slides with all three figures can be placed; the rest have fewer than five people behind them.
+  const plottedSlides = useMemo(
+    () => (dashboardData?.slidePerformance ?? []).filter(
+      s => s.avgDuration != null && s.correctRate != null && s.confusionIndex != null,
+    ),
+    [dashboardData],
+  );
+
   const groupedQueries = useMemo(() => {
     const isTrivial = (q: string) => {
       const normalized = q.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -765,27 +821,27 @@ export default function AdvancedAnalytics() {
 
   // AI Insights Generator
   const fetchAiInsights = useCallback(async () => {
-    if (!dashboardData) return;
+    // Nothing to summarise until five people have opened the lecture and five have answered.
+    if (!dashboardData || dashboardData.overview?.uniqueStudents == null || dashboardData.overview?.averageScore == null) return;
     setAiLoading(true);
     setAiInsights(null);
     setAiInsightsError(false);
 
     try {
       const hardSlides = dashboardData.slidePerformance
-        ?.filter((s: { quizAttempts: number }) => s.quizAttempts > 0)
-        .sort((a: { correctRate: number }, b: { correctRate: number }) => a.correctRate - b.correctRate)
+        ?.filter((s: { quizAttempts: number | null }) => s.quizAttempts != null && s.quizAttempts > 0)
+        .sort((a: { correctRate: number | null }, b: { correctRate: number | null }) => (a.correctRate ?? 0) - (b.correctRate ?? 0))
         .slice(0, 3)
         .map((s: { name: string }) => s.name)
-        .join(', ');
+        .join(', ') || null;
 
-      const result = await apiClient.post<AIInsights>('/api/ai/analytics-insights', {
+      const result = await apiClient.post<AIInsights>('/api/ai/analytics-insights', withoutNulls({
         total_students: dashboardData?.overview?.uniqueStudents,
         average_score: dashboardData?.overview?.averageScore,
-        total_attempts: dashboardData?.overview?.totalAttempts,
-        total_correct: dashboardData?.overview?.totalCorrect,
+        people_answered: dashboardData?.overview?.totalAttempts,
         hard_slides: hardSlides,
         ai_model: aiModel,
-      });
+      }));
       setAiInsights(result);
     } catch (err) {
       // Never fabricate a plausible-looking summary here — it would render
@@ -848,7 +904,7 @@ export default function AdvancedAnalytics() {
           <div className="flex items-center gap-4">
             <Button 
               onClick={fetchAiInsights} 
-              disabled={aiLoading || dashboard.isLoading} 
+              disabled={aiLoading || dashboard.isLoading || dashboardData?.overview?.uniqueStudents == null || dashboardData?.overview?.averageScore == null} 
               className="rounded-2xl h-14 px-8 shadow-glow-primary gradient-primary hover:opacity-90 transition-all font-bold text-base border-none text-white"
             >
               {aiLoading ? <RefreshCw className="w-5 h-5 animate-spin mr-3" /> : <Sparkles className="w-5 h-5 mr-3" />}
@@ -934,11 +990,14 @@ export default function AdvancedAnalytics() {
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {[
-                { title: "Engaged Students", value: dashboardData.overview.uniqueStudents, icon: Users, variant: "primary" as const },
-                { title: "Global Score Avg", value: `${dashboardData.overview.averageScore}%`, icon: Target, variant: "success" as const },
-                { title: "Total Events", value: dashboardData.overview.totalEvents, icon: Activity, variant: "default" as const },
-                { title: "Total Interactions", value: dashboardData.overview.totalAttempts, icon: Award, variant: "xp" as const },
-              ].map((stat, idx) => (
+                { title: "Engaged Students", raw: dashboardData.overview.uniqueStudents, shown: dashboardData.overview.uniqueStudents, icon: Users, variant: "primary" as const },
+                { title: "Global Score Avg", raw: dashboardData.overview.averageScore, shown: dashboardData.overview.averageScore == null ? null : `${dashboardData.overview.averageScore}%`, icon: Target, variant: "success" as const },
+                { title: "Active Students", raw: dashboardData.overview.totalEvents, shown: dashboardData.overview.totalEvents, icon: Activity, variant: "default" as const },
+                { title: "Students Who Answered", raw: dashboardData.overview.totalAttempts, shown: dashboardData.overview.totalAttempts, icon: Award, variant: "xp" as const },
+              ].map(({ raw, shown, ...card }, idx) => {
+                // Withheld under five people: a dash, never 0, and nothing for the model to interpret.
+                const stat = { ...card, value: shown ?? '—' };
+                return (
                 <motion.div
                   key={idx}
                   layout
@@ -950,7 +1009,7 @@ export default function AdvancedAnalytics() {
                 >
                   <StatsCard 
                     {...stat} 
-                    onClick={() => handleMetricClick(stat.title, stat.title, stat.value)}
+                    onClick={() => handleMetricClick(stat.title, stat.title, raw)}
                     className={selectedMetric === stat.title ? 'ring-2 ring-primary shadow-glow-primary' : ''}
                   />
                   <AnimatePresence>
@@ -980,7 +1039,8 @@ export default function AdvancedAnalytics() {
                     )}
                   </AnimatePresence>
                 </motion.div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Ask Your Data (Task #45) */}
@@ -1045,8 +1105,8 @@ export default function AdvancedAnalytics() {
                                 <div className="space-y-2">
                                   <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Accuracy</span><span className="font-black text-foreground">{d.correctRate}%</span></div>
                                   <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Time</span><span className="font-black text-muted-foreground">{d.avgDuration}s</span></div>
-                                  <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Queries</span><span className="font-black text-primary">{d.aiQueries}</span></div>
-                                  <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Revisions</span><span className="font-black text-warning">{d.revisions}</span></div>
+                                  <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Queries</span><span className="font-black text-primary">{d.aiQueries ?? '—'}</span></div>
+                                  <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Revisions</span><span className="font-black text-warning">{d.revisions ?? '—'}</span></div>
                                 </div>
                                 <div className="mt-4 pt-3 border-t border-border flex justify-between items-center -mx-5 -mb-5 px-5 py-3 rounded-b-2xl bg-destructive/10">
                                    <span className="text-[10px] uppercase font-black tracking-[0.2em] text-destructive">Confusion Index</span>
@@ -1058,21 +1118,21 @@ export default function AdvancedAnalytics() {
                           return null;
                         }} />
                         <ReferenceArea x1={60} y1={0} y2={60} fill="hsl(var(--destructive))" fillOpacity={0.05} />
-                        <Scatter name="Slides" data={dashboardData.slidePerformance?.filter(s => s.quizAttempts > 0)}>
-                          {dashboardData.slidePerformance?.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={(entry.confusionIndex > 50) ? "hsl(var(--destructive))" : "hsl(var(--primary))"} opacity={0.8}/>
+                        <Scatter name="Slides" data={plottedSlides}>
+                          {plottedSlides.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={((entry.confusionIndex ?? 0) > 50) ? "hsl(var(--destructive))" : "hsl(var(--primary))"} opacity={0.8}/>
                           ))}
                         </Scatter>
                       </ScatterChart>
                     </ResponsiveContainer>
                   ) : (
                     <ThreeDScatterPlot 
-                      data={(dashboardData.slidePerformance?.filter(s => s.quizAttempts > 0) || []).map(s => ({
-                        x: s.avgDuration,
-                        y: s.correctRate,
-                        z: s.confusionIndex,
+                      data={plottedSlides.map(s => ({
+                        x: s.avgDuration as number,
+                        y: s.correctRate as number,
+                        z: s.confusionIndex as number,
                         label: s.name,
-                        color: s.confusionIndex > 50 ? '#ef4444' : '#94a3b8'
+                        color: (s.confusionIndex ?? 0) > 50 ? '#ef4444' : '#94a3b8'
                       }))} 
                     />
                   )}
@@ -1089,6 +1149,9 @@ export default function AdvancedAnalytics() {
                 isOpen={openSections.confidence}
                 onToggle={() => handleMetricClick('confidence', 'Student Confidence', dashboardData.confidenceMap)}
               >
+                {!dashboardData.confidenceMap ? (
+                  <p className="text-sm text-muted-foreground">Shows once five people have rated a page.</p>
+                ) : (
                 <div className="space-y-6">
                   <div className="mastery-track w-full relative">
                     {/* Stacked cumulative layers animated via transform: scaleX (no layout reflow) instead of width */}
@@ -1115,6 +1178,7 @@ export default function AdvancedAnalytics() {
                     ))}
                   </div>
                 </div>
+                )}
               </Section>
             </div>
 
@@ -1147,12 +1211,12 @@ export default function AdvancedAnalytics() {
                     <TableBody>
                       {dashboardData.retryPerformance.slice(0, 15).map((q) => {
                         const firstColor =
-                          q.first_attempt_total === 0 ? 'text-muted-foreground/50'
+                          q.first_attempt_miss_rate == null ? 'text-muted-foreground/50'
                           : q.first_attempt_miss_rate >= 60 ? 'text-destructive'
                           : q.first_attempt_miss_rate >= 30 ? 'text-warning'
                           : 'text-success';
                         const retryColor =
-                          q.retry_total === 0 ? 'text-muted-foreground/50'
+                          q.retry_miss_rate == null ? 'text-muted-foreground/50'
                           : q.retry_miss_rate >= 50 ? 'text-destructive'
                           : q.retry_miss_rate > 0 ? 'text-warning'
                           : 'text-success';
@@ -1162,16 +1226,16 @@ export default function AdvancedAnalytics() {
                               <span className="line-clamp-2">{q.question_text}</span>
                             </TableCell>
                             <TableCell className={`px-6 py-4 text-right font-black text-base ${firstColor}`}>
-                              {q.first_attempt_total > 0 ? `${q.first_attempt_miss_rate}%` : '—'}
+                              {q.first_attempt_miss_rate != null ? `${q.first_attempt_miss_rate}%` : '—'}
                             </TableCell>
                             <TableCell className="px-6 py-4 text-right text-xs font-bold text-muted-foreground">
-                              {q.first_attempt_misses} / {q.first_attempt_total}
+                              {q.first_attempt_total != null ? `${q.first_attempt_misses} / ${q.first_attempt_total}` : '—'}
                             </TableCell>
                             <TableCell className={`px-6 py-4 text-right font-black text-base ${retryColor}`}>
-                              {q.retry_total > 0 ? `${q.retry_miss_rate}%` : '—'}
+                              {q.retry_miss_rate != null ? `${q.retry_miss_rate}%` : '—'}
                             </TableCell>
                             <TableCell className="px-6 py-4 text-right text-xs font-bold text-muted-foreground">
-                              {q.retry_misses} / {q.retry_total}
+                              {q.retry_total != null ? `${q.retry_misses} / ${q.retry_total}` : '—'}
                             </TableCell>
                           </TableRow>
                         );
@@ -1250,13 +1314,16 @@ export default function AdvancedAnalytics() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <Section 
                 title="Interaction Velocity" 
-                subtitle="Event density over 7 days" 
+                subtitle="People answering quiz questions, per day" 
                 icon={TrendingUp}
                 interpretation={metricInterpretations.velocity}
                 isLoading={metricLoading && openSections.velocity}
                 isOpen={openSections.velocity}
                 onToggle={() => handleMetricClick('velocity', 'Interaction Velocity', dashboardData.activityByDay)}
               >
+                {dashboardData.activityByDay.every((d) => d.people == null) ? (
+                  <p className="text-sm text-muted-foreground">Shows once five people have taken the quiz on a day this week.</p>
+                ) : (
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={dashboardData.activityByDay} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -1270,10 +1337,11 @@ export default function AdvancedAnalytics() {
                       <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{fill: 'currentColor', fontSize: 12, opacity: 0.5}} />
                       <YAxis tickLine={false} axisLine={false} tick={{fill: 'currentColor', fontSize: 12, opacity: 0.5}} />
                       <RechartsTooltip content={<CustomTooltip />} />
-                      <Area type="monotone" dataKey="attempts" stroke="var(--success)" strokeWidth={4} fill="url(#colorVelocity)" activeDot={{ r: 8, strokeWidth: 0 }} />
+                      <Area type="monotone" dataKey="people" stroke="var(--success)" strokeWidth={4} fill="url(#colorVelocity)" activeDot={{ r: 8, strokeWidth: 0 }} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
+                )}
               </Section>
 
               <Section 
@@ -1283,18 +1351,13 @@ export default function AdvancedAnalytics() {
                 interpretation={metricInterpretations.distribution}
                 isLoading={metricLoading && openSections.distribution}
                 isOpen={openSections.distribution}
-                onToggle={() => handleMetricClick('distribution', 'Score Distribution', dashboardData.studentsMatrix)}
+                onToggle={() => handleMetricClick('distribution', 'Score Distribution', dashboardData.scoreBands)}
               >
+                {dashboardData.scoreBands?.length ? (
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart 
-                      data={[
-                        { range: '0–20%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score <= 20).length },
-                        { range: '21–40%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score > 20 && s.quiz_score <= 40).length },
-                        { range: '41–60%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score > 40 && s.quiz_score <= 60).length },
-                        { range: '61–80%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score > 60 && s.quiz_score <= 80).length },
-                        { range: '81–100%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score > 80).length },
-                      ]} 
+                    <BarChart
+                      data={['0–20%', '21–40%', '41–60%', '61–80%', '81–100%'].map((range, i) => ({ range, count: dashboardData.scoreBands[i] }))}
                       margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/20" />
@@ -1309,112 +1372,39 @@ export default function AdvancedAnalytics() {
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Shows once five people have taken the quiz.</p>
+                )}
               </Section>
             </div>
-
-            {/* Predictive Intervention Hub */}
-            {SHOW_PREDICTIVE_INTERVENTION_HUB && (
-            <div className="intelligence-hub rounded-[2.5rem] overflow-hidden mt-12 relative">
-              <div className="absolute top-0 left-0 w-3 h-full bg-destructive shadow-glow-destructive/20 dark:block hidden"></div>
-              <div className="p-8 md:px-10 border-b border-border flex justify-between items-center bg-surface-1/50">
-                 <div>
-                    <h3 className="text-2xl font-black text-foreground flex items-center gap-4 tracking-tight">
-                      <AlertTriangle className="w-8 h-8 text-destructive animate-pulse" /> Predictive Intervention Hub
-                    </h3>
-                    <p className="text-xs font-bold text-muted-foreground mt-2 uppercase tracking-[0.2em] opacity-60">Real-time identification based on interaction typologies and friction points.</p>
-                 </div>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <Table className="w-full">
-                  <TableHeader className="bg-white/5">
-                    <TableRow className="border-white/5 hover:bg-transparent">
-                      <TableHead className="px-10 py-6 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em]">Profile Entity</TableHead>
-                      <TableHead className="px-10 py-6 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em]">Risk Level</TableHead>
-                      <TableHead className="px-10 py-6 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-center">Friction Events</TableHead>
-                      <TableHead className="px-10 py-6 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em]">Matrix Score</TableHead>
-                      <TableHead className="px-10 py-6 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-right">Execute Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dashboardData?.studentsMatrix?.map((student) => (
-                      <TableRow key={student.student_id} className="border-white/5 hover:bg-white/5 transition-all group">
-                        <TableCell className="px-10 py-6 font-black text-foreground text-lg tracking-tight group-hover:text-primary transition-colors">
-                          <span className="flex items-center gap-3">
-                            <UserAvatar userId={student.student_id} name={student.student_name} size={36} />
-                            {student.student_name}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-10 py-6">
-                          <Badge 
-                            variant="outline" 
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border shadow-sm ${
-                              student.typology.includes('Risk') || student.typology.includes('Critical') ? 'badge-advanced' 
-                              : student.typology.includes('Reviser') ? 'badge-intermediate' 
-                              : student.typology.includes('Natural') ? 'badge-beginner'
-                              : 'bg-surface-2 text-muted-foreground border-border'
-                            }`}
-                          >
-                            {student.typology}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="px-10 py-6 text-center">
-                           <div className="inline-flex gap-3">
-                              <span className="font-black text-accent px-3 py-1.5 bg-accent/10 rounded-xl border border-accent/20 text-xs" title="AI Tutor Queries">🎓 {student.ai_interactions}</span>
-                              <span className="font-black text-warning px-3 py-1.5 bg-warning/10 rounded-xl border border-warning/20 text-xs" title="Slide Revisions">🔄 {student.revisions}</span>
-                           </div>
-                        </TableCell>
-                        <TableCell className="px-10 py-6 font-black text-xl tracking-tighter">{student.quiz_score}%</TableCell>
-                        <TableCell className="px-10 py-6 text-right">
-                           <Button variant="outline" size="sm" className={`font-black tracking-widest uppercase text-[10px] h-10 px-6 rounded-2xl shadow-sm transition-all ${student.typology.includes('Critical') || student.typology.includes('Risk') ? 'border-destructive/40 bg-destructive/5 hover:bg-destructive text-destructive hover:text-white shadow-glow-destructive/20' : 'border-white/10 hover:border-primary/50'}`}>
-                              Intervene
-                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {dashboardData.studentsMatrix.length === 0 && (
-                       <TableRow>
-                        <TableCell colSpan={5} className="px-10 py-20 text-center text-muted-foreground font-black uppercase tracking-[0.3em] opacity-40">
-                          Awaiting interaction topologies...
-                        </TableCell>
-                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-            )}
 
             {/* Row 4: Live Ticker + AI Question Feed */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               
-              {/* Live Ticker */}
+              {/* This week, in people per kind of event */}
               <div className="glass-card border-white/5 rounded-[2.5rem] p-8 shadow-xl flex flex-col">
                 <div className="flex justify-between items-center mb-8">
-                  <h3 className="text-2xl font-black flex items-center gap-3"><Activity className="w-7 h-7 text-warning"/> Live Ticker</h3>
-                  <span className="relative flex h-4 w-4">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-4 w-4 bg-warning"></span>
-                  </span>
+                  <h3 className="text-2xl font-black flex items-center gap-3"><Activity className="w-7 h-7 text-warning"/> This Week</h3>
                 </div>
                 <div className="flex-1 overflow-y-auto pr-3 space-y-5 custom-scrollbar max-h-[400px]">
                   {dashboardData?.liveTicker?.map((tick, i) => (
                     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}
-                      key={i} className="text-sm glass-panel p-5 rounded-2xl border-white/5 flex gap-5 items-start hover:bg-white/5 transition-colors group">
+                      key={tick.type} className="text-sm glass-panel p-5 rounded-2xl border-white/5 flex gap-5 items-start hover:bg-white/5 transition-colors group">
                        <div className="mt-1 group-hover:scale-110 transition-transform">
                          {tick.type === 'ai_tutor_query' ? <BrainCircuit className="w-6 h-6 text-primary"/> 
                           : tick.type === 'slide_back_navigation' ? <RefreshCw className="w-6 h-6 text-warning"/>
                           : <CheckCircle2 className="w-6 h-6 text-success"/>}
                        </div>
-                       <div>
-                         <p className="font-bold text-foreground leading-snug text-base tracking-tight">{tick.description}</p>
-                         <p className="text-[10px] font-black text-muted-foreground mt-3 uppercase tracking-[0.2em] opacity-60">{new Date(tick.time).toLocaleTimeString()}</p>
-                       </div>
+                       <p className="font-bold text-foreground leading-snug text-base tracking-tight">
+                         {tick.people} {tick.type === 'ai_tutor_query' ? 'students asked the AI tutor'
+                           : tick.type === 'slide_back_navigation' ? 'students went back to an earlier slide'
+                           : 'students answered a quiz question'} this week
+                       </p>
                     </motion.div>
                   ))}
-                  {dashboardData.liveTicker.length === 0 && (
+                  {(dashboardData?.liveTicker?.length ?? 0) === 0 && (
                     <p className="text-muted-foreground text-center py-20 font-bold opacity-40 uppercase tracking-widest text-xs">
-                      Listening for semantic events...
+                      Shows once five students have done something this week
                     </p>
                   )}
                 </div>
@@ -1425,7 +1415,7 @@ export default function AdvancedAnalytics() {
                 {groupedQueries.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground/50">
                     <MessageSquare className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                    <p className="text-xs font-bold uppercase tracking-widest">No AI tutor queries recorded yet</p>
+                    <p className="text-xs font-bold uppercase tracking-widest">Shows once five students have asked the AI tutor</p>
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">

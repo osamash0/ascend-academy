@@ -33,7 +33,7 @@ describe("getProfessorOverview", () => {
             weakest_slides: [],
             activity_sparkline: Array.from({ length: 7 }, (_, i) => ({
               date: `2026-05-0${i + 1}`,
-              count: i,
+              people: i < 2 ? null : i + 3,
             })),
             lecture_count: 3,
             days: 7,

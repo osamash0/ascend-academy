@@ -404,6 +404,9 @@ async def list_enrollable_students(
     directory. Returns minimal fields (id + display name only — email is
     omitted) to limit PII exposure.
 
+    Only learners who switched on "show me in Spaces" are listed (decided
+    2026-11-05: no one is shown one by one without choosing it).
+
     Endpoint is professor-gated. Service-role is required because
     `user_roles`/`profiles` RLS restricts SELECT to the row owner.
     """
@@ -436,20 +439,22 @@ async def list_enrollable_students(
         student_ids = list({p["user_id"] for p in progress if p.get("user_id")})
         if not student_ids:
             return []
-        # 3. Hydrate display names. Email is intentionally NOT returned
-        # to keep PII exposure minimal.
+        # 3. Only people who chose to be seen by the people in their Spaces
+        # (Settings, profiles.show_in_spaces). Nobody else is listed, named or not.
+        # Email is intentionally NOT returned to keep PII exposure minimal.
         profiles = (
             supabase_admin.table("profiles")
             .select("user_id, full_name")
             .in_("user_id", student_ids)
+            .eq("show_in_spaces", True)
             .execute()
             .data
             or []
         )
-        by_id = {p["user_id"]: p.get("full_name") for p in profiles if p.get("user_id")}
         out = [
-            {"id": sid, "full_name": by_id.get(sid)}
-            for sid in student_ids
+            {"id": p["user_id"], "full_name": p.get("full_name")}
+            for p in profiles
+            if p.get("user_id")
         ]
         out.sort(key=lambda p: ((p["full_name"] or "").lower(), p["id"]))
         return out

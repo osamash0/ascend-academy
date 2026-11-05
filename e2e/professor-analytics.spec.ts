@@ -72,44 +72,20 @@ test.describe("Professor analytics", () => {
           { title: "Intro", got_it: 9, unsure: 2, confused: 1 },
           { title: "Core", got_it: 5, unsure: 4, confused: 3 },
         ],
+        // People who answered that day; null for a day under five people.
         activityByDay: [
-          { date: "Mon", attempts: 12 },
-          { date: "Tue", attempts: 18 },
+          { date: "Mon", people: 12 },
+          { date: "Tue", people: null },
         ],
-        studentsMatrix: [
-          {
-            student_id: "u1",
-            student_name: "Astra",
-            typology: "Natural Learner",
-            ai_interactions: 2,
-            revisions: 1,
-            quiz_score: 88,
-          },
-          {
-            student_id: "u2",
-            student_name: "Nova",
-            typology: "At Risk",
-            ai_interactions: 7,
-            revisions: 5,
-            quiz_score: 35,
-          },
-        ],
-        // Field shapes here match ProfessorAnalytics.tsx contract exactly:
-        //   liveTicker  → { type, description, time }
-        //   aiQueryFeed → { id, query_text, created_at, ... }
-        liveTicker: [
-          {
-            type: "completion",
-            description: "Astra completed slide 1",
-            time: new Date().toISOString(),
-          },
-        ],
+        scoreBands: [],
+        // Field shapes here match the dashboard contract (no learner is ever named):
+        //   liveTicker  → { type, people }: people per kind this week, only from five
+        //   aiQueryFeed → { slide_title, query_text, created_at }, no name and no id
+        liveTicker: [{ type: "ai_tutor_query", people: 6 }],
         aiQueryFeed: [
           {
-            id: "aq1",
             query_text: "What does orbital decay mean?",
             created_at: new Date().toISOString(),
-            student_name: "Nova",
             slide_title: "Core",
           },
         ],

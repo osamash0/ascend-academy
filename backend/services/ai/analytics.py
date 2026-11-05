@@ -9,8 +9,11 @@ async def generate_analytics_insights(stats: Dict[str, Any], ai_model: str = "ll
     """
     Analyzes lecture performance statistics and generates actionable insights for professors.
     """
+    # A withheld figure (None) is left out, so the model never reads "no data" as zero.
+    stats = {k: v for k, v in stats.items() if v is not None}
     prompt = f"""You are Learnstation's analytics coach for professors.
 Summarize these lecture statistics for a professor and provide 3 specific pedagogical suggestions for improvement.
+(people_answered is how many people answered at least one question; average_score is over those people.)
 Stats: {stats}
 Return ONLY valid JSON: {{"summary": "...", "suggestions": ["...", "...", "..."]}}"""
 
@@ -88,6 +91,7 @@ async def generate_metric_feedback(
     """
     Generates personalized, brief feedback for a specific performance metric.
     """
+    context_stats = {k: v for k, v in context_stats.items() if v is not None}
     prompt = f"""You are Learnstation's analytics coach for professors. Provide a brief (1-2 sentences) feedback on the metric '{metric_name}' which is currently '{metric_value}'.
 Use the following context to make it relevant: {context_stats}"""
 
