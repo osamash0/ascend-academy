@@ -73,31 +73,6 @@ class TestOverviewEndpoint:
         assert r.status_code in (401, 403)
 
 
-class TestDropoffEndpoint:
-    def test_owner_sees_dropoff(self, app, patch_supabase, professor_user):
-        _seed_lecture(patch_supabase, "L1", professor_user.id)
-        patch_supabase.seed("slides", [
-            {"id": "s1", "lecture_id": "L1", "slide_number": 1, "title": "T1"},
-            {"id": "s2", "lecture_id": "L1", "slide_number": 2, "title": "T2"},
-        ])
-        patch_supabase.seed("student_progress", [
-            {"user_id": "u1", "lecture_id": "L1", "last_slide_viewed": 1, "completed_at": None,
-             "completed_slides": [1], "quiz_score": 0,
-             "total_questions_answered": 0, "correct_answers": 0},
-        ])
-        patch_supabase.seed("learning_events", [])
-
-        app.dependency_overrides[verify_token] = lambda: professor_user
-        client = TestClient(app)
-        r = client.get(
-            "/api/analytics/lecture/L1/dropoff",
-            headers={"Authorization": "Bearer fake-token"},
-        )
-        assert r.status_code == 200
-        data = r.json()["data"]
-        assert isinstance(data, list)
-
-
 class TestProfessorOverviewEndpoint:
     def _seed_course(self, fake, course_id, professor_id):
         fake.seed("courses", [{

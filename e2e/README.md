@@ -18,7 +18,7 @@ npx playwright test --ui                     # interactive
 |---|---|---|
 | `student-happy-path.spec.ts` | Signup → dashboard → open lecture → complete quiz → completion toast | active |
 | `professor-upload.spec.ts` | Login → upload PDF → SSE progress → publish lecture | active |
-| `professor-analytics.spec.ts` | Open lecture analytics → all 4 panels render (drop-off, confidence-by-slide, score distribution, AI queries) | active |
+| `professor-analytics.spec.ts` | Open lecture analytics → all 4 panels render (drop-off, confidence-by-slide, score distribution, AI queries), all from the one dashboard payload (there is no separate `/dropoff` route) | active |
 
 All three journeys are now real tests. They share `helpers/supabase-mocks.ts`,
 which installs hermetic `page.route()` handlers for Supabase auth, REST

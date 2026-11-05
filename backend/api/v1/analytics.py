@@ -321,23 +321,6 @@ async def get_distractor_analysis(lecture_id: str, user=Depends(verify_token), c
         raise HTTPException(status_code=500, detail="Failed to load distractor analysis.")
 
 
-@router.get("/lecture/{lecture_id}/dropoff", response_model=AnalyticsResponse)
-async def get_dropoff_map(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
-    """
-    Show which slide students abandon the lecture on.
-    Uses last_slide_viewed from student_progress for non-completers.
-    """
-    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
-    try:
-        data = await run_in_threadpool(analytics_service.get_dropoff_map, lecture_id, creds.credentials)
-        return AnalyticsResponse(success=True, data=data)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Analytics endpoint error: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to load drop-off data.")
-
-
 @router.get("/lecture/{lecture_id}/confidence-by-slide", response_model=AnalyticsResponse)
 async def get_confidence_by_slide(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
     """

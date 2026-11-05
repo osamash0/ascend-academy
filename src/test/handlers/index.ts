@@ -103,9 +103,6 @@ export const defaultHandlers = [
       },
     }),
   ),
-  ...dual("get", `${API}/api/analytics/lecture/:id/dropoff`, () =>
-    HttpResponse.json({ success: true, data: [] }),
-  ),
   ...dual("get", `${API}/api/analytics/lecture/:id/distractors`, () =>
     HttpResponse.json({ success: true, data: [] }),
   ),

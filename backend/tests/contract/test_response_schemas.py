@@ -76,12 +76,10 @@ class TestAnalyticsContracts:
         )
         assert r.status_code == 404
 
-    def test_dropoff_envelope(self, auth_client):
+    def test_there_is_no_unfloored_dropoff_route(self, auth_client):
+        # It counted every learner one by one with the owner in and no floor; nothing called it.
         r = auth_client.get(
             "/api/analytics/lecture/L1/dropoff",
             headers={"Authorization": "Bearer x"},
         )
-        assert r.status_code == 200
-        body = r.json()
-        assert body["success"] is True
-        assert isinstance(body["data"], list)
+        assert r.status_code == 404

@@ -690,47 +690,6 @@ def get_retry_performance(lecture_id: str, token: str = None) -> List[Dict[str, 
     return _calculate_retry_performance(quiz_data, first_events, retry_events, owner_id)
 
 
-@cached_analytic("dropoff")
-def get_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
-    """Show which slide most students abandon the lecture on (cached)."""
-    client = get_auth_client(token)
-
-    progress_data = _fetch_all(client.table("student_progress")\
-        .select("user_id, last_slide_viewed, completed_at")\
-        .eq("lecture_id", lecture_id))
-
-    slides_data = _fetch_all(client.table("slides")\
-        .select("id, slide_number, title")\
-        .eq("lecture_id", lecture_id)\
-        .order("slide_number"))
-
-    total_started = len(progress_data)
-
-    # Only count students who never finished
-    dropouts = [p for p in progress_data if not p.get("completed_at")]
-
-    # Count dropouts per slide number
-    dropout_by_slide: Dict[int, int] = {}
-    for p in dropouts:
-        slide_idx = p.get("last_slide_viewed")
-        slide_num = (slide_idx + 1) if slide_idx is not None else 1
-        dropout_by_slide[slide_num] = dropout_by_slide.get(slide_num, 0) + 1
-
-    # Build slide title map
-    slide_title_map = {s["slide_number"]: s.get("title") or f"Slide {s['slide_number']}" for s in slides_data}
-
-    result = []
-    for slide_num, count in sorted(dropout_by_slide.items()):
-        result.append({
-            "slide_number": slide_num,
-            "title": slide_title_map.get(slide_num, f"Slide {slide_num}"),
-            "dropout_count": count,
-            "dropout_percentage": round((count / total_started * 100) if total_started > 0 else 0, 1)
-        })
-
-    return result
-
-
 @cached_analytic("confidence_by_slide")
 def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     """Per-slide confidence breakdown (got_it / unsure / confused; cached)."""
@@ -1463,9 +1422,9 @@ async def _compute_lecture_benchmark_metrics(
     completion = float(overview.get("completion_rate") or 0)
     students = int(overview.get("total_students") or 0)
     # Lecture-level drop-off mirrors what the dashboard shows: students who
-    # started but didn't finish (= 100% − completion rate). Per-slide
-    # percentages from get_dropoff_map are NOT additive and can't be averaged
-    # into a meaningful lecture-level number, so we don't use them here.
+    # started but didn't finish (= 100% − completion rate). Per-slide drop-off
+    # percentages are NOT additive and can't be averaged into a meaningful
+    # lecture-level number, so we don't use them here.
     drop_off = round(max(0.0, 100.0 - completion), 1)
 
     # Quiz performance (a question under the floor has a null rate and does not count)

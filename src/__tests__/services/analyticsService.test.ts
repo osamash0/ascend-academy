@@ -15,7 +15,6 @@ import {
   getLectureOverview,
   getSlideAnalytics,
   getDashboardData,
-  getDropoffMap,
   getDistratorAnalysis,
   getAiQueryFeed,
   getAiInsights,
@@ -63,12 +62,7 @@ describe("getSlideAnalytics", () => {
   });
 });
 
-describe("dropoff / distractors / ai-queries", () => {
-  it("getDropoffMap → list", async () => {
-    const out: any = await getDropoffMap("L1");
-    expect(out).toBeTruthy();
-  });
-
+describe("distractors / ai-queries", () => {
   it("getDistratorAnalysis → list", async () => {
     const out: any = await getDistratorAnalysis("L1");
     expect(out).toBeTruthy();

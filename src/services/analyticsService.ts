@@ -11,12 +11,6 @@ import type {
 } from '@/types/domain';
 import type { InsightFeed, InsightEvidence } from '@/features/analytics/types';
 
-export interface DropoffPoint {
-  slide_number: number;
-  title: string;
-  dropoff_count: number;
-}
-
 export interface ConfidenceBySlide {
   slide_number: number;
   title: string;
@@ -66,13 +60,6 @@ export async function getQuizAnalytics(lectureId: string): Promise<QuizAnalytics
 export async function getDashboardData(lectureId: string): Promise<DashboardData> {
   const res = await apiClient.get<{ success: boolean; data: DashboardData }>(
     `/api/analytics/lecture/${lectureId}/dashboard`,
-  );
-  return res.data;
-}
-
-export async function getDropoffMap(lectureId: string): Promise<DropoffPoint[]> {
-  const res = await apiClient.get<{ success: boolean; data: DropoffPoint[] }>(
-    `/api/analytics/lecture/${lectureId}/dropoff`,
   );
   return res.data;
 }
