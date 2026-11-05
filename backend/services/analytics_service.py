@@ -303,21 +303,26 @@ def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
 
 
 def _viewers_by_slide(client: Client, lecture_id: str, owner_id: Optional[str]) -> tuple:
-    """(people who viewed each slide, each slide's view durations), the owner left out."""
+    """(people who viewed each slide, each person's total time on each slide), the owner left out.
+
+    The second is {slide_id: {user_id: seconds summed over that person's views}}: one person
+    opening a slide ten times is one person with one total, never ten durations.
+    """
     view_events = _fetch_all(client.table("learning_events")\
         .select("user_id, event_data")\
         .eq("event_type", "slide_view")\
         .eq("event_data->>lectureId", str(lecture_id)))
     viewers: Dict[str, set] = {}
-    durations: Dict[str, List[float]] = {}
+    durations: Dict[str, Dict[str, float]] = {}
     for ev in view_events:
         uid = ev.get("user_id")
         ed = ev.get("event_data") or {}
         sid = ed.get("slideId")
-        if not uid or uid == owner_id or not sid:
+        if not uid or _same_person(uid, owner_id) or not sid:
             continue
         viewers.setdefault(sid, set()).add(uid)
-        durations.setdefault(sid, []).append(ed.get("duration_seconds") or 0)
+        per_person = durations.setdefault(sid, {})
+        per_person[str(uid)] = per_person.get(str(uid), 0.0) + float(ed.get("duration_seconds") or 0)
     return viewers, durations
 
 
@@ -378,23 +383,20 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
     qid_to_slide = {q["id"]: q["slide_id"] for q in quiz_questions}
 
     quiz_events = _fetch_all(client.table("learning_events")\
-        .select("user_id, event_data")\
+        .select("user_id, event_data, created_at")\
         .eq("event_type", "quiz_attempt")\
-        .eq("event_data->>lectureId", str(lecture_id)))
+        .eq("event_data->>lectureId", str(lecture_id))\
+        .order("created_at"))
 
-    # Aggregate per-slide quiz totals/correct, and who tried
-    quiz_by_slide: Dict[str, Dict[str, Any]] = {}
-    for ev in quiz_events:
-        uid = ev.get("user_id")
-        ed = ev.get("event_data") or {}
-        sid = qid_to_slide.get(ed.get("questionId"))
-        if not sid or not uid or uid == owner_id:
+    # Per slide, each person's first try on each of its questions: {slide_id: {user_id: [correct]}}.
+    # A retry never counts, and one person is one person however often they tried (as /quizzes).
+    quiz_by_slide: Dict[str, Dict[str, List[bool]]] = {}
+    for qid, by_person in people_first_tries(quiz_events or [], owner_id).items():
+        sid = qid_to_slide.get(qid)
+        if not sid:
             continue
-        bucket = quiz_by_slide.setdefault(sid, {"attempts": 0, "correct": 0, "people": set()})
-        bucket["attempts"] += 1
-        bucket["people"].add(uid)
-        if ed.get("correct"):
-            bucket["correct"] += 1
+        for uid, ed in by_person.items():
+            quiz_by_slide.setdefault(sid, {}).setdefault(uid, []).append(bool(ed.get("correct")))
 
     slide_analytics = []
     for slide in slides_data:
@@ -404,16 +406,20 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
         n_viewers = len(viewers.get(sid, ()))
         seen = n_viewers >= MIN_PEOPLE
         view_count = n_viewers if seen else None
-        avg_time = round(sum(durations[sid]) / len(durations[sid]), 1) if seen else None
+        # Each viewer's own total time on the slide, then the mean over viewers.
+        avg_time = round(sum(durations[sid].values()) / len(durations[sid]), 1) if seen else None
         drop_off = max(0.0, 100 * (1 - (n_viewers / total_students))) if seen and total_students > 0 else (0.0 if seen else None)
 
         cb = conf_by_slide.get(sid)
         confusion_rate = round(cb["confused"] / sum(cb.values()) * 100, 1) if cb else None
 
-        qb = quiz_by_slide.get(sid)
-        tried = qb is not None and len(qb["people"]) >= MIN_PEOPLE
-        quiz_attempts = qb["attempts"] if tried else None
-        quiz_success_rate = round(qb["correct"] / qb["attempts"] * 100, 1) if tried else None
+        # quiz_attempts is the people who tried; the success rate is each one's own share of
+        # first tries right, averaged over them (one person on ten questions outweighs no one).
+        qb = quiz_by_slide.get(sid) or {}
+        tried = len(qb) >= MIN_PEOPLE
+        quiz_attempts = len(qb) if tried else None
+        quiz_success_rate = (
+            round(sum(sum(v) / len(v) for v in qb.values()) / len(qb) * 100, 1) if tried else None)
 
         if seen:
             label, reasons = compute_slide_recommendation(

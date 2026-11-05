@@ -197,6 +197,34 @@ def test_five_people_open_the_quiz_figures(world):
     assert (s1["quiz_attempts"], s1["quiz_success_rate"]) == (5, 80.0)
 
 
+def test_the_slides_view_counts_a_person_retrying_twenty_times_once(world):
+    # Five people tried; one of them retried 20 times, wrong every time after a right first try.
+    world[("learning_events", "slide_view")] = [_view(f"u{i}", "s1") for i in range(6)]
+    world[("learning_events", "quiz_attempt")] = (
+        [_try(f"u{i}", "q1", i < 4) for i in range(5)] + [_try("u0", "q1", False)] * 20)
+    s1 = _slides(world)["s1"]
+    assert s1["quiz_attempts"] == 5
+    # first tries only: four of five people got it right the first time
+    assert s1["quiz_success_rate"] == 80.0
+
+
+def test_the_slides_view_success_rate_is_each_persons_first_try(world):
+    # Four people retry into a right answer; their first try was wrong.
+    world[("learning_events", "slide_view")] = [_view(f"u{i}", "s1") for i in range(6)]
+    world[("learning_events", "quiz_attempt")] = (
+        [_try(f"u{i}", "q1", False) for i in range(4)] + [_try("u4", "q1", True)]
+        + [_try(f"u{i}", "q1", True) for i in range(4)])
+    assert _slides(world)["s1"]["quiz_success_rate"] == 20.0
+
+
+def test_the_slides_view_time_is_a_mean_per_person_not_per_view(world):
+    # u0 opens the slide ten times for 10s each (100s in all); four others read it once for 20s.
+    world[("learning_events", "slide_view")] = (
+        [_view("u0", "s1", 10)] * 10 + [_view(f"u{i}", "s1", 20) for i in range(1, 5)])
+    # per person: 100, 20, 20, 20, 20 -> mean 36.0 (per view it would be 13.3)
+    assert _slides(world)["s1"]["average_time_seconds"] == 36.0
+
+
 def test_a_slide_too_few_viewed_gets_no_recommendation_built_on_one_person(world):
     # Four viewers, one failing quiz try: no "low quiz success" reason may come out of it.
     world[("learning_events", "slide_view")] = [_view(f"u{i}", "s1") for i in range(4)]
