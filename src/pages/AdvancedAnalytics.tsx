@@ -838,7 +838,7 @@ export default function AdvancedAnalytics() {
       const result = await apiClient.post<AIInsights>('/api/ai/analytics-insights', withoutNulls({
         total_students: dashboardData?.overview?.uniqueStudents,
         average_score: dashboardData?.overview?.averageScore,
-        total_attempts: dashboardData?.overview?.totalAttempts,
+        people_answered: dashboardData?.overview?.totalAttempts,
         hard_slides: hardSlides,
         ai_model: aiModel,
       }));

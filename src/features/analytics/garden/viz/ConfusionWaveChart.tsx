@@ -6,6 +6,11 @@ function num(m: Insight['metrics'], k: string): number {
   return typeof v === 'number' ? v : Number(v) || 0;
 }
 
+/** A count of people; null when fewer than five people stand behind it. */
+function count(m: Insight['metrics'], k: string): string {
+  return m[k] == null ? '—' : String(num(m, k));
+}
+
 /** A calm confidence-distribution bar plus the supporting signal tiles. */
 export function ConfusionWaveChart({ insight }: { insight: Insight }) {
   const m = insight.metrics;
@@ -25,8 +30,8 @@ export function ConfusionWaveChart({ insight }: { insight: Insight }) {
   const dwellRatio = lectureAvg > 0 ? avgDwell / lectureAvg : 1;
 
   const tiles = [
-    { label: 'Asked the AI tutor', value: `${num(m, 'aiQueryCount')}` },
-    { label: 'Backtracked to it', value: `${num(m, 'backNavCount')}` },
+    { label: 'Asked the AI tutor', value: count(m, 'aiQueryCount') },
+    { label: 'Backtracked to it', value: count(m, 'backNavCount') },
     {
       label: 'Time vs. lecture avg',
       value: lectureAvg > 0 ? `${dwellRatio.toFixed(1)}×` : '—',
@@ -50,7 +55,7 @@ export function ConfusionWaveChart({ insight }: { insight: Insight }) {
               initial={{ scaleX: 0 }}
               animate={{ scaleX: 1 }}
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              title={`${s.label}: ${s.value}`}
+              title={`${s.label}: ${Math.round((s.value / total) * 100)}%`}
             />
           ))}
         </div>

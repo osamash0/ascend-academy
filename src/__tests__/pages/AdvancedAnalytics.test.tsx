@@ -367,7 +367,8 @@ describe("AdvancedAnalytics — nothing withheld ever reaches the model", () => 
     const body = callsTo("/api/ai/analytics-insights")[0][1] as Record<string, unknown>;
     expect(Object.values(body).some((v) => v === null || v === undefined)).toBe(false);
     expect(body).not.toHaveProperty("total_correct");
-    expect(body).toMatchObject({ total_students: 5, average_score: 75 });
+    expect(body).not.toHaveProperty("total_attempts");
+    expect(body).toMatchObject({ total_students: 5, average_score: 75, people_answered: 5 });
   });
 
   it("leaves a withheld figure out of the context sent with a stat card", async () => {

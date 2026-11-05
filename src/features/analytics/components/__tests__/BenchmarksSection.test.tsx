@@ -51,8 +51,10 @@ describe('BenchmarksSection', () => {
     expect(row.textContent).not.toMatch(/[+-]\d/);
   });
 
-  it('shows a dash for the peer average when no peer had a figure', async () => {
-    getLectureBenchmarks.mockResolvedValue(lecture(40, null));
+  it('shows a dash for the peer average of a metric no peer had a figure for', async () => {
+    const data = lecture(40, 40);
+    data.summary = { ...data.summary, completion_rate: { avg: null, min: null, max: null, count: 0 } };
+    getLectureBenchmarks.mockResolvedValue(data);
     renderWithProviders(<BenchmarksSection lectureId="L1" />);
 
     const row = (await screen.findByText('Completion')).parentElement as HTMLElement;
@@ -67,5 +69,34 @@ describe('BenchmarksSection', () => {
     const row = (await screen.findByText('Completion')).parentElement as HTMLElement;
     expect(row.textContent).toContain('40.0%');
     expect(row.textContent).toMatch(/\+0\.0%/);
+  });
+
+  it('counts only the peers that had a figure, not the withheld ones', async () => {
+    const data = lecture(40, 40);
+    // three siblings, two of them withheld: one contributing peer is not enough to compare
+    data.peers = [
+      { lecture_id: 'L2', title: 'A', metrics: pack(40) },
+      { lecture_id: 'L3', title: 'B', metrics: pack(null) },
+      { lecture_id: 'L4', title: 'C', metrics: pack(null) },
+    ];
+    data.summary = Object.fromEntries(KEYS.map((k) => [k, { avg: 40, min: 40, max: 40, count: 1 }])) as typeof data.summary;
+    getLectureBenchmarks.mockResolvedValue(data);
+    renderWithProviders(<BenchmarksSection lectureId="L1" />);
+
+    expect(await screen.findByText(/not enough peers to benchmark yet/i)).toBeInTheDocument();
+  });
+
+  it('says how many peers it compared against, withheld ones left out', async () => {
+    const data = lecture(40, 40);
+    data.peers = [
+      { lecture_id: 'L2', title: 'A', metrics: pack(40) },
+      { lecture_id: 'L3', title: 'B', metrics: pack(40) },
+      { lecture_id: 'L4', title: 'C', metrics: pack(null) },
+    ];
+    data.summary = Object.fromEntries(KEYS.map((k) => [k, { avg: 40, min: 40, max: 40, count: 2 }])) as typeof data.summary;
+    getLectureBenchmarks.mockResolvedValue(data);
+    renderWithProviders(<BenchmarksSection lectureId="L1" />);
+
+    expect(await screen.findByText(/comparing/i)).toHaveTextContent(/against\s*2\s*sibling lectures/i);
   });
 });

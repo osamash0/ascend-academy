@@ -75,7 +75,8 @@ export interface Insight {
   interpretation: string;
   targetRef: InsightTargetRef;
   cue: InsightCue;
-  metrics: Record<string, number | string>;
+  /** A count of fewer than five people is null (never 0 or a small number); render it as a dash. */
+  metrics: Record<string, number | string | null>;
   /** Richer kind-specific structures (student lists, slide ranges) for Layer 2. */
   detail: Record<string, unknown>;
   evidenceKinds: string[];

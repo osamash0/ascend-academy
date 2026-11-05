@@ -162,6 +162,11 @@ function MetricRow({
   );
 }
 
+/** Peers that actually have a figure: a withheld peer (fewer than five people) is not compared against. */
+function contributingPeers(summary: Record<string, BenchmarkPeerSummary> | null): number {
+  return summary ? Math.max(0, ...Object.values(summary).map((s) => s.count)) : 0;
+}
+
 export interface BenchmarksSectionProps {
   lectureId: string;
 }
@@ -212,14 +217,14 @@ export function BenchmarksSection({ lectureId }: BenchmarksSectionProps) {
       const data = lecData;
       const current = data?.current?.metrics ?? null;
       const summary = data?.summary ?? null;
-      const peerCount = data?.peers.length ?? 0;
+      const peerCount = contributingPeers(summary);
       const highlightLabel = data?.current?.title ?? 'This lecture';
       return { current, summary, peerCount, highlightLabel, courseId: data?.course_id ?? null };
     }
     const data = courseData;
     const current = data?.current?.metrics ?? null;
     const summary = data?.summary ?? null;
-    const peerCount = data?.peers.length ?? 0;
+    const peerCount = contributingPeers(summary);
     const highlightLabel = data?.current?.title ?? 'This course';
     return { current, summary, peerCount, highlightLabel, courseId: data?.course_id ?? null };
   }, [scope, lecData, courseData]);
