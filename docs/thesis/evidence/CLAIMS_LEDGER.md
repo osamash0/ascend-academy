@@ -249,3 +249,46 @@ counted only once.)
 | K9 | `FeedbackWidget` matches `/exams/...`; the real routes are `/exam/...` | primer:814 | yes | `src/components/FeedbackWidget.tsx:55-70` vs `src/lib/routes.ts:24-26` | same | none | W |
 | K10 | Three badges never seeded | primer:815 | yes | = #4.20 | same | none | = #4.20 |
 | K11 | `slides.embedding` in prod with no migration | primer:816 | yes (migration part) | = #4.21 | same | none | = #4.21 (P) |
+
+## Chapter 5 re-verified at 2b8b1f7b (2026-11-05)
+
+The pin moved from `0be0081` to `2b8b1f7b` (`\thesisCommit`). Every row below was re-read at
+`2b8b1f7b` by four read-only checks on 2026-11-05; the chapter 5 briefs now cite these lines and
+the "CORRECTION" notes are folded into them. Paths are under `backend/` unless stated. Status:
+**ok** (holds), **moved** (holds, lines changed), **changed** (the system changed since 0be0081),
+**wrong** (the earlier row or brief was wrong), **new** (not in the earlier ledger).
+
+| # | Claim | Status @2b8b1f7b | Evidence @2b8b1f7b / note |
+|---|---|---|---|
+| 5.1 | Scope in SQL, not a Python post-filter | ok, both tutors | Lecture: `supabase/migrations/20260719020001:47-50`. Course: `20261014000000:40-64` (CTE). Exact recall NOT guaranteed with the HNSW index; check EXPLAIN first |
+| 5.2 | Cite the migration comment | ok / moved | Comment `20260719020001:4-16`; `services/ai/retrieval.py:133` still mis-cites `20260719020000`; docstring `:4-7` still describes the post-filter |
+| 5.3 | Query-embedding cache | changed | Key = model + SHA-256(query), 600 s, Redis error = miss (`retrieval.py:41-91`); model added to key in `5b178452` (2026-10-11) |
+| 5.4 | Anchor at similarity 0 | moved | `retrieval.py:168-184`. `has_scope` no longer exists: replaced by the comment at `tutor.py:188-189` (`95fd535b`); docstring `tutor.py:4-9` still claims a refusal. Vestigial |
+| 5.5 | Anti-hallucination layers | changed | Student path = course tutor via Home ask: scope (`v4_spaces_service.py:876-895`, `search_service.py:127-129`), hybrid RRF (`retrieval.py:189-278`), sanitiser (`tutor.py:69-85`), refusal gate (`:295-304, 337-340`), `[Source N]` range filter (`:265-292`). No layer checks content support; no citation required; filter checks the retrieved list, not the truncated context (`:249-261`) |
+| 5.6 | Fallback context | ok, narrower | Lecture tutor falls back to client `slide_text` only without scope / on retrieval failure (`tutor.py:98-99, 184-186`); course tutor has no client context: empty retrieval = refusal |
+| 5.7 | Audience of a crafted upload | changed | Any student or professor can create, fill and publish a Space (`core/auth_middleware.py:263`; `api/v1/v4_spaces.py:59-82`); anyone signed in can join a published one (`v4_spaces_service.py:80-109`). Audience = the Space's members. `722167b0` (2026-10-10) closed foreign-course uploads; `tests/integration/test_upload_course_ownership.py` (10) |
+| 5.8 | Sanitiser + untrusted-context rule | wrong (partly) | Sanitiser escapes only `<`/`>`, not the section markers, and runs on the student's message only; retrieved text inserted raw (`tutor.py:88-114, 244-262`). Rule: `ai/prompts.py:543-544` (course), `:514-519` (lecture). Reader Explain/Ask has NO injection rule (`v4_reader_service.py:616-671, 725-763`); Luna's DATA rule `luna/prompts.py:26`, markers not escaped |
+| 5.9 | Pedagogical rules of the stored questions | **wrong** | The old row cited `BATCH_SLIDE_PROMPT`, whose questions are discarded (`unified_orchestrator.py:1123`; since `bd03f1d5`, 2026-06-17). Stored = deck quiz, `SYNTHESIS_DECK_QUIZ_PROMPT` (`ai/prompts.py:390-416`): 4 options, key on a cited source slide, distractors not stated true there, no negated stems, concept + difficulty, 5–8 asked, cap 12 (`parser/synthesis.py:51`). No Bloom / cognitive level; `validate_mcq` does not run on it (`synthesis.py:37`) |
+| 5.10 | Four options = three distractors | ok | Deck prompt `ai/prompts.py:395` |
+| 5.11 | Card factory, no LLM call | ok, but off | `services/review/card_factory.py:1-2, 63-89`; enqueue gated by `FEATURE_REVIEW_ENGINE` (`unified_orchestrator.py:1293-1303`), off in production |
+| 5.12 | SM-2 behind a stable interface | ok, refined | Four-grade Anki-style variant: ease 2.5 / floor 1.3, intervals 1 and 6 days, 10-minute relearn (`services/review/scheduler.py:9-92`). Live in production via Luna cards (`luna/store.py:16, 258`) |
+| 5.13 | Exam sampling + server seed | ok, but off | `api/v1/exams.py:105-118`; `exam_service.py:23-127`; `FEATURE_EXAM_MODE` off |
+| 5.14 | No draft state | ok | `src/pages/BatchReviewPage.tsx:21-26` |
+| 5.15 | localStorage marker | ok / moved | `BatchReviewPage.tsx:35-69` |
+| 5.16 | Flag never cleared | ok as corrected | Manual save never touches it (`src/services/lectureService.ts:373-379, 648-660`); regenerate recomputes it (`services/ai/tutor_service.py:282-297`); undo restores (`:359`) |
+| 5.17 | RLS bounds direct client access only | ok | Backend uses service-role + asyncpg (`core/database.py:4-8, 150-190`). Policy patterns corrected: P2 role check dropped (`20260713000000:27-58`), P3 via `lecture_visible_to_caller()` (`20260710040000:72-104`) |
+| 5.18 | Permissive policies OR-combine | ok | `20260719020000:23-28` |
+| 5.19 | No test through an endpoint | ok, sharpened | DB tests switch roles at SQL level (~24 files); 3 route tests run as admin (RLS bypassed); unit fakes have no RLS (`tests/conftest.py:246-258`); e2e mocks Supabase |
+| 5.20 | f14 table counts | superseded | F14 redrawn: 79 tables (distinct `CREATE TABLE` names incl. the default partition) |
+| 5.21 | Five steps / six migrations | ok | Numbering as in F15 is in timestamp order |
+| 5.22 | Step 3 introduced what a later step closed | **wrong step** | Step 3 (`20260615000800`) is closed by step **5** (`20260621000000:3-11`), not 4; both landed 2026-06-15 (`343890c5`, `58126a7b`) |
+| 5.23 | Reproduced exploit | ok | Class + fix `20260721000001:10-76`; local Postgres 18 (`:23-24`); 13 tests `tests/db/test_s1_rpc_exposure_lockdown.py`. Second route (anon default privileges) `20261011000000:4-10` |
+| 5.24 | Seven INVOKER functions, no rows for anon | ok (static only) | No test asserts it. The "48 / 8 exploitable" audit is recorded only on unmerged `fcb3f1e`; the pin records 42 (`20261011000000:7-8`); no production apply date in the repository |
+| 5.25 | Quality chain on the deck quiz | new | Grounding: structural fails dropped, weak support only flagged (`synthesis.py:54-62`; `parser/quiz_grounding.py:127-174`; `85c462f5`). Answer check by a second model without the key; one repair, then drop; check error keeps (`synthesis.py:74-79, 240-276, 343-364`; `461afc40`, 2026-10-30). Cross-lecture questions bypass both |
+| 5.26 | Live v4 learning features | new | Luna practice cards (LLM, shape-checked, owner-scoped; `luna/store.py:204-228`, migration `20261025000000:72-90`); v4 practice from stored questions (`v4_practice_service.py:30-38`); checkpoints cached not stored (`v4_rehearsal_service.py:381-482`); teach-back verbatim-quote rule (`v4_teachback_service.py:158-217`); rehearsal stores client-reported correctness only (`:486-526`) |
+| 5.27 | Owner asking in their own Space | new, found then fixed | 500 at the pin (owner not enrolled; `v4_spaces_service.py:895` → `search_service.py:127-129`); fixed after the pin in `4d2a6e41` (PR #173, 2026-11-05) + `tests/unit/test_v4_ask.py`; not deployed when checked |
+| 5.28 | Student Space owner reaches classic analytics | new, open | Ownership-only check (`api/v1/analytics.py:186-198`); dashboard reads via the RLS-bypassing pool and returns raw user ids + verbatim tutor questions (`services/analytics_service.py:647-834`). Static reading; planned fix in the "How it's landing" privacy work (PR #172). Do not publish request details while open |
+| 5.29 | Publishing gates member visibility | new, false | Publishing gates joining and discovery only; members see new Lessons at once (`v4_spaces_service.py:89-99, 139-141, 171-176`) |
+| 5.30 | PyMuPDF table-search race | new, after the pin | `b137e1b5` (PR #174, merged 2026-11-05): 13–22 of 82 pages differed under 8 threads. Not on the live parse at the pin (single-threaded `get_text("text")`, `unified_orchestrator.py:166-176, 854`); only legacy import routes + Studio pages (flag off) |
+| 5.31 | Dependency pins differ dev vs image | new | arq 0.28.0 vs `>=0.26,<0.27` (`requirements-docker.txt:54`), also asyncpg, openai, google-genai, groq; parity test checks names only (`tests/unit/test_requirements_parity.py:61-97`) |
+| 5.32 | Stack decisions vs defaults | new | Decisions with recorded reasons: queue `6ce7b5f1`, Redis split `43a86927`, PyMuPDF `227267e7`/`b1c7a428`, LiteLLM removal `68a091e0`, HNSW `20260719000002:1-11`, WebP posters PR #12, 768-dim embeddings `ai/embeddings.py:11-15`. Defaults: scaffold stack `184e5742`, FastAPI, Arq as library, pgvector over a separate store, nginx, base images |

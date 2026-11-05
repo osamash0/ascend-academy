@@ -23,7 +23,7 @@ rectangle "**Learning platforms / LMS**\ncourses, enrolment, grading\n----\nRich
 
 rectangle "**Retrieval-augmented QA**\ngrounded answers over a corpus\n----\nAnswers //questions// over documents.\nOptimises faithfulness and citation.\nDoes not durably materialise\nreusable learning objects." as RAG #F2F2F2
 
-rectangle "**THIS WORK**\nlecture materials to structured\neducational content\n----\n• takes a raw PDF as the //primary// input\n  and keeps it as the reading surface\n• materialises persistent, addressable objects:\n  slides, MCQs with Bloom levels, embeddings\n• layers pedagogy on the derived objects:\n  reader help, Luna sessions, practice, tutor\n• server-authoritative: the database defines\n  what a slide //is// once parsed" as THIS #BFBFBF
+rectangle "**THIS WORK**\nlecture materials to structured\neducational content\n----\n• takes a raw PDF as the //primary// input\n  and keeps it as the reading surface\n• materialises persistent, addressable objects:\n  slides, MCQs tagged by concept and difficulty,\n  embeddings\n• layers pedagogy on the derived objects:\n  reader help, Luna sessions, practice, tutor\n• server-authoritative: the database defines\n  what a slide //is// once parsed" as THIS #BFBFBF
 
 DOC -[#1A1A1A]-> THIS : "structure,\nbut no pedagogy"
 LMS -[#1A1A1A]-> THIS : "pedagogy,\nbut no ingestion"

@@ -1,12 +1,56 @@
 \chapter{Implementation}
 \label{ch:implementation}
 
+% Briefs re-verified against \thesisCommit{} on 2026-11-05; evidence in
+% docs/thesis/evidence/CLAIMS_LEDGER.md, section "Chapter 5 re-verified".
+% Each \TODO is evidence and structure for the author's own prose, not text.
+
 \section{Technology Stack}
 \label{sec:stack}
 
-\TODO{Brief and factual. Justify only the choices that were genuinely
-decisions, and skip the ones that were defaults --- a bachelor thesis loses
-credit for pretending every dependency was deliberated.}
+\TODO{Evidence, not prose. Separate decisions from defaults and say which is
+which; do not justify a default after the fact.
+Defaults, with no recorded deliberation: React 18.3, Vite 6 and TypeScript 5.8
+with Tailwind and Supabase (Auth, Postgres, row-level security), all from the
+January scaffold (\code{184e5742}, 2026-01-23); FastAPI; Arq as the specific
+queue library, and therefore Redis as its broker; Supabase's pgvector rather
+than a separate vector store (no alternative is recorded anywhere); nginx; the
+Node 20 and Python 3.11 base images (\code{Dockerfile.frontend:3},
+\code{Dockerfile:12}).
+Decisions with a recorded reason, each with its date and commit:
+(1) a background job queue instead of parsing in the API process, so long jobs
+survive a crash and report progress (\code{6ce7b5f1}, 2026-05-19);
+(2) Redis split into an LRU cache and a no-eviction, append-only queue, because
+LRU eviction could drop queued parse jobs (\code{43a86927}, 2026-07-16;
+\code{docker-compose.prod.yml:12--14, 33--36});
+(3) PyMuPDF for extraction (\code{227267e7}, 2026-04-28) and pdf2image/Poppler
+dropped for a memory leak (\code{b1c7a428}, 2026-05-01) --- but raw
+\code{get\_text("text")} became the only live extractor by attrition, not by
+decision, and \cref{fig:parser-bench} later rated five methods above it;
+(4) the LiteLLM gateway, added with the queue and removed on 2026-08-25
+(\code{68a091e0}: no live callers, 1\,GB of a 4\,GB host, a health check that
+could block start-up), replaced by in-process chains (\cref{sec:multi-provider});
+(5) HNSW instead of IVFFlat, because IVFFlat recall degraded over re-parses
+(migration \code{20260719000002:1--11});
+(6) WebP posters after a Supabase egress overage, cutting egress by 97.6\,\%
+(PR \#12, 2026-08-17; \code{parser/poster.py:6--10});
+(7) the Gemini embedding model at 768 dimensions, kept so that the retirement of
+the previous model needed no schema change (\code{ai/embeddings.py:11--15, 21,
+29}).
+One reproducibility caveat: the development pins and the image's ranges differ
+--- Arq 0.28.0 in development against \code{>=0.26,<0.27} in the image, and
+likewise asyncpg, openai, google-genai and groq
+(\code{requirements.txt} vs.\ \code{requirements-docker.txt:54}); the parity
+test compares package names only (\code{tests/unit/test\_requirements\_parity.py:61--97}).
+One library constraint, found after the pinned revision: PyMuPDF's table search
+keeps page state in module globals, so concurrent layout analysis mixed pages
+(13--22 of 82 differed); fixed with one lock in \code{b137e1b5} (PR \#174,
+2026-11-05). At \thesisCommit{} the threaded analysis ran only on legacy import
+routes and behind the switched-off Studio pages flag; the live parse reads text
+single-threaded (\code{unified\_orchestrator.py:166--176, 854}), so no reported
+result depends on it.
+Do not claim a pgvector client library: vectors go through supabase-py
+(\code{cache.py:383, 554}).}
 
 \section{The Grounded Tutor}
 \label{sec:tutor}
@@ -23,65 +67,172 @@ the derived objects exist for.
 \subsection{Retrieval Scoping}
 \label{sec:retrieval}
 
-\TODO{Emphasise that the lecture scope is applied in the SQL \code{WHERE}
-clause rather than as a post-filter in application code, and explain why that
-matters: with a Python post-filter over a global nearest-neighbour scan, a
-lecture's relevant slides silently stop appearing once the candidate window
-fills with other lectures' content. The migration comment explains this; cite
-it.}
-
-\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.2) The comment to cite is in migration \code{20260719020001\_match\_slides\_by\_lecture.sql:4--16}. \code{retrieval.py:130} mis-cites 20260719020000.}
-
-\TODO{Also cover the query-embedding cache, and the anchoring of the current
-slide at a synthetic similarity of zero --- the code comment explains that this
-prevents refusal logic from confusing "we chose this slide as an anchor" with
-"this slide is highly relevant". A small detail that shows care.}
-
-\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.4) The lecture tutor no longer has refusal logic: \code{has\_scope} is assigned and never read. The similarity-zero guard protects a deleted gate. Present it as vestigial, not as care.}
+\TODO{Evidence, not prose. Two tutors, two scopes; lead with the course tutor,
+the path students take (\cref{fig:tutor-sequence}).
+Course tutor (Home ask bar): hybrid retrieval inside one course --- a vector
+search (similarity above 0.65, in SQL, limit 12) and a full-text search (limit
+12), fused by reciprocal rank fusion (constant 60) to the top six
+(\code{ai/retrieval.py:189--278}). The scope is applied in SQL: a CTE restricted
+to the course's live lectures
+(migration \code{20261014000000:40--64}).
+Found, then fixed: until \code{b66a97c6} (2026-10-11) the scoped search joined
+embeddings on \code{lecture\_id}, which is empty for most rows because
+embeddings are keyed by content hash, so the course tutor and global search
+were blind to most slides (migration header \code{:4--12}; test
+\code{tests/db/test\_global\_search\_scope.py:98--130}). The course column of
+\cref{fig:results} predates this fix.
+Lecture tutor (the classic path, professors only in production): the scope sits
+in the SQL \code{WHERE} clause (lecture id or content hash) of
+\code{match\_slides\_by\_lecture} (\code{20260719020001:47--50}). The reason ---
+a Python post-filter over a global nearest-neighbour scan loses a lecture's
+slides once the window fills with other lectures --- is the migration's own
+comment (\code{:4--16}); cite it. Note that \code{retrieval.py:133} still cites
+the wrong migration and its docstring (\code{:4--7}) still describes the
+post-filter.
+Query-embedding cache: key = embedding model plus SHA-256 of the query, 600\,s,
+any Redis error counts as a miss (\code{retrieval.py:41--91}); the model joined
+the key in \code{5b178452}, so a provider switch cannot reuse vectors.
+The lecture tutor anchors the current slide at similarity 0.0
+(\code{retrieval.py:168--184}). Present this as vestigial: it guarded a pre-model
+refusal that has been removed (\code{tutor.py:188--189}), although the module
+docstring (\code{tutor.py:4--9}) still claims it.
+Do not claim exact recall from SQL scoping for the lecture tutor: with the HNSW
+index the \code{WHERE} can act as a filter inside an approximate scan; check the
+query plan before saying more.}
 
 \subsection{Anti-Hallucination Mechanisms}
 \label{sec:anti-hallucination}
 
-\TODO{Four layers, in order: input sanitisation, scoped retrieval, prompt
-constraints, and post-hoc citation validation that drops any cited slide index
-absent from the retrieved set. Be precise about what each one can and cannot
-guarantee. Post-hoc validation catches invented slide numbers; it does not
-verify that the answer's content is actually supported by the cited slide.}
+\TODO{Evidence, not prose. Walk the five points of \cref{fig:tutor-sequence} in
+order and say, for each, what it guarantees and what it does not.
+(1) Scope: the chosen Space must be one the caller belongs to
+(\code{v4\_spaces\_service.py:876--895}, \code{search\_service.py:127--129}).
+Found, then fixed: at \thesisCommit{} this check also rejected an owner who had
+not joined their own Space, and the request failed with a server error; fixed
+in \code{4d2a6e41} (PR \#173, 2026-11-05) with
+\code{tests/unit/test\_v4\_ask.py}.
+(2) Scoped hybrid retrieval (\cref{sec:retrieval}).
+(3) Input sanitising: trims, caps at 2\,000 characters, escapes < and >, and
+marks known injection phrasings --- on the student's own message only
+(\code{tutor.py:69--85}).
+(4) Refusal gate: if no retrieved slide reaches similarity 0.65, a fixed
+``not covered'' reply returns before any model call (\code{tutor.py:295--304,
+337--340}). Since the SQL already filters at 0.65 and keyword-only hits score 0,
+this means ``at least one vector hit survived''.
+(5) Post-hoc citation check: a \code{[Source N]} whose N lies outside the
+retrieved set is dropped (\code{tutor.py:265--292}).
+What none of them does: check that the answer's content is supported by the
+cited slide; require any citation; or remove an invalid marker from the reply.
+The check runs against the retrieved list, not against what fit into the
+10\,000-character context, so a truncated fifth or sixth source still passes
+(\code{tutor.py:249--261}).
+Contrast the other two student surfaces (\cref{fig:groundedness}): Luna checks
+its own output against the page --- a move to a page that does not exist is
+dropped, and a highlight survives only if it occurs verbatim on the page
+(\code{luna/validate.py:85--91, 135--146}); the reader's Explain and Ask have no
+retrieval and no citations, only prompt rules
+(\code{v4\_reader\_service.py:605--613}). In production most reader and Luna
+requests are answered by Groq (server cost ledger, 2026-10-29;
+\cref{sec:provider-history}).}
 
 \subsection{Prompt Injection via Uploaded Content}
 \label{sec:injection}
 
-\TODO{Connect back to \cref{sec:stakeholders}: because uploads are not
-professor-only, a crafted PDF can reach every other student's tutor context.
-The mitigation is prompt-level --- the retrieved context is explicitly labelled
-untrusted --- plus a sanitiser that escapes delimiters and rewrites injection
-phrasings. Then state the limitation honestly: prompt-level defences against
-prompt injection are mitigations, not sound guarantees. Saying so demonstrates
-judgement; claiming otherwise invites an easy objection.}
-
-\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#3.2, \#5.7, \#5.8) The audience is students who chat about that lecture or course, not every student. The sanitiser runs only on the student's own message, never on retrieved slide text, so against uploaded-content injection the only defence is the prompt rule. Separately verified on 2026-10-10: the single-file upload endpoint does not check ownership of the \code{course\_id} it is given, which widened the audience to any course whose id is known. Fixed in \code{722167b0} (2026-10-10) with \code{backend/tests/integration/test\_upload\_course\_ownership.py}, deployed 2026-10-30; write it as found-then-fixed.}
+\TODO{Evidence, not prose. Who can plant text: any student or professor can
+create a Space, upload a PDF into it and publish it (\code{require\_creator},
+\code{core/auth\_middleware.py:263}; \code{v4\_spaces.py:59--82};
+\code{upload.py:101--130, 568--600}), and any signed-in user can join a
+published Space (\code{v4\_spaces\_service.py:80--109}). Its members then read
+that text through all three answer surfaces. Connect this to
+\cref{sec:stakeholders}: the audience is the Space's members, not every student.
+Found, then fixed: the single-file upload did not check ownership of the course
+it was given, which widened the audience to any course whose id was known;
+fixed in \code{722167b0} (2026-10-10) with
+\code{tests/integration/test\_upload\_course\_ownership.py} (10 tests).
+Defences, per surface. Tutors: a prompt rule that the retrieved context is
+untrusted document text and must not be obeyed (\code{ai/prompts.py:543--544};
+lecture tutor \code{:514--519}); retrieved text itself is inserted raw
+(\code{tutor.py:88--114, 244--262}), and the sanitiser escapes only < and >, not
+the prompt's own section markers. Luna: page text sits between markers and the
+prompt calls it data (\code{luna/prompts.py:26, 65--69}), but the markers are not
+escaped inside the page, and titles and related snippets sit outside them. The
+reader's Explain and Ask: no injection rule at all; the page text sits in an
+unescaped fence (\code{v4\_reader\_service.py:616--671, 725--763}).
+Then state the limitation plainly: these are prompt-level mitigations, not
+guarantees; output checks narrow the damage only where they exist (Luna's
+verbatim highlight check, the tutor's citation range).
+Do not claim that the sanitiser escapes delimiters or that it runs on uploaded
+content.}
 
 \section{Assessment Generation}
 \label{sec:assessment}
 
-\TODO{How quiz questions are produced inline by the pipeline rather than by a
-separate user action, and the quality constraints encoded in the prompt:
-one concept-testing question per slide, four plausible same-length distractors
-reflecting real misconceptions, a preference for application over recall, and an
-explicit ban on "all of the above" style options. These are pedagogical
-decisions expressed as prompt constraints, which is worth naming as such.}
-
-\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.10) Four \emph{options} means \emph{three} distractors.}
+\TODO{Evidence, not prose. The earlier brief described the wrong prompt. Its
+rules --- one question per slide, application over recall, no ``all of the
+above'', same-length distractors --- live in the per-slide prompt
+(\code{ai/prompts.py:99--130}), whose questions are discarded
+(\code{unified\_orchestrator.py:1123}; \code{persist.insert\_slide\_quizzes} has
+no caller outside tests). That has been so since \code{bd03f1d5} (2026-06-17),
+before \thesisEarlierCommit{}; an instructive dead path, worth one sentence.
+What is stored is the deck quiz, generated inline in the parse
+(\cref{fig:pipeline}). \code{SYNTHESIS\_DECK\_QUIZ\_PROMPT}
+(\code{ai/prompts.py:390--416}) asks for 5--8 questions from up to ten selected
+slides (\code{synthesis.py:167--170}): four options (one key, three distractors),
+the key stated on one cited source slide, distractors not stated as true there,
+no negated questions, a concept name and a difficulty, in the lecture's own
+language. The code caps the list at 12 (\code{synthesis.py:51}).
+The quality chain after generation, all added after \thesisEarlierCommit{}:
+(1) a lexical grounding check that drops structural failures (no source, source
+out of range, empty slide, no answer) but only flags weak support, because its
+probe falsely dropped 14 of 16 genuine paraphrases (\code{synthesis.py:54--62};
+\code{parser/quiz\_grounding.py:127--174}; \code{85c462f5});
+(2) an independent answer check: a second model answers from the cited slide
+without seeing the key; a disagreement earns one repair on the same slide, a
+second disagreement drops the question, and a failed check keeps it
+(\code{synthesis.py:74--79, 240--276, 343--364}; \code{461afc40}, 2026-10-30).
+Report the probe numbers only as what \code{backend/eval/quiz\_answer\_check.py}
+measured. These are pedagogical and quality decisions expressed as prompt
+constraints and checks; name them as such.
+Do not claim Bloom or cognitive-level tags on stored questions (concept and
+difficulty only), that \code{validate\_mcq} runs on the stored quiz (it does
+not; \code{synthesis.py:37}), or that cross-lecture questions pass the checks
+(they bypass them, and need the switched-off course-brain flag).}
 
 \section{Spaced Repetition and Exam Mode}
 \label{sec:srs-impl}
 
-\TODO{The card factory derives review cards from existing questions with no
-further LLM call --- a cost decision worth stating. Cover SM-2 behind its stable
-interface, and mock-exam sampling: coverage-first, weakness-weighted, with a
-server-generated seed so a student cannot replay a favourable one. That last
-detail is a nice example of an integrity requirement met in the sampling design
-rather than bolted on.}
+\TODO{Evidence, not prose. Separate what runs in production from what is built
+but switched off.
+Live: spaced review of Luna's practice cards. After a session the student can
+ask for 3--6 practice questions written by the model from the session's pages
+(\code{luna/prompts.py:196--212}); they are shape-checked only
+(\code{luna/validate.py:119--132}) and stored as the student's own review cards
+(\code{source\_type} \code{luna\_session} with an owner; migration
+\code{20261025000000:72--90}; \code{luna/store.py:204--228}), scheduled by the
+SM-2 variant below (\code{v4\_luna.py:211--224}). Also live: v4 practice over
+the stored quiz questions, graded on the server
+(\code{v4\_practice\_service.py:30--38}); checkpoints written by the model from an
+idea's pages and cached, not stored (\code{v4\_rehearsal\_service.py:381--482});
+teach-back, where the model judges an explanation against key points and only
+quotes that occur verbatim count (\code{v4\_teachback\_service.py:158--217}); and
+exam rehearsal, written per request, of which only per-question correctness, as
+reported by the client, is stored (\code{v4\_rehearsal\_service.py:293--370,
+486--526}).
+Built but off (\code{FEATURE\_REVIEW\_ENGINE}, \code{FEATURE\_EXAM\_MODE}): the
+card factory turns each stored question into a card with no further model call,
+a cost decision worth stating (\code{review/card\_factory.py:1--2, 63--89};
+enqueue gated at \code{unified\_orchestrator.py:1293--1303}); mock exams sample
+coverage first, then by weakness, with a server-generated seed stored on the
+attempt so a student cannot replay a favourable draw --- an integrity
+requirement met in the sampling design (\code{api/v1/exams.py:105--118};
+\code{exam\_service.py:23--127}).
+The scheduler is a four-grade, Anki-style variant of SM-2 behind
+\code{schedule(state, rating, now)}: ease starts at 2.5 with a floor of 1.3,
+graduating intervals of 1 and 6 days, a lapse relearns after 10 minutes
+(\code{review/scheduler.py:9--92}).
+Do not claim that the card factory or mock exams reach students, classic SM-2
+with a 0--5 scale, server-side grading of rehearsal answers, or that any v4
+question generator uses the deck quiz's answer check.}
 
 \section{Human-in-the-Loop Review}
 \label{sec:review}
@@ -92,16 +243,25 @@ rather than bolted on.}
    to a Space in v4 has no review step at all.}
   {fig:batch-review}
 
-\TODO{This is a first-order finding for a thesis about generating educational
-content, so do not bury it. There is no draft/published state --- the source
-comment says so verbatim --- meaning AI-extracted content reaches students
-before any human inspects it, and the completion marker is stored only in
-browser local storage. Additionally, the review flag is never cleared on save,
-so a corrected slide stays flagged permanently. Discuss what the pipeline would
-need for review to become a genuine gate, and what that would cost in latency
-for the professor.}
-
-\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.16) Manual saves never clear the flag, but an AI regenerate recomputes and can clear it. Write ``a manually corrected slide stays flagged''.}
+\TODO{Evidence, not prose. A first-order finding for a thesis about generating
+educational content; keep it prominent.
+Classic flow (\cref{fig:batch-review}): lectures have no draft state, as the
+page's own comment says (\code{BatchReviewPage.tsx:21--26}); content is visible
+as soon as the parse finishes; ``Done reviewing'' lives in browser storage only
+(\code{:35--69}). A manual save never clears the review flag
+(\code{lectureService.ts:373--379, 648--660}), but an AI regenerate recomputes
+and can clear it (\code{ai/tutor\_service.py:282--297}), and undo restores it
+(\code{:359}). Write ``a manually corrected slide stays flagged''.
+v4 makes the finding stronger: a Space owner adds Lessons through the same batch
+upload with no review screen and no view of flagged slides
+(\code{spaces/data/liveRepository.ts:261--269}). Publishing gates joining and
+discovery only; members of a published Space see a new Lesson the moment its
+parse creates it (\code{v4\_spaces\_service.py:89--99, 139--141, 171--176}).
+Then the design question: what a real gate would need (a lecture-level draft
+state, publishing on review) and what it would cost --- the time before
+students see anything, against the immediacy the instant reader was built for
+(\cref{sec:pipeline}).
+Do not claim that publishing a Space gates what its members see.}
 
 \section{Authorisation}
 \label{sec:authorisation}
@@ -113,14 +273,38 @@ for the professor.}
    and check ownership in application code.}
   {fig:trust-boundaries}
 
-\TODO{Explain row-level security as the enforcement point, then the four policy
-patterns. The important structural point is that Postgres combines permissive
-policies with a logical OR, so effective visibility is the union of every
-applicable policy rather than the intersection --- and that no test composes a
-real endpoint against real policies, so the union behaviour remains unguarded
-at the integration level. A documented, citable limitation.}
-
-\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.17) RLS is the boundary for direct client access only. The backend mostly uses the service-role client and asyncpg, bypasses RLS, and checks ownership in Python. The figure has been corrected to say so.}
+\TODO{Evidence, not prose. Follow \cref{fig:trust-boundaries}: the browser holds
+the anonymous key and meets three database-side boundaries --- row-level
+security on all 79 tables (four policy patterns), function execute grants, and
+storage policies --- while the backend mostly bypasses row-level security (the
+service-role client and the asyncpg pool, \code{core/database.py:4--8,
+150--190}) and checks ownership in Python. Two policy patterns changed before
+the pinned revision and the old brief had them wrong: creator-owned rows no
+longer check the professor role (\code{20260713000000:27--58}), and slides and
+quiz questions follow \code{lecture\_visible\_to\_caller()}
+(\code{20260710040000:72--104}).
+The structural point: permissive policies OR-combine, so visibility is the union
+of every applicable policy, not the intersection
+(\code{20260719020000:23--28}).
+The testing gap, stated precisely: the database tests replay every migration
+into a throwaway Postgres and switch to the anonymous or authenticated role to
+assert visible rows and function privileges (about 24 files in
+\code{backend/tests/db/}); the three tests that drive real API routes on real
+Postgres use the admin connection, so row-level security is bypassed; unit tests
+use an in-memory fake without it (\code{tests/conftest.py:246--258}); the
+browser tests mock Supabase. No test checks a boundary through an API route.
+A consequence of ``ownership, not role'' that this audit found, open at
+\thesisCommit{}: a student who owns a Space reaches the classic per-lecture
+analytics for its Lessons, which check ownership but not role
+(\code{api/v1/analytics.py:186--198}), and one of them reads through the
+connection that bypasses row-level security and returns members' raw user ids
+and verbatim tutor questions (\code{services/analytics\_service.py:647--834}).
+The frontend restricts these pages to professors; the backend does not. This is
+static reading, and the privacy work on the ``How it's landing'' view plans to
+close it. Describe the class; give no request details while it is open.
+Do not claim that any test exercises row-level security through an endpoint, or
+that the classic students route leaks raw ids (it reads through row-level
+security and pseudonymises).}
 
 \subsection{Iterative Hardening}
 \label{sec:hardening}
@@ -132,27 +316,40 @@ at the integration level. A documented, citable limitation.}
    and the arc has no final state.}
   {fig:security-arc}
 
-\TODO{\Cref{fig:security-arc} is the strongest security material available:
-each migration header documents its own attack, so the sources are primary. Walk
-the five steps and be explicit that step three (opening professor self-signup)
-\emph{introduced} the vulnerability step four closes --- an honest account of
-iterative hardening is more instructive than a tidy one.}
-
-\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.21) Five steps span six migrations. Step 1's header documents no attack: it created the self-insert policy that step 2 removes. Steps 4 and 5 as drawn are in reverse chronological order; check against migration timestamps.}
-
-\TODO{Then present the one fully reproduced exploit in detail, because it is a
-teaching example: as an unauthenticated role, a security-definer function with a
-caller-supplied identifier and no ownership check leaked a victim's social
-graph. The root cause was a four-way conjunction including Postgres's implicit
-grant of execute permission to PUBLIC on function creation. It was reproduced
-against a real database and is covered by regression tests.}
-
-\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.23) The reproduction ran on plain Postgres, where only the PUBLIC grant exists. On Supabase, default privileges also grant EXECUTE to \code{anon} explicitly; include that second route.}
-
-\TODO{Also include the negative result, which is worth as much: seven other
-functions are callable by the unauthenticated role but return no rows, because
-they are security-\emph{invoker} and row-level security therefore evaluates as
-the caller. Anon-callable is not anon-readable. Presenting the contrast shows
-you understood the mechanism rather than pattern-matching on a keyword.}
-
-\TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#5.24) The seven-function negative result holds, but must not read as ``the rest is benign'': a 2026-09-17 production audit found 48 anon-executable SECURITY DEFINER functions, 8 exploitable (3 leaking, 5 writable). Fixed by migration \code{20261011000000\_revoke\_anon\_security\_definer\_execute.sql} (\code{537b9806}, PR \#77), which revokes \code{anon} EXECUTE on every SECURITY DEFINER function and is guarded by \code{backend/tests/db/test\_anon\_security\_definer\_exposure.py}; applied to production 2026-10-11. Report it as found-then-fixed, and re-probe production before citing its current state.}
+\TODO{Evidence, not prose. Walk \cref{fig:security-arc} in its two phases; each
+migration header documents its own problem, so the sources are primary.
+Phase 1, numbered as in the figure: 1 roles in their own table with
+\code{has\_role()}, which also created a self-insert policy
+(\code{20260122202809:134--136}; this header documents no attack); 2 that policy
+removed (\code{20260502000003:1--8}); 3 roles set only at signup, then opened to
+any email domain (\code{20260601000000}, \code{20260615000800:1--12}); 4 profile
+trust columns frozen (\code{20260620000000}); 5 professor reads rescoped to their
+own enrolled students (\code{20260621000000:3--11}). Be explicit that step 3
+introduced the cross-tenant read that step 5 closed --- not step 4. The opening
+and the closing landed on the same day (\code{343890c5}, \code{58126a7b},
+2026-06-15); infer no exposure window from git dates.
+July, the one fully reproduced exploit, as a teaching example of a class: a
+SECURITY DEFINER function taking a caller-supplied user id, with no
+\code{auth.uid()} check, left executable through the implicit PUBLIC grant
+(\code{20260721000001:10--54}); reproduced on local Postgres 18 (\code{:23--24}),
+fixed by revoking from PUBLIC, anon and authenticated (\code{:58--76}), guarded
+by 13 tests (\code{tests/db/test\_s1\_rpc\_exposure\_lockdown.py}). The negative
+result: seven SECURITY INVOKER functions are callable by anon but return
+nothing, because row-level security evaluates as the caller --- anon-callable is
+not anon-readable. That holds by static reading only; no test asserts it.
+Phase 2, found then fixed: 6 the second route --- Supabase grants execute to
+anon directly, so revoking from PUBLIC was not enough; a probe of production on
+2026-10-11 found 42 definer functions executable by anon
+(\code{20261011000000:4--10, 49--59}; guarded by
+\code{tests/db/test\_anon\_security\_definer\_exposure.py}); 7 audit week one
+(\code{20261024000000:1--22}; 8 tests); 8 the PDF bucket had been made private in
+the repository in May, but that migration never ran in production, so every
+lecture PDF was publicly listable --- migration drift, not a code bug
+(\code{20261024010000:3--8}, \code{20261024020000:1--6}; 11 tests); 9 profile and
+XP integrity (\code{20261101015412:1--69}; 13 tests). Write the arc as
+continuing: it has no final state.
+Do not claim the production audit that counted 48 such functions, 8 of them
+exploitable (its record lives only on an unmerged branch; the pinned revision
+records 42), a production apply date the repository
+does not record, or that step 7's storage rule covers every key (it falls back
+for keys without a lecture id). Describe classes; never give request details.}
