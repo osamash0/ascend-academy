@@ -189,3 +189,18 @@ def test_a_box_around_text_is_its_frame_not_a_figure():
     assert not [b for b in pb["blocks"] if b["kind"] == "figure"]
     assert "Axioms are derivation rules" in _texts(pb)
     d.close()
+
+
+def test_the_boxes_do_not_move_when_small_glyph_heights_are_left_on(doc, fixture):
+    """The switch is process-wide, and another thread's table search can leave
+    it on (layout_analyzer); Studio's boxes are measured at full height anyway,
+    and the switch is left as it was found."""
+    was = fitz.TOOLS.set_small_glyph_heights()
+    fitz.TOOLS.set_small_glyph_heights(True)
+    try:
+        for n in range(1, 13):
+            expected = next(p for p in fixture["pages"] if p["page"] == n)
+            assert extract_blocks(doc[n - 1], n)["blocks"] == expected["blocks"]
+        assert fitz.TOOLS.set_small_glyph_heights() is True
+    finally:
+        fitz.TOOLS.set_small_glyph_heights(was)
