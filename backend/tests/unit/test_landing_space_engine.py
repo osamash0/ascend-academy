@@ -179,3 +179,29 @@ def test_a_page_skipped_by_most_is_not_where_people_stopped():
 def test_a_real_drop_still_says_where_people_stopped():
     found = lesson_insights(_leaky([10, 10, 10, 3, 2]))
     assert [pages_of(i) for i in found if i["kind"] == "leaky_bucket"] == [[3]]
+
+
+def test_a_quiz_share_counts_each_person_once():
+    # r0 gets ten questions right; four others miss their one. By tries that is 10 of 14 (71%); by people, 1 of 5 (20%).
+    pf = PageFacts(readers=readers(10), sittings=[40.0] * 10)
+    pf.tries = [Try("r0", "l1", 3, None, True, AT, "practice") for _ in range(10)] + tries({"r1", "r2", "r3", "r4"}, lambda p: False)
+    row = page_row("l1", 3, pf)
+    assert (row["quiz_success_rate"], row["quiz_attempts"]) == (20.0, 5)
+
+
+def _misaligned(ratings):
+    """Page 3: six readers tried its question and one got it right; `ratings` is who said how it read."""
+    pf = PageFacts(ratings=ratings)
+    pf.tries = tries(readers(6), lambda p: p == "r0")
+    return _with_page_three(pf)
+
+
+def test_a_question_that_tests_something_else_needs_five_who_said_how_the_page_read():
+    # No one said how page 3 read: "it read easily" would be a guess from silence.
+    assert not any(i["kind"] == "quiz_misalignment" for i in lesson_insights(_misaligned({})))
+
+
+def test_five_who_found_the_page_fine_and_then_missed_its_question_are_a_finding():
+    said = {"r0": "got_it", "r1": "got_it", "r2": "unsure", "r3": "unsure", "r4": "unsure"}
+    found = [i for i in lesson_insights(_misaligned(said)) if i["kind"] == "quiz_misalignment"]
+    assert [pages_of(i) for i in found] == [[3]]

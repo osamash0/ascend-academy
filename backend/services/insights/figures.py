@@ -4,7 +4,7 @@
 - landing: of the pages at least `floor` members read that week, the percent
   where fewer than one in five of them needed it;
 - cleared: of the checkpoint questions members tried for the first time that
-  week, the percent they got right, once at least `floor` people tried one.
+  week, the percent they got right, each person counted once, once at least `floor` people tried one.
 
 Who read a page and who needed it are not decided here: each week is folded
 by `space_facts.lesson_facts`, the one rule every number on the door shares
@@ -22,7 +22,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from backend.services.insights.sources.space import Event, SpaceData
-from backend.services.insights.space_facts import first_tries, lesson_facts
+from backend.services.insights.space_facts import first_tries, lesson_facts, person_share
 
 WEEKS = 8
 #: A page lands in a week when fewer than this share of its readers needed it.
@@ -69,7 +69,7 @@ def figures(data: SpaceData, floor: int) -> dict[str, Any]:
         if w is not None:
             tries[w].append(t)
     cleared: list[Optional[int]] = [
-        round(100 * sum(1 for t in ts if t.correct) / len(ts)) if ts and len({t.user_id for t in ts}) >= floor else None
+        round(100 * person_share(ts)) if ts and len({t.user_id for t in ts}) >= floor else None
         for ts in tries
     ]
 

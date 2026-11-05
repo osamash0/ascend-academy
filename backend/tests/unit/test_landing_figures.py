@@ -93,3 +93,11 @@ def test_a_rating_later_taken_back_does_not_count_as_needing_the_page():
 def test_a_view_of_no_seconds_is_not_a_reader():
     glances = [ev(f"m{i}", "slide_view", 1, page=1, duration_seconds=0, sessionId=f"m{i}") for i in range(5)]
     assert figures(space(*glances), 5)["reading"] == {"value": 0, "history": [0] * 8}
+
+
+def test_cleared_counts_each_person_once_however_many_questions_they_answered():
+    reads = [read(f"m{i}", 1) for i in range(6)]
+    busy = [ev("m0", "checkpoint_attempt", 1, page=9, idea="J", kind="choice", questionId=q, correct=True) for q in range(1, 11)]
+    once = [ev(f"m{i}", "checkpoint_attempt", 1, page=9, idea="J", kind="choice", questionId=1, correct=False) for i in range(1, 5)]
+    # By tries 10 of 14 (71%); by people 1 + 0 + 0 + 0 + 0 over 5 = 20%.
+    assert figures(space(*reads, *busy, *once), 5)["cleared"]["value"] == 20

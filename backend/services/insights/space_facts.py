@@ -14,10 +14,11 @@ counts lives here, once:
 """
 from __future__ import annotations
 
+import statistics
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from backend.services.insights.sources.space import Event, LessonRow, SpaceData
 
@@ -117,6 +118,20 @@ def first_tries(data: SpaceData) -> list[Try]:
             continue
         seen[key] = Try(e.user_id, lesson, page, idea, d.get("correct") is True, e.at, source)
     return list(seen.values())
+
+
+def person_share(tries: Iterable[Try]) -> Optional[float]:
+    """Of the people who tried, the mean of each one's share right (0 to 1); None when no one tried.
+
+    Each person counts once, however many questions they answered: one member
+    answering ten never outweighs four answering one.
+    """
+    by_person: dict[str, list[bool]] = defaultdict(list)
+    for t in tries:
+        by_person[t.user_id].append(t.correct)
+    if not by_person:
+        return None
+    return statistics.fmean(sum(v) / len(v) for v in by_person.values())
 
 
 def lesson_facts(data: SpaceData) -> dict[str, LessonFacts]:

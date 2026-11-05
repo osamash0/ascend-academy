@@ -15,7 +15,7 @@ from typing import Any
 
 from backend.services.insights import detectors
 from backend.services.insights.bundle import _safe_cv, _safe_median, _safe_quartiles
-from backend.services.insights.space_facts import SHORT_VIEW, LessonFacts, PageFacts
+from backend.services.insights.space_facts import SHORT_VIEW, LessonFacts, PageFacts, person_share
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ def page_row(lesson_id: str, page: int, f: PageFacts) -> dict[str, Any]:
         clicked = []
     counts = {r: sum(1 for v in ratings if v == r) for r in ("got_it", "unsure", "confused")}
     rated = sum(counts.values())
-    right = sum(1 for t in tries if t.correct)
+    share = person_share(tries)
     missed = sum(1 for cleared in clicked if not cleared)
     return {
         "slide_id": f"{lesson_id}:{page}",
@@ -58,8 +58,9 @@ def page_row(lesson_id: str, page: int, f: PageFacts) -> dict[str, Any]:
         "dwell_cv": round(_safe_cv(dwell), 2),
         "short_views": sum(1 for d in dwell if d < SHORT_VIEW),
         "confusion_rate": round(counts["confused"] / rated * 100, 1) if rated else 0.0,
-        "quiz_success_rate": round(right / len(tries) * 100, 1) if tries else None,
-        "quiz_attempts": len(tries),
+        "quiz_success_rate": round(share * 100, 1) if share is not None else None,
+        # People who tried (each counted once), already at least MIN_READERS or none.
+        "quiz_attempts": len({t.user_id for t in tries}),
         "got_it": counts["got_it"],
         "unsure": counts["unsure"],
         "confused": counts["confused"],
@@ -127,6 +128,10 @@ def lesson_insights(lf: LessonFacts) -> list[dict[str, Any]]:
     def kept(insight: dict[str, Any]) -> bool:
         if insight.get("kind") == "leaky_bucket":
             return _drop_persists(lf, pages_of(insight)[0])
+        if insight.get("kind") == "quiz_misalignment":
+            # "It read easily" is said only when five of the page's readers said how it read.
+            pf = lf.pages.get(pages_of(insight)[0], PageFacts())
+            return sum(1 for u in pf.ratings if u in pf.readers) >= MIN_READERS
         return True
 
     return [i for i in found if above_floor(i) and kept(i)]

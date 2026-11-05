@@ -251,7 +251,6 @@ def test_nothing_the_owner_is_sent_names_a_member_or_quotes_a_question(door):
     assert "member-" not in sent and OWNER not in sent
 
 
-@pytest.mark.xfail(strict=True, reason="quiz_misalignment fires with no raters (confusion 0 by absence) — Plan 3 Task 3")
 def test_read_easily_is_never_said_when_no_one_said_how_the_page_read(door):
     """Six read page 3 and five of them missed its question, but nobody said how it read: no 'it read easily, yet…' finding."""
     six = range(6)
@@ -265,8 +264,6 @@ def test_read_easily_is_never_said_when_no_one_said_how_the_page_read(door):
 
 # ═══ Counting people ════════════════════════════════════════════════════════
 
-@pytest.mark.xfail(strict=True, reason="page_row takes quiz_success_rate over tries (10 of 14 = 71%), not people "
-                                       "— Plan 3 Task 3")
 def test_one_member_answering_ten_questions_does_not_outweigh_four_who_missed_one(door):
     """Five said page 3 left them unsure; one gets ten questions right, four miss their one: 20% passed (people), so it is a finding."""
     ten = range(10)
@@ -281,7 +278,6 @@ def test_one_member_answering_ten_questions_does_not_outweigh_four_who_missed_on
     assert [(i["page"], i["metrics"]) for i in found] == [(3, {"pct": 20})]
 
 
-@pytest.mark.xfail(strict=True, reason="figures() takes cleared over tries (10 of 14 = 71%), not people — Plan 3 Task 3")
 def test_cleared_counts_each_person_once_however_many_questions_they_answered(door):
     """One member clears ten checkpoint questions, four miss their one: cleared is 20%, not 71%."""
     tries = [checkpoint(0, NORM, 4, "Keys", q, True, second=20 + q) for q in range(1, 11)]
