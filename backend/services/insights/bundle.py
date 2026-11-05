@@ -228,6 +228,9 @@ def build_metric_bundle(lecture_id: str, token: Optional[str] = None) -> Dict[st
     # Reused cached aggregates (consistency with the rest of the app).
     slide_analytics = analytics_service.get_slide_analytics(lecture_id, token)
     confidence = analytics_service.get_confidence_by_slide(lecture_id, token)
+    # People per slide, floor not applied: the drop-off finding compares one slide with the next,
+    # and a slide under the floor is not "0 people" (it is only too few to print).
+    viewers = analytics_service.get_slide_viewer_counts(lecture_id, token)
     overview = analytics_service.get_lecture_overview(lecture_id, token)
     students = analytics_service.get_student_performance(lecture_id, token)
     total_students = int(overview.get("total_students") or 0)
@@ -252,7 +255,7 @@ def build_metric_bundle(lecture_id: str, token: Optional[str] = None) -> Dict[st
         d = dist.get(sid, {})
 
         avg_dwell = float(sa.get("average_time_seconds") or 0.0)
-        view_count = int(sa.get("view_count") or 0)
+        view_count = int(viewers.get(sid) or 0)
         median_dwell = float(d.get("median_dwell") or 0.0)
         if view_count > 0 and avg_dwell > 0:
             dwell_samples.append(avg_dwell)

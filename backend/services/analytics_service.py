@@ -148,14 +148,17 @@ def people_ratings(events: List[Dict[str, Any]], owner_id: Optional[str], slide_
     return out
 
 
-def _confidence_counts_by_slide(client: Client, lecture_id: str) -> Dict[str, Dict[str, int]]:
+def _confidence_counts_by_slide(
+    client: Client, lecture_id: str, owner_id: Optional[str] = None, owner_known: bool = False
+) -> Dict[str, Dict[str, int]]:
     """{slide_id: {got_it, unsure, confused}} over people, only for slides 5+ people rated."""
     events = _fetch_all(client.table("learning_events")\
         .select("user_id, event_data, created_at")\
         .eq("event_type", "confidence_rating")\
         .eq("event_data->>lectureId", str(lecture_id))\
         .order("created_at"))
-    owner_id = lecture_owner_id(client, lecture_id)
+    if not owner_known:
+        owner_id = lecture_owner_id(client, lecture_id)
     result: Dict[str, Dict[str, int]] = {}
     for sid, by_person in people_ratings(events, owner_id).items():
         if len(by_person) < MIN_PEOPLE:
@@ -225,32 +228,62 @@ def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
     }
 
 
+def _viewers_by_slide(client: Client, lecture_id: str, owner_id: Optional[str]) -> tuple:
+    """(people who viewed each slide, each slide's view durations), the owner left out."""
+    view_events = _fetch_all(client.table("learning_events")\
+        .select("user_id, event_data")\
+        .eq("event_type", "slide_view")\
+        .eq("event_data->>lectureId", str(lecture_id)))
+    viewers: Dict[str, set] = {}
+    durations: Dict[str, List[float]] = {}
+    for ev in view_events:
+        uid = ev.get("user_id")
+        ed = ev.get("event_data") or {}
+        sid = ed.get("slideId")
+        if not uid or uid == owner_id or not sid:
+            continue
+        viewers.setdefault(sid, set()).add(uid)
+        durations.setdefault(sid, []).append(ed.get("duration_seconds") or 0)
+    return viewers, durations
+
+
+@cached_analytic("slide_viewers")
+def get_slide_viewer_counts(lecture_id: str, token: str = None) -> Dict[str, int]:
+    """How many people viewed each slide (the owner left out), floor not applied.
+
+    Only the insight bundle reads this, for the slide-to-slide comparison in its drop-off
+    finding; it is never sent to a client as a per-slide figure.
+    """
+    client = get_auth_client(token)
+    viewers, _ = _viewers_by_slide(client, lecture_id, lecture_owner_id(client, lecture_id))
+    return {sid: len(people) for sid, people in viewers.items()}
+
+
 @cached_analytic("slides")
 def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
-    """Get per-slide analytics (cached)."""
+    """Per-slide analytics (cached). Counts people, never the owner; a slide fewer than
+    MIN_PEOPLE people viewed, tried or rated says nothing (null, never 0)."""
     from backend.services.recommendations import compute_slide_recommendation
 
     client = get_auth_client(token)
+    owner_id = lecture_owner_id(client, lecture_id)
 
     slides_data = _fetch_all(client.table("slides")\
         .select("id, slide_number, title")\
         .eq("lecture_id", lecture_id)\
         .order("slide_number"))
 
-    # Need total_students for drop-off calculation
+    # Need total_students for drop-off calculation (people, not the owner)
     progress_data = _fetch_all(client.table("student_progress")\
         .select("user_id")\
         .eq("lecture_id", lecture_id))
-    total_students = len(progress_data)
+    total_students = len({r.get("user_id") for r in progress_data if r.get("user_id") != owner_id})
 
-    # Slide views (camelCase 'slideId' in event_data)
-    view_events = _fetch_all(client.table("learning_events")\
-        .select("event_data")\
-        .eq("event_type", "slide_view")\
-        .eq("event_data->>lectureId", str(lecture_id)))
+    # Slide views (camelCase 'slideId' in event_data), over people
+    viewers, durations = _viewers_by_slide(client, lecture_id, owner_id)
 
     # Confidence check-ins, over people: a slide under MIN_PEOPLE raters has no entry
-    conf_by_slide = _confidence_counts_by_slide(client, lecture_id)
+    conf_by_slide = _confidence_counts_by_slide(client, lecture_id, owner_id, owner_known=True)
 
     # Quiz attempts joined with their slide via quiz_questions
     quiz_questions = _fetch_all(client.table("quiz_questions")\
@@ -259,56 +292,62 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
     qid_to_slide = {q["id"]: q["slide_id"] for q in quiz_questions}
 
     quiz_events = _fetch_all(client.table("learning_events")\
-        .select("event_data")\
+        .select("user_id, event_data")\
         .eq("event_type", "quiz_attempt")\
         .eq("event_data->>lectureId", str(lecture_id)))
 
-    # Aggregate per-slide quiz totals/correct
-    quiz_by_slide: Dict[str, Dict[str, int]] = {}
+    # Aggregate per-slide quiz totals/correct, and who tried
+    quiz_by_slide: Dict[str, Dict[str, Any]] = {}
     for ev in quiz_events:
+        uid = ev.get("user_id")
         ed = ev.get("event_data") or {}
         sid = qid_to_slide.get(ed.get("questionId"))
-        if not sid:
+        if not sid or not uid or uid == owner_id:
             continue
-        bucket = quiz_by_slide.setdefault(sid, {"attempts": 0, "correct": 0})
+        bucket = quiz_by_slide.setdefault(sid, {"attempts": 0, "correct": 0, "people": set()})
         bucket["attempts"] += 1
+        bucket["people"].add(uid)
         if ed.get("correct"):
             bucket["correct"] += 1
 
     slide_analytics = []
     for slide in slides_data:
         sid = slide["id"]
-        slide_views = [e for e in view_events
-                       if e.get("event_data", {}).get("slideId") == sid]
 
-        view_count = len(slide_views)
-        avg_time = sum(e.get("event_data", {}).get("duration_seconds", 0)
-                      for e in slide_views) / view_count if view_count > 0 else 0
-        drop_off = 100 * (1 - (view_count / total_students)) if total_students > 0 else 0
+        # Views: too few people is null, never 0 (and the figures derived from them go with it).
+        n_viewers = len(viewers.get(sid, ()))
+        seen = n_viewers >= MIN_PEOPLE
+        view_count = n_viewers if seen else None
+        avg_time = round(sum(durations[sid]) / len(durations[sid]), 1) if seen else None
+        drop_off = max(0.0, 100 * (1 - (n_viewers / total_students))) if seen and total_students > 0 else (0.0 if seen else None)
 
         cb = conf_by_slide.get(sid)
-        # Too few people is null, never 0 (the recommendation below still reads it as "no signal").
         confusion_rate = round(cb["confused"] / sum(cb.values()) * 100, 1) if cb else None
 
-        qb = quiz_by_slide.get(sid, {"attempts": 0, "correct": 0})
-        quiz_attempts = qb["attempts"]
-        quiz_success_rate = round((qb["correct"] / quiz_attempts * 100), 1) if quiz_attempts > 0 else None
+        qb = quiz_by_slide.get(sid)
+        tried = qb is not None and len(qb["people"]) >= MIN_PEOPLE
+        quiz_attempts = qb["attempts"] if tried else None
+        quiz_success_rate = round(qb["correct"] / qb["attempts"] * 100, 1) if tried else None
 
-        label, reasons = compute_slide_recommendation(
-            drop_off_rate=max(0.0, drop_off),
-            confusion_rate=confusion_rate or 0.0,
-            quiz_success_rate=quiz_success_rate,
-            view_count=view_count,
-            quiz_attempts=quiz_attempts,
-        )
+        if seen:
+            label, reasons = compute_slide_recommendation(
+                drop_off_rate=drop_off,
+                confusion_rate=confusion_rate or 0.0,
+                quiz_success_rate=quiz_success_rate,
+                view_count=view_count,
+                quiz_attempts=quiz_attempts or 0,
+            )
+        else:
+            # Nothing is said about a slide too few people viewed; the existing neutral label says so.
+            label, reasons = "insufficient_data", ["low_view_count"]
 
         slide_analytics.append({
             "slide_id": sid,
             "slide_number": slide["slide_number"],
             "title": slide.get("title", f"Slide {slide['slide_number']}"),
             "view_count": view_count,
-            "average_time_seconds": round(avg_time, 1),
-            "drop_off_rate": round(max(0, drop_off), 1),
+            "average_time_seconds": avg_time,
+            "drop_off_rate": round(drop_off, 1) if drop_off is not None else None,
             "confusion_rate": confusion_rate,
             "quiz_attempts": quiz_attempts,
             "quiz_success_rate": quiz_success_rate,

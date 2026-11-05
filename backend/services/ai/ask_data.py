@@ -159,7 +159,8 @@ def _clamp_int(val: Any, *, default: int, lo: int, hi: int) -> int:
 def _exec_top_dropoff_slides(lecture_id: str, token: str, params: Dict[str, Any]) -> Dict[str, Any]:
     limit = _clamp_int(params.get("limit"), default=5, lo=1, hi=20)
     order = (params.get("order") or "highest").lower()
-    slides = analytics_service.get_slide_analytics(lecture_id, token)
+    # A slide too few people viewed has a null drop-off (never 0): it does not rank.
+    slides = [s for s in analytics_service.get_slide_analytics(lecture_id, token) if s.get("drop_off_rate") is not None]
     rows = sorted(slides, key=lambda s: s.get("drop_off_rate", 0.0),
                   reverse=(order != "lowest"))[:limit]
     table = [

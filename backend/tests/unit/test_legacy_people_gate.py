@@ -46,6 +46,8 @@ class _Q:
         return chain
 
     def execute(self):
+        assert self.table_name == "lectures", "only the owner lookup goes through execute()"
+
         class R:
             data = [{"professor_id": OWNER}]
         return R()
@@ -133,3 +135,81 @@ def test_a_two_by_two_of_five_people_is_shown(world):
     _pair(world, 5)
     out = evidence.get_confidence_breakdown_evidence("L1", "s1", "t")
     assert out["total"] == 5 and out["quadrants"]["confidentCorrect"] == 5
+
+
+def test_an_event_without_a_person_is_ignored():
+    ev = [{"created_at": "t", "event_data": {"slideId": "s1", "rating": "got_it"}},
+          _rate("u1", "s1", "unsure")]
+    assert analytics_service.people_ratings(ev, OWNER) == {"s1": {"u1": "unsure"}}
+
+
+# ── /slides: nothing per slide from fewer than 5 people ─────────────────────
+
+def _view(uid, slide, secs=20):
+    return {"user_id": uid, "event_data": {"lectureId": "L1", "slideId": slide, "duration_seconds": secs}}
+
+
+def _try(uid, question, correct):
+    return {"user_id": uid, "event_data": {"lectureId": "L1", "questionId": question, "correct": correct}}
+
+
+def _slides(world):
+    return {s["slide_id"]: s for s in analytics_service.get_slide_analytics("L1", "t")}
+
+
+def test_the_slides_view_hides_views_time_and_drop_off_under_five_viewers(world):
+    world[("student_progress", None)] = [{"user_id": f"u{i}"} for i in range(8)]
+    world[("learning_events", "slide_view")] = (
+        [_view(f"u{i}", "s1") for i in range(4)] + [_view(f"u{i}", "s2") for i in range(5)])
+    s1, s2 = _slides(world)["s1"], _slides(world)["s2"]
+    assert s1["view_count"] is None and s1["average_time_seconds"] is None and s1["drop_off_rate"] is None
+    assert (s2["view_count"], s2["average_time_seconds"], s2["drop_off_rate"]) == (5, 20.0, 37.5)
+
+
+def test_the_slides_view_counts_viewers_not_views(world):
+    # One person opening a slide four times is one person.
+    world[("learning_events", "slide_view")] = [_view("u1", "s1")] * 4 + [_view(f"u{i}", "s1") for i in range(2, 5)]
+    assert _slides(world)["s1"]["view_count"] is None
+
+
+def test_the_owner_is_not_a_viewer(world):
+    world[("learning_events", "slide_view")] = [_view(f"u{i}", "s1") for i in range(4)] + [_view(OWNER, "s1")]
+    assert _slides(world)["s1"]["view_count"] is None
+
+
+def test_the_slides_view_hides_the_quiz_under_five_people(world):
+    world[("learning_events", "slide_view")] = [_view(f"u{i}", "s1") for i in range(6)]
+    world[("learning_events", "quiz_attempt")] = [_try(f"u{i}", "q1", True) for i in range(4)]
+    s1 = _slides(world)["s1"]
+    assert s1["quiz_attempts"] is None and s1["quiz_success_rate"] is None
+
+
+def test_the_owner_never_counts_toward_the_quiz_floor(world):
+    world[("learning_events", "slide_view")] = [_view(f"u{i}", "s1") for i in range(6)]
+    world[("learning_events", "quiz_attempt")] = [_try(f"u{i}", "q1", True) for i in range(4)] + [_try(OWNER, "q1", False)]
+    assert _slides(world)["s1"]["quiz_success_rate"] is None
+
+
+def test_five_people_open_the_quiz_figures(world):
+    world[("learning_events", "slide_view")] = [_view(f"u{i}", "s1") for i in range(6)]
+    world[("learning_events", "quiz_attempt")] = [_try(f"u{i}", "q1", i < 4) for i in range(5)]
+    s1 = _slides(world)["s1"]
+    assert (s1["quiz_attempts"], s1["quiz_success_rate"]) == (5, 80.0)
+
+
+def test_a_slide_too_few_viewed_gets_no_recommendation_built_on_one_person(world):
+    # Four viewers, one failing quiz try: no "low quiz success" reason may come out of it.
+    world[("learning_events", "slide_view")] = [_view(f"u{i}", "s1") for i in range(4)]
+    world[("learning_events", "quiz_attempt")] = [_try("u1", "q1", False)]
+    s1 = _slides(world)["s1"]
+    assert (s1["recommendation_label"], s1["recommendation_reasons"]) == ("insufficient_data", ["low_view_count"])
+
+
+def test_ask_your_data_does_not_rank_a_slide_with_a_null_drop_off(monkeypatch):
+    from backend.services.ai import ask_data
+
+    rows = [{"slide_number": 1, "title": "A", "drop_off_rate": None, "view_count": None},
+            {"slide_number": 2, "title": "B", "drop_off_rate": 40.0, "view_count": 9}]
+    monkeypatch.setattr(analytics_service, "get_slide_analytics", lambda *a, **k: rows)
+    out = ask_data._exec_top_dropoff_slides("L1", "t", {})
+    assert [r["slide"] for r in out["table"]] == ["#2 — B"]
