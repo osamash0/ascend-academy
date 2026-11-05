@@ -172,22 +172,28 @@ def _bulk_fetch_overviews(
 def _bulk_fetch_confidence(
     lecture_ids: List[str], token: str
 ) -> Dict[str, List[Dict[str, Any]]]:
-    """Bulk fetch confidence_rating events scoped to the given lectures.
+    """Per lecture, the slides at least MIN_PEOPLE people rated, as {slide_number, confusion_rate, total}.
 
-    Uses a two-step approach:
-      1. Fetch slide IDs for all lecture_ids in one IN query.
-      2. Filter confidence events from learning_events using lectureId in event_data
-         — but only fetches events whose event_data->lectureId is in our set,
-         done by fetching events for the professor's lectures only via Python filter
-         after a scoped learning_events fetch (no full-table scan).
+    Counts people, never events: each person's latest check-in on a slide counts once, the
+    lecture's owner never counts, and a slide fewer than MIN_PEOPLE people rated is absent
+    (`analytics_service._floored_counts`, the same floor as the per-lecture views). `total` is
+    the number of people who rated it.
 
-    Returns dict[lecture_id -> list of {slide_number, confusion_rate, total}].
+    Round-trips: lecture owners and slide metadata in one IN query each, then the
+    confidence_rating events (PostgREST has no JSON-path IN filter, so they are scoped to these
+    lectures' slides in Python).
     """
     if not lecture_ids:
         return {}
 
     client = analytics_service.get_auth_client(token)
     lecture_set = set(lecture_ids)
+
+    owners = {
+        row["id"]: row.get("professor_id")
+        for row in analytics_service._fetch_all_in(
+            lambda: client.table("lectures").select("id, professor_id"), "id", lecture_ids)
+    }
 
     # Fetch slide metadata for all lectures in one query
     slide_rows = analytics_service._fetch_all_in(
@@ -196,47 +202,33 @@ def _bulk_fetch_confidence(
         lecture_ids,
     )
     slide_meta: Dict[str, Dict[str, Any]] = {r["id"]: r for r in slide_rows}
-    slide_ids = list(slide_meta.keys())
 
-    if not slide_ids:
+    if not slide_meta:
         return {lid: [] for lid in lecture_ids}
 
-    # Fetch confidence events scoped to these slides via slideId in event_data.
-    # We filter by slide_id set membership in Python after fetching by event_type only —
-    # PostgREST doesn't support JSON-path IN filters, so we scope via slide_ids in Python.
-    # To avoid a full-table scan, we only pull confidence_rating events (already a small subset).
+    # Oldest first, so each person's latest rating is the one that counts.
     all_events = analytics_service._fetch_all(
         client.table("learning_events")
-        .select("event_data")
+        .select("user_id, event_data, created_at")
         .eq("event_type", "confidence_rating")
+        .order("created_at")
     )
 
-    # Group by lecture_id then slide_id — only keep events matching our slide_ids
-    by_lecture_slide: Dict[str, Dict[str, Dict[str, int]]] = defaultdict(
-        lambda: defaultdict(lambda: {"got_it": 0, "unsure": 0, "confused": 0})
-    )
+    events_by_lecture: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for ev in all_events:
-        ed = ev.get("event_data") or {}
-        sid = ed.get("slideId")
-        rating = ed.get("rating")
-        if sid not in slide_meta or rating not in ("got_it", "unsure", "confused"):
-            continue
-        lid = slide_meta[sid].get("lecture_id")
-        if lid not in lecture_set:
-            continue
-        by_lecture_slide[lid][sid][rating] += 1
+        sid = (ev.get("event_data") or {}).get("slideId")
+        lid = slide_meta.get(sid, {}).get("lecture_id")
+        if lid in lecture_set:
+            events_by_lecture[lid].append(ev)
 
     result: Dict[str, List[Dict[str, Any]]] = {}
     for lid in lecture_ids:
-        slides_conf = by_lecture_slide.get(lid, {})
+        counts_by_slide = analytics_service._floored_counts(events_by_lecture.get(lid, []), owners.get(lid))
         rows = []
-        for sid, counts in slides_conf.items():
-            total = counts["got_it"] + counts["unsure"] + counts["confused"]
-            if total == 0:
-                continue
-            meta = slide_meta.get(sid, {})
+        for sid, counts in counts_by_slide.items():
+            total = sum(counts.values())
             rows.append({
-                "slide_number": meta.get("slide_number", 0),
+                "slide_number": slide_meta.get(sid, {}).get("slide_number", 0),
                 "confusion_rate": round((counts["confused"] / total) * 100, 1),
                 "total": total,
             })
@@ -371,7 +363,8 @@ def _exec_most_confusing_slides(lectures, token, params) -> Dict[str, Any]:
     rows = []
     for lid, slides in all_confidence.items():
         for r in slides:
-            if int(r.get("total") or 0) <= 0:
+            # People who rated it; under the floor a slide says nothing.
+            if int(r.get("total") or 0) < analytics_service.MIN_PEOPLE:
                 continue
             rows.append({
                 "slide": f"{_short(lec_titles.get(lid, ''), 24)} · #{r['slide_number']}",

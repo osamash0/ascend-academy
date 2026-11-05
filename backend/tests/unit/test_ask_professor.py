@@ -1,7 +1,11 @@
 """Unit tests for professor-wide Ask Your Data executors (DB-mocked)."""
 import pytest
 
+from backend.services import analytics_service
 from backend.services.ai import ask_professor
+
+#: The real bulk fetch, kept before the autouse fixture below swaps it out.
+_REAL_BULK_CONFIDENCE = ask_professor._bulk_fetch_confidence
 
 
 LECTURES = [
@@ -80,3 +84,73 @@ async def test_chat_failure_reply_never_echoes_the_exception(monkeypatch):
     assert "RuntimeError" not in reply
     assert "4.20" not in reply
     assert reply.strip()
+
+
+# ── most confusing slides: people, not events; never the owner; 5 or nothing ──
+
+OWNER = "prof"
+
+
+class _Q:
+    def __init__(self, table):
+        self.table_name = table
+
+    def __getattr__(self, name):
+        return lambda *a, **k: self
+
+
+class _Client:
+    def table(self, name):
+        return _Q(name)
+
+
+@pytest.fixture
+def confidence_world(monkeypatch):
+    rows = {
+        "lectures": [{"id": "L1", "professor_id": OWNER}],
+        "slides": [{"id": "s1", "lecture_id": "L1", "slide_number": 1},
+                   {"id": "s2", "lecture_id": "L1", "slide_number": 2}],
+        "learning_events": [],
+    }
+    monkeypatch.setattr(analytics_service, "get_auth_client", lambda token=None: _Client())
+    monkeypatch.setattr(analytics_service, "_fetch_all", lambda q, limit=10000: list(rows[q.table_name]))
+    monkeypatch.setattr(ask_professor, "_bulk_fetch_confidence", _REAL_BULK_CONFIDENCE)
+    return rows
+
+
+def _rating(uid, slide, rating, at="2026-11-01T10:00:00Z"):
+    return {"user_id": uid, "created_at": at,
+            "event_data": {"lectureId": "L1", "slideId": slide, "rating": rating}}
+
+
+def _confusing(world):
+    return ask_professor._exec_most_confusing_slides([{"id": "L1", "title": "Indexing"}], "t", {})["table"]
+
+
+def test_one_person_rating_once_makes_no_confusing_slide(confidence_world):
+    confidence_world["learning_events"] = [_rating("u1", "s1", "confused")]
+    assert _confusing(confidence_world) == []
+
+
+def test_five_people_make_a_confusing_slide(confidence_world):
+    confidence_world["learning_events"] = [_rating(f"u{i}", "s1", "confused" if i < 2 else "got_it") for i in range(5)]
+    (row,) = _confusing(confidence_world)
+    assert (row["confusion_rate"], row["ratings"]) == (40.0, 5)
+
+
+def test_one_person_rating_three_times_counts_once(confidence_world):
+    ev = [_rating(f"u{i}", "s1", "got_it") for i in range(4)]
+    ev += [_rating("u0", "s1", "confused", "2026-11-01T11:00:00Z"),
+           _rating("u0", "s1", "confused", "2026-11-01T12:00:00Z")]
+    confidence_world["learning_events"] = ev
+    assert _confusing(confidence_world) == []
+    # a fifth person opens it; u0's latest rating is the one that counts
+    confidence_world["learning_events"] = ev + [_rating("u9", "s1", "got_it")]
+    (row,) = _confusing(confidence_world)
+    assert (row["confusion_rate"], row["ratings"]) == (20.0, 5)
+
+
+def test_the_owner_never_counts_toward_a_confusing_slide(confidence_world):
+    confidence_world["learning_events"] = (
+        [_rating(f"u{i}", "s1", "got_it") for i in range(4)] + [_rating(OWNER, "s1", "confused")])
+    assert _confusing(confidence_world) == []
