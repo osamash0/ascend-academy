@@ -4,7 +4,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from backend.services.insights.sources.space import LessonRow
-from backend.services.insights.space_engine import MIN_READERS, lesson_bundle, lesson_insights, page_row, pages_of
+from backend.services.insights.space_engine import (
+    MIN_READERS,
+    leak_rows,
+    lesson_bundle,
+    lesson_insights,
+    page_row,
+    pages_of,
+)
 from backend.services.insights.space_facts import LessonFacts, PageFacts, Try
 
 LESSON = LessonRow(id="l1", title="Normalization", order=1, pages=6)
@@ -19,8 +26,8 @@ def calm_page(people):
     return PageFacts(readers=set(people), sittings=[40.0] * len(people), ratings={p: "got_it" for p in people})
 
 
-def lesson(pages):
-    lf = LessonFacts(LESSON)
+def lesson(pages, total=None):
+    lf = LessonFacts(LESSON if total is None else LessonRow(id="l1", title="Normalization", order=1, pages=total))
     for n, pf in pages.items():
         lf.pages[n] = pf
         lf.readers |= pf.readers
@@ -168,7 +175,7 @@ def test_people_never_enter_the_lesson_bundle():
 def _leaky(counts):
     """Readers per page, 10 people at most: page n is read by the first counts[n-1] of them."""
     people = sorted(readers(10))
-    return lesson({n: calm_page(people[:c]) for n, c in enumerate(counts, start=1) if c})
+    return lesson({n: calm_page(people[:c]) for n, c in enumerate(counts, start=1) if c}, total=len(counts))
 
 
 def test_a_page_skipped_by_most_is_not_where_people_stopped():
@@ -179,6 +186,37 @@ def test_a_page_skipped_by_most_is_not_where_people_stopped():
 def test_a_real_drop_still_says_where_people_stopped():
     found = lesson_insights(_leaky([10, 10, 10, 3, 2]))
     assert [pages_of(i) for i in found if i["kind"] == "leaky_bucket"] == [[3]]
+
+
+def _leaks(lf):
+    return [pages_of(i) for i in lesson_insights(lf) if i["kind"] == "leaky_bucket"]
+
+
+def test_six_readers_who_stop_after_page_three_of_thirty_are_a_leak_and_not_calm():
+    lf = lesson({n: calm_page(readers(6)) for n in (1, 2, 3)}, total=30)
+    assert _leaks(lf) == [[3]]
+    assert [r["view_count"] for r in leak_rows(lf)[:5]] == [6, 6, 6, 0, 0]
+
+
+def test_a_skipped_page_does_not_hide_the_real_drop_after_it():
+    lf = _leaky([10, 10, 10, 10, 3, 9, 9, 9, 6])
+    assert [r["view_count"] for r in leak_rows(lf)] == [10, 10, 10, 10, 9, 9, 9, 9, 6]
+    assert _leaks(lf) == [[8]]
+
+
+def test_a_lesson_everyone_finishes_has_no_leak():
+    assert _leaks(_leaky([10, 10, 10, 10, 10, 10])) == []
+
+
+def test_one_person_on_two_pages_counts_once_in_the_leak_rows():
+    lf = lesson({1: calm_page(readers(6)), 2: calm_page(readers(6)), 5: calm_page({"r0"})}, total=5)
+    assert [r["view_count"] for r in leak_rows(lf)] == [6, 6, 1, 1, 1]
+
+
+def test_the_leak_still_needs_five_readers_on_the_page_before_the_drop():
+    # Five read page 1, four read on to page 3 and stop: the worst drop is after page 3, which only four read.
+    lf = lesson({1: calm_page(readers(5)), 2: calm_page(readers(4)), 3: calm_page(readers(4))}, total=6)
+    assert _leaks(lf) == []
 
 
 def test_a_quiz_share_counts_each_person_once():

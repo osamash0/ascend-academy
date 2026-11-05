@@ -101,10 +101,21 @@ def pages_of(insight: dict[str, Any]) -> list[int]:
     return [int(n)] if n else []
 
 
-def _drop_persists(lf: LessonFacts, page: int) -> bool:
-    """A drop after `page` is people stopping only if no later page wins readers back (else it was skipped)."""
-    after = len(lf.pages.get(page + 1, PageFacts()).readers)
-    return all(len(pf.readers) <= after for n, pf in lf.pages.items() if n > page + 1)
+def leak_rows(lf: LessonFacts) -> list[dict[str, Any]]:
+    """What the drop-off check reads: one row per page of the Lesson, `view_count` = people still in it.
+
+    "Still in the Lesson at page n" is everyone who read page n or any later page, taken as a
+    union of people (one person on two pages counts once). A page skipped and returned to
+    never reads as a stop, and a page after which nobody reads falls to what is left, down to
+    zero, which `lesson_bundle` (rows only for pages someone read) cannot show.
+    """
+    last = max([lf.lesson.pages, *lf.pages], default=0)
+    still: set[str] = set()
+    rows: list[dict[str, Any]] = []
+    for n in range(last, 0, -1):
+        still |= lf.pages.get(n, PageFacts()).readers
+        rows.append({"slide_id": f"{lf.lesson.id}:{n}", "slide_number": n, "title": str(n), "view_count": len(still)})
+    return rows[::-1]
 
 
 def lesson_insights(lf: LessonFacts) -> list[dict[str, Any]]:
@@ -113,11 +124,12 @@ def lesson_insights(lf: LessonFacts) -> list[dict[str, Any]]:
         return []
     bundle = lesson_bundle(lf)
     found: list[dict[str, Any]] = []
+    leak_bundle = {**bundle, "slides": leak_rows(lf)}
     for detect in detectors.DETECTORS:
         if detect is detectors.detect_silent_strugglers:
             continue  # person-level: never in the owner's view (spec §0)
         try:
-            found.extend(detect(bundle))
+            found.extend(detect(leak_bundle if detect is detectors.detect_leaky_bucket else bundle))
         except Exception:
             logger.exception("landing: detector failed: %s", getattr(detect, "__name__", detect))
 
@@ -126,8 +138,6 @@ def lesson_insights(lf: LessonFacts) -> list[dict[str, Any]]:
         return bool(pages) and all(len(lf.pages.get(p, PageFacts()).readers) >= MIN_READERS for p in pages)
 
     def kept(insight: dict[str, Any]) -> bool:
-        if insight.get("kind") == "leaky_bucket":
-            return _drop_persists(lf, pages_of(insight)[0])
         if insight.get("kind") == "quiz_misalignment":
             # "It read easily" is said only when five of the page's readers said how it read.
             pf = lf.pages.get(pages_of(insight)[0], PageFacts())

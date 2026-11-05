@@ -298,8 +298,6 @@ def test_one_person_turning_back_twelve_times_is_no_speed_bump_three_people_are(
 
 # ═══ Drop-off and skipping ══════════════════════════════════════════════════
 
-@pytest.mark.xfail(strict=True, reason="lesson_bundle has rows only for pages someone read, so a fall to zero is never "
-                                       "a pair; the Lesson reads 'calm' — Plan 3 Task 4d")
 def test_six_readers_who_all_stop_after_page_three_of_thirty_are_a_drop_off(door):
     """Six read pages 1 to 3 of a 30-page Lesson and nobody reads on: a drop-off finding after page 3, never 'calm'."""
     data = space([lesson(NORM, 30)], reads(range(6), NORM, [1, 2, 3]))
@@ -308,8 +306,6 @@ def test_six_readers_who_all_stop_after_page_three_of_thirty_are_a_drop_off(door
     assert entry(body, NORM)["light"] != "calm"
 
 
-@pytest.mark.xfail(strict=True, reason="the detector keeps only the worst drop (the skipped page 4), kept() discards it, "
-                                       "and the real drop after page 8 is never looked at — Plan 3 Task 4d")
 def test_a_skipped_page_does_not_hide_a_real_drop_off_later(door):
     """Readers per page 10, 10, 10, 10, 3, 9, 9, 9, 6: page 5 was skipped, not left; the one drop-off is after page 8 (33%)."""
     counts = [10, 10, 10, 10, 3, 9, 9, 9, 6]
@@ -325,8 +321,6 @@ def test_a_page_most_people_skip_and_then_read_on_is_not_a_drop_off(door):
     assert kinds(door.look(space([lesson(NORM, 5)], events)), "leaky_bucket") == []
 
 
-@pytest.mark.xfail(strict=True, reason="no row for pages 4 to 29, and one reader on page 30 makes _drop_persists() "
-                                       "discard the drop — Plan 3 Task 4d")
 def test_one_member_jumping_to_the_last_page_does_not_hide_that_everyone_else_stopped(door):
     """Seven read pages 1 to 3 of 30; six stop there and one jumps to page 30: still a drop-off after page 3."""
     data = space([lesson(NORM, 30)], reads(range(7), NORM, [1, 2, 3]) + [read(6, NORM, 30)])
