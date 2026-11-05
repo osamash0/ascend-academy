@@ -134,6 +134,31 @@ def test_findings_are_ranked_by_band_then_by_how_many_people_they_touch():
     assert rank([c, a, b], {"small": 6, "big": 120}) == [b, a, c]
 
 
+def test_a_trap_leads_its_band_even_against_a_louder_score_on_more_readers():
+    # People said page 21 clicked and then missed it; on page 14 they knew they were stuck and asked.
+    hotspot = {"kind": "confusion_hotspot", "lessonId": "big", "attention": "act", "severity": 0.88}
+    trap = {"kind": "calibration_gap", "lessonId": "small", "attention": "act", "severity": 0.74}
+    assert rank([hotspot, trap], {"big": 120, "small": 30}) == [trap, hotspot]
+
+
+def test_a_trap_never_jumps_a_band():
+    act = {"kind": "confusion_hotspot", "lessonId": "l1", "attention": "act", "severity": 0.5}
+    watch_trap = {"kind": "calibration_gap", "lessonId": "l1", "attention": "watch", "severity": 0.9}
+    assert rank([watch_trap, act], {"l1": 50}) == [act, watch_trap]
+
+
+def test_traps_among_themselves_keep_the_people_order():
+    small = {"kind": "calibration_gap", "lessonId": "small", "attention": "act", "severity": 0.8}
+    big = {"kind": "calibration_gap", "lessonId": "big", "attention": "act", "severity": 0.7}
+    assert rank([small, big], {"small": 6, "big": 120}) == [big, small]
+
+
+def test_a_question_that_tests_something_else_is_not_a_trap():
+    hotspot = {"kind": "confusion_hotspot", "lessonId": "l1", "attention": "watch", "severity": 0.6}
+    misaligned = {"kind": "quiz_misalignment", "lessonId": "l1", "attention": "watch", "severity": 0.5}
+    assert rank([misaligned, hotspot], {"l1": 50}) == [hotspot, misaligned]
+
+
 def test_help_is_the_share_of_readers_who_needed_the_page_never_brighter_than_half_of_them():
     quiet = PageFacts(readers=people(10), explain={"r0"})
     loud = PageFacts(readers=people(10), ask=people(4), returners={"r9"})

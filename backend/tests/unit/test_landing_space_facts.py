@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from backend.services.insights.sources.space import Event, LessonRow, SpaceData
+from backend.services.insights.sources.space import Event, LessonRow, SpaceData, try_key
 from backend.services.insights.space_facts import first_tries, lesson_facts
 
 T0 = datetime(2026, 10, 20, 10, 0, tzinfo=timezone.utc)
@@ -14,12 +14,12 @@ def ev(user, event_type, minute=0, **data):
     return Event(user_id=user, type=event_type, data={"lectureId": L1, **data}, at=T0 + timedelta(minutes=minute))
 
 
-def space(*events, slide_pages=None, question_pages=None):
+def space(*events, slide_pages=None, question_pages=None, tried_before=frozenset()):
     return SpaceData(
         space_id="space", name="DBS", owner_id="owner", members=frozenset({"a", "b", "c"}),
         lessons=(LessonRow(id=L1, title="Normalization", order=1, pages=12),),
         events=tuple(events), slide_pages=slide_pages or {}, question_pages=question_pages or {},
-        now=T0 + timedelta(days=1),
+        now=T0 + timedelta(days=1), tried_before=tried_before,
     )
 
 
@@ -130,3 +130,32 @@ def test_helped_is_anyone_who_explained_asked_was_foggy_or_came_back():
         ev("c", "slide_back_navigation", 0, fromPage=5, toPage=2),
     ))[L1]
     assert facts.pages[2].helped == {"a", "b", "c"}
+
+
+def test_a_practice_question_answered_before_the_window_is_not_a_first_try_inside_it():
+    earlier = frozenset({try_key("a", "quiz_attempt", {"lectureId": L1, "questionId": "q1"})})
+    data = space(
+        ev("a", "quiz_attempt", 0, questionId="q1", correct=True),
+        ev("a", "quiz_attempt", 1, questionId="q2", correct=False),
+        ev("b", "quiz_attempt", 2, questionId="q1", correct=False),
+        question_pages={"q1": 5, "q2": 5},
+        tried_before=earlier,
+    )
+    assert sorted((t.user_id, t.correct) for t in first_tries(data)) == [("a", False), ("b", False)]
+
+
+def test_a_checkpoint_question_answered_before_the_window_is_not_a_first_try_inside_it():
+    answered = {"lectureId": L1, "page": 9, "idea": "Joins", "kind": "choice", "questionId": 1}
+    earlier = frozenset({try_key("a", "checkpoint_attempt", answered)})
+    data = space(
+        ev("a", "checkpoint_attempt", 0, page=9, idea="Joins", kind="choice", questionId=1, correct=True),
+        ev("a", "checkpoint_attempt", 1, page=9, idea="Joins", kind="choice", questionId=2, correct=False),
+        ev("a", "checkpoint_attempt", 2, page=10, idea="Joins", kind="choice", questionId=1, correct=True),
+        tried_before=earlier,
+    )
+    assert sorted((t.page, t.correct) for t in first_tries(data)) == [(9, False), (10, True)]
+
+
+def test_a_teach_back_has_no_key_and_so_never_hides_a_first_try():
+    assert try_key("a", "checkpoint_attempt", {"lectureId": L1, "page": 4, "idea": "Joins", "kind": "teach"}) is None
+    assert try_key("a", "slide_view", {"lectureId": L1}) is None

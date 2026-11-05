@@ -86,7 +86,7 @@ export function InsightCard({
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">{insight.interpretation || insight.summary}</p>
 
           <div className="mt-8">
-            <Layer2Viz insight={insight} onOpenEvidence={onOpenEvidence} />
+            <Layer2Viz insight={insight} />
           </div>
 
           {onOpenEvidence && !evidence && (

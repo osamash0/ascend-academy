@@ -488,7 +488,7 @@
     "failed": "Wir konnten dich gerade nicht aufnehmen. Nichts hat sich geändert – versuch es noch einmal.",
     "inside": "Darin",
     "toOpen": "Tritt bei, um {{title}} zu öffnen.",
-    "privacy": "Die Leute, die diesen Space pflegen, können sehen, wie seine Seiten gelesen werden.",
+    "privacy": "Die Leute, die diesen Space pflegen, sehen, wie seine Seiten ankommen: als Muster über mindestens fünf Personen, nie mit Namen.",
     "members_one": "<b>{{n}}</b> Mitglied",
     "members_other": "<b>{{n}}</b> Mitglieder"
   },

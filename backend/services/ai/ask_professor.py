@@ -52,15 +52,6 @@ INTENTS: Dict[str, Dict[str, Any]] = {
             "My hardest lectures by quiz score",
         ],
     },
-    "struggling_students": {
-        "description": "Students whose quiz score is below a threshold, across all lectures.",
-        "params": {"max_accuracy_percent": "int 0-100, default 40"},
-        "examples": [
-            "Who is falling behind across my courses?",
-            "Which students are struggling the most?",
-            "Show students under 50% accuracy",
-        ],
-    },
     "most_confusing_slides": {
         "description": "Slides with the highest confusion rate across all the professor's lectures.",
         "params": {"limit": "int 1-20, default 5"},
@@ -93,7 +84,7 @@ def list_suggested_questions() -> List[str]:
     return [
         "Which lectures lose the most students?",
         "Where are students most confused?",
-        "Who is falling behind across my courses?",
+        "Where is quiz performance the weakest?",
         "Which lectures are students struggling with most?",
         "How are my courses doing overall?",
     ]
@@ -129,6 +120,13 @@ def _bulk_fetch_overviews(
 
     client = analytics_service.get_auth_client(token)
 
+    # Each lecture's owner: their own reading never counts
+    owners = {
+        row["id"]: row.get("professor_id")
+        for row in analytics_service._fetch_all_in(
+            lambda: client.table("lectures").select("id, professor_id"), "id", lecture_ids)
+    }
+
     # One query for all progress rows across all lectures
     progress_rows = analytics_service._fetch_all_in(
         lambda: client.table("student_progress").select(
@@ -138,102 +136,64 @@ def _bulk_fetch_overviews(
         lecture_ids,
     )
 
-    # Aggregate per lecture in Python (no extra network calls)
+    # Aggregate per lecture in Python (no extra network calls), over people
     by_lecture: Dict[str, Dict[str, Any]] = {}
     for row in progress_rows:
         lid = row.get("lecture_id")
-        if not lid:
+        uid = row.get("user_id")
+        if not lid or not uid or analytics_service._same_person(uid, owners.get(lid)):
             continue
-        if lid not in by_lecture:
-            by_lecture[lid] = {
-                "total_students": 0,
-                "completed": 0,
-                "quiz_scores": [],
-            }
-        agg = by_lecture[lid]
-        agg["total_students"] += 1
+        agg = by_lecture.setdefault(lid, {"people": set(), "completed": set(), "quiz_scores": {}})
+        uid = str(uid)
+        agg["people"].add(uid)
         if row.get("completed_at"):
-            agg["completed"] += 1
-        qa = row.get("total_questions_answered") or 0
-        score = row.get("quiz_score") or 0
-        if qa > 0:
-            agg["quiz_scores"].append(score)
+            agg["completed"].add(uid)
+        if (row.get("total_questions_answered") or 0) > 0:
+            agg["quiz_scores"][uid] = row.get("quiz_score") or 0
 
+    # A lecture under MIN_PEOPLE people says nothing: None, never 0 (callers read None as "no data")
+    floor = analytics_service.MIN_PEOPLE
     result: Dict[str, Dict[str, Any]] = {}
     for lid in lecture_ids:
         agg = by_lecture.get(lid)
-        if not agg or agg["total_students"] == 0:
-            result[lid] = {
-                "total_students": 0,
-                "completion_rate": 0.0,
-                "average_score": 0.0,
-            }
+        if not agg or len(agg["people"]) < floor:
+            result[lid] = {"total_students": None, "completion_rate": None, "average_score": None}
             continue
-        total = agg["total_students"]
-        completion_rate = round((agg["completed"] / total) * 100, 1)
-        scores = agg["quiz_scores"]
-        average_score = round(sum(scores) / len(scores), 1) if scores else 0.0
+        total = len(agg["people"])
+        scores = list(agg["quiz_scores"].values())
         result[lid] = {
             "total_students": total,
-            "completion_rate": completion_rate,
-            "average_score": average_score,
+            "completion_rate": round(len(agg["completed"]) / total * 100, 1),
+            "average_score": round(sum(scores) / len(scores), 1) if len(scores) >= floor else None,
         }
     return result
-
-
-def _bulk_fetch_student_scores(
-    lecture_ids: List[str], token: str
-) -> Dict[str, List[Dict[str, Any]]]:
-    """Bulk fetch student_progress for the 'struggling_students' executor.
-
-    Returns dict[lecture_id -> list of {student_name, quiz_score}].
-    """
-    if not lecture_ids:
-        return {}
-
-    client = analytics_service.get_auth_client(token)
-    rows = analytics_service._fetch_all_in(
-        lambda: client.table("student_progress").select(
-            "lecture_id, user_id, quiz_score, total_questions_answered"
-        ),
-        "lecture_id",
-        lecture_ids,
-    )
-
-    from backend.services.utils.analytics_utils import generate_anon_name
-
-    result: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-    for row in rows:
-        lid = row.get("lecture_id")
-        if not lid:
-            continue
-        result[lid].append({
-            "student_name": generate_anon_name(row.get("user_id", "")),
-            "quiz_score": float(row.get("quiz_score") or 0),
-            "total_questions_answered": int(row.get("total_questions_answered") or 0),
-        })
-    return dict(result)
 
 
 def _bulk_fetch_confidence(
     lecture_ids: List[str], token: str
 ) -> Dict[str, List[Dict[str, Any]]]:
-    """Bulk fetch confidence_rating events scoped to the given lectures.
+    """Per lecture, the slides at least MIN_PEOPLE people rated, as {slide_number, confusion_rate, total}.
 
-    Uses a two-step approach:
-      1. Fetch slide IDs for all lecture_ids in one IN query.
-      2. Filter confidence events from learning_events using lectureId in event_data
-         — but only fetches events whose event_data->lectureId is in our set,
-         done by fetching events for the professor's lectures only via Python filter
-         after a scoped learning_events fetch (no full-table scan).
+    Counts people, never events: each person's latest check-in on a slide counts once, the
+    lecture's owner never counts, and a slide fewer than MIN_PEOPLE people rated is absent
+    (`analytics_service._floored_counts`, the same floor as the per-lecture views). `total` is
+    the number of people who rated it.
 
-    Returns dict[lecture_id -> list of {slide_number, confusion_rate, total}].
+    Round-trips: lecture owners and slide metadata in one IN query each, then the
+    confidence_rating events (PostgREST has no JSON-path IN filter, so they are scoped to these
+    lectures' slides in Python).
     """
     if not lecture_ids:
         return {}
 
     client = analytics_service.get_auth_client(token)
     lecture_set = set(lecture_ids)
+
+    owners = {
+        row["id"]: row.get("professor_id")
+        for row in analytics_service._fetch_all_in(
+            lambda: client.table("lectures").select("id, professor_id"), "id", lecture_ids)
+    }
 
     # Fetch slide metadata for all lectures in one query
     slide_rows = analytics_service._fetch_all_in(
@@ -242,47 +202,33 @@ def _bulk_fetch_confidence(
         lecture_ids,
     )
     slide_meta: Dict[str, Dict[str, Any]] = {r["id"]: r for r in slide_rows}
-    slide_ids = list(slide_meta.keys())
 
-    if not slide_ids:
+    if not slide_meta:
         return {lid: [] for lid in lecture_ids}
 
-    # Fetch confidence events scoped to these slides via slideId in event_data.
-    # We filter by slide_id set membership in Python after fetching by event_type only —
-    # PostgREST doesn't support JSON-path IN filters, so we scope via slide_ids in Python.
-    # To avoid a full-table scan, we only pull confidence_rating events (already a small subset).
+    # Oldest first, so each person's latest rating is the one that counts.
     all_events = analytics_service._fetch_all(
         client.table("learning_events")
-        .select("event_data")
+        .select("user_id, event_data, created_at")
         .eq("event_type", "confidence_rating")
+        .order("created_at")
     )
 
-    # Group by lecture_id then slide_id — only keep events matching our slide_ids
-    by_lecture_slide: Dict[str, Dict[str, Dict[str, int]]] = defaultdict(
-        lambda: defaultdict(lambda: {"got_it": 0, "unsure": 0, "confused": 0})
-    )
+    events_by_lecture: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for ev in all_events:
-        ed = ev.get("event_data") or {}
-        sid = ed.get("slideId")
-        rating = ed.get("rating")
-        if sid not in slide_meta or rating not in ("got_it", "unsure", "confused"):
-            continue
-        lid = slide_meta[sid].get("lecture_id")
-        if lid not in lecture_set:
-            continue
-        by_lecture_slide[lid][sid][rating] += 1
+        sid = (ev.get("event_data") or {}).get("slideId")
+        lid = slide_meta.get(sid, {}).get("lecture_id")
+        if lid in lecture_set:
+            events_by_lecture[lid].append(ev)
 
     result: Dict[str, List[Dict[str, Any]]] = {}
     for lid in lecture_ids:
-        slides_conf = by_lecture_slide.get(lid, {})
+        counts_by_slide = analytics_service._floored_counts(events_by_lecture.get(lid, []), owners.get(lid))
         rows = []
-        for sid, counts in slides_conf.items():
-            total = counts["got_it"] + counts["unsure"] + counts["confused"]
-            if total == 0:
-                continue
-            meta = slide_meta.get(sid, {})
+        for sid, counts in counts_by_slide.items():
+            total = sum(counts.values())
             rows.append({
-                "slide_number": meta.get("slide_number", 0),
+                "slide_number": slide_meta.get(sid, {}).get("slide_number", 0),
                 "confusion_rate": round((counts["confused"] / total) * 100, 1),
                 "total": total,
             })
@@ -385,7 +331,7 @@ def _exec_lectures_by_quiz_performance(lectures, token, params) -> Dict[str, Any
     for lec in lectures:
         ov = overviews.get(lec["id"], {})
         students = int(ov.get("total_students") or 0)
-        if students == 0:
+        if students == 0 or ov.get("average_score") is None:
             continue
         rows.append({
             "lecture": _short(lec.get("title")),
@@ -406,38 +352,6 @@ def _exec_lectures_by_quiz_performance(lectures, token, params) -> Dict[str, Any
     return {"answer_text": answer, "table": rows, "chart": chart}
 
 
-def _exec_struggling_students(lectures, token, params) -> Dict[str, Any]:
-    threshold = _clamp_int(params.get("max_accuracy_percent"), default=40, lo=0, hi=100)
-    if not lectures:
-        return {"answer_text": f"No students are below {threshold}% — nice work.", "table": [], "chart": None}
-
-    all_scores = _bulk_fetch_student_scores([l["id"] for l in lectures], token)
-
-    agg: Dict[str, Dict[str, Any]] = {}
-    for lec in lectures:
-        for s in all_scores.get(lec["id"], []):
-            score = float(s.get("quiz_score") or 0)
-            if score >= threshold:
-                continue
-            # Only count students who actually attempted quiz questions
-            if int(s.get("total_questions_answered") or 0) == 0:
-                continue
-            name = s.get("student_name") or "Unknown"
-            entry = agg.setdefault(name, {"student": name, "lectures_below": 0, "lowest_score": 100.0})
-            entry["lectures_below"] += 1
-            entry["lowest_score"] = min(entry["lowest_score"], round(score, 1))
-
-    rows = sorted(agg.values(), key=lambda r: (-r["lectures_below"], r["lowest_score"]))
-    if not rows:
-        return {"answer_text": f"No students are below {threshold}% — nice work.", "table": [], "chart": None}
-    top_student = rows[0]['student']
-    answer = (
-        f"{len(rows)} student(s) are below {threshold}% quiz score in at least one lecture. "
-        f'"{top_student}" is struggling in {rows[0]["lectures_below"]} of them.'
-    )
-    return {"answer_text": answer, "table": rows, "chart": None}
-
-
 def _exec_most_confusing_slides(lectures, token, params) -> Dict[str, Any]:
     limit = _clamp_int(params.get("limit"), default=5, lo=1, hi=20)
     if not lectures:
@@ -449,7 +363,8 @@ def _exec_most_confusing_slides(lectures, token, params) -> Dict[str, Any]:
     rows = []
     for lid, slides in all_confidence.items():
         for r in slides:
-            if int(r.get("total") or 0) <= 0:
+            # People who rated it; under the floor a slide says nothing.
+            if int(r.get("total") or 0) < analytics_service.MIN_PEOPLE:
                 continue
             rows.append({
                 "slide": f"{_short(lec_titles.get(lid, ''), 24)} · #{r['slide_number']}",
@@ -489,25 +404,25 @@ def _exec_teaching_overview(lectures, token, params) -> Dict[str, Any]:
         }
     enrollments = sum(int(o.get("total_students") or 0) for o in active)
     avg_completion = round(sum(float(o.get("completion_rate") or 0) for o in active) / len(active), 1)
-    avg_score = round(sum(float(o.get("average_score") or 0) for o in active) / len(active), 1)
+    scored = [float(o["average_score"]) for o in active if o.get("average_score") is not None]
+    avg_score = round(sum(scored) / len(scored), 1) if scored else None
     table = [
         {"metric": "Lectures", "value": total_lectures},
         {"metric": "Lectures with activity", "value": len(active)},
         {"metric": "Total enrollments", "value": enrollments},
         {"metric": "Average completion", "value": f"{avg_completion}%"},
-        {"metric": "Average quiz score", "value": f"{avg_score}%"},
     ]
-    answer = (
-        f"Across {len(active)} active lecture(s): {avg_completion:.0f}% average completion and "
-        f"{avg_score:.0f}% average quiz score, reaching {enrollments} enrollments."
-    )
+    answer = f"Across {len(active)} active lecture(s): {avg_completion:.0f}% average completion"
+    if avg_score is not None:
+        table.append({"metric": "Average quiz score", "value": f"{avg_score}%"})
+        answer += f" and {avg_score:.0f}% average quiz score"
+    answer += f", reaching {enrollments} enrollments."
     return {"answer_text": answer, "table": table, "chart": None}
 
 
 _EXECUTORS = {
     "lectures_by_dropoff": _exec_lectures_by_dropoff,
     "lectures_by_quiz_performance": _exec_lectures_by_quiz_performance,
-    "struggling_students": _exec_struggling_students,
     "most_confusing_slides": _exec_most_confusing_slides,
     "teaching_overview": _exec_teaching_overview,
 }
@@ -571,7 +486,8 @@ def _build_professor_context(token: str, professor_id: str) -> str:
         if students:
             lines.append(
                 f"- [{course}] {lec.get('title')}: {students} students, "
-                f"{ov.get('completion_rate', 0)}% completion, {ov.get('average_score', 0)}% avg quiz score"
+                f"{ov.get('completion_rate', 0)}% completion"
+                + (f", {ov['average_score']}% avg quiz score" if ov.get("average_score") is not None else "")
             )
         else:
             lines.append(f"- [{course}] {lec.get('title')}: no student activity yet")
