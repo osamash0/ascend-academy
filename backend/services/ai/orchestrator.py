@@ -1123,6 +1123,16 @@ def _generate_with_rotation(
                 or "error code: 404" in msg
                 or "status 404" in msg
             )
+            # A 401 means the key itself was rejected (revoked, wrong, typo'd
+            # in the env): it never starts working mid-process. A 403 is NOT
+            # treated the same way, because it can be about one request
+            # (OpenRouter answers a moderation-flagged prompt with 403), and
+            # one student's message must not take a provider out for everyone.
+            is_unauthorized = (
+                _http_status(exc) == 401
+                or "error code: 401" in msg
+                or "status 401" in msg
+            )
             if is_payment_required:
                 _rotator.record_unavailable(pid, "402 payment required (billing)")
                 last_exc = exc
@@ -1135,6 +1145,14 @@ def _generate_with_rotation(
                 _rotator.record_rate_limit(pid)
                 last_exc = exc
                 logger.warning("⚠️  Provider '%s' rate-limited, trying next", pid)
+            elif is_unauthorized:
+                _rotator.record_unavailable(pid, "401 from provider (API key rejected)")
+                last_exc = exc
+                logger.error(
+                    "🔑 Provider '%s' rejected its API key — disabling for the rest "
+                    "of this process: %s",
+                    pid, exc,
+                )
             elif is_model_not_found:
                 _rotator.record_unavailable(pid, "404 from provider (model or route gone)")
                 last_exc = exc

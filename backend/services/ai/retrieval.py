@@ -1,10 +1,10 @@
 """
 Retrieval helpers for the grounded AI tutor.
 
-Embeds a student question, queries `match_slides` (pgvector), filters the
-results to slides belonging to the active lecture (by `lecture_id` or
-`pdf_hash`), and enriches each match with the slide's actual content so the
-prompt builder can stuff it directly into the model context.
+Embeds a student question, queries `match_slides_by_lecture` (pgvector),
+which applies the active lecture's scope (`lecture_id` or `pdf_hash`) in
+SQL, and enriches each match with the slide's actual content so the prompt
+builder can stuff it directly into the model context.
 
 The current slide is always included as the first entry, regardless of its
 similarity to the question — it is the student's anchor and the tutor must
@@ -130,7 +130,7 @@ async def retrieve_relevant_slides(
     # match_slides_by_lecture applies the lecture_id/pdf_hash scope in the
     # WHERE clause itself, so a relevant slide in this lecture is never
     # dropped because a global candidate window filled up with other
-    # lectures' slides first (see migration 20260719020000's comment).
+    # lectures' slides first (see migration 20260719020001's comment).
     raw_matches: List[Dict[str, Any]]
     try:
         raw_matches = await get_similar_slides_by_lecture(

@@ -374,8 +374,11 @@ async def readiness_check():
     ok = True
 
     # Postgres via the asyncpg pool. Only critical when DATABASE_URL is actually
-    # configured — the app supports a REST-only (Supabase) mode with no pool, and
-    # we must not report not-ready (and block frontend startup) in that mode.
+    # configured: routes that use the Supabase REST client still work without a
+    # pool, and we must not report not-ready (and block frontend startup) then.
+    # It is not a complete mode, though: parsing needs the pool
+    # (`parser/repos._pool()` raises), so without DATABASE_URL every upload
+    # fails while this check reports ready.
     from backend.core.database import db_pool, DB_URL
     if not DB_URL:
         checks["database"] = "not_configured"
