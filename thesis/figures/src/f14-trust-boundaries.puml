@@ -1,77 +1,38 @@
-' F14 -- Trust boundaries and RLS policy patterns.
-' Chapter 5 (Implementation). Concept diagram.
-' Claim supported: authorisation has two enforcement points. RLS bounds direct
-' client access (68 tables, all RLS-enabled, four policy patterns, UNION
-' semantics as the structural hazard). The FastAPI backend mostly runs as
-' service_role or over asyncpg, bypasses RLS, and checks ownership in Python.
+' F14 -- Trust boundaries: three client-facing walls and the backend wall.
+' Chapter 5 (Implementation). Concept diagram. Pinned revision 2b8b1f7b.
+' Claim supported: a browser holding the anon key meets three database-side
+' boundaries (table RLS, function EXECUTE grants, storage policies). The
+' FastAPI backend is a fourth boundary: most routes run as service_role or
+' over asyncpg, bypass RLS and check ownership in Python; a few forward the
+' user's JWT so RLS applies. Sources: see MANIFEST.md (F14).
 @startuml f14-trust-boundaries
 !include _style.iuml
 
-title Trust boundaries — two enforcement points
+skinparam nodesep 16
+skinparam ranksep 34
 
-skinparam rectangle {
-  BackgroundColor #FFFFFF
+title Trust boundaries — three client-facing walls, one backend wall
+
+rectangle "**Browser** · untrusted\nanon key in the bundle +\nJWT from Supabase Auth:\nrole anon or authenticated" as BR #DCDCDC
+
+rectangle "**FastAPI** · backend wall\nchecks ownership in Python\n(e.g. v4 reader, Luna)" as API #FFFFFF
+
+rectangle "**Postgres and Storage** · enforced per role" as PG #F2F2F2 {
+  rectangle "**Storage policies**\nlecture-pdfs: private\nread: lesson visibility\nwrite: lesson owner" as ST #FFFFFF
+  rectangle "**EXECUTE grants**\nSECURITY DEFINER\nfunctions skip RLS;\nanon may run none" as FN #FFFFFF
+  rectangle "**Table RLS** · 79 tables, RLS on all\n**P1** own rows: user_id = auth.uid()\n**P2** creator: professor_id or\n       student_owner_id = auth.uid()\n**P3** derived: enrollment join or\n       lecture_visible_to_caller()\n**P4** backend-only: service_role\n       policies only (parse_runs)" as RLS #FFFFFF
 }
 
-rectangle "**UNTRUSTED**" as UT #DCDCDC {
-  rectangle "Browser\nholds the anon key,\nbaked into the bundle" as BR
-  rectangle "Uploaded PDF text\nprofessor OR student" as PDF #DCDCDC
-}
-
-rectangle "**Identity boundary**" as ID #F2F2F2 {
-  rectangle "Supabase Auth\nJWT issuer" as JWT
-  rectangle "anon\nno claims" as ANON
-  rectangle "authenticated\nauth.uid() present" as AUTH
-  rectangle "service_role\nbypasses RLS entirely" as SR #BFBFBF
-}
-
-rectangle "**Postgres RLS — the boundary for direct client access**\n68 tables, every one RLS-enabled" as RLS #F2F2F2 {
-  rectangle "**P1 Owner-scoped**\nuser_id = auth.uid()\nxp_events, review_schedule,\nexam_attempts, notifications" as P1
-  rectangle "**P2 Role-gated ownership**\nowner = uid AND has_role(professor)\ncourses, lectures" as P2
-  rectangle "**P3 Enrollment-derived**\nEXISTS join via course_enrollments\nor assignment_lectures\nslides, quiz_questions, review_cards" as P3
-  rectangle "**P4 Backend-only**\nno anon/authenticated policy at all\nparse_runs, slide_embeddings, caches" as P4 #DCDCDC
-}
-
-rectangle "**FastAPI — the boundary for backend paths**\nservice_role client + asyncpg pool,\nboth bypass RLS; ownership checked in Python" as API #F2F2F2
-
-BR --> JWT
-JWT --> ANON
-JWT --> AUTH
-ANON -[#1A1A1A,dashed]-> RLS : "**zero** table policies\ngrant TO anon"
-AUTH --> P1
-AUTH --> P2
-AUTH --> P3
-BR --> API
-API --> SR
-SR --> P4
-PDF -[#1A1A1A,dashed]-> P3 : "content flows into\nanother user's\ntutor context"
-
-note bottom of RLS
-  **The structural hazard.** Postgres OR-combines permissive
-  SELECT policies, so effective visibility is the UNION of every
-  applicable policy — not the intersection. Called out explicitly
-  in migration 20260719020000:25-29.
-
-  **And it is untested end to end:** no test composes a real
-  endpoint against real RLS (MILESTONE_2026_08.md:205-210), so the
-  union behaviour that caused the original cross-tenant leak
-  remains unguarded at the integration level.
-end note
-
-note right of P4
-  service_role bypasses RLS, so
-  every P4 table is protected only
-  by the API's own checks. This is
-  why lecture ownership is verified
-  in chat_service before retrieval
-  (see F12) — the database will not
-  do it for this path.
-end note
+BR -right-> API : "/api"
+BR -down-> ST : "Storage\nAPI"
+BR -down-> FN : "RPC"
+BR -down-> RLS : "PostgREST"
+API -[#1A1A1A,dashed]down-> RLS : "most routes: service_role\nor asyncpg, RLS bypassed;\nsome forward the user JWT"
 
 legend bottom
-  Browser-to-PostgREST traffic is bounded by RLS. Most backend traffic is not: it runs as
-  service_role or over asyncpg, so a missing ownership check there is invisible to the
-  database. See F15 for how the policies were hardened, F4 for why uploads are untrusted.
+  Permissive policies OR-combine: a role sees the **union** of every applicable policy (20260719020000:23-28).
+  No test checks a boundary through an API route: DB tests check policies and grants directly
+  in Postgres; endpoint tests run on asyncpg or a fake client without RLS.
 endlegend
 
 @enduml

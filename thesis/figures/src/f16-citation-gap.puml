@@ -1,56 +1,53 @@
-' F16 -- The citation gap.
+' F16 -- Source attribution: from computed-but-discarded to shown.
 ' Chapter 6 (Evaluation). Concept diagram.
-' Claim supported: verifiable source attribution is computed correctly on the
-' server and consumed by no reachable user interface. Groundedness is real at
-' the API boundary and invisible at the user boundary.
+' Claim supported: at 0be0081 the server computed and validated citations that no
+' interface a student could reach displayed. At 2b8b1f7b the gap is closed for
+' students by replacement, not repair: the v4 surfaces show attribution, while the
+' classic components still discard it.
+' Pinned at 2b8b1f7b. Sources: backend/services/ai/tutor.py:117-144 (_extract_citations);
+' backend/services/v4_spaces_service.py:886-896 + src/features/spaces/screens/HomeScreen.tsx:408-418
+' (Home chips); backend/services/luna/validate.py:85-91,135-147 + components/reader/luna/MoveMark.tsx
+' (Luna moves); backend/services/v4_reader_service.py:397 (reader "spot", length-checked only);
+' src/pages/LectureView.tsx:43 (ChatMessage has no citations); src/features/student/components/
+' InlineLecturePlayer.tsx:831-833 (label from the visible slide); src/components/LectureChat.tsx
+' (imported only by its test); src/App.tsx:197-212,645-656,657-664 (StudentV4Redirect).
 @startuml f16-citation-gap
 !include _style.iuml
 
-title The citation gap -- implemented server-side, invisible to users
+title Source attribution — shown in v4, still discarded in the classic rooms
 
-rectangle "**SERVER -- works as designed**" as SRV {
-  rectangle "LLM reply text\ncontains [Slide N] markers" as A
-  rectangle "_extract_citations\ntutor.py:106-133" as B
-  rectangle "Drop every index **not** in\nthe retrieved set\n//invented [Slide 99] discarded//" as C
-  rectangle "Surviving citations carry\nreal similarity scores" as D
-  A --> B
-  B --> C
-  C --> D
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  FontSize 10
 }
 
-rectangle "ChatResponse.citations" as RESP #DCDCDC
-D --> RESP
-
-rectangle "**CLIENT -- three consumers**" as CLI {
-  rectangle "LectureView.tsx\n//live student surface//" as E
-  rectangle "InlineLecturePlayer.tsx\n//live student surface//" as F
-  rectangle "LectureChat.tsx\nrenders clickable chips\nwith slide-jump" as G #F2F2F2
+rectangle "**Server** — unchanged since August" as SRV #F2F2F2 {
+  rectangle "Tutor reply cites [Slide N] / [Source N];\nany index outside the retrieved set\nis dropped (tutor.py:117-144)" as S1
 }
 
-RESP --> E
-RESP --> F
-RESP --> G
+rectangle "**v4 — what students reach**" as V4 #BFBFBF {
+  rectangle "**Home ask**\ncitations become clickable\nLesson-page chips" as H
+  rectangle "**Luna session**\na move opens a page that must\nexist; a highlight survives only\nif verbatim on that page" as L
+  rectangle "**Reader Explain / Ask**\nno citations: the open page\nis the only source" as R #DCDCDC
+  H -[hidden]right- L
+  L -[hidden]right- R
+}
 
-rectangle "**Discarded.**\nChatMessage type has no\ncitations field; data.citations\nis never read." as E2 #BFBFBF
-rectangle "**Substituted.**\nShows a hand-built label from the\n//currently visible// slide -- not\nfrom what the model cited." as F2 #BFBFBF
-rectangle "**Unreachable.**\nImported nowhere. Only references\nare its own definition and its test.\nIts telemetry never fires." as G2 #BFBFBF
+rectangle "**Classic rooms** — professors; students only if v4 is off" as CL #F2F2F2 {
+  rectangle "**LectureView**\nmessage type has no\ncitations field: discarded" as LV #DCDCDC
+  rectangle "**InlineLecturePlayer**\nshows the visible slide,\nnot what the model cited" as IP #DCDCDC
+  rectangle "**LectureChat**\nrenders chips, but is\nimported only by its test" as LC #DCDCDC
+  LV -[hidden]right- IP
+  IP -[hidden]right- LC
+}
 
-E --> E2
-F --> F2
-G --> G2
-
-note bottom of CLI
-  The 'grounded' boolean is not part of ChatResponse at all
-  (ai_content.py:84-87), so the lecture tutor cannot signal
-  ungroundedness to the UI even in principle. The refusal
-  affordance exists only in CommandPalette, which sits behind
-  FEATURE_GLOBAL_SEARCH -- off by default.
-end note
+S1 -down-> H
+S1 -down-> LV
+L -[hidden]down- IP
 
 legend bottom
-  Net result: a normal student receives a retrieval-grounded, injection-hardened,
-  prompt-constrained tutor answer with **zero visible source attribution and no**
-  **refusal signal**. The gap between implemented and delivered is the finding.
+  At 0be0081 (2026-08-18) only the classic rooms existed, so no reachable screen showed a source.
+  Luna's checks run on its own output, not on tutor citations. Dark = live for students · mid = no attribution.
 endlegend
 
 @enduml

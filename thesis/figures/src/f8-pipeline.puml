@@ -1,105 +1,77 @@
-' F8 -- The ingestion pipeline, five observable phases.
+' F8 -- The ingestion pipeline at the thesis revision (2b8b1f7b).
 ' HERO FIGURE. Chapter 4.
-' Claim supported: a single live pipeline (v5 "unified") transforms an uploaded
-' PDF into structured content. Admission control happens before enqueue; all
-' content persistence is server-authoritative inside the worker.
-' NOTE: swimlanes and `partition` cannot be mixed in PlantUML activity
-' diagrams. Phases are therefore rendered as shaded header steps.
+' Claim supported: two entry routes (the classic SSE stream and the v4 poll
+' routes) admit a PDF synchronously and converge on one stored object and one
+' Arq job; the job does all content work server-side and persists page by
+' page, so the reader can open the file long before the parse finishes.
+' Sources: upload.py:146-266 (SSE route), :568-760 (batch);
+' v4_spaces.py:180-195 + materials_service.py:105-146 (v4 route);
+' v4_spaces_service.py:477-536 (instant reader); unified_orchestrator.py:
+' 797-840 (run row, guards), :853-976 (extract, enhance), :1007-1166 (pages),
+' :1197-1237 (deck quiz), :1237-1390 (finalize), :1393-1451 (failure path).
+' Not drawn, on purpose: the headroom gate (:880-893; cannot trip while an
+' unmetered provider such as OpenAI is configured) and the flag-gated steps
+' that are off in production (Studio pages, course context, cross-lecture
+' quiz, review cards, concept graph). The reject label is padded with
+' no-break spaces so PlantUML does not run it into the diamond.
+' Size budget: <= 715 x 935 px at 80 dpi, so labels print at >= 6.5 pt.
 @startuml f8-pipeline
 !include _style.iuml
+skinparam ConditionEndStyle hline
 
-title Ingestion pipeline -- from uploaded PDF to structured content
-
-|#F2F2F2|API request (synchronous)|
+partition "API request (synchronous)" {
 start
-:POST /api/v1/upload/parse-pdf-stream;
-:capped streaming body read;
-
-if (valid PDF or PPTX?\nsize <= 50 MB, pages <= 300) then (no)
-  :HTTP 413 / 400; <<#DCDCDC>>
-  stop
-else (yes)
+if (route) then (classic: SSE)
+  :POST /upload/parse-pdf-stream
+  read <= 50 MB, PDF <= 300 pages, sha256
+  parse cache, student quota, queue < 50;
+else (v4: poll)
+  :POST /v4/uploads  or  /upload/batch
+  read, validate, sha256, owner dedupe
+  student quota (batch: queue < 50);
 endif
-
-:**sha256(bytes)**\nthe pipeline's primary key;
-note right
-  Content addressing drives the storage
-  path, run identity, the dedupe lock
-  and the embedding cache alike.
-end note
-
-if (Arq queue depth < 50?) then (no)
-  :HTTP 429\nworker-liveness-aware message; <<#DCDCDC>>
+if (admitted?) then (yes)
+  :store pdf-uploads/<sha256>.pdf and enqueue:
+  the v4 reader opens the original PDF now (polls every 3 s); <<output>>
+  note right
+    Pentagon (send signal):
+    the reader gains something.
+  end note
+else ( no: 400 / 403 / 413 / 429, or duplicate  )
   stop
-else (yes)
 endif
+}
 
-:store PDF at pdf-uploads/[sha256].pdf;
-:enqueue Arq job;
-:subscribe to Redis pubsub  parse:[sha256];
-
-|#DCDCDC|Arq worker (asynchronous, durable)|
-:claim job;
-
-if (run already completed?) then (yes)
-  :replay slides + deck from DB;
-  :emit complete; <<#F2F2F2>>
+partition "Arq worker (asynchronous, durable)" {
+-> claim job, upsert parse_runs row;
+if (run completed?) then (yes: replay from DB)
+  stop
+elseif (lock held?) then (yes: return early)
+  stop
+elseif (spend cap hit?) then (yes: run FAILED)
   stop
 else (no)
 endif
-
-if (acquire lock  joblock:parse:[hash]?) then (no)
-  :another worker holds it,\nreturn early;
-  stop
-else (yes)
+:Extract: PyMuPDF text per page, page count stored.
+Enhance: title + summary (text layer only), create or
+reuse the lecture row, poster, compacted reader copy.;
+if (page has >= 25 chars of text?) then (yes)
+  :one LLM call per 8 pages;
+else (no)
+  :vision call per page;
 endif
-
-:**phase: extract**; <<#BFBFBF>>
-:PyMuPDF per-page text extraction;
-:detect source language;
-if (LLM budget headroom\n>= pages + 2?) then (no)
-  :InsufficientHeadroomError; <<#DCDCDC>>
-  stop
-else (yes)
-endif
-
-:**phase: enhance**; <<#BFBFBF>>
-:lecture title, summary, key topics;
-:create or reuse lecture row\n//re-parse keeps lecture_id//;
-:render WebP poster from page 1;
-if (slide text length?) then (25 chars or more)
-  :batched text synthesis\n8 slides per LLM call;
-else (under 25 chars)
-  :per-slide **vision** model\nvision_routed = true;
-endif
-:persist slides\nai_enhanced, needs_review, vision_routed;
-
-:**phase: finalize**; <<#BFBFBF>>
-:generate deck quiz questions;
-:persist quiz_questions;
-:update lecture description + slide count;
-:localise EN / DE;
-:attach lecture_id to embeddings\n//written earlier keyed by hash only//;
-:emit deck_complete + complete;
+:persist each page, start its embedding task; <<output>>
+:Deck quiz: 5-8 questions, each citing its slide, re-answered
+by a checker call without the key: dispute -> one repair, else drop.
+Finalize: quiz, description, slide count, parse receipt, localise EN/DE,
+join embeddings (<= 120 s, one retry), attach them, run COMPLETED.;
 stop
+}
 
-|#F2F2F2|Fire and forget (not awaited)|
-:per-slide embedding, semaphore 3;
 note right
-  Dispatched with asyncio.create_task and
-  **never awaited**. A parse can report
-  "complete" with embeddings still in
-  flight, or lose them entirely if the
-  worker process exits.
+  Any exception or the 900 s timeout:
+  partial lecture finalized, run FAILED,
+  error event, lock released. No retry.
 end note
-stop
-
-legend bottom
-  One live pipeline. PARSER_VERSION selects nothing: any value other than 5 logs
-  "retired" and runs this path (upload_service.py:258). Parser v3 -- the README's
-  headline feature -- and v4 are archived in backend/_legacy/ with zero live importers.
-  Ordinary exceptions here receive **no retry**: max_tries applies only to
-  CancelledError and explicit RetryJob.
-endlegend
 
 @enduml

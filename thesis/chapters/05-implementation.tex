@@ -15,8 +15,9 @@ This is the content-consumption counterpart to \cref{sec:pipeline}: it is what
 the derived objects exist for.
 
 \thesisfigurepage{f12-tutor-sequence}
-  {The grounded lecture tutor. Groundedness is enforced at four distinct points
-   along the request path.}
+  {The grounded course tutor behind the v4 Home ask bar, the tutor path students
+   take in production. Groundedness is enforced at five points, including a
+   refusal before any model call.}
   {fig:tutor-sequence}
 
 \subsection{Retrieval Scoping}
@@ -87,7 +88,8 @@ rather than bolted on.}
 
 \thesisfigurepage{f13-batch-review}
   {The professor batch-review flow. The review step is corrective, not gating:
-   content is student-visible from the moment parsing finishes.}
+   content is student-visible from the moment parsing finishes. Adding Lessons
+   to a Space in v4 has no review step at all.}
   {fig:batch-review}
 
 \TODO{This is a first-order finding for a thesis about generating educational
@@ -105,8 +107,10 @@ for the professor.}
 \label{sec:authorisation}
 
 \thesisfigure{f14-trust-boundaries}
-  {Trust boundaries. Row-level security bounds direct client access; most
-   backend paths bypass it and enforce ownership in application code.}
+  {Trust boundaries. A browser holding the anonymous key meets three
+   database-side boundaries --- table row-level security, function execute
+   grants and storage policies; most backend routes bypass row-level security
+   and check ownership in application code.}
   {fig:trust-boundaries}
 
 \TODO{Explain row-level security as the enforcement point, then the four policy
@@ -122,8 +126,10 @@ at the integration level. A documented, citable limitation.}
 \label{sec:hardening}
 
 \thesisfigure{f15-security-arc}
-  {Five sequential migrations hardening privilege escalation, each closing a
-   vulnerability the previous step created or left open.}
+  {Privilege-escalation hardening in two phases: five steps over six migrations
+   from January to June 2026, then four steps over five migrations from October
+   to November 2026. Steps 1 and 3 each opened a hole that a later step closed,
+   and the arc has no final state.}
   {fig:security-arc}
 
 \TODO{\Cref{fig:security-arc} is the strongest security material available:

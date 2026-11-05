@@ -1,82 +1,65 @@
 ' F18 -- Evaluation setup.
-' Chapter 6 (Evaluation). Concept / dataflow diagram.
-' Claim supported: an automated scorecard harness exists with four metrics over
-' human-curated golden sets, a pass/fail band per metric, and CI-gating exit
-' semantics. Grounded in backend/eval/.
+' Chapter 6 (Evaluation). Concept diagram.
+' Claim supported: four evaluation instruments exist at 2b8b1f7b, and they differ in
+' what they can measure. The scorecard harness proves its scorers but cannot measure
+' the live system; the retrieval grid produced F19's numbers; the parser benchmark is
+' a pre-registered, blind, human-judged comparison of 11 text-extraction methods.
+' Pinned at 2b8b1f7b. Sources: backend/eval/{golden_sets,pipeline,scorer,judge,run_eval}.py
+' (run_eval.py:1-7; pipeline.py:78-104 LivePipeline refuses synthetic deck ids);
+' backend/eval/retrieval_grid.py:1-45, data/golden_set.json (50 questions), verify_anchors.py;
+' backend/eval/parser_bench/{blinding,schedule,ranking,checks,results}.py, ranking.py:1-15
+' (Bradley-Terry, MM); docs/thesis/experiments/parser-benchmark/PROTOCOL.md:3,11 (frozen
+' 2026-10-30, H1 with Bonferroni), LAB_LOG.md:263-268 (283 votes, 11 methods, H1 set);
+' backend/eval/deck_lab.py:1-10; backend/eval/quiz_answer_check.py:1-10. No CI workflow
+' runs any of them (.github/workflows/).
 @startuml f18-evaluation-setup
 !include _style.iuml
 
-title Evaluation setup — the scorecard harness
+title Evaluation setup — four instruments, run by hand
 
 skinparam rectangle {
   BackgroundColor #FFFFFF
+  FontSize 10
 }
 
-rectangle "**Golden sets** (human-curated)\nbackend/eval/golden_sets.py" as GS #F2F2F2 {
-  rectangle "QuizGoldenCase\n//verified correct answer index//" as G1
-  rectangle "TutorFaithfulnessCase\n//answer must be supported//\n//by the cited slides//" as G2
-  rectangle "RetrievalCase\n//known-relevant slide set//" as G3
-  rectangle "SynthesisQualityCase\n//open-ended, judged//" as G4
+rectangle "**A — Scorecard harness**\nrun_eval.py" as A #DCDCDC {
+  rectangle "4 metrics with pass bands:\nquiz key, tutor faithfulness,\nretrieval precision, synthesis" as A1
+  rectangle "proves each scorer catches a\nseeded regression (fake pipeline)" as A2
+  rectangle "**cannot measure the live system**:\nsynthetic deck ids match no lecture" as A3
+  A1 -down-> A2
+  A2 -down-> A3
 }
 
-rectangle "**Pipeline under test**\nbackend/eval/pipeline.py" as PIPE #DCDCDC {
-  rectangle "LivePipeline\n//real models, nightly//" as P1
-  rectangle "FakePipeline\n//deterministic, unit tests//" as P2
+rectangle "**B — Retrieval grid**\nretrieval_grid.py" as B #BFBFBF {
+  rectangle "50 hand-written questions\nover 6 real lectures;\nevery anchor verified" as B1
+  rectangle "k x threshold grid, lecture\nand course regimes, with the\nrefusal gate's false refusals" as B2
+  rectangle "**produced the numbers in F19**" as B3
+  B1 -down-> B2
+  B2 -down-> B3
 }
 
-rectangle "**Scorers** (pure functions, no I/O)\nbackend/eval/scorer.py" as SC #F2F2F2 {
-  rectangle "score_quiz_key_accuracy\n//fraction matching the//\n//human-verified answer//" as S1
-  rectangle "score_tutor_faithfulness" as S2
-  rectangle "score_retrieval_precision_at_k" as S3
-  rectangle "LLM judge\nbackend/eval/judge.py\n//JudgeFn injected, so a canned//\n//response works in unit tests//" as S4
+rectangle "**C — Parser benchmark**\nparser_bench/" as C #BFBFBF {
+  rectangle "11 extraction methods,\n24 judged pages; protocol\nfrozen before any vote" as C1
+  rectangle "blind pairwise duels, one judge,\nhidden repeats; 283 votes" as C2
+  rectangle "**Bradley-Terry ratings**, bootstrap\nintervals, Bonferroni-corrected H1" as C3
+  C1 -down-> C2
+  C2 -down-> C3
 }
 
-rectangle "**Scorecard**\n4 metrics + ScoreBand per metric" as CARD #BFBFBF
-rectangle "**eval_runs** table\none row per run" as DB #F2F2F2
-rectangle "**Exit code**\nnon-zero if any metric\nfalls below its band" as EXIT #DCDCDC
+rectangle "**D — Offline probes**" as D #F2F2F2 {
+  rectangle "Deck Lab: what the deck\nskeleton changes, no LLM call" as D1
+  rectangle "Quiz answer check: probe of\nfalse drops and false keeps" as D2
+  D1 -[hidden]down- D2
+}
 
-G1 --> P1
-G2 --> P1
-G3 --> P1
-G4 --> P1
-G1 --> P2
-
-P1 --> S1
-P1 --> S2
-P1 --> S3
-P1 --> S4
-P2 --> S1
-
-S1 --> CARD
-S2 --> CARD
-S3 --> CARD
-S4 --> CARD
-
-CARD --> DB
-CARD --> EXIT
-
-note right of SC
-  Scorers are deliberately **pure**: no I/O, so
-  they are trivially unit-testable and reusable
-  outside the CLI runner. The same design choice
-  as `is_grounded` in the course tutor (F3) —
-  the assertion surface is a function, not an
-  HTTP round-trip.
-end note
-
-note bottom of DB
-  **Honest limitation to state in the thesis:** the
-  `eval_runs` migration was never applied to
-  production (MILESTONE_2026_08.md:214), so this
-  harness is dev-and-CI tooling only. No production
-  scorecard history exists. Any longitudinal claim
-  must be scoped to local or CI runs.
-end note
+A -[hidden]right- B
+A3 -[hidden]down- C1
+B3 -[hidden]down- D1
+C -[hidden]right- D
 
 legend bottom
-  What this setup CAN support: quiz-key accuracy, tutor faithfulness, retrieval
-  precision@k, judged synthesis quality. What it CANNOT support without new
-  instrumentation: any claim about real student learning outcomes.
+  Dark = produced reported results · mid = built, cannot run against the live system.
+  None of the four runs in CI.
 endlegend
 
 @enduml

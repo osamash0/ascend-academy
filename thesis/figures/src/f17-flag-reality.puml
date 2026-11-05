@@ -1,97 +1,60 @@
-' F17 -- Built versus deployed.
+' F17 -- Built versus delivered.
 ' Chapter 6 (Evaluation). Concept diagram.
-' Claim supported: every feature flag in the project defaults to off, so the
-' deployed product is a strict subset of the implemented one -- and three
-' features are in inconsistent half-states rather than cleanly hidden.
+' Claim supported: what a student can reach is decided by 13 backend flags, all
+' default False, of which production switches on four. Since 2026-10-29/30 each
+' UI flag is derived from its backend flag, which removed the August half-states;
+' two gaps remain where a flag does not say what it seems to.
+' Pinned at 2b8b1f7b. Sources: backend/core/config.py:106-219 (flags),
+' docker-compose.prod.yml:142-153 (derived VITE flags), src/App.tsx:384-395
+' (ClassicTool), src/App.tsx:197-212 (StudentV4Redirect), backend/main.py:258
+' (search router), backend/services/v4_spaces_service.py:865-896 (Home ask),
+' backend/services/review/mastery.py:28-31 (cascade).
 @startuml f17-flag-reality
 !include _style.iuml
 
-title Built versus deployed — every flag defaults off
+title Built versus delivered — 13 flags, 4 on in production
 
 skinparam rectangle {
   BackgroundColor #FFFFFF
+  FontSize 10
 }
 
-rectangle "**IMPLEMENTED**\nbuilt, migrated, tested" as BUILT #F2F2F2 {
-  rectangle "Lecture tutor" as A1
-  rectangle "In-lecture quizzes" as A2
-  rectangle "Study guide" as A3
-  rectangle "Review engine (SRS)\nSM-2, swappable for FSRS" as A4
-  rectangle "Student uploads\n'My Materials'" as A5
-  rectangle "Exam mode\ncoverage-first sampling" as A6
-  rectangle "Global search\n+ course tutor" as A7
-  rectangle "Course brain\nconcept graph" as A8
+rectangle "**ON in production** since 2026-10-29/30" as ON #BFBFBF {
+  rectangle "FEATURE_V4\nSpaces, Library, Home ask" as V4
+  rectangle "FEATURE_V4_READER\nreader: Explain, Ask, practice" as RD
+  rectangle "FEATURE_LUNA_SESSIONS\nLuna study sessions" as LS
+  rectangle "FEATURE_STUDENT_UPLOADS\nLibrary uploads" as SU
+  V4 -[hidden]right- RD
+  LS -[hidden]right- SU
+  V4 -[hidden]down- LS
 }
 
-rectangle "**REACHABLE BY A STUDENT TODAY**" as LIVE #BFBFBF {
-  rectangle "Lecture tutor" as B1
-  rectangle "In-lecture quizzes" as B2
-  rectangle "Study guide" as B3
+rectangle "**OFF** — code default" as OFF #F2F2F2 {
+  rectangle "REVIEW_ENGINE · EXAM_MODE\nSTUDY_GUIDE · GLOBAL_SEARCH\nASK_LUNA\n//classic tools, no v4 room yet//" as OFF1
+  rectangle "COURSE_BRAIN · STUDIO_PAGES\nLANDING_PEOPLE\nLLM_PROMPT_LOGGING\n//backend only//" as OFF2
 }
 
-rectangle "**BROKEN HALF-STATE**\nfrontend flag ON, backend flag OFF" as HALF #DCDCDC {
-  rectangle "Review / SRS\n//nav tab renders,//\n//API returns 404//" as C1
-  rectangle "My Materials\n//page renders,//\n//router unmounted//" as C2
+rectangle "**How a flag reaches the screen**" as HOW #FFFFFF {
+  rectangle "**One switch per feature**\nthe prod build copies each backend flag\ninto its VITE_FEATURE_* build argument\n(8 of the 13 have a UI side)" as SW
+  rectangle "**Classic rooms**\na student is redirected to the v4 room\nthat replaced it; a classic tool whose\nbackend is off answers 404" as GATE
+  SW -[hidden]right- GATE
 }
 
-rectangle "**DEAD END**\nno frontend flag at all" as DEAD #DCDCDC {
-  rectangle "Exam mode\n//'Generate exam' button always//\n//visible, routes unmounted//" as D1
+rectangle "**Gaps that remain**" as GAPS #FFFFFF {
+  rectangle "**Flag no longer gates the capability**\nGLOBAL_SEARCH off hides the classic\ncommand palette, but the same course\ntutor answers on v4 Home under FEATURE_V4" as LEAK #DCDCDC
+  rectangle "**Silent cascade**\nCOURSE_BRAIN off -> no concepts written\n-> review_cards.concept_id stays NULL\n-> the mastery update returns early" as CASC #DCDCDC
+  LEAK -[hidden]right- CASC
 }
 
-rectangle "**CLEANLY HIDDEN**\nboth flags off — the only consistent gate" as HID #F2F2F2 {
-  rectangle "Global search + course tutor\n//no command palette,//\n//no 'Ask this course'//" as E1
-}
-
-rectangle "**SILENT CASCADE**" as CASC #DCDCDC {
-  rectangle "Course brain off\n→ concepts write-idle\n→ review_cards.concept_id NULL\n→ concept_mastery empty\n→ record_grade() a no-op" as F1
-}
-
-A1 --> B1
-A2 --> B2
-A3 --> B3
-A4 --> C1
-A5 --> C2
-A6 --> D1
-A7 --> E1
-A8 --> F1
-
-note bottom of BUILT
-  Not one flag in the codebase ships on:
-  FEATURE_REVIEW_ENGINE, FEATURE_EXAM_MODE,
-  FEATURE_GLOBAL_SEARCH, FEATURE_STUDENT_UPLOADS,
-  FEATURE_COURSE_BRAIN, FEATURE_STUDY_GUIDE,
-  FEATURE_LLM_PROMPT_LOGGING — all default False.
-end note
-
-note right of HALF
-  **Flag parity is manual and duplicated.**
-  The frontend reads build-time Vite env vars
-  directly — featureFlags.ts:2-5 admits "no
-  flag-delivery endpoint exists yet". It covers
-  only 3 of the 7 backend flags, which is how a
-  frontend-on / backend-off state arises at all.
-end note
-
-note right of DEAD
-  **And local diverges from deployed**
-  **structurally.** backend/.env enables three
-  features, but .dockerignore:28 excludes
-  **/.env from the image, so prod sees only**
-  **the root .env. Locally 22 routers mount;**
-  **prod serves 17-19. This is the documented**
-  **cause of exam generation 404ing in prod.**
-end note
-
-note bottom of CASC
-  **The production default is the least-tested**
-  **configuration.** conftest.py:32-33 force-sets
-  FEATURE_REVIEW_ENGINE=1 and FEATURE_EXAM_MODE=1,
-  so the suite never exercises the shipped state.
-end note
+LS -[hidden]down- OFF1
+OFF1 -[hidden]right- OFF2
+OFF1 -[hidden]down- SW
+SW -[hidden]down- LEAK
 
 legend bottom
-  For the Evaluation chapter this reframes the question from "what was built?" to
-  "what was delivered?" — a distinction most implementation theses never draw.
+  At 0be0081 (2026-08-18): 7 flags, all off; three screens or buttons rendered while their
+  backend was off, so their requests returned 404. Fixed by 6c95041b (10-29) and 28c81ca3 (10-30).
+  Shading: dark = on in production · light = built but off · mid = a gap that remains.
 endlegend
 
 @enduml

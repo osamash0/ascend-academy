@@ -13,8 +13,9 @@ here prevents a reader inferring an outcome claim from a quality metric.}
 \label{sec:automated-eval}
 
 \thesisfigure{f18-evaluation-setup}
-  {The scorecard harness: four metrics over human-curated golden sets, with a
-   pass band per metric and continuous-integration gating.}
+  {The four evaluation instruments. The retrieval grid and the parser benchmark
+   produced the reported results; the scorecard harness verifies its own scorers
+   but cannot run against the live system. None runs in continuous integration.}
   {fig:eval-setup}
 
 \TODO{Describe the harness from \cref{fig:eval-setup}: golden-set case types,
@@ -28,11 +29,10 @@ what makes it usable in continuous integration.}
 \label{sec:results}
 
 \thesisfigure{f19-results}
-  {Scorecard results: retrieval precision@k, measured against the real corpus.
-   Quiz key accuracy, tutor faithfulness and synthesis quality could not be
-   run against the live system with the harness as it exists today --- see
-   the figure's own note for why --- and are reported as not measured rather
-   than invented.}
+  {Retrieval quality on the real corpus at the production defaults. Three
+   scorecard metrics were not measured and are reported as such. The course
+   column predates a change to course-scoped search (\code{b66a97c6}) and has
+   to be re-run at \thesisCommit{}.}
   {fig:results}
 
 \TODO{\Cref{fig:results} is now real but PARTIAL: only retrieval
@@ -84,8 +84,10 @@ it as an engineering-process observation.}
 \label{sec:built-vs-deployed}
 
 \thesisfigure{f17-flag-reality}
-  {Feature-flag reality. Every flag in the project defaults to off, so the
-   deployed product is a strict subset of the implemented one.}
+  {Built versus delivered. Thirteen backend flags, all off by default;
+   production switches on four. Since the end of October each interface flag
+   follows its backend flag, which removed the half-states found at
+   \thesisEarlierCommit{}.}
   {fig:flag-reality}
 
 \TODO{The reframing that makes this chapter interesting: not "what was built?"
@@ -103,8 +105,9 @@ least-tested configuration, since the test suite forces two flags on.}
 \label{sec:citation-gap}
 
 \thesisfigure{f16-citation-gap}
-  {Source attribution is computed correctly on the server and consumed by no
-   reachable user interface.}
+  {Source attribution. The server's validated citations reach students through
+   the v4 surfaces; the classic components still discard them. At
+   \thesisEarlierCommit{}, no screen a student could reach showed a source.}
   {fig:citation-gap}
 
 \TODO{The sharpest single finding, and a good closing note for the chapter.

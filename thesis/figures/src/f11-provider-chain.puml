@@ -1,92 +1,54 @@
-' F11 -- LLM provider failover chain and its correlated-failure flaw.
+' F11 -- LLM provider failover (text chains).
 ' Chapter 4. UML activity diagram.
-' Claim supported: the chain presents nine providers but only seven distinct
-' API credentials (four entries share two keys); failure classification is three-way and omits
-' the authentication and payment classes entirely.
+' Pinned revision 2b8b1f7b (2026-11-02). Claim supported: the chains hold eight
+' entries on six credentials; failures are classified four ways (402, 429,
+' 404, other) and only the last class carries no penalty.
+' Sources: backend/services/ai/orchestrator.py (registry :239-367, chains
+' :386-397, availability :672-742, rotation :1019-1151, wrappers :1494-1599),
+' backend/services/llm_client.py:34-79, backend/services/ai/vision.py:117-208.
 @startuml f11-provider-chain
 !include _style.iuml
 
-title LLM provider failover -- nine entries, seven credentials
+title LLM failover: 8 chain entries, 6 credentials
 
 start
-:call site\n(BULK or QUALITY chain);
-
-if (per-user monthly budget OK?) then (no)
-  :LLMBudgetExceededError; <<#DCDCDC>>
+:pick BULK or QUALITY chain;
+if (user's monthly budget left?) then (no: LLMBudgetExceededError)
   stop
 else (yes)
 endif
-
-:refresh fleet-wide counters from Redis;
-:move user-preferred provider to head of chain;
-
-partition "Availability filter (in order)" {
-  :skip if not in registry;
-  :skip if permanently disabled;
-  :skip if no API key configured;
-  :skip if fleet daily cost ceiling hit (OpenAI);
-  :skip if daily request limit reached;
-  :skip if inside backoff window;
-}
-
-while (providers remaining?) is (yes)
-  :call provider;
-  if (outcome?) then (success)
-    :record success, flush counter,\naccount cost;
-    :return response; <<#BFBFBF>>
+:refresh fleet counters, preferred first,
+then filter the chain, in order
+hard: disabled · no key · OpenAI ceiling
+soft: daily limit · backoff window
+(soft gates relaxed if nothing passes,
+never a fallback to the raw chain);
+note right
+  Still weak:
+  gemma+gemini, groq_fast+groq share keys
+  401/403 carry no penalty, so they re-fire
+  8 attempts budgeted, at most 4 fit in 25 s
+end note
+while (next provider?) is (yes)
+  if (outcome?) then (ok)
+    :count, cost,\nreturn; <<#BFBFBF>>
     stop
-  elseif (429 / "rate limit" / "quota") then
-    :exponential backoff\n90s x 2^n, capped 600s;
-  elseif (404 model not found) then
-    :**permanent** disable\n//not cleared at UTC midnight//;
-  else (401 / 402 / 403 / 5xx / network)
-    :**no penalty recorded**; <<#DCDCDC>>
-    note right
-      A revoked key or exhausted credit
-      balance re-fires a doomed HTTPS
-      request on every subsequent call
-      for the whole process lifetime.
-      There is no 402 handling anywhere
-      in the codebase.
-    end note
+  elseif (402) then (yes)
+    :disable until\nrestart (billing);
+  elseif (429 (text)) then (yes)
+    :backoff 90 s·2^n,\nmax 600 s;
+  elseif (404) then (yes)
+    :disable until\nrestart (model);
+  else (other)
+    :no penalty; <<#DCDCDC>>
   endif
-endwhile (no)
-
-:raise last exception; <<#DCDCDC>>
+endwhile (none left: raise last error)
 stop
 
-note right
-  **Three weaknesses to discuss.**
-
-  1. Chain depth is partly illusory.
-     'gemma' is not Gemma -- its model is
-     gemini-2.0-flash-lite, sharing one
-     GEMINI_API_KEY with the 'gemini' entry.
-     Same for groq_fast / groq. Four of nine
-     entries are **not** independent failure
-     domains, so their separate daily quotas
-     (14 400 vs 1 500) are fiction.
-
-  2. Classification is string-sniffing on
-     str(exc).lower(), not status codes. A
-     prompt containing the word "quota" can
-     be misclassified as a rate limit.
-
-  3. The retry budget is unreachable.
-     stop_after_attempt(8) with
-     wait_exponential(min=4, max=60) sits
-     inside asyncio.wait_for(timeout=25s).
-     Waits are 4, 4, 8, 16 s, so attempts
-     start at 0, 4, 8 and 16 s: at most four
-     fit before the 25 s timeout, fewer once
-     real call latency counts. The docstring
-     says "3x"; the code says 8.
-end note
-
 legend bottom
-  BULK:    cerebras > groq_fast > cloudflare > gemma > mistral > openrouter > gemini > groq > openai
-  QUALITY: cerebras > groq > openrouter > cloudflare > gemini > mistral > groq_fast > gemma > openai
-  Vision uses a separate three-provider chain that does not classify 404 at all.
+  BULK      groq_fast > cloudflare > gemma > mistral > openrouter > gemini > groq > openai
+  QUALITY  groq > openrouter > cloudflare > gemini > mistral > groq_fast > gemma > openai
+  openai_only mode: both chains are [openai]. Vision: gemini > openai; 402/404 disable.
 endlegend
 
 @enduml

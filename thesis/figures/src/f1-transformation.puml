@@ -1,8 +1,17 @@
 ' F1 -- The transformation: lecture materials to structured educational content.
 ' HERO FIGURE. Chapter 1 (Introduction).
-' Claim supported: the thesis title made visual. One opaque artefact in, a set
-' of addressable, queryable learning objects out -- and the capabilities each
-' output unlocks.
+' Claim supported: the thesis title made visual. One PDF in; the original kept as
+' the reading surface, plus a set of addressable learning objects derived from it,
+' each feeding a capability that is live for students in production.
+' Pinned at 2b8b1f7b. Sources: backend/services/upload_service.py:13 (1-300 pages);
+' backend/services/parser/unified_orchestrator.py:166-176 (PyMuPDF), :77 + :1033-1037 (text vs
+' vision routing), :672-703 (compact reading copy in lecture-pdfs); backend/services/ai/
+' orchestrator.py:158 (8 slides per call); backend/services/parser/synthesis.py:154 (5-8 deck MCQs) + persist.py:299-343
+' (insert_deck_quizzes; per-slide questions are discarded, unified_orchestrator.py:1123, :1241);
+' backend/services/ai/embeddings.py:29 (768 dims); backend/services/parser/persist.py:4-5,233-258;
+' capabilities: backend/api/v1/v4_reader.py:80,175 (explain, ask), :129-146 + v4_practice_service.py:3
+' (practice from quiz_questions), :254 + v4_rehearsal_service.py:409 (checkpoint from slide text); backend/services/luna/context.py:13-33;
+' backend/services/v4_spaces_service.py:865-896 (Home ask -> course tutor).
 @startuml f1-transformation
 !include _style.iuml
 
@@ -10,60 +19,58 @@ title From lecture materials to structured educational content
 
 skinparam rectangle {
   BackgroundColor #FFFFFF
+  FontSize 10
 }
 
-rectangle "**INPUT** — one opaque artefact" as IN #F2F2F2 {
-  rectangle "**Lecture slide deck (PDF)**\n1–300 pages\n----\n• text trapped in page layout\n• no slide boundaries as data\n• no notion of a //concept//\n• not addressable, not queryable\n• readable by humans, opaque to software" as A
+rectangle "**INPUT** — one PDF" as IN #F2F2F2 {
+  rectangle "A lecture deck or a learner's own file, 1–300 pages\n----\n• text trapped in page layout  • no pages as data\n• no notion of a //concept//  • readable by people, opaque to software" as A
 }
 
-rectangle "**TRANSFORMATION**" as MID #DCDCDC {
-  rectangle "1. Extract\nper-page text (PyMuPDF)" as T1
-  rectangle "2. Route\ntext-bearing vs image-only" as T2
-  rectangle "3. Synthesise\nbatched LLM, 8 slides/call" as T3
-  rectangle "4. Embed\n768-dim vectors" as T4
-  T1 -[#1A1A1A]-> T2
-  T2 -[#1A1A1A]-> T3
-  T3 -[#1A1A1A]-> T4
+rectangle "**TRANSFORMATION** — in the worker, server-authoritative" as MID #DCDCDC {
+  rectangle "1. Extract\npage text (PyMuPDF),\nstore the PDF" as T1
+  rectangle "2. Route\ntext pages vs\nimage-only pages" as T2
+  rectangle "3. Synthesise\nbatched LLM,\n8 slides per call" as T3
+  rectangle "4. Embed\n768-dim\nvectors" as T4
+  T1 -right-> T2
+  T2 -right-> T3
+  T3 -right-> T4
 }
 
-rectangle "**OUTPUT** — addressable learning objects" as OUT #F2F2F2 {
-  rectangle "**Slide records**\ntitle · body · summary\n//trust flags: needs_review, vision_routed//" as B1
-  rectangle "**Quiz questions**\n4-option MCQ, one per slide\n//tagged by Bloom level + concept//" as B2
-  rectangle "**Slide embeddings**\npgvector 768, HNSW index" as B3
-  rectangle "**Deck metadata**\ntitle · summary · key topics" as B4
+rectangle "**OUTPUT** — the original, plus addressable objects" as OUT #F2F2F2 {
+  rectangle "**Reading copy**\nthe PDF itself,\ncompacted" as O0
+  rectangle "**Slide records**\ntitle · text · summary\n//needs_review, vision_routed//" as O1
+  rectangle "**Quiz questions**\n5-8 four-option MCQs\nper deck, each on a slide" as O2
+  rectangle "**Embeddings**\npgvector 768,\nHNSW index" as O3
+  O0 -[hidden]right- O1
+  O1 -[hidden]right- O2
+  O2 -[hidden]right- O3
 }
 
-rectangle "**CAPABILITIES UNLOCKED**" as CAP #BFBFBF {
-  rectangle "Grounded Socratic tutor\n//retrieval-scoped, citation-checked//" as C1
-  rectangle "Spaced repetition\n//SM-2 over quiz-derived cards//" as C2
-  rectangle "Mock exams\n//coverage-first, weakness-weighted//" as C3
-  rectangle "Professor analytics\n//per-slide engagement//" as C4
+rectangle "**LIVE FOR STUDENTS** — production, 2026-11" as CAP #BFBFBF {
+  rectangle "**Reader**\npages at once;\nExplain / Ask a page" as C0
+  rectangle "**Luna sessions**\nthe page, its neighbours,\nrelated pages" as C1
+  rectangle "**Practice**\nstored quiz questions;\ncheckpoints from the text" as C2
+  rectangle "**Home ask**\ncourse tutor with\nrefusal + citations" as C3
+  C0 -[hidden]right- C1
+  C1 -[hidden]right- C2
+  C2 -[hidden]right- C3
 }
 
-A -[#1A1A1A]-> T1
-T4 -[#1A1A1A]-> B3
-T3 -[#1A1A1A]-> B1
-T3 -[#1A1A1A]-> B2
-T3 -[#1A1A1A]-> B4
+A -down-> T1
+T1 -down-> O0
+T3 -down-> O1
+T3 -down-> O2
+T4 -down-> O3
 
-B3 -[#1A1A1A]-> C1
-B2 -[#1A1A1A]-> C2
-B2 -[#1A1A1A]-> C3
-B1 -[#1A1A1A]-> C4
-
-note right of MID
-  The transformation is **one-way and**
-  **server-authoritative**: the database is
-  the single source of truth for what a
-  slide "is" once parsed
-  (parser/persist.py:5). The client never
-  supplies structured content — it can
-  only correct it afterwards.
-end note
+O0 -down-> C0
+O1 -down-> C0
+O1 -down-> C1
+O2 -down-> C2
+O1 -down-> C2
+O3 -down-> C3
 
 legend bottom
-  Every output object is independently addressable, which is what makes the
-  capabilities on the right possible at all. The input PDF supports none of them.
+  Built, but off in production: mock exams and spaced review of quiz-derived cards.
 endlegend
 
 @enduml

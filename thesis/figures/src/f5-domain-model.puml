@@ -1,81 +1,120 @@
 ' F5 -- Conceptual domain model.
 ' Chapter 3 (Requirements). UML class diagram.
 ' Claim supported: the domain vocabulary and its multiplicities, at analysis
-' level. Deliberately distinct from F9 (the physical ER schema) -- this one
-' names concepts, including one (Quiz) that has no table behind it.
+' level. Deliberately distinct from F9/F9b (the physical ER schema) -- this one
+' names concepts, including two (Quiz, Idea) that have no table behind them,
+' and one (Space) that generalises a table (courses) and a user's own uploads.
+' Layout: -left-/-right- and [hidden] only keep boxes in place; statement
+' order matters to the layout engine, so reorder with care.
 @startuml f5-domain-model
 !include _style.iuml
 
 title Conceptual domain model
 
 hide methods
+hide circle
+hide empty members
 skinparam classAttributeIconSize 0
+skinparam nodesep 10
+skinparam ranksep 22
 
 class User {
-  role : student | professor | admin
+  role : student/professor/admin
 }
-class Course
+class Note
+class LearnerMemory {
+  kind : preference/shaky/strong/goal
+}
+
+class Space <<abstract>> {
+  title
+}
+class Course {
+  status : draft/published
+}
+class PersonalSpace
 class Lecture {
-  visibility : course | private_student
+  visibility : course/private_student
+}
+class Embedding {
+  vector : 768
 }
 class Slide {
   slideNumber
   needsReview
 }
 class Quiz <<derived>> #DCDCDC
+class Idea <<derived>> #DCDCDC
 class Question {
-  options[4]
-  correctAnswer
+  options[4], correctAnswer
 }
 class Concept
-class Embedding {
-  vector : 768
-}
 
+class LunaSession {
+  status : active/wrapped/abandoned
+  turns : Turn [0..*]
+}
+class ReviewCard {
+  owner : User [0..1]
+}
 class Attempt <<abstract>>
-class QuizAttempt
-class ExamAttempt
 class ReviewGrade {
   rating : 1..4
 }
+class QuizAttempt
+class ExamAttempt
 
-User "1" -- "0..*" Course : owns >
-User "0..*" -- "0..*" Course : enrolled in >
-Course "1" -- "0..*" Lecture : contains >
-Lecture "1" -- "1..*" Slide : contains >
-Slide "1" -- "0..*" Question : tests >
-Lecture "1" -- "0..*" Embedding : vectorised as >
-Slide "0..*" -- "0..*" Concept : teaches >
+' --- Spaces and the learner ---
+Space <|-- Course
+PersonalSpace -right-|> Space
+User "1" -left- "0..*" LearnerMemory : < about
 
-Quiz .. Slide : "//derived//: the set of\nQuestions reachable via\nSlide.lecture"
+User "1" -- "0..*" Note : writes >
+User "1" -- "0..*" Space : owns >
+User "1" -- "0..*" LunaSession : studies in >
+User "1" -- "0..*" Attempt : performs >
+Space "1" -- "0..*" LunaSession : < in
 
+User "0..*" -- "0..*" Course : joins >
+Attempt <|-- ReviewGrade
 Attempt <|-- QuizAttempt
 Attempt <|-- ExamAttempt
-Attempt <|-- ReviewGrade
-User "1" -- "0..*" Attempt : performs >
-Question "1" -- "0..*" Attempt : answered in >
 
-note right of Quiz
-  **No Quiz table exists.**
-  A quiz is implicit — the set of
-  quiz_questions joined through
-  slides.lecture_id. Modelled here
-  because it is real domain
-  vocabulary, but it must not appear
-  as an entity in F9.
+' --- content and activity ---
+PersonalSpace -[hidden]- Lecture
+Space "0..1" -- "0..*" Lecture : holds >
+Embedding "0..*" -right- "1" Lecture : vectorises >
+Note "0..*" -- "0..1" Lecture : anchored to >
+LunaSession "0..*" -- "0..1" Lecture : on >
+ReviewGrade "0..*" -- "1" ReviewCard : grades >
+LunaSession "0..1" -- "0..*" ReviewCard : makes >
+
+Lecture "1" -- "1..*" Slide : contains >
+Quiz .right. Slide : //derived//
+Slide .right. Idea : //derived//
+Slide "0..*" -- "0..*" Concept : teaches >
+Slide "1" -- "0..*" Question : tests >
+ReviewCard "0..*" -- "0..1" Question : made from >
+QuizAttempt "0..*" -- "1" Question : answers >
+ExamAttempt "0..*" -- "1..*" Question : draws >
+
+note bottom of Quiz
+  «derived» = no table. A Quiz is the
+  Questions reachable via a Lecture's
+  Slides; an Idea is a run of Slides an
+  LLM groups on demand, only cached.
 end note
 
 note bottom of Concept
-  Concept and its links are **write-idle by default**:
-  ingestion is gated behind FEATURE_COURSE_BRAIN (off),
-  so in a default deployment no Slide teaches any Concept.
-  That single default also empties concept mastery — see F17.
+  Write-idle by default: ingestion
+  is gated by FEATURE_COURSE_BRAIN
+  (off), so no Slide teaches one.
 end note
 
 legend bottom
-  Analysis-level model: names the domain, not the tables. Compare F9, which shows the
-  26 physical tables actually deployed, three unenforced relationships, and the four
-  dead tables excluded from it.
+  Analysis-level model: names the domain, not the tables (compare F9).
+  A ReviewCard comes from a Question or from a LunaSession; only the
+  latter has an owner.
 endlegend
 
 @enduml

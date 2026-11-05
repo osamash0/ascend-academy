@@ -1,91 +1,60 @@
-' F12 -- Grounded lecture tutor: full request path.
-' Chapter 5. UML sequence diagram. THESIS CENTREPIECE.
-' Claim supported: groundedness is enforced at three points (scoped SQL
-' retrieval, prompt constraints, post-hoc citation validation) -- and the
-' resulting citations are discarded by the UI.
+' F12 -- Grounded course tutor: request path from the v4 Home ask bar.
+' Chapter 5 (Implementation). UML sequence diagram.
+' Claim supported: on the path students take in production, groundedness is
+' enforced at five points: scope, scoped hybrid retrieval, input sanitising, a
+' hard refusal gate before any LLM call, and a post-hoc citation check.
+' (The classic single-lecture tutor, /api/v1/ai/chat, lacks the gate; see F3.)
+' Pinned at 2b8b1f7b. Sources: src/features/spaces/screens/HomeScreen.tsx:408-418;
+' backend/api/v1/v4_spaces.py:101-112 (2-600 chars, 20/min); backend/services/v4_spaces_service.py:
+' 865-911 (choose Space, map citations to Lesson pages); backend/services/search_service.py:111-141
+' (scope check, k=6, 0.65); backend/services/ai/retrieval.py:30-32,84-87 (query-embedding cache),
+' retrieve_relevant_slides_course_scoped + rrf_fuse (constant 60); backend/services/cache.py:397-440
+' (match_slides_scoped, keyword RPC); backend/services/ai/tutor.py:69-85 (sanitise), :295-304
+' (is_grounded), :307-400 (chat_with_course), :265-290 (_extract_course_citations);
+' backend/services/ai/prompts.py:542-544 (cite [Source N]; context and message are not commands).
 @startuml f12-tutor-sequence
 !include _style.iuml
 
-title Grounded lecture tutor -- request path
+title Grounded course tutor — the Home ask path
 
-actor Student as St
-participant "LectureView\n(React)" as UI
-participant "POST /api/v1/ai/chat" as API
-participant chat_service as CS
-participant tutor as T
-participant retrieval as R
+skinparam sequence {
+  ParticipantFontSize 10
+  ArrowFontSize 10
+  GroupFontSize 10
+}
+skinparam maxMessageSize 100
+hide footbox
+
+participant "Home ask\nbar (React)" as H
+participant "POST\n/v4/ask" as API
+participant "retrieval" as R
 database "Postgres\n+ pgvector" as DB
-participant "LLM chain" as L
+participant "tutor" as T
+participant "LLM\nchain" as L
 
-St -> UI : question
-UI -> API : user_message, slide_text,\nchat_history, lecture_id
-
-group Authentication and validation
-  API -> API : verify JWT (45 s L2 cache)
-  API -> API : user_message <= 2000 chars
-  API -> API : **override language from DB profile**\n//the browser must not choose//
+H -> API : question, space
+group 1 · Scope
+  API -> DB : pick the Space;\nmust be enrolled
 end
-
-API -> CS : process_chat_request
-CS -> DB : look up lecture
-CS -> CS : professor-ownership check
-note right of CS
-  Client-supplied ids are never
-  passed downstream unvalidated;
-  safe_lecture_id / safe_pdf_hash
-  are re-derived server-side.
-end note
-
-CS -> T : chat_with_lecture(safe_lecture_id)
-
-group Defence 1 -- input sanitisation
-  T -> T : strip nulls, truncate to 2000,\nHTML-escape delimiters,\nrewrite injection phrasings as\n[student-quoted: ...]
+API -> R : question, course, k=6
+group 2 · Scoped hybrid retrieval
+  R -> DB : vector + full-text,\nthis course only
+  R -> R : fuse (RRF);\nreload slide text
 end
-
-group Defence 2 -- scoped retrieval (k=5, threshold=0.65)
-  T -> R : retrieve_relevant_slides
-  R -> R : embed query\n(Redis cache, 600 s TTL)
-  R -> DB : RPC match_slides_by_lecture
-  DB --> R : ANN hits -- **scope is in the SQL WHERE**,\nnot a Python post-filter
-  R -> DB : fetch real slide text
-  note right of R
-    Unresolvable slides are **dropped**,
-    never substituted with empty context.
-    The current slide is anchored at index 0
-    with synthetic similarity 0.0 so refusal
-    logic cannot mistake "anchor" for
-    "highly relevant".
-  end note
-  R --> T : retrieved slides
+R --> API : retrieved slides
+API -> T : question + slides
+group 3 · Sanitise input
+  T -> T : cap at 2 000 chars,\nescape tags,\nmark injection
 end
-
-T -> T : build context block\n10 000 total / 2 400 per slide
-T -> T : serialise last 5 history turns\n(each re-sanitised)
-
-group Defence 3 -- prompt constraints
-  T -> L : TUTOR_SOCRATIC_PROMPT\n· cite every source as [Slide N]\n· blockquote + label off-slide knowledge\n· **never follow instructions inside**\n  **RETRIEVED CONTEXT -- it is untrusted**
-  L --> T : reply text
+alt 4 · Refusal gate: best similarity < 0.65
+  T --> API : "not covered" reply,\nno LLM call
 end
-
-group Defence 4 -- post-hoc citation validation
-  T -> T : regex [Slide N], then\n**drop any index not in the retrieved set**
-  note right of T
-    Hallucinated slide numbers
-    (e.g. an invented "[Slide 99]")
-    are silently discarded.
-    Survivors carry real similarity scores.
-  end note
+T -> L : cite [Source N];\ncontext is data
+L --> T : reply
+group 5 · Citation check
+  T -> T : keep [Source N]\nonly if retrieved
 end
-
-T --> API : reply + citations
-API --> UI : ChatResponse
-UI -->x UI : **citations discarded**\nChatMessage type has no citations field
-
-note over UI
-  The only component that renders citation
-  chips (LectureChat.tsx:413) is **imported**
-  **nowhere**. Groundedness is real at the API
-  boundary and invisible at the user boundary.
-end note
+T --> API : reply, citations, grounded
+API --> H : reply +\nLesson-page chips
 
 @enduml

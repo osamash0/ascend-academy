@@ -171,3 +171,90 @@ Notes for the prose:
   production may override them through environment variables not held in version control.
 - The parser's bulk LLM default (`cerebras`, `config.py:77`) is left out of the LaTeX block on
   purpose. Production overrides it, so printing the default would mislead.
+
+## Re-verified at 2b8b1f7b (2026-11-05)
+
+The thesis pin (`\thesisCommit`) moved from `0be0081` (2026-08-18) to `2b8b1f7b` (2026-11-02, HEAD of
+`main`). Every row of `appendix-a-constants.tex` was re-read with `git show 2b8b1f7b:<path>`; the
+working tree's `backend/` equals HEAD (`git diff --stat HEAD -- backend` is empty) and `nginx.conf`
+is unmodified. Value changes were traced with `git log -L` / `git log -S` over `0be0081..2b8b1f7b`.
+No `.env*` file was read, so production values remain unverified. At 2b8b1f7b the `environment:`
+entries in `docker-compose.prod.yml` are `REDIS_URL`, `REDIS_QUEUE_URL`, `RATE_LIMIT_STORAGE_URI`
+(new) and `ALLOWED_ORIGINS`; none of them pins a constant below.
+
+Result: 53 rows checked. 25 unchanged, 27 line moved only, 1 value changed, 0 removed.
+
+| # | Constant | Value @2b8b1f7b | path:line @2b8b1f7b | Env override | Changed since 0be0081 |
+|---|---|---|---|---|---|
+| 1 | Maximum upload size | 50 MB | `backend/core/config.py:90` | `MAX_UPLOAD_MB` | line moved (`:87`→`:90`) |
+| 2 | nginx request-body limit | 55 MB | `nginx.conf:66` | none (baked into the image) | no |
+| 3 | Maximum pages per document | 300 | `backend/services/upload_service.py:13` | none | no |
+| 4 | Maximum files per batch | 30 | `backend/core/config.py:92` | `MAX_BATCH_FILES` | line moved (`:89`→`:92`) |
+| 5 | Student uploads per month | 5 | `backend/core/config.py:140` | `STUDENT_UPLOAD_MONTHLY_LIMIT`; a per-user `upload_quotas.quota_limit` row wins (`backend/services/materials_service.py:64`) | line moved (`:123`→`:140`) |
+| 6 | Worker concurrency | 4 | `backend/core/config.py:96` (consumed `backend/workers/arq_worker.py:359`) | `ARQ_MAX_JOBS` | line moved (`:93`→`:96`) |
+| 7 | Queue depth limit | 50 | `backend/core/config.py:101` | `ARQ_MAX_QUEUE_DEPTH` (0 disables) | line moved (`:98`→`:101`) |
+| 8 | Job timeout | 900 s | `backend/workers/arq_worker.py:362` | none | line moved (`:281`→`:362`) |
+| 9 | Job retry limit (`max_tries`) | 5 | `backend/workers/arq_worker.py:368` | none | line moved (`:287`→`:368`) |
+| 10 | Job result retention | 604,800 s (7 d) | `backend/workers/arq_worker.py:365` | none | line moved (`:284`→`:365`) |
+| 11 | SSE heartbeat interval | 20 s | `backend/services/upload_service.py:333` | none | line moved (`:321`→`:333`) |
+| 12 | Proxy idle timeout | 120 s | `nginx.conf:52` (send `:53`) | none | no |
+| 13 | Worker heartbeat interval / TTL | 30 s / 90 s | `backend/workers/arq_worker.py:47`; `backend/core/worker_heartbeat.py:24` | none | line moved (`:41`→`:47`; `:23`→`:24`) |
+| 14 | Stalled-run reconciler cutoff | 25 min | `backend/workers/arq_worker.py:57` | none | line moved (`:48`→`:57`). New sibling at `:67`: runs still `queued`/`pending` are cut off after 360 min |
+| 15 | Reconciler sweep interval | 10 min | `backend/workers/arq_worker.py:72` (schedule: cron at `:336`) | none | line moved (`:53`→`:72`). The constant is referenced nowhere at either revision; the cron's `minute={0,10,...,50}` sets the interval |
+| 16 | Parse job lock TTL | 1200 s | `backend/services/parser/unified_orchestrator.py:68` | none | line moved (`:58`→`:68`) |
+| 17 | Review-card job lock TTL | 300 s | `backend/services/review/card_factory.py:39` | none | no |
+| 18 | Text-versus-vision threshold | 25 chars | `backend/services/parser/unified_orchestrator.py:77` | none | line moved (`:67`→`:77`) |
+| 19 | Vision model (default) | `gemini-2.0-flash` | `backend/core/config.py:74` | `VISION_MODEL`; `AI_PROVIDER_MODE=openai_only` forces `openai` (`config.py:236–238`, added in 5b178452) | line moved (`:71`→`:74`). Since 7830d49a the string only selects the Gemini vision leg, which calls `GEMINI_MODEL` = `gemini-flash-latest` (`backend/services/ai/orchestrator.py:331`, env `GEMINI_MODEL`; used at `backend/services/ai/vision.py:75`) |
+| 20 | Synthesis batch size | 8 slides | `backend/services/ai/orchestrator.py:158` (fallbacks `:160`, `:167`) | `QUIZ_BATCH_SIZE` (via `os.environ`) | line moved (`:86`→`:158`) |
+| 21 | Synthesis batch context overlap | 1 slide | `backend/services/ai/orchestrator.py:162` | `QUIZ_BATCH_OVERLAP` | line moved (`:90`→`:162`) |
+| 22 | Quiz questions per slide | 1 | `backend/services/ai/prompts.py:113` | none | line moved (`:97`→`:113`). The appendix now cites `ai/prompts.py`, because `backend/services/luna/prompts.py` exists at 2b8b1f7b |
+| 23 | Options per question | 4 (3 distractors) | `backend/services/ai/quiz_validator.py:98` (the check is on `:97`); prompt `backend/services/ai/prompts.py:116` | none | no |
+| 24 | Provider registry entries | 9 | `backend/services/ai/orchestrator.py:239` | API-key env var per entry | line moved (`:150`→`:239`). Both chains now have 8 entries (`:389`, `:393`): `cerebras` was dropped from them in f1bcf961 but stays registered. Under `openai_only` both chains are `["openai"]` (`:395–397`) |
+| 25 | LLM call timeout | 25 s | `backend/services/llm_client.py:72` | `LLM_TIMEOUT_SECONDS` | no |
+| 26 | LLM rate-limit retry attempts | 8 | `backend/services/llm_client.py:36` | none | no |
+| 27 | LLM retry backoff | exp., ×2, 4–60 s | `backend/services/llm_client.py:37` | none | no |
+| 28 | Monthly per-user LLM cap | $2.00 | `backend/core/config.py:200` (`default=2.0` on `:201`) | `LLM_MONTHLY_USER_COST_CAP_USD` (0 disables); `LLM_PARSE_BUDGET_ENFORCE` (`:211`, default `students`) decides which parses it may refuse | **value changed: $5.00→$2.00, 5b178452** (2026-10-11); line `:173`→`:200` |
+| 29 | OpenAI daily fleet ceiling | $10.00 | `backend/core/config.py:193` (`default=10.0` on `:194`) | `LLM_OPENAI_DAILY_COST_CEILING_USD` (0 disables) | line moved (`:166`→`:193`) |
+| 30 | Embedding model | `gemini-embedding-001` | `backend/services/ai/embeddings.py:21` (selected into `EMBEDDING_MODEL` at `:25`) | `AI_PROVIDER_MODE=openai_only` switches to `text-embedding-3-small` (`:22`, env `OPENAI_EMBED_MODEL`); new in 5b178452 | line moved (`:13`→`:21`, `:25`). Default unchanged, but no longer fixed |
+| 31 | Embedding dimensions | 768 | `backend/services/ai/embeddings.py:29` | none | line moved (`:14`→`:29`) |
+| 32 | Retrieval top-k (lecture / course) | 5 / 6 | `backend/services/ai/retrieval.py:30,32` | none (per-call arg) | no |
+| 33 | Similarity threshold | 0.65 | `backend/services/ai/retrieval.py:31` | none (per-call arg) | no |
+| 34 | Anchor-slide synthetic similarity | 0.0 | `backend/services/ai/retrieval.py:180` | none | line moved (`:177`→`:180`) |
+| 35 | RRF constant | 60 | `backend/services/ai/retrieval.py:254` | none (only caller `:226` keeps the default) | line moved (`:251`→`:254`) |
+| 36 | Query-embedding cache TTL | 600 s | `backend/services/ai/retrieval.py:41` | none | no |
+| 37 | Context cap (total / per slide) | 10,000 / 2,400 chars | `backend/services/ai/tutor.py:40–41` | none | line moved (`:38–39`→`:40–41`) |
+| 38 | History window | 5 turns × 1,000 chars | `backend/services/ai/tutor.py:42–43` | none | line moved (`:40–41`→`:42–43`) |
+| 39 | User message cap | 2,000 chars | `backend/api/v1/ai_content.py:53` (also `backend/services/ai/tutor.py:39`) | none | no |
+| 40 | SM-2 rating scale | 1–4 | `backend/services/review/scheduler.py:58` | none | no |
+| 41 | Ease factor minimum / initial | 1.3 / 2.5 | `backend/services/review/scheduler.py:20–21` | none | no |
+| 42 | Graduating intervals | 1 d / 6 d | `backend/services/review/scheduler.py:25–26` | none | no |
+| 43 | Relearning interval ("again") | 10 min | `backend/services/review/scheduler.py:29` | none | no |
+| 44 | Ease penalty on lapse | −0.20 | `backend/services/review/scheduler.py:65` | none | no |
+| 45 | Ease delta (hard / good / easy) | −0.15 / 0 / +0.15 | `backend/services/review/scheduler.py:82` | none | no |
+| 46 | Easy interval bonus | ×1.3 | `backend/services/review/scheduler.py:83` | none | no |
+| 47 | New cards per queue call / total cap | 20 / 100 | `backend/api/v1/review.py:56–57` | none | line moved (`:38–39`→`:56–57`) |
+| 48 | Exam length (default / min / max) | 30 / 20 / 40 | `backend/api/v1/exams.py:80,42–43` | none | no |
+| 49 | Exam time limit / grace period | 45 min / 30 s | `backend/api/v1/exams.py:44–45` | none | no |
+| 50 | Exam sampling seed | 63-bit, `SystemRandom` | `backend/api/v1/exams.py:110` | none | no |
+| 51 | Sampler minimum weight | 0.05 | `backend/services/exam_service.py:23` | none | no |
+| 52 | Difficulty boost (hard / medium / easy) | 1.2 / 1.0 / 0.8 | `backend/services/exam_service.py:24` | none | no |
+| 53 | Unseen-concept weight | 0.5 | `backend/services/exam_service.py:88` | none | no |
+
+Notes:
+- The appendix's `\TODO` now says twelve env-overridable rows, not eight. One is new since 0be0081
+  (embedding model, via `AI_PROVIDER_MODE`). Three were already env-overridable at 0be0081 but were
+  missing from the old list: student uploads per month, synthesis overlap and LLM call timeout
+  (see "Notes for the prose" above).
+- Row 28: the 0be0081 note "only enforced on calls that pass a `user_id`" is still the config
+  comment (`config.py:196–199`), but at 2b8b1f7b the lecture tutor passes `user_id`
+  (`backend/services/ai/tutor.py`), and parses are attributed to their uploader and gated by
+  `LLM_PARSE_BUDGET_ENFORCE`.
+- Production: `CLAUDE.md` (dated 2026-10-30) records `STUDENT_UPLOAD_MONTHLY_LIMIT=30` in prod,
+  against the code default of 5 (row 5). Not verified here.
+
+**Correction (2026-11-05, figure pass):** the row "Quiz questions per slide = 1" (`ai/prompts.py:113`)
+described a prompt whose output is never stored: the per-slide `questions` are set to `[]`
+(`unified_orchestrator.py:1123`) and `persist.insert_slide_quizzes` has no caller outside tests. The
+stored questions are the deck quiz (`insert_deck_quizzes`, `unified_orchestrator.py:1241`): the prompt
+asks for 5–8 (`ai/prompts.py:416`) and the code caps the list at 12 (`parser/synthesis.py:50`). The
+appendix row now says so. This was already the case at 0be0081 (`insert_deck_quizzes` only, line 865).

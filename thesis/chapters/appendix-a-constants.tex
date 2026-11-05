@@ -5,9 +5,10 @@ Every value below was read from source at revision \thesisCommit{} rather than
 from project documentation. Where documentation states a different value, the
 documented figure is wrong; see \cref{sec:reality-vs-documented}.
 
-\TODO{These are code defaults at \thesisCommit{}. Eight of them (upload size,
-batch size, worker concurrency, queue depth, synthesis batch size, the two cost
-caps, the vision model) can be overridden by environment variables in
+\TODO{These are code defaults at \thesisCommit{}. Twelve of them (upload size,
+batch size, student uploads per month, worker concurrency, queue depth,
+synthesis batch size and overlap, LLM call timeout, the two cost caps, the
+vision and embedding models) can be overridden by environment variables in
 production, and the deployed values were not read. Say so in one sentence here,
 or verify the production values and note any that differ. Per-row evidence and
 the variable names are in \code{docs/thesis/evidence/CONSTANTS.md}.}
@@ -30,48 +31,48 @@ the variable names are in \code{docs/thesis/evidence/CONSTANTS.md}.}
   \endlastfoot
 
   % --- Ingestion: admission control ---
-  Maximum upload size                    & 50\,MB          & \code{config.py:87} \\
+  Maximum upload size                    & 50\,MB          & \code{config.py:90} \\
   nginx request-body limit               & 55\,MB          & \code{nginx.conf:66} \\
   Maximum pages per document             & 300             & \code{upload\_service.py:13} \\
-  Maximum files per batch                & 30              & \code{config.py:89} \\
-  Student uploads per month              & 5               & \code{config.py:123} \\
-  Worker concurrency                     & 4               & \code{config.py:93} \\
-  Queue depth limit                      & 50              & \code{config.py:98} \\
+  Maximum files per batch                & 30              & \code{config.py:92} \\
+  Student uploads per month              & 5               & \code{config.py:140} \\
+  Worker concurrency                     & 4               & \code{config.py:96} \\
+  Queue depth limit                      & 50              & \code{config.py:101} \\
   % --- Ingestion: asynchronous processing ---
-  Job timeout                            & 900\,s          & \code{arq\_worker.py:281} \\
-  Job retry limit (\code{max\_tries})    & 5               & \code{arq\_worker.py:287} \\
-  Job result retention                   & 7\,days         & \code{arq\_worker.py:284} \\
-  SSE heartbeat interval                 & 20\,s           & \code{upload\_service.py:321} \\
+  Job timeout                            & 900\,s          & \code{arq\_worker.py:362} \\
+  Job retry limit (\code{max\_tries})    & 5               & \code{arq\_worker.py:368} \\
+  Job result retention                   & 7\,days         & \code{arq\_worker.py:365} \\
+  SSE heartbeat interval                 & 20\,s           & \code{upload\_service.py:333} \\
   Proxy idle timeout                     & 120\,s          & \code{nginx.conf:52} \\
-  Worker heartbeat interval / TTL        & 30\,s / 90\,s   & \code{arq\_worker.py:41}, \code{worker\_heartbeat.py:23} \\
-  Stalled-run reconciler cutoff          & 25\,min         & \code{arq\_worker.py:48} \\
-  Reconciler sweep interval              & 10\,min         & \code{arq\_worker.py:53} \\
-  Parse job lock TTL                     & 1200\,s         & \code{unified\_orchestrator.py:58} \\
+  Worker heartbeat interval / TTL        & 30\,s / 90\,s   & \code{arq\_worker.py:47}, \code{worker\_heartbeat.py:24} \\
+  Stalled-run reconciler cutoff          & 25\,min         & \code{arq\_worker.py:57} \\
+  Reconciler sweep interval              & 10\,min         & \code{arq\_worker.py:72} \\
+  Parse job lock TTL                     & 1200\,s         & \code{unified\_orchestrator.py:68} \\
   Review-card job lock TTL               & 300\,s          & \code{card\_factory.py:39} \\
   % --- Ingestion: routing and synthesis ---
-  Text-versus-vision threshold           & 25 chars        & \code{unified\_orchestrator.py:67} \\
-  Vision model (default)                 & \code{gemini-2.0-flash} & \code{config.py:71} \\
-  Synthesis batch size                   & 8 slides        & \code{orchestrator.py:86} \\
-  Synthesis batch context overlap        & 1 slide         & \code{orchestrator.py:90} \\
-  Quiz questions per slide               & 1               & \code{prompts.py:97} \\
+  Text-versus-vision threshold           & 25 chars        & \code{unified\_orchestrator.py:77} \\
+  Vision model (default)                 & \code{gemini-2.0-flash} & \code{config.py:74} \\
+  Synthesis batch size                   & 8 slides        & \code{orchestrator.py:158} \\
+  Synthesis batch context overlap        & 1 slide         & \code{orchestrator.py:162} \\
+  Deck quiz questions asked for (cap)    & 5--8 (12)       & \code{ai/prompts.py:416}, \code{synthesis.py:50} \\
   Options per question                   & 4 (3 distractors) & \code{quiz\_validator.py:98} \\
   % --- LLM provider strategy ---
-  Provider registry entries              & 9               & \code{orchestrator.py:150} \\
+  Provider registry entries              & 9               & \code{orchestrator.py:239} \\
   LLM call timeout                       & 25\,s           & \code{llm\_client.py:72} \\
   LLM rate-limit retry attempts          & 8               & \code{llm\_client.py:36} \\
   LLM retry backoff                      & 4--60\,s, exp.  & \code{llm\_client.py:37} \\
-  Monthly per-user LLM cap               & \$5.00          & \code{config.py:173} \\
-  OpenAI daily fleet ceiling             & \$10.00         & \code{config.py:166} \\
+  Monthly per-user LLM cap               & \$2.00          & \code{config.py:200} \\
+  OpenAI daily fleet ceiling             & \$10.00         & \code{config.py:193} \\
   % --- Grounded tutor ---
-  Embedding model                        & \code{gemini-embedding-001} & \code{embeddings.py:13} \\
-  Embedding dimensions                   & 768             & \code{embeddings.py:14} \\
+  Embedding model                        & \code{gemini-embedding-001} & \code{embeddings.py:21,25} \\
+  Embedding dimensions                   & 768             & \code{embeddings.py:29} \\
   Retrieval top-$k$ (lecture / course)   & 5 / 6           & \code{retrieval.py:30,32} \\
   Similarity threshold                   & 0.65            & \code{retrieval.py:31} \\
-  Anchor-slide synthetic similarity      & 0.0             & \code{retrieval.py:177} \\
-  RRF constant                           & 60              & \code{retrieval.py:251} \\
+  Anchor-slide synthetic similarity      & 0.0             & \code{retrieval.py:180} \\
+  RRF constant                           & 60              & \code{retrieval.py:254} \\
   Query-embedding cache TTL              & 600\,s          & \code{retrieval.py:41} \\
-  Context cap (total / per slide)        & 10\,000 / 2\,400 chars & \code{tutor.py:38--39} \\
-  History window                         & 5 turns $\times$ 1\,000 chars & \code{tutor.py:40--41} \\
+  Context cap (total / per slide)        & 10\,000 / 2\,400 chars & \code{tutor.py:40--41} \\
+  History window                         & 5 turns $\times$ 1\,000 chars & \code{tutor.py:42--43} \\
   User message cap                       & 2\,000 chars    & \code{ai\_content.py:53} \\
   % --- Spaced repetition (SM-2) ---
   Rating scale                           & 1--4            & \code{review/scheduler.py:58} \\
@@ -81,7 +82,7 @@ the variable names are in \code{docs/thesis/evidence/CONSTANTS.md}.}
   Ease penalty on lapse                  & $-0.20$         & \code{review/scheduler.py:65} \\
   Ease delta (hard / good / easy)        & $-0.15$ / 0 / $+0.15$ & \code{review/scheduler.py:82} \\
   Easy interval bonus                    & $\times 1.3$    & \code{review/scheduler.py:83} \\
-  New cards per queue call / total cap   & 20 / 100        & \code{review.py:38--39} \\
+  New cards per queue call / total cap   & 20 / 100        & \code{review.py:56--57} \\
   % --- Mock exams ---
   Exam length (default / min / max)      & 30 / 20 / 40    & \code{exams.py:80,42--43} \\
   Exam time limit / grace period         & 45\,min / 30\,s & \code{exams.py:44--45} \\

@@ -1,77 +1,53 @@
-' F19 -- Results.
+' F19 -- Results: retrieval quality on the real corpus.
 ' HERO FIGURE (Chapter 6, Evaluation).
-'
-' ############################################################################
-' # PARTIAL RESULTS. Only retrieval precision@k could be measured against    #
-' # the live system -- see the note beneath the scorecard for why the other  #
-' # three rows (quiz key accuracy, tutor faithfulness, synthesis quality)    #
-' # are marked NOT MEASURED rather than filled with a number.                #
-' ############################################################################
+' Claim supported: retrieval quality against 50 hand-written questions over six real
+' lectures, at the production defaults (k=5 lecture / k=6 course, threshold 0.65).
+' Three scorecard metrics were not measured (see F18: the harness cannot run against
+' the live system), and are shown as such rather than invented.
+' Data: thesis/results/20260917T214528Z/grid_results.{md,csv} (run 2026-09-17 at
+' a696be1-dirty, 170 commits after 0be0081). The course-scoped search changed on
+' 2026-10-14 (b66a97c6, migration 20261014000000_match_slides_scoped_by_pdf_hash.sql),
+' so the course row predates the pinned revision 2b8b1f7b and should be re-run there.
+' Defaults: backend/services/ai/retrieval.py:30-32.
 @startuml f19-results
 !include _style.iuml
 
-title Results -- Automated Quality Evaluation
+title Results — retrieval on the real corpus
 
-rectangle "**Scorecard** -- one row per metric" as CARD #F2F2F2 {
-  rectangle "Retrieval precision@k (lecture-scoped)\n----\nscore: 0.184  (ceiling 0.200 -- 92% of it)\nband:  >= 0.150 -> PASS\nn: 50 of 50 questions\nMRR 0.786 · slide found 92.0% · anchor found 94.0%\nk=5, threshold=0.65 (production defaults)" as M1 #FFFFFF
-  rectangle "Retrieval precision@k (course-hybrid)\n----\nscore: 0.160  (ceiling 0.167 -- 96% of it)\nband:  >= 0.150 -> PASS\nn: 27 of 50 questions attempted\nMRR 0.858 · slide found 96.3% · anchor found 100.0%\nk=6, threshold=0.65 (production defaults)" as M2 #FFFFFF
-  rectangle "Quiz key accuracy\n----\nNOT MEASURED\nsee note below" as M3 #DCDCDC
-  rectangle "Tutor faithfulness\n----\nNOT MEASURED\nsee note below" as M4 #DCDCDC
-  rectangle "Synthesis quality (LLM judge)\n----\nNOT MEASURED\nsee note below" as M5 #DCDCDC
+skinparam rectangle {
+  FontSize 10
 }
 
-rectangle "**Refusal gate**, threshold=0.65\n----\nrefusal rate:        2.0% (lecture) / 0.0% (course)\nfalse refusal rate:  0.0% (both regimes)\n\nEvery refusal at this threshold was a question the\ncorpus could not answer anyway -- the gate cost\nnothing in this sample." as GATE #F2F2F2
+rectangle SCORE #FFFFFF [
+<b>Retrieval, threshold 0.65 (production defaults)</b>
+|= Metric |= Lecture tutor, k=5 |= Course tutor, k=6 |
+| Questions run | 50 of 50 | 27 of 50 (23 skipped) |
+| Slide found in top k | 0.920 | 0.963 |
+| Anchor text found | 0.940 | 1.000 |
+| MRR | 0.786 | 0.858 |
+| Precision@k (ceiling) | 0.184 (0.200) | 0.160 (0.167) |
+| Refusal / false refusal | 0.020 / 0.000 | 0.000 / 0.000 |
+]
 
-rectangle "**Run metadata**\n----\ncommit:      a696be1  (85+ commits after the thesis's\n             pinned commit 0be0081; retrieval defaults\n             k=5/k=6, threshold=0.65 unchanged since then)\npipeline:    Live (retrieval only)\nmodel(s):    query-embedding model only -- no generation\n             model was called for these two rows\ngolden set:  backend/eval/data/golden_set.json\n             50 questions, 6 real DBS lectures\ndate:        2026-09-17\noverall:     PARTIAL -- retrieval PASSES its band,\n             three metrics could not be run" as META #F2F2F2
+rectangle NOT #DCDCDC [
+<b>Not measured</b>
+quiz key accuracy · tutor faithfulness · synthesis quality
+the scorecard harness cannot run against the live system (F18)
+]
 
-CARD --> GATE
-GATE --> META
+rectangle META #F2F2F2 [
+<b>Run</b> 2026-09-17, commit a696be1 with uncommitted changes
+<b>Golden set</b> 50 questions, 6 real lectures, anchors verified
+<b>Caveat</b> course search changed on 2026-10-14 (b66a97c6);
+the course column predates the pinned revision
+]
 
-note right of CARD
-  **Why three rows say NOT MEASURED, not a number.**
-  backend/eval/run_eval.py's golden sets (golden_sets.py) use
-  synthetic deck_id strings like "algorithms_101". LivePipeline
-  requires a real lecture UUID and raises rather than silently
-  returning zero, so quiz key accuracy, tutor faithfulness and
-  synthesis quality cannot be produced against the live system
-  with the harness as it exists today -- only backend/eval/
-  retrieval_grid.py has a real-corpus golden set, and it only
-  computes retrieval metrics. Inventing numbers for the other
-  three would be fabrication; leaving them blank states the gap.
-
-  A secondary, incidental finding from the attempt: several
-  providers in the text-generation chain (groq, openrouter,
-  two gemini models) returned 404 for models that have since
-  been deprecated or moved, and cerebras was rate-limited. This
-  did not affect the two retrieval rows above (embedding-only,
-  a separate call path) but would block a from-scratch synthesis-
-  quality run even with a real-corpus golden set.
-end note
-
-note bottom of GATE
-  23 of 50 questions were skipped by the course-hybrid regime:
-  their lecture's course_id is null, so that regime has nothing
-  to scope to. This is a real data-completeness gap, not a
-  retrieval failure -- it bounds how many of today's lectures
-  the course-scoped tutor can actually reach.
-end note
-
-note bottom of META
-  **Claims this figure can support:** retrieval quality against a
-  curated, human-verified golden set of real lecture content,
-  measured reproducibly at a known commit, under the exact k and
-  threshold the production code uses by default.
-
-  **Claims it can NEVER support, however good the numbers:** that
-  students learned more, or anything about quiz/tutor/synthesis
-  quality -- those three rows were not run. There is no controlled
-  study, no comparison group, and `learning_events` retention
-  defaults to 0 (never archive) with no analysis pipeline behind it.
-end note
+SCORE -[hidden]down- NOT
+NOT -[hidden]down- META
 
 legend bottom
-  Full grid (all k x threshold cells, both regimes) in thesis/results/20260917T214528Z/.
-  Regenerate with: python -m backend.eval.retrieval_grid --k 3,5,6,8,10 --threshold 0.65
+  Skipped: 23 questions whose lecture has no course, so the course tutor cannot reach them.
+  Precision@k is capped by one relevant slide per question; the ceiling is 1/k.
 endlegend
 
 @enduml

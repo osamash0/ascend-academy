@@ -1,0 +1,174 @@
+' F9b -- Core physical schema, part 2: learning, Luna, gamification.
+' Chapter 4 (Design). ER diagram, crow's-foot ends carry the multiplicities.
+' Claim supported: the 17 learner-facing tables of the 36-table core, hung off
+' the part-1 tables they reference (grey stubs). Six relationships carry NO
+' database-enforced FK; two of them (space_id) are polymorphic text links.
+' Split from F9 because 37 boxes cannot print legibly on one A4 page.
+' Layout: some edges are written child-first so the leaf tables sit left of
+' the stubs; the crow's-foot ends, not the writing order, carry the meaning.
+@startuml f9b-er-learning
+!include _style.iuml
+
+title Core schema, part 2: learning, Luna, gamification
+
+hide methods
+hide circle
+hide empty members
+skinparam classAttributeIconSize 0
+skinparam nodesep 10
+skinparam ranksep 14
+left to right direction
+
+' --- part-1 tables, drawn as stubs ---
+class concepts <<part 1>> #DCDCDC
+class quiz_questions <<part 1>> #DCDCDC
+class lectures <<part 1>> #DCDCDC
+class courses <<part 1>> #DCDCDC
+class "auth.users" as auth_users <<part 1>> #DCDCDC
+
+' --- assessment ---
+class student_progress {
+  user_id FK
+  lecture_id FK
+  completed_slides : int[]
+}
+class review_cards {
+  +id
+  lecture_id FK
+  owner_id FK //NULL = shared//
+  concept_id FK //always NULL//
+  source_type incl. luna_session
+  source_id //no FK//
+}
+class review_schedule {
+  +user_id FK
+  +card_id FK
+  due_at, stability
+}
+class review_log {
+  user_id FK
+  card_id FK
+  rating : 1..4
+}
+class exam_attempts {
+  user_id FK
+  course_id FK
+  question_ids : uuid[]
+}
+class v4_rehearsal_attempts {
+  user_id FK
+  course_id FK
+  lecture_ids : uuid[]
+  score, total
+}
+class practice_sheets {
+  +id
+  lecture_id FK
+  created_by FK
+}
+class practice_sheet_questions {
+  sheet_id FK
+  source_quiz_question_id FK
+}
+class practice_attempts {
+  sheet_id FK
+  student_id FK
+}
+
+' --- Luna and notes ---
+class luna_sessions {
+  +id
+  user_id FK
+  space_id : text
+  lecture_id FK //nullable//
+  status, plan, recap
+}
+class luna_turns {
+  session_id FK
+  role : learner / luna / move
+}
+class learner_memory {
+  user_id FK
+  space_id : text
+  source_session_id FK
+  kind, text
+}
+class notes {
+  user_id FK
+  lecture_id FK //nullable//
+  course_id FK //nullable//
+  body
+}
+
+' --- gamification and telemetry ---
+class xp_events {
+  user_id FK
+  xp, dedupe_key
+}
+class achievements {
+  user_id FK
+  badge_name : text
+}
+class badge_definitions {
+  +key : text
+  metric //NULL = event//
+}
+class learning_events <<partitioned>> {
+  user_id FK
+  event_type
+  created_at //range key//
+}
+
+' column A, written child-first: tables whose only parents are stubs
+student_progress }o--|| lectures
+notes }o--o| lectures
+notes }o--o| courses
+exam_attempts }o--|| courses
+xp_events }o--|| auth_users
+learning_events }o--|| auth_users
+
+' columns C and D
+lectures ||--o{ review_cards
+concepts |o--o{ review_cards
+review_cards ||--o{ review_schedule
+review_cards ||--o{ review_log
+courses ||--o{ v4_rehearsal_attempts
+lectures ||--o{ practice_sheets
+practice_sheets ||--o{ practice_sheet_questions
+practice_sheets ||--o{ practice_attempts
+quiz_questions |o--o{ practice_sheet_questions
+lectures |o--o{ luna_sessions
+luna_sessions ||--o{ luna_turns
+luna_sessions |o--o{ learner_memory
+auth_users ||--o{ achievements
+
+' --- Unenforced relationships: DASHED, no FK in the database ---
+quiz_questions .. review_cards
+exam_attempts .. quiz_questions
+lectures .. v4_rehearsal_attempts
+courses .. luna_sessions
+courses .. learner_memory
+achievements .. badge_definitions
+
+note as N1
+  No FK on badge_name: three
+  keys the client awards were
+  never seeded; award_badge()
+  returns NULL, unchecked.
+end note
+N1 .. badge_definitions
+
+note as N2
+  space_id is a course id, or
+  the learner's own id for the
+  personal Space.
+end note
+luna_sessions .. N2
+
+legend bottom
+  Grey = part-1 table (F9). Ids and FKs are uuid unless typed. Dashed = no
+  database-enforced foreign key; uuid[] and space_id columns have none either.
+  Person columns not linked here also reference auth.users (edges omitted).
+endlegend
+
+@enduml

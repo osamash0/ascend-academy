@@ -1,70 +1,91 @@
-' F10 -- Layered idempotency in the content-addressed ingestion pipeline.
+' F10 -- Layered idempotency in the content-addressed ingestion pipeline,
+' at the thesis revision (2b8b1f7b).
 ' HERO FIGURE. Chapter 4.
-' Claim supported: for one owner, the pipeline does at most one unit of
-' effective work per identical input, through seven mechanisms at four layers.
-' The key includes user_id, so two owners of identical bytes each pay a parse
-' (unified_orchestrator.py:467-473) -- the guarantee is per owner.
+' Claim supported: a re-submitted file meets nine mechanisms in four layers;
+' eight are live. L0 (the parse-cache replay) is still read on the classic
+' route but nothing written at this revision can pass its parser check, so it
+' is drawn dashed and grey. Thick borders (stereotype <<content>>) mark the
+' mechanisms keyed on the bytes alone and shared by every owner; thin ones are
+' keyed per owner, run or lecture. "Per owner" holds for the run row, not for
+' the whole stack. Layout: a centred spine (REQ, L1, L3, L4, L5, L7, OK) keeps
+' Smetana from staircasing; "note left" is misplaced by Smetana, so one note.
+' Sources: cache.py:191-231, upload.py:195-206, file_parse_service.py:1148
+' (L0); upload_service.py:105-120 (L1); materials_service.py:90-120,
+' upload.py:630-697 (L2); repos.py:44-100, migration 20260730000000:50 (L3);
+' unified_orchestrator.py:817-822 (L4); job_locks.py:33-54,
+' unified_orchestrator.py:68, :826-832 (L5); :947-951 (L6); :672-703,
+' poster.py:116-128, repos.py:483-512 (L7); file_parse_service.py:827-841,
+' cache.py:554-556 (L8). Edge case: reconcile.py:45-49, :123-129,
+' arq_worker.py:67.
+' Size budget: <= 715 x 865 px at 80 dpi, so labels print at >= 6.5 pt.
 @startuml f10-idempotency
 !include _style.iuml
 
-title Layered idempotency: seven mechanisms, four layers
+title Layered idempotency: eight live mechanisms in four layers
 
 skinparam rectangle {
   BackgroundColor #FFFFFF
 }
+skinparam packageStyle frame
+<style>
+.content {
+  LineThickness 2.5
+}
+.legacy {
+  LineThickness 2.5
+  LineStyle 5
+  FontColor #666666
+}
+</style>
+hide stereotype
 
-rectangle "**Re-submission of identical PDF bytes**" as REQ #DCDCDC
+rectangle "Re-submission of identical PDF bytes" as REQ #DCDCDC
 
-package "Layer 1 -- Content" {
-  rectangle "**L0  Parse-cache replay**\nRedis cache keyed on pdf_hash\n//A hit streams cached slides; nothing is enqueued//" as L0
-  rectangle "**L1  Content addressing**\nsha256(bytes) is the storage key\n//Identical bytes cannot create a second object//" as L1
+package "Layer 1 -- Request, before any job" {
+  rectangle "**L0  Parse-cache replay**\npdf_parse_cache by pdf_hash,\nclassic route only; nothing\nwritten today passes: no hit" as L0 <<legacy>>
+  rectangle "**L1  Content addressing**\nsha256(bytes) is the name:\npdf-uploads/<sha256>.pdf,\nupsert, one object per input" as L1 <<content>>
+  rectangle "**L2  Owner dedupe**\nv4: owner's Lesson returned,\nno quota, no job; batch:\nknown bytes skipped" as L2
 }
 
 package "Layer 2 -- Database" {
-  rectangle "**L2  Unique constraint**\nparse_runs UNIQUE (pdf_hash, pipeline_version, user_id)\nupsert via COALESCE -- a re-fetch never clobbers" as L2
-  rectangle "**L3  Completed-run replay**\nstatus = completed  ==>  replay slides from DB\n//No re-parse. No duplicate lecture.//" as L3
+  rectangle "**L3  One run per owner**\nparse_runs UNIQUE (pdf_hash, pipeline_version,\nuser_id); a COALESCE upsert never clobbers" as L3
+  rectangle "**L4  Completed-run replay**\ncompleted ==> replay from DB:\nno re-parse, no second lecture" as L4
 }
 
-package "Layer 3 -- Distributed runtime" {
-  rectangle "**L4  In-flight lock**\nSET joblock:parse:<hash> NX EX 1200\nTTL 1200s > job_timeout 900s" as L4
-  rectangle "**L5  Lecture reuse**\nre-parse clears content, keeps lecture_id\n//Inbound references survive//" as L5
+package "Layer 3 -- Redis" {
+  rectangle "**L5  In-flight lock**\nSET joblock:parse:<sha256> NX EX 1200\nTTL 1200 s > job_timeout 900 s" as L5 <<content>>
 }
 
-package "Layer 4 -- Cost control" {
-  rectangle "**L6  Embedding dedupe**\nsha256(embedding text) checked\n//before// any paid API call" as L6
+package "Layer 4 -- Outputs of a re-parse" {
+  rectangle "**L6  Lecture reuse**\nre-parse clears content,\nkeeps lecture_id: links to\nthe lecture survive" as L6
+  rectangle "**L7  Upserted outputs**\nreader copy, poster (upsert),\nparse receipt ON CONFLICT\n(run_id)" as L7
+  rectangle "**L8  Embedding dedupe**\nsha256(embedding text)\nchecked before any paid\nAPI call" as L8 <<content>>
 }
 
-rectangle "**At most one unit of effective work per owner**" as OK #BFBFBF
+rectangle "At most one parse per owner and pipeline version (unless forced)" as OK #BFBFBF
 
-REQ  --> L0
-L0   --> L1
-L1   --> L2
-L2   --> L3
-L3   --> L4
-L4   --> L5
-L5   --> L6
-L6   --> OK
+L0 -[hidden]right- L1
+L1 -[hidden]right- L2
+L6 -[hidden]right- L7
+L7 -[hidden]right- L8
 
-note right of L4
-  **Deliberate availability trade-off.**
-  A Redis error returns True and proceeds
-  //unlocked// (job_locks.py:53). Mutual
-  exclusion is sacrificed to keep uploads
-  working; L2 and L3 remain the
-  correctness backstop.
+REQ -down-> L1
+L1 -down-> L3
+L3 -down-> L4
+L4 -down-> L5
+L5 -down-> L7
+L7 -down-> OK
 
-  **Edge case.** The lock is keyed on
-  pdf_hash alone, but L2 includes user_id.
-  A second owner arriving mid-parse returns
-  early and is left 'queued' -- a state the
-  stalled-run sweep at this revision never
-  resolves.
+note right of L5
+  Best effort: on a Redis error the job
+  runs unlocked, so duplicates both parse.
+  Hash-keyed: a second owner mid-parse
+  stays 'queued' until the 6 h sweep.
 end note
 
 legend bottom
-  Provenance: L0 upload.py:134 | L1 upload.py:131 | L2 repos.py:82 + migration 20260730000000:49
-  L3 unified_orchestrator.py:531 | L4 job_locks.py:41 | L5 unified_orchestrator.py:641
-  L6 file_parse_service.py:832
+  Thick border: keyed on the bytes alone, so shared by every owner. Thin: per owner, run or lecture.
+  Dashed and grey: L0 (also keyed on the bytes) is still read on the classic route but cannot hit.
 endlegend
 
 @enduml

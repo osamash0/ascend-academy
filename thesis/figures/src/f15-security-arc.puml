@@ -1,54 +1,52 @@
 ' F15 -- Privilege-escalation hardening arc.
-' Chapter 5. UML state diagram.
-' Claim supported: authorisation hardened iteratively over five migrations,
-' each closing a vulnerability the previous step created or left open. Each
-' migration header documents its own attack -- a primary-source record.
+' Chapter 5. UML state diagram. Pinned revision 2b8b1f7b.
+' Claim supported: authorisation was hardened step by step, in two phases.
+' Phase 1 (Jan-Jun 2026): five steps over six migrations; step 1 itself
+' created the hole step 2 closes, and step 3 made the leak step 5 closes
+' exploitable. Phase 2 (Oct-Nov 2026): four steps over five migrations;
+' steps 6 and 8 fixed holes found by probing prod. No final state: the arc
+' continues.
+' Every state names its migration; see MANIFEST.md (F15) for line numbers.
 @startuml f15-security-arc
 !include _style.iuml
 
-title Privilege-escalation hardening -- five sequential migrations
+skinparam ranksep 22
+skinparam nodesep 24
+skinparam state {
+  FontSize 10
+  AttributeFontSize 10
+}
 
-state "Initial design" as S0 #FFFFFF : role stored on the user profile
-state "1 · Role storage separated" as S1 : user_roles table, not profiles\nhas_role() SECURITY DEFINER\nbreaks RLS recursion
-state "2 · Client writes forbidden" as S2 : FOR ALL USING(false)\nWITH CHECK(false)
-state "3 · Trigger-only assignment" as S3 : on_auth_user_created\ndomain-whitelisted, then\ndeliberately opened
-state "4 · Professor reads rescoped" as S4 : union-of-policies leak closed\nvia course_enrollments join
-state "5 · Privileged columns frozen" as S5 #DCDCDC : BEFORE UPDATE trigger reverts\ntotal_xp, current_level,\ninstitution_verified
+title Privilege-escalation hardening, January to November 2026
 
-S0 --> S1 : **closes** self-PATCH of\nyour own role column
-S1 --> S2 : **closes** "any authenticated user\ncould escalate to professor by\ninserting role=professor"
-S2 --> S3 : admin can never be\nself-granted
-S3 --> S4 : //introduces// platform-wide\ncross-tenant read
-S4 --> S5 : **closes** forgeable verified\nbadge, leaderboard poisoning
-S5 --> [*]
+state "Phase 1 · January to June" as PH1 #FFFFFF {
+  state "1 · Roles in user_roles" as S1 : <size:9>20260122202809</size>\nhas_role() SECURITY DEFINER\n//opens//: clients may insert\ntheir own role row
+  state "2 · Client role writes forbidden" as S2 : <size:9>20260502000003</size>\nuser_roles: FOR ALL USING (false)\nWITH CHECK (false)\n**closes** self-granted professor
+  state "3 · Role set only at signup" as S3 : <size:9>20260601000000, 20260615000800</size>\ntrigger: domain list, then any domain;\nadmin is never self-granted\n//opens//: any self-declared professor\nreads all students (2026-01 policies)
+  state "4 · Profile trust columns frozen" as S4 : <size:9>20260620000000</size>\nBEFORE UPDATE trigger keeps XP,\nlevel, streaks, institution_verified\n**closes** forged badge, inflated XP
+  state "5 · Professor reads rescoped" as S5 : <size:9>20260621000000</size>\nown enrolled students only\n**closes** the leak step 3 opened
+  S1 -down-> S2
+  S2 -down-> S3
+  S3 -down-> S4
+  S4 -down-> S5
+}
 
-note right of S3
-  Opening professor self-signup to any
-  domain was intentional -- but combined
-  with USING (has_role(uid,'professor'))
-  it exposed every student's data to
-  every self-declared professor.
-  Step 4 rescopes learning_events,
-  student_progress and achievements to
-  the professor's **own** enrolled students.
-end note
+state "Phase 2 · October to November" as PH2 #FFFFFF {
+  state "6 · anon EXECUTE revoked" as S6 #DCDCDC : <size:9>20261011000000</size>\n42 definer functions callable by anon:\nSupabase grants anon EXECUTE directly,\nso REVOKE FROM PUBLIC was not enough\n**closes** anon rewriting any user's XP
+  state "7 · Audit week 1" as S7 #DCDCDC : <size:9>20261024000000</size>\nclient achievement insert dropped;\nself-award XP function revoked;\nmind maps follow lesson visibility\n**closes** self-minted badges
+  state "8 · lecture-pdfs private" as S8 #DCDCDC : <size:9>20261024000000, -010000, -020000</size>\nprod drift: the May fix never ran;\nreads follow lesson visibility,\nwrites only by the lesson owner\n**closes** anon download of all PDFs
+  state "9 · Profile and XP integrity" as S9 #DCDCDC : <size:9>20261101015412</size>\ntrigger BEFORE INSERT OR UPDATE;\nXP: known activity, fixed reward,\ncanonical key; review_log backend-only\n**closes** forged new profiles, minted XP
+  S6 -down-> S7
+  S7 -down-> S8
+  S8 -down-> S9
+}
 
-note bottom
-  **One fully reproduced exploit.** As the anon role with zero JWT claims,
-  SELECT * FROM friend_ids_of('<victim-uuid>') returned a real friend's UUID,
-  and relationship_status(victim, friend) returned 'friends'.
-
-  Root cause was a four-way conjunction:
-   (1) SECURITY DEFINER   (2) caller-supplied UUID   (3) no auth.uid() check
-   (4) Postgres's implicit GRANT EXECUTE TO PUBLIC, never REVOKEd.
-
-  Reproduced against local Postgres 18. 13 regression tests.
-  Migration 20260721000001_s1_rpc_exposure_lockdown.sql:23-30
-end note
+PH1 -right-> PH2 : July: 9 definer\nfunctions locked\n(20260721000001)
 
 legend bottom
-  Migrations: 20260122202809:5,16 | 20260502000003:16 | 20260601000000:26
-  + 20260615000800:31 | 20260621000000:1-24 | 20260620000000:29
+  Hole class behind the July lockdown and step 6: a SECURITY DEFINER function taking a
+  caller-supplied user id with no auth.uid() check. Phase 2 DB tests: test_anon_security_definer_exposure,
+  test_audit_week1_rls, test_lecture_pdfs_private, test_profile_xp_integrity (backend/tests/db/).
 endlegend
 
 @enduml

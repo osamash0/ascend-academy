@@ -1,10 +1,12 @@
 ' F6 -- Component view of the deployed system.
 ' Chapter 4. UML component diagram.
-' Claim supported: production runs FIVE containers. The LiteLLM gateway was
-' removed on 2026-08-25 (docker-compose.prod.yml:55-70); LLM traffic always
-' bypassed it. Database access is dual-mode.
-' Corrected 2026-09-10 per docs/thesis/EVIDENCE_VERIFIED.md C1 -- the earlier
-' revision drew six containers and showed the gateway as still deployed.
+' Pinned revision 2b8b1f7b (2026-11-02). Claim supported: production runs five
+' containers; LLM providers are called directly (no gateway); the database is
+' reached on two paths, and the v4 app needs the direct asyncpg one.
+' Sources: docker-compose.prod.yml:15-197, nginx.conf:26-29, Dockerfile.frontend:59,
+' backend/main.py:267-279, :364-440, backend/core/database.py:150-190,
+' backend/workers/arq_worker.py:83-103, :321-359, backend/services/upload_service.py:45-62, :325-336,
+' backend/services/ai/orchestrator.py:92-138, :239-397.
 @startuml f6-components
 !include _style.iuml
 
@@ -12,59 +14,43 @@ title Component view (as deployed, five containers)
 
 skinparam componentStyle uml2
 
-actor "Student /\nProfessor" as U
+component "**Browser**\nReact SPA" as BR
 
-package "Hetzner CX23 -- Docker, single bridge network" {
-  component "**frontend**\nnginx 1.27\nstatic Vite bundle\nreverse-proxies /api/" as FE
-  component "**api**\nFastAPI\nuvicorn --workers 1" as API
-  component "**worker**\nArq, max_jobs = 4" as WK
-  database "**redis**\ncache\nallkeys-lru" as RC
-  queue "**redis-queue**\nbroker + pubsub\nnoeviction + AOF" as RQ
+package "Hetzner CX23 -- Docker, one bridge network" {
+  component "**frontend**\nnginx 1.27, static bundle\nproxies /api/ (prefix kept)" as FE
+  rectangle "one Dockerfile" as BE {
+    component "**api**\nFastAPI, 1 uvicorn worker\nv4 routers behind flags" as API
+    component "**worker**\nArq, max_jobs 4\ncrons every 10 min" as WK
+  }
+  database "**redis**\ncache, allkeys-lru" as RC
+  queue "**redis-queue**\nbroker + pub/sub\nnoeviction + AOF" as RQ
 }
 
-cloud "**Supabase** (managed)\nPostgres 15 + pgvector\nAuth · Storage · PostgREST" as SB
-cloud "**LLM providers**\nCerebras · Groq · Google\nMistral · OpenRouter\nCloudflare · OpenAI" as LLM
+rectangle "**Supabase** (managed)" as SBC {
+  component "Auth · PostgREST\n· Storage (HTTPS)" as REST
+  database "Postgres\n+ pgvector" as PG
+  REST -[hidden]down- PG
+}
 
-U --> FE : HTTPS / SSE
-U --> SB : auth + direct reads
+cloud "**LLM providers**, no gateway\nGroq · Google · OpenRouter\nMistral · Cloudflare · OpenAI\n//openai_only: OpenAI alone//" as LLM
 
-FE --> API : proxy /api/ (prefix **not** stripped)
+BR --> FE : HTTPS / SSE
+BR ---> REST : auth +\nRLS reads
+FE --> API : /api/...
 
-API --> RC
-API --> RQ : enqueue, ZCARD depth,\nsubscribe parse:<hash>
-WK  --> RQ : consume,\npublish parse:<hash>
-WK  --> RC
+API --> RQ : enqueue, ZCARD,\nSUBSCRIBE
+WK --> RQ : consume, heartbeat,\nPUBLISH parse:<hash>
+BE --> RC
 
-API --> SB : PostgREST over HTTPS\n(sync, threadpool)
-API ..> SB : direct Postgres (asyncpg)\n//only if DATABASE_URL set//
-WK  --> SB
+BE ---> REST : HTTPS, sync
+BE ---> PG : asyncpg\n(DATABASE_URL)
+BE ---> LLM
 
-API --> LLM : direct HTTPS
-WK  --> LLM : direct HTTPS
-
-note right of LLM
-  **Called directly, and always were.**
-  A sixth container -- a LiteLLM gateway -- ran here
-  until 2026-08-25 with zero live callers, consuming
-  1 GB / 0.75 vCPU of a 4 GB / 2 vCPU host while
-  gating api + worker startup via depends_on:
-  service_healthy. Removed in
-  docker-compose.prod.yml:55-70.
-
-  README.md:42 and GDPR_DATA_PROTECTION.md:23 still
-  claim LLM traffic flows through it. It never did.
+note right of PG
+  v4 Spaces, reader, Luna and parse
+  persistence need this pool. Unset,
+  they fail, yet /health/ready answers
+  200 (database "not_configured").
 end note
-
-note bottom of SB
-  Dual access path. Without DATABASE_URL there is no
-  asyncpg pool, yet /health/ready returns 200 with
-  database = "not_configured" (main.py:360) while
-  MV refresh, localization and the review engine
-  are non-functional.
-end note
-
-legend bottom
-  Solid = live data path.  Dashed = conditional dependency.
-endlegend
 
 @enduml
