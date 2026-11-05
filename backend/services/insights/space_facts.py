@@ -20,17 +20,19 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Iterable, Optional
 
-from backend.services.insights.sources.space import Event, LessonRow, SpaceData
+from backend.services.insights.sources.space import (  # noqa: F401  (MAX_PAGE is re-exported)
+    MAX_PAGE,
+    Event,
+    LessonRow,
+    SpaceData,
+    try_key,
+    valid_page,
+)
 
 #: A sitting longer than this (30 min) is a tab left open, not reading (as `bundle._DWELL_OUTLIER_CEIL`).
 DWELL_CEIL = 1800.0
 #: A sitting shorter than this is a glance (the engine's "short view").
 SHORT_VIEW = 4.0
-
-#: The highest page number a reader can name: the reader API's own bound
-#: (`v4_reader._Reading.page le=2000`). An event is a member's own insert, so a
-#: page beyond it is forged, not read; counting it would let one member size a list.
-MAX_PAGE = 2000
 
 _RATINGS = ("got_it", "unsure", "confused")
 
@@ -83,8 +85,7 @@ class LessonFacts:
         return self.pages.setdefault(n, PageFacts())
 
 
-def _page(value: Any) -> Optional[int]:
-    return value if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= MAX_PAGE else None
+_page = valid_page
 
 
 def page_of(event: Event, data: SpaceData, page_key: str = "page", slide_key: str = "slideId") -> Optional[int]:
@@ -94,27 +95,25 @@ def page_of(event: Event, data: SpaceData, page_key: str = "page", slide_key: st
 
 
 def first_tries(data: SpaceData) -> list[Try]:
-    """The first try at every question, per person: practice questions and checkpoint questions."""
+    """The first try at every question, per person: practice questions and checkpoint questions.
+
+    A question the person already answered before the window is not a first try inside it.
+    """
     seen: dict[tuple, Try] = {}
     for e in sorted(data.events, key=lambda e: e.at):
         d = e.data
-        lesson = str(d.get("lectureId") or "")
-        if e.type == "quiz_attempt":
-            qid = str(d.get("questionId") or "")
-            page = data.question_pages.get(qid) or page_of(e, data)
-            key: tuple = (e.user_id, lesson, "q", qid)
-            idea, source = None, "practice"
-        elif e.type == "checkpoint_attempt" and d.get("kind") != "teach":
-            page = _page(d.get("page"))
-            idea = str(d.get("idea") or "")
-            # A served checkpoint numbers its questions only 1 and 2, so the
-            # number alone names no question: the page always goes in the key.
-            question = d.get("questionId") if d.get("questionId") is not None else d.get("kind")
-            key = (e.user_id, lesson, "c", idea, page, str(question))
-            source = "checkpoint"
-        else:
+        key = try_key(e.user_id, e.type, d)
+        if key is None or key in seen or key in data.tried_before:
             continue
-        if page is None or not lesson or key in seen:
+        lesson = key[1]
+        if e.type == "quiz_attempt":
+            qid = key[3]
+            page = data.question_pages.get(qid) or page_of(e, data)
+            idea, source = None, "practice"
+        else:
+            page = _page(d.get("page"))
+            idea, source = key[3], "checkpoint"
+        if page is None or not lesson:
             continue
         seen[key] = Try(e.user_id, lesson, page, idea, d.get("correct") is True, e.at, source)
     return list(seen.values())
