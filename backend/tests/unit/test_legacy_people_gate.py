@@ -855,12 +855,33 @@ def test_ai_queries_evidence_says_withheld_not_zero_under_five_askers(world):
     assert out["queries"] == [] and out["totalCount"] is None
 
 
-def test_ai_queries_evidence_shows_the_slides_questions_from_five_askers(world):
-    rows = [{"user_id": f"u{i}", "created_at": "t",
-             "event_data": {"lectureId": "L1", "slideId": "s1" if i < 4 else "s2", "query": f"q{i}"}} for i in range(5)]
-    world[("learning_events", "ai_tutor_query")] = rows
+def _asked_on(uid, slide, text="why?", at="2026-11-03T14:27:51.123456+00:00"):
+    return {"user_id": uid, "created_at": at, "event_data": {"lectureId": "L1", "slideId": slide, "query": text}}
+
+
+def test_ai_queries_evidence_needs_five_askers_on_this_slide_not_in_the_lecture(world):
+    # Five asked in the lecture, but only four about s1: s1's words stay withheld.
+    world[("learning_events", "ai_tutor_query")] = (
+        [_asked_on(f"u{i}", "s1", f"q{i}") for i in range(4)] + [_asked_on("u4", "s2")])
     out = evidence.get_ai_queries_evidence("L1", "s1", "t")
-    assert out["totalCount"] == 4 and "user_id" not in repr(out)
+    assert out == {"kind": "ai_queries", "queries": [], "totalCount": None}
+
+
+def test_ai_queries_evidence_counts_people_not_questions_and_never_the_owner(world):
+    # One person asking about s1 ten times, three more, and the owner: four people, withheld.
+    world[("learning_events", "ai_tutor_query")] = (
+        [_asked_on("u0", "s1")] * 10 + [_asked_on(f"u{i}", "s1") for i in range(1, 4)] + [_asked_on(OWNER, "s1")])
+    assert evidence.get_ai_queries_evidence("L1", "s1", "t")["totalCount"] is None
+
+
+def test_ai_queries_evidence_shows_five_askers_on_the_slide_dated_by_day_only(world):
+    world[("learning_events", "ai_tutor_query")] = (
+        [_asked_on(f"u{i}", "s1", f"q{i}") for i in range(5)] + [_asked_on("u9", "s2", "elsewhere")])
+    out = evidence.get_ai_queries_evidence("L1", "s1", "t")
+    assert out["totalCount"] == 5 and "user_id" not in repr(out)
+    assert {q["query"] for q in out["queries"]} == {f"q{i}" for i in range(5)}
+    # The day, never the moment: a timestamp next to a question can say who asked it.
+    assert {q["createdAt"] for q in out["queries"]} == {"2026-11-03"}
 
 
 def test_ask_worst_quiz_questions_says_too_few_when_every_question_is_withheld(monkeypatch):

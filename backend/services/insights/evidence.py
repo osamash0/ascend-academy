@@ -7,6 +7,7 @@ never a raw table dump.
 """
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
 from backend.services import analytics_service
@@ -17,8 +18,21 @@ CONFIDENCE_BREAKDOWN = "confidence_breakdown"
 _MAX_QUERIES = 30
 
 
+def _day(created_at: Any) -> str:
+    """The day only (YYYY-MM-DD): a timestamp next to a question can say who asked it."""
+    if isinstance(created_at, (datetime, date)):
+        return created_at.isoformat()[:10]
+    return str(created_at or "")[:10]
+
+
 def get_ai_queries_evidence(lecture_id: str, slide_id: str, token: Optional[str] = None) -> Dict[str, Any]:
-    """The grouped list of what students actually asked the AI on this slide."""
+    """The grouped list of what students actually asked the AI on this slide.
+
+    Word for word only once 5+ different people asked about THIS slide (the owner and v4 reader
+    questions out, `legacy_questions`); five in the Lecture is not enough, since a slide one
+    person asked about would then show that person's words. Withheld is totalCount None, which
+    is not "no questions" and not 0. Each question carries its day, never its moment.
+    """
     client = analytics_service.get_auth_client(token)
     events = analytics_service._fetch_all(
         client.table("learning_events")
@@ -29,27 +43,22 @@ def get_ai_queries_evidence(lecture_id: str, slide_id: str, token: Optional[str]
     )
     owner_id = analytics_service.lecture_owner_id(client, lecture_id)
 
-    # Word for word only once 5+ people asked in the Lecture (owner out): the dashboard feed's floor.
-    # Withheld is totalCount None, which is not "no questions" and not 0.
-    shown = analytics_service.legacy_questions(events, owner_id)
+    on_slide = [e for e in events if (e.get("event_data") or {}).get("slideId") == slide_id]
+    shown = analytics_service.legacy_questions(on_slide, owner_id)
     if shown is None:
         return {"kind": AI_QUERIES, "queries": [], "totalCount": None}
 
     queries: List[Dict[str, Any]] = []
-    for e in shown:
+    for e in shown[:_MAX_QUERIES]:
         ed = e.get("event_data") or {}
-        if ed.get("slideId") != slide_id:
-            continue
         response_text = (ed.get("response") or "").strip()
         queries.append(
             {
                 "query": ed["query"].strip(),
                 "response": response_text or None,
-                "createdAt": e.get("created_at", ""),
+                "createdAt": _day(e.get("created_at")),
             }
         )
-        if len(queries) >= _MAX_QUERIES:
-            break
 
     return {"kind": AI_QUERIES, "queries": queries, "totalCount": len(queries)}
 

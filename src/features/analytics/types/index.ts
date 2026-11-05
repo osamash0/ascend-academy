@@ -93,13 +93,14 @@ export interface InsightFeed {
 export interface AiQueryEvidenceItem {
   query: string;
   response: string | null;
+  /** The day it was asked (YYYY-MM-DD), never the moment. */
   createdAt: string;
 }
 
 export interface AiQueriesEvidence {
   kind: 'ai_queries';
   queries: AiQueryEvidenceItem[];
-  /** null while fewer than five people have asked (withheld, which is not "none were asked"). */
+  /** null while fewer than five people have asked about this slide (withheld, which is not "none were asked"). */
   totalCount: number | null;
 }
 

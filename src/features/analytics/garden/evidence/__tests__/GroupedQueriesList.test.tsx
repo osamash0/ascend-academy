@@ -7,7 +7,7 @@ describe('GroupedQueriesList', () => {
     const { container } = render(
       <GroupedQueriesList evidence={{ kind: 'ai_queries', queries: [], totalCount: null }} />,
     );
-    expect(screen.getByText(/shows once five students have asked the ai tutor/i)).toBeInTheDocument();
+    expect(screen.getByText(/shows once five students have asked the ai tutor about this slide/i)).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/\(0\)|were asked/);
   });
 
@@ -19,7 +19,7 @@ describe('GroupedQueriesList', () => {
   it('lists the questions with their count when shown', () => {
     render(
       <GroupedQueriesList
-        evidence={{ kind: 'ai_queries', queries: [{ query: 'why?', response: null, createdAt: 't' }], totalCount: 1 }}
+        evidence={{ kind: 'ai_queries', queries: [{ query: 'why?', response: null, createdAt: '2026-11-03' }], totalCount: 1 }}
       />,
     );
     expect(screen.getByText('why?')).toBeInTheDocument();
