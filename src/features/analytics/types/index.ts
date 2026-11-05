@@ -110,18 +110,4 @@ export interface ConfidenceBreakdownEvidence {
   total: number;
 }
 
-export interface StudentJourneyStep {
-  slideNumber: number;
-  title: string;
-  dwellSeconds: number;
-  confidence: 'got_it' | 'unsure' | 'confused' | null;
-  quizCorrect: boolean | null;
-  askedAi: boolean;
-}
-
-export interface StudentJourneyEvidence {
-  kind: 'student_journey';
-  steps: StudentJourneyStep[];
-}
-
-export type InsightEvidence = AiQueriesEvidence | ConfidenceBreakdownEvidence | StudentJourneyEvidence;
+export type InsightEvidence = AiQueriesEvidence | ConfidenceBreakdownEvidence;

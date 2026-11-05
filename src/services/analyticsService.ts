@@ -63,13 +63,6 @@ export async function getQuizAnalytics(lectureId: string): Promise<QuizAnalytics
   return res.data;
 }
 
-export async function getStudentPerformance(lectureId: string): Promise<StudentPerformance[]> {
-  const res = await apiClient.get<{ success: boolean; data: StudentPerformance[] }>(
-    `/api/analytics/lecture/${lectureId}/students`,
-  );
-  return res.data;
-}
-
 export async function getDashboardData(lectureId: string): Promise<DashboardData> {
   const res = await apiClient.get<{ success: boolean; data: DashboardData }>(
     `/api/analytics/lecture/${lectureId}/dashboard`,
@@ -140,11 +133,10 @@ export async function getLectureInsights(lectureId: string): Promise<InsightFeed
 export async function getInsightEvidence(
   lectureId: string,
   kind: string,
-  params: { slideId?: string; studentId?: string },
+  params: { slideId?: string },
 ): Promise<InsightEvidence> {
   const query = new URLSearchParams({ kind });
   if (params.slideId) query.set('slide_id', params.slideId);
-  if (params.studentId) query.set('student_id', params.studentId);
   const res = await apiClient.get<{ success: boolean; data: InsightEvidence }>(
     `/api/analytics/lecture/${lectureId}/evidence?${query.toString()}`,
   );

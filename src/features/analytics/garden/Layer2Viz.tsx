@@ -1,7 +1,5 @@
 import type { Insight } from '@/features/analytics/types';
-import type { EvidenceRequest } from './useGardenState';
 import { ConfusionWaveChart } from './viz/ConfusionWaveChart';
-import { AtRiskStudentList } from './viz/AtRiskStudentList';
 import { SlideRangeList } from './viz/SlideRangeList';
 import { MetricTiles, type MetricTile } from './viz/MetricTiles';
 
@@ -12,19 +10,15 @@ function num(m: Insight['metrics'], k: string): number {
 
 interface Layer2VizProps {
   insight: Insight;
-  onOpenEvidence?: (request: EvidenceRequest) => void;
 }
 
 /** Dispatches an expanded insight to its kind-specific Layer-2 visualization. */
-export function Layer2Viz({ insight, onOpenEvidence }: Layer2VizProps) {
+export function Layer2Viz({ insight }: Layer2VizProps) {
   const m = insight.metrics;
 
   switch (insight.kind) {
     case 'confusion_hotspot':
       return <ConfusionWaveChart insight={insight} />;
-
-    case 'silent_strugglers':
-      return <AtRiskStudentList insight={insight} onOpenEvidence={onOpenEvidence} />;
 
     case 'confusion_block':
       return <SlideRangeList insight={insight} />;

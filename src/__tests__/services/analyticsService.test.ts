@@ -14,7 +14,6 @@ vi.mock("@/integrations/supabase/client", async () => {
 import {
   getLectureOverview,
   getSlideAnalytics,
-  getStudentPerformance,
   getDashboardData,
   getDropoffMap,
   getDistratorAnalysis,
@@ -57,14 +56,9 @@ describe("getLectureOverview", () => {
   });
 });
 
-describe("getSlideAnalytics / getStudentPerformance", () => {
+describe("getSlideAnalytics", () => {
   it("getSlideAnalytics returns the envelope", async () => {
     const out: any = await getSlideAnalytics("L1");
-    expect(out).toBeTruthy();
-  });
-
-  it("getStudentPerformance returns the envelope", async () => {
-    const out: any = await getStudentPerformance("L1");
     expect(out).toBeTruthy();
   });
 });

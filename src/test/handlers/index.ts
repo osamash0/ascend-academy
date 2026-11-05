@@ -92,22 +92,6 @@ export const defaultHandlers = [
       ],
     }),
   ),
-  ...dual("get", `${API}/api/analytics/lecture/:id/students`, () =>
-    HttpResponse.json({
-      success: true,
-      data: [
-        {
-          student_id: "s1",
-          student_name: "Nexus-ABCD",
-          progress_percentage: 80,
-          quiz_score: 90,
-          typology: "Natural Comprehension",
-          ai_interactions: 1,
-          revisions: 0,
-        },
-      ],
-    }),
-  ),
   ...dual("get", `${API}/api/analytics/lecture/:id/dashboard`, () =>
     HttpResponse.json({
       success: true,
