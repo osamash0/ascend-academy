@@ -57,14 +57,16 @@ class WeakestSlideItem(BaseModel):
 
 class SparklinePoint(BaseModel):
     date: str
-    count: int
+    #: People active that day; None under five (the owner never counts).
+    people: Optional[int] = None
 
 
 class ProfessorOverviewData(BaseModel):
-    active_students: int
-    average_completion: float
-    average_quiz_accuracy: float
-    median_time_minutes: float
+    # Each figure is over people, never the owner; None when fewer than five stand behind it.
+    active_students: Optional[int] = None
+    average_completion: Optional[float] = None
+    average_quiz_accuracy: Optional[float] = None
+    median_time_minutes: Optional[float] = None
     weakest_concepts: List[WeakestConceptItem]
     weakest_slides: List[WeakestSlideItem]
     activity_sparkline: List[SparklinePoint]

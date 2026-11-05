@@ -1099,24 +1099,38 @@ async def _compute_professor_overview(
     days: int,
     token: Optional[str],
 ) -> Dict[str, Any]:
+    """The course-wide figures, over people. The course's owner (and every lecture's owner) never
+    counts, and a figure fewer than MIN_PEOPLE people stand behind is None, never 0:
+
+    - active_students: people with any event in the window.
+    - average_completion: each person's own mean completion over the lectures they opened, averaged.
+    - average_quiz_accuracy: each person's own share right (correct / answered), averaged over the
+      people who answered; never weighted by how many questions one person answered.
+    - median_time_minutes: each person's mean lecture_complete duration in the window, the median
+      over people.
+    - weakest_concepts / weakest_slides: per item, each person's first try on each of its questions;
+      `attempts` is the people who tried, `miss_rate` 100 minus the mean of each one's share right.
+      An item fewer than MIN_PEOPLE people tried is absent.
+    - activity_sparkline: people active per day, None on a day under MIN_PEOPLE.
+    """
     from collections import defaultdict
     import asyncio
     client = get_auth_client(token) if token else supabase_admin
 
-    # 1. Lectures in this course
+    # 1. Lectures in this course, and who owns them (their own reading never counts)
     lec_rows = await asyncio.to_thread(
         _fetch_all,
         client.table("lectures")
-        .select("id, title, total_slides")
+        .select("id, title, total_slides, professor_id")
         .eq("course_id", course_id)
     )
     lecture_ids = [l["id"] for l in lec_rows]
 
     empty: Dict[str, Any] = {
-        "active_students": 0,
-        "average_completion": 0.0,
-        "average_quiz_accuracy": 0.0,
-        "median_time_minutes": 0.0,
+        "active_students": None,
+        "average_completion": None,
+        "average_quiz_accuracy": None,
+        "median_time_minutes": None,
         "weakest_concepts": [],
         "weakest_slides": [],
         "activity_sparkline": _empty_sparkline(days),
@@ -1125,6 +1139,16 @@ async def _compute_professor_overview(
     }
     if not lecture_ids:
         return empty
+
+    course_rows = await asyncio.to_thread(
+        _fetch_all, client.table("courses").select("professor_id").eq("id", course_id))
+    owners = {str(r["professor_id"]) for r in [*lec_rows, *course_rows] if r.get("professor_id")}
+
+    def _learner(uid: Any) -> Optional[str]:
+        """The person behind a row, or None for no person or an owner."""
+        if not uid or str(uid) in owners:
+            return None
+        return str(uid)
 
     total_slides_by_lec = {
         l["id"]: max(1, int(l.get("total_slides") or 1)) for l in lec_rows
@@ -1144,19 +1168,16 @@ async def _compute_professor_overview(
     # 3. Recent learning events (last `days` days).
     #
     # P5-2 (Foundation 10x roadmap §13, OLTP/OLAP split — staged lift (a)):
-    # active_students / median_time_minutes / activity_sparkline no longer
-    # scan every learning_events row for the course; they read
+    # active_students / activity_sparkline no longer scan every learning_events
+    # row for the course; they read the per-day `active_user_ids` of
     # `mv_course_daily_activity` (supabase/migrations/
     # 20260720000001_professor_overview_daily_activity_mv.sql), a per
     # (course_id, day) rollup refreshed on a schedule by an Arq cron job
     # (backend/workers/arq_worker.py, every 10 minutes — see that file for
-    # the bounded-staleness rationale). weakest_concepts/weakest_slides still
-    # need item-level slide_id/question_id granularity the rollup doesn't
-    # carry, so they read a narrower *live* quiz_attempt-only query below
-    # (previously this fetched ALL event types for the window and filtered
-    # to quiz_attempt in Python; querying only quiz_attempt rows cuts the
-    # payload without changing the result).
-    from datetime import timezone
+    # the bounded-staleness rationale). The rollup's durations carry no person,
+    # so median_time reads a narrow live lecture_complete query, and
+    # weakest_concepts/weakest_slides need each person's first try per question,
+    # so they read a narrow live quiz_attempt query.
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     def _row_to_dict(r):
@@ -1169,12 +1190,25 @@ async def _compute_professor_overview(
                 d["event_data"] = {}
         return d
 
+    def _at(e: Dict[str, Any]) -> datetime:
+        created_at_val = e.get("created_at")
+        if isinstance(created_at_val, datetime):
+            return created_at_val if created_at_val.tzinfo else created_at_val.replace(tzinfo=timezone.utc)
+        if isinstance(created_at_val, str):
+            try:
+                dt_val = datetime.fromisoformat(created_at_val.replace('Z', '+00:00'))
+                return dt_val if dt_val.tzinfo else dt_val.replace(tzinfo=timezone.utc)
+            except ValueError:
+                pass
+        return datetime.now(timezone.utc)
+
     use_mv = client.__class__.__name__ != "FakeSupabaseClient"
 
+    people_by_day: Dict[str, set] = defaultdict(set)
     if not use_mv:
         # Unit-test path (FakeSupabaseClient simulates PostgREST, not a real
         # Postgres connection the MV could live in): compute everything from
-        # the raw event set exactly as before the P5-2 change.
+        # the raw event set.
         course_events = []
         for lid in lecture_ids:
             events_data = await asyncio.to_thread(
@@ -1183,46 +1217,20 @@ async def _compute_professor_overview(
                 .select("user_id, event_type, event_data, created_at")
                 .eq("event_data->>lectureId", str(lid))
             )
-            for e in events_data:
-                created_at_val = e.get("created_at")
-                if isinstance(created_at_val, str):
-                    try:
-                        dt_val = datetime.fromisoformat(created_at_val.replace('Z', '+00:00'))
-                    except ValueError:
-                        dt_val = datetime.now(timezone.utc)
-                elif isinstance(created_at_val, datetime):
-                    dt_val = created_at_val
-                else:
-                    dt_val = datetime.now(timezone.utc)
+            course_events.extend(e for e in events_data if _at(e) >= cutoff)
 
-                if dt_val >= cutoff:
-                    course_events.append(e)
-
-        active_students = len({
-            e["user_id"] for e in course_events if e.get("user_id")
-        })
-
-        durations: List[float] = []
         for e in course_events:
-            if e.get("event_type") != "lecture_complete":
-                continue
-            d = (e.get("event_data") or {}).get("total_duration_seconds")
-            if isinstance(d, (int, float)) and d > 0:
-                durations.append(d / 60.0)
-        median_time = _median(durations)
-
-        # quiz_attempt subset for step 7 below.
-        quiz_attempt_events = [
-            e for e in course_events if e.get("event_type") == "quiz_attempt"
-        ]
-        by_day_events = course_events
+            uid = _learner(e.get("user_id"))
+            if uid:
+                people_by_day[_at(e).date().isoformat()].add(uid)
+        quiz_attempt_events = [e for e in course_events if e.get("event_type") == "quiz_attempt"]
+        complete_events = [e for e in course_events if e.get("event_type") == "lecture_complete"]
     else:
         today = datetime.now(timezone.utc).date()
         window_start = today - timedelta(days=days - 1)
         async with await get_db_connection() as conn:
             mv_rows = await conn.fetch("""
-                SELECT activity_day, tracked_event_count, active_user_ids,
-                       lecture_complete_durations_seconds
+                SELECT activity_day, active_user_ids
                 FROM mv_course_daily_activity
                 WHERE course_id = $1::uuid
                   AND activity_day BETWEEN $2::date AND $3::date
@@ -1230,48 +1238,64 @@ async def _compute_professor_overview(
             """, course_id, window_start, today)
 
             quiz_rows = await conn.fetch("""
-                SELECT event_data, created_at
+                SELECT user_id, event_type, event_data, created_at
                 FROM learning_events
-                WHERE event_type = 'quiz_attempt'
+                WHERE event_type IN ('quiz_attempt', 'lecture_complete')
                   AND created_at >= $1::timestamptz
                   AND (event_data->>'lectureId') = ANY($2::text[])
+                ORDER BY created_at
             """, cutoff, lecture_ids)
-        quiz_attempt_events = [_row_to_dict(r) for r in quiz_rows]
+        live = [_row_to_dict(r) for r in quiz_rows]
+        quiz_attempt_events = [e for e in live if e.get("event_type") == "quiz_attempt"]
+        complete_events = [e for e in live if e.get("event_type") == "lecture_complete"]
 
-        active_user_set: set = set()
-        durations: List[float] = []
-        tracked_by_day: Dict[date, int] = {}
         for r in mv_rows:
             day = r["activity_day"]
-            tracked_by_day[day] = int(r["tracked_event_count"] or 0)
+            day_key = day.isoformat() if isinstance(day, (datetime, date)) else str(day)[:10]
             for uid in (r["active_user_ids"] or []):
-                if uid:
-                    active_user_set.add(uid)
-            for secs in (r["lecture_complete_durations_seconds"] or []):
-                if secs and secs > 0:
-                    durations.append(float(secs) / 60.0)
+                person = _learner(uid)
+                if person:
+                    people_by_day[day_key].add(person)
 
-        active_students = len(active_user_set)
-        median_time = _median(durations)
-        by_day_events = None  # sparkline built directly from tracked_by_day below
+    floor = MIN_PEOPLE
 
-    # 4. Average completion across progress rows
-    completion_pcts: List[float] = []
+    active_people = set().union(*people_by_day.values()) if people_by_day else set()
+    active_students = len(active_people) if len(active_people) >= floor else None
+
+    # Median time: each person's mean lecture_complete duration, then the median over people.
+    durations_by_person: Dict[str, List[float]] = defaultdict(list)
+    for e in complete_events:
+        uid = _learner(e.get("user_id"))
+        d = (e.get("event_data") or {}).get("total_duration_seconds")
+        if uid and isinstance(d, (int, float)) and d > 0:
+            durations_by_person[uid].append(d / 60.0)
+    per_person_minutes = [sum(v) / len(v) for v in durations_by_person.values()]
+    median_time = round(_median(per_person_minutes), 1) if len(per_person_minutes) >= floor else None
+
+    # 4. Completion: each person's own mean over the lectures they opened, then the mean over people.
+    completion_by_person: Dict[str, List[float]] = defaultdict(list)
+    answered_by_person: Dict[str, List[int]] = defaultdict(lambda: [0, 0])
     for p in progress:
+        uid = _learner(p.get("user_id"))
+        if not uid:
+            continue
         total = total_slides_by_lec.get(p.get("lecture_id"), 1)
         completed = len(p.get("completed_slides") or [])
-        completion_pcts.append(min(100.0, round((completed / total) * 100, 1)))
+        completion_by_person[uid].append(min(100.0, (completed / total) * 100))
+        answered = int(p.get("total_questions_answered") or 0)
+        if answered > 0:
+            answered_by_person[uid][0] += int(p.get("correct_answers") or 0)
+            answered_by_person[uid][1] += answered
     avg_completion = (
-        round(sum(completion_pcts) / len(completion_pcts), 1)
-        if completion_pcts else 0.0
+        round(sum(sum(v) / len(v) for v in completion_by_person.values()) / len(completion_by_person), 1)
+        if len(completion_by_person) >= floor else None
     )
 
-    # 5. Average quiz accuracy (weighted by attempts)
-    total_q = sum(int(p.get("total_questions_answered") or 0) for p in progress)
-    total_c = sum(int(p.get("correct_answers") or 0) for p in progress)
-    avg_accuracy = round((total_c / total_q) * 100, 1) if total_q > 0 else 0.0
+    # 5. Quiz accuracy: each person's own share right, then the mean over people (never attempt-weighted).
+    shares = [min(1.0, c / n) for c, n in answered_by_person.values() if n > 0]
+    avg_accuracy = round(sum(shares) / len(shares) * 100, 1) if len(shares) >= floor else None
 
-    # 7. Weakest concepts (degrades to weakest slides)
+    # 7. Weakest concepts (degrades to weakest slides), from each person's first try per question
     slides = await asyncio.to_thread(
         _fetch_all,
         client.table("slides")
@@ -1292,17 +1316,11 @@ async def _compute_professor_overview(
         q["id"]: ((q.get("metadata") or {}).get("concept") or "").strip()
         for q in questions
     }
+    q_slide = {q["id"]: q.get("slide_id") for q in questions}
 
-    concept_stats: Dict[str, Dict[str, int]] = defaultdict(
-        lambda: {"attempts": 0, "correct": 0}
-    )
-    slide_stats: Dict[str, Dict[str, int]] = defaultdict(
-        lambda: {"attempts": 0, "correct": 0}
-    )
+    tries = []
     for e in quiz_attempt_events:
-        ed_raw = e.get("event_data") or {}
-        import json
-        ed = json.loads(ed_raw) if isinstance(ed_raw, str) else ed_raw
+        ed = e.get("event_data") or {}
         if isinstance(ed, str):
             try:
                 ed = json.loads(ed)
@@ -1310,27 +1328,30 @@ async def _compute_professor_overview(
                 ed = {}
         if not isinstance(ed, dict):
             ed = {}
-        qid = ed.get("questionId")
-        is_correct = bool(ed.get("correct"))
+        tries.append({"user_id": _learner(e.get("user_id")), "event_data": ed, "created_at": _at(e)})
+    tries.sort(key=lambda e: e["created_at"])  # oldest first: a person's first try is theirs
+    first_tries = people_first_tries(tries, None)  # owners are already out (_learner)
+
+    # {item: {person: [first try right?, ...]}}
+    concept_people: Dict[str, Dict[str, List[bool]]] = defaultdict(lambda: defaultdict(list))
+    slide_people: Dict[str, Dict[str, List[bool]]] = defaultdict(lambda: defaultdict(list))
+    for qid, by_person in first_tries.items():
         concept = q_concept.get(qid)
-        if concept:
-            concept_stats[concept]["attempts"] += 1
-            if is_correct:
-                concept_stats[concept]["correct"] += 1
-        sid = ed.get("slideId")
-        if sid:
-            slide_stats[sid]["attempts"] += 1
-            if is_correct:
-                slide_stats[sid]["correct"] += 1
+        for uid, ed in by_person.items():
+            right = bool(ed.get("correct"))
+            if concept:
+                concept_people[concept][uid].append(right)
+            sid = q_slide.get(qid) or ed.get("slideId")
+            if sid:
+                slide_people[sid][uid].append(right)
+
+    def _miss(by_person: Dict[str, List[bool]]) -> float:
+        return round((1 - sum(sum(v) / len(v) for v in by_person.values()) / len(by_person)) * 100, 1)
 
     weakest_concepts = sorted(
         [
-            {
-                "concept": c,
-                "miss_rate": round((1 - s["correct"] / s["attempts"]) * 100, 1),
-                "attempts": s["attempts"],
-            }
-            for c, s in concept_stats.items() if s["attempts"] > 0
+            {"concept": c, "miss_rate": _miss(by_person), "attempts": len(by_person)}
+            for c, by_person in concept_people.items() if len(by_person) >= floor
         ],
         key=lambda r: (-r["miss_rate"], -r["attempts"]),
     )[:5]
@@ -1338,7 +1359,7 @@ async def _compute_professor_overview(
     weakest_slides: List[Dict[str, Any]] = []
     if not weakest_concepts:
         title_map = {s["id"]: s.get("title") or "Untitled" for s in slides}
-        
+
         irrelevant_keywords = {"intro", "welcome", "date", "info", "agenda", "organization", "logistics", "syllabus", "admin", "overview"}
         def is_relevant_slide(title: str) -> bool:
             t = title.lower()
@@ -1349,47 +1370,28 @@ async def _compute_professor_overview(
                 {
                     "slide_id": sid,
                     "title": title_map.get(sid) or "Untitled",
-                    "miss_rate": round((1 - s["correct"] / s["attempts"]) * 100, 1),
-                    "attempts": s["attempts"],
+                    "miss_rate": _miss(by_person),
+                    "attempts": len(by_person),
                 }
-                for sid, s in slide_stats.items() 
-                if s["attempts"] > 0 and is_relevant_slide(title_map.get(sid) or "Untitled")
+                for sid, by_person in slide_people.items()
+                if len(by_person) >= floor and is_relevant_slide(title_map.get(sid) or "Untitled")
             ],
             key=lambda r: (-r["miss_rate"], -r["attempts"]),
         )[:5]
 
-    # 8. 7-day activity sparkline (counts learning_events tied to course)
-    if use_mv:
-        # tracked_by_day is already the exact per-day count of the same
-        # five event types the branch below filters for (see the
-        # `tracked_event_count` FILTER clause in the migration).
-        by_day: Dict[str, int] = {d.isoformat(): c for d, c in tracked_by_day.items()}
-    else:
-        by_day = defaultdict(int)
-        for e in by_day_events:
-            if e.get("event_type") not in (
-                "quiz_attempt", "slide_view", "ai_tutor_query",
-                "lecture_complete", "confidence_rating",
-            ):
-                continue
-            created = e.get("created_at")
-            if isinstance(created, (datetime, date)):
-                day = created.isoformat()[:10]
-            else:
-                day = (created or "")[:10]
-            if day:
-                by_day[day] += 1
+    # 8. Activity sparkline: people active per day, None on a day under the floor
     today = datetime.now(timezone.utc).date()
     sparkline = []
     for i in range(days - 1, -1, -1):
         d = (today - timedelta(days=i)).isoformat()
-        sparkline.append({"date": d, "count": by_day.get(d, 0)})
+        n = len(people_by_day.get(d, ()))
+        sparkline.append({"date": d, "people": n if n >= floor else None})
 
     return {
         "active_students": active_students,
         "average_completion": avg_completion,
         "average_quiz_accuracy": avg_accuracy,
-        "median_time_minutes": round(median_time, 1),
+        "median_time_minutes": median_time,
         "weakest_concepts": weakest_concepts,
         "weakest_slides": weakest_slides,
         "activity_sparkline": sparkline,
@@ -1410,7 +1412,7 @@ def _median(values: List[float]) -> float:
 def _empty_sparkline(days: int) -> List[Dict[str, Any]]:
     today = datetime.now(timezone.utc).date()
     return [
-        {"date": (today - timedelta(days=i)).isoformat(), "count": 0}
+        {"date": (today - timedelta(days=i)).isoformat(), "people": None}
         for i in range(days - 1, -1, -1)
     ]
 

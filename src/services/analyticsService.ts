@@ -98,14 +98,19 @@ export async function getAiQueryFeed(lectureId: string): Promise<AiQueryFeedItem
   return res.data;
 }
 
+/**
+ * The course-wide overview. Every figure counts people (never the owner) and is null when fewer
+ * than five people stand behind it; `attempts` on a weak spot is the people who tried it.
+ */
 export interface ProfessorOverview {
-  active_students: number;
-  average_completion: number;
-  average_quiz_accuracy: number;
-  median_time_minutes: number;
+  active_students: number | null;
+  average_completion: number | null;
+  average_quiz_accuracy: number | null;
+  median_time_minutes: number | null;
   weakest_concepts: { concept: string; miss_rate: number; attempts: number }[];
   weakest_slides: { slide_id: string; title: string; miss_rate: number; attempts: number }[];
-  activity_sparkline: { date: string; count: number }[];
+  /** People active that day; null under five. */
+  activity_sparkline: { date: string; people: number | null }[];
   lecture_count: number;
   days: number;
 }
