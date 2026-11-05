@@ -5,7 +5,8 @@
  * so both can be judged before any of it reaches v4 (spec:
  * docs/superpowers/specs/2026-10-26-how-its-landing-design.md §5). Four
  * scenes: the door for a Space a professor runs, the door for a six-person
- * study group (everything under the floor), the Send sheet in the reader,
+ * study group (everything under the floor), a big Space (what folds), the
+ * Send sheet in the reader,
  * and the answer landing on the page; then the earlier directions A to D,
  * kept for comparison (E, the map, became the door). Not routed in
  * production builds.
@@ -22,11 +23,12 @@ import MockupTiles from './landingMockups/MockupTiles';
 import MockupCovers from './landingMockups/MockupCovers';
 import MockupV4 from './landingMockups/MockupV4';
 
-type SceneKey = 'owner' | 'friends' | 'reader' | 'answer' | 'mockA' | 'mockB' | 'mockC' | 'mockD';
+type SceneKey = 'owner' | 'friends' | 'big' | 'reader' | 'answer' | 'mockA' | 'mockB' | 'mockC' | 'mockD';
 
 const SCENES: { key: SceneKey; label: string; note: string }[] = [
   { key: 'owner', label: 'The door · Database Systems', note: 'The door as built (direction E, the map). 184 members, 131 reading; the owner gate is Phase C.' },
   { key: 'friends', label: 'The door · six friends', note: 'A study group under the five-reader floor. The honest state.' },
+  { key: 'big', label: 'The door · a big Space', note: '28 Lessons, one of 120 pages, 14 questions waiting: what folds, and what never does.' },
   { key: 'reader', label: 'In the reader · send a question', note: 'Under a Luna answer. One gesture, the page attached, one switch.' },
   { key: 'answer', label: 'In the reader · the answer lands', note: 'Back on page 12, with Luna as the messenger.' },
   { key: 'mockA', label: 'Mockup A · the path', note: 'Lessons as nodes down a path, each in its own deck colour; tap a node for its findings.' },
@@ -70,6 +72,7 @@ export default function LandingLab() {
 
       {scene === 'owner' && <LandingScreen key="s-dbs" spaceId="s-dbs" />}
       {scene === 'friends' && <LandingScreen key="s-friends" spaceId="s-friends" />}
+      {scene === 'big' && <LandingScreen key="s-big" spaceId="s-big" />}
       {scene === 'reader' && <ReaderFrame mode="send" />}
       {scene === 'answer' && <ReaderFrame mode="answer" />}
       {scene === 'mockA' && <MockupPath />}
