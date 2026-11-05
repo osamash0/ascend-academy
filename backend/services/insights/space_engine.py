@@ -107,9 +107,13 @@ def leak_rows(lf: LessonFacts) -> list[dict[str, Any]]:
     "Still in the Lesson at page n" is everyone who read page n or any later page, taken as a
     union of people (one person on two pages counts once). A page skipped and returned to
     never reads as a stop, and a page after which nobody reads falls to what is left, down to
-    zero, which `lesson_bundle` (rows only for pages someone read) cannot show.
+    zero, which `lesson_bundle` (rows only for pages someone read) cannot show. The drop's
+    percentage is over the people still in the Lesson; the floor in `above_floor` is still
+    the page's own readers.
     """
-    last = max([lf.lesson.pages, *lf.pages], default=0)
+    # No single member can extend a Lesson: a page past its length is ignored, and with the
+    # length unknown the Lesson ends at the last page `MIN_READERS` people read.
+    last = lf.lesson.pages or max((n for n, pf in lf.pages.items() if len(pf.readers) >= MIN_READERS), default=0)
     still: set[str] = set()
     rows: list[dict[str, Any]] = []
     for n in range(last, 0, -1):
@@ -124,6 +128,7 @@ def lesson_insights(lf: LessonFacts) -> list[dict[str, Any]]:
         return []
     bundle = lesson_bundle(lf)
     found: list[dict[str, Any]] = []
+    # The leak's pct is over people still in the Lesson; the floor below is the page's own readers.
     leak_bundle = {**bundle, "slides": leak_rows(lf)}
     for detect in detectors.DETECTORS:
         if detect is detectors.detect_silent_strugglers:

@@ -219,6 +219,27 @@ def test_the_leak_still_needs_five_readers_on_the_page_before_the_drop():
     assert _leaks(lf) == []
 
 
+def _finished(extra):
+    lf = lesson({n: calm_page(readers(6)) for n in range(1, 7)}, total=6)
+    extra(lf)
+    return lf
+
+
+def test_a_rating_only_page_far_past_the_lesson_is_no_leak():
+    lf = _finished(lambda lf: lf.pages.__setitem__(2000, PageFacts(ratings={"r0": "got_it"})))
+    assert _leaks(lf) == [] and len(leak_rows(lf)) == 6
+
+
+def test_one_forged_read_far_past_the_lesson_is_no_leak():
+    lf = _finished(lambda lf: lf.pages.__setitem__(2000, PageFacts(readers={"r0"})))
+    assert _leaks(lf) == [] and len(leak_rows(lf)) == 6
+
+
+def test_an_unknown_length_ends_at_the_last_page_five_people_read():
+    lf = lesson({**{n: calm_page(readers(5)) for n in range(1, 5)}, 9: calm_page({"r0"})}, total=0)
+    assert [r["slide_number"] for r in leak_rows(lf)] == [1, 2, 3, 4]
+
+
 def test_a_quiz_share_counts_each_person_once():
     # r0 gets ten questions right; four others miss their one. By tries that is 10 of 14 (71%); by people, 1 of 5 (20%).
     pf = PageFacts(readers=readers(10), sittings=[40.0] * 10)
