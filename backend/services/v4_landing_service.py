@@ -126,8 +126,9 @@ async def _themes(
     data: SpaceData, facts: dict[str, LessonFacts], ranked: list[dict[str, Any]], lang: str
 ) -> list[dict[str, Any]]:
     """Themes for the most-asked-about hotspots: pages the ranked findings already floored and
-    kept within their Lesson. Askers are the page's readers who asked, and the model hears
-    each of them in turn (`balanced_questions`), never one person's flood."""
+    kept within their Lesson. Askers are the page's readers who wrote something; each page goes
+    to `themes_for` as {asker: their questions}, which hears them in turn (`balanced_questions`,
+    a few each, never one person's flood) and caches by who asked."""
     hot: list[tuple[int, str, int, dict[str, list[str]]]] = []
     for insight in ranked:
         if insight["kind"] != "confusion_hotspot":

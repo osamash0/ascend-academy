@@ -4,7 +4,8 @@ Only for a page where at least `MIN_READERS` different members asked (the
 owner excluded): the model sees the questions, at most three per person
 (`balanced_questions`), the owner sees only the themes (spec §0). The call
 is metered to the owner, since their view asks for it, and cached per page
-and per number of askers, so it runs again only when someone new has asked.
+and per who asked (a short hash of the asker ids, never the ids), so it runs
+again only when someone new has asked.
 A failed call yields no themes and is not cached.
 """
 from __future__ import annotations
@@ -158,9 +159,11 @@ async def themes_for(
     texts = balanced_questions(by_person)
     if askers < MIN_READERS or not texts:
         return []
-    from backend.services.v4_reader_service import _generate_json
-
     async def compute() -> list[str]:
+        # Imported here, inside the try below: a page that cannot reach its model gets no themes,
+        # and never fails the owner's view of every other page (they run under asyncio.gather).
+        from backend.services.v4_reader_service import _generate_json
+
         data = await _generate_json(
             themes_prompt(texts, lang),
             user_id=owner_id, course_id=space_id, feature="v4_landing_themes", prefer="openai",
@@ -172,7 +175,10 @@ async def themes_for(
             space_id,
             "themes",
             compute,
-            params={"lesson": lesson_id, "page": page, "askers": askers, "who": _who(by_person), "lang": lang, "v": THEMES_VERSION},
+            params={
+                "lesson": lesson_id, "page": page, "askers": askers, "who": _who(by_person),
+                "lang": lang, "v": THEMES_VERSION,
+            },
             ttl_seconds=THEMES_TTL,
             ttl_for=lambda found: THEMES_TTL if found else EMPTY_THEMES_TTL,
         )

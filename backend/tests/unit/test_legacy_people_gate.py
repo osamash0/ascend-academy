@@ -783,6 +783,19 @@ def test_the_bundles_reach_is_the_unfloored_people_count_and_the_owner_is_not_a_
     assert s1["view_count"] == 3 and s1["ai_query_count"] == 1
 
 
+
+def test_the_bundle_builds_no_per_learner_rows(world, monkeypatch):
+    # Only the strugglers detector (never run) read them; building them wrote a per-learner cache row.
+    from backend.services.insights import bundle as bundle_mod
+
+    def never(*a, **k):
+        raise AssertionError("the garden's bundle must not build per-learner rows")
+
+    monkeypatch.setattr(analytics_service, "get_student_performance", never)
+    world[("learning_events", "slide_view")] = [_view(f"u{i}", "s1") for i in range(6)]
+    assert bundle_mod.build_metric_bundle("L1", "t")["students"] == []
+
+
 # ── benchmarks: a withheld lecture is None, never 0, and is not a peer ──────
 
 def _bench(monkeypatch, overview, quizzes=(), distractors=(), slides=()):
@@ -1046,6 +1059,12 @@ def test_a_hotspot_names_only_the_help_signals_with_five_people_behind_them(monk
     assert "help-seeking and backtracking" in both["interpretation"]
 
 
+def test_a_hotspot_verb_agrees_with_how_many_signals_it_names(monkeypatch):
+    assert "the help-seeking around it suggests " in _hot(monkeypatch, 5, 3)["interpretation"]
+    assert "the backtracking around it suggests " in _hot(monkeypatch, 4, 6)["interpretation"]
+    assert "help-seeking and backtracking around it suggest " in _hot(monkeypatch, 5, 6)["interpretation"]
+
+
 def test_no_hotspot_text_contains_a_sub_floor_number(monkeypatch):
     import re
 
@@ -1071,3 +1090,9 @@ def test_overpacked_claims_help_seeking_only_with_five_askers(monkeypatch):
     assert "help-seeking" not in none["summary"] and "traffic" not in none["interpretation"]
     many = _packed(monkeypatch, 5)
     assert "heavy help-seeking" in many["summary"] and "a lot of traffic" in many["interpretation"]
+
+
+def test_the_legacy_floor_and_the_door_floor_are_the_same_five_people():
+    # Kept as two constants to avoid an import cycle; this pins them together.
+    from backend.services.insights import space_engine
+    assert analytics_service.MIN_PEOPLE == space_engine.MIN_READERS == 5

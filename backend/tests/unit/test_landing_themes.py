@@ -47,7 +47,7 @@ def run(**over):
     return asyncio.run(themes.themes_for(**{**args, **over}))
 
 
-def test_themes_are_made_metered_to_the_owner_and_cached_per_number_of_askers(model):
+def test_themes_are_made_metered_to_the_owner_and_cached_per_who_asked(model):
     calls, _ = model
     assert run() == ["Why a split can lose a dependency", "What 3NF is for"]
     cache, call = calls
@@ -58,6 +58,13 @@ def test_themes_are_made_metered_to_the_owner_and_cached_per_number_of_askers(mo
     assert key[2] == {"lesson": "l1", "page": 12, "askers": 6, "lang": "de", "v": "themes-v2"}
     assert (call["user_id"], call["course_id"], call["feature"], call["prefer"]) == ("o1", "s1", "v4_landing_themes", "openai")
     assert "German" in call["prompt"] and ASKED[0] in call["prompt"]
+
+
+def test_a_page_whose_model_cannot_even_be_loaded_gets_no_themes_and_no_error(model, monkeypatch):
+    # Under asyncio.gather in the landing, one page raising here would fail the owner's whole view.
+    import sys
+    monkeypatch.setitem(sys.modules, "backend.services.v4_reader_service", None)  # import now raises
+    assert run() == []
 
 
 def test_fewer_than_five_askers_get_no_themes_and_no_model_call(model):

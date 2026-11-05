@@ -2,7 +2,9 @@
 
 The detectors are untouched (spec §1.1): this builds the bundle shape
 `bundle.build_metric_bundle` builds, from a Lesson's facts. A page is one
-bundle row; its "views" are the people who read it. Then the floor: a
+bundle row; its "views" are the people who read it. The drop-off check alone
+reads `leak_rows` instead: one row per page whose "views" are the people
+still in the Lesson there (who read that page or a later one). Then the floor: a
 Lesson read by fewer than `MIN_READERS` people says nothing, and no finding
 may be about a page fewer than `MIN_READERS` people read (spec B3). People
 never enter the bundle: Strugglers is not run here.

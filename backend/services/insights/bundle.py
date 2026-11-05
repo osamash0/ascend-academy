@@ -269,7 +269,6 @@ def build_metric_bundle(lecture_id: str, token: Optional[str] = None) -> Dict[st
     # People per slide, floor not applied: the drop-off finding compares one slide with the next,
     # and a slide under the floor is not "0 people" (it is only too few to print).
     viewers = analytics_service.get_slide_viewer_counts(lecture_id, token)
-    students = analytics_service.get_student_performance(lecture_id, token)
     # People who opened the lecture, floor not applied (like view_count above): the overview
     # withholds this under five people, and a findings' reach must not read that as 0 or inflate.
     total_students = analytics_service.get_lecture_people_count(lecture_id, token)
@@ -343,5 +342,6 @@ def build_metric_bundle(lecture_id: str, token: Optional[str] = None) -> Dict[st
         "lecture_avg_dwell": round(lecture_avg_dwell, 1),
         "lecture_median_dwell": round(lecture_median_dwell, 1),
         "slides": slides,
-        "students": students,
+        # No per-learner rows: only the strugglers detector read them, and it never runs (spec §0).
+        "students": [],
     }

@@ -44,12 +44,12 @@ def confusion_hotspot_copy(slide: Dict[str, Any]) -> Tuple[str, str, str]:
     summary = " · ".join(bits) + "."
 
     if sought_help:
-        signals = " and ".join(
-            name for name, shown in (("help-seeking", asked_shown), ("backtracking", back_shown)) if shown
-        )
+        named = [name for name, shown in (("help-seeking", asked_shown), ("backtracking", back_shown)) if shown]
+        signals = " and ".join(named)
+        verb = "suggest" if len(named) > 1 else "suggests"
         interpretation = (
             f"Slide {num} is acting like a wall. A high share of students flagged "
-            f"confusion here, and the {signals} around it suggest "
+            f"confusion here, and the {signals} around it {verb} "
             "the explanation isn't landing. Consider rewriting it for clarity, adding "
             "a worked example, or splitting it into two slides."
         )

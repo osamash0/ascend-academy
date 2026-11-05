@@ -9,7 +9,7 @@
 -- calls on the owner's allowance. professor_overview shares the slot too.
 --
 -- Fix: invalidate only when lectureId is an existing lecture. A Space's views
--- expire by their own TTL (300 s for landing; themes are keyed by asker count).
+-- expire by their own TTL (300 s for landing; themes are keyed by who asked).
 -- Same signature, so the trigger binding and the existing ACL stay; the REVOKE
 -- below repeats 20261011000000 for this file's own lint.
 
