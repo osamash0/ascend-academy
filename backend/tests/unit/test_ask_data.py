@@ -18,13 +18,13 @@ class _FakeAnalytics:
         self.quiz = [
             {"question_id": "q1", "question_text": "Define X", "success_rate": 90.0, "attempts": 10, "difficulty": "easy"},
             {"question_id": "q2", "question_text": "Explain Y", "success_rate": 30.0, "attempts": 10, "difficulty": "hard"},
-            {"question_id": "q3", "question_text": "Apply Z", "success_rate": 0.0, "attempts": 0, "difficulty": "n/a"},
+            {"question_id": "q3", "question_text": "Apply Z", "success_rate": None, "attempts": None, "difficulty": None},
         ]
         self.students = [
             {"student_id": "s1", "student_name": "Alice", "progress_percentage": 100, "quiz_score": 80},
             {"student_id": "s2", "student_name": "Bob", "progress_percentage": 50, "quiz_score": 30},
         ]
-        self.overview = {"total_students": 4, "completion_rate": 50, "average_score": 60,
+        self.overview = {"total_students": 6, "completion_rate": 50, "average_score": 60,
                          "average_time_minutes": 12, "engagement_level": "ok"}
         self.confidence = [
             {"slide_number": 1, "title": "Intro", "got_it": 5, "unsure": 0, "confused": 0, "total": 5, "confusion_rate": 0.0},

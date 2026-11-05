@@ -22,17 +22,30 @@ def get_ai_queries_evidence(lecture_id: str, slide_id: str, token: Optional[str]
     client = analytics_service.get_auth_client(token)
     events = analytics_service._fetch_all(
         client.table("learning_events")
-        .select("event_data, created_at")
+        .select("user_id, event_data, created_at")
         .eq("event_type", "ai_tutor_query")
         .contains("event_data", {"lectureId": lecture_id})
         .order("created_at", desc=True)
     )
+    owner_id = analytics_service.lecture_owner_id(client, lecture_id)
+
+    # Word for word only once 5+ people asked in the Lecture (owner out), the same floor as the dashboard's feed.
+    askers = {
+        str(e["user_id"]) for e in events
+        if e.get("user_id") and not analytics_service._same_person(e["user_id"], owner_id)
+        and (e.get("event_data") or {}).get("source") != "v4_reader"
+        and ((e.get("event_data") or {}).get("query") or "").strip()
+    }
+    if len(askers) < analytics_service.MIN_PEOPLE:
+        return {"kind": AI_QUERIES, "queries": [], "totalCount": 0}
 
     queries: List[Dict[str, Any]] = []
     for e in events:
         ed = e.get("event_data") or {}
         # v4 reader questions reach owners only as themes over 5+ askers, never verbatim (spec §0).
         if ed.get("source") == "v4_reader":
+            continue
+        if not e.get("user_id") or analytics_service._same_person(e["user_id"], owner_id):
             continue
         if ed.get("slideId") != slide_id:
             continue

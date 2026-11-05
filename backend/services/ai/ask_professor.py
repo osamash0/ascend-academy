@@ -120,6 +120,13 @@ def _bulk_fetch_overviews(
 
     client = analytics_service.get_auth_client(token)
 
+    # Each lecture's owner: their own reading never counts
+    owners = {
+        row["id"]: row.get("professor_id")
+        for row in analytics_service._fetch_all_in(
+            lambda: client.table("lectures").select("id, professor_id"), "id", lecture_ids)
+    }
+
     # One query for all progress rows across all lectures
     progress_rows = analytics_service._fetch_all_in(
         lambda: client.table("student_progress").select(
@@ -129,45 +136,35 @@ def _bulk_fetch_overviews(
         lecture_ids,
     )
 
-    # Aggregate per lecture in Python (no extra network calls)
+    # Aggregate per lecture in Python (no extra network calls), over people
     by_lecture: Dict[str, Dict[str, Any]] = {}
     for row in progress_rows:
         lid = row.get("lecture_id")
-        if not lid:
+        uid = row.get("user_id")
+        if not lid or not uid or analytics_service._same_person(uid, owners.get(lid)):
             continue
-        if lid not in by_lecture:
-            by_lecture[lid] = {
-                "total_students": 0,
-                "completed": 0,
-                "quiz_scores": [],
-            }
-        agg = by_lecture[lid]
-        agg["total_students"] += 1
+        agg = by_lecture.setdefault(lid, {"people": set(), "completed": set(), "quiz_scores": {}})
+        uid = str(uid)
+        agg["people"].add(uid)
         if row.get("completed_at"):
-            agg["completed"] += 1
-        qa = row.get("total_questions_answered") or 0
-        score = row.get("quiz_score") or 0
-        if qa > 0:
-            agg["quiz_scores"].append(score)
+            agg["completed"].add(uid)
+        if (row.get("total_questions_answered") or 0) > 0:
+            agg["quiz_scores"][uid] = row.get("quiz_score") or 0
 
+    # A lecture under MIN_PEOPLE people says nothing: None, never 0 (callers read None as "no data")
+    floor = analytics_service.MIN_PEOPLE
     result: Dict[str, Dict[str, Any]] = {}
     for lid in lecture_ids:
         agg = by_lecture.get(lid)
-        if not agg or agg["total_students"] == 0:
-            result[lid] = {
-                "total_students": 0,
-                "completion_rate": 0.0,
-                "average_score": 0.0,
-            }
+        if not agg or len(agg["people"]) < floor:
+            result[lid] = {"total_students": None, "completion_rate": None, "average_score": None}
             continue
-        total = agg["total_students"]
-        completion_rate = round((agg["completed"] / total) * 100, 1)
-        scores = agg["quiz_scores"]
-        average_score = round(sum(scores) / len(scores), 1) if scores else 0.0
+        total = len(agg["people"])
+        scores = list(agg["quiz_scores"].values())
         result[lid] = {
             "total_students": total,
-            "completion_rate": completion_rate,
-            "average_score": average_score,
+            "completion_rate": round(len(agg["completed"]) / total * 100, 1),
+            "average_score": round(sum(scores) / len(scores), 1) if len(scores) >= floor else None,
         }
     return result
 
@@ -342,7 +339,7 @@ def _exec_lectures_by_quiz_performance(lectures, token, params) -> Dict[str, Any
     for lec in lectures:
         ov = overviews.get(lec["id"], {})
         students = int(ov.get("total_students") or 0)
-        if students == 0:
+        if students == 0 or ov.get("average_score") is None:
             continue
         rows.append({
             "lecture": _short(lec.get("title")),
@@ -414,18 +411,19 @@ def _exec_teaching_overview(lectures, token, params) -> Dict[str, Any]:
         }
     enrollments = sum(int(o.get("total_students") or 0) for o in active)
     avg_completion = round(sum(float(o.get("completion_rate") or 0) for o in active) / len(active), 1)
-    avg_score = round(sum(float(o.get("average_score") or 0) for o in active) / len(active), 1)
+    scored = [float(o["average_score"]) for o in active if o.get("average_score") is not None]
+    avg_score = round(sum(scored) / len(scored), 1) if scored else None
     table = [
         {"metric": "Lectures", "value": total_lectures},
         {"metric": "Lectures with activity", "value": len(active)},
         {"metric": "Total enrollments", "value": enrollments},
         {"metric": "Average completion", "value": f"{avg_completion}%"},
-        {"metric": "Average quiz score", "value": f"{avg_score}%"},
     ]
-    answer = (
-        f"Across {len(active)} active lecture(s): {avg_completion:.0f}% average completion and "
-        f"{avg_score:.0f}% average quiz score, reaching {enrollments} enrollments."
-    )
+    answer = f"Across {len(active)} active lecture(s): {avg_completion:.0f}% average completion"
+    if avg_score is not None:
+        table.append({"metric": "Average quiz score", "value": f"{avg_score}%"})
+        answer += f" and {avg_score:.0f}% average quiz score"
+    answer += f", reaching {enrollments} enrollments."
     return {"answer_text": answer, "table": table, "chart": None}
 
 
@@ -495,7 +493,8 @@ def _build_professor_context(token: str, professor_id: str) -> str:
         if students:
             lines.append(
                 f"- [{course}] {lec.get('title')}: {students} students, "
-                f"{ov.get('completion_rate', 0)}% completion, {ov.get('average_score', 0)}% avg quiz score"
+                f"{ov.get('completion_rate', 0)}% completion"
+                + (f", {ov['average_score']}% avg quiz score" if ov.get("average_score") is not None else "")
             )
         else:
             lines.append(f"- [{course}] {lec.get('title')}: no student activity yet")

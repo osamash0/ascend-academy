@@ -236,8 +236,9 @@ def test_no_ask_answers_with_a_list_of_learners():
 class _Conn:
     """Just enough of an asyncpg connection for get_dashboard_data, keyed on the SQL text."""
 
-    def __init__(self, progress, ratings):
+    def __init__(self, progress, ratings, events=(), slides=(), questions=()):
         self.progress, self.ratings = progress, ratings
+        self.events, self.slides, self.questions = list(events), list(slides), list(questions)
 
     async def __aenter__(self):
         return self
@@ -245,32 +246,31 @@ class _Conn:
     async def __aexit__(self, *a):
         return False
 
-    async def fetchrow(self, sql, *a):
-        if "uniqueStudents" in sql:
-            return {"uniqueStudents": len(self.progress), "totalAttempts": 0, "totalCorrect": 0, "averageScore": 0}
-        raise AssertionError("the confidence map must not be counted in SQL: " + sql[:60])
-
     async def fetchval(self, sql, *a):
-        if "professor_id" in sql:
-            return OWNER
-        return 2
+        assert "professor_id" in sql
+        return OWNER
 
     async def fetch(self, sql, *a):
         if "confidence_rating" in sql:
             return list(self.ratings)
-        if "student_progress p" in sql:
-            # the real query keeps only people who answered at least one question
-            assert "total_questions_answered > 0" in sql
-            return [{"student_id": p["user_id"], "quiz_score": p["quiz_score"]}
-                    for p in self.progress if p.get("answered", 1) > 0]
-        return []
+        if "FROM student_progress" in sql:
+            return [{"user_id": p["user_id"], "quiz_score": p["quiz_score"],
+                     "total_questions_answered": p.get("answered", 1),
+                     "correct_answers": p.get("correct", 0)} for p in self.progress]
+        if "FROM slides s" in sql:
+            return list(self.slides)
+        if "FROM quiz_questions" in sql:
+            return list(self.questions)
+        if "FROM learning_events" in sql:
+            return list(self.events)
+        raise AssertionError("unexpected SQL: " + sql[:60])
 
 
-def _dash(monkeypatch, ratings, progress=()):
+def _dash(monkeypatch, ratings, progress=(), events=(), slides=(), questions=()):
     import asyncio
 
     async def conn():
-        return _Conn(list(progress), ratings)
+        return _Conn(list(progress), ratings, events, slides, questions)
 
     monkeypatch.setattr(analytics_service, "get_db_connection", conn)
     monkeypatch.setattr(analytics_service.analytics_cache, "get_or_compute_async",
@@ -320,7 +320,7 @@ def test_the_dashboard_owner_does_not_count_toward_score_bands(monkeypatch):
 def test_the_dashboards_confidence_is_null_not_zero_under_the_floor(monkeypatch):
     out = _dash(monkeypatch, [_drate(f"u{i}", "s1", "got_it") for i in range(4)])
     assert out["confidenceMap"] is None
-    assert out["overview"]["totalEvents"] == 0
+    assert out["overview"]["totalEvents"] is None
 
 
 def test_the_dashboards_confidence_is_present_at_five_people(monkeypatch):
@@ -335,3 +335,325 @@ def test_people_who_only_opened_the_lesson_do_not_make_a_score_band(monkeypatch)
     assert _dash(monkeypatch, [], progress)["scoreBands"] == []
     progress += [{"user_id": f"q{i}", "quiz_score": 90, "answered": 3} for i in range(5)]
     assert _dash(monkeypatch, [], progress)["scoreBands"] == [0, 0, 0, 0, 5]
+
+
+# ── quizzes, distractors, retry-performance: people, first try, from 5 ──────
+
+def _ask(uid, question, correct, selected=None):
+    ed = {"lectureId": "L1", "questionId": question, "correct": correct}
+    if selected is not None:
+        ed["selectedAnswer"] = selected
+    return {"user_id": uid, "event_data": ed}
+
+
+@pytest.fixture
+def quiz_world(world):
+    world[("quiz_questions", None)] = [{"id": "q1", "slide_id": "s1", "question_text": "Q one",
+                                         "options": ["a", "b", "c"], "correct_answer": 0}]
+    world[("learning_events", "quiz_retry_attempt")] = []
+    return world
+
+
+def test_a_question_four_people_tried_has_no_success_rate(quiz_world):
+    quiz_world[("learning_events", "quiz_attempt")] = [_ask(f"u{i}", "q1", True) for i in range(4)]
+    (row,) = analytics_service.get_quiz_analytics("L1", "t")
+    assert (row["success_rate"], row["attempts"], row["difficulty"]) == (None, None, None)
+
+
+def test_five_people_open_a_question_and_a_retrier_counts_once(quiz_world):
+    # u0 fails, retries the same question three times and gets it right: one person, first try wins.
+    ev = [_ask("u0", "q1", False)] + [_ask("u0", "q1", True)] * 3 + [_ask(f"u{i}", "q1", True) for i in range(1, 5)]
+    quiz_world[("learning_events", "quiz_attempt")] = ev
+    (row,) = analytics_service.get_quiz_analytics("L1", "t")
+    assert (row["success_rate"], row["attempts"]) == (80.0, 5)
+
+
+def test_one_person_trying_many_times_never_reaches_the_floor(quiz_world):
+    ev = [_ask("u0", "q1", True)] * 10 + [_ask(f"u{i}", "q1", True) for i in range(1, 4)]
+    quiz_world[("learning_events", "quiz_attempt")] = ev
+    assert analytics_service.get_quiz_analytics("L1", "t")[0]["success_rate"] is None
+
+
+def test_the_owner_is_not_counted_on_a_question(quiz_world):
+    quiz_world[("learning_events", "quiz_attempt")] = (
+        [_ask(f"u{i}", "q1", True) for i in range(4)] + [_ask(OWNER, "q1", False)])
+    assert analytics_service.get_quiz_analytics("L1", "t")[0]["success_rate"] is None
+
+
+def test_withheld_questions_sort_after_the_ranked_ones(quiz_world):
+    quiz_world[("quiz_questions", None)] += [{"id": "q2", "slide_id": "s1", "question_text": "Q two",
+                                               "options": [], "correct_answer": 0}]
+    quiz_world[("learning_events", "quiz_attempt")] = [_ask(f"u{i}", "q2", i < 2) for i in range(5)]
+    assert [r["question_id"] for r in analytics_service.get_quiz_analytics("L1", "t")] == ["q2", "q1"]
+
+
+def test_distractor_shares_need_five_people(quiz_world):
+    quiz_world[("learning_events", "quiz_attempt")] = [_ask(f"u{i}", "q1", False, 1) for i in range(4)]
+    (row,) = analytics_service.get_distractor_analysis("L1", "t")
+    assert row["answer_distribution"] == {} and row["total_attempts"] is None
+    assert row["most_common_wrong_answer"] is None and row["all_common_wrong_answers"] == []
+
+
+def test_distractor_shares_count_people_and_not_the_owner(quiz_world):
+    ev = [_ask(f"u{i}", "q1", False, 1) for i in range(3)] + [_ask("u3", "q1", False, 2)]
+    ev += [_ask("u3", "q1", True, 0)] * 2          # u3 trying again does not add a person
+    quiz_world[("learning_events", "quiz_attempt")] = ev + [_ask(OWNER, "q1", True, 0)]
+    assert analytics_service.get_distractor_analysis("L1", "t")[0]["total_attempts"] is None
+    quiz_world[("learning_events", "quiz_attempt")] = ev + [_ask("u4", "q1", True, 0)]
+    (row,) = analytics_service.get_distractor_analysis("L1", "t")
+    assert row["answer_distribution"] == {"1": 3, "2": 1, "0": 1}
+    assert (row["total_attempts"], row["most_common_wrong_answer"]) == (5, 1)
+
+
+def test_retry_performance_floors_each_side_by_people(quiz_world):
+    quiz_world[("learning_events", "quiz_attempt")] = [_ask(f"u{i}", "q1", i < 2) for i in range(5)]
+    quiz_world[("learning_events", "quiz_retry_attempt")] = [_ask(f"u{i}", "q1", True) for i in range(4)]
+    (row,) = analytics_service.get_retry_performance("L1", "t")
+    assert (row["first_attempt_total"], row["first_attempt_miss_rate"]) == (5, 60.0)
+    assert (row["retry_total"], row["retry_misses"], row["retry_miss_rate"]) == (None, None, None)
+
+
+def test_retry_performance_counts_a_repeat_retrier_once_and_skips_the_owner(quiz_world):
+    quiz_world[("learning_events", "quiz_attempt")] = [_ask(f"u{i}", "q1", False) for i in range(4)] + [_ask(OWNER, "q1", False)]
+    quiz_world[("learning_events", "quiz_retry_attempt")] = [_ask("u0", "q1", True)] * 6
+    (row,) = analytics_service.get_retry_performance("L1", "t")
+    assert row["first_attempt_total"] is None and row["retry_total"] is None
+
+
+# ── /dashboard overview, slide figures, the week, the question feed ─────────
+
+def _prog(i, answered=2, correct=1, score=50):
+    return {"user_id": f"u{i}", "quiz_score": score, "answered": answered, "correct": correct}
+
+
+def test_the_dashboard_overview_is_none_under_five_people(monkeypatch):
+    out = _dash(monkeypatch, [], [_prog(i) for i in range(4)])["overview"]
+    assert (out["uniqueStudents"], out["averageScore"], out["totalAttempts"], out["totalCorrect"]) == (None,) * 4
+
+
+def test_the_dashboard_overview_shows_from_five_people(monkeypatch):
+    out = _dash(monkeypatch, [], [_prog(i, answered=4, correct=3) for i in range(5)])["overview"]
+    assert (out["uniqueStudents"], out["averageScore"], out["totalAttempts"], out["totalCorrect"]) == (5, 75, 20, 15)
+
+
+def test_the_dashboard_overview_leaves_the_owner_out(monkeypatch):
+    progress = [_prog(i) for i in range(4)] + [{"user_id": OWNER, "quiz_score": 100, "answered": 9, "correct": 9}]
+    out = _dash(monkeypatch, [], progress)["overview"]
+    assert out["uniqueStudents"] is None and out["averageScore"] is None
+
+
+def test_openers_make_students_but_only_answerers_make_a_score(monkeypatch):
+    progress = [_prog(i, answered=0, correct=0) for i in range(5)]
+    out = _dash(monkeypatch, [], progress)["overview"]
+    assert out["uniqueStudents"] == 5 and out["averageScore"] is None and out["totalAttempts"] is None
+
+
+def _ev(uid, kind, slide="s1", **data):
+    return {"user_id": uid, "type": kind, "time": "2026-11-05 10:00:00", "day": "2026-11-05", "recent": True,
+            "event_data": {"lectureId": "L1", "slideId": slide, **data}}
+
+
+SLIDES = [{"id": "s1", "name": "One"}, {"id": "s2", "name": "Two"}]
+
+
+def _slide_by_id(out):
+    return {s["id"]: s for s in out["slidePerformance"]}
+
+
+def test_slide_figures_need_five_people_each(monkeypatch):
+    events = [_ev(f"u{i}", "slide_view", duration_seconds=30) for i in range(4)]        # 4 viewers: no time
+    events += [_ev(f"u{i}", "quiz_attempt", correct=i < 3, questionId="q1") for i in range(4)]
+    s1 = _slide_by_id(_dash(monkeypatch, [], events=events, slides=SLIDES))["s1"]
+    assert s1["avgDuration"] is None and s1["correctRate"] is None and s1["quizAttempts"] is None
+    assert s1["aiQueries"] is None and s1["revisions"] is None and s1["confusionIndex"] is None
+
+
+def test_slide_figures_show_from_five_people_and_count_people(monkeypatch):
+    events = [_ev(f"u{i}", "slide_view", duration_seconds=30) for i in range(5)]
+    events += [_ev(f"u{i}", "quiz_attempt", correct=i < 4, questionId="q1") for i in range(5)]
+    events += [_ev("u0", "quiz_attempt", correct=True, questionId="q1")] * 3   # u0 retrying: first try stands
+    events += [_ev("u1", "ai_tutor_query", query="why?")] * 4                  # one asker, four questions
+    s1 = _slide_by_id(_dash(monkeypatch, [], events=events, slides=SLIDES))["s1"]
+    assert (s1["avgDuration"], s1["correctRate"], s1["quizAttempts"]) == (30, 80, 5)
+    assert s1["aiQueries"] is None            # one person asked: under the floor, however many times
+    assert s1["confusionIndex"] == 30 + 10 + 10
+
+
+def test_the_owner_does_not_make_a_slide_figure(monkeypatch):
+    events = [_ev(f"u{i}", "slide_view", duration_seconds=30) for i in range(4)] + [_ev(OWNER, "slide_view", duration_seconds=30)]
+    assert _slide_by_id(_dash(monkeypatch, [], events=events, slides=SLIDES))["s1"]["avgDuration"] is None
+
+
+def test_the_week_is_counts_of_people_per_kind_and_never_one_event(monkeypatch):
+    events = [_ev(f"u{i}", "quiz_attempt", correct=True) for i in range(5)]
+    events += [_ev(f"u{i}", "slide_back_navigation", fromSlideId="s1") for i in range(4)]
+    out = _dash(monkeypatch, [], events=events)
+    assert out["liveTicker"] == [{"type": "quiz_attempt", "people": 5}]
+    assert all(set(row) == {"type", "people"} for row in out["liveTicker"])
+
+
+def test_the_week_says_nothing_when_one_person_did_it_often(monkeypatch):
+    events = [_ev("u0", "quiz_attempt", correct=True)] * 20
+    out = _dash(monkeypatch, [], events=events)
+    assert out["liveTicker"] == [] and out["activityByDay"] == [] and out["overview"]["totalEvents"] is None
+
+
+def test_the_week_leaves_out_older_events_and_the_owner(monkeypatch):
+    events = [_ev(f"u{i}", "quiz_attempt", correct=True) for i in range(4)] + [_ev(OWNER, "quiz_attempt", correct=True)]
+    events += [{**_ev("u9", "quiz_attempt", correct=True), "recent": False}]
+    assert _dash(monkeypatch, [], events=events)["liveTicker"] == []
+
+
+def _asked(uid, text="what is a join?"):
+    return _ev(uid, "ai_tutor_query", query=text, slideTitle="Joins")
+
+
+def test_the_question_feed_needs_five_askers(monkeypatch):
+    events = [_asked(f"u{i}") for i in range(4)] + [_asked("u0", "again?")] * 3
+    assert _dash(monkeypatch, [], events=events)["aiQueryFeed"] == []
+
+
+def test_the_question_feed_shows_five_askers_word_for_word_with_no_identity(monkeypatch):
+    events = [_asked(f"u{i}", f"question {i}") for i in range(5)]
+    feed = _dash(monkeypatch, [], events=events)["aiQueryFeed"]
+    assert [f["query_text"] for f in feed] == [f"question {i}" for i in (4, 3, 2, 1, 0)]
+    assert all(set(f) == {"slide_title", "query_text", "created_at"} for f in feed)
+    assert "u1" not in repr(feed)
+
+
+def test_the_owner_is_not_a_question_asker(monkeypatch):
+    events = [_asked(f"u{i}") for i in range(4)] + [_asked(OWNER)]
+    assert _dash(monkeypatch, [], events=events)["aiQueryFeed"] == []
+
+
+def test_the_v4_askers_do_not_count_toward_the_legacy_feed(monkeypatch):
+    events = [_asked(f"u{i}") for i in range(4)] + [_ev("v1", "ai_tutor_query", query="q", source="v4_reader")]
+    assert _dash(monkeypatch, [], events=events)["aiQueryFeed"] == []
+
+
+def test_the_dashboard_retry_table_floors_by_people(monkeypatch):
+    questions = [{"id": "q1", "question_text": "Q"}]
+    events = [_ev(f"u{i}", "quiz_attempt", correct=False, questionId="q1") for i in range(4)]
+    events += [_ev("u0", "quiz_retry_attempt", correct=True, questionId="q1")] * 5
+    (row,) = _dash(monkeypatch, [], events=events, questions=questions)["retryPerformance"]
+    assert row["first_attempt_total"] is None and row["retry_total"] is None
+
+
+def test_the_ai_query_route_view_floors_too(world):
+    world[("learning_events", "ai_tutor_query")] = [
+        {"user_id": f"u{i}", "created_at": "t", "event_data": {"lectureId": "L1", "query": "why?", "slideTitle": "S"}}
+        for i in range(4)]
+    assert analytics_service.get_ai_query_feed("L1", "t") == []
+    world[("learning_events", "ai_tutor_query")].append(
+        {"user_id": "u4", "created_at": "t", "event_data": {"lectureId": "L1", "query": "how?"}})
+    assert len(analytics_service.get_ai_query_feed("L1", "t")) == 5
+
+
+# ── Ask: totals and averages over people, from 5 ────────────────────────────
+
+def _progress(n, owner_too=False, answered=1):
+    rows = [{"user_id": f"u{i}", "lecture_id": "L1", "completed_at": "t" if i < 2 else None,
+             "quiz_score": 60, "total_questions_answered": answered} for i in range(n)]
+    if owner_too:
+        rows.append({"user_id": OWNER, "lecture_id": "L1", "completed_at": "t", "quiz_score": 100,
+                     "total_questions_answered": 5})
+    return rows
+
+
+def test_the_lecture_overview_is_none_under_five_people_and_ignores_the_owner(world):
+    world[("student_progress", None)] = _progress(4, owner_too=True)
+    out = analytics_service.get_lecture_overview("L1", "t")
+    assert out["total_students"] is None and out["completion_rate"] is None and out["average_score"] is None
+
+
+def test_the_lecture_overview_counts_people_from_five(world):
+    world[("student_progress", None)] = _progress(5, owner_too=True)
+    out = analytics_service.get_lecture_overview("L1", "t")
+    assert (out["total_students"], out["completion_rate"], out["average_score"]) == (5, 40.0, 60.0)
+
+
+def test_ask_completion_count_says_too_few_under_five(world, monkeypatch):
+    from backend.services.ai import ask_data
+
+    world[("student_progress", None)] = _progress(4)
+    out = ask_data._exec_completion_count("L1", "t", {})
+    assert out["table"] == [] and "Too few" in out["answer_text"]
+    world[("student_progress", None)] = _progress(5)
+    out = ask_data._exec_completion_count("L1", "t", {})
+    assert {"metric": "Students started", "value": 5} in out["table"]
+
+
+def test_ask_teaching_overview_floors_each_lecture_and_skips_the_owner(world, monkeypatch):
+    from backend.services.ai import ask_professor
+
+    world[("lectures", None)] = [{"id": "L1", "professor_id": OWNER}]
+    monkeypatch.setattr(analytics_service, "_fetch_all_in",
+                        lambda make_query, column, values, batch=100: list(world.get((make_query().table_name, None), [])))
+    lectures = [{"id": "L1", "title": "Joins"}]
+    world[("student_progress", None)] = _progress(4, owner_too=True)
+    out = ask_professor._exec_teaching_overview(lectures, "t", {})
+    assert "Total enrollments" not in {r["metric"] for r in out["table"]}
+    world[("student_progress", None)] = _progress(5, owner_too=True)
+    out = ask_professor._exec_teaching_overview(lectures, "t", {})
+    assert {r["metric"]: r["value"] for r in out["table"]}["Total enrollments"] == 5
+
+
+def test_ask_lectures_by_quiz_performance_skips_a_lecture_with_too_few_scorers(world, monkeypatch):
+    from backend.services.ai import ask_professor
+
+    world[("lectures", None)] = [{"id": "L1", "professor_id": OWNER}]
+    monkeypatch.setattr(analytics_service, "_fetch_all_in",
+                        lambda make_query, column, values, batch=100: list(world.get((make_query().table_name, None), [])))
+    rows = _progress(5)
+    for r in rows[:2]:
+        r["total_questions_answered"] = 0      # five opened, only three answered
+    world[("student_progress", None)] = rows
+    out = ask_professor._exec_lectures_by_quiz_performance([{"id": "L1", "title": "Joins"}], "t", {})
+    assert out["table"] == []
+
+
+# ── the legacy garden: nothing about a slide fewer than 5 people viewed ─────
+
+def _gslide(num, views, **kw):
+    base = {"slide_id": f"s{num}", "slide_number": num, "title": f"S{num}", "view_count": views,
+            "avg_dwell": 30.0, "median_dwell": 30.0, "dwell_p25": 20.0, "dwell_p75": 40.0, "dwell_cv": 0.3,
+            "short_views": 0, "confusion_rate": 0.0, "quiz_success_rate": 90, "quiz_attempts": 10,
+            "got_it": 0, "unsure": 0, "confused": 0, "ratings_total": 0, "ai_query_count": 0, "back_nav_count": 0,
+            "back_nav_from_next": 0, "overconfident_count": 0, "got_it_quiz_total": 0, "overconfidence_rate": 0.0}
+    base.update(kw)
+    return base
+
+
+def _garden(monkeypatch, slides):
+    bundle = {"lecture_id": "L1", "total_students": 10, "lecture_avg_dwell": 30.0, "lecture_median_dwell": 30.0,
+              "slides": slides, "students": []}
+    monkeypatch.setattr(engine, "build_metric_bundle", lambda lecture_id, token=None: bundle)
+    return engine.build_insights("L1", "t")
+
+
+def _calib(views):
+    return _gslide(3, views, got_it_quiz_total=4, overconfident_count=3, overconfidence_rate=75.0)
+
+
+def test_a_garden_insight_on_a_slide_four_people_viewed_is_dropped(monkeypatch):
+    assert _garden(monkeypatch, [_calib(4)]) == []
+
+
+def test_a_garden_insight_on_a_slide_five_people_viewed_is_kept(monkeypatch):
+    (insight,) = _garden(monkeypatch, [_calib(5)])
+    assert insight["kind"] == "calibration_gap"
+
+
+def test_a_confusion_block_needs_every_slide_in_it_viewed_by_five(monkeypatch):
+    block = dict(confusion_rate=40.0, ratings_total=6)
+    assert [i["kind"] for i in _garden(monkeypatch, [_gslide(1, 8, **block), _gslide(2, 8, **block)])
+            if i["kind"] == "confusion_block"] == ["confusion_block"]
+    assert all(i["kind"] != "confusion_block"
+               for i in _garden(monkeypatch, [_gslide(1, 8, **block), _gslide(2, 4, **block)]))
+
+
+def test_a_drop_off_finding_also_needs_the_slide_after_it(monkeypatch):
+    # 10 people on slide 1, 4 on slide 2: the finding is made of both counts, and 4 is under the floor.
+    slides = [_gslide(1, 10), _gslide(2, 4)]
+    assert all(i["kind"] != "leaky_bucket" for i in _garden(monkeypatch, slides))
+    assert any(i["kind"] == "leaky_bucket" for i in _garden(monkeypatch, [_gslide(1, 10), _gslide(2, 5)]))

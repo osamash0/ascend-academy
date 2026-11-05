@@ -182,8 +182,9 @@ def _exec_worst_quiz_questions(lecture_id: str, token: str, params: Dict[str, An
     limit = _clamp_int(params.get("limit"), default=3, lo=1, hi=20)
     order = (params.get("order") or "lowest").lower()
     qs = analytics_service.get_quiz_analytics(lecture_id, token)
-    qs = [q for q in qs if q.get("attempts", 0) > 0]
-    rows = sorted(qs, key=lambda q: q.get("success_rate", 0.0),
+    # A question fewer than 5 people tried has a null success rate (never 0): it does not rank.
+    qs = [q for q in qs if q.get("success_rate") is not None]
+    rows = sorted(qs, key=lambda q: q["success_rate"],
                   reverse=(order == "highest"))[:limit]
     table = [
         {"question": (r["question_text"][:90] + "…") if len(r["question_text"]) > 90 else r["question_text"],
@@ -210,20 +211,22 @@ def _exec_worst_quiz_questions(lecture_id: str, token: str, params: Dict[str, An
 
 def _exec_completion_count(lecture_id: str, token: str, params: Dict[str, Any]) -> Dict[str, Any]:
     overview = analytics_service.get_lecture_overview(lecture_id, token)
-    total = overview.get("total_students", 0)
-    rate = overview.get("completion_rate", 0)
-    completed = round(total * rate / 100) if total else 0
+    total = overview.get("total_students")
+    # Under 5 people the overview says nothing (None, never 0): neither does Ask.
+    if not total:
+        return {"answer_text": "Too few students have opened this lecture to say anything about them yet.",
+                "table": [], "chart": None}
+    rate = overview.get("completion_rate") or 0
+    completed = round(total * rate / 100)
+    average = overview.get("average_score")
     table = [
         {"metric": "Students started", "value": total},
         {"metric": "Students completed", "value": completed},
         {"metric": "Completion rate", "value": f"{rate}%"},
-        {"metric": "Average score", "value": f"{overview.get('average_score', 0)}%"},
     ]
-    answer = (
-        f"{completed} of {total} students have finished the lecture "
-        f"({rate}% completion rate)."
-        if total else "No student progress recorded yet."
-    )
+    if average is not None:
+        table.append({"metric": "Average score", "value": f"{average}%"})
+    answer = f"{completed} of {total} students have finished the lecture ({rate}% completion rate)."
     return {"answer_text": answer, "table": table, "chart": None}
 
 

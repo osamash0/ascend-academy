@@ -156,10 +156,12 @@ async def test_overview_endpoint_recomputes_after_invalidation(app, patch_supaba
     patch_supabase.seed("slides", [
         {"id": "s1", "lecture_id": "L1", "slide_number": 1, "title": "T1"},
     ])
+    # Five people: the overview says nothing about fewer.
     patch_supabase.seed("student_progress", [
-        {"user_id": "u1", "lecture_id": "L1", "completed_at": "2026-01-02",
+        {"user_id": f"u{i}", "lecture_id": "L1", "completed_at": "2026-01-02",
          "quiz_score": 80, "completed_slides": [1],
-         "total_questions_answered": 5, "correct_answers": 4},
+         "total_questions_answered": 5, "correct_answers": 4}
+        for i in range(1, 6)
     ])
     patch_supabase.seed("learning_events", [])
     patch_supabase.seed("quiz_questions", [])
@@ -178,7 +180,7 @@ async def test_overview_endpoint_recomputes_after_invalidation(app, patch_supaba
     # Mutate the underlying data without invalidating — second read should
     # still return the cached payload.
     patch_supabase.tables["student_progress"].append({
-        "user_id": "u2", "lecture_id": "L1", "completed_at": None,
+        "user_id": "u6", "lecture_id": "L1", "completed_at": None,
         "quiz_score": 0, "completed_slides": [], "total_questions_answered": 0,
         "correct_answers": 0,
     })
@@ -208,7 +210,7 @@ async def test_overview_endpoint_recomputes_after_invalidation(app, patch_supaba
                     headers={"Authorization": "Bearer fake-token"})
     third = r3.json()["data"]
     # Now reflects the new student count.
-    assert third["total_students"] == 2
+    assert third["total_students"] == 6
 
 
 def test_invalidate_course_overview_only_drops_overview_rows(patch_supabase):

@@ -177,6 +177,8 @@ class TestAskEndpointSeededExecutors:
             {"user_id": "u1", "lecture_id": "L1", "completed_at": "2026-01-02", "quiz_score": 80},
             {"user_id": "u2", "lecture_id": "L1", "completed_at": "2026-01-02", "quiz_score": 60},
             {"user_id": "u3", "lecture_id": "L1", "completed_at": None, "quiz_score": 0},
+            {"user_id": "u4", "lecture_id": "L1", "completed_at": None, "quiz_score": 0},
+            {"user_id": "u5", "lecture_id": "L1", "completed_at": None, "quiz_score": 0},
         ])
 
         r = client.post(
@@ -187,10 +189,10 @@ class TestAskEndpointSeededExecutors:
         assert r.status_code == 200
         data = r.json()["data"]
         assert data["intent"] == "completion_count"
-        # 2 of 3 students completed → answer text reports both numbers.
-        assert "2" in data["answer_text"] and "3" in data["answer_text"]
+        # 2 of 5 students completed (five is the fewest people the answer speaks about).
+        assert "2" in data["answer_text"] and "5" in data["answer_text"]
         metrics = {row["metric"]: row["value"] for row in data["table"]}
-        assert metrics["Students started"] == 3
+        assert metrics["Students started"] == 5
         assert metrics["Students completed"] == 2
 
 class TestAskRateLimitKey:
