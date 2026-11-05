@@ -98,7 +98,7 @@ export const defaultHandlers = [
       data: {
         overview: {},
         slidePerformance: [],
-        studentsMatrix: [],
+        scoreBands: [],
         confidenceMap: { got_it: 0, unsure: 0, confused: 0 },
       },
     }),

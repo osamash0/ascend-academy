@@ -38,15 +38,6 @@ INTENTS: Dict[str, Dict[str, Any]] = {
             "Easiest quiz questions",
         ],
     },
-    "struggling_students": {
-        "description": "List students whose quiz accuracy is below a threshold.",
-        "params": {"max_accuracy_percent": "int 0-100, default 40"},
-        "examples": [
-            "Show me students whose quiz accuracy is below 40%",
-            "Who is failing the quizzes?",
-            "Students under 50% accuracy",
-        ],
-    },
     "completion_count": {
         "description": "How many students finished the lecture, total students, completion rate.",
         "params": {},
@@ -90,7 +81,7 @@ def list_suggested_questions() -> List[str]:
     return [
         "Which slide had the highest drop-off rate?",
         "Which 3 quiz questions had the lowest correct rate?",
-        "Show me students whose quiz accuracy is below 40%",
+        "What are students asking the AI tutor?",
         "How many students finished the lecture?",
         "What concepts are students most confused about?",
     ]
@@ -217,23 +208,6 @@ def _exec_worst_quiz_questions(lecture_id: str, token: str, params: Dict[str, An
     return {"answer_text": answer, "table": table, "chart": chart}
 
 
-def _exec_struggling_students(lecture_id: str, token: str, params: Dict[str, Any]) -> Dict[str, Any]:
-    threshold = _clamp_int(params.get("max_accuracy_percent"), default=40, lo=0, hi=100)
-    students = analytics_service.get_student_performance(lecture_id, token)
-    rows = [s for s in students if (s.get("quiz_score") or 0) < threshold]
-    table = [
-        {"student": s.get("student_name") or s.get("student_id", "")[:8],
-         "quiz_score": s.get("quiz_score", 0),
-         "progress": s.get("progress_percentage", 0)}
-        for s in rows
-    ]
-    if not rows:
-        answer = f"No students are below {threshold}% quiz accuracy — nice work."
-    else:
-        answer = f"{len(rows)} student(s) are below {threshold}% quiz accuracy."
-    return {"answer_text": answer, "table": table, "chart": None}
-
-
 def _exec_completion_count(lecture_id: str, token: str, params: Dict[str, Any]) -> Dict[str, Any]:
     overview = analytics_service.get_lecture_overview(lecture_id, token)
     total = overview.get("total_students", 0)
@@ -304,7 +278,6 @@ def _exec_ai_query_themes(lecture_id: str, token: str, params: Dict[str, Any]) -
 _EXECUTORS = {
     "top_dropoff_slides": _exec_top_dropoff_slides,
     "worst_quiz_questions": _exec_worst_quiz_questions,
-    "struggling_students": _exec_struggling_students,
     "completion_count": _exec_completion_count,
     "confusion_topics": _exec_confusion_topics,
     "ai_query_themes": _exec_ai_query_themes,

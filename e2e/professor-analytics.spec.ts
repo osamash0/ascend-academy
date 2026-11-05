@@ -76,24 +76,7 @@ test.describe("Professor analytics", () => {
           { date: "Mon", attempts: 12 },
           { date: "Tue", attempts: 18 },
         ],
-        studentsMatrix: [
-          {
-            student_id: "u1",
-            student_name: "Astra",
-            typology: "Natural Learner",
-            ai_interactions: 2,
-            revisions: 1,
-            quiz_score: 88,
-          },
-          {
-            student_id: "u2",
-            student_name: "Nova",
-            typology: "At Risk",
-            ai_interactions: 7,
-            revisions: 5,
-            quiz_score: 35,
-          },
-        ],
+        scoreBands: [],
         // Field shapes here match ProfessorAnalytics.tsx contract exactly:
         //   liveTicker  → { type, description, time }
         //   aiQueryFeed → { id, query_text, created_at, ... }

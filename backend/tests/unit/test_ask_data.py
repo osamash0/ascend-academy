@@ -72,12 +72,6 @@ def test_worst_quiz_skips_zero_attempts(patched, monkeypatch):
     assert "Explain Y" in out["table"][0]["question"]
 
 
-def test_struggling_students_threshold(patched, monkeypatch):
-    out = _run("struggling_students", {"max_accuracy_percent": 50}, monkeypatch)
-    names = [r["student"] for r in out["table"]]
-    assert names == ["Bob"]
-
-
 def test_completion_count_table_shape(patched, monkeypatch):
     out = _run("completion_count", {}, monkeypatch)
     metrics = {row["metric"] for row in out["table"]}

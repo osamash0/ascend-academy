@@ -52,15 +52,6 @@ INTENTS: Dict[str, Dict[str, Any]] = {
             "My hardest lectures by quiz score",
         ],
     },
-    "struggling_students": {
-        "description": "Students whose quiz score is below a threshold, across all lectures.",
-        "params": {"max_accuracy_percent": "int 0-100, default 40"},
-        "examples": [
-            "Who is falling behind across my courses?",
-            "Which students are struggling the most?",
-            "Show students under 50% accuracy",
-        ],
-    },
     "most_confusing_slides": {
         "description": "Slides with the highest confusion rate across all the professor's lectures.",
         "params": {"limit": "int 1-20, default 5"},
@@ -93,7 +84,7 @@ def list_suggested_questions() -> List[str]:
     return [
         "Which lectures lose the most students?",
         "Where are students most confused?",
-        "Who is falling behind across my courses?",
+        "Where is quiz performance the weakest?",
         "Which lectures are students struggling with most?",
         "How are my courses doing overall?",
     ]
@@ -179,40 +170,6 @@ def _bulk_fetch_overviews(
             "average_score": average_score,
         }
     return result
-
-
-def _bulk_fetch_student_scores(
-    lecture_ids: List[str], token: str
-) -> Dict[str, List[Dict[str, Any]]]:
-    """Bulk fetch student_progress for the 'struggling_students' executor.
-
-    Returns dict[lecture_id -> list of {student_name, quiz_score}].
-    """
-    if not lecture_ids:
-        return {}
-
-    client = analytics_service.get_auth_client(token)
-    rows = analytics_service._fetch_all_in(
-        lambda: client.table("student_progress").select(
-            "lecture_id, user_id, quiz_score, total_questions_answered"
-        ),
-        "lecture_id",
-        lecture_ids,
-    )
-
-    from backend.services.utils.analytics_utils import generate_anon_name
-
-    result: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-    for row in rows:
-        lid = row.get("lecture_id")
-        if not lid:
-            continue
-        result[lid].append({
-            "student_name": generate_anon_name(row.get("user_id", "")),
-            "quiz_score": float(row.get("quiz_score") or 0),
-            "total_questions_answered": int(row.get("total_questions_answered") or 0),
-        })
-    return dict(result)
 
 
 def _bulk_fetch_confidence(
@@ -406,38 +363,6 @@ def _exec_lectures_by_quiz_performance(lectures, token, params) -> Dict[str, Any
     return {"answer_text": answer, "table": rows, "chart": chart}
 
 
-def _exec_struggling_students(lectures, token, params) -> Dict[str, Any]:
-    threshold = _clamp_int(params.get("max_accuracy_percent"), default=40, lo=0, hi=100)
-    if not lectures:
-        return {"answer_text": f"No students are below {threshold}% — nice work.", "table": [], "chart": None}
-
-    all_scores = _bulk_fetch_student_scores([l["id"] for l in lectures], token)
-
-    agg: Dict[str, Dict[str, Any]] = {}
-    for lec in lectures:
-        for s in all_scores.get(lec["id"], []):
-            score = float(s.get("quiz_score") or 0)
-            if score >= threshold:
-                continue
-            # Only count students who actually attempted quiz questions
-            if int(s.get("total_questions_answered") or 0) == 0:
-                continue
-            name = s.get("student_name") or "Unknown"
-            entry = agg.setdefault(name, {"student": name, "lectures_below": 0, "lowest_score": 100.0})
-            entry["lectures_below"] += 1
-            entry["lowest_score"] = min(entry["lowest_score"], round(score, 1))
-
-    rows = sorted(agg.values(), key=lambda r: (-r["lectures_below"], r["lowest_score"]))
-    if not rows:
-        return {"answer_text": f"No students are below {threshold}% — nice work.", "table": [], "chart": None}
-    top_student = rows[0]['student']
-    answer = (
-        f"{len(rows)} student(s) are below {threshold}% quiz score in at least one lecture. "
-        f'"{top_student}" is struggling in {rows[0]["lectures_below"]} of them.'
-    )
-    return {"answer_text": answer, "table": rows, "chart": None}
-
-
 def _exec_most_confusing_slides(lectures, token, params) -> Dict[str, Any]:
     limit = _clamp_int(params.get("limit"), default=5, lo=1, hi=20)
     if not lectures:
@@ -507,7 +432,6 @@ def _exec_teaching_overview(lectures, token, params) -> Dict[str, Any]:
 _EXECUTORS = {
     "lectures_by_dropoff": _exec_lectures_by_dropoff,
     "lectures_by_quiz_performance": _exec_lectures_by_quiz_performance,
-    "struggling_students": _exec_struggling_students,
     "most_confusing_slides": _exec_most_confusing_slides,
     "teaching_overview": _exec_teaching_overview,
 }

@@ -148,6 +148,19 @@ def people_ratings(events: List[Dict[str, Any]], owner_id: Optional[str], slide_
     return out
 
 
+def _floored_counts(events: List[Dict[str, Any]], owner_id: Optional[str]) -> Dict[str, Dict[str, int]]:
+    """{slide_id: {got_it, unsure, confused}} over people, only for slides MIN_PEOPLE+ people rated."""
+    result: Dict[str, Dict[str, int]] = {}
+    for sid, by_person in people_ratings(events, owner_id).items():
+        if len(by_person) < MIN_PEOPLE:
+            continue
+        counts = {r: 0 for r in _RATINGS}
+        for rating in by_person.values():
+            counts[rating] += 1
+        result[sid] = counts
+    return result
+
+
 def _confidence_counts_by_slide(
     client: Client, lecture_id: str, owner_id: Optional[str] = None, owner_known: bool = False
 ) -> Dict[str, Dict[str, int]]:
@@ -159,15 +172,22 @@ def _confidence_counts_by_slide(
         .order("created_at"))
     if not owner_known:
         owner_id = lecture_owner_id(client, lecture_id)
-    result: Dict[str, Dict[str, int]] = {}
-    for sid, by_person in people_ratings(events, owner_id).items():
-        if len(by_person) < MIN_PEOPLE:
-            continue
-        counts = {r: 0 for r in _RATINGS}
-        for rating in by_person.values():
-            counts[rating] += 1
-        result[sid] = counts
-    return result
+    return _floored_counts(events, owner_id)
+
+
+#: The dashboard's quiz-score bands; counts only, the dashboard never lists a learner (decided 2026-11-05).
+_SCORE_EDGES = (20, 40, 60, 80)
+
+
+def score_bands(scores: list) -> list:
+    """People per quiz-score band (0-20, 21-40, 41-60, 61-80, 81-100); empty under MIN_PEOPLE people."""
+    if len(scores) < MIN_PEOPLE:
+        return []
+    bands = [0] * (len(_SCORE_EDGES) + 1)
+    for sc in scores:
+        value = float(sc or 0)
+        bands[sum(1 for edge in _SCORE_EDGES if value > edge)] += 1
+    return bands
 
 
 @cached_analytic("overview")
@@ -783,34 +803,21 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
                 ORDER BY "avgDuration" DESC
             """, lecture_id)
 
-            # Students Matrix
+            # Quiz scores, one per person; only ever drawn as bands (score_bands), never listed
             student_rows = await conn.fetch("""
-                SELECT 
-                    p.user_id as "student_id",
-                    p.quiz_score as "quiz_score",
-                    COALESCE(array_length(p.completed_slides, 1), 0)::int as "completed_count",
-                    COUNT(le.id) FILTER (WHERE le.event_type = 'ai_tutor_query')::int as "ai_interactions",
-                    COUNT(le.id) FILTER (WHERE le.event_type = 'slide_back_navigation')::int as "revisions"
+                SELECT p.user_id as "student_id", p.quiz_score as "quiz_score"
                 FROM student_progress p
-                LEFT JOIN learning_events le ON le.user_id = p.user_id 
-                    AND le.event_data->>'lectureId' = $1
                 WHERE p.lecture_id = $1::uuid
-                GROUP BY p.user_id, p.quiz_score, p.completed_slides
-                ORDER BY p.quiz_score DESC
             """, lecture_id)
 
-            # Slide Count for matrix calc
-            num_slides = await conn.fetchval("SELECT COUNT(*)::int FROM slides WHERE lecture_id = $1::uuid", lecture_id)
-            num_slides = max(1, num_slides)
-
-            # Confidence Map (Overall counts)
-            conf_counts = await conn.fetchrow("""
-                SELECT 
-                    COUNT(le.id) FILTER (WHERE le.event_data->>'rating' = 'got_it')::int as "got_it",
-                    COUNT(le.id) FILTER (WHERE le.event_data->>'rating' = 'unsure')::int as "unsure",
-                    COUNT(le.id) FILTER (WHERE le.event_data->>'rating' = 'confused')::int as "confused"
+            # Confidence Map: read as events, counted as people in Python (asyncpg bypasses RLS,
+            # so the owner exclusion and the 5-people floor are applied here).
+            owner_id = await conn.fetchval("SELECT professor_id FROM lectures WHERE id = $1::uuid", lecture_id)
+            conf_rows = await conn.fetch("""
+                SELECT le.user_id, le.event_data
                 FROM learning_events le
                 WHERE le.event_type = 'confidence_rating' AND le.event_data->>'lectureId' = $1
+                ORDER BY le.created_at ASC
             """, lecture_id)
 
             # Retry Performance — first-attempt vs second-attempt miss rates per question.
@@ -881,18 +888,19 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
             "confusionIndex": min(100, max(10, raw_confusion + 10))
         })
 
-    processed_students = []
-    for r in student_rows:
-        prog_pct = round((r["completed_count"] / num_slides) * 100)
-        processed_students.append({
-            "student_id": r["student_id"],
-            "student_name": generate_anon_name(r["student_id"]),
-            "progress_percentage": prog_pct,
-            "quiz_score": r["quiz_score"],
-            "typology": calculate_student_typology(prog_pct, r["quiz_score"], r["ai_interactions"], r["revisions"]),
-            "ai_interactions": r["ai_interactions"],
-            "revisions": r["revisions"]
-        })
+    owner_key = str(owner_id) if owner_id else None
+    score_band_counts = score_bands(
+        [r["quiz_score"] for r in student_rows if str(r["student_id"]) != owner_key]
+    )
+
+    conf_events = []
+    for r in conf_rows:
+        evd = json.loads(r["event_data"]) if isinstance(r["event_data"], str) else r["event_data"]
+        conf_events.append({"user_id": str(r["user_id"]) if r["user_id"] else None, "event_data": evd})
+    conf_counts = {k: 0 for k in _RATINGS}
+    for counts in _floored_counts(conf_events, owner_key).values():
+        for k in _RATINGS:
+            conf_counts[k] += counts[k]
 
     ai_query_feed, live_ticker = _feed_and_ticker(ticker_rows)
 
@@ -913,11 +921,11 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
     ))
 
     result = {
-        "overview": {**dict(overview_row), "totalEvents": sum(dict(conf_counts).values()) + len(ticker_rows)},
+        "overview": {**dict(overview_row), "totalEvents": sum(conf_counts.values()) + len(ticker_rows)},
         "activityByDay": [dict(r) for r in activity_rows],
         "slidePerformance": processed_slides,
-        "studentsMatrix": processed_students,
-        "confidenceMap": dict(conf_counts),
+        "scoreBands": score_band_counts,
+        "confidenceMap": conf_counts,
         "liveTicker": live_ticker,
         "aiQueryFeed": ai_query_feed[:50],
         "retryPerformance": retry_performance,
@@ -1002,27 +1010,6 @@ def _calculate_slide_performance(slides_data: list, events_by_slide: dict) -> li
             "confusionIndex": min(100, max(10, raw_confusion + 10))
         })
     return sorted(perf, key=lambda x: x["avgDuration"], reverse=True)
-
-
-def _calculate_students_matrix(progress_data: list, events_by_user: dict, num_slides: int) -> list:
-    matrix = []
-    num_slides = max(1, num_slides)
-    for p in progress_data:
-        uid = p["user_id"]
-        completed_count = len(p.get("completed_slides") or [])
-        prog_pct = round((completed_count / num_slides) * 100)
-        score = p.get("quiz_score", 0)
-        stud_events = events_by_user.get(uid, [])
-        stud_ai_queries = sum(1 for e in stud_events if e.get("event_type") == "ai_tutor_query")
-        stud_revisions = sum(1 for e in stud_events if e.get("event_type") == "slide_back_navigation")
-
-        typology = calculate_student_typology(prog_pct, score, stud_ai_queries, stud_revisions)
-
-        matrix.append({
-            "student_id": uid, "student_name": generate_anon_name(uid), "progress_percentage": prog_pct,
-            "quiz_score": score, "typology": typology, "ai_interactions": stud_ai_queries, "revisions": stud_revisions
-        })
-    return sorted(matrix, key=lambda x: x["quiz_score"], reverse=True)
 
 
 def _calculate_confidence_map(slides_data: list, events_by_slide: dict) -> tuple:

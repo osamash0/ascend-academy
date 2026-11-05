@@ -213,3 +213,102 @@ def test_ask_your_data_does_not_rank_a_slide_with_a_null_drop_off(monkeypatch):
     monkeypatch.setattr(analytics_service, "get_slide_analytics", lambda *a, **k: rows)
     out = ask_data._exec_top_dropoff_slides("L1", "t", {})
     assert [r["slide"] for r in out["table"]] == ["#2 — B"]
+
+
+# ── /dashboard: how many, never who ─────────────────────────────────────────
+
+def test_the_dashboard_counts_people_per_score_band_and_only_from_five():
+    from backend.services.analytics_service import score_bands
+
+    assert score_bands([10, 90, 55, 61, 20]) == [2, 0, 1, 1, 1]
+    assert score_bands([None, 100, 40, 41, 80, 81]) == [1, 1, 1, 1, 2]
+    assert score_bands([10, 20, 30, 40]) == []
+
+
+def test_no_ask_answers_with_a_list_of_learners():
+    from backend.services.ai import ask_data, ask_professor
+
+    for module in (ask_data, ask_professor):
+        assert "struggling_students" not in module.INTENTS
+        assert "struggling_students" not in module._EXECUTORS
+
+
+class _Conn:
+    """Just enough of an asyncpg connection for get_dashboard_data, keyed on the SQL text."""
+
+    def __init__(self, progress, ratings):
+        self.progress, self.ratings = progress, ratings
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+    async def fetchrow(self, sql, *a):
+        if "uniqueStudents" in sql:
+            return {"uniqueStudents": len(self.progress), "totalAttempts": 0, "totalCorrect": 0, "averageScore": 0}
+        raise AssertionError("the confidence map must not be counted in SQL: " + sql[:60])
+
+    async def fetchval(self, sql, *a):
+        if "professor_id" in sql:
+            return OWNER
+        return 2
+
+    async def fetch(self, sql, *a):
+        if "confidence_rating" in sql:
+            return list(self.ratings)
+        if "student_progress p" in sql:
+            return [{"student_id": p["user_id"], "quiz_score": p["quiz_score"]} for p in self.progress]
+        return []
+
+
+def _dash(monkeypatch, ratings, progress=()):
+    import asyncio
+
+    async def conn():
+        return _Conn(list(progress), ratings)
+
+    monkeypatch.setattr(analytics_service, "get_db_connection", conn)
+    monkeypatch.setattr(analytics_service.analytics_cache, "get_or_compute_async",
+                        lambda lecture_id, view, fn, **k: fn())
+    return asyncio.run(analytics_service.get_dashboard_data("L1", "t"))
+
+
+def _drate(uid, slide, rating):
+    return {"user_id": uid, "event_data": {"lectureId": "L1", "slideId": slide, "rating": rating}}
+
+
+def test_the_dashboard_lists_no_learner_and_carries_score_bands(monkeypatch):
+    progress = [{"user_id": f"u{i}", "quiz_score": 10 * i} for i in range(5)]
+    out = _dash(monkeypatch, [], progress)
+    assert "studentsMatrix" not in out
+    assert out["scoreBands"] == [3, 2, 0, 0, 0]
+    assert "u1" not in repr(out)
+
+
+def test_the_dashboard_hides_score_bands_under_five_people(monkeypatch):
+    out = _dash(monkeypatch, [], [{"user_id": f"u{i}", "quiz_score": 50} for i in range(4)])
+    assert out["scoreBands"] == []
+
+
+def test_the_dashboards_confidence_counts_people_and_skips_a_slide_under_five(monkeypatch):
+    ratings = [_drate(f"u{i}", "s1", "got_it") for i in range(4)]      # 4 people: left out
+    ratings += [_drate(f"v{i}", "s2", "unsure") for i in range(5)]     # 5 people: counted
+    out = _dash(monkeypatch, ratings)
+    assert out["confidenceMap"] == {"got_it": 0, "unsure": 5, "confused": 0}
+
+
+def test_the_dashboards_confidence_is_latest_per_person_and_not_the_owner(monkeypatch):
+    ratings = [_drate(f"u{i}", "s1", "got_it") for i in range(3)]
+    ratings += [_drate("u3", "s1", "got_it"), _drate("u3", "s1", "confused"),   # one person, latest wins
+                _drate("u3", "s1", "confused")]
+    ratings += [_drate(OWNER, "s1", "confused")]                                # owner never counts
+    assert _dash(monkeypatch, ratings)["confidenceMap"] == {"got_it": 0, "unsure": 0, "confused": 0}  # 4 people
+    ratings.append(_drate("u4", "s1", "got_it"))
+    assert _dash(monkeypatch, ratings)["confidenceMap"] == {"got_it": 4, "unsure": 0, "confused": 1}
+
+
+def test_the_dashboard_owner_does_not_count_toward_score_bands(monkeypatch):
+    progress = [{"user_id": f"u{i}", "quiz_score": 50} for i in range(4)] + [{"user_id": OWNER, "quiz_score": 50}]
+    assert _dash(monkeypatch, [], progress)["scoreBands"] == []

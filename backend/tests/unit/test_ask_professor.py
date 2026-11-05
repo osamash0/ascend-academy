@@ -14,14 +14,6 @@ OVERVIEW = {
     "L2": {"total_students": 8, "completion_rate": 50.0, "average_score": 45.0},
 }
 
-STUDENTS = {
-    "L1": [{"student_name": "Fox", "quiz_score": 30, "total_questions_answered": 5}],
-    "L2": [
-        {"student_name": "Fox", "quiz_score": 20, "total_questions_answered": 4},
-        {"student_name": "Owl", "quiz_score": 90, "total_questions_answered": 6},
-    ],
-}
-
 CONFIDENCE = {
     "L1": [{"slide_number": 3, "confusion_rate": 55.0, "total": 9}],
     "L2": [{"slide_number": 1, "confusion_rate": 20.0, "total": 6}],
@@ -35,10 +27,6 @@ def _mock_analytics(monkeypatch):
     monkeypatch.setattr(
         ask_professor, "_bulk_fetch_overviews",
         lambda ids, token: {lid: OVERVIEW[lid] for lid in ids},
-    )
-    monkeypatch.setattr(
-        ask_professor, "_bulk_fetch_student_scores",
-        lambda ids, token: {lid: STUDENTS[lid] for lid in ids},
     )
     monkeypatch.setattr(
         ask_professor, "_bulk_fetch_confidence",
@@ -57,15 +45,6 @@ def test_lectures_by_quiz_performance_ranks_weakest_first():
     out = ask_professor._exec_lectures_by_quiz_performance(LECTURES, "tok", {})
     assert out["table"][0]["lecture"] == "Joins"
     assert out["table"][0]["average_score"] == 45.0
-
-
-def test_struggling_students_aggregates_across_lectures():
-    out = ask_professor._exec_struggling_students(LECTURES, "tok", {"max_accuracy_percent": 40})
-    # Fox is below 40 in both lectures; Owl never is.
-    fox = next(r for r in out["table"] if r["student"] == "Fox")
-    assert fox["lectures_below"] == 2
-    assert fox["lowest_score"] == 20
-    assert all(r["student"] != "Owl" for r in out["table"])
 
 
 def test_most_confusing_slides_sorts_by_confusion():

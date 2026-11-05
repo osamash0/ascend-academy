@@ -193,35 +193,6 @@ class TestAskEndpointSeededExecutors:
         assert metrics["Students started"] == 3
         assert metrics["Students completed"] == 2
 
-    def test_struggling_students_against_seeded_data(self, app, patch_supabase, professor_user, monkeypatch):
-        client = self._setup(
-            app, patch_supabase, professor_user, monkeypatch,
-            "struggling_students", params={"max_accuracy_percent": 40},
-        )
-        # Stub get_student_performance directly — the underlying analytics
-        # call assembles data from many tables; we just need the executor
-        # to receive a realistic shape so we can assert filtering behavior.
-        from backend.services import analytics_service
-        monkeypatch.setattr(analytics_service, "get_student_performance",
-                            lambda lecture_id, token: [
-                                {"student_id": "u1", "student_name": "Alice", "quiz_score": 25, "progress_percentage": 80},
-                                {"student_id": "u2", "student_name": "Bob",   "quiz_score": 75, "progress_percentage": 90},
-                                {"student_id": "u3", "student_name": "Cara",  "quiz_score": 39, "progress_percentage": 60},
-                            ])
-
-        r = client.post(
-            "/api/analytics/lecture/L1/ask",
-            json={"question": "Show me students whose quiz accuracy is below 40%"},
-            headers={"Authorization": "Bearer fake-token"},
-        )
-        assert r.status_code == 200
-        data = r.json()["data"]
-        assert data["intent"] == "struggling_students"
-        names = {row["student"] for row in data["table"]}
-        assert names == {"Alice", "Cara"}, f"unexpected filtered set: {names}"
-        assert "2 student" in data["answer_text"]
-
-
 class TestAskRateLimitKey:
     def test_key_derives_from_bearer_token(self):
         from backend.api.v1.analytics import _ask_rate_limit_key

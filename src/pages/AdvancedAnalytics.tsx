@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useMemo, Fragment } from 'react';
-import { UserAvatar } from "@/features/avatar/UserAvatar";
 import { useTranslation } from 'react-i18next';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -67,15 +66,8 @@ interface DashboardData {
     revisions: number;
     confusionIndex: number;
   }[];
-  studentsMatrix: {
-    student_id: string;
-    student_name: string;
-    progress_percentage: number;
-    quiz_score: number;
-    typology: string;
-    ai_interactions: number;
-    revisions: number;
-  }[];
+  /** People per quiz-score band, 0-20 … 81-100; empty under five people. Never a list of learners. */
+  scoreBands: number[];
   funnel: { stage: string; count: number }[];
   confidenceMap: { got_it: number; unsure: number; confused: number };
   liveTicker: { type: string; description: string; time: string }[];
@@ -549,7 +541,6 @@ function SlideRecommendationsSection({
 // ── Main Page Component ───────────────────────────────────────────────────────
 
 // Section visibility flags. Flip to `true` to bring a section back.
-const SHOW_PREDICTIVE_INTERVENTION_HUB = false;
 const SHOW_SPATIAL_NEURAL_MATRIX = false;
 
 export default function AdvancedAnalytics() {
@@ -1099,6 +1090,9 @@ export default function AdvancedAnalytics() {
                 isOpen={openSections.confidence}
                 onToggle={() => handleMetricClick('confidence', 'Student Confidence', dashboardData.confidenceMap)}
               >
+                {dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused === 0 ? (
+                  <p className="text-sm text-muted-foreground">Shows once five people have rated a page.</p>
+                ) : (
                 <div className="space-y-6">
                   <div className="mastery-track w-full relative">
                     {/* Stacked cumulative layers animated via transform: scaleX (no layout reflow) instead of width */}
@@ -1125,6 +1119,7 @@ export default function AdvancedAnalytics() {
                     ))}
                   </div>
                 </div>
+                )}
               </Section>
             </div>
 
@@ -1293,18 +1288,13 @@ export default function AdvancedAnalytics() {
                 interpretation={metricInterpretations.distribution}
                 isLoading={metricLoading && openSections.distribution}
                 isOpen={openSections.distribution}
-                onToggle={() => handleMetricClick('distribution', 'Score Distribution', dashboardData.studentsMatrix)}
+                onToggle={() => handleMetricClick('distribution', 'Score Distribution', dashboardData.scoreBands)}
               >
+                {dashboardData.scoreBands?.length ? (
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart 
-                      data={[
-                        { range: '0–20%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score <= 20).length },
-                        { range: '21–40%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score > 20 && s.quiz_score <= 40).length },
-                        { range: '41–60%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score > 40 && s.quiz_score <= 60).length },
-                        { range: '61–80%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score > 60 && s.quiz_score <= 80).length },
-                        { range: '81–100%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score > 80).length },
-                      ]} 
+                    <BarChart
+                      data={['0–20%', '21–40%', '41–60%', '61–80%', '81–100%'].map((range, i) => ({ range, count: dashboardData.scoreBands[i] }))}
                       margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/20" />
@@ -1319,81 +1309,11 @@ export default function AdvancedAnalytics() {
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Shows once five people have taken the quiz.</p>
+                )}
               </Section>
             </div>
-
-            {/* Predictive Intervention Hub */}
-            {SHOW_PREDICTIVE_INTERVENTION_HUB && (
-            <div className="intelligence-hub rounded-[2.5rem] overflow-hidden mt-12 relative">
-              <div className="absolute top-0 left-0 w-3 h-full bg-destructive shadow-glow-destructive/20 dark:block hidden"></div>
-              <div className="p-8 md:px-10 border-b border-border flex justify-between items-center bg-surface-1/50">
-                 <div>
-                    <h3 className="text-2xl font-black text-foreground flex items-center gap-4 tracking-tight">
-                      <AlertTriangle className="w-8 h-8 text-destructive animate-pulse" /> Predictive Intervention Hub
-                    </h3>
-                    <p className="text-xs font-bold text-muted-foreground mt-2 uppercase tracking-[0.2em] opacity-60">Real-time identification based on interaction typologies and friction points.</p>
-                 </div>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <Table className="w-full">
-                  <TableHeader className="bg-white/5">
-                    <TableRow className="border-white/5 hover:bg-transparent">
-                      <TableHead className="px-10 py-6 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em]">Profile Entity</TableHead>
-                      <TableHead className="px-10 py-6 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em]">Risk Level</TableHead>
-                      <TableHead className="px-10 py-6 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-center">Friction Events</TableHead>
-                      <TableHead className="px-10 py-6 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em]">Matrix Score</TableHead>
-                      <TableHead className="px-10 py-6 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-right">Execute Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dashboardData?.studentsMatrix?.map((student) => (
-                      <TableRow key={student.student_id} className="border-white/5 hover:bg-white/5 transition-all group">
-                        <TableCell className="px-10 py-6 font-black text-foreground text-lg tracking-tight group-hover:text-primary transition-colors">
-                          <span className="flex items-center gap-3">
-                            <UserAvatar userId={student.student_id} name={student.student_name} size={36} />
-                            {student.student_name}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-10 py-6">
-                          <Badge 
-                            variant="outline" 
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border shadow-sm ${
-                              student.typology.includes('Risk') || student.typology.includes('Critical') ? 'badge-advanced' 
-                              : student.typology.includes('Reviser') ? 'badge-intermediate' 
-                              : student.typology.includes('Natural') ? 'badge-beginner'
-                              : 'bg-surface-2 text-muted-foreground border-border'
-                            }`}
-                          >
-                            {student.typology}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="px-10 py-6 text-center">
-                           <div className="inline-flex gap-3">
-                              <span className="font-black text-accent px-3 py-1.5 bg-accent/10 rounded-xl border border-accent/20 text-xs" title="AI Tutor Queries">🎓 {student.ai_interactions}</span>
-                              <span className="font-black text-warning px-3 py-1.5 bg-warning/10 rounded-xl border border-warning/20 text-xs" title="Slide Revisions">🔄 {student.revisions}</span>
-                           </div>
-                        </TableCell>
-                        <TableCell className="px-10 py-6 font-black text-xl tracking-tighter">{student.quiz_score}%</TableCell>
-                        <TableCell className="px-10 py-6 text-right">
-                           <Button variant="outline" size="sm" className={`font-black tracking-widest uppercase text-[10px] h-10 px-6 rounded-2xl shadow-sm transition-all ${student.typology.includes('Critical') || student.typology.includes('Risk') ? 'border-destructive/40 bg-destructive/5 hover:bg-destructive text-destructive hover:text-white shadow-glow-destructive/20' : 'border-white/10 hover:border-primary/50'}`}>
-                              Intervene
-                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {dashboardData.studentsMatrix.length === 0 && (
-                       <TableRow>
-                        <TableCell colSpan={5} className="px-10 py-20 text-center text-muted-foreground font-black uppercase tracking-[0.3em] opacity-40">
-                          Awaiting interaction topologies...
-                        </TableCell>
-                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-            )}
 
             {/* Row 4: Live Ticker + AI Question Feed */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

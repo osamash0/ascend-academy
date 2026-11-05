@@ -157,25 +157,3 @@ def test_retry_performance_ignores_events_with_missing_question_id():
     out = svc._calculate_retry_performance(questions, first, [])
     assert out[0]["first_attempt_total"] == 1
     assert out[0]["first_attempt_miss_rate"] == 100.0
-
-
-def test_students_matrix_pseudonymized():
-    progress = [
-        {
-            "user_id": "u-1",
-            "completed_slides": [1, 2, 3, 4],
-            "quiz_score": 90,
-        },
-        {
-            "user_id": "u-2",
-            "completed_slides": [],
-            "quiz_score": 30,
-        },
-    ]
-    out = svc._calculate_students_matrix(progress, {}, num_slides=10)
-    # Sorted by score desc
-    assert out[0]["quiz_score"] == 90
-    # Names anonymized; original IDs should not appear in name
-    for row in out:
-        assert row["student_id"] not in row["student_name"]
-        assert "-" in row["student_name"]

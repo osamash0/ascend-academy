@@ -95,7 +95,7 @@ const mockDashboardData = {
   overview: { uniqueStudents: 5, totalAttempts: 20, totalCorrect: 15, averageScore: 75, totalEvents: 30 },
   activityByDay: [],
   slidePerformance: [],
-  studentsMatrix: [],
+  scoreBands: [],
   funnel: [],
   confidenceMap: { got_it: 0, unsure: 0, confused: 0 },
   liveTicker: [],

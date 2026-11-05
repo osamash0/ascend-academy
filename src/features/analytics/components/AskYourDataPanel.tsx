@@ -83,7 +83,7 @@ export function AskYourDataPanel({ lectureId }: { lectureId: string }) {
   const [suggestions, setSuggestions] = useState<string[]>([
     'Which slide had the highest drop-off rate?',
     'Which 3 quiz questions had the lowest correct rate?',
-    'Show me students whose quiz accuracy is below 40%',
+    'What are students asking the AI tutor?',
     'How many students finished the lecture?',
     'What concepts are students most confused about?',
   ]);
