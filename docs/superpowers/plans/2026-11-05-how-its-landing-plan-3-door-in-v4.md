@@ -988,12 +988,12 @@ From the backend review (verified). `figures()` (`backend/services/insights/figu
 
 ### Task 4f (lower priority): the smaller review findings
 
-From the backend review (2026-11-05). Reported, not yet verified line by line; verify each before writing its test, and drop any that does not hold.
+From the backend review (2026-11-05). All four verified against the code the same day (lines below); they are lower priority because each needs an unlikely combination or only shifts a number slightly.
 
 1. **Themes cache keyed on the asker count, not the askers** (`backend/services/insights/themes.py:24,132`). Five askers make themes; one ages out of the window, another asks; the count is five again and month-old themes about other people's questions return. Fix: add a short hash of the sorted asker ids to `params`.
 2. **Short themes pass the echo guard** (`themes.py:60-109`): a theme of three words or fewer is never compared, so a planted name ("Anna struggled with joins" is four, but "Anna's joins" is two) can reach the owner. Fix: drop any theme containing a token that appears in exactly one asker's text and nowhere in the Lesson's page text; add a test with a planted name.
 3. **A page held under two seconds is not read** (`backend/services/v4_reading_service.py:21`, `MIN_SECONDS_TO_COUNT`). A page most people flip past has too few "readers" to say anything, so `skipped_slide` never fires on it. Fix: record the visit with its real dwell (a `slide_view` with `duration_seconds < 2` flagged `brief`), count it as a reader for the floor, exclude it from dwell medians.
-4. **First try mislabelled at the window edge** (`backend/services/insights/space_facts.py:95-119`): a question first answered before the 56-day window and again inside it counts as a first try. Fix: read each member's earliest try per question without the window bound (one extra `min(created_at)` query), or drop tries whose question has an earlier attempt.
+4. **First try mislabelled at the window edge** (`backend/services/insights/space_facts.py:95-119`; `first_tries` sees only the 56-day window's events): a question first answered before the 56-day window and again inside it counts as a first try. Fix: read each member's earliest try per question without the window bound (one extra `min(created_at)` query), or drop tries whose question has an earlier attempt.
 
 ---
 
@@ -1013,7 +1013,7 @@ From the backend review (2026-11-05). Reported, not yet verified line by line; v
   - `src/features/analytics/types/index.ts:113-127` (journey types; the evidence-kind union)
   - `src/features/analytics/hooks/useEvidence.ts` and `src/features/analytics/garden/useGardenState.ts` (the `studentId` field)
   - `src/services/analyticsService.ts:66-71` (`getStudentPerformance`, no caller)
-- Modify (from the backend review, 2026-11-05): `GET /lecture/{lecture_id}/confidence-by-slide` (`backend/api/v1/analytics.py:355`, service `backend/services/analytics_service.py:556-600`) and the `confidence_breakdown` evidence (`backend/services/insights/evidence.py:57-108`, route `analytics.py:289-316`) return raw per-slide counts with no floor and count the owner's own events: with one rater, `got_it: 1, total: 1` is that person. Both now count **people**, exclude the lecture's owner, and return a slide's numbers only when at least 5 people stand behind them (else the slide's entry is absent). Check `/lecture/{lecture_id}/slides` (`analytics.py:219`) for the same and floor it the same way if it holds.
+- Modify (from the backend review, 2026-11-05): `GET /lecture/{lecture_id}/confidence-by-slide` (`backend/api/v1/analytics.py:355`, service `backend/services/analytics_service.py:556-600`) and the `confidence_breakdown` evidence (`backend/services/insights/evidence.py:57-108`, route `analytics.py:289-316`) return raw per-slide counts with no floor and count the owner's own events: with one rater, `got_it: 1, total: 1` is that person. Verified 2026-11-05: both read through the caller's token, so what they expose is what RLS lets the caller read. A **professor-role** owner reads members' events (policy "Professors view events for their enrolled students"), and v4 check-ins are `confidence_rating` events (`backend/services/v4_telemetry.py:65`), so they are exposed; a student who owns a Space sees only their own events, so for them nothing leaks. Both now count **people**, exclude the lecture's owner, and return a slide's numbers only when at least 5 people stand behind them (else the slide's entry is absent). Check `/lecture/{lecture_id}/slides` (`analytics.py:219`) for the same and floor it the same way if it holds.
 - Test: create `backend/tests/unit/test_legacy_people_gate.py`; modify `backend/tests/contract/test_response_schemas.py:72-87`
 
 **Interfaces:**
