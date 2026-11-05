@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import unicodedata
 
 import pytest
@@ -10,6 +11,15 @@ import backend.services.insights.themes as themes
 import backend.services.v4_reader_service as reader
 
 ASKED = ["Why does the BCNF split lose a dependency?", "Is losing it the point?", "What is 3NF for?"]
+
+
+def crowd(*texts: str, people: int = 2) -> dict[str, list[str]]:
+    """Each text asked by `people` different people, so no word of it belongs to one asker alone."""
+    return {f"u{i}-{n}": [t] for n, t in enumerate(texts) for i in range(people)}
+
+
+def six(texts: list[str] = ASKED) -> dict[str, list[str]]:
+    return {f"u{i}": [texts[i % len(texts)]] for i in range(6)}
 
 
 @pytest.fixture
@@ -33,7 +43,7 @@ def model(monkeypatch):
 
 
 def run(**over):
-    args = dict(space_id="s1", owner_id="o1", lesson_id="l1", page=12, texts=ASKED, askers=6, lang="de")
+    args = dict(space_id="s1", owner_id="o1", lesson_id="l1", page=12, by_person=six(), lang="de")
     return asyncio.run(themes.themes_for(**{**args, **over}))
 
 
@@ -41,14 +51,18 @@ def test_themes_are_made_metered_to_the_owner_and_cached_per_number_of_askers(mo
     calls, _ = model
     assert run() == ["Why a split can lose a dependency", "What 3NF is for"]
     cache, call = calls
-    assert cache["cache"] == ("s1", "themes", {"lesson": "l1", "page": 12, "askers": 6, "lang": "de", "v": "themes-v1"})
+    key = cache["cache"]
+    assert key[:2] == ("s1", "themes")
+    who = key[2].pop("who")
+    assert re.fullmatch(r"[0-9a-f]{16}", who) and "u0" not in who
+    assert key[2] == {"lesson": "l1", "page": 12, "askers": 6, "lang": "de", "v": "themes-v2"}
     assert (call["user_id"], call["course_id"], call["feature"], call["prefer"]) == ("o1", "s1", "v4_landing_themes", "openai")
     assert "German" in call["prompt"] and ASKED[0] in call["prompt"]
 
 
 def test_fewer_than_five_askers_get_no_themes_and_no_model_call(model):
     calls, _ = model
-    assert run(askers=4) == []
+    assert run(by_person=dict(list(six().items())[:4])) == []
     assert calls == []
 
 
@@ -61,18 +75,18 @@ def test_a_failed_call_costs_the_owner_nothing_and_is_not_kept(model):
 
 
 def test_a_theme_that_repeats_a_question_is_dropped_and_three_is_the_most():
-    out = themes.clean_themes({"themes": [ASKED[1], "  A  ", "B", "C", "D", 7]}, ASKED)
+    out = themes.clean_themes({"themes": [ASKED[1], "  A  ", "B", "C", "D", 7]}, crowd(*ASKED))
     assert out == ["A", "B", "C"]
-    assert themes.clean_themes(["not", "a", "dict"], ASKED) == []
+    assert themes.clean_themes(["not", "a", "dict"], crowd(*ASKED)) == []
 
 
 def test_ordinary_themes_are_tidied_and_three_is_still_the_most():
-    out = themes.clean_themes({"themes": [ASKED[1], "  Key  choices ", "Join order", "Index cost", "Lock waits", 7]}, ASKED)
+    out = themes.clean_themes({"themes": [ASKED[1], "  Key  choices ", "Join order", "Index cost", "Lock waits", 7]}, crowd(*ASKED))
     assert out == ["Key choices", "Join order", "Index cost"]
 
 
 def test_a_theme_that_only_shares_words_with_a_question_is_kept():
-    asked = ["Is a lossless decomposition always dependency preserving?"]
+    asked = crowd("Is a lossless decomposition always dependency preserving?")
     for kept in ("Lossless decomposition", "Dependency", "a", "Dependency preservation"):
         assert themes.clean_themes({"themes": [kept]}, asked) == [kept], kept
     # Four or more words in a row, whole words, taken from the question: that is the question.
@@ -84,11 +98,11 @@ def test_a_theme_that_only_shares_words_with_a_question_is_kept():
 
 
 def test_a_question_tidied_or_without_its_mark_is_still_a_question():
-    messy = ["Why does the BCNF split\nlose  a dependency?"]
+    messy = crowd("Why does the BCNF split\nlose  a dependency?")
     tidy = "Why does the BCNF split lose a dependency?"
     assert themes.clean_themes({"themes": [tidy]}, messy) == []
     for echo in (tidy.rstrip("?"), "Q: " + tidy, tidy.upper(), "Why does the BCNF split lose a dependency, again"):
-        assert themes.clean_themes({"themes": [echo, "Join order"]}, [tidy]) == ["Join order"], echo
+        assert themes.clean_themes({"themes": [echo, "Join order"]}, crowd(tidy)) == ["Join order"], echo
 
 
 def test_the_first_hundred_and_twenty_characters_of_a_long_question_are_a_question():
@@ -101,13 +115,13 @@ def test_the_first_hundred_and_twenty_characters_of_a_long_question_are_a_questi
     # lands inside a word ("verl"), so that last word alone is not one of the question's words.
     assert len(long) > 120 and len(themes._norm(cut).split()) <= 12
     assert f" {themes._norm(cut)} " not in f" {themes._norm(long)} "
-    assert themes.clean_themes({"themes": [cut, "Join order"]}, [long]) == ["Join order"]
+    assert themes.clean_themes({"themes": [cut, "Join order"]}, crowd(long)) == ["Join order"]
 
 
 def test_a_theme_is_a_phrase_of_twelve_words_at_most():
     twelve = "Why the split loses a dependency while the join stays lossless in"
     assert len(twelve.split()) == 12
-    assert themes.clean_themes({"themes": [twelve + " practice", twelve]}, ASKED) == [twelve]
+    assert themes.clean_themes({"themes": [twelve + " practice", twelve]}, crowd(*ASKED)) == [twelve]
 
 
 def test_a_question_is_data_to_the_model_on_one_quoted_line():
@@ -148,9 +162,9 @@ def test_a_question_written_another_way_in_unicode_is_still_a_question():
     shouted = "WARUM VERLIERT DIE ZERLEGUNG BEI DER STRASSE IHRE ABHÄNGIGKEIT"
     assert nfd != asked
     for echo in (nfd, zero_width, shouted):
-        assert themes.clean_themes({"themes": [echo, "Join order"]}, [asked]) == ["Join order"], echo
+        assert themes.clean_themes({"themes": [echo, "Join order"]}, crowd(asked)) == ["Join order"], echo
     # and the other way round: the question is the odd one, the theme is plain
-    assert themes.clean_themes({"themes": [asked, "Join order"]}, [nfd]) == ["Join order"]
+    assert themes.clean_themes({"themes": [asked, "Join order"]}, crowd(nfd)) == ["Join order"]
 
 
 def test_no_usable_theme_is_kept_an_hour_not_a_month(monkeypatch):
@@ -170,3 +184,55 @@ def test_no_usable_theme_is_kept_an_hour_not_a_month(monkeypatch):
     assert run() == []
     assert (seen["empty"], seen["found"]) == (themes.EMPTY_THEMES_TTL, themes.THEMES_TTL)
     assert themes.EMPTY_THEMES_TTL == 3600
+
+
+# ── the cache key says who asked, not only how many ─────────────────────────
+
+def test_same_number_of_askers_but_other_people_is_another_cache_key(model):
+    calls, _ = model
+    run(by_person=six())
+    run(by_person={**{k: v for k, v in list(six().items())[1:]}, "newcomer": ["Why 2NF?"]})
+    keys = [c["cache"][2] for c in calls if "cache" in c]
+    assert keys[0]["askers"] == keys[1]["askers"] == 6
+    assert keys[0]["who"] != keys[1]["who"]
+
+
+def test_same_askers_in_another_order_is_the_same_cache_key(model):
+    calls, _ = model
+    people = six()
+    run(by_person=people)
+    run(by_person=dict(reversed(list(people.items()))))
+    keys = [c["cache"][2] for c in calls if "cache" in c]
+    assert keys[0] == keys[1]
+
+
+# ── a word only one asker used cannot be in a theme ─────────────────────────
+
+SIGNED = {"anna": ["Anna here: why do joins drop rows?"], "b": ["Why do joins drop rows?"], "c": ["Why do joins drop rows again?"]}
+
+
+def test_a_theme_with_a_word_only_one_asker_used_is_dropped():
+    out = themes.clean_themes({"themes": ["Anna and joins", "Rows lost in a join"]}, SIGNED)
+    assert out == ["Rows lost in a join"]
+
+
+def test_a_word_two_askers_used_keeps_the_theme():
+    assert themes.clean_themes({"themes": ["Joins dropping rows"]}, SIGNED) == ["Joins dropping rows"]
+
+
+def test_one_person_using_a_word_many_times_is_still_one_asker():
+    many = {"anna": ["Anna asks", "Anna again", "Anna once more"], "b": ["Why joins?"], "c": ["Why rows?"]}
+    assert themes.clean_themes({"themes": ["Anna joins"]}, many) == []
+
+
+def test_a_possessive_is_the_name_and_not_a_word_of_its_own():
+    for planted in ("Anna's joins", "Anna\u2019s joins", "ANNA's joins"):
+        assert themes.clean_themes({"themes": [planted, "Join order"]}, SIGNED) == ["Join order"], planted
+    # a name used by two askers is a word of the topic
+    both = {**SIGNED, "d": ["Anna's question: why rows?"]}
+    assert themes.clean_themes({"themes": ["Anna's joins"]}, both) == ["Anna's joins"]
+
+
+def test_short_and_common_words_are_not_judged():
+    one = {"a": ["What is the BCNF split?"], "b": ["Is it ok?"], "c": ["Why so?"]}
+    assert themes.clean_themes({"themes": ["What it is"]}, one) == ["What it is"]

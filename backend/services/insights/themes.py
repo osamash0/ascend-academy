@@ -9,6 +9,7 @@ A failed call yields no themes and is not cached.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
@@ -20,8 +21,8 @@ from backend.services.insights.space_engine import MIN_READERS
 
 logger = logging.getLogger(__name__)
 
-THEMES_VERSION = "themes-v1"
-#: Themes change only when someone new asks (the key holds the asker count).
+THEMES_VERSION = "themes-v2"
+#: Themes change only when the set of askers does (the key holds their count and a hash of who they are).
 THEMES_TTL = 60 * 60 * 24 * 30
 #: No usable theme came back (the model said nothing, or only echoes): try again within the hour, not next month.
 EMPTY_THEMES_TTL = 60 * 60
@@ -34,6 +35,16 @@ PER_PERSON = 3
 MAX_THEME_WORDS = 12
 #: Fewer words in a row, from a question, are just the vocabulary of the topic, not an echo of it.
 MIN_ECHO_WORDS = 4
+
+#: Words shorter than this are never judged against the askers.
+MIN_WORD_LETTERS = 3
+#: Common words nobody could be identified by, in the two languages the owner reads.
+STOPWORDS = frozenset(
+    "the and for with that this what why how when does did not are was were can could would should about "
+    "from into than then them they their there here also but you your our its has have had who whom which "
+    "die der das und ist nicht ein eine einen einem einer eines wie warum was wer wann wo mit von für auf "
+    "aus bei nach zum zur dem den des sich auch aber oder wenn dass kann sind war wird".split()
+)
 
 _LANGUAGE = {"en": "English", "de": "German (address no one, no exclamation marks)"}
 
@@ -90,12 +101,31 @@ def _repeats_a_question(theme: str, questions: list[str]) -> bool:
     )
 
 
-def clean_themes(data: Any, texts: list[str]) -> list[str]:
-    """At most three short, distinct themes; anything that repeats a question is dropped."""
+def _words(text: str) -> set[str]:
+    """The words of a text that could single someone out: normalised, a possessive "'s" gone,
+    at least three letters, not a common word."""
+    # "Anna's" and "Anna’s" are Anna: the apostrophe-s goes before the apostrophe is turned into a space.
+    text = re.sub(r"[\'\u2019\u02bc]s\b", "", unicodedata.normalize("NFKC", text), flags=re.IGNORECASE)
+    return {w for w in _norm(text).split() if len(w) >= MIN_WORD_LETTERS and w not in STOPWORDS}
+
+
+def _single_asker_words(by_person: dict[str, list[str]]) -> set[str]:
+    """Words that appear in the questions of exactly one person: a name, a signature, a quirk."""
+    seen: dict[str, int] = {}
+    for texts in by_person.values():
+        for word in set().union(*(_words(t) for t in texts)) if texts else ():
+            seen[word] = seen.get(word, 0) + 1
+    return {w for w, n in seen.items() if n == 1}
+
+
+def clean_themes(data: Any, by_person: dict[str, list[str]]) -> list[str]:
+    """At most three short, distinct themes. Dropped: anything that repeats a question, and
+    anything with a word only one asker used (it could name them, however short the theme)."""
     raw = data.get("themes") if isinstance(data, dict) else None
     if not isinstance(raw, list):
         return []
-    questions = [q for q in (_norm(t) for t in texts) if q]
+    questions = [q for q in (_norm(t) for texts in by_person.values() for t in texts) if q]
+    lone = _single_asker_words(by_person)
     out: list[str] = []
     for item in raw:
         if not isinstance(item, str):
@@ -105,16 +135,27 @@ def clean_themes(data: Any, texts: list[str]) -> list[str]:
         words = _norm(theme)
         if not words or len(words.split()) > MAX_THEME_WORDS or _repeats_a_question(words, questions):
             continue
+        if _words(theme) & lone:
+            continue
         theme = theme[:120]
         if theme not in out:
             out.append(theme)
     return out[:MAX_THEMES]
 
 
+def _who(asker_ids: Any) -> str:
+    """A short, stable hash of who asked (sorted, so their order never matters). The ids themselves
+    never reach the cache row."""
+    return hashlib.sha256("\n".join(sorted(asker_ids)).encode()).hexdigest()[:16]
+
+
 async def themes_for(
-    *, space_id: str, owner_id: str, lesson_id: str, page: int, texts: list[str], askers: int, lang: str
+    *, space_id: str, owner_id: str, lesson_id: str, page: int, by_person: dict[str, list[str]], lang: str
 ) -> list[str]:
+    """`by_person`: each asker's questions, oldest first. Their number is the floor; who they are is the cache key."""
     lang = lang if lang in _LANGUAGE else "en"
+    askers = len(by_person)
+    texts = balanced_questions(by_person)
     if askers < MIN_READERS or not texts:
         return []
     from backend.services.v4_reader_service import _generate_json
@@ -124,14 +165,14 @@ async def themes_for(
             themes_prompt(texts, lang),
             user_id=owner_id, course_id=space_id, feature="v4_landing_themes", prefer="openai",
         )
-        return clean_themes(data, texts)
+        return clean_themes(data, by_person)
 
     try:
         return await analytics_cache.get_or_compute_async(
             space_id,
             "themes",
             compute,
-            params={"lesson": lesson_id, "page": page, "askers": askers, "lang": lang, "v": THEMES_VERSION},
+            params={"lesson": lesson_id, "page": page, "askers": askers, "who": _who(by_person), "lang": lang, "v": THEMES_VERSION},
             ttl_seconds=THEMES_TTL,
             ttl_for=lambda found: THEMES_TTL if found else EMPTY_THEMES_TTL,
         )

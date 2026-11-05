@@ -412,8 +412,6 @@ def test_an_ask_opened_and_left_empty_is_not_a_voice_in_the_themes(door):
     assert body["themes"] == [] and door.prompts == []
 
 
-@pytest.mark.xfail(strict=True, reason="clean_themes never checks a theme of under four words, so a planted name "
-                                       "passes — Plan 3 Task 4f.2")
 def test_a_name_planted_in_a_short_theme_never_reaches_the_owner(door):
     """Seven ask on a hotspot, one signs 'Anna here'; the model answers 'Anna's joins': no theme carries the name."""
     ten = range(10)
@@ -428,8 +426,6 @@ def test_a_name_planted_in_a_short_theme_never_reaches_the_owner(door):
     assert page["themes"] and not any("anna" in t.casefold() for t in page["themes"])
 
 
-@pytest.mark.xfail(strict=True, reason="the themes cache is keyed on the number of askers, not who they are — "
-                                       "Plan 3 Task 4f.1")
 def test_when_the_askers_change_the_owner_is_not_shown_themes_from_the_old_ones(door):
     """Five asked last month and got themes; one has aged out and someone new asked: still five, but the themes are made afresh."""
     ten = range(10)
@@ -437,6 +433,6 @@ def test_when_the_askers_change_the_owner_is_not_shown_themes_from_the_old_ones(
     before = [ask(i, NORM, 3, f"What is a candidate key, {i}?", second=10 + i) for i in range(5)]
     after = before[1:] + [ask(5, NORM, 3, "A new asker: why keep 2NF at all?", second=20)]
     door.cache = {}
-    door.reply = lambda prompt: ["Why 2NF is kept"] if "new asker" in prompt else ["What a candidate key is"]
+    door.reply = lambda prompt: ["What a normal form is for"] if "new asker" in prompt else ["What a candidate key is"]
     assert door.look(space([lesson(NORM, 4)], base + before))["themes"][0]["themes"] == ["What a candidate key is"]
-    assert door.look(space([lesson(NORM, 4)], base + after))["themes"][0]["themes"] == ["Why 2NF is kept"]
+    assert door.look(space([lesson(NORM, 4)], base + after))["themes"][0]["themes"] == ["What a normal form is for"]

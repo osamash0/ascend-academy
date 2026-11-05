@@ -23,7 +23,7 @@ from backend.services.insights.landing_map import collapse_healthy, help_index, 
 from backend.services.insights.sources.space import SpaceData, load_space_data
 from backend.services.insights.space_engine import MIN_READERS, lesson_insights
 from backend.services.insights.space_facts import LessonFacts, lesson_facts
-from backend.services.insights.themes import balanced_questions, themes_for
+from backend.services.insights.themes import themes_for
 from backend.services.v4_personal import is_personal
 
 _SPACE_SQL = """
@@ -134,17 +134,17 @@ async def _themes(
             continue
         pf = facts[insight["lessonId"]].pages.get(insight["page"])
         # An asker is a reader of the page who wrote something: an Ask opened and left empty is help, not words.
-        askers = (set(pf.ask_texts) & pf.readers) if pf else set()
-        if len(askers) >= MIN_READERS:
-            by_person = {user: pf.ask_texts[user] for user in askers}
-            hot.append((len(askers), insight["lessonId"], insight["page"], by_person))
+        # In insertion order, not set order, so the model's questions come in the same order every run.
+        by_person = {user: texts for user, texts in pf.ask_texts.items() if user in pf.readers} if pf else {}
+        if len(by_person) >= MIN_READERS:
+            hot.append((len(by_person), insight["lessonId"], insight["page"], by_person))
     hot.sort(key=lambda x: x[0], reverse=True)
     picked = hot[:THEMES_PAGES]
     # At once, not one after another; each call already turns its own failure into no themes.
     made = await asyncio.gather(*(
         themes_for(
             space_id=data.space_id, owner_id=data.owner_id, lesson_id=lesson_id,
-            page=page, texts=balanced_questions(by_person), askers=askers, lang=lang,
+            page=page, by_person=by_person, lang=lang,
         )
         for askers, lesson_id, page, by_person in picked
     ))
