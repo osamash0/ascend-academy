@@ -29,14 +29,22 @@ def read(user, days_ago, page=1):
 def test_reading_counts_members_who_read_each_week():
     data = space(*[read(f"m{i}", 1) for i in range(6)], *[read(f"m{i}", 9) for i in range(3)], read("m0", 2))
     reading = figures(data, 5)["reading"]
-    assert reading == {"value": 6, "history": [0, 0, 0, 0, 0, 0, 3, 6]}
+    assert reading == {"value": 6, "history": [None] * 7 + [6]}
 
 
-def test_under_the_floor_only_reading_is_real():
+def test_under_the_floor_no_figure_is_real():
     out = figures(space(*[read(f"m{i}", 1) for i in range(4)]), 5)
-    assert out["reading"]["value"] == 4
-    # Nothing to say is null, never 0%.
+    # Nothing to say is null, never 0 or a count.
+    assert out["reading"] == {"value": None, "history": [None] * 8}
     assert out["landing"] == {"value": None, "history": []} and out["cleared"] == {"value": None, "history": []}
+
+
+def test_a_week_under_the_floor_is_a_dash_in_reading_not_a_count():
+    # Three people in two weeks, then six in the last week only.
+    three = figures(space(*[read(f"m{i}", d) for i in range(3) for d in (1, 8)]), 5)
+    assert three["reading"] == {"value": None, "history": [None] * 8}
+    six = figures(space(*[read(f"m{i}", 1) for i in range(6)]), 5)["reading"]
+    assert six["history"][-1] == 6 and six["history"][:7] == [None] * 7
 
 
 def test_a_page_lands_when_fewer_than_one_in_five_of_its_readers_needed_it():
@@ -78,7 +86,7 @@ def test_a_week_with_four_tryers_says_nothing_about_cleared():
 def test_a_space_whose_every_week_is_under_the_floor_says_nothing_not_zero():
     # Six members, each reading in a different week: past the Space's floor, but never five on one page.
     out = figures(space(*[read(f"m{i}", 1 + 7 * i) for i in range(6)]), 5)
-    assert out["reading"] == {"value": 1, "history": [0, 0, 1, 1, 1, 1, 1, 1]}
+    assert out["reading"] == {"value": None, "history": [None] * 8}
     assert out["landing"] == {"value": None, "history": [None] * 8}
     assert out["cleared"] == {"value": None, "history": [None] * 8}
 
@@ -92,7 +100,8 @@ def test_a_rating_later_taken_back_does_not_count_as_needing_the_page():
 
 def test_a_view_of_no_seconds_is_not_a_reader():
     glances = [ev(f"m{i}", "slide_view", 1, page=1, duration_seconds=0, sessionId=f"m{i}") for i in range(5)]
-    assert figures(space(*glances), 5)["reading"] == {"value": 0, "history": [0] * 8}
+    readers = [read(f"m{i}", 1) for i in range(5, 10)]
+    assert figures(space(*glances, *readers), 5)["reading"] == {"value": 5, "history": [None] * 7 + [5]}
 
 
 def test_cleared_counts_each_person_once_however_many_questions_they_answered():

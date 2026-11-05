@@ -371,7 +371,6 @@ def test_a_question_that_tests_something_else_is_not_a_trap():
 
 # ═══ Figures ════════════════════════════════════════════════════════════════
 
-@pytest.mark.xfail(strict=True, reason="figures() returns reading as raw weekly counts at any size — Plan 3 Task 4e")
 def test_a_week_fewer_than_five_people_read_is_a_dash_not_a_count(door):
     """Three people read in each of the last two weeks: no weekly count. Eight read last week, two this week: this week is a dash."""
     small = space([lesson(NORM, 4)], reads(range(3), NORM, [1], days_ago=1) + reads(range(3), NORM, [1], days_ago=8))
