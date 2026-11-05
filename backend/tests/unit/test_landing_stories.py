@@ -174,7 +174,6 @@ def test_a_lesson_three_people_read_says_nothing_while_its_neighbour_speaks(door
     assert all(i["lessonId"] != JOINS for i in body["insights"])
 
 
-@pytest.mark.xfail(strict=True, reason="lessons[].readers is still on the wire (3 for Joins) — Plan 3 Task 14")
 def test_a_lesson_three_people_read_does_not_say_how_many_read_it(door):
     """Three people read Joins: the owner is not told it was three (in a small group, that is who)."""
     data = space(

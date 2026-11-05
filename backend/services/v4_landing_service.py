@@ -94,7 +94,7 @@ async def landing_from(data: SpaceData, lang: str) -> dict[str, Any]:
             "title": lesson.title,
             "order": lesson.order,
             "pages": lesson.pages,
-            "readers": len(lf.readers),
+            # No per-Lesson reader count: in a small group, "three read it" says who (story 3).
             "light": lesson_light(found, len(lf.readers)) if above else "few",
         }
         if above and len(lf.readers) >= MIN_READERS:

@@ -131,7 +131,8 @@ def test_the_owner_sees_the_space_in_aggregate_and_never_a_question(client):
     assert (body["spaceName"], body["members"], body["readers"], body["floor"]) == ("Database Systems", 12, 10, 5)
     assert body["questions"] == []
     normalization, joins = body["lessons"]
-    assert (normalization["order"], normalization["readers"], len(normalization["help"])) == (1, 10, 4)
+    assert (normalization["order"], len(normalization["help"])) == (1, 4)
+    assert "readers" not in normalization and "readers" not in joins
     assert normalization["help"][2] == 1.0
     assert (joins["light"], "help" in joins) == ("few", False)
     top = body["insights"][0]
