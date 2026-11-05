@@ -246,3 +246,21 @@ def test_only_readers_of_the_page_count_as_its_askers(prompts):
     body = asyncio.run(service.landing_from(_data(tuple(_reads() + foggy + asked)), "en"))
     assert any(i["kind"] == "confusion_hotspot" for i in body["insights"])
     assert body["themes"] == [] and prompts == []
+
+
+def test_there_is_no_view_of_people_whatever_the_settings(client, monkeypatch):
+    """Decided 2026-11-05: no people, ever. No flag or salt brings a person-level view back."""
+    import importlib.util
+
+    from backend.core.config import Settings
+
+    # The old switches may still sit in someone's env; they must do nothing (extra="ignore").
+    monkeypatch.setenv("FEATURE_LANDING_PEOPLE", "true")
+    monkeypatch.setenv("LANDING_PSEUDONYM_SALT", "s" * 64)
+    stray = Settings()
+    assert not hasattr(stray, "feature_landing_people")
+    assert not hasattr(stray, "landing_pseudonym_salt")
+    assert client.get(f"/api/v1/v4/spaces/{SPACE}/landing/people").status_code == 404
+    url = f"/api/v1/v4/spaces/{SPACE}/landing/people/p_0123456789abcdef/journey?lesson={SPACE}"
+    assert client.get(url).status_code == 404
+    assert importlib.util.find_spec("backend.services.insights.people") is None

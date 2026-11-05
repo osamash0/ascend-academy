@@ -3,7 +3,8 @@
 Who may open it is decided first (`assert_space_owner`); then the Space's
 activity is read once, folded into facts, run through the insight engine,
 floored and translated into the `Landing` shape. Nothing in the payload
-names a member or quotes one (spec §0). Cached per Space for five minutes.
+names a member or quotes one (spec §0). There is no person-level view of a Space
+at all (decided 2026-11-05). Cached per Space for five minutes.
 `accent` and each Lesson's `color` are left to the app (Plan 3 draws them from
 the Lesson's order until a sampled hue is stored at ingest); `questions` arrive
 with the questions channel (Plan 4).
@@ -18,7 +19,6 @@ from backend.domain.authorization import assert_space_owner
 from backend.services import analytics_cache
 from backend.services.insights.figures import figures
 from backend.services.insights.landing_map import collapse_healthy, help_index, lesson_light, rank, to_landing
-from backend.services.insights.people import journey, strugglers
 from backend.services.insights.sources.space import SpaceData, load_space_data
 from backend.services.insights.space_engine import MIN_READERS, lesson_insights
 from backend.services.insights.space_facts import LessonFacts, lesson_facts
@@ -146,19 +146,3 @@ async def _themes(
         if found:
             out.append({"lessonId": lesson_id, "page": page, "askers": askers, "themes": found})
     return out
-
-
-async def get_people(space_id: UUID, user_id: str, salt: str) -> dict[str, Any]:
-    """Strugglers by per-Space pseudonym (flag-only; not cached)."""
-    row = await space_row(space_id, user_id)
-    assert_space_owner(row, user_id)
-    data = await load_space_data(space_id, row["title"] or "", str(row["professor_id"]))
-    return {"strugglers": strugglers(data, salt)}
-
-
-async def get_journey(space_id: UUID, user_id: str, salt: str, person: str, lesson_id: str) -> Optional[list]:
-    """One pseudonym's way through one Lesson (flag-only); None when not found."""
-    row = await space_row(space_id, user_id)
-    assert_space_owner(row, user_id)
-    data = await load_space_data(space_id, row["title"] or "", str(row["professor_id"]))
-    return journey(data, salt, person, lesson_id)
