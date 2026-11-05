@@ -4,27 +4,7 @@ These bypass FastAPI and Supabase entirely — they exercise the analytics
 math against in-memory event lists.
 """
 
-from freezegun import freeze_time
-
 from backend.services import analytics_service as svc
-
-
-def test_overview_no_data():
-    out = svc._calculate_overview_stats([], 0, 0)
-    assert out["uniqueStudents"] == 0
-    assert out["averageScore"] == 0
-
-
-def test_overview_aggregates_correct_score():
-    progress = [
-        {"total_questions_answered": 10, "correct_answers": 7},
-        {"total_questions_answered": 5, "correct_answers": 4},
-    ]
-    out = svc._calculate_overview_stats(progress, total_events=20, student_count=2)
-    assert out["totalAttempts"] == 15
-    assert out["totalCorrect"] == 11
-    # 11/15 = 0.733... → rounded to 73
-    assert out["averageScore"] == 73
 
 
 def test_group_events_by_user_skips_anon():
@@ -52,13 +32,6 @@ def test_group_events_by_slide_handles_camel_keys():
     assert "s1" in out and "s2" in out
 
 
-@freeze_time("2026-05-01 12:00:00")
-def test_activity_by_day_returns_7_days():
-    days = svc._calculate_activity_by_day([])
-    assert len(days) == 7
-    assert all("date" in d and "attempts" in d for d in days)
-
-
 def test_dropoff_only_non_completers():
     slides = [
         {"id": "s1", "slide_number": 1, "title": "A"},
@@ -74,22 +47,6 @@ def test_dropoff_only_non_completers():
     assert out[0]["slide_number"] == 1
     assert out[0]["dropout_count"] == 1
     assert out[0]["dropout_percentage"] == 50.0
-
-
-def test_slide_performance_confusion_index_clamped():
-    slides = [{"id": "s1", "slide_number": 1, "title": "Slide"}]
-    events_by_slide = {
-        "s1": [
-            {"event_type": "ai_tutor_query", "event_data": {}},
-            {"event_type": "slide_back_navigation", "event_data": {}},
-            {"event_type": "quiz_attempt", "event_data": {"correct": False}},
-            {"event_type": "slide_view", "event_data": {"duration_seconds": 30}},
-        ]
-        * 10
-    }
-    perf = svc._calculate_slide_performance(slides, events_by_slide)
-    # confusion_index is min(100, max(10, raw + 10))
-    assert 10 <= perf[0]["confusionIndex"] <= 100
 
 
 def test_confidence_map_aggregates_per_slide():

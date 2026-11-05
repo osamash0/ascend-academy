@@ -29,33 +29,21 @@ def get_ai_queries_evidence(lecture_id: str, slide_id: str, token: Optional[str]
     )
     owner_id = analytics_service.lecture_owner_id(client, lecture_id)
 
-    # Word for word only once 5+ people asked in the Lecture (owner out), the same floor as the dashboard's feed.
-    askers = {
-        str(e["user_id"]) for e in events
-        if e.get("user_id") and not analytics_service._same_person(e["user_id"], owner_id)
-        and (e.get("event_data") or {}).get("source") != "v4_reader"
-        and ((e.get("event_data") or {}).get("query") or "").strip()
-    }
-    if len(askers) < analytics_service.MIN_PEOPLE:
-        return {"kind": AI_QUERIES, "queries": [], "totalCount": 0}
+    # Word for word only once 5+ people asked in the Lecture (owner out): the dashboard feed's floor.
+    # Withheld is totalCount None, which is not "no questions" and not 0.
+    shown = analytics_service.legacy_questions(events, owner_id)
+    if shown is None:
+        return {"kind": AI_QUERIES, "queries": [], "totalCount": None}
 
     queries: List[Dict[str, Any]] = []
-    for e in events:
+    for e in shown:
         ed = e.get("event_data") or {}
-        # v4 reader questions reach owners only as themes over 5+ askers, never verbatim (spec §0).
-        if ed.get("source") == "v4_reader":
-            continue
-        if not e.get("user_id") or analytics_service._same_person(e["user_id"], owner_id):
-            continue
         if ed.get("slideId") != slide_id:
-            continue
-        query_text = (ed.get("query") or "").strip()
-        if not query_text:
             continue
         response_text = (ed.get("response") or "").strip()
         queries.append(
             {
-                "query": query_text,
+                "query": ed["query"].strip(),
                 "response": response_text or None,
                 "createdAt": e.get("created_at", ""),
             }

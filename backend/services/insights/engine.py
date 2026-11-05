@@ -30,19 +30,45 @@ def _slide_numbers(insight: Dict[str, Any], numbers_in_order: List[Any]) -> set:
     return found
 
 
-def _keep_the_floor(insights: List[Dict[str, Any]], bundle: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Drop any insight about a slide (or a stretch of slides) that fewer than MIN_PEOPLE people viewed.
+def _enough(slide: Dict[str, Any], *keys: str) -> bool:
+    return all(int(slide.get(k) or 0) >= analytics_service.MIN_PEOPLE for k in keys)
 
-    The detectors read unfloored per-slide counts; what a slide too few people saw says about
-    them is not served. A slide is judged by the bundle's people-per-slide count (the owner left
-    out); an insight about no slide at all stays.
+
+#: What each kind of finding is a share or a rate OF, so that base must itself be 5+ people.
+#: A slide's viewers are checked for every kind; these are the extra bases. The quiz kinds read
+#: a success rate that the bundle only carries when 5+ people tried the slide (else None).
+_OWN_BASE = {
+    schema.CALIBRATION_GAP: lambda s: _enough(s, "got_it_quiz_total"),           # confident people who also took the quiz
+    schema.CONFUSION_HOTSPOT: lambda s: _enough(s, "ratings_total"),             # people who rated the page
+    schema.OVERPACKED: lambda s: _enough(s, "ratings_total"),
+    schema.CONFUSION_BLOCK: lambda s: _enough(s, "ratings_total"),
+    schema.SILENT_MISLEADER: lambda s: _enough(s, "ratings_total") and s.get("quiz_success_rate") is not None,
+    schema.QUIZ_MISALIGNMENT: lambda s: s.get("quiz_success_rate") is not None,  # people who tried the quiz
+    schema.HEALTHY: lambda s: s.get("quiz_success_rate") is not None,
+}
+
+
+def _keep_the_floor(insights: List[Dict[str, Any]], bundle: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Drop any insight about a slide (or a stretch of slides) that fewer than MIN_PEOPLE people viewed,
+    or whose own base (the people a share is a share of) is under MIN_PEOPLE.
+
+    The detectors read unfloored per-slide counts; what a slide too few people saw, rated or
+    answered says about them is not served. A slide is judged by the bundle's people counts (the
+    owner left out); an insight about no slide at all stays.
     """
-    viewers = {s.get("slide_number"): int(s.get("view_count") or 0) for s in bundle.get("slides", [])}
-    ordered = sorted(n for n in viewers if n is not None)
+    by_number = {s.get("slide_number"): s for s in bundle.get("slides", []) if s.get("slide_number") is not None}
+    ordered = sorted(by_number)
     kept = []
     for insight in insights:
-        slides = _slide_numbers(insight, ordered)
-        if all(viewers.get(n, 0) >= analytics_service.MIN_PEOPLE for n in slides):
+        numbers = _slide_numbers(insight, ordered)
+        own = _OWN_BASE.get(insight.get("kind"))
+        ok = True
+        for n in numbers:
+            slide = by_number.get(n)
+            if slide is None or not _enough(slide, "view_count") or (own is not None and not own(slide)):
+                ok = False
+                break
+        if ok:
             kept.append(insight)
     return kept
 

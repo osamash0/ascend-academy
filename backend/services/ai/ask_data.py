@@ -181,9 +181,9 @@ def _exec_top_dropoff_slides(lecture_id: str, token: str, params: Dict[str, Any]
 def _exec_worst_quiz_questions(lecture_id: str, token: str, params: Dict[str, Any]) -> Dict[str, Any]:
     limit = _clamp_int(params.get("limit"), default=3, lo=1, hi=20)
     order = (params.get("order") or "lowest").lower()
-    qs = analytics_service.get_quiz_analytics(lecture_id, token)
+    all_qs = analytics_service.get_quiz_analytics(lecture_id, token)
     # A question fewer than 5 people tried has a null success rate (never 0): it does not rank.
-    qs = [q for q in qs if q.get("success_rate") is not None]
+    qs = [q for q in all_qs if q.get("success_rate") is not None]
     rows = sorted(qs, key=lambda q: q["success_rate"],
                   reverse=(order == "highest"))[:limit]
     table = [
@@ -193,6 +193,9 @@ def _exec_worst_quiz_questions(lecture_id: str, token: str, params: Dict[str, An
         for r in rows
     ]
     if not rows:
+        if all_qs:
+            return {"answer_text": "Too few students have answered any quiz question to say which is hardest yet.",
+                    "table": [], "chart": None}
         return {"answer_text": "No quiz attempts have been recorded yet.", "table": [], "chart": None}
     direction = "lowest" if order != "highest" else "highest"
     answer = (

@@ -428,12 +428,15 @@ def _prog(i, answered=2, correct=1, score=50):
 
 def test_the_dashboard_overview_is_none_under_five_people(monkeypatch):
     out = _dash(monkeypatch, [], [_prog(i) for i in range(4)])["overview"]
-    assert (out["uniqueStudents"], out["averageScore"], out["totalAttempts"], out["totalCorrect"]) == (None,) * 4
+    assert (out["uniqueStudents"], out["averageScore"], out["totalAttempts"]) == (None,) * 3
+    assert "totalCorrect" not in out
 
 
 def test_the_dashboard_overview_shows_from_five_people(monkeypatch):
     out = _dash(monkeypatch, [], [_prog(i, answered=4, correct=3) for i in range(5)])["overview"]
-    assert (out["uniqueStudents"], out["averageScore"], out["totalAttempts"], out["totalCorrect"]) == (5, 75, 20, 15)
+    # totalAttempts is the people who answered (never the answers); there is no raw correct count at all
+    assert (out["uniqueStudents"], out["averageScore"], out["totalAttempts"]) == (5, 75, 5)
+    assert "totalCorrect" not in out
 
 
 def test_the_dashboard_overview_leaves_the_owner_out(monkeypatch):
@@ -476,7 +479,30 @@ def test_slide_figures_show_from_five_people_and_count_people(monkeypatch):
     s1 = _slide_by_id(_dash(monkeypatch, [], events=events, slides=SLIDES))["s1"]
     assert (s1["avgDuration"], s1["correctRate"], s1["quizAttempts"]) == (30, 80, 5)
     assert s1["aiQueries"] is None            # one person asked: under the floor, however many times
-    assert s1["confusionIndex"] == 30 + 10 + 10
+    assert s1["confusionIndex"] == 20         # 1 of the 5 people who tried missed; the asker leaves no trace
+
+
+def test_no_sub_floor_count_can_be_read_out_of_the_confusion_index(monkeypatch):
+    base = [_ev(f"u{i}", "slide_view", duration_seconds=30) for i in range(5)]
+    base += [_ev(f"u{i}", "quiz_attempt", correct=True, questionId="q1") for i in range(5)]
+    quiet = _slide_by_id(_dash(monkeypatch, [], events=base, slides=SLIDES))["s1"]["confusionIndex"]
+    # 4 people asking and 4 going back changes nothing visible: neither reaches 5 people.
+    noisy = base + [_ev(f"u{i}", "ai_tutor_query", query="q") for i in range(4)]
+    noisy += [_ev(f"u{i}", "slide_back_navigation", fromSlideId="s1") for i in range(4)]
+    assert _slide_by_id(_dash(monkeypatch, [], events=noisy, slides=SLIDES))["s1"]["confusionIndex"] == quiet
+
+
+def test_the_confusion_index_is_a_share_over_the_slides_viewers_once_a_component_passes(monkeypatch):
+    events = [_ev(f"u{i}", "slide_view", duration_seconds=30) for i in range(10)]
+    events += [_ev(f"u{i}", "ai_tutor_query", query="q") for i in range(5)]       # 5 of 10 viewers asked
+    s1 = _slide_by_id(_dash(monkeypatch, [], events=events, slides=SLIDES))["s1"]
+    assert (s1["aiQueries"], s1["confusionIndex"]) == (5, 50)
+
+
+def test_the_confusion_index_is_none_when_no_component_passes(monkeypatch):
+    events = [_ev(f"u{i}", "slide_view", duration_seconds=30) for i in range(6)]
+    events += [_ev("u0", "ai_tutor_query", query="q")]
+    assert _slide_by_id(_dash(monkeypatch, [], events=events, slides=SLIDES))["s1"]["confusionIndex"] is None
 
 
 def test_the_owner_does_not_make_a_slide_figure(monkeypatch):
@@ -495,7 +521,35 @@ def test_the_week_is_counts_of_people_per_kind_and_never_one_event(monkeypatch):
 def test_the_week_says_nothing_when_one_person_did_it_often(monkeypatch):
     events = [_ev("u0", "quiz_attempt", correct=True)] * 20
     out = _dash(monkeypatch, [], events=events)
-    assert out["liveTicker"] == [] and out["activityByDay"] == [] and out["overview"]["totalEvents"] is None
+    assert out["liveTicker"] == [] and out["overview"]["totalEvents"] is None
+    assert [d["people"] for d in out["activityByDay"]] == [None] * 7
+
+
+def test_activity_by_day_is_people_per_day_and_each_day_under_five_is_none(monkeypatch):
+    import datetime as dt
+
+    today = dt.datetime.now(dt.timezone.utc).date().isoformat()
+    events = [{**_ev(f"u{i}", "quiz_attempt", correct=True), "day": today} for i in range(5)]
+    events += [{**_ev("u0", "quiz_attempt", correct=True), "day": today}] * 6        # tries do not add people
+    days = _dash(monkeypatch, [], events=events)["activityByDay"]
+    assert len(days) == 7 and set(days[-1]) == {"date", "people"}
+    assert days[-1]["people"] == 5 and [d["people"] for d in days[:-1]] == [None] * 6
+
+
+def test_total_events_is_the_number_of_people_who_did_anything(monkeypatch):
+    events = [_ev(f"u{i}", "slide_view", duration_seconds=5) for i in range(5)] * 3   # 15 events, 5 people
+    assert _dash(monkeypatch, [], events=events)["overview"]["totalEvents"] == 5
+
+
+def test_a_json_text_event_data_is_read_like_a_dict(monkeypatch):
+    # asyncpg returns jsonb as text
+    import json as _json
+
+    events = [{**_ev(f"u{i}", "ai_tutor_query"), "event_data": _json.dumps(
+        {"lectureId": "L1", "slideId": "s1", "query": f"question {i}", "slideTitle": "Joins"})} for i in range(5)]
+    feed = _dash(monkeypatch, [], events=events)["aiQueryFeed"]
+    assert len(feed) == 5 and feed[0]["query_text"] == "question 4"
+    assert analytics_service._event_dict('{"a": 1}') == {"a": 1} and analytics_service._event_dict(None) == {}
 
 
 def test_the_week_leaves_out_older_events_and_the_owner(monkeypatch):
@@ -631,17 +685,38 @@ def _garden(monkeypatch, slides):
     return engine.build_insights("L1", "t")
 
 
-def _calib(views):
-    return _gslide(3, views, got_it_quiz_total=4, overconfident_count=3, overconfidence_rate=75.0)
+def _calib(views, pairs=5):
+    # `pairs` confident people who also took the quiz; 3/4 or 4/5 of them failed it
+    return _gslide(3, views, got_it_quiz_total=pairs, overconfident_count=pairs - 1,
+                   overconfidence_rate=round((pairs - 1) / pairs * 100, 1))
 
 
 def test_a_garden_insight_on_a_slide_four_people_viewed_is_dropped(monkeypatch):
     assert _garden(monkeypatch, [_calib(4)]) == []
 
 
-def test_a_garden_insight_on_a_slide_five_people_viewed_is_kept(monkeypatch):
-    (insight,) = _garden(monkeypatch, [_calib(5)])
+def test_a_garden_insight_is_kept_when_viewers_and_its_own_base_are_five_or_more(monkeypatch):
+    (insight,) = _garden(monkeypatch, [_calib(5, pairs=5)])
     assert insight["kind"] == "calibration_gap"
+
+
+def test_a_calibration_gap_of_three_in_four_confident_people_is_dropped_on_a_busy_slide(monkeypatch):
+    # 30 people viewed it, but the share is over the 4 who were confident and took the quiz.
+    assert _garden(monkeypatch, [_calib(30, pairs=4)]) == []
+
+
+def test_a_confusion_hotspot_over_four_raters_is_dropped_and_over_five_is_kept(monkeypatch):
+    hot = dict(confusion_rate=60.0, confused=3, got_it=1, ratings_total=4)
+    assert all(i["kind"] != "confusion_hotspot" for i in _garden(monkeypatch, [_gslide(1, 12, **hot)]))
+    hot = dict(confusion_rate=60.0, confused=3, got_it=2, ratings_total=5)
+    assert any(i["kind"] == "confusion_hotspot" for i in _garden(monkeypatch, [_gslide(1, 12, **hot)]))
+
+
+def test_a_quiz_finding_needs_the_slides_quiz_rate_to_have_five_people_behind_it(monkeypatch):
+    weak = dict(quiz_success_rate=20.0, quiz_attempts=6, confusion_rate=5.0)
+    assert any(i["kind"] == "quiz_misalignment" for i in _garden(monkeypatch, [_gslide(1, 12, **weak)]))
+    withheld = dict(quiz_success_rate=None, quiz_attempts=0, confusion_rate=5.0)
+    assert all(i["kind"] != "quiz_misalignment" for i in _garden(monkeypatch, [_gslide(1, 12, **withheld)]))
 
 
 def test_a_confusion_block_needs_every_slide_in_it_viewed_by_five(monkeypatch):
@@ -657,3 +732,137 @@ def test_a_drop_off_finding_also_needs_the_slide_after_it(monkeypatch):
     slides = [_gslide(1, 10), _gslide(2, 4)]
     assert all(i["kind"] != "leaky_bucket" for i in _garden(monkeypatch, slides))
     assert any(i["kind"] == "leaky_bucket" for i in _garden(monkeypatch, [_gslide(1, 10), _gslide(2, 5)]))
+
+
+# ── the garden's bundle: people counts, the owner out ───────────────────────
+
+def test_the_bundles_reach_is_the_unfloored_people_count_and_the_owner_is_not_a_reader(world):
+    from backend.services.insights import bundle as bundle_mod
+
+    world[("student_progress", None)] = [
+        {"user_id": f"u{i}", "completed_slides": [], "quiz_score": 0} for i in range(3)
+    ] + [{"user_id": OWNER, "completed_slides": [], "quiz_score": 0}]
+    world[("learning_events", "slide_view")] = [_view(f"u{i}", "s1") for i in range(3)] + [_view(OWNER, "s1")]
+    world[("learning_events", "ai_tutor_query")] = [
+        {"user_id": OWNER, "event_data": {"lectureId": "L1", "slideId": "s1", "query": "?"}},
+        {"user_id": "u0", "event_data": {"lectureId": "L1", "slideId": "s1", "query": "?"}},
+    ]
+    out = bundle_mod.build_metric_bundle("L1", "t")
+    # 3 readers: the overview itself would say None; the bundle keeps the real number, not 0.
+    assert analytics_service.get_lecture_overview("L1", "t")["total_students"] is None
+    assert out["total_students"] == 3
+    s1 = next(s for s in out["slides"] if s["slide_id"] == "s1")
+    assert s1["view_count"] == 3 and s1["ai_query_count"] == 1
+
+
+# ── benchmarks: a withheld lecture is None, never 0, and is not a peer ──────
+
+def _bench(monkeypatch, overview, quizzes=(), distractors=(), slides=()):
+    import asyncio
+
+    monkeypatch.setattr(analytics_service, "get_lecture_overview", lambda *a, **k: overview)
+    monkeypatch.setattr(analytics_service, "get_quiz_analytics", lambda *a, **k: list(quizzes))
+    monkeypatch.setattr(analytics_service, "get_distractor_analysis", lambda *a, **k: list(distractors))
+    monkeypatch.setattr(analytics_service, "get_slide_analytics", lambda *a, **k: list(slides))
+    return asyncio.run(analytics_service._compute_lecture_benchmark_metrics("L1", None))
+
+
+def test_a_withheld_lecture_has_no_benchmark_figures(monkeypatch):
+    withheld = {"total_students": None, "completion_rate": None, "average_score": None,
+                "average_time_minutes": None, "engagement_level": "No Data"}
+    out = _bench(monkeypatch, withheld)
+    assert set(out) == set(analytics_service._BENCHMARK_METRIC_KEYS)
+    assert all(v is None for v in out.values())
+
+
+def test_a_lecture_with_people_but_no_scorers_leaves_only_the_score_figures_out(monkeypatch):
+    overview = {"total_students": 6, "completion_rate": 50.0, "average_score": None,
+                "average_time_minutes": None, "engagement_level": "No Data"}
+    quiz = [{"question_id": "q", "question_text": "q", "success_rate": None, "difficulty": None, "attempts": None}]
+    out = _bench(monkeypatch, overview, quizzes=quiz)
+    assert (out["unique_students"], out["completion_rate"], out["drop_off_rate"]) == (6, 50.0, 50.0)
+    assert out["avg_score"] is None and out["avg_time_minutes"] is None
+    assert out["mastery_rate"] is None and out["struggle_rate"] is None and out["distractor_confusion"] is None
+
+
+def test_the_peer_summary_leaves_withheld_lectures_out_and_is_none_with_nothing_left():
+    keys = analytics_service._BENCHMARK_METRIC_KEYS
+    shown = {k: 10.0 for k in keys}
+    withheld = {k: None for k in keys}
+    summary = analytics_service._summarize_metric_pack([shown, withheld, {**shown, "avg_score": 30.0}])
+    assert summary["completion_rate"] == {"avg": 10.0, "min": 10.0, "max": 10.0, "count": 2}
+    assert summary["avg_score"]["avg"] == 20.0
+    empty = analytics_service._summarize_metric_pack([withheld, withheld])
+    assert empty["completion_rate"] == {"avg": None, "min": None, "max": None, "count": 0}
+
+
+def test_a_course_of_withheld_lectures_is_none_not_zero():
+    keys = analytics_service._BENCHMARK_METRIC_KEYS
+    out = analytics_service._aggregate_course_metrics([{k: None for k in keys}, {k: None for k in keys}])
+    assert all(v is None for v in out.values())
+    mixed = analytics_service._aggregate_course_metrics([{k: None for k in keys}, {k: 40.0 for k in keys}])
+    assert mixed["completion_rate"] == 40.0 and mixed["unique_students"] == 40
+
+
+# ── the garden's evidence, Ask and the LLM request ──────────────────────────
+
+def test_ai_queries_evidence_says_withheld_not_zero_under_five_askers(world):
+    world[("learning_events", "ai_tutor_query")] = [
+        {"user_id": f"u{i}", "created_at": "t",
+         "event_data": {"lectureId": "L1", "slideId": "s1", "query": "why?"}} for i in range(4)]
+    out = evidence.get_ai_queries_evidence("L1", "s1", "t")
+    assert out["queries"] == [] and out["totalCount"] is None
+
+
+def test_ai_queries_evidence_shows_the_slides_questions_from_five_askers(world):
+    rows = [{"user_id": f"u{i}", "created_at": "t",
+             "event_data": {"lectureId": "L1", "slideId": "s1" if i < 4 else "s2", "query": f"q{i}"}} for i in range(5)]
+    world[("learning_events", "ai_tutor_query")] = rows
+    out = evidence.get_ai_queries_evidence("L1", "s1", "t")
+    assert out["totalCount"] == 4 and "user_id" not in repr(out)
+
+
+def test_ask_worst_quiz_questions_says_too_few_when_every_question_is_withheld(monkeypatch):
+    from backend.services.ai import ask_data
+
+    rows = [{"question_id": "q", "question_text": "Q", "success_rate": None, "difficulty": None, "attempts": None}]
+    monkeypatch.setattr(analytics_service, "get_quiz_analytics", lambda *a, **k: rows)
+    out = ask_data._exec_worst_quiz_questions("L1", "t", {})
+    assert "Too few" in out["answer_text"] and "recorded yet" not in out["answer_text"]
+    monkeypatch.setattr(analytics_service, "get_quiz_analytics", lambda *a, **k: [])
+    assert "recorded yet" in ask_data._exec_worst_quiz_questions("L1", "t", {})["answer_text"]
+
+
+def test_the_insights_request_accepts_withheld_figures_and_the_prompt_leaves_them_out(monkeypatch):
+    import asyncio
+
+    from backend.api.v1.ai_content import AnalyticsStatsRequest
+    from backend.services.ai import analytics as ai_analytics
+
+    body = AnalyticsStatsRequest(total_students=6, average_score=None, total_attempts=None, total_correct=None)
+    seen = []
+
+    async def fake_generate(prompt, model):
+        seen.append(prompt)
+        return '{"summary": "s", "suggestions": ["a", "b", "c"]}'
+
+    monkeypatch.setattr(ai_analytics, "generate_text", fake_generate)
+    asyncio.run(ai_analytics.generate_analytics_insights(body.dict(), ai_model=body.ai_model))
+    assert "'total_students': 6" in seen[0]
+    assert "average_score" not in seen[0] and "total_attempts" not in seen[0] and "None" not in seen[0]
+
+
+def test_the_metric_feedback_prompt_leaves_withheld_context_out(monkeypatch):
+    import asyncio
+
+    from backend.services.ai import analytics as ai_analytics
+
+    seen = []
+
+    async def fake_generate(prompt, model):
+        seen.append(prompt)
+        return "ok"
+
+    monkeypatch.setattr(ai_analytics, "generate_text", fake_generate)
+    asyncio.run(ai_analytics.generate_metric_feedback("Completion", 40, {"average_score": None, "total_students": 6}))
+    assert "average_score" not in seen[0] and "None" not in seen[0] and "total_students" in seen[0]

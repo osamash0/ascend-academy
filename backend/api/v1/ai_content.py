@@ -32,10 +32,11 @@ class SlideTextRequest(BaseModel):
     ai_model: _AiModel = "cerebras"
 
 class AnalyticsStatsRequest(BaseModel):
-    total_students: int = Field(0, ge=0)
-    average_score: float = Field(0, ge=0, le=100)
-    total_attempts: int = Field(0, ge=0)
-    total_correct: int = Field(0, ge=0)
+    # None means "withheld: fewer than five people stand behind it"; it is left out of the prompt, never read as 0.
+    total_students: Optional[int] = Field(None, ge=0)
+    average_score: Optional[float] = Field(None, ge=0, le=100)
+    total_attempts: Optional[int] = Field(None, ge=0)
+    total_correct: Optional[int] = Field(None, ge=0)
     ai_model: _AiModel = "cerebras"
 
 class MetricInsightRequest(BaseModel):

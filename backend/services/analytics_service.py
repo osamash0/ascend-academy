@@ -211,29 +211,37 @@ def people_first_tries(events: List[Dict[str, Any]], owner_id: Optional[str]) ->
     return out
 
 
-def legacy_question_feed(rows: List[Dict[str, Any]], owner_id: Optional[str]) -> List[Dict[str, Any]]:
-    """Legacy tutor questions word for word, newest first, only when 5+ people asked in the Lecture.
+def legacy_questions(rows: List[Dict[str, Any]], owner_id: Optional[str]) -> Optional[List[Dict[str, Any]]]:
+    """The legacy tutor questions that may be shown word for word, or None while fewer than 5 people asked.
 
-    rows: [{user_id, event_data (dict), created_at}] newest first. v4 reader questions never appear
-    here (they reach owners only as themes), the owner is not an asker, and neither a name nor a
-    user id leaves this function. Under the floor the answer is an empty list.
+    rows: [{user_id, event_data (dict), created_at}] newest first. v4 reader questions never count
+    or appear here (they reach owners only as themes), the owner is not an asker, and rows without
+    a person are dropped. The rows returned are the caller's own; callers must not pass a user id on.
     """
-    feed: List[Dict[str, Any]] = []
+    kept: List[Dict[str, Any]] = []
     askers: set = set()
     for r in rows:
         ed = r.get("event_data") or {}
-        if ed.get("source") == "v4_reader":
-            continue
         uid = r.get("user_id")
-        if not uid or _same_person(uid, owner_id):
+        if ed.get("source") == "v4_reader" or not uid or _same_person(uid, owner_id):
             continue
-        text = (ed.get("query") or "").strip()
-        if not text:
+        if not (ed.get("query") or "").strip():
             continue
         askers.add(str(uid))
-        feed.append({"slide_title": ed.get("slideTitle", "Unknown Slide"), "query_text": text,
-                     "created_at": r.get("created_at", "")})
-    return feed if len(askers) >= MIN_PEOPLE else []
+        kept.append(r)
+    return kept if len(askers) >= MIN_PEOPLE else None
+
+
+def legacy_question_feed(rows: List[Dict[str, Any]], owner_id: Optional[str]) -> List[Dict[str, Any]]:
+    """Legacy tutor questions word for word, newest first, only when 5+ people asked in the Lecture.
+
+    Neither a name nor a user id leaves this function. Under the floor the answer is an empty list.
+    """
+    return [
+        {"slide_title": (r.get("event_data") or {}).get("slideTitle", "Unknown Slide"),
+         "query_text": r["event_data"]["query"].strip(), "created_at": r.get("created_at", "")}
+        for r in legacy_questions(rows, owner_id) or []
+    ]
 
 
 @cached_analytic("overview")
@@ -323,6 +331,18 @@ def get_slide_viewer_counts(lecture_id: str, token: str = None) -> Dict[str, int
     client = get_auth_client(token)
     viewers, _ = _viewers_by_slide(client, lecture_id, lecture_owner_id(client, lecture_id))
     return {sid: len(people) for sid, people in viewers.items()}
+
+
+@cached_analytic("lecture_people")
+def get_lecture_people_count(lecture_id: str, token: str = None) -> int:
+    """How many people opened the lecture (the owner left out), floor not applied.
+
+    Only the insight bundle reads this, for the reach of its findings; it is never sent to a client.
+    """
+    client = get_auth_client(token)
+    owner_id = lecture_owner_id(client, lecture_id)
+    rows = _fetch_all(client.table("student_progress").select("user_id").eq("lecture_id", lecture_id))
+    return len({str(r["user_id"]) for r in rows if r.get("user_id") and not _same_person(r["user_id"], owner_id)})
 
 
 @cached_analytic("slides")
@@ -813,20 +833,33 @@ def _slide_performance(slide_rows: list, events: List[Dict[str, Any]], owner_id:
     perf = []
     for r in slide_rows:
         sid = r["id"]
-        seen = len(viewers.get(sid, ())) >= MIN_PEOPLE
+        n_viewers = len(viewers.get(sid, ()))
+        seen = n_viewers >= MIN_PEOPLE
         slide_tries = tries.get(sid, {})
-        tried = len({u for u, _ in slide_tries}) >= MIN_PEOPLE
+        answerers = {u for u, _ in slide_tries}
+        tried = len(answerers) >= MIN_PEOPLE
         asked, went_back = len(askers.get(sid, ())), len(revisers.get(sid, ()))
-        wrong = sum(1 for ok in slide_tries.values() if not ok)
+        missed = {u for (u, _), ok in slide_tries.items() if not ok}
+
+        # The index is built only from shares of people, each over its own 5-people floor, so no
+        # count under the floor can be read back out of it. It is None when no component passes.
+        parts = []
+        if seen and asked >= MIN_PEOPLE:
+            parts.append(min(1.0, asked / n_viewers))
+        if seen and went_back >= MIN_PEOPLE:
+            parts.append(min(1.0, went_back / n_viewers))
+        if seen and tried:
+            parts.append(len(missed) / len(answerers))
+
         perf.append({
             "id": sid,
             "name": r["name"],
             "avgDuration": round(sum(durations[sid]) / len(durations[sid])) if seen else None,
             "correctRate": round(sum(slide_tries.values()) / len(slide_tries) * 100) if tried else None,
-            "quizAttempts": len({u for u, _ in slide_tries}) if tried else None,
+            "quizAttempts": len(answerers) if tried else None,
             "aiQueries": floored(asked),
             "revisions": floored(went_back),
-            "confusionIndex": min(100, max(10, asked * 30 + went_back * 15 + wrong * 10 + 10)) if seen else None,
+            "confusionIndex": min(100, max(10, round(sum(parts) * 100))) if parts else None,
         })
     return sorted(perf, key=lambda x: (x["avgDuration"] is None, -(x["avgDuration"] or 0)))
 
@@ -899,11 +932,11 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
     scorers = [r for r in people.values() if (r["total_questions_answered"] or 0) > 0]
     overview: Dict[str, Any] = {
         "uniqueStudents": len(people) if len(people) >= MIN_PEOPLE else None,
-        "totalAttempts": None, "totalCorrect": None, "averageScore": None,
+        "totalAttempts": None, "averageScore": None,
     }
     if len(scorers) >= MIN_PEOPLE:
-        overview["totalAttempts"] = sum(r["total_questions_answered"] or 0 for r in scorers)
-        overview["totalCorrect"] = sum(r["correct_answers"] or 0 for r in scorers)
+        # People who answered at least once, never a count of answers.
+        overview["totalAttempts"] = len(scorers)
         overview["averageScore"] = round(sum(
             (r["correct_answers"] or 0) / r["total_questions_answered"] * 100 for r in scorers) / len(scorers))
     score_band_counts = score_bands([r["quiz_score"] for r in scorers])
@@ -926,16 +959,16 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
 
     conf_others = [e for e in conf_events if e["user_id"] and e["user_id"] != owner_key]
     active = {e["user_id"] for e in others} | {e["user_id"] for e in conf_others}
-    overview["totalEvents"] = len(others) + len(conf_others) if len(active) >= MIN_PEOPLE else None
+    # People who did anything at all (the key keeps its old name; it is a count of people, never events).
+    overview["totalEvents"] = len(active) if len(active) >= MIN_PEOPLE else None
 
-    # Quiz attempts per day this week: the chart is only drawn once 5 people made them.
+    # People who answered a quiz question on each day this week; a day under 5 people is None.
     today = datetime.now(timezone.utc).date()
     days = [today - timedelta(days=6 - i) for i in range(7)]
-    attempts = [e for e in others if e["type"] == "quiz_attempt" and e["day"] in {d.isoformat() for d in days}]
-    activity_by_day = [
-        {"date": d.strftime("%a"), "attempts": sum(1 for e in attempts if e["day"] == d.isoformat())}
-        for d in days
-    ] if len({e["user_id"] for e in attempts}) >= MIN_PEOPLE else []
+    activity_by_day = []
+    for d in days:
+        n = len({e["user_id"] for e in others if e["type"] == "quiz_attempt" and e["day"] == d.isoformat()})
+        activity_by_day.append({"date": d.strftime("%a"), "people": n if n >= MIN_PEOPLE else None})
 
     # The week in counts of people per kind, never one person's event, and only from 5 people.
     live_ticker = []
@@ -986,62 +1019,6 @@ def _group_events_by_slide(events_data: list) -> dict:
         sid = ev_data.get("slideId") or ev_data.get("fromSlideId")
         if sid: groups[sid].append(ev)
     return groups
-
-
-def _calculate_overview_stats(progress_data: list, total_events: int, student_count: int) -> dict:
-    total_attempts = sum(p.get("total_questions_answered") or 0 for p in progress_data)
-    total_correct = sum(p.get("correct_answers") or 0 for p in progress_data)
-    average_score = round((total_correct / total_attempts * 100) if total_attempts > 0 else 0)
-    return {
-        "uniqueStudents": student_count,
-        "totalAttempts": total_attempts,
-        "totalCorrect": total_correct,
-        "averageScore": average_score,
-        "totalEvents": total_events
-    }
-
-
-def _calculate_activity_by_day(events_data: list) -> list:
-    last_7_days = [(datetime.now() - timedelta(days=6 - i)).strftime("%Y-%m-%d") for i in range(7)]
-    events_by_day = {}
-    for ev in events_data:
-        if ev.get("event_type") == "quiz_attempt":
-            day = ev.get("created_at", "")[:10]
-            events_by_day[day] = events_by_day.get(day, 0) + 1
-            
-    return [
-        {"date": datetime.strptime(d, "%Y-%m-%d").strftime("%a"), "attempts": events_by_day.get(d, 0)}
-        for d in last_7_days
-    ]
-
-
-def _calculate_slide_performance(slides_data: list, events_by_slide: dict) -> list:
-    perf = []
-    for s in slides_data:
-        sid = s["id"]
-        slide_events = events_by_slide.get(sid, [])
-        st = {"duration": 0, "views": 0, "quizCorrect": 0, "quizAttempts": 0, "aiQueries": 0, "revisions": 0}
-        for ev in slide_events:
-            evt, evd = ev.get("event_type"), ev.get("event_data", {})
-            if evt == "slide_view":
-                st["duration"] += evd.get("duration_seconds", 0)
-                st["views"] += 1
-            elif evt == "quiz_attempt":
-                st["quizAttempts"] += 1
-                if evd.get("correct"): st["quizCorrect"] += 1
-            elif evt == "ai_tutor_query": st["aiQueries"] += 1
-            elif evt == "slide_back_navigation": st["revisions"] += 1
-
-        avg_dur = round(st["duration"] / st["views"]) if st["views"] > 0 else 0
-        corr_rate = round((st["quizCorrect"] / st["quizAttempts"]) * 100) if st["quizAttempts"] > 0 else 0
-        raw_confusion = (st["aiQueries"] * 30) + (st["revisions"] * 15) + ((st["quizAttempts"] - st["quizCorrect"]) * 10)
-        
-        perf.append({
-            "id": sid, "name": s["title"], "avgDuration": avg_dur, "correctRate": corr_rate,
-            "quizAttempts": st["quizAttempts"], "aiQueries": st["aiQueries"], "revisions": st["revisions"],
-            "confusionIndex": min(100, max(10, raw_confusion + 10))
-        })
-    return sorted(perf, key=lambda x: x["avgDuration"], reverse=True)
 
 
 def _calculate_confidence_map(slides_data: list, events_by_slide: dict) -> tuple:
@@ -1468,8 +1445,13 @@ async def _compute_lecture_benchmark_metrics(
         asyncio.to_thread(get_slide_analytics, lecture_id, token),
     )
 
+    # A lecture fewer than MIN_PEOPLE people opened says nothing: every metric is None (never 0),
+    # and it is left out of the peer summary.
+    if overview.get("total_students") is None:
+        return {k: None for k in _BENCHMARK_METRIC_KEYS}
+
     # Engagement
-    avg_time = float(overview.get("average_time_minutes") or 0)
+    avg_time = overview.get("average_time_minutes")
     completion = float(overview.get("completion_rate") or 0)
     students = int(overview.get("total_students") or 0)
     # Lecture-level drop-off mirrors what the dashboard shows: students who
@@ -1478,18 +1460,18 @@ async def _compute_lecture_benchmark_metrics(
     # into a meaningful lecture-level number, so we don't use them here.
     drop_off = round(max(0.0, 100.0 - completion), 1)
 
-    # Quiz performance
-    avg_score = float(overview.get("average_score") or 0)
-    answered = [q for q in quizzes if (q.get("attempts") or 0) > 0]
+    # Quiz performance (a question under the floor has a null rate and does not count)
+    avg_score = overview.get("average_score")
+    answered = [q for q in quizzes if q.get("success_rate") is not None]
     mastery = (
-        round(sum(1 for q in answered if (q.get("success_rate") or 0) >= 80)
+        round(sum(1 for q in answered if q["success_rate"] >= 80)
               / len(answered) * 100, 1)
-        if answered else 0.0
+        if answered else None
     )
     struggle = (
-        round(sum(1 for q in answered if (q.get("success_rate") or 0) < 60)
+        round(sum(1 for q in answered if q["success_rate"] < 60)
               / len(answered) * 100, 1)
-        if answered else 0.0
+        if answered else None
     )
     # Distractor confusion: questions where the most-picked wrong answer
     # accounts for >= 50% of all wrong picks (a clear pile-up on one
@@ -1510,7 +1492,7 @@ async def _compute_lecture_benchmark_metrics(
         if (top_wrong / wrong_total) >= 0.5:
             confused_qs += 1
     distractor_confusion = (
-        round(confused_qs / relevant_qs * 100, 1) if relevant_qs else 0.0
+        round(confused_qs / relevant_qs * 100, 1) if relevant_qs else None
     )
 
     # Concept coverage — distinct non-empty concept tags on this lecture's questions.
@@ -1543,11 +1525,11 @@ async def _compute_lecture_benchmark_metrics(
     )
 
     return {
-        "avg_time_minutes": round(avg_time, 1),
+        "avg_time_minutes": round(float(avg_time), 1) if avg_time is not None else None,
         "completion_rate": round(completion, 1),
         "unique_students": students,
         "drop_off_rate": drop_off,
-        "avg_score": round(avg_score, 1),
+        "avg_score": round(float(avg_score), 1) if avg_score is not None else None,
         "mastery_rate": mastery,
         "struggle_rate": struggle,
         "distractor_confusion": distractor_confusion,
@@ -1556,13 +1538,16 @@ async def _compute_lecture_benchmark_metrics(
     }
 
 
-def _summarize_metric_pack(packs: List[Dict[str, float]]) -> Dict[str, Dict[str, float]]:
-    """avg/min/max/count for each benchmark metric across a peer set."""
-    summary: Dict[str, Dict[str, float]] = {}
+def _summarize_metric_pack(packs: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """avg/min/max/count for each benchmark metric across a peer set.
+
+    A withheld metric (None) is left out; with nothing left the figures are None, never 0.
+    """
+    summary: Dict[str, Dict[str, Any]] = {}
     for k in _BENCHMARK_METRIC_KEYS:
-        vals = [float(p.get(k) or 0) for p in packs]
+        vals = [float(p[k]) for p in packs if p.get(k) is not None]
         if not vals:
-            summary[k] = {"avg": 0.0, "min": 0.0, "max": 0.0, "count": 0}
+            summary[k] = {"avg": None, "min": None, "max": None, "count": 0}
             continue
         summary[k] = {
             "avg": round(sum(vals) / len(vals), 1),
@@ -1578,17 +1563,16 @@ def _aggregate_course_metrics(
 ) -> Dict[str, float]:
     """Course-level metric pack = average of its lectures' packs.
 
-    Empty courses get zeros so they still render in the comparison table.
+    Lectures that were withheld (None) are left out of each average; a course with nothing
+    left to average gets None, never 0.
     """
-    if not lecture_packs:
-        return {k: 0 for k in _BENCHMARK_METRIC_KEYS}
-    out: Dict[str, float] = {}
+    out: Dict[str, Any] = {}
     for k in _BENCHMARK_METRIC_KEYS:
-        vals = [float(p.get(k) or 0) for p in lecture_packs]
-        out[k] = round(sum(vals) / len(vals), 1) if vals else 0.0
+        vals = [float(p[k]) for p in lecture_packs if p.get(k) is not None]
+        out[k] = round(sum(vals) / len(vals), 1) if vals else None
     # unique_students is more meaningful as a sum across the course
-    out["unique_students"] = int(sum(int(p.get("unique_students") or 0)
-                                     for p in lecture_packs))
+    students = [int(p["unique_students"]) for p in lecture_packs if p.get("unique_students") is not None]
+    out["unique_students"] = sum(students) if students else None
     return out
 
 
@@ -1635,7 +1619,7 @@ async def get_lecture_benchmarks(lecture_id: str, token: Optional[str]) -> Dict[
             metrics = await _compute_lecture_benchmark_metrics(s["id"], token)
         except Exception as e:
             logger.warning("Benchmark metric compute failed for %s: %s", s["id"], e)
-            metrics = {k: 0 for k in _BENCHMARK_METRIC_KEYS}
+            metrics = {k: None for k in _BENCHMARK_METRIC_KEYS}
         return {
             "lecture_id": s["id"],
             "title": s.get("title") or "Untitled",

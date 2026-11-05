@@ -44,8 +44,13 @@ def _safe_cv(values: List[float]) -> float:
     return float(statistics.pstdev(values) / mean)
 
 
+def _skip_owner(ev: Dict[str, Any], owner_id: Optional[str]) -> bool:
+    """The lecture's owner testing their own lecture is not a reader (events without a person stay)."""
+    return owner_id is not None and ev.get("user_id") is not None and str(ev["user_id"]) == str(owner_id)
+
+
 def _per_slide_signal_counts(
-    client, lecture_id: str, slides_data: List[Dict[str, Any]]
+    client, lecture_id: str, slides_data: List[Dict[str, Any]], owner_id: Optional[str] = None
 ) -> Dict[str, Dict[str, int]]:
     """Count AI-tutor queries and inbound back-navigations per slide id.
 
@@ -66,11 +71,13 @@ def _per_slide_signal_counts(
 
     ai_events = analytics_service._fetch_all(
         client.table("learning_events")
-        .select("event_data")
+        .select("user_id, event_data")
         .eq("event_type", "ai_tutor_query")
         .contains("event_data", {"lectureId": lecture_id})
     )
     for ev in ai_events:
+        if _skip_owner(ev, owner_id):
+            continue
         ed = ev.get("event_data") or {}
         sid = ed.get("slideId") or title_to_id.get((ed.get("slideTitle") or "").strip())
         if sid in counts:
@@ -78,11 +85,13 @@ def _per_slide_signal_counts(
 
     nav_events = analytics_service._fetch_all(
         client.table("learning_events")
-        .select("event_data")
+        .select("user_id, event_data")
         .eq("event_type", "slide_back_navigation")
         .contains("event_data", {"lectureId": lecture_id})
     )
     for ev in nav_events:
+        if _skip_owner(ev, owner_id):
+            continue
         ed = ev.get("event_data") or {}
         dest = ed.get("toSlideId")
         if dest in counts:
@@ -92,7 +101,7 @@ def _per_slide_signal_counts(
 
 
 def _per_slide_distribution_and_calibration(
-    client, lecture_id: str, slides_data: List[Dict[str, Any]]
+    client, lecture_id: str, slides_data: List[Dict[str, Any]], owner_id: Optional[str] = None
 ) -> Dict[str, Dict[str, Any]]:
     """Compute dwell distribution, directional back-nav, and calibration per slide.
 
@@ -119,11 +128,13 @@ def _per_slide_distribution_and_calibration(
     dwell_by_slide: Dict[str, List[float]] = {s["id"]: [] for s in slides_data}
     view_events = analytics_service._fetch_all(
         client.table("learning_events")
-        .select("event_data")
+        .select("user_id, event_data")
         .eq("event_type", "slide_view")
         .contains("event_data", {"lectureId": lecture_id})
     )
     for ev in view_events:
+        if _skip_owner(ev, owner_id):
+            continue
         ed = ev.get("event_data") or {}
         sid = ed.get("slideId")
         dur = ed.get("duration_seconds")
@@ -144,11 +155,13 @@ def _per_slide_distribution_and_calibration(
     # ── Directional back-navigation (from the immediately next slide) ──────────
     nav_events = analytics_service._fetch_all(
         client.table("learning_events")
-        .select("event_data")
+        .select("user_id, event_data")
         .eq("event_type", "slide_back_navigation")
         .contains("event_data", {"lectureId": lecture_id})
     )
     for ev in nav_events:
+        if _skip_owner(ev, owner_id):
+            continue
         ed = ev.get("event_data") or {}
         src, dst = ed.get("fromSlideId"), ed.get("toSlideId")
         from_num, to_num = id_to_num.get(src), id_to_num.get(dst)
@@ -173,6 +186,8 @@ def _per_slide_distribution_and_calibration(
     user_slide_wrong: Dict[tuple, bool] = {}
     user_slide_has_quiz: set = set()
     for ev in quiz_attempts:
+        if _skip_owner(ev, owner_id):
+            continue
         uid = ev.get("user_id")
         ed = ev.get("event_data") or {}
         sid = qid_to_slide.get(ed.get("questionId"))
@@ -193,6 +208,8 @@ def _per_slide_distribution_and_calibration(
     )
     user_slide_rating: Dict[tuple, str] = {}
     for ev in conf_events:  # ordered ascending → last write wins = latest
+        if _skip_owner(ev, owner_id):
+            continue
         uid = ev.get("user_id")
         ed = ev.get("event_data") or {}
         sid = ed.get("slideId")
@@ -231,13 +248,15 @@ def build_metric_bundle(lecture_id: str, token: Optional[str] = None) -> Dict[st
     # People per slide, floor not applied: the drop-off finding compares one slide with the next,
     # and a slide under the floor is not "0 people" (it is only too few to print).
     viewers = analytics_service.get_slide_viewer_counts(lecture_id, token)
-    overview = analytics_service.get_lecture_overview(lecture_id, token)
     students = analytics_service.get_student_performance(lecture_id, token)
-    total_students = int(overview.get("total_students") or 0)
+    # People who opened the lecture, floor not applied (like view_count above): the overview
+    # withholds this under five people, and a findings' reach must not read that as 0 or inflate.
+    total_students = analytics_service.get_lecture_people_count(lecture_id, token)
 
-    # New per-slide signal aggregations.
-    signal_counts = _per_slide_signal_counts(client, lecture_id, slides_data)
-    dist = _per_slide_distribution_and_calibration(client, lecture_id, slides_data)
+    # New per-slide signal aggregations (the owner's own reading never counts).
+    owner_id = analytics_service.lecture_owner_id(client, lecture_id)
+    signal_counts = _per_slide_signal_counts(client, lecture_id, slides_data, owner_id)
+    dist = _per_slide_distribution_and_calibration(client, lecture_id, slides_data, owner_id)
 
     # Index reused aggregates for joining.
     sa_by_id = {row.get("slide_id"): row for row in slide_analytics}
