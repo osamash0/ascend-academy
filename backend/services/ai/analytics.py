@@ -13,6 +13,7 @@ async def generate_analytics_insights(stats: Dict[str, Any], ai_model: str = "ll
     stats = {k: v for k, v in stats.items() if v is not None}
     prompt = f"""You are Learnstation's analytics coach for professors.
 Summarize these lecture statistics for a professor and provide 3 specific pedagogical suggestions for improvement.
+(people_answered is how many people answered at least one question; average_score is over those people.)
 Stats: {stats}
 Return ONLY valid JSON: {{"summary": "...", "suggestions": ["...", "...", "..."]}}"""
 

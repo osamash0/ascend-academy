@@ -35,7 +35,7 @@ class AnalyticsStatsRequest(BaseModel):
     # None means "withheld: fewer than five people stand behind it"; it is left out of the prompt, never read as 0.
     total_students: Optional[int] = Field(None, ge=0)
     average_score: Optional[float] = Field(None, ge=0, le=100)
-    total_attempts: Optional[int] = Field(None, ge=0)
+    people_answered: Optional[int] = Field(None, ge=0)  # people who answered at least one question
     total_correct: Optional[int] = Field(None, ge=0)
     ai_model: _AiModel = "cerebras"
 

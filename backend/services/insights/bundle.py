@@ -49,10 +49,22 @@ def _skip_owner(ev: Dict[str, Any], owner_id: Optional[str]) -> bool:
     return owner_id is not None and ev.get("user_id") is not None and str(ev["user_id"]) == str(owner_id)
 
 
+def _person(ev: Dict[str, Any], owner_id: Optional[str]) -> Optional[str]:
+    """Who an event belongs to, as a person: None for the owner and for events without one.
+
+    The garden's signals count distinct PEOPLE (one person going back three times is one), so an
+    event that is nobody's cannot add to them.
+    """
+    uid = ev.get("user_id")
+    if uid is None or _skip_owner(ev, owner_id):
+        return None
+    return str(uid)
+
+
 def _per_slide_signal_counts(
     client, lecture_id: str, slides_data: List[Dict[str, Any]], owner_id: Optional[str] = None
 ) -> Dict[str, Dict[str, int]]:
-    """Count AI-tutor queries and inbound back-navigations per slide id.
+    """Count the PEOPLE who asked the AI tutor, and who went back to a slide, per slide id.
 
     - AI queries are attributed by ``slideId`` when present (post event
       enrichment) and fall back to a ``slideTitle`` → slide-id match for
@@ -65,9 +77,8 @@ def _per_slide_signal_counts(
         for s in slides_data
         if (s.get("title") or "").strip()
     }
-    counts: Dict[str, Dict[str, int]] = {
-        s["id"]: {"ai_queries": 0, "back_nav": 0} for s in slides_data
-    }
+    asked: Dict[str, set] = {s["id"]: set() for s in slides_data}
+    went_back: Dict[str, set] = {s["id"]: set() for s in slides_data}
 
     ai_events = analytics_service._fetch_all(
         client.table("learning_events")
@@ -76,12 +87,13 @@ def _per_slide_signal_counts(
         .contains("event_data", {"lectureId": lecture_id})
     )
     for ev in ai_events:
-        if _skip_owner(ev, owner_id):
+        uid = _person(ev, owner_id)
+        if uid is None:
             continue
         ed = ev.get("event_data") or {}
         sid = ed.get("slideId") or title_to_id.get((ed.get("slideTitle") or "").strip())
-        if sid in counts:
-            counts[sid]["ai_queries"] += 1
+        if sid in asked:
+            asked[sid].add(uid)
 
     nav_events = analytics_service._fetch_all(
         client.table("learning_events")
@@ -90,14 +102,15 @@ def _per_slide_signal_counts(
         .contains("event_data", {"lectureId": lecture_id})
     )
     for ev in nav_events:
-        if _skip_owner(ev, owner_id):
+        uid = _person(ev, owner_id)
+        if uid is None:
             continue
         ed = ev.get("event_data") or {}
         dest = ed.get("toSlideId")
-        if dest in counts:
-            counts[dest]["back_nav"] += 1
+        if dest in went_back:
+            went_back[dest].add(uid)
 
-    return counts
+    return {sid: {"ai_queries": len(asked[sid]), "back_nav": len(went_back[sid])} for sid in asked}
 
 
 def _per_slide_distribution_and_calibration(
@@ -107,9 +120,11 @@ def _per_slide_distribution_and_calibration(
 
     These are the Phase-3 signals with no existing aggregate:
     - **dwell distribution**: median / p25 / p75 / CV / short-view count
-      (powers Skipped Slide, Speed Bump, Overpacked).
-    - **directional back-nav**: returns specifically from the *next* slide
-      (i+1 → i), the Speed Bump signature.
+      (powers Skipped Slide, Speed Bump, Overpacked), over PEOPLE: each person's own
+      median time on the slide is one sample, and a "short view" is a person whose
+      median is under 4s. One person reopening a slide many times is one sample.
+    - **directional back-nav**: the people who returned specifically from the *next*
+      slide (i+1 → i), the Speed Bump signature.
     - **calibration**: students who rated a slide "got it" yet failed its linked
       quiz item on the first try (the Calibration Gap / illusion-of-knowing).
     """
@@ -125,7 +140,7 @@ def _per_slide_distribution_and_calibration(
     }
 
     # ── Dwell distribution ────────────────────────────────────────────────────
-    dwell_by_slide: Dict[str, List[float]] = {s["id"]: [] for s in slides_data}
+    person_dwell: Dict[str, Dict[str, List[float]]] = {s["id"]: {} for s in slides_data}
     view_events = analytics_service._fetch_all(
         client.table("learning_events")
         .select("user_id, event_data")
@@ -133,14 +148,16 @@ def _per_slide_distribution_and_calibration(
         .contains("event_data", {"lectureId": lecture_id})
     )
     for ev in view_events:
-        if _skip_owner(ev, owner_id):
+        uid = _person(ev, owner_id)
+        if uid is None:
             continue
         ed = ev.get("event_data") or {}
         sid = ed.get("slideId")
         dur = ed.get("duration_seconds")
-        if sid in dwell_by_slide and isinstance(dur, (int, float)) and 0 < dur <= _DWELL_OUTLIER_CEIL:
-            dwell_by_slide[sid].append(float(dur))
-    for sid, durs in dwell_by_slide.items():
+        if sid in person_dwell and isinstance(dur, (int, float)) and 0 < dur <= _DWELL_OUTLIER_CEIL:
+            person_dwell[sid].setdefault(uid, []).append(float(dur))
+    for sid, by_person in person_dwell.items():
+        durs = [_safe_median(v) for v in by_person.values()]
         if not durs:
             continue
         p25, p75 = _safe_quartiles(durs)
@@ -159,14 +176,18 @@ def _per_slide_distribution_and_calibration(
         .eq("event_type", "slide_back_navigation")
         .contains("event_data", {"lectureId": lecture_id})
     )
+    returned_from_next: Dict[str, set] = {}
     for ev in nav_events:
-        if _skip_owner(ev, owner_id):
+        uid = _person(ev, owner_id)
+        if uid is None:
             continue
         ed = ev.get("event_data") or {}
         src, dst = ed.get("fromSlideId"), ed.get("toSlideId")
         from_num, to_num = id_to_num.get(src), id_to_num.get(dst)
         if dst in out and isinstance(from_num, int) and isinstance(to_num, int) and from_num == to_num + 1:
-            out[dst]["back_nav_from_next"] += 1
+            returned_from_next.setdefault(dst, set()).add(uid)
+    for dst, people in returned_from_next.items():
+        out[dst]["back_nav_from_next"] = len(people)
 
     # ── Calibration (got-it-but-wrong) ─────────────────────────────────────────
     quiz_questions = analytics_service._fetch_all(

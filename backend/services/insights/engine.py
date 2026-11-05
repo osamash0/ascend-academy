@@ -5,7 +5,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from backend.services import analytics_service
-from backend.services.insights import detectors, schema
+from backend.services.insights import copy, detectors, schema
 from backend.services.insights.bundle import build_metric_bundle
 
 logger = logging.getLogger(__name__)
@@ -73,6 +73,48 @@ def _keep_the_floor(insights: List[Dict[str, Any]], bundle: Dict[str, Any]) -> L
     return kept
 
 
+#: Metrics that are a count of PEOPLE (the bundle counts distinct people, the owner out). A count of 1 to 4
+#: people is never shown, so each becomes None; the front end renders None as a dash.
+_PEOPLE_COUNT_KEYS = {
+    schema.SPEED_BUMP: ("backtracksFromNext",),
+    schema.SKIPPED_SLIDE: ("shortViews",),
+    schema.OVERPACKED: ("aiQueryCount",),
+    schema.CONFUSION_HOTSPOT: ("aiQueryCount", "backNavCount"),
+    schema.CALIBRATION_GAP: ("overconfidentCount",),
+}
+
+#: Kinds whose cue is that count: with it withheld the cue is dropped, never printed as "None".
+_COUNT_CUE = {schema.SPEED_BUMP: "backtracksFromNext"}
+
+
+def _withheld(value: Any) -> Any:
+    return None if isinstance(value, int) and not isinstance(value, bool) and 0 < value < analytics_service.MIN_PEOPLE else value
+
+
+def _withhold_small_counts(insight: Dict[str, Any], bundle: Dict[str, Any]) -> Dict[str, Any]:
+    """Set every people count of 1 to 4 on this insight to None, and rebuild text that printed one."""
+    keys = _PEOPLE_COUNT_KEYS.get(insight.get("kind"), ())
+    if not keys:
+        return insight
+    for container in (insight.get("metrics") or {}, insight.get("detail") or {}):
+        for k in keys:
+            if k in container:
+                container[k] = _withheld(container[k])
+    cue_key = _COUNT_CUE.get(insight["kind"])
+    if cue_key and (insight.get("metrics") or {}).get(cue_key) is None:
+        insight["cue"] = {}
+    if insight["kind"] == schema.CONFUSION_HOTSPOT:
+        # The summary names how many asked and went back; say only what has 5+ people behind it.
+        number = (insight.get("targetRef") or {}).get("slideNumber")
+        slide = next((s for s in bundle.get("slides", []) if s.get("slide_number") == number), None)
+        if slide is not None:
+            shown = {k: (v if v is not None and v >= analytics_service.MIN_PEOPLE else 0)
+                     for k, v in ((k, slide.get(k)) for k in ("ai_query_count", "back_nav_count"))}
+            headline, summary, interpretation = copy.confusion_hotspot_copy({**slide, **shown})
+            insight.update(headline=headline, summary=summary, interpretation=interpretation)
+    return insight
+
+
 def build_insights(lecture_id: str, token: Optional[str] = None) -> List[Dict[str, Any]]:
     """Build the ranked insight feed for a lecture.
 
@@ -92,6 +134,6 @@ def build_insights(lecture_id: str, token: Optional[str] = None) -> List[Dict[st
             # A single misbehaving detector must never sink the whole feed.
             logger.exception("insight detector failed: %s", getattr(detect, "__name__", detect))
 
-    insights = _keep_the_floor(insights, bundle)
+    insights = [_withhold_small_counts(i, bundle) for i in _keep_the_floor(insights, bundle)]
     insights.sort(key=lambda i: i.get("severity", 0.0), reverse=True)
     return insights

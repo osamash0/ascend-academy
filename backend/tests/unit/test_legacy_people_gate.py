@@ -839,7 +839,7 @@ def test_the_insights_request_accepts_withheld_figures_and_the_prompt_leaves_the
     from backend.api.v1.ai_content import AnalyticsStatsRequest
     from backend.services.ai import analytics as ai_analytics
 
-    body = AnalyticsStatsRequest(total_students=6, average_score=None, total_attempts=None, total_correct=None)
+    body = AnalyticsStatsRequest(total_students=6, average_score=None, people_answered=None, total_correct=None)
     seen = []
 
     async def fake_generate(prompt, model):
@@ -849,7 +849,11 @@ def test_the_insights_request_accepts_withheld_figures_and_the_prompt_leaves_the
     monkeypatch.setattr(ai_analytics, "generate_text", fake_generate)
     asyncio.run(ai_analytics.generate_analytics_insights(body.dict(), ai_model=body.ai_model))
     assert "'total_students': 6" in seen[0]
-    assert "average_score" not in seen[0] and "total_attempts" not in seen[0] and "None" not in seen[0]
+    assert "'average_score'" not in seen[0] and "'people_answered'" not in seen[0] and "None" not in seen[0]
+    seen.clear()
+    full = AnalyticsStatsRequest(total_students=6, average_score=70, people_answered=6)
+    asyncio.run(ai_analytics.generate_analytics_insights(full.dict(), ai_model=full.ai_model))
+    assert "'people_answered': 6" in seen[0] and "'average_score': 70" in seen[0]
 
 
 def test_the_metric_feedback_prompt_leaves_withheld_context_out(monkeypatch):
@@ -866,3 +870,92 @@ def test_the_metric_feedback_prompt_leaves_withheld_context_out(monkeypatch):
     monkeypatch.setattr(ai_analytics, "generate_text", fake_generate)
     asyncio.run(ai_analytics.generate_metric_feedback("Completion", 40, {"average_score": None, "total_students": 6}))
     assert "average_score" not in seen[0] and "None" not in seen[0] and "total_students" in seen[0]
+
+
+# ── the garden's signals count people, and a count of 1 to 4 people is never shown ──
+
+def _nav(uid, frm, to):
+    return {"user_id": uid, "event_data": {"lectureId": "L1", "fromSlideId": frm, "toSlideId": to}}
+
+
+def _bundle_slide(world, sid="s1"):
+    from backend.services.insights import bundle as bundle_mod
+
+    return next(s for s in bundle_mod.build_metric_bundle("L1", "t")["slides"] if s["slide_id"] == sid)
+
+
+def test_one_person_going_back_three_times_is_one_person(world):
+    world[("learning_events", "slide_back_navigation")] = [_nav("u1", "s2", "s1")] * 3 + [_nav("u2", "s2", "s1")]
+    s1 = _bundle_slide(world)
+    assert (s1["back_nav_from_next"], s1["back_nav_count"]) == (2, 2)
+
+
+def test_the_owner_going_back_is_not_a_person(world):
+    world[("learning_events", "slide_back_navigation")] = [_nav(OWNER, "s2", "s1")] * 2 + [_nav("u1", "s2", "s1")]
+    assert _bundle_slide(world)["back_nav_from_next"] == 1
+
+
+def test_one_person_asking_four_times_is_one_asker(world):
+    ask = {"lectureId": "L1", "slideId": "s1", "query": "?"}
+    world[("learning_events", "ai_tutor_query")] = (
+        [{"user_id": "u1", "event_data": ask}] * 4 + [{"user_id": OWNER, "event_data": ask}, {"event_data": ask}])
+    assert _bundle_slide(world)["ai_query_count"] == 1
+
+
+def test_dwell_and_short_views_are_over_people_each_persons_own_median(world):
+    # u1 opens the slide 10 times for 1s; u2..u4 once each for 30s. By events 10 of 13 views were
+    # short; by people only 1 of 4 is, and the median time is the median of the 4 people.
+    world[("learning_events", "slide_view")] = (
+        [_view("u1", "s1", 1)] * 10 + [_view(f"u{i}", "s1", 30) for i in (2, 3, 4)] + [_view(OWNER, "s1", 1)])
+    s1 = _bundle_slide(world)
+    assert s1["short_views"] == 1
+    assert s1["median_dwell"] == 30.0 and s1["view_count"] == 4
+
+
+def _one(monkeypatch, kind, slide):
+    found = [i for i in _garden(monkeypatch, [slide]) if i["kind"] == kind]
+    assert len(found) == 1, (kind, [i["kind"] for i in _garden(monkeypatch, [slide])])
+    return found[0]
+
+
+@pytest.mark.parametrize("kind, key, slide_key, slide_kw", [
+    ("speed_bump", "backtracksFromNext", "back_nav_from_next", dict(median_dwell=60.0, confusion_rate=10.0)),
+    ("skipped_slide", "shortViews", "short_views", dict(median_dwell=2.0)),
+    ("overpacked", "aiQueryCount", "ai_query_count",
+     dict(confusion_rate=45.0, median_dwell=80.0, dwell_cv=1.2, confused=4, got_it=1, ratings_total=5)),
+    ("confusion_hotspot", "aiQueryCount", "ai_query_count",
+     dict(confusion_rate=60.0, confused=3, got_it=2, ratings_total=5)),
+    ("confusion_hotspot", "backNavCount", "back_nav_count",
+     dict(confusion_rate=60.0, confused=3, got_it=2, ratings_total=5)),
+    ("calibration_gap", "overconfidentCount", "overconfident_count",
+     dict(got_it_quiz_total=6, overconfidence_rate=100.0)),
+])
+def test_a_people_count_tile_is_none_at_four_and_the_number_at_five(monkeypatch, kind, key, slide_key, slide_kw):
+    def make(n):
+        kw = dict(slide_kw)
+        kw[slide_key] = n
+        if kind == "speed_bump":
+            kw["back_nav_from_next"] = n
+        return _gslide(1, 12, **kw)
+
+    four = _one(monkeypatch, kind, make(4))
+    assert four["metrics"][key] is None
+    assert "None" not in repr(four["cue"]) and "None" not in four["summary"] and "None" not in four["headline"]
+    five = _one(monkeypatch, kind, make(5))
+    assert five["metrics"][key] == 5
+
+
+def test_a_speed_bump_cue_over_four_people_is_dropped_not_printed_as_none(monkeypatch):
+    slide = _gslide(1, 12, median_dwell=60.0, confusion_rate=10.0, back_nav_from_next=3)
+    bump = _one(monkeypatch, "speed_bump", slide)
+    assert bump["cue"] == {} and bump["metrics"]["backtracksFromNext"] is None
+    five = _one(monkeypatch, "speed_bump", {**slide, "back_nav_from_next": 6})
+    assert five["cue"] == {"metric": {"label": "backtracks", "value": "6"}}
+
+
+def test_a_hotspot_summary_names_only_the_counts_with_five_people_behind_them(monkeypatch):
+    base = dict(confusion_rate=60.0, confused=3, got_it=2, ratings_total=5)
+    quiet = _one(monkeypatch, "confusion_hotspot", _gslide(1, 12, ai_query_count=4, back_nav_count=3, **base))
+    assert "asked the AI tutor" not in quiet["summary"] and "backtracked" not in quiet["summary"]
+    loud = _one(monkeypatch, "confusion_hotspot", _gslide(1, 12, ai_query_count=5, back_nav_count=3, **base))
+    assert "5 asked the AI tutor" in loud["summary"] and "backtracked" not in loud["summary"]
