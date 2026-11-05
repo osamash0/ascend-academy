@@ -464,9 +464,19 @@ function SlideRecommendationsSection({
                         <TableCell className="font-bold text-foreground max-w-[280px] truncate">
                           {s.title}
                         </TableCell>
-                        <TableCell className="text-center text-sm">{s.view_count}</TableCell>
-                        <TableCell className="text-center text-sm">{s.drop_off_rate.toFixed(0)}%</TableCell>
-                        <TableCell className="text-center text-sm">{(s.confusion_rate ?? 0).toFixed(0)}%</TableCell>
+                        <TableCell className="text-center text-sm">
+                          {s.view_count != null ? s.view_count : <span className="text-muted-foreground/50">—</span>}
+                        </TableCell>
+                        <TableCell className="text-center text-sm">
+                          {s.drop_off_rate != null
+                            ? `${s.drop_off_rate.toFixed(0)}%`
+                            : <span className="text-muted-foreground/50">—</span>}
+                        </TableCell>
+                        <TableCell className="text-center text-sm">
+                          {s.confusion_rate != null
+                            ? `${s.confusion_rate.toFixed(0)}%`
+                            : <span className="text-muted-foreground/50">—</span>}
+                        </TableCell>
                         <TableCell className="text-center text-sm">
                           {s.quiz_attempts && s.quiz_success_rate != null
                             ? `${s.quiz_success_rate.toFixed(0)}%`

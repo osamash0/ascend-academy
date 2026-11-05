@@ -245,11 +245,12 @@ export interface SlideAnalytics {
   slide_id?: string;
   slide_number: number;
   title: string;
-  view_count: number;
-  average_time_seconds: number;
-  drop_off_rate: number;
-  confusion_rate?: number;
-  quiz_attempts?: number;
+  // null = fewer than 5 people stand behind it: nothing is said (never 0)
+  view_count: number | null;
+  average_time_seconds: number | null;
+  drop_off_rate: number | null;
+  confusion_rate?: number | null;
+  quiz_attempts?: number | null;
   quiz_success_rate?: number | null;
   recommendation_label?: SlideRecommendationLabel;
   recommendation_reasons?: string[];

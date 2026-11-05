@@ -6,7 +6,7 @@
  * fabricated summary/suggestions), with a working retry.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
@@ -176,5 +176,35 @@ describe("AdvancedAnalytics — AI insights failure (R2)", () => {
 
     expect(await screen.findByText(/everything looks great this week/i)).toBeInTheDocument();
     expect(screen.queryByTestId("ai-insights-error")).not.toBeInTheDocument();
+  });
+});
+
+describe("AdvancedAnalytics — slides too few people stand behind", () => {
+  it("shows a dash, never 0, for every figure the backend left null", async () => {
+    const user = userEvent.setup();
+    getSlideAnalyticsMock.mockResolvedValue([
+      {
+        slide_id: "s1",
+        slide_number: 7,
+        title: "Quiet slide",
+        view_count: null,
+        average_time_seconds: null,
+        drop_off_rate: null,
+        confusion_rate: null,
+        quiz_attempts: null,
+        quiz_success_rate: null,
+        recommendation_label: "insufficient_data",
+        recommendation_reasons: ["low_view_count"],
+      },
+    ]);
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /show all 1 slides/i }));
+
+    const row = (await screen.findByText("Quiet slide")).closest("tr") as HTMLElement;
+    const cells = within(row).getAllByRole("cell");
+    // # | Slide | Views | Drop-off | Confusion | Quiz
+    expect(cells.slice(2, 6).map((c) => c.textContent)).toEqual(["—", "—", "—", "—"]);
+    expect(row.textContent).not.toMatch(/0%/);
   });
 });

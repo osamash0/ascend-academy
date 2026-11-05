@@ -9,9 +9,9 @@ export interface LectureOverview {
 export interface SlideAnalytics {
   slide_number: number;
   title: string;
-  view_count: number;
-  average_time_seconds: number;
-  drop_off_rate: number;
+  view_count: number | null;
+  average_time_seconds: number | null;
+  drop_off_rate: number | null;
 }
 
 export interface QuizAnalytics {
