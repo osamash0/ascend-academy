@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 import statistics
-from typing import Any, Dict, List, Tuple, TypedDict
+from typing import Any, Dict, List, Literal, Tuple, TypedDict
 
 from backend.services.pdf_reader import page_text_dict
 
@@ -23,7 +23,6 @@ FOOTER_TOP = 0.9
 FOOTER_MAX_SIZE = 0.85  # and set smaller than the page's body text: a slide's last bullet is not a footer
 FIGURE_MAX_AREA = 0.6  # larger = page background
 FIGURE_MIN_AREA = 0.002  # smaller = a logo
-IMAGE_ONLY_CHARS = 25
 # Images that are not figures a reader would miss (LS-005: Source view
 # outlined empty grey space, duplicates and covered text as "not in your
 # version", and covered text leaked into the clean version).
@@ -196,9 +195,28 @@ def extract_blocks(page: Any, page_no: int) -> PageBlocks:
             "footers": footers, "text_chars": text_chars}
 
 
-def is_image_only(pb: PageBlocks) -> bool:
-    """Too little text to summarise from: the page goes to vision (spec §5.3)."""
-    return pb["text_chars"] < IMAGE_ONLY_CHARS
+# How a page is read: the one routing rule of the parse (study 2026-11-05).
+# Text is the page's own text, running footers left out; figures are what
+# extract_blocks calls a figure. Pure vector diagrams are not figures here.
+NO_TEXT_CHARS = 25        # less text than this: only the picture says anything (scans, photos)
+FIGURE_TEXT_CHARS = 150   # below this much text, a figure carries the page
+FIGURE_MIN_SHARE = 0.05   # figures covering less of the page than this do not
+
+Route = Literal["no_text", "figure", "text"]
+
+
+def figure_share(pb: PageBlocks) -> float:
+    """How much of the page its figures cover, 0..1 (overlaps count twice)."""
+    return min(1.0, sum(_area(b["bbox"]) for b in pb["blocks"] if b["kind"] == "figure"))
+
+
+def route_page(pb: PageBlocks) -> Route:
+    """Why a page goes to vision ("no_text", "figure") or is read as text."""
+    if pb["text_chars"] < NO_TEXT_CHARS:
+        return "no_text"
+    if pb["text_chars"] < FIGURE_TEXT_CHARS and figure_share(pb) >= FIGURE_MIN_SHARE:
+        return "figure"
+    return "text"
 
 
 VISION_KINDS = {"heading", "paragraph", "list", "table", "code", "math", "figure", "handwriting"}

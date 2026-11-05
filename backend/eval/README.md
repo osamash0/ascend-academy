@@ -230,3 +230,20 @@ drop-risk probe (`backend/eval/data/grounding_probe.py`) at the unchanged
 its numbers by hand. Rerun the tool instead.
 
 Tests: `pytest backend/tests/unit/test_deck_lab_metrics.py backend/tests/unit/test_deck_lab_probe.py backend/tests/unit/test_deck_lab_cli.py backend/tests/unit/test_grounding_probe_set.py`
+
+## Routing check — which pages go to vision (no LLM, no DB)
+
+```
+python -m backend.eval.routing_check                       # the Deck Lab decks in ~/Downloads
+python -m backend.eval.routing_check --labels labels.json  # also: labelled "needs the image" pages caught
+```
+
+Runs the parse's one routing rule, `page_blocks.route_page`, over every page:
+`no_text` (under 25 chars of page text, footers left out) and `figure` (a
+figure covering at least 5% of the page, under 150 chars) go to vision, the
+rest to the text batch. It exits 1 when the vision count leaves its expected
+range (`VISION_MIN`/`VISION_MAX`), so a change to `page_blocks` that moves many
+pages shows before a deploy. It prints counts only, never slide text; the
+labels file lives outside the repo for the same reason.
+
+Tests: `pytest backend/tests/unit/test_page_blocks.py backend/tests/unit/test_routing_check.py`

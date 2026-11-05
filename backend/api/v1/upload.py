@@ -471,7 +471,10 @@ async def enhance_slide_endpoint(
         if lecture.get("pdf_hash"):
             pdf_bytes = await _fetch_pdf_bytes(lecture["pdf_hash"]) or b""
 
-        res = await _uo._synthesize_slide(idx0, content_text, lecture_context, resolved_model, pdf_bytes)
+        # Same rule as the parse: the slide's PDF page decides text or vision.
+        route_reason = await asyncio.to_thread(_uo._route_page_at, pdf_bytes, idx0) if pdf_bytes else "text"
+        res = await _uo._synthesize_slide(idx0, content_text, lecture_context, resolved_model, pdf_bytes,
+                                          route_reason=route_reason)
         new_title = (res.get("title") or "").strip() or slide.get("title") or f"Slide {idx0 + 1}"
         new_summary = (res.get("summary") or "").strip()
         new_content = (res.get("content") or "").strip() or content_text

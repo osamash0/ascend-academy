@@ -14,7 +14,7 @@ from pathlib import Path
 import fitz
 import pytest
 
-from backend.services.parser.page_blocks import extract_blocks, is_image_only
+from backend.services.parser.page_blocks import extract_blocks, figure_share, route_page
 
 ROOT = Path(__file__).resolve().parents[3]
 PDF = ROOT / "public/v4-mock/normalization.pdf"
@@ -58,33 +58,101 @@ def test_footers_are_low_on_the_page(doc):
             assert by_id[fid]["bbox"][1] >= 0.9
 
 
-def test_a_picture_only_page_is_image_only():
-    d = fitz.open()
-    page = d.new_page(width=400, height=300)
+def _picture(page, rect):
     pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 50, 50), False)
     pix.clear_with(200)
-    page.insert_image(fitz.Rect(50, 50, 350, 250), pixmap=pix)
-    pb = extract_blocks(page, 1)
-    assert is_image_only(pb)
+    page.insert_image(rect, pixmap=pix)
+
+
+def test_a_picture_only_page_has_no_text():
+    d = fitz.open()
+    page = d.new_page(width=400, height=300)
+    _picture(page, fitz.Rect(50, 50, 350, 250))
+    assert route_page(extract_blocks(page, 1)) == "no_text"
     d.close()
 
 
-def test_a_text_page_is_not_image_only(doc):
-    assert not is_image_only(extract_blocks(doc[1], 2))
+def test_a_text_page_routes_to_text(doc):
+    assert route_page(extract_blocks(doc[1], 2)) == "text"
 
 
 def test_a_footer_does_not_count_as_page_text():
     d = fitz.open()
     page = d.new_page(width=720, height=405)
-    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 50, 50), False)
-    pix.clear_with(200)
-    page.insert_image(fitz.Rect(144, 40, 576, 283), pixmap=pix)  # about 40% of the page
+    _picture(page, fitz.Rect(144, 40, 576, 283))  # about 40% of the page
     page.insert_text((40, 395), "Datenbanksysteme · Vorlesung 3 · Universität", fontsize=10)
     pb = extract_blocks(page, 1)
     assert len(pb["footers"]) == 1
     assert pb["footers"][0] in {b["id"] for b in pb["blocks"]}
-    assert is_image_only(pb)
+    assert route_page(pb) == "no_text"
     d.close()
+
+
+def test_a_figure_with_a_short_caption_routes_to_figure():
+    d = fitz.open()
+    page = d.new_page(width=720, height=405)
+    _picture(page, fitz.Rect(144, 40, 576, 283))
+    page.insert_text((144, 320), "Abbildung 2: Der B-Baum nach dem Einfügen von 17", fontsize=14)
+    pb = extract_blocks(page, 1)
+    assert 25 <= pb["text_chars"] < 150
+    assert route_page(pb) == "figure"
+    d.close()
+
+
+def test_a_figure_beside_plenty_of_text_routes_to_text():
+    d = fitz.open()
+    page = d.new_page(width=720, height=405)
+    _picture(page, fitz.Rect(400, 60, 680, 300))
+    for k, y in enumerate((80, 110, 140, 170, 200)):
+        page.insert_text((40, y), f"Punkt {k}: ein Satz mit genug eigenem Text", fontsize=14)
+    pb = extract_blocks(page, 1)
+    assert pb["text_chars"] >= 150
+    assert route_page(pb) == "text"
+    d.close()
+
+
+def test_a_small_picture_does_not_make_a_short_page_a_figure():
+    d = fitz.open()
+    page = d.new_page(width=720, height=405)
+    _picture(page, fitz.Rect(300, 150, 390, 230))  # about 2.5% of the page
+    page.insert_text((40, 100), "Zusammenfassung SQL und Ausblick", fontsize=20)
+    pb = extract_blocks(page, 1)
+    assert 0 < figure_share(pb) < 0.05
+    assert route_page(pb) == "text"
+    d.close()
+
+
+def _pb(text_chars, *figures):
+    blocks = [{"id": f"p1-b{i}", "page": 1, "bbox": list(b), "kind": "figure", "text": "", "readingOrder": i}
+              for i, b in enumerate(figures)]
+    return {"width": 720.0, "height": 405.0, "blocks": blocks, "markdown": {}, "footers": [],
+            "text_chars": text_chars}
+
+
+@pytest.mark.parametrize("chars, route", [(0, "no_text"), (24, "no_text"), (25, "text"), (149, "text")])
+def test_routing_without_a_figure_is_by_text_alone(chars, route):
+    assert route_page(_pb(chars)) == route
+
+
+@pytest.mark.parametrize("chars, route", [(24, "no_text"), (25, "figure"), (149, "figure"), (150, "text")])
+def test_a_figure_carries_the_page_only_below_150_chars(chars, route):
+    assert route_page(_pb(chars, (0.1, 0.1, 0.6, 0.6))) == route
+
+
+def test_a_figure_counts_from_five_percent_of_the_page():
+    assert route_page(_pb(60, (0.0, 0.0, 0.25, 0.2))) == "figure"   # 5%
+    assert route_page(_pb(60, (0.0, 0.0, 0.2, 0.2))) == "text"      # 4%
+
+
+def test_figure_share_adds_figures_and_ignores_text_blocks():
+    pb = _pb(60, (0.0, 0.0, 0.1, 0.1), (0.5, 0.5, 0.7, 0.6))
+    pb["blocks"].append({"id": "p1-b9", "page": 1, "bbox": [0.0, 0.0, 1.0, 1.0], "kind": "paragraph",
+                         "text": "x", "readingOrder": 9})
+    assert figure_share(pb) == pytest.approx(0.03)
+
+
+def test_figure_share_never_exceeds_the_page():
+    assert figure_share(_pb(0, (0.0, 0.0, 0.9, 0.9), (0.1, 0.1, 1.0, 1.0))) == 1.0
 
 
 # LS-005: Source view outlined empty grey space, duplicates and covered text
