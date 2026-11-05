@@ -5,14 +5,44 @@ Each method opens a fresh fitz.Document inside a thread worker and closes it
 before returning — no shared document state, no thread-safety issues.
 Pixmaps are created and nullified inside the thread so C-backed memory is
 released before the bytes object crosses back to the async caller.
+
+The one exception is PyMuPDF's table search, so it and the text reads whose
+boxes matter go through page_tables / page_text_dict below.
 """
 import asyncio
 import logging
+import threading
 from typing import Any, Dict, List
 
 import fitz
 
 logger = logging.getLogger(__name__)
+
+# PyMuPDF's table search is not thread-safe. It keeps the page it is reading
+# in module globals (pymupdf.table CHARS, EDGES, TEXTPAGE) and switches the
+# process-wide "small glyph heights" on while it runs, restoring the old value
+# after. Two at once read each other's pages, and the later one can restore
+# the earlier one's "on", leaving it on for the life of the process: every
+# get_text("dict") after that returns shorter text boxes. Threads buy nothing
+# here (it is Python under the GIL), so table searches and box reads take turns.
+_TABLE_SEARCH = threading.Lock()
+
+
+def page_tables(page: Any) -> Any:
+    """page.find_tables(), one at a time across the process."""
+    with _TABLE_SEARCH:
+        return page.find_tables()
+
+
+def page_text_dict(page: Any) -> dict:
+    """page.get_text("dict") at full glyph heights, whatever ran before it."""
+    with _TABLE_SEARCH:
+        was = fitz.TOOLS.set_small_glyph_heights()
+        fitz.TOOLS.set_small_glyph_heights(False)
+        try:
+            return page.get_text("dict")
+        finally:
+            fitz.TOOLS.set_small_glyph_heights(was)
 
 
 class PDFReader:
@@ -61,7 +91,7 @@ class PDFReader:
         def _sync(b: bytes, idx: int) -> dict:
             doc = fitz.open(stream=b, filetype="pdf")
             try:
-                return doc[idx].get_text("dict")
+                return page_text_dict(doc[idx])
             finally:
                 doc.close()
 
@@ -72,7 +102,7 @@ class PDFReader:
         def _sync(b: bytes, idx: int) -> list:
             doc = fitz.open(stream=b, filetype="pdf")
             try:
-                result = doc[idx].find_tables()
+                result = page_tables(doc[idx])
                 return result.tables if result else []
             except Exception:
                 return []

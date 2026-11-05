@@ -14,6 +14,8 @@ import re
 import statistics
 from typing import Any, Dict, List, Tuple, TypedDict
 
+from backend.services.pdf_reader import page_text_dict
+
 PUA = re.compile("[\ue000-\uf8ff]")  # icon-font bullets in some exports
 HEADING_RATIO = 1.35
 HEADING_MAX_CHARS = 120
@@ -126,7 +128,8 @@ def extract_blocks(page: Any, page_no: int) -> PageBlocks:
     of it).
     """
     w, h = page.rect.width, page.rect.height
-    raw = page.get_text("dict")["blocks"]
+    # Full glyph heights, even if a table search elsewhere left them small.
+    raw = page_text_dict(page)["blocks"]
     # Paint order is block order: a panel covers what came before it.
     panels = [(i, _norm_box(b["bbox"], w, h)) for i, b in enumerate(raw)
               if b["type"] == 1 and _is_panel(_norm_box(b["bbox"], w, h))]
