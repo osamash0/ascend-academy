@@ -2,6 +2,7 @@ import logging
 import json
 from typing import List, Dict, Any, Optional, AsyncGenerator
 from backend.services.ai.orchestrator import generate_text, parse_json_response
+from backend.services.ai.untrusted import inert
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +60,9 @@ async def generate_blueprint(
     logger.info("Planner Agent: Generating blueprint...")
     
     prompt = PLANNER_PROMPT.format(
-        outline=json.dumps(outline, indent=2),
-        summary=summary,
-        first_slides=json.dumps(first_slides, indent=2)
+        outline=inert(json.dumps(outline, indent=2)),
+        summary=inert(summary),
+        first_slides=inert(json.dumps(first_slides, indent=2))
     )
 
     try:

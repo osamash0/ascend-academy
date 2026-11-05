@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field, ValidationError
 from backend.services.cache import get_cache, set_cache
 from backend.services.localization_service import get_lecture_content_for_locale
 from backend.services.v4_reader_service import _generate_json, _lecture_row, write_in
+from backend.services.ai.untrusted import inert, one_line
 
 logger = logging.getLogger(__name__)
 
@@ -110,8 +111,8 @@ async def _span(lecture_id: UUID, first: int, last: int, locale: str) -> tuple[d
     span = [s for s in slides if first <= int(s.get("slide_number") or 0) <= last]
     step = max(1, len(span) // SPAN_SLIDES)
     text = "\n".join(
-        f"  p{s.get('slide_number')}: {(s.get('title') or '').strip()[:80]} — "
-        f"{' '.join((s.get('content_text') or '').split())[:SLIDE_CHARS]}"
+        f"  p{s.get('slide_number')}: {one_line(s.get('title'), 80)} — "
+        f"{inert(' '.join((s.get('content_text') or '').split())[:SLIDE_CHARS])}"
         for s in span[::step][:SPAN_SLIDES]
     )
     return meta, text, first, last
@@ -127,8 +128,8 @@ async def key_points(
     if isinstance(cached, list) and cached:
         return cached, meta, first, last
     prompt = KEYPOINTS_PROMPT.format(
-        lecture=meta.get("title") or "",
-        idea=idea[:80],
+        lecture=one_line(meta.get("title"), 200),
+        idea=one_line(idea, 80),
         first=first,
         last=last,
         pages=text,
@@ -198,7 +199,7 @@ async def teach_back(
     prompt = READING_PROMPT.format(
         idea=idea[:80],
         points="\n".join(f"{i}: {p['point']} (page {p['page']})" for i, p in enumerate(points)),
-        explanation=explanation[:MAX_EXPLANATION].replace("EXPLANATION>>>", ""),
+        explanation=inert(explanation[:MAX_EXPLANATION].replace("EXPLANATION>>>", "")),
         write_in=write_in(locale, meta.get("served", locale)),
     )
     data: Any = None

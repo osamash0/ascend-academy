@@ -27,6 +27,7 @@ from backend.services.localization_service import get_lecture_content_for_locale
 from backend.services.v4_reader_service import IDEAS_VERSION, _generate_json, write_in
 from backend.services.cache import get_cache, set_cache
 from backend.services.v4_personal import is_personal, space_lectures
+from backend.services.ai.untrusted import inert, one_line
 
 logger = logging.getLogger(__name__)
 
@@ -280,12 +281,12 @@ async def _lecture_context(lecture: dict[str, Any], locale: str) -> tuple[str, i
     step = max(1, len(texty) // MAX_SLIDES_PER_LECTURE)
     sample = texty[::step][:MAX_SLIDES_PER_LECTURE]
     pages = "\n".join(
-        f"  p{s.get('slide_number')}: {(s.get('title') or '').strip()[:70]} — "
-        f"{' '.join((s.get('content_text') or '').split())[:SLIDE_TEXT_CHARS]}"
+        f"  p{s.get('slide_number')}: {one_line(s.get('title'), 70)} — "
+        f"{inert(' '.join((s.get('content_text') or '').split())[:SLIDE_TEXT_CHARS])}"
         for s in sample
     )
     return (
-        f'\nLecture "{lecture["title"]}" — lecture_id {lecture["id"]}, {len(slides)} pages\n{idea_line}\n{pages}',
+        f'\nLecture "{one_line(lecture["title"], 200).replace(chr(34), chr(39))}" — lecture_id {lecture["id"]}, {len(slides)} pages\n{idea_line}\n{pages}',
         len(slides),
     )
 
@@ -436,15 +437,15 @@ async def checkpoint(
     texty = [s for s in span if len((s.get("content_text") or "").strip()) > 30] or span
     step = max(1, len(texty) // CHECKPOINT_SLIDES)
     pages = "\n".join(
-        f"  p{s.get('slide_number')}: {(s.get('title') or '').strip()[:70]} — "
-        f"{' '.join((s.get('content_text') or '').split())[:SLIDE_TEXT_CHARS * 2]}"
+        f"  p{s.get('slide_number')}: {one_line(s.get('title'), 70)} — "
+        f"{inert(' '.join((s.get('content_text') or '').split())[:SLIDE_TEXT_CHARS * 2])}"
         for s in texty[::step][:CHECKPOINT_SLIDES]
     )
     prompt = CHECKPOINT_PROMPT.format(
         count=2,
-        lecture=meta.get("title") or "",
+        lecture=one_line(meta.get("title"), 200),
         lecture_id=str(lecture_id),
-        idea=idea[:80],
+        idea=one_line(idea, 80),
         first=first,
         last=last,
         pages=pages,
