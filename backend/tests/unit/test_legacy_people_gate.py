@@ -919,7 +919,6 @@ def _one(monkeypatch, kind, slide):
 
 
 @pytest.mark.parametrize("kind, key, slide_key, slide_kw", [
-    ("speed_bump", "backtracksFromNext", "back_nav_from_next", dict(median_dwell=60.0, confusion_rate=10.0)),
     ("skipped_slide", "shortViews", "short_views", dict(median_dwell=2.0)),
     ("overpacked", "aiQueryCount", "ai_query_count",
      dict(confusion_rate=45.0, median_dwell=80.0, dwell_cv=1.2, confused=4, got_it=1, ratings_total=5)),
@@ -934,8 +933,6 @@ def test_a_people_count_tile_is_none_at_four_and_the_number_at_five(monkeypatch,
     def make(n):
         kw = dict(slide_kw)
         kw[slide_key] = n
-        if kind == "speed_bump":
-            kw["back_nav_from_next"] = n
         return _gslide(1, 12, **kw)
 
     four = _one(monkeypatch, kind, make(4))
@@ -945,12 +942,12 @@ def test_a_people_count_tile_is_none_at_four_and_the_number_at_five(monkeypatch,
     assert five["metrics"][key] == 5
 
 
-def test_a_speed_bump_cue_over_four_people_is_dropped_not_printed_as_none(monkeypatch):
-    slide = _gslide(1, 12, median_dwell=60.0, confusion_rate=10.0, back_nav_from_next=3)
-    bump = _one(monkeypatch, "speed_bump", slide)
-    assert bump["cue"] == {} and bump["metrics"]["backtracksFromNext"] is None
-    five = _one(monkeypatch, "speed_bump", {**slide, "back_nav_from_next": 6})
-    assert five["cue"] == {"metric": {"label": "backtracks", "value": "6"}}
+def test_a_speed_bump_needs_five_people_who_turned_back(monkeypatch):
+    slide = _gslide(1, 12, median_dwell=60.0, confusion_rate=10.0)
+    assert all(i["kind"] != "speed_bump" for i in _garden(monkeypatch, [{**slide, "back_nav_from_next": 4}]))
+    bump = _one(monkeypatch, "speed_bump", {**slide, "back_nav_from_next": 5})
+    assert bump["cue"] == {"metric": {"label": "backtracks", "value": "5"}}
+    assert bump["metrics"]["backtracksFromNext"] == 5
 
 
 def test_a_hotspot_summary_names_only_the_counts_with_five_people_behind_them(monkeypatch):
@@ -959,3 +956,26 @@ def test_a_hotspot_summary_names_only_the_counts_with_five_people_behind_them(mo
     assert "asked the AI tutor" not in quiet["summary"] and "backtracked" not in quiet["summary"]
     loud = _one(monkeypatch, "confusion_hotspot", _gslide(1, 12, ai_query_count=5, back_nav_count=3, **base))
     assert "5 asked the AI tutor" in loud["summary"] and "backtracked" not in loud["summary"]
+
+
+def test_no_served_text_prints_a_withheld_count_as_zero_or_none(monkeypatch):
+    import json
+    import re
+
+    withheld = dict(ai_query_count=3, back_nav_count=2, short_views=4, overconfident_count=4)
+    slides = [
+        _gslide(1, 12, confusion_rate=60.0, confused=3, got_it=2, ratings_total=5, **withheld),          # hotspot
+        _gslide(2, 12, median_dwell=2.0, **withheld),                                                      # skipped
+        _gslide(3, 12, confusion_rate=45.0, median_dwell=80.0, dwell_cv=1.2, ratings_total=5,
+                confused=4, got_it=1, **withheld),                                                         # overpacked
+        _gslide(4, 12, got_it_quiz_total=6, overconfidence_rate=80.0, **{**withheld, "overconfident_count": 4}),
+    ]
+    served = _garden(monkeypatch, slides)
+    assert {i["kind"] for i in served} >= {"confusion_hotspot", "skipped_slide", "calibration_gap"}
+    for insight in served:
+        text = " ".join([insight["headline"], insight["summary"], insight["interpretation"],
+                         json.dumps(insight["cue"])])
+        assert "None" not in text and "null" not in text
+        assert not re.search(r"(?<![\d.])0 (asked|backtracked|students|people|skimmed)", text), text
+        for small in ("3 asked", "2 backtracked", "4 skimmed"):
+            assert small not in text

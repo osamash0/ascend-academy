@@ -39,6 +39,7 @@ def _enough(slide: Dict[str, Any], *keys: str) -> bool:
 #: a success rate that the bundle only carries when 5+ people tried the slide (else None).
 _OWN_BASE = {
     schema.CALIBRATION_GAP: lambda s: _enough(s, "got_it_quiz_total"),           # confident people who also took the quiz
+    schema.SPEED_BUMP: lambda s: _enough(s, "back_nav_from_next"),               # people who turned back from the next slide
     schema.CONFUSION_HOTSPOT: lambda s: _enough(s, "ratings_total"),             # people who rated the page
     schema.OVERPACKED: lambda s: _enough(s, "ratings_total"),
     schema.CONFUSION_BLOCK: lambda s: _enough(s, "ratings_total"),
@@ -76,15 +77,11 @@ def _keep_the_floor(insights: List[Dict[str, Any]], bundle: Dict[str, Any]) -> L
 #: Metrics that are a count of PEOPLE (the bundle counts distinct people, the owner out). A count of 1 to 4
 #: people is never shown, so each becomes None; the front end renders None as a dash.
 _PEOPLE_COUNT_KEYS = {
-    schema.SPEED_BUMP: ("backtracksFromNext",),
     schema.SKIPPED_SLIDE: ("shortViews",),
     schema.OVERPACKED: ("aiQueryCount",),
     schema.CONFUSION_HOTSPOT: ("aiQueryCount", "backNavCount"),
     schema.CALIBRATION_GAP: ("overconfidentCount",),
 }
-
-#: Kinds whose cue is that count: with it withheld the cue is dropped, never printed as "None".
-_COUNT_CUE = {schema.SPEED_BUMP: "backtracksFromNext"}
 
 
 def _withheld(value: Any) -> Any:
@@ -100,11 +97,10 @@ def _withhold_small_counts(insight: Dict[str, Any], bundle: Dict[str, Any]) -> D
         for k in keys:
             if k in container:
                 container[k] = _withheld(container[k])
-    cue_key = _COUNT_CUE.get(insight["kind"])
-    if cue_key and (insight.get("metrics") or {}).get(cue_key) is None:
-        insight["cue"] = {}
     if insight["kind"] == schema.CONFUSION_HOTSPOT:
-        # The summary names how many asked and went back; say only what has 5+ people behind it.
+        # The summary names how many asked and went back; say only what has 5+ people behind it. The copy
+        # leaves a clause out when its count is 0, so a withheld count (passed as 0 here) is left out of
+        # the sentence, never printed as "0 asked".
         number = (insight.get("targetRef") or {}).get("slideNumber")
         slide = next((s for s in bundle.get("slides", []) if s.get("slide_number") == number), None)
         if slide is not None:
