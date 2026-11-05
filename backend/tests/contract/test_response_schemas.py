@@ -69,23 +69,12 @@ class TestAnalyticsContracts:
         assert body["success"] is True
         assert isinstance(body["data"], list)
 
-    def test_students_envelope(self, auth_client):
+    def test_there_is_no_per_learner_list(self, auth_client):
         r = auth_client.get(
             "/api/analytics/lecture/L1/students",
             headers={"Authorization": "Bearer x"},
         )
-        assert r.status_code == 200
-        body = r.json()
-        assert body["success"] is True
-        assert isinstance(body["data"], list)
-        # If there's at least one row, every required key is present
-        for row in body["data"]:
-            assert {
-                "student_id", "student_name", "progress_percentage",
-                "quiz_score", "typology", "ai_interactions", "revisions",
-            } <= set(row.keys())
-            # Anonymized name format: theme-HEX4
-            assert "-" in row["student_name"]
+        assert r.status_code == 404
 
     def test_dropoff_envelope(self, auth_client):
         r = auth_client.get(

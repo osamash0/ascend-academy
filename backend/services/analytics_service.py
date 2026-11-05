@@ -115,6 +115,58 @@ def get_auth_client(token: str = None) -> Client:
     return client
 
 
+#: People a slide needs before the legacy views say anything about how they feel about it.
+#: Same figure as the v4 door's MIN_READERS (space_engine); kept here to avoid an import cycle.
+MIN_PEOPLE = 5
+
+_RATINGS = ("got_it", "unsure", "confused")
+
+
+def lecture_owner_id(client: Client, lecture_id: str) -> Optional[str]:
+    """The lecture's owner (`lectures.professor_id`), whose own reading never counts."""
+    rows = client.table("lectures").select("professor_id").eq("id", lecture_id).execute().data or []
+    return rows[0].get("professor_id") if rows else None
+
+
+def people_ratings(events: List[Dict[str, Any]], owner_id: Optional[str], slide_id: Optional[str] = None) -> Dict[str, Dict[str, str]]:
+    """Each person's latest check-in per slide, as {slide_id: {user_id: rating}}.
+
+    Takes events oldest first (latest write wins). The owner and events without a
+    person are dropped. Counting people, not events, is what makes the floor mean 5 people.
+    """
+    out: Dict[str, Dict[str, str]] = {}
+    for ev in events:
+        uid = ev.get("user_id")
+        if not uid or uid == owner_id:
+            continue
+        ed = ev.get("event_data") or {}
+        sid = ed.get("slideId")
+        rating = ed.get("rating")
+        if not sid or rating not in _RATINGS or (slide_id is not None and sid != slide_id):
+            continue
+        out.setdefault(sid, {})[uid] = rating
+    return out
+
+
+def _confidence_counts_by_slide(client: Client, lecture_id: str) -> Dict[str, Dict[str, int]]:
+    """{slide_id: {got_it, unsure, confused}} over people, only for slides 5+ people rated."""
+    events = _fetch_all(client.table("learning_events")\
+        .select("user_id, event_data, created_at")\
+        .eq("event_type", "confidence_rating")\
+        .eq("event_data->>lectureId", str(lecture_id))\
+        .order("created_at"))
+    owner_id = lecture_owner_id(client, lecture_id)
+    result: Dict[str, Dict[str, int]] = {}
+    for sid, by_person in people_ratings(events, owner_id).items():
+        if len(by_person) < MIN_PEOPLE:
+            continue
+        counts = {r: 0 for r in _RATINGS}
+        for rating in by_person.values():
+            counts[rating] += 1
+        result[sid] = counts
+    return result
+
+
 @cached_analytic("overview")
 def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
     """Get high-level metrics for a lecture (cached)."""
@@ -197,11 +249,8 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
         .eq("event_type", "slide_view")\
         .eq("event_data->>lectureId", str(lecture_id)))
 
-    # Confidence ratings — used to compute confusion_rate per slide
-    confidence_events = _fetch_all(client.table("learning_events")\
-        .select("event_data")\
-        .eq("event_type", "confidence_rating")\
-        .eq("event_data->>lectureId", str(lecture_id)))
+    # Confidence check-ins, over people: a slide under MIN_PEOPLE raters has no entry
+    conf_by_slide = _confidence_counts_by_slide(client, lecture_id)
 
     # Quiz attempts joined with their slide via quiz_questions
     quiz_questions = _fetch_all(client.table("quiz_questions")\
@@ -226,17 +275,6 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
         if ed.get("correct"):
             bucket["correct"] += 1
 
-    # Aggregate confusion per slide
-    conf_by_slide: Dict[str, Dict[str, int]] = {}
-    for ev in confidence_events:
-        ed = ev.get("event_data") or {}
-        sid = ed.get("slideId")
-        rating = ed.get("rating")
-        if not sid or rating not in ("got_it", "unsure", "confused"):
-            continue
-        b = conf_by_slide.setdefault(sid, {"got_it": 0, "unsure": 0, "confused": 0})
-        b[rating] += 1
-
     slide_analytics = []
     for slide in slides_data:
         sid = slide["id"]
@@ -248,9 +286,9 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
                       for e in slide_views) / view_count if view_count > 0 else 0
         drop_off = 100 * (1 - (view_count / total_students)) if total_students > 0 else 0
 
-        cb = conf_by_slide.get(sid, {"got_it": 0, "unsure": 0, "confused": 0})
-        conf_total = cb["got_it"] + cb["unsure"] + cb["confused"]
-        confusion_rate = round((cb["confused"] / conf_total * 100), 1) if conf_total > 0 else 0.0
+        cb = conf_by_slide.get(sid)
+        # Too few people is null, never 0 (the recommendation below still reads it as "no signal").
+        confusion_rate = round(cb["confused"] / sum(cb.values()) * 100, 1) if cb else None
 
         qb = quiz_by_slide.get(sid, {"attempts": 0, "correct": 0})
         quiz_attempts = qb["attempts"]
@@ -258,7 +296,7 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
 
         label, reasons = compute_slide_recommendation(
             drop_off_rate=max(0.0, drop_off),
-            confusion_rate=confusion_rate,
+            confusion_rate=confusion_rate or 0.0,
             quiz_success_rate=quiz_success_rate,
             view_count=view_count,
             quiz_attempts=quiz_attempts,
@@ -557,10 +595,7 @@ def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str
     """Per-slide confidence breakdown (got_it / unsure / confused; cached)."""
     client = get_auth_client(token)
 
-    events_data = _fetch_all(client.table("learning_events")\
-        .select("event_data")\
-        .eq("event_type", "confidence_rating")\
-        .eq("event_data->>lectureId", str(lecture_id)))
+    slide_conf = _confidence_counts_by_slide(client, lecture_id)
 
     slides_data = _fetch_all(client.table("slides")\
         .select("id, slide_number, title")\
@@ -568,18 +603,6 @@ def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str
         .order("slide_number"))
 
     slide_id_map = {s["id"]: s for s in slides_data}
-
-    # Aggregate confidence per slide
-    slide_conf: Dict[str, Dict[str, int]] = {}
-    for e in events_data:
-        ev_data = e.get("event_data", {})
-        sid = ev_data.get("slideId")
-        rating = ev_data.get("rating")
-        if not sid or rating not in ("got_it", "unsure", "confused"):
-            continue
-        if sid not in slide_conf:
-            slide_conf[sid] = {"got_it": 0, "unsure": 0, "confused": 0}
-        slide_conf[sid][rating] += 1
 
     result = []
     for sid, counts in slide_conf.items():

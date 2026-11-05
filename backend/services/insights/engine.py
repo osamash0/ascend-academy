@@ -21,6 +21,8 @@ def build_insights(lecture_id: str, token: Optional[str] = None) -> List[Dict[st
 
     insights: List[Dict[str, Any]] = []
     for detect in detectors.DETECTORS:
+        if detect is detectors.detect_silent_strugglers:
+            continue  # no learner is ever listed one by one (decided 2026-11-05); the detector stays, unused here
         try:
             insights.extend(detect(bundle))
         except Exception:

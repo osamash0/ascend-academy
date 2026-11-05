@@ -244,20 +244,6 @@ async def get_quiz_analytics(lecture_id: str, user=Depends(verify_token), creds:
         raise HTTPException(status_code=500, detail="Failed to load analytics. Please try again.")
 
 
-@router.get("/lecture/{lecture_id}/students", response_model=AnalyticsResponse)
-async def get_student_performance(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
-    """Get anonymized per-student performance breakdown"""
-    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
-    try:
-        data = await run_in_threadpool(analytics_service.get_student_performance, lecture_id, creds.credentials)
-        return AnalyticsResponse(success=True, data=data)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Analytics endpoint error: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to load student analytics. Please try again.")
-
-
 @router.get("/lecture/{lecture_id}/dashboard", response_model=AnalyticsResponse)
 async def get_dashboard_data(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
     """Get comprehensive advanced dashboard analytics in a single call"""
@@ -289,9 +275,8 @@ async def get_lecture_insights(lecture_id: str, user=Depends(verify_token), cred
 @router.get("/lecture/{lecture_id}/evidence", response_model=AnalyticsResponse)
 async def get_insight_evidence(
     lecture_id: str,
-    kind: str = Query(..., description="Evidence kind: ai_queries | confidence_breakdown | student_journey"),
+    kind: str = Query(..., description="Evidence kind: ai_queries | confidence_breakdown"),
     slide_id: Optional[str] = Query(None),
-    student_id: Optional[str] = Query(None),
     user=Depends(verify_token),
     creds: HTTPAuthorizationCredentials = Depends(security),
 ):
@@ -303,7 +288,6 @@ async def get_insight_evidence(
             kind,
             lecture_id,
             slide_id=slide_id,
-            student_id=student_id,
             token=creds.credentials,
         )
         return AnalyticsResponse(success=True, data=data)
