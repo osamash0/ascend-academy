@@ -45,7 +45,8 @@ const GROUPS: { id: MetricDef['group']; title: string; icon: React.ComponentType
   { id: 'slides',     title: 'Slide Quality',       icon: BookOpen },
 ];
 
-function formatValue(v: number, unit: MetricDef['unit']): string {
+function formatValue(v: number | null, unit: MetricDef['unit']): string {
+  if (v == null) return '—';
   if (unit === '#') return String(Math.round(v));
   if (unit === 'min') return `${v.toFixed(1)} min`;
   return `${v.toFixed(1)}%`;
@@ -115,10 +116,24 @@ function MetricRow({
   highlightLabel,
 }: {
   def: MetricDef;
-  current: number;
+  current: number | null;
   summary: BenchmarkPeerSummary;
   highlightLabel: string;
 }) {
+  // Withheld here or among the peers: a dash, never a 0, and no comparison arrow.
+  if (current == null || summary.avg == null || summary.min == null || summary.max == null) {
+    return (
+      <div className="grid grid-cols-12 items-center gap-4 px-4 py-3 border-b border-border/40 last:border-b-0">
+        <div className="col-span-12 md:col-span-3 text-sm font-bold text-foreground">{def.label}</div>
+        <div className="col-span-3 md:col-span-2 text-sm font-black text-foreground">{formatValue(current, def.unit)}</div>
+        <div className="col-span-3 md:col-span-2 text-xs text-muted-foreground">
+          Peer avg <span className="font-bold text-foreground">{formatValue(summary.avg, def.unit)}</span>
+        </div>
+        <div className="col-span-3 md:col-span-2 text-xs text-muted-foreground/60">—</div>
+        <div className="col-span-3 md:col-span-3" />
+      </div>
+    );
+  }
   const indicator = deltaIndicator(current, summary.avg, def.lowerIsBetter);
   const { Icon } = indicator;
   const deltaAbs = current - summary.avg;

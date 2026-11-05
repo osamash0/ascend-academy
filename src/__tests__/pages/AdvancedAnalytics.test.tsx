@@ -92,7 +92,7 @@ import { renderWithProviders } from "@/test/renderWithProviders";
 const LECTURE_ID = "11111111-1111-1111-1111-111111111111";
 
 const mockDashboardData = {
-  overview: { uniqueStudents: 5, totalAttempts: 20, totalCorrect: 15, averageScore: 75, totalEvents: 30 },
+  overview: { uniqueStudents: 5, totalAttempts: 5, averageScore: 75, totalEvents: 6 },
   activityByDay: [],
   slidePerformance: [],
   scoreBands: [],
@@ -251,7 +251,6 @@ describe("AdvancedAnalytics — figures fewer than five people stand behind", ()
   const withheldOverview = {
     uniqueStudents: null,
     totalAttempts: null,
-    totalCorrect: null,
     averageScore: null,
     totalEvents: null,
   };
@@ -272,7 +271,8 @@ describe("AdvancedAnalytics — figures fewer than five people stand behind", ()
     expect(card.textContent).toContain("—");
     expect(card.textContent).not.toMatch(/\b0\b/);
     await user.click(screen.getByText("Global Score Avg"));
-    await user.click(screen.getByText("Total Interactions"));
+    await user.click(screen.getByText("Students Who Answered"));
+    await user.click(screen.getByText("Active Students"));
 
     expect(metricFeedbackCalls()).toHaveLength(0);
     expect(screen.getByRole("button", { name: /generate course insights/i })).toBeDisabled();
@@ -328,5 +328,107 @@ describe("AdvancedAnalytics — figures fewer than five people stand behind", ()
     showDashboard({ liveTicker: [] });
     renderPage();
     expect(await screen.findByText(/shows once five students have done something this week/i)).toBeInTheDocument();
+  });
+});
+
+
+describe("AdvancedAnalytics — nothing withheld ever reaches the model", () => {
+  const callsTo = (url: string) => apiClientPostMock.mock.calls.filter(([u]) => u === url);
+
+  function showDashboard(patch: Record<string, unknown>) {
+    useAnalyticsMock.mockReturnValue({
+      dashboard: { data: { ...mockDashboardData, ...patch }, isLoading: false, isError: false },
+    });
+  }
+
+  // Five people opened the lecture, fewer than five answered anything.
+  const openedNotAnswered = { uniqueStudents: 5, totalAttempts: null, averageScore: null, totalEvents: 5 };
+
+  it("waits to offer course insights until five people have answered, so no request is ever sent", async () => {
+    const user = userEvent.setup();
+    showDashboard({ overview: openedNotAnswered });
+    renderPage();
+
+    const button = await screen.findByRole("button", { name: /generate course insights/i });
+    expect(button).toBeDisabled();
+    await user.click(button);
+    expect(callsTo("/api/ai/analytics-insights")).toHaveLength(0);
+  });
+
+  it("posts course insights without a single null or the raw correct count", async () => {
+    const user = userEvent.setup();
+    apiClientPostMock.mockResolvedValue({ summary: "s", suggestions: [] });
+    showDashboard({});
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /generate course insights/i }));
+
+    await waitFor(() => expect(callsTo("/api/ai/analytics-insights")).toHaveLength(1));
+    const body = callsTo("/api/ai/analytics-insights")[0][1] as Record<string, unknown>;
+    expect(Object.values(body).some((v) => v === null || v === undefined)).toBe(false);
+    expect(body).not.toHaveProperty("total_correct");
+    expect(body).toMatchObject({ total_students: 5, average_score: 75 });
+  });
+
+  it("leaves a withheld figure out of the context sent with a stat card", async () => {
+    const user = userEvent.setup();
+    apiClientPostMock.mockResolvedValue({ feedback: "ok" });
+    showDashboard({ overview: openedNotAnswered });
+    renderPage();
+
+    await user.click(await screen.findByText("Engaged Students"));
+
+    await waitFor(() => expect(callsTo("/api/ai/metric-feedback")).toHaveLength(1));
+    const { context_stats: context } = callsTo("/api/ai/metric-feedback")[0][1] as { context_stats: Record<string, unknown> };
+    expect(context).toEqual({ total_students: 5 });
+  });
+
+  const allWithheldRetry = [
+    { question_id: "q1", question_text: "Q", first_attempt_total: null, first_attempt_misses: null, first_attempt_miss_rate: null, retry_total: null, retry_misses: null, retry_miss_rate: null },
+  ];
+
+  it("does not ask about a week whose every day was withheld", async () => {
+    const user = userEvent.setup();
+    apiClientPostMock.mockResolvedValue({ feedback: "should never be asked" });
+    showDashboard({ activityByDay: [{ date: "Mon", people: null }, { date: "Tue", people: null }] });
+    renderPage();
+
+    await user.click(await screen.findByText("Interaction Velocity"));
+    expect(callsTo("/api/ai/metric-feedback")).toHaveLength(0);
+  });
+
+  it("does not ask about a retry table whose every row was withheld", async () => {
+    const user = userEvent.setup();
+    apiClientPostMock.mockResolvedValue({ feedback: "should never be asked" });
+    showDashboard({ retryPerformance: allWithheldRetry });
+    renderPage();
+
+    await user.click(await screen.findByText("Most-Missed Questions"));
+    expect(callsTo("/api/ai/metric-feedback")).toHaveLength(0);
+  });
+
+  it("sends only the figures that exist when some rows were withheld and some were not", async () => {
+    const user = userEvent.setup();
+    apiClientPostMock.mockResolvedValue({ feedback: "ok" });
+    showDashboard({
+      retryPerformance: [
+        ...allWithheldRetry,
+        { question_id: "q2", question_text: "Q2", first_attempt_total: 5, first_attempt_misses: 2, first_attempt_miss_rate: 40, retry_total: null, retry_misses: null, retry_miss_rate: null },
+      ],
+    });
+    renderPage();
+
+    await user.click(await screen.findByText("Most-Missed Questions"));
+
+    await waitFor(() => expect(callsTo("/api/ai/metric-feedback")).toHaveLength(1));
+    const { metric_value: rows } = callsTo("/api/ai/metric-feedback")[0][1] as { metric_value: Record<string, unknown>[] };
+    expect(JSON.stringify(rows)).not.toContain("null");
+    expect(rows[1]).toEqual({ question_id: "q2", question_text: "Q2", first_attempt_total: 5, first_attempt_misses: 2, first_attempt_miss_rate: 40 });
+  });
+
+  it("draws the week as people per day and says nothing when every day is under five", async () => {
+    showDashboard({ activityByDay: [{ date: "Mon", people: null }, { date: "Tue", people: null }] });
+    renderPage();
+    expect(await screen.findByText(/shows once five people have taken the quiz on a day this week/i)).toBeInTheDocument();
   });
 });

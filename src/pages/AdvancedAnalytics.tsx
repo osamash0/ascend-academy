@@ -40,6 +40,38 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+// ── Withheld figures ──────────────────────────────────────────────────────────
+
+/** A withheld figure is null (fewer than five people stand behind it). It must never reach the model, which would read it as zero. */
+function withoutNulls<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(withoutNulls) as unknown as T;
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, v]) => v != null)
+        .map(([k, v]) => [k, withoutNulls(v)]),
+    ) as T;
+  }
+  return value;
+}
+
+/** True when there is nothing for the model to interpret: no value, no rows, or rows whose every figure was withheld. */
+function carriesNoFigures(value: unknown): boolean {
+  if (value == null) return true;
+  if (Array.isArray(value)) {
+    return (
+      value.length === 0 ||
+      value.every(
+        (row) =>
+          row != null &&
+          typeof row === 'object' &&
+          !Object.values(row as Record<string, unknown>).some((v) => typeof v === 'number'),
+      )
+    );
+  }
+  return typeof value === 'object' && Object.keys(value as object).length === 0;
+}
+
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
 interface AIInsights {
@@ -52,11 +84,11 @@ interface DashboardData {
   overview: {
     uniqueStudents: number | null;
     totalAttempts: number | null;
-    totalCorrect: number | null;
     averageScore: number | null;
     totalEvents: number | null;
   };
-  activityByDay: { date: string; attempts: number }[];
+  /** People who answered a quiz question that day; null for a day with fewer than five. */
+  activityByDay: { date: string; people: number | null }[];
   slidePerformance: {
     id: string;
     name: string;
@@ -612,11 +644,7 @@ export default function AdvancedAnalytics() {
   const handleMetricClick = async (id: string, title: string, value: unknown) => {
     // Nothing to interpret (the backend withheld it under the five-people floor): open or close
     // the section, and never ask the model, which would read "no data" as "zero".
-    const isEmpty =
-      value == null ||
-      (Array.isArray(value) && value.length === 0) ||
-      (typeof value === 'object' && !Array.isArray(value) && Object.keys(value as object).length === 0);
-    if (isEmpty) {
+    if (carriesNoFigures(value)) {
       if (['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution', 'retryPerformance'].includes(id)) {
         setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
       }
@@ -647,7 +675,7 @@ export default function AdvancedAnalytics() {
     setMetricLoading(true);
 
     try {
-      const context = {
+      const context = withoutNulls({
         average_score: dashboardData?.overview?.averageScore,
         total_students: dashboardData?.overview?.uniqueStudents,
         hard_slides: dashboardData?.slidePerformance
@@ -655,12 +683,12 @@ export default function AdvancedAnalytics() {
           .sort((a: { correctRate: number | null }, b: { correctRate: number | null }) => (a.correctRate ?? 0) - (b.correctRate ?? 0))
           .slice(0, 2)
           .map((s: { name: string }) => s.name)
-          .join(', '),
-      };
+          .join(', ') || null,
+      });
 
       const data = await apiClient.post<{ feedback: string }>('/api/ai/metric-feedback', {
         metric_name: title,
-        metric_value: value,
+        metric_value: withoutNulls(value),
         context_stats: context,
         ai_model: aiModel,
       });
@@ -793,8 +821,8 @@ export default function AdvancedAnalytics() {
 
   // AI Insights Generator
   const fetchAiInsights = useCallback(async () => {
-    // Nothing to summarise until five people stand behind the overview.
-    if (!dashboardData || dashboardData.overview?.uniqueStudents == null) return;
+    // Nothing to summarise until five people have opened the lecture and five have answered.
+    if (!dashboardData || dashboardData.overview?.uniqueStudents == null || dashboardData.overview?.averageScore == null) return;
     setAiLoading(true);
     setAiInsights(null);
     setAiInsightsError(false);
@@ -805,16 +833,15 @@ export default function AdvancedAnalytics() {
         .sort((a: { correctRate: number | null }, b: { correctRate: number | null }) => (a.correctRate ?? 0) - (b.correctRate ?? 0))
         .slice(0, 3)
         .map((s: { name: string }) => s.name)
-        .join(', ');
+        .join(', ') || null;
 
-      const result = await apiClient.post<AIInsights>('/api/ai/analytics-insights', {
+      const result = await apiClient.post<AIInsights>('/api/ai/analytics-insights', withoutNulls({
         total_students: dashboardData?.overview?.uniqueStudents,
         average_score: dashboardData?.overview?.averageScore,
         total_attempts: dashboardData?.overview?.totalAttempts,
-        total_correct: dashboardData?.overview?.totalCorrect,
         hard_slides: hardSlides,
         ai_model: aiModel,
-      });
+      }));
       setAiInsights(result);
     } catch (err) {
       // Never fabricate a plausible-looking summary here — it would render
@@ -877,7 +904,7 @@ export default function AdvancedAnalytics() {
           <div className="flex items-center gap-4">
             <Button 
               onClick={fetchAiInsights} 
-              disabled={aiLoading || dashboard.isLoading || dashboardData?.overview?.uniqueStudents == null} 
+              disabled={aiLoading || dashboard.isLoading || dashboardData?.overview?.uniqueStudents == null || dashboardData?.overview?.averageScore == null} 
               className="rounded-2xl h-14 px-8 shadow-glow-primary gradient-primary hover:opacity-90 transition-all font-bold text-base border-none text-white"
             >
               {aiLoading ? <RefreshCw className="w-5 h-5 animate-spin mr-3" /> : <Sparkles className="w-5 h-5 mr-3" />}
@@ -965,8 +992,8 @@ export default function AdvancedAnalytics() {
               {[
                 { title: "Engaged Students", raw: dashboardData.overview.uniqueStudents, shown: dashboardData.overview.uniqueStudents, icon: Users, variant: "primary" as const },
                 { title: "Global Score Avg", raw: dashboardData.overview.averageScore, shown: dashboardData.overview.averageScore == null ? null : `${dashboardData.overview.averageScore}%`, icon: Target, variant: "success" as const },
-                { title: "Total Events", raw: dashboardData.overview.totalEvents, shown: dashboardData.overview.totalEvents, icon: Activity, variant: "default" as const },
-                { title: "Total Interactions", raw: dashboardData.overview.totalAttempts, shown: dashboardData.overview.totalAttempts, icon: Award, variant: "xp" as const },
+                { title: "Active Students", raw: dashboardData.overview.totalEvents, shown: dashboardData.overview.totalEvents, icon: Activity, variant: "default" as const },
+                { title: "Students Who Answered", raw: dashboardData.overview.totalAttempts, shown: dashboardData.overview.totalAttempts, icon: Award, variant: "xp" as const },
               ].map(({ raw, shown, ...card }, idx) => {
                 // Withheld under five people: a dash, never 0, and nothing for the model to interpret.
                 const stat = { ...card, value: shown ?? '—' };
@@ -1287,15 +1314,15 @@ export default function AdvancedAnalytics() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <Section 
                 title="Interaction Velocity" 
-                subtitle="Event density over 7 days" 
+                subtitle="People answering quiz questions, per day" 
                 icon={TrendingUp}
                 interpretation={metricInterpretations.velocity}
                 isLoading={metricLoading && openSections.velocity}
                 isOpen={openSections.velocity}
                 onToggle={() => handleMetricClick('velocity', 'Interaction Velocity', dashboardData.activityByDay)}
               >
-                {dashboardData.activityByDay.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Shows once five people have taken the quiz this week.</p>
+                {dashboardData.activityByDay.every((d) => d.people == null) ? (
+                  <p className="text-sm text-muted-foreground">Shows once five people have taken the quiz on a day this week.</p>
                 ) : (
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1310,7 +1337,7 @@ export default function AdvancedAnalytics() {
                       <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{fill: 'currentColor', fontSize: 12, opacity: 0.5}} />
                       <YAxis tickLine={false} axisLine={false} tick={{fill: 'currentColor', fontSize: 12, opacity: 0.5}} />
                       <RechartsTooltip content={<CustomTooltip />} />
-                      <Area type="monotone" dataKey="attempts" stroke="var(--success)" strokeWidth={4} fill="url(#colorVelocity)" activeDot={{ r: 8, strokeWidth: 0 }} />
+                      <Area type="monotone" dataKey="people" stroke="var(--success)" strokeWidth={4} fill="url(#colorVelocity)" activeDot={{ r: 8, strokeWidth: 0 }} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>

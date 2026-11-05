@@ -3,6 +3,9 @@ import type { AiQueriesEvidence } from '@/features/analytics/types';
 
 /** v1 = raw grouped list (narrated NLP clustering is a Tier-2 enrichment). */
 export function GroupedQueriesList({ evidence }: { evidence: AiQueriesEvidence }) {
+  if (evidence.totalCount == null) {
+    return <p className="text-sm text-muted-foreground">Shows once five students have asked the AI tutor.</p>;
+  }
   if (evidence.queries.length === 0) {
     return <p className="text-sm text-muted-foreground">No AI-tutor questions were asked on this slide.</p>;
   }

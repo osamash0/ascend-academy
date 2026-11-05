@@ -98,7 +98,8 @@ export interface AiQueryEvidenceItem {
 export interface AiQueriesEvidence {
   kind: 'ai_queries';
   queries: AiQueryEvidenceItem[];
-  totalCount: number;
+  /** null while fewer than five people have asked (withheld, which is not "none were asked"). */
+  totalCount: number | null;
 }
 
 export interface ConfidenceBreakdownEvidence {

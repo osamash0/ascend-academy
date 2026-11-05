@@ -206,23 +206,25 @@ export async function professorChat(messages: ChatTurn[], aiModel = 'cerebras'):
 
 // ── Comparative Benchmarks (Task #50) ─────────────────────────────────────
 
+/** A figure is null when fewer than five people stand behind it (never 0). */
 export interface BenchmarkMetricPack {
-  avg_time_minutes: number;
-  completion_rate: number;
-  unique_students: number;
-  drop_off_rate: number;
-  avg_score: number;
-  mastery_rate: number;
-  struggle_rate: number;
-  distractor_confusion: number;
-  concept_count: number;
-  needs_review_share: number;
+  avg_time_minutes: number | null;
+  completion_rate: number | null;
+  unique_students: number | null;
+  drop_off_rate: number | null;
+  avg_score: number | null;
+  mastery_rate: number | null;
+  struggle_rate: number | null;
+  distractor_confusion: number | null;
+  concept_count: number | null;
+  needs_review_share: number | null;
 }
 
+/** Over the peers that had a figure; null with count 0 when none did. */
 export interface BenchmarkPeerSummary {
-  avg: number;
-  min: number;
-  max: number;
+  avg: number | null;
+  min: number | null;
+  max: number | null;
   count: number;
 }
 
