@@ -95,11 +95,18 @@ export const defaultHandlers = [
   ...dual("get", `${API}/api/analytics/lecture/:id/dashboard`, () =>
     HttpResponse.json({
       success: true,
+      // The dashboard's floored shape: people, never events; null under five people.
       data: {
-        overview: {},
+        overview: { uniqueStudents: null, totalAttempts: null, averageScore: null, totalEvents: null },
+        activityByDay: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((date) => ({ date, people: null })),
         slidePerformance: [],
         scoreBands: [],
-        confidenceMap: { got_it: 0, unsure: 0, confused: 0 },
+        confidenceMap: null,
+        liveTicker: [],
+        aiQueryFeed: [],
+        retryPerformance: [],
+        dropoffData: [],
+        confidenceBySlide: [],
       },
     }),
   ),

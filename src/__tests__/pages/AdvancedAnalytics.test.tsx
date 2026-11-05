@@ -91,14 +91,18 @@ import { renderWithProviders } from "@/test/renderWithProviders";
 
 const LECTURE_ID = "11111111-1111-1111-1111-111111111111";
 
+// The dashboard's floored shape: counts of people, null where fewer than five stand behind a figure.
 const mockDashboardData = {
   overview: { uniqueStudents: 5, totalAttempts: 5, averageScore: 75, totalEvents: 6 },
-  activityByDay: [],
+  activityByDay: [
+    { date: "Mon", people: null },
+    { date: "Tue", people: 5 },
+  ],
   slidePerformance: [],
   scoreBands: [],
   funnel: [],
-  confidenceMap: { got_it: 0, unsure: 0, confused: 0 },
-  liveTicker: [],
+  confidenceMap: null,
+  liveTicker: [{ type: "quiz_attempt", people: 5 }],
   dropoffData: [],
   aiQueryFeed: [],
   confidenceBySlide: [],
