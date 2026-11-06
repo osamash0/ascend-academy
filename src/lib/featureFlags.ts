@@ -16,4 +16,5 @@ export const FEATURES = {
   examMode: on(import.meta.env.VITE_FEATURE_EXAM_MODE),
   studyGuide: on(import.meta.env.VITE_FEATURE_STUDY_GUIDE),
   askLuna: on(import.meta.env.VITE_FEATURE_ASK_LUNA),
+  layoutFace: on(import.meta.env.VITE_FEATURE_LAYOUT_FACE),
 } as const;

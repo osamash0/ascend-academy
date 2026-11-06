@@ -5,6 +5,7 @@ import type { LectureConcept, LocalizedLectureBundle } from '@/types/domain';
 import type { Lesson, LoadState, Space } from '../types';
 import type { ExplainAnswer } from '../components/reader/iui/spec';
 import { composeFromText, explainFor } from '../mocks/explain';
+import { NO_LAYOUTS, readyLayouts } from '../components/reader/layout/types';
 import { currentSession } from './readingSession';
 import {
   dataMode,
@@ -233,7 +234,7 @@ export function useReaderContent(
   const live = isLive(spaceId, lessonId);
   const lang = useLang();
   const demo = useLessonContent(live ? undefined : lessonId);
-  const [state, setState] = useState<LessonContentResult>({ state: 'loading', bundle: null, concepts: [], pdfUrl: null });
+  const [state, setState] = useState<LessonContentResult>({ state: 'loading', bundle: null, concepts: [], pdfUrl: null, layouts: NO_LAYOUTS });
   /* The Lesson whose pages are on screen: a re-read of it keeps them showing. */
   const shownFor = useRef<string | undefined>(undefined);
   const following = !!run && !run.done;
@@ -243,7 +244,7 @@ export function useReaderContent(
     if (!live || !lessonId) return;
     let alive = true;
     if (!run || shownFor.current !== lessonId) {
-      setState({ state: 'loading', bundle: null, concepts: [], pdfUrl: null });
+      setState({ state: 'loading', bundle: null, concepts: [], pdfUrl: null, layouts: NO_LAYOUTS });
     }
     /* A running upload is read fresh each time; any other Lesson is read once. */
     if (run) lectures.delete(lessonId);
@@ -253,7 +254,7 @@ export function useReaderContent(
         if (following) lectures.delete(lessonId);
         if (!alive) return;
         const bundle = bundleFrom(r);
-        if (bundle.slides.length === 0) return setState({ state: 'empty', bundle: null, concepts: [], pdfUrl: null });
+        if (bundle.slides.length === 0) return setState({ state: 'empty', bundle: null, concepts: [], pdfUrl: null, layouts: NO_LAYOUTS });
         /*
          * Until there are ideas, the deck is one section under the lecture's
          * own name, so the reader opens at once instead of waiting.
@@ -272,6 +273,7 @@ export function useReaderContent(
           bundle,
           concepts: r.concepts.length ? (r.concepts as LectureConcept[]) : whole,
           pdfUrl: r.pdf_signed_url,
+          layouts: readyLayouts(r.layouts),
         });
         /*
          * The concept graph's ideas when it has some; otherwise the model's
@@ -291,6 +293,7 @@ export function useReaderContent(
           bundle: null,
           concepts: [],
           pdfUrl: null,
+          layouts: NO_LAYOUTS,
         });
       });
     return () => {
