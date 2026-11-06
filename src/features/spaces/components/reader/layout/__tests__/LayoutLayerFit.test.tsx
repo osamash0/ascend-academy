@@ -131,6 +131,21 @@ describe('LayoutLayer fit and check', () => {
     expect(onChecked).toHaveBeenCalledTimes(2);
   });
 
+  it('refits inside the resize callback itself, so a zoom never paints the old sizes at the new width', () => {
+    /*
+     * A ResizeObserver callback runs after layout and before paint. A state update there that React
+     * renders later lets the browser paint one frame of type fitted for the old width (on zooming out,
+     * type that overflows its boxes). The refit must be done when the callback returns.
+     */
+    render(<LayoutLayer page={page} onChecked={vi.fn()} />);
+    let during = -1;
+    act(() => {
+      observers[0](700);
+      during = fitLayer.mock.calls.length;
+    });
+    expect(during).toBe(2);
+  });
+
   it('does not refit when the pane is hidden (width 0 or under 50)', () => {
     render(<LayoutLayer page={page} onChecked={vi.fn()} />);
     act(() => observers[0](0));

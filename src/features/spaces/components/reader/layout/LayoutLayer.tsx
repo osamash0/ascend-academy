@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { classify, cleanText, groupOf, type LayoutClass } from './classify';
@@ -94,20 +95,25 @@ function ReadyLayer({
     entering.current = enter;
   });
 
-  /* The layer's width, and again when it changes by more than a pixel. A hidden pane (0) never counts. */
+  /*
+   * The layer's width, and again when it changes by more than a pixel. A hidden pane (0) never counts.
+   * A resize (a zoom) is rendered and refitted inside the observer's callback, which runs between
+   * layout and paint: left to React's own schedule, the browser would paint a frame of type fitted
+   * for the old width first (zooming out, type spilling out of its boxes).
+   */
   useLayoutEffect(() => {
     const el = root.current;
     if (!el) return;
     let last = 0;
-    const measure = (w: number) => {
+    const measure = (w: number, now: (f: () => void) => void) => {
       if (w > MIN_WIDTH && Math.abs(w - last) > 1) {
         last = w;
-        setWidth(w);
+        now(() => setWidth(w));
       }
     };
-    measure(el.getBoundingClientRect().width);
+    measure(el.getBoundingClientRect().width, (f) => f());
     if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(([e]) => e && measure(e.contentRect.width));
+    const ro = new ResizeObserver(([e]) => e && measure(e.contentRect.width, flushSync));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
