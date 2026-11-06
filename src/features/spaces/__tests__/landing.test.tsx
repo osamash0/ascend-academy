@@ -383,3 +383,38 @@ describe('questions, as they will arrive', () => {
     expect(screen.getByRole('link', { name: 'Normalization, page 12' })).toHaveAttribute('href', '/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=12');
   });
 });
+
+describe('each finding says only what its numbers back', () => {
+  const en = i18n.getFixedT('en', 'v4Landing');
+  const de = i18n.getFixedT('de', 'v4Landing');
+
+  it('a foggy stretch claims one in four, not most', () => {
+    expect(en('kind.confusion_block.summary', { first: 3, last: 5 })).toBe('Pages 3 to 5 ran foggy for at least one in four of the people who said how those pages read.');
+    expect(de('kind.confusion_block.summary', { first: 3, last: 5 })).toBe('Die Seiten 3 bis 5 waren für mindestens jede vierte Person nebelig, die gesagt hat, wie sie sich lesen.');
+  });
+
+  it('a page that asks too much is said to be foggy, which the engine always measured', () => {
+    expect(en('kind.overpacked.summary', { page: 7, ratio: '2.1' })).toBe('Page 7 holds people 2.1× longer than the other pages, and at least three in ten said it was still foggy.');
+    expect(de('kind.overpacked.summary', { page: 7, ratio: '2.1' })).toBe('Seite 7 hält Leute 2.1× länger als die anderen Seiten, und mindestens drei von zehn fanden sie noch nebelig.');
+  });
+
+  it('a question that tests something else counts its questions, practice and checkpoints alike', () => {
+    expect(en('kind.quiz_misalignment.summary', { page: 22, pct: 38 })).toBe('Page 22 read easily, yet only 38% got its questions right first try.');
+    expect(de('kind.quiz_misalignment.summary', { page: 22, pct: 38 })).toBe('Seite 22 las sich leicht, doch nur 38% haben ihre Fragen beim ersten Versuch gelöst.');
+  });
+
+  it('a Lesson that is landing names a struggle that resolved, not an easy ride', () => {
+    expect(en('kind.healthy.summary')).toBe('A page here asked something of people, and most then got its questions right first try.');
+    expect(de('kind.healthy.summary')).toBe('Eine Seite hier hat den Leuten etwas abverlangt, und die meisten haben ihre Fragen danach beim ersten Versuch gelöst.');
+  });
+
+  it.each(['en', 'de'])('no finding sentence names its Lesson (%s)', (lng) => {
+    const t = i18n.getFixedT(lng, 'v4Landing');
+    const kinds = ['confusion_hotspot', 'skipped_slide', 'speed_bump', 'overpacked', 'leaky_bucket', 'confusion_block', 'quiz_misalignment', 'calibration_gap', 'healthy'];
+    for (const k of kinds) {
+      const s = t(`kind.${k}.summary`, { page: 12, first: 3, last: 5, lesson: 'Normalization', askers: 7, foggy: 40, seconds: 3, backs: 6, ratio: '2.1', pct: 30 });
+      expect(s, `${lng} ${k}`).not.toMatch(/Normalization/);
+      expect(s, `${lng} ${k}`).not.toMatch(/[–—]/);
+    }
+  });
+});

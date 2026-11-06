@@ -90,7 +90,7 @@
     },
     "overpacked": {
       "headline": "A page that asks too much at once",
-      "summary": "Page {{page}} holds people {{ratio}}× longer than the other pages, and many ask for help there.",
+      "summary": "Page {{page}} holds people {{ratio}}× longer than the other pages, and at least three in ten said it was still foggy.",
       "why": "Long, uneven time plus help-seeking is the shape of two ideas on one page."
     },
     "leaky_bucket": {
@@ -100,12 +100,12 @@
     },
     "confusion_block": {
       "headline": "A stretch where the thread got lost",
-      "summary": "Pages {{first}} to {{last}} ran foggy for most who read them.",
+      "summary": "Pages {{first}} to {{last}} ran foggy for at least one in four of the people who said how those pages read.",
       "why": "One missing link early in a stretch makes every page after it harder."
     },
     "quiz_misalignment": {
       "headline": "A question that tests something else",
-      "summary": "Page {{page}} read easily, yet only {{pct}}% passed its practice first try.",
+      "summary": "Page {{page}} read easily, yet only {{pct}}% got its questions right first try.",
       "why": "When the page is clear and the question is missed, the question is asking about something the page doesn't teach."
     },
     "calibration_gap": {
@@ -115,7 +115,7 @@
     },
     "healthy": {
       "headline": "{{lesson}} is landing well",
-      "summary": "Few asked for help, and most cleared its checkpoints first try.",
+      "summary": "A page here asked something of people, and most then got its questions right first try.",
       "why": "Nothing to change. Worth knowing which Lesson to point at when you build the next one."
     }
   },

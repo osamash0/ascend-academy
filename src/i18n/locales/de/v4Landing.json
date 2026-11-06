@@ -90,7 +90,7 @@
     },
     "overpacked": {
       "headline": "Eine Seite, die zu viel auf einmal will",
-      "summary": "Seite {{page}} hält Leute {{ratio}}× länger als die anderen Seiten, und viele suchen dort Hilfe.",
+      "summary": "Seite {{page}} hält Leute {{ratio}}× länger als die anderen Seiten, und mindestens drei von zehn fanden sie noch nebelig.",
       "why": "Lange, ungleiche Zeit plus Hilfesuche ist die Form von zwei Ideen auf einer Seite."
     },
     "leaky_bucket": {
@@ -100,12 +100,12 @@
     },
     "confusion_block": {
       "headline": "Ein Abschnitt, in dem der Faden riss",
-      "summary": "Die Seiten {{first}} bis {{last}} waren für die meisten nebelig.",
+      "summary": "Die Seiten {{first}} bis {{last}} waren für mindestens jede vierte Person nebelig, die gesagt hat, wie sie sich lesen.",
       "why": "Ein fehlendes Glied früh im Abschnitt macht jede Seite danach schwerer."
     },
     "quiz_misalignment": {
       "headline": "Eine Frage, die etwas anderes prüft",
-      "summary": "Seite {{page}} las sich leicht, doch nur {{pct}}% haben ihre Übung beim ersten Versuch geschafft.",
+      "summary": "Seite {{page}} las sich leicht, doch nur {{pct}}% haben ihre Fragen beim ersten Versuch gelöst.",
       "why": "Wenn die Seite klar ist und die Frage daneben geht, fragt die Frage nach etwas, das die Seite nicht lehrt."
     },
     "calibration_gap": {
@@ -115,7 +115,7 @@
     },
     "healthy": {
       "headline": "{{lesson}} kommt gut an",
-      "summary": "Wenige suchten Hilfe, und die meisten haben die Checkpoints beim ersten Versuch geschafft.",
+      "summary": "Eine Seite hier hat den Leuten etwas abverlangt, und die meisten haben ihre Fragen danach beim ersten Versuch gelöst.",
       "why": "Nichts zu ändern. Gut zu wissen, welche Lektion du als Vorbild nimmst, wenn du die nächste baust."
     }
   },

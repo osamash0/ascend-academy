@@ -138,7 +138,7 @@ const DBS_INSIGHTS: LandingInsight[] = [
     attention: 'calm',
     severity: 0.12,
     lessonId: 'l-s-dbs-2',
-    metrics: { firstTry: 91, foggy: 6 },
+    metrics: {},
   },
 ];
 
