@@ -56,17 +56,19 @@ def help_index(facts: dict[str, LessonFacts]) -> dict[str, list[Optional[float]]
     return {lid: [None if v is None else round(min(1.0, v / scale), 2) for v in s] for lid, s in shares.items()}
 
 
-def grid(f: PageFacts) -> Optional[dict[str, int]]:
+def grid(f: PageFacts) -> Optional[dict[str, Optional[int]]]:
     """Check-in against checkpoint, paired per reader (as `page_row` pairs them); only once
-    the floor's worth of pairs exist."""
+    the floor's worth of pairs exist. A cell of 1 to `MIN_READERS - 1` people is None: in a small
+    cell the few people are findable, and a count beside it would say so. A cell of 0 names
+    nobody and stays 0."""
     pairs = [pair for user, pair in f.pairs.items() if user in f.readers]
     if len(pairs) < MIN_READERS:
         return None
-    g = {"clickedCleared": 0, "clickedMissed": 0, "foggyCleared": 0, "foggyMissed": 0}
+    g: dict[str, int] = {"clickedCleared": 0, "clickedMissed": 0, "foggyCleared": 0, "foggyMissed": 0}
     for rating, cleared in pairs:
         said = "clicked" if rating == "got_it" else "foggy"
         g[f"{said}{'Cleared' if cleared else 'Missed'}"] += 1
-    return g
+    return {cell: None if 0 < n < MIN_READERS else n for cell, n in g.items()}
 
 
 def _pct(value: Any) -> int:

@@ -68,7 +68,8 @@ def test_a_calibration_gap_tells_its_share_and_carries_its_grid():
     pf = PageFacts(readers=people(10), pairs=pairs)
     out = to_landing(engine("calibration_gap", 9, overconfidenceRate=60.0), facts({9: pf}))
     assert out["metrics"] == {"pct": 60}
-    assert out["grid"] == {"clickedCleared": 2, "clickedMissed": 3, "foggyCleared": 1, "foggyMissed": 0}
+    # Cells of 1-4 people are hidden (null); a cell of 0 names nobody and stays 0.
+    assert out["grid"] == {"clickedCleared": None, "clickedMissed": None, "foggyCleared": None, "foggyMissed": 0}
 
 
 def test_a_silent_misleader_is_never_told_even_with_a_full_grid():
@@ -89,7 +90,7 @@ def test_a_grid_counts_only_the_pages_readers():
     assert grid(PageFacts(readers=people(10), pairs=pairs)) is None
     pairs["r4"] = ("confused", True)
     assert grid(PageFacts(readers=people(10), pairs=pairs)) == {
-        "clickedCleared": 0, "clickedMissed": 4, "foggyCleared": 1, "foggyMissed": 0,
+        "clickedCleared": 0, "clickedMissed": None, "foggyCleared": None, "foggyMissed": 0,
     }
 
 
@@ -219,3 +220,14 @@ def test_a_lesson_without_a_page_count_is_as_long_as_its_highest_page_read():
 def test_a_grid_needs_five_pairs():
     four = PageFacts(readers=people(10), pairs={f"r{i}": ("got_it", True) for i in range(4)})
     assert grid(four) is None
+
+
+def test_a_grid_cell_of_one_to_four_people_is_hidden_zero_and_five_are_told():
+    pairs = (
+        {f"a{i}": ("got_it", True) for i in range(5)}      # clickedCleared: 5, told
+        | {f"b{i}": ("got_it", False) for i in range(4)}   # clickedMissed: 4, hidden
+        | {"c0": ("confused", True)}                       # foggyCleared: 1, hidden
+    )                                                      # foggyMissed: 0, stays 0
+    assert grid(PageFacts(readers=set(pairs), pairs=pairs)) == {
+        "clickedCleared": 5, "clickedMissed": None, "foggyCleared": None, "foggyMissed": 0,
+    }

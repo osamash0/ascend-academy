@@ -60,12 +60,15 @@ export interface LandingLesson {
   help?: (number | null)[];
 }
 
-/** Check-in against checkpoint, paired per person. */
+/**
+ * Check-in against checkpoint, paired per person. A cell of 1 to 4 people is `null`
+ * (findable, so never told); a cell of 0 names nobody and stays 0.
+ */
 export interface Grid {
-  clickedCleared: number;
-  clickedMissed: number;
-  foggyCleared: number;
-  foggyMissed: number;
+  clickedCleared: number | null;
+  clickedMissed: number | null;
+  foggyCleared: number | null;
+  foggyMissed: number | null;
 }
 
 export interface LandingInsight {

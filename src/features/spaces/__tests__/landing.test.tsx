@@ -125,6 +125,38 @@ describe('the owner’s door', () => {
     expect(screen.getByText('33 people')).toBeInTheDocument();
   });
 
+  const withGrid = (grid: NonNullable<Landing['insights'][number]['grid']>): Landing => ({
+    ...dbsLanding,
+    insights: dbsLanding.insights.map((i) => (i.id === 'i-dbs-trap-9' ? { ...i, grid } : i)),
+  });
+  const picture = () => screen.getByText('Clicked vs. missed on page 9').closest('figure') as HTMLElement;
+
+  it('a trap picture with a cell of one to four people hides that cell and every percent', () => {
+    // The wire sends null for a cell of 1-4 people; 0 names nobody and stays 0.
+    fixture.override = withGrid({ clickedCleared: 21, clickedMissed: null, foggyCleared: null, foggyMissed: 0 });
+    door('s-dbs');
+    fireEvent.click(screen.getByRole('button', { name: TRAP }));
+    const fig = picture();
+    expect(fig.textContent).not.toContain('%');
+    expect(fig.textContent).not.toMatch(/\b1 person\b/);
+    expect(fig.querySelectorAll('[data-cell="outline"]')).toHaveLength(2);
+    expect(fig.querySelectorAll('[data-cell="outline"] span')).toHaveLength(0);
+    // The cells that are told still show their people, and the layout keeps all four cells.
+    expect(within(fig).getByText('21 people')).toBeInTheDocument();
+    expect(within(fig).getByText('0 people')).toBeInTheDocument();
+    expect(fig.querySelectorAll('p.leading-snug')).toHaveLength(4);
+  });
+
+  it('a trap picture of cells of five or more still shows counts and percents', () => {
+    door('s-dbs');
+    fireEvent.click(screen.getByRole('button', { name: TRAP }));
+    const fig = picture();
+    expect(fig.querySelectorAll('[data-cell="outline"]')).toHaveLength(0);
+    expect(within(fig).getByText('33 people')).toBeInTheDocument();
+    expect(within(fig).getByText('48%')).toBeInTheDocument();
+    expect(fig.textContent).toContain('%');
+  });
+
   it('people waiting come before the map, without a count', () => {
     door('s-dbs');
     const questions = screen.getByRole('heading', { level: 2, name: 'Questions for you' });
