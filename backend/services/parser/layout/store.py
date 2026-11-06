@@ -78,12 +78,29 @@ async def upsert_layouts(lecture_id: UUID | str, pages: List[Dict[str, Any]]) ->
             )
 
 
+SERVED_ORIGINAL = ("page", "verdict", "reasons", "version")
+
+
+def served(p: Dict[str, Any]) -> Dict[str, Any]:
+    """What the reader gets of a page: a Layout page whole; an original page only its verdict (its blocks and
+    paths are never shown)."""
+    if p.get("verdict") == "layout":
+        return p
+    return {k: p[k] for k in SERVED_ORIGINAL if k in p}
+
+
 async def load_layouts(lecture_id: UUID | str) -> List[Dict[str, Any]]:
+    """The stored pages in page order; an original page's blocks and paths stay in the database (served())."""
     from backend.core.database import get_db_connection
 
     async with await get_db_connection() as conn:
         rows = await conn.fetch(
-            "SELECT layout FROM public.lecture_layouts WHERE lecture_id = $1 ORDER BY page",
+            """
+            SELECT CASE WHEN layout->>'verdict' = 'layout' THEN layout
+                        ELSE jsonb_build_object('page', layout->'page', 'verdict', layout->'verdict', 'reasons', layout->'reasons', 'version', layout->'version')
+                   END AS layout
+            FROM public.lecture_layouts WHERE lecture_id = $1 ORDER BY page
+            """,
             UUID(str(lecture_id)),
         )
     return [json.loads(r["layout"]) if isinstance(r["layout"], str) else r["layout"] for r in rows]

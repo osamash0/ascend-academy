@@ -5,7 +5,7 @@ import re
 
 from backend.services.parser.layout.chars import (dingbat_paren_arrow, fix_chars, fix_dingbat_bullets, fix_paren_bullets,
                                                   map_text, pua_map, wing_bullets)
-from backend.services.parser.layout.checks import server_checks
+from backend.services.parser.layout.checks import TOO_MANY_LINES, server_checks
 from backend.services.parser.layout.figures import (apply_pictures, apply_regions, content_pictures, diagram_regions,
                                                     drop_blank_figures, trim_figures)
 from backend.services.parser.layout.geometry import area, inter
@@ -70,5 +70,7 @@ def build_page_layout(page, n, repeated):
     reasons = server_checks(page, blocks, pics, diagrams, paths, dropped, marks=lost_marks(page, keep_out, texts, paths),
                             pua=m)
     blocks.sort(key=lambda b: b.get("readingOrder", 999))
+    if TOO_MANY_LINES in reasons:
+        paths = []                                     # held, never drawn: not stored either
     return {"page": n, "verdict": "original" if reasons else "layout", "reasons": [_scrub(r) for r in reasons],
             "blocks": [_stored(b) for b in blocks], "paths": paths, "version": LAYOUT_VERSION}

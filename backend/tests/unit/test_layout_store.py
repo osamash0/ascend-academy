@@ -151,6 +151,24 @@ def test_load_layouts_returns_the_pages_in_order(monkeypatch):
     assert "ORDER BY page" in log[0][1]
 
 
+def test_load_layouts_reads_only_the_verdict_of_an_original_page(monkeypatch):
+    log = []
+    patch_db(monkeypatch, FakeConn(log))
+    asyncio.run(store.load_layouts(LECTURE))
+    sql = log[0][1]
+    # blocks and paths of a held page never leave the database: they are never shown
+    assert "layout->>'verdict' = 'layout'" in sql
+    assert "jsonb_build_object('page', layout->'page', 'verdict', layout->'verdict', 'reasons', layout->'reasons', " \
+           "'version', layout->'version')" in sql
+
+
+def test_served_keeps_a_layout_page_whole_and_an_original_page_to_its_verdict():
+    lp = {"page": 1, "verdict": "layout", "reasons": [], "blocks": [1], "paths": [2], "version": 1}
+    held = dict(lp, verdict="original", reasons=["x"])
+    assert store.served(lp) == lp
+    assert store.served(held) == {"page": 1, "verdict": "original", "reasons": ["x"], "version": 1}
+
+
 def test_the_migration_timestamp_is_unique_and_passes_the_checker():
     files = sorted((ROOT / "supabase/migrations").glob("20261106120000_*.sql"))
     assert [f.name for f in files] == ["20261106120000_lecture_layouts.sql"]

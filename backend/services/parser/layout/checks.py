@@ -14,6 +14,8 @@ UNDER_CROP = 0.2         # share of a text block a figure box may cover
 CROP_SHARE = 0.35        # share of the text area that may still be symbol-font crops
 FURNITURE_BOTTOM = 0.86  # words in the outer band outside every block are page furniture
 FURNITURE_TOP = 0.1
+TOO_MANY_LINES = "too many lines"
+MAX_PATHS = 400          # more redrawn lines than this is a hatching, a map or a plot of many points: too heavy to send
 
 _PUA = re.compile("[\ue000-\uf8ff]")
 # spacing accents, a section sign standing for a bullet, control characters (a NUL, a stray TeX code), and the
@@ -115,4 +117,6 @@ def server_checks(page, blocks, pics, diagrams, paths, dropped, marks=0, pua=Non
         reasons.append(f"{missing} of {total} words missing")
     if crop_share > CROP_SHARE:
         reasons.append(f"{round(crop_share * 100)}% of the text is crops")
+    if len(paths) > MAX_PATHS:
+        reasons.append(TOO_MANY_LINES)
     return reasons

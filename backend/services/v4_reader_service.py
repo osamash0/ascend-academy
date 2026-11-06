@@ -221,15 +221,16 @@ async def graph_concepts(lecture_id: UUID) -> list[dict[str, Any]]:
 
 
 async def layout_pages(lecture_id: UUID) -> list[dict[str, Any]]:
-    """The Layout face's pages, by page. Empty when the flag is off, nothing is stored or the read fails."""
+    """The Layout face's pages, by page. Empty when the flag is off, nothing is stored or the read fails.
+    An original page carries only its verdict: {page, verdict, reasons, version}."""
     from backend.core.config import settings
 
     if not settings.feature_layout_face:
         return []
     try:
-        from backend.services.parser.layout.store import load_layouts
+        from backend.services.parser.layout.store import load_layouts, served
 
-        return list(await load_layouts(lecture_id) or [])
+        return [served(p) for p in (await load_layouts(lecture_id) or [])]
     except Exception as exc:
         logger.warning("v4 reader: layouts unavailable for %s: %s", lecture_id, exc)
         return []

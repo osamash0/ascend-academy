@@ -104,5 +104,5 @@ def test_real_parentheses_are_left_alone():
 
 def test_dingbat_bullets_are_left_alone_when_the_page_also_maps_a_non_arrow_symbol():
     # on a page with a Symbol-font "≤", a mid-line "•" may be that lost "≤": never guess an arrow for it
-    assert fix_dingbat_bullets("• A • B", {"": "→", "": "≤"}) == "• A • B"
-    assert fix_dingbat_bullets("• A • B", {"": "→", "": "⇒"}) == "• A → B"
+    assert fix_dingbat_bullets("• A • B", {"\uf0e0": "→", "\uf0a3": "≤"}) == "• A • B"
+    assert fix_dingbat_bullets("• A • B", {"\uf0e0": "→", "\uf0e8": "→"}) == "• A → B"

@@ -238,6 +238,19 @@ def test_flag_on_the_layouts_are_served_in_page_order_even_when_old(bundle):
     assert out["layouts"][0]["version"] == 0
 
 
+def test_an_original_page_is_served_without_blocks_or_paths(bundle):
+    held = {"page": 2, "verdict": "original", "reasons": ["too many lines"], "version": 1,
+            "blocks": [{"id": "p2-b0", "kind": "paragraph", "bbox": [0, 0, 1, 1], "text": "x"}],
+            "paths": [{"d": "M0,0", "bbox": [0, 0, 0, 0], "fill": False}]}
+
+    async def loader(lid):
+        return [_layout(1), held]
+
+    out = bundle(True, loader)
+    assert out["layouts"][0] == _layout(1)
+    assert out["layouts"][1] == {"page": 2, "verdict": "original", "reasons": ["too many lines"], "version": 1}
+
+
 def test_flag_on_without_rows_there_is_no_key(bundle):
     async def loader(lid):
         return []

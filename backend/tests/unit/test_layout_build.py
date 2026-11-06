@@ -247,28 +247,28 @@ def bullet_page(monkeypatch, lines, pua):
 
 
 def test_a_mid_line_bullet_on_a_page_with_symbol_font_characters_is_a_lost_symbol(monkeypatch):
-    d, p = bullet_page(monkeypatch, ("Let x · y hold for every pair",), {"": "≤"})
+    d, p = bullet_page(monkeypatch, ("Let x · y hold for every pair",), {"\uf0a3": "≤"})
     lp = build_page_layout(p, 1, set())
     assert lp["verdict"] == "original"
     assert "broken characters in 1 blocks" in lp["reasons"]
 
 
 def test_a_mixed_symbol_page_never_turns_its_bullets_into_arrows(monkeypatch):
-    d, p = bullet_page(monkeypatch, ("Let x · y hold for every pair",), {"": "→", "": "≤"})
+    d, p = bullet_page(monkeypatch, ("Let x · y hold for every pair",), {"\uf0e0": "→", "\uf0a3": "≤"})
     lp = build_page_layout(p, 1, set())
     assert "→" not in lp["blocks"][0]["text"]
     assert lp["verdict"] == "original"
 
 
 def test_an_arrows_only_page_still_gets_its_arrows_back(monkeypatch):
-    d, p = bullet_page(monkeypatch, ("Let x · y hold for every pair",), {"": "→"})
+    d, p = bullet_page(monkeypatch, ("Let x · y hold for every pair",), {"\uf0e0": "→"})
     lp = build_page_layout(p, 1, set())
     assert lp["blocks"][0]["text"] == "Let x → y hold for every pair"
     assert lp["verdict"] == "layout"
 
 
 def test_line_start_bullets_on_a_symbol_page_are_bullets(monkeypatch):
-    d, p = bullet_page(monkeypatch, ("· first point here", "· second point here"), {"": "≤"})
+    d, p = bullet_page(monkeypatch, ("· first point here", "· second point here"), {"\uf0a3": "≤"})
     lp = build_page_layout(p, 1, set())
     assert lp["verdict"] == "layout", lp["reasons"]
 
@@ -315,3 +315,23 @@ def test_a_table_cell_is_scrubbed_of_control_characters(monkeypatch):
     table = next(b for b in lp["blocks"] if b["kind"] == "table")
     assert table["rows"][0][0] == "r0c0" and "\x00" not in table["text"]
     assert lp["verdict"] == "original"
+
+
+# --- payload: a page with too many lines ------------------------------------------------------------------
+def test_more_than_four_hundred_paths_is_too_many_lines():
+    d, p = text_page(("Body",))
+    blocks = blocks_for("Body", (0.05, 0.1, 0.3, 0.14))
+    paths = [{"d": "M0,0L1,1", "bbox": [0.5, 0.5, 0.5, 0.5], "fill": False}]
+    assert server_checks(p, blocks, [], [], paths * 400, []) == []
+    assert server_checks(p, blocks, [], [], paths * 401, []) == ["too many lines"]
+
+
+def test_a_page_with_too_many_lines_is_held_and_stores_none_of_them():
+    d, p = text_page(("A hatched drawing",))
+    for i in range(420):
+        x = 100 + (i % 30) * 14
+        y = 300 + (i // 30) * 30
+        p.draw_line((x, y), (x + 10, y + 20), color=(0, 0, 0))
+    lp = build_page_layout(p, 1, set())
+    assert lp["verdict"] == "original" and "too many lines" in lp["reasons"]
+    assert lp["paths"] == []
