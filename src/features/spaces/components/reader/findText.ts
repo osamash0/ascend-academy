@@ -31,6 +31,19 @@ export function findRange(container: Element, text: string): Range | null {
   return null;
 }
 
+/**
+ * Find a sentence on a page slot, where the learner sees it. With the Layout
+ * face shown, the pdf.js text layer is still underneath, hidden by the layer,
+ * and it comes first in the document, so a plain search would light the hidden
+ * words. The shown layer is searched first; the whole page only when the layer
+ * does not carry the words (it re-spaces arrows and drops symbol bullets). A
+ * veiled layer (one the browser checks failed) is not seen, so it is skipped.
+ */
+export function findOnPage(slot: Element, text: string): Range | null {
+  const shown = slot.querySelector('.ls-layout:not([data-veiled])');
+  return (shown && findRange(shown, text)) || findRange(slot, text);
+}
+
 function findExact(container: Element, needle: string): Range | null {
 
   /*

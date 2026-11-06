@@ -35,6 +35,7 @@ import { currentRun } from '../mocks/history';
 import type { HeroKind, HomeItem, RecentItem } from '../mocks/library';
 import { canvasById, materialById, pagesFor } from '../mocks/studio-canvas';
 import type { CanvasDoc, SourcePage, StudioMaterial } from '../studio/types';
+import { NO_LAYOUTS, type LayoutReady } from '../components/reader/layout/types';
 
 /**
  * The data seam.
@@ -397,6 +398,8 @@ export interface LessonContentResult {
   concepts: LectureConcept[];
   /** What `resolvePdfUrl(bundle.lecture.pdf_url)` returns. Null = no file. */
   pdfUrl: string | null;
+  /** Pages the parser re-set, by page number; a page held as the original has no entry. Empty in demo. */
+  layouts: Map<number, LayoutReady>;
 }
 
 /**
@@ -416,7 +419,7 @@ export function useLessonContent(lessonId: string | undefined): LessonContentRes
   const scenario = useScenario();
   const state = useSettled(scenario);
   const content = lessonId ? lessonContent(lessonId) : null;
-  if (state !== 'ready') return { state, bundle: null, concepts: [], pdfUrl: null };
-  if (!content) return { state: 'empty', bundle: null, concepts: [], pdfUrl: null };
-  return { state, bundle: content.bundle, concepts: content.concepts, pdfUrl: content.pdfUrl };
+  if (state !== 'ready') return { state, bundle: null, concepts: [], pdfUrl: null, layouts: NO_LAYOUTS };
+  if (!content) return { state: 'empty', bundle: null, concepts: [], pdfUrl: null, layouts: NO_LAYOUTS };
+  return { state, bundle: content.bundle, concepts: content.concepts, pdfUrl: content.pdfUrl, layouts: NO_LAYOUTS };
 }

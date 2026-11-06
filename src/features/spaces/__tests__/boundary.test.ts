@@ -81,6 +81,8 @@ const ALLOWED = [
    * existing manager (uploads, publishing), so live Manage sends you there.
    */
   /^@\/lib\/routes$/,
+  // The build-time feature flags: `VITE_FEATURE_*` read once at build, no data, no network.
+  /^@\/lib\/featureFlags$/,
   /*
    * The two faces of a Lesson. `@/components/pdf` wraps react-pdf (the
    * Material as uploaded); `@/components/markdown` wraps react-markdown (the
