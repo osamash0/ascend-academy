@@ -748,6 +748,18 @@ async def _store_lecture_pdf(lecture_id: UUID, filename: str, pdf_bytes: bytes) 
         return None
 
 
+async def _run_layout_pass(lecture_id: Optional[UUID | str], pdf_bytes: bytes) -> None:
+    """The Layout face: each page re-set as blocks with a verdict. Only with FEATURE_LAYOUT_FACE on and a
+    lecture to write to. Deterministic, no AI calls; a failure is logged and never fails the parse."""
+    if not settings.feature_layout_face or lecture_id is None:
+        return
+    try:
+        from backend.services.parser.layout.store import build_layouts
+        await build_layouts(lecture_id, pdf_bytes)
+    except Exception as exc:
+        logger.warning("layout pass failed (non-fatal): %s", exc)
+
+
 async def parse_pdf_unified(
     ctx: dict,
     *,
@@ -1230,12 +1242,7 @@ async def parse_pdf_unified(
         # ── 4a′. Layout face ──────────────────────────────────────────────────
         # Each page re-set as blocks with a verdict. Deterministic, no AI calls;
         # a failure here never fails the parse (the Page face is unaffected).
-        if settings.feature_layout_face and created_lecture_id is not None:
-            try:
-                from backend.services.parser.layout.store import build_layouts
-                await build_layouts(created_lecture_id, pdf_bytes)
-            except Exception as exc:
-                logger.warning("layout pass failed (non-fatal): %s", exc)
+        await _run_layout_pass(created_lecture_id, pdf_bytes)
 
         # ── 4b. Course-context extraction from administrative slides ─────────
         # A parallel side-channel — does NOT change what gets synthesized or
