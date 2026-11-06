@@ -104,8 +104,6 @@ const AvatarStudio = lazy(() => import("./pages/AvatarStudio"));
 const AskLunaLab = lazy(() => import("./pages/AskLunaLab"));
 const LandingLab = lazy(() => import("./pages/LandingLab"));
 const AskLunaPage = lazy(() => import("./pages/AskLunaPage"));
-// Design spike: Home → chat transition. Dev only, see src/pages/HomeChatLab.tsx.
-const HomeChatLab = lazy(() => import("./pages/HomeChatLab"));
 // v4 design rebuild. Mock data only, no backend, dev-only route — the old
 // product is untouched and the two coexist. See docs/design-v4/.
 const SpacesScreen = lazy(() => import("./features/spaces/screens/SpacesScreen"));
@@ -480,7 +478,6 @@ function AppRoutes() {
             <Route path="/v4/library/drafts" element={<LibraryTo to="/v4/library?f=shared" />} />
             <Route path="/v4/library/impact" element={<LibraryTo to="/v4/library?f=shared" />} />
             <Route path="/v4/home" element={<V4Home />} />
-            {import.meta.env.DEV && <Route path="/v4/lab/home-chat" element={<HomeChatLab />} />}
             <Route path="/v4/social" element={<V4Social />} />
             <Route path="/v4/profile" element={<V4Profile />} />
             {/* Why your rank is what it is — the XP ledger and the gate. */}

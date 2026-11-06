@@ -38,9 +38,9 @@ Which is what Learnstation already has, in three places:
 
 So the research answer is short. The thing in the screenshots is a typed block registry with progressive rendering and a continuation button. We have the registry and the streaming. What we do not have is one vocabulary shared by every place Luna speaks, and the home chat does not use it at all.
 
-## What the home chat uses today, and the gap
+## What the home chat used at the time, and the gap
 
-The home ask bar calls `POST /api/v1/v4/ask`, which returns prose plus page citations. The lab on `/v4/lab/home-chat` renders that prose word by word and lights the cited pages. It cannot show a diagram, a check or a next step because the shape it receives has no room for them.
+The home ask bar called `POST /api/v1/v4/ask`, which returns prose plus page citations. A dev-only lab (`/v4/lab/home-chat`, kept in the history of PR #170 up to commit `cdc259d7`, removed before merge) rendered that prose word by word and lit the cited pages, then grew the canned blocks, the planned lesson and a live mode. It could not show a diagram, a check or a next step from the live tutor because the shape it received had no room for them. Home itself now runs the Luna session (LS-127, LS-128).
 
 The reader's Luna sessions already receive the right shape. The gap is a Space-level entry point and a shared renderer.
 
