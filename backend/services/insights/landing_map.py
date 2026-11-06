@@ -74,9 +74,17 @@ def _pct(value: Any) -> int:
 
 
 def _metrics(kind: str, m: dict[str, Any], f: PageFacts) -> dict[str, float]:
+    """The numbers a kind's copy reads. Every one is a share (floored by the page's people gate), a
+    duration, a ratio or a page, or a count of people sent only from `MIN_READERS` up."""
     if kind == "confusion_hotspot":
+        # The detector fires on the foggy share alone, so askers can be 0-4, and in a small group
+        # "three asked" says who: the count is told only from `MIN_READERS` up, else only `foggy`.
         # Readers only, as `page_row` and `help_share` count: someone who asked without a counted read is no reader here.
-        return {"askers": len((f.explain | f.ask) & f.readers), "foggy": _pct(m.get("confusionRate"))}
+        out = {"foggy": _pct(m.get("confusionRate"))}
+        askers = len((f.explain | f.ask) & f.readers)
+        if askers >= MIN_READERS:
+            out = {"askers": askers, **out}
+        return out
     if kind == "skipped_slide":
         return {"seconds": _pct(m.get("medianDwellSeconds"))}
     if kind == "speed_bump":
@@ -98,6 +106,9 @@ def to_landing(insight: dict[str, Any], lf: LessonFacts) -> Optional[dict[str, A
     kind = insight.get("kind")
     pages = pages_of(insight)
     if kind not in _KINDS or not pages:
+        return None
+    if kind == "speed_bump" and int((insight.get("metrics") or {}).get("backtracksFromNext") or 0) < MIN_READERS:
+        # "Three people turned back" says who in a small group; the detector may still fire on two.
         return None
     f = lf.pages.get(pages[0]) or PageFacts()
     out: dict[str, Any] = {

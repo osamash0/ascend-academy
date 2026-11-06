@@ -28,18 +28,39 @@ def engine(kind, page=None, severity=0.8, attention="act", **metrics):
 
 
 def test_a_hotspot_tells_how_many_people_asked_and_how_many_said_foggy():
-    pf = PageFacts(readers=people(10), explain={"r0", "r1"}, ask={"r1", "r2", "r3"})
+    pf = PageFacts(readers=people(10), explain={"r0", "r1", "r2"}, ask={"r1", "r2", "r3", "r4"})
     out = to_landing(engine("confusion_hotspot", 3, confusionRate=61.4), facts({3: pf}))
     assert out == {
         "id": "l1:confusion_hotspot:x", "kind": "confusion_hotspot", "attention": "act", "severity": 0.8,
-        "lessonId": "l1", "page": 3, "metrics": {"askers": 4, "foggy": 61},
+        "lessonId": "l1", "page": 3, "metrics": {"askers": 5, "foggy": 61},
     }
 
 
+def test_a_hotspot_never_counts_one_to_four_askers():
+    # In a small group "three asked" says who. The detector fires on the foggy share alone,
+    # so the number of askers may be under the floor: then it is left out and `foggy` stands.
+    for asked in range(0, 5):
+        pf = PageFacts(readers=people(10), ask=people(asked))
+        out = to_landing(engine("confusion_hotspot", 3, confusionRate=61.4), facts({3: pf}))
+        assert out["metrics"] == {"foggy": 61}, asked
+    pf = PageFacts(readers=people(10), explain=people(5))
+    assert to_landing(engine("confusion_hotspot", 3, confusionRate=61.4), facts({3: pf}))["metrics"] == {"askers": 5, "foggy": 61}
+
+
 def test_someone_who_asked_without_reading_the_page_is_not_counted_among_its_askers():
-    pf = PageFacts(readers=people(10), explain={"r0"}, ask={"r1", "ghost"})
+    # Five who asked, but one of them has no counted read: four askers, so none is told.
+    pf = PageFacts(readers=people(10), explain={"r0", "r1"}, ask={"r2", "r3", "ghost"})
     out = to_landing(engine("confusion_hotspot", 3, confusionRate=50.0), facts({3: pf}))
-    assert out["metrics"]["askers"] == 2
+    assert out["metrics"] == {"foggy": 50}
+    pf = PageFacts(readers=people(10), explain={"r0", "r1"}, ask={"r2", "r3", "r4", "ghost"})
+    assert to_landing(engine("confusion_hotspot", 3, confusionRate=50.0), facts({3: pf}))["metrics"]["askers"] == 5
+
+
+def test_a_speed_bump_of_fewer_than_five_turning_back_never_reaches_the_door():
+    lf = facts({4: PageFacts(readers=people(10))})
+    for backs in (0, 2, 4):
+        assert to_landing(engine("speed_bump", 4, backtracksFromNext=backs), lf) is None, backs
+    assert to_landing(engine("speed_bump", 4, backtracksFromNext=5), lf)["metrics"] == {"backs": 5}
 
 
 def test_a_calibration_gap_tells_its_share_and_carries_its_grid():

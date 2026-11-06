@@ -298,14 +298,18 @@ def test_cleared_counts_each_person_once_however_many_questions_they_answered(do
     assert door.look(data)["figures"]["cleared"]["value"] == 20
 
 
-def test_one_person_turning_back_twelve_times_is_no_speed_bump_three_people_are(door):
-    """Page 2 holds people long; one reader turns back to it from page 3 twelve times: no finding. Three readers once each: a speed bump."""
+def test_one_person_turning_back_twelve_times_is_no_speed_bump_five_people_are(door):
+    """Page 2 holds people long; one reader turns back to it from page 3 twelve times: no finding.
+    Three or four readers once each: the engine sees a speed bump, the door says nothing (in a small
+    group "four turned back" says who). Five: a speed bump the owner is told."""
     ten = range(10)
     base = reads(ten, NORM, [1, 3, 4]) + reads(ten, NORM, [2], seconds=80)
     one = space([lesson(NORM, 4)], base + [back(0, NORM, 3, 2, second=s) for s in range(12)])
-    three = space([lesson(NORM, 4)], base + [back(i, NORM, 3, 2) for i in range(3)])
+    four = space([lesson(NORM, 4)], base + [back(i, NORM, 3, 2) for i in range(4)])
+    five = space([lesson(NORM, 4)], base + [back(i, NORM, 3, 2) for i in range(5)])
     assert kinds(door.look(one), "speed_bump") == []
-    assert [(i["page"], i["metrics"]) for i in kinds(door.look(three), "speed_bump")] == [(2, {"backs": 3})]
+    assert kinds(door.look(four), "speed_bump") == []
+    assert [(i["page"], i["metrics"]) for i in kinds(door.look(five), "speed_bump")] == [(2, {"backs": 5})]
 
 
 # ═══ Drop-off and skipping ══════════════════════════════════════════════════
