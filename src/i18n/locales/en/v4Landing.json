@@ -90,8 +90,8 @@
     },
     "overpacked": {
       "headline": "A page that asks too much at once",
-      "summary": "Page {{page}} holds people {{ratio}}× longer than the other pages, and at least three in ten said it was still foggy.",
-      "why": "Long, uneven time plus help-seeking is the shape of two ideas on one page."
+      "summary": "Page {{page}} holds people {{ratio}}× longer than the other pages, and at least three in ten who rated it said it was still foggy.",
+      "why": "Long time on a page that stays foggy, with help sought or time that varies widely, is the shape of two ideas on one page."
     },
     "leaky_bucket": {
       "headline": "A Lesson that feels heavy",

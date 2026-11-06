@@ -90,8 +90,8 @@
     },
     "overpacked": {
       "headline": "Eine Seite, die zu viel auf einmal will",
-      "summary": "Seite {{page}} hält Leute {{ratio}}× länger als die anderen Seiten, und mindestens drei von zehn fanden sie noch nebelig.",
-      "why": "Lange, ungleiche Zeit plus Hilfesuche ist die Form von zwei Ideen auf einer Seite."
+      "summary": "Seite {{page}} hält Leute {{ratio}}× länger als die anderen Seiten, und mindestens drei von zehn, die sie bewertet haben, fanden sie noch nebelig.",
+      "why": "Viel Zeit auf einer Seite, die nebelig bleibt, dazu Hilfesuche oder stark schwankende Zeit, ist die Form von zwei Ideen auf einer Seite."
     },
     "leaky_bucket": {
       "headline": "Eine Lektion, die schwer wird",
@@ -100,12 +100,12 @@
     },
     "confusion_block": {
       "headline": "Ein Abschnitt, in dem der Faden riss",
-      "summary": "Die Seiten {{first}} bis {{last}} waren für mindestens jede vierte Person nebelig, die gesagt hat, wie sie sich lesen.",
+      "summary": "Von denen, die gesagt haben, wie sich die Seiten {{first}} bis {{last}} lesen, fand mindestens jede vierte sie nebelig.",
       "why": "Ein fehlendes Glied früh im Abschnitt macht jede Seite danach schwerer."
     },
     "quiz_misalignment": {
       "headline": "Eine Frage, die etwas anderes prüft",
-      "summary": "Seite {{page}} las sich leicht, doch nur {{pct}}% haben ihre Fragen beim ersten Versuch gelöst.",
+      "summary": "Seite {{page}} las sich leicht, doch nur {{pct}}% haben ihre Fragen beim ersten Versuch richtig beantwortet.",
       "why": "Wenn die Seite klar ist und die Frage daneben geht, fragt die Frage nach etwas, das die Seite nicht lehrt."
     },
     "calibration_gap": {
@@ -115,7 +115,7 @@
     },
     "healthy": {
       "headline": "{{lesson}} kommt gut an",
-      "summary": "Eine Seite hier hat den Leuten etwas abverlangt, und die meisten haben ihre Fragen danach beim ersten Versuch gelöst.",
+      "summary": "Eine Seite hier hat den Leuten etwas abverlangt, und die meisten haben ihre Fragen danach beim ersten Versuch richtig beantwortet.",
       "why": "Nichts zu ändern. Gut zu wissen, welche Lektion du als Vorbild nimmst, wenn du die nächste baust."
     }
   },
