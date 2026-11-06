@@ -372,17 +372,20 @@ class TestEnhanceSlide:
             "parser_engine": "heuristic-v1",
         }])
 
-    def _patch_synth(self, monkeypatch):
+    def _patch_synth(self, monkeypatch, pdf_bytes=b"%PDF-fake"):
         from backend.services.parser import unified_orchestrator as uo
         from backend.services.parser import storage
         import backend.services.file_parse_service as fps
 
-        async def fake_synth(idx, text, ctx, model, pdf):
+        self.routes = []
+
+        async def fake_synth(idx, text, ctx, model, pdf, *_a, route_reason, **_kw):
+            self.routes.append((idx, route_reason))
             return {"title": "Gradient Descent", "content": text,
                     "summary": "How GD minimizes loss.", "slide_type": "text"}
 
         async def fake_pdf(pdf_hash):
-            return b"%PDF-fake"
+            return pdf_bytes
 
         async def fake_embed(*a, **k):
             return None
@@ -406,6 +409,35 @@ class TestEnhanceSlide:
         row = patch_supabase.table("slides").select("*").eq("id", "SL1").execute().data[0]
         assert row["ai_enhanced"] is True
         assert row["parser_engine"] == "unified"
+
+    def test_enhance_routes_on_the_slides_pdf_page(self, app, professor_user, patch_supabase, monkeypatch):
+        """Enhance follows the same rule as the parse: the slide's page decides,
+        not the length of its stored text."""
+        import fitz
+
+        d = fitz.open()
+        d.new_page(width=400, height=300)
+        scan = d.new_page(width=400, height=300)  # slide_number 2: a picture, no text layer
+        pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 50, 50), False)
+        pix.clear_with(200)
+        scan.insert_image(fitz.Rect(50, 50, 350, 250), pixmap=pix)
+        pdf = d.tobytes()
+        d.close()
+
+        self._seed(patch_supabase)
+        self._patch_synth(monkeypatch, pdf_bytes=pdf)
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        r = TestClient(app).post("/api/v1/upload/enhance-slide/SL1", headers={"Authorization": "Bearer x"})
+        assert r.status_code == 200, r.text
+        assert self.routes == [(1, "no_text")]
+
+    def test_enhance_without_a_readable_pdf_reads_the_text(self, app, professor_user, patch_supabase, monkeypatch):
+        self._seed(patch_supabase)
+        self._patch_synth(monkeypatch)  # b"%PDF-fake" cannot be opened
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        r = TestClient(app).post("/api/v1/upload/enhance-slide/SL1", headers={"Authorization": "Bearer x"})
+        assert r.status_code == 200, r.text
+        assert self.routes == [(1, "text")]
 
     def test_already_enhanced_is_idempotent_noop(self, app, professor_user, patch_supabase, monkeypatch):
         self._seed(patch_supabase, ai_enhanced=True)

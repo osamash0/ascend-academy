@@ -24,12 +24,14 @@ than awaited inline before the HTTP response returns:
   the hot write path. It now runs in its own connection, after the request's
   transaction has already committed and the response has been sent.
 
-Self-healing: both jobs are plain Arq job functions, so a raised exception is
-retried by Arq itself (`WorkerSettings.max_tries = 5`, exponential backoff) —
-we deliberately do NOT swallow exceptions here (unlike the old best-effort
-inline callers), because swallowing them would silently drop the retry that
-makes this self-healing. We log loudly on every failure so it's observable
-even before a retry succeeds.
+Failures are not retried: Arq only retries a job that raises
+`arq.worker.Retry`, and these jobs raise plain exceptions, so a failed
+recompute ends on its first attempt and is recorded in the dead-letter
+table (`after_job_end`). We still do NOT swallow exceptions here (unlike the
+old best-effort inline callers), so a failure is logged loudly and recorded
+instead of disappearing. For the analytics cache that is harmless: the next
+event on the same lecture enqueues another invalidation. For concept
+mastery it is not: the failed grade is never counted.
 """
 from __future__ import annotations
 
@@ -56,7 +58,7 @@ async def rollup_analytics_cache(ctx: dict, lecture_id: str) -> Dict[str, Any]:
         deleted = await run_sync(analytics_cache.invalidate, lecture_id)
     except Exception:
         logger.exception(
-            "rollup_analytics_cache FAILED for lecture_id=%s — will retry on next Arq attempt",
+            "rollup_analytics_cache FAILED for lecture_id=%s (not retried; see dead-letter table)",
             lecture_id,
         )
         raise
@@ -90,8 +92,8 @@ async def rollup_concept_mastery(
             await mastery.record_grade(conn, user_id, UUID(card_id), rating)
     except Exception:
         logger.exception(
-            "rollup_concept_mastery FAILED for user_id=%s card_id=%s rating=%s — "
-            "will retry on next Arq attempt",
+            "rollup_concept_mastery FAILED for user_id=%s card_id=%s rating=%s "
+            "(not retried; this grade is not counted)",
             user_id,
             card_id,
             rating,

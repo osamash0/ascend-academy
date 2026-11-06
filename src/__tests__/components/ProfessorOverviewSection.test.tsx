@@ -2,10 +2,10 @@
  * Render smoke test for the new course-wide overview section.
  * Mocks the analytics hook so we don't need MSW or a live API.
  */
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 
-const mockOverview = {
+const fullOverview = {
   active_students: 12,
   average_completion: 73.5,
   average_quiz_accuracy: 81.2,
@@ -17,11 +17,14 @@ const mockOverview = {
   weakest_slides: [],
   activity_sparkline: Array.from({ length: 7 }, (_, i) => ({
     date: `2026-04-${String(20 + i).padStart(2, "0")}`,
-    count: i * 2,
+    people: i * 2 + 5,
   })),
   lecture_count: 4,
   days: 7,
 };
+
+// The hook's data, swapped per test (the floor case replaces it with an all-null overview).
+let mockOverview: Record<string, unknown> = fullOverview;
 
 vi.mock("@/features/analytics/hooks/useAnalytics", () => ({
   useProfessorOverview: () => ({
@@ -41,6 +44,10 @@ const courses: Course[] = [
 ];
 
 describe("ProfessorOverviewSection", () => {
+  beforeEach(() => {
+    mockOverview = fullOverview;
+  });
+
   it("renders the four stat tiles, weakest concepts, and the sparkline scaffold", () => {
     renderWithProviders(<ProfessorOverviewSection courses={courses} />);
 
@@ -79,5 +86,27 @@ describe("ProfessorOverviewSection", () => {
     // landed on the page.
     expect(container.querySelector("[aria-label='Course selector for overview']")).toBeNull();
     expect(container.textContent).not.toContain("Course Overview");
+  });
+
+  it("shows a dash, never a zero, for a figure fewer than five people stand behind", () => {
+    mockOverview = {
+      ...fullOverview,
+      active_students: null,
+      average_completion: null,
+      average_quiz_accuracy: null,
+      median_time_minutes: null,
+      weakest_concepts: [],
+      weakest_slides: [],
+      activity_sparkline: Array.from({ length: 7 }, (_, i) => ({
+        date: `2026-04-${String(20 + i).padStart(2, "0")}`,
+        people: null,
+      })),
+    };
+    renderWithProviders(<ProfessorOverviewSection courses={courses} />);
+    const body = document.body.textContent ?? "";
+    expect(screen.getAllByText("—")).toHaveLength(4);
+    expect(body).not.toMatch(/null/);
+    expect(body).not.toMatch(/\b0\s*%/);
+    expect(body).not.toMatch(/NaN/);
   });
 });

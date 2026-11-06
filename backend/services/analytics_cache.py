@@ -122,13 +122,15 @@ async def get_or_compute_async(
     params: Optional[dict] = None,
     ttl_seconds: int = DEFAULT_TTL_SECONDS,
     force_refresh: bool = False,
+    ttl_for: Optional[Callable[[Any], int]] = None,
 ) -> Any:
     """Async variant of :func:`get_or_compute`.
 
     Unlike the sync variant (which callers already run via ``run_in_threadpool``
     from the request handler), this runs *on the event loop*, so the blocking
     ``_read``/``_write`` Supabase calls are offloaded to the threadpool here to
-    avoid stalling the single API worker.
+    avoid stalling the single API worker. ``ttl_for``, when given, picks the TTL from the
+    result (a short one for an empty answer).
     """
     if not lecture_id:
         return await compute_fn()
@@ -138,7 +140,7 @@ async def get_or_compute_async(
         if hit is not None:
             return hit
     result = await compute_fn()
-    await run_sync(_write, lecture_id, view_name, ph, result, ttl_seconds)
+    await run_sync(_write, lecture_id, view_name, ph, result, ttl_for(result) if ttl_for else ttl_seconds)
     return result
 
 

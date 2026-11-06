@@ -173,3 +173,54 @@ async def test_lessons_added_at_one_moment_keep_one_order_in_the_space_and_its_l
 
     assert [(l.id, l.order) for l in data.lessons] == [(str(low), 1), (str(high), 2)]
     assert [(l["id"], l["order"]) for l in world["lessons"] if l["spaceId"] == str(space)] == [(str(low), 1), (str(high), 2)]
+
+
+async def test_one_member_writing_many_events_cannot_push_out_another_members_older_ones(
+    throwaway_db, db_conn, make_user, make_course, make_lecture, make_course_enrollment, monkeypatch,
+):
+    import backend.services.insights.sources.space as source
+
+    owner, busy, space, lesson = _space_with_a_member(db_conn, make_user, make_course, make_lecture, make_course_enrollment)
+    quiet = make_user(email=f"quiet-{uuid.uuid4().hex[:6]}@gmail.com")
+    make_course_enrollment(quiet, space)
+    view = {"lectureId": str(lesson), "duration_seconds": 30, "sessionId": "s"}
+    _event(db_conn, quiet, "slide_view", {**view, "page": 1}, seconds_ago=1000)
+    for n in range(4):
+        _event(db_conn, busy, "slide_view", {**view, "page": 2}, seconds_ago=10 + n)
+    monkeypatch.setattr(source, "EVENT_CAP", 4)
+    monkeypatch.setattr(source, "PER_MEMBER_CAP", 2)
+
+    data = await source.load_space_data(space, "DBS", str(owner))
+
+    assert sorted((e.user_id, e.data["page"]) for e in data.events) == sorted(
+        [(str(quiet), 1), (str(busy), 2), (str(busy), 2)]
+    )
+
+
+async def test_a_question_answered_before_the_window_is_kept_as_tried_once_whatever_the_replays(
+    throwaway_db, db_conn, make_user, make_course, make_lecture, make_course_enrollment,
+):
+    from backend.services.insights.sources.space import WINDOW_DAYS, load_space_data
+
+    owner, member, space, lesson = _space_with_a_member(db_conn, make_user, make_course, make_lecture, make_course_enrollment)
+    outsider = make_user(email=f"outsider-{uuid.uuid4().hex[:6]}@gmail.com")
+    lid, old = str(lesson), (WINDOW_DAYS + 4) * 86_400
+    practice = {"lectureId": lid, "questionId": "q1", "correct": False}
+    for n in range(3):  # replays before the window: one key
+        _event(db_conn, member, "quiz_attempt", {**practice, "correct": n == 2}, seconds_ago=old + n)
+    _event(db_conn, member, "checkpoint_attempt", {
+        "lectureId": lid, "page": 9, "idea": "i" * 500, "kind": "choice", "questionId": 1, "correct": True,
+    }, seconds_ago=old)
+    _event(db_conn, member, "checkpoint_attempt", {"lectureId": lid, "page": 4, "idea": "Joins", "kind": "teach"}, seconds_ago=old)
+    _event(db_conn, member, "slide_view", {"lectureId": lid, "page": 2, "duration_seconds": 30}, seconds_ago=old)
+    _event(db_conn, outsider, "quiz_attempt", practice, seconds_ago=old)
+    _event(db_conn, owner, "quiz_attempt", {**practice, "questionId": "q2"}, seconds_ago=old)
+    _event(db_conn, member, "quiz_attempt", {**practice, "questionId": "inside"}, seconds_ago=10)
+
+    data = await load_space_data(space, "DBS", str(owner))
+
+    assert data.tried_before == frozenset({
+        (str(member), lid, "q", "q1"),
+        (str(member), lid, "c", "i" * 60, 9, "1"),
+    })
+    assert [e.data["questionId"] for e in data.events] == ["inside"]

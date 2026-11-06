@@ -9,7 +9,9 @@
       "calm": "It's landing. Nothing needs you today.",
       "floor_one": "{{count}} person has been reading. Patterns show once five people have been through a page.",
       "floor_other": "{{count}} people have been reading. Patterns show once five people have been through a page.",
-      "actPage": "One page is asking for you: {{lesson}}, page {{page}}. The rest is landing."
+      "actPage": "{{lesson}} has one page asking for you. The rest is landing.",
+      "actPages_one": "{{count}} page is asking for you. Start with {{lesson}}.",
+      "actPages_other": "{{count}} pages are asking for you. Start with {{lesson}}."
     },
     "ownOnly": "Your own reading is never counted."
   },
@@ -26,17 +28,17 @@
   },
   "questions": {
     "title": "Questions for you",
-    "none": "No one has sent a question yet. When someone does, it lands here first.",
     "someone": "Someone",
     "page": "Page {{page}}",
+    "where": "{{lesson}}, page {{page}}",
     "answer": "Answer",
     "placeholder": "Write an answer",
     "them": "Answer them",
     "everyone": "Answer for everyone",
     "everyoneHint": "Shows on that page for every member",
     "answered": {
-      "them": "Answered · just them",
-      "everyone": "Answered · for everyone"
+      "them": "Answered privately",
+      "everyone": "Answered for everyone"
     },
     "close": "Close",
     "when": {
@@ -45,7 +47,8 @@
       "hours_other": "{{count}} hours ago",
       "days_one": "yesterday",
       "days_other": "{{count}} days ago"
-    }
+    },
+    "fold": "Answered"
   },
   "lessons": {
     "title": "Lessons",
@@ -53,7 +56,11 @@
     "readers_other": "{{count}} readers",
     "open": "Open {{lesson}}",
     "mapLede": "Each cell is a page. The brighter it is, the more people needed help there; a labelled one opens that page.",
-    "cell": "Page {{page}} of {{lesson}}"
+    "cell": "Page {{page}} of {{lesson}}",
+    "few": "{{lessons}}: too few readers yet.",
+    "quietRun_one": "{{count}} Lesson landing",
+    "quietRun_other": "{{count}} Lessons landing",
+    "fewSome": "{{lessons}} and {{count}} more: too few readers yet."
   },
   "feed": {
     "title": "What needs you",
@@ -62,7 +69,7 @@
   "kind": {
     "confusion_hotspot": {
       "headline": "A page where many ask for help",
-      "summary": "On page {{page}} of {{lesson}}, {{askers}} people opened Explain or asked, and {{foggy}}% said it was still foggy.",
+      "summary": "On page {{page}}, {{askers}} people opened Explain or asked, and {{foggy}}% said it was still foggy.",
       "why": "Help-seeking this concentrated usually means a step is missing on the page itself, not in the people reading it."
     },
     "silent_misleader": {
@@ -72,7 +79,7 @@
     },
     "skipped_slide": {
       "headline": "A page that's being passed over",
-      "summary": "People stay a median of {{seconds}} s on page {{page}} of {{lesson}} before moving on.",
+      "summary": "People stay a median of {{seconds}} s on page {{page}} before moving on.",
       "why": "Either the page carries nothing new, or it looks like it doesn't. If it matters, it needs a reason to stop."
     },
     "speed_bump": {
@@ -82,17 +89,17 @@
     },
     "overpacked": {
       "headline": "A page that asks too much at once",
-      "summary": "Page {{page}} holds people {{ratio}}× longer than the rest of {{lesson}}, and many ask for help there.",
+      "summary": "Page {{page}} holds people {{ratio}}× longer than the other pages, and many ask for help there.",
       "why": "Long, uneven time plus help-seeking is the shape of two ideas on one page."
     },
     "leaky_bucket": {
       "headline": "A Lesson that feels heavy",
-      "summary": "{{pct}}% of readers stopped right after page {{page}} of {{lesson}}.",
+      "summary": "{{pct}}% of readers stopped right after page {{page}}.",
       "why": "A drop this sharp is a wall, not fatigue. The page before it is where to look."
     },
     "confusion_block": {
       "headline": "A stretch where the thread got lost",
-      "summary": "Pages {{first}}–{{last}} of {{lesson}} ran foggy for most who read them.",
+      "summary": "Pages {{first}} to {{last}} ran foggy for most who read them.",
       "why": "One missing link early in a stretch makes every page after it harder."
     },
     "quiz_misalignment": {
@@ -152,5 +159,10 @@
       "clicked": "Clicked",
       "foggy": "Still foggy"
     }
+  },
+  "fold": {
+    "more": "Show more",
+    "less": "Show less",
+    "all": "Show all"
   }
 }

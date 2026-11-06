@@ -44,10 +44,27 @@ def _safe_cv(values: List[float]) -> float:
     return float(statistics.pstdev(values) / mean)
 
 
+def _skip_owner(ev: Dict[str, Any], owner_id: Optional[str]) -> bool:
+    """The lecture's owner testing their own lecture is not a reader (events without a person stay)."""
+    return owner_id is not None and ev.get("user_id") is not None and str(ev["user_id"]) == str(owner_id)
+
+
+def _person(ev: Dict[str, Any], owner_id: Optional[str]) -> Optional[str]:
+    """Who an event belongs to, as a person: None for the owner and for events without one.
+
+    The garden's signals count distinct PEOPLE (one person going back three times is one), so an
+    event that is nobody's cannot add to them.
+    """
+    uid = ev.get("user_id")
+    if uid is None or _skip_owner(ev, owner_id):
+        return None
+    return str(uid)
+
+
 def _per_slide_signal_counts(
-    client, lecture_id: str, slides_data: List[Dict[str, Any]]
+    client, lecture_id: str, slides_data: List[Dict[str, Any]], owner_id: Optional[str] = None
 ) -> Dict[str, Dict[str, int]]:
-    """Count AI-tutor queries and inbound back-navigations per slide id.
+    """Count the PEOPLE who asked the AI tutor, and who went back to a slide, per slide id.
 
     - AI queries are attributed by ``slideId`` when present (post event
       enrichment) and fall back to a ``slideTitle`` → slide-id match for
@@ -60,47 +77,54 @@ def _per_slide_signal_counts(
         for s in slides_data
         if (s.get("title") or "").strip()
     }
-    counts: Dict[str, Dict[str, int]] = {
-        s["id"]: {"ai_queries": 0, "back_nav": 0} for s in slides_data
-    }
+    asked: Dict[str, set] = {s["id"]: set() for s in slides_data}
+    went_back: Dict[str, set] = {s["id"]: set() for s in slides_data}
 
     ai_events = analytics_service._fetch_all(
         client.table("learning_events")
-        .select("event_data")
+        .select("user_id, event_data")
         .eq("event_type", "ai_tutor_query")
         .contains("event_data", {"lectureId": lecture_id})
     )
     for ev in ai_events:
+        uid = _person(ev, owner_id)
+        if uid is None:
+            continue
         ed = ev.get("event_data") or {}
         sid = ed.get("slideId") or title_to_id.get((ed.get("slideTitle") or "").strip())
-        if sid in counts:
-            counts[sid]["ai_queries"] += 1
+        if sid in asked:
+            asked[sid].add(uid)
 
     nav_events = analytics_service._fetch_all(
         client.table("learning_events")
-        .select("event_data")
+        .select("user_id, event_data")
         .eq("event_type", "slide_back_navigation")
         .contains("event_data", {"lectureId": lecture_id})
     )
     for ev in nav_events:
+        uid = _person(ev, owner_id)
+        if uid is None:
+            continue
         ed = ev.get("event_data") or {}
         dest = ed.get("toSlideId")
-        if dest in counts:
-            counts[dest]["back_nav"] += 1
+        if dest in went_back:
+            went_back[dest].add(uid)
 
-    return counts
+    return {sid: {"ai_queries": len(asked[sid]), "back_nav": len(went_back[sid])} for sid in asked}
 
 
 def _per_slide_distribution_and_calibration(
-    client, lecture_id: str, slides_data: List[Dict[str, Any]]
+    client, lecture_id: str, slides_data: List[Dict[str, Any]], owner_id: Optional[str] = None
 ) -> Dict[str, Dict[str, Any]]:
     """Compute dwell distribution, directional back-nav, and calibration per slide.
 
     These are the Phase-3 signals with no existing aggregate:
     - **dwell distribution**: median / p25 / p75 / CV / short-view count
-      (powers Skipped Slide, Speed Bump, Overpacked).
-    - **directional back-nav**: returns specifically from the *next* slide
-      (i+1 → i), the Speed Bump signature.
+      (powers Skipped Slide, Speed Bump, Overpacked), over PEOPLE: each person's own
+      median time on the slide is one sample, and a "short view" is a person whose
+      median is under 4s. One person reopening a slide many times is one sample.
+    - **directional back-nav**: the people who returned specifically from the *next*
+      slide (i+1 → i), the Speed Bump signature.
     - **calibration**: students who rated a slide "got it" yet failed its linked
       quiz item on the first try (the Calibration Gap / illusion-of-knowing).
     """
@@ -116,20 +140,24 @@ def _per_slide_distribution_and_calibration(
     }
 
     # ── Dwell distribution ────────────────────────────────────────────────────
-    dwell_by_slide: Dict[str, List[float]] = {s["id"]: [] for s in slides_data}
+    person_dwell: Dict[str, Dict[str, List[float]]] = {s["id"]: {} for s in slides_data}
     view_events = analytics_service._fetch_all(
         client.table("learning_events")
-        .select("event_data")
+        .select("user_id, event_data")
         .eq("event_type", "slide_view")
         .contains("event_data", {"lectureId": lecture_id})
     )
     for ev in view_events:
+        uid = _person(ev, owner_id)
+        if uid is None:
+            continue
         ed = ev.get("event_data") or {}
         sid = ed.get("slideId")
         dur = ed.get("duration_seconds")
-        if sid in dwell_by_slide and isinstance(dur, (int, float)) and 0 < dur <= _DWELL_OUTLIER_CEIL:
-            dwell_by_slide[sid].append(float(dur))
-    for sid, durs in dwell_by_slide.items():
+        if sid in person_dwell and isinstance(dur, (int, float)) and 0 < dur <= _DWELL_OUTLIER_CEIL:
+            person_dwell[sid].setdefault(uid, []).append(float(dur))
+    for sid, by_person in person_dwell.items():
+        durs = [_safe_median(v) for v in by_person.values()]
         if not durs:
             continue
         p25, p75 = _safe_quartiles(durs)
@@ -144,16 +172,22 @@ def _per_slide_distribution_and_calibration(
     # ── Directional back-navigation (from the immediately next slide) ──────────
     nav_events = analytics_service._fetch_all(
         client.table("learning_events")
-        .select("event_data")
+        .select("user_id, event_data")
         .eq("event_type", "slide_back_navigation")
         .contains("event_data", {"lectureId": lecture_id})
     )
+    returned_from_next: Dict[str, set] = {}
     for ev in nav_events:
+        uid = _person(ev, owner_id)
+        if uid is None:
+            continue
         ed = ev.get("event_data") or {}
         src, dst = ed.get("fromSlideId"), ed.get("toSlideId")
         from_num, to_num = id_to_num.get(src), id_to_num.get(dst)
         if dst in out and isinstance(from_num, int) and isinstance(to_num, int) and from_num == to_num + 1:
-            out[dst]["back_nav_from_next"] += 1
+            returned_from_next.setdefault(dst, set()).add(uid)
+    for dst, people in returned_from_next.items():
+        out[dst]["back_nav_from_next"] = len(people)
 
     # ── Calibration (got-it-but-wrong) ─────────────────────────────────────────
     quiz_questions = analytics_service._fetch_all(
@@ -173,6 +207,8 @@ def _per_slide_distribution_and_calibration(
     user_slide_wrong: Dict[tuple, bool] = {}
     user_slide_has_quiz: set = set()
     for ev in quiz_attempts:
+        if _skip_owner(ev, owner_id):
+            continue
         uid = ev.get("user_id")
         ed = ev.get("event_data") or {}
         sid = qid_to_slide.get(ed.get("questionId"))
@@ -193,6 +229,8 @@ def _per_slide_distribution_and_calibration(
     )
     user_slide_rating: Dict[tuple, str] = {}
     for ev in conf_events:  # ordered ascending → last write wins = latest
+        if _skip_owner(ev, owner_id):
+            continue
         uid = ev.get("user_id")
         ed = ev.get("event_data") or {}
         sid = ed.get("slideId")
@@ -228,13 +266,17 @@ def build_metric_bundle(lecture_id: str, token: Optional[str] = None) -> Dict[st
     # Reused cached aggregates (consistency with the rest of the app).
     slide_analytics = analytics_service.get_slide_analytics(lecture_id, token)
     confidence = analytics_service.get_confidence_by_slide(lecture_id, token)
-    overview = analytics_service.get_lecture_overview(lecture_id, token)
-    students = analytics_service.get_student_performance(lecture_id, token)
-    total_students = int(overview.get("total_students") or 0)
+    # People per slide, floor not applied: the drop-off finding compares one slide with the next,
+    # and a slide under the floor is not "0 people" (it is only too few to print).
+    viewers = analytics_service.get_slide_viewer_counts(lecture_id, token)
+    # People who opened the lecture, floor not applied (like view_count above): the overview
+    # withholds this under five people, and a findings' reach must not read that as 0 or inflate.
+    total_students = analytics_service.get_lecture_people_count(lecture_id, token)
 
-    # New per-slide signal aggregations.
-    signal_counts = _per_slide_signal_counts(client, lecture_id, slides_data)
-    dist = _per_slide_distribution_and_calibration(client, lecture_id, slides_data)
+    # New per-slide signal aggregations (the owner's own reading never counts).
+    owner_id = analytics_service.lecture_owner_id(client, lecture_id)
+    signal_counts = _per_slide_signal_counts(client, lecture_id, slides_data, owner_id)
+    dist = _per_slide_distribution_and_calibration(client, lecture_id, slides_data, owner_id)
 
     # Index reused aggregates for joining.
     sa_by_id = {row.get("slide_id"): row for row in slide_analytics}
@@ -252,7 +294,7 @@ def build_metric_bundle(lecture_id: str, token: Optional[str] = None) -> Dict[st
         d = dist.get(sid, {})
 
         avg_dwell = float(sa.get("average_time_seconds") or 0.0)
-        view_count = int(sa.get("view_count") or 0)
+        view_count = int(viewers.get(sid) or 0)
         median_dwell = float(d.get("median_dwell") or 0.0)
         if view_count > 0 and avg_dwell > 0:
             dwell_samples.append(avg_dwell)
@@ -300,5 +342,6 @@ def build_metric_bundle(lecture_id: str, token: Optional[str] = None) -> Dict[st
         "lecture_avg_dwell": round(lecture_avg_dwell, 1),
         "lecture_median_dwell": round(lecture_median_dwell, 1),
         "slides": slides,
-        "students": students,
+        # No per-learner rows: only the strugglers detector read them, and it never runs (spec §0).
+        "students": [],
     }

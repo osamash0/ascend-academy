@@ -1,25 +1,27 @@
+/** People, never the owner; each figure is null until five people stand behind it. */
 export interface LectureOverview {
-  total_students: number;
-  completion_rate: number;
-  average_score: number;
-  average_time_minutes: number;
+  total_students: number | null;
+  completion_rate: number | null;
+  average_score: number | null;
+  average_time_minutes: number | null;
   engagement_level: string;
 }
 
 export interface SlideAnalytics {
   slide_number: number;
   title: string;
-  view_count: number;
-  average_time_seconds: number;
-  drop_off_rate: number;
+  view_count: number | null;
+  average_time_seconds: number | null;
+  drop_off_rate: number | null;
 }
 
 export interface QuizAnalytics {
   question_id: string;
   question_text: string;
-  success_rate: number;
-  difficulty: string;
-  attempts: number;
+  /** People, from each one's first try; null until five people have tried the question. */
+  success_rate: number | null;
+  difficulty: string | null;
+  attempts: number | null;
 }
 
 export interface StudentPerformance {
@@ -73,7 +75,8 @@ export interface Insight {
   interpretation: string;
   targetRef: InsightTargetRef;
   cue: InsightCue;
-  metrics: Record<string, number | string>;
+  /** A count of fewer than five people is null (never 0 or a small number); render it as a dash. */
+  metrics: Record<string, number | string | null>;
   /** Richer kind-specific structures (student lists, slide ranges) for Layer 2. */
   detail: Record<string, unknown>;
   evidenceKinds: string[];
@@ -90,13 +93,15 @@ export interface InsightFeed {
 export interface AiQueryEvidenceItem {
   query: string;
   response: string | null;
+  /** The day it was asked (YYYY-MM-DD), never the moment. */
   createdAt: string;
 }
 
 export interface AiQueriesEvidence {
   kind: 'ai_queries';
   queries: AiQueryEvidenceItem[];
-  totalCount: number;
+  /** null while fewer than five people have asked about this slide (withheld, which is not "none were asked"). */
+  totalCount: number | null;
 }
 
 export interface ConfidenceBreakdownEvidence {
@@ -110,18 +115,4 @@ export interface ConfidenceBreakdownEvidence {
   total: number;
 }
 
-export interface StudentJourneyStep {
-  slideNumber: number;
-  title: string;
-  dwellSeconds: number;
-  confidence: 'got_it' | 'unsure' | 'confused' | null;
-  quizCorrect: boolean | null;
-  askedAi: boolean;
-}
-
-export interface StudentJourneyEvidence {
-  kind: 'student_journey';
-  steps: StudentJourneyStep[];
-}
-
-export type InsightEvidence = AiQueriesEvidence | ConfidenceBreakdownEvidence | StudentJourneyEvidence;
+export type InsightEvidence = AiQueriesEvidence | ConfidenceBreakdownEvidence;

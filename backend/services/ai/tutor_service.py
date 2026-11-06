@@ -285,7 +285,7 @@ async def regenerate_slide(
     # successful regenerate can actually resolve the flag.
     from backend.services.parser.unified_orchestrator import _review_flag_for
     needs_review, review_reason = _review_flag_for(
-        synthesis_failed=False, vision_routed=False, raw_title=new_title, raw_summary=new_summary
+        synthesis_failed=False, vision_rescue=False, raw_title=new_title, raw_summary=new_summary
     )
 
     client.table("slides").update({

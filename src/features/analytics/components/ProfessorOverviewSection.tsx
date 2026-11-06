@@ -10,6 +10,11 @@ interface Props {
   courses: Course[];
 }
 
+/** A figure fewer than five people stand behind arrives as null: shown as a dash, never as 0. */
+const EMPTY = '—';
+const figure = (v: number | null | undefined, unit = ''): string | number =>
+  v === null || v === undefined ? EMPTY : unit ? `${v}${unit}` : v;
+
 export function ProfessorOverviewSection({ courses }: Props) {
   const [courseId, setCourseId] = useState<string | null>(null);
 
@@ -65,25 +70,25 @@ export function ProfessorOverviewSection({ courses }: Props) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatsCard
               title="Active Students (7d)"
-              value={data.active_students}
+              value={figure(data.active_students)}
               icon={Users}
               variant="primary"
             />
             <StatsCard
               title="Avg Completion"
-              value={`${data.average_completion}%`}
+              value={figure(data.average_completion, '%')}
               icon={TrendingUp}
               variant="default"
             />
             <StatsCard
               title="Avg Quiz Accuracy"
-              value={`${data.average_quiz_accuracy}%`}
+              value={figure(data.average_quiz_accuracy, '%')}
               icon={Target}
               variant="success"
             />
             <StatsCard
               title="Median Time (min)"
-              value={data.median_time_minutes}
+              value={figure(data.median_time_minutes)}
               icon={Clock}
               variant="xp"
             />
@@ -132,11 +137,11 @@ export function ProfessorOverviewSection({ courses }: Props) {
                         borderRadius: '0.75rem',
                       }}
                       labelFormatter={(d) => new Date(d).toLocaleDateString()}
-                      formatter={(v: number) => [`${v} events`, 'Activity']}
+                      formatter={(v: number | null) => [v === null || v === undefined ? EMPTY : `${v} people`, 'Active']}
                     />
                     <Area
                       type="monotone"
-                      dataKey="count"
+                      dataKey="people"
                       stroke="hsl(var(--primary))"
                       strokeWidth={2}
                       fill="url(#overviewGrad)"
@@ -179,7 +184,7 @@ export function ProfessorOverviewSection({ courses }: Props) {
                 </ul>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Not enough quiz attempts to flag weak spots yet.
+                  Not enough people have tried the quizzes to flag weak spots yet.
                 </p>
               )}
             </motion.div>

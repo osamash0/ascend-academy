@@ -258,3 +258,88 @@ def test_vision_returns_fallback_rather_than_calling_disabled_providers(monkeypa
 
     assert called == [], "a disabled vision provider was still called"
     assert res == dict(vision_mod._FALLBACK_RESULT)
+
+
+# ---------------------------------------------------------------------------
+# 4. A rejected key (401) is permanent; a 403 is not necessarily
+# ---------------------------------------------------------------------------
+
+def test_unauthorized_disables_provider_rather_than_reattempting(monkeypatch):
+    """A revoked or wrong API key never starts working mid-process.
+
+    Before this, a 401 fell into the generic branch, which neither backs off
+    nor disables, so a dead key was re-attempted on every subsequent call.
+    """
+    from backend.services.ai import orchestrator as orch
+
+    rotator = orch.ProviderRotator()
+    monkeypatch.setattr(orch, "_rotator", rotator)
+    monkeypatch.setitem(orch._clients, "groq", object())
+    monkeypatch.setitem(orch._clients, "openai", object())
+
+    def fake_call(pid, prompt, **kw):
+        if pid == "groq":
+            raise RuntimeError(
+                "Error code: 401 - {'error': {'message': 'Invalid API Key', "
+                "'type': 'invalid_request_error', 'code': 'invalid_api_key'}}"
+            )
+        return "ok", None
+
+    monkeypatch.setattr(orch, "_call_provider", fake_call)
+    text, pid, _model, _usage = orch._generate_with_rotation("hi", ["groq", "openai"])
+
+    assert (text, pid) == ("ok", "openai")
+    assert "groq" in rotator._disabled, "a 401 left the provider live, so it is re-attempted on every call"
+
+
+def test_forbidden_does_not_disable_provider(monkeypatch):
+    """A 403 can be about one request (OpenRouter returns 403 when a prompt is
+    flagged by moderation), so one student's message must not take a provider
+    out for the whole process."""
+    from backend.services.ai import orchestrator as orch
+
+    rotator = orch.ProviderRotator()
+    monkeypatch.setattr(orch, "_rotator", rotator)
+    monkeypatch.setitem(orch._clients, "openrouter", object())
+    monkeypatch.setitem(orch._clients, "openai", object())
+
+    def fake_call(pid, prompt, **kw):
+        if pid == "openrouter":
+            raise RuntimeError("Error code: 403 - {'error': {'message': 'Your input was flagged by moderation'}}")
+        return "ok", None
+
+    monkeypatch.setattr(orch, "_call_provider", fake_call)
+    orch._generate_with_rotation("hi", ["openrouter", "openai"])
+
+    assert "openrouter" not in rotator._disabled
+
+
+def test_vision_401_disables_provider_for_the_process(monkeypatch):
+    """The vision chain mirrors the text chain: a rejected key is permanent."""
+    from backend.services.ai import orchestrator as orch
+    from backend.services.ai import vision as vision_mod
+
+    rotator = orch.ProviderRotator()
+    monkeypatch.setattr(vision_mod, "_rotator", rotator)
+    monkeypatch.setattr(vision_mod, "groq_client", object())
+    monkeypatch.setattr(vision_mod, "gemini_client", object())
+    monkeypatch.setattr(vision_mod, "openai_client", None)
+    monkeypatch.setattr(vision_mod, "GROQ_VISION_MODEL", "some/configured-vision-model")
+
+    calls: list[str] = []
+
+    def boom_groq(*a, **kw):
+        calls.append("groq")
+        raise RuntimeError("Error code: 401 - {'error': {'message': 'Invalid API Key'}}")
+
+    def ok_gemini(*a, **kw):
+        calls.append("gemini")
+        return {"title": "t", "content": "c"}
+
+    monkeypatch.setattr(vision_mod, "_call_groq_vision", boom_groq)
+    monkeypatch.setattr(vision_mod, "_call_gemini_vision", ok_gemini)
+
+    for _ in range(3):
+        vision_mod._sync_analyze_vision("b64", raw_text="x", ai_model="groq")
+
+    assert calls.count("groq") == 1, f"a rejected key was re-attempted ({calls.count('groq')} of 3 calls)"

@@ -1,21 +1,28 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { motion, useReducedMotion } from 'motion/react';
-import { Check } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar } from '../components/Avatar';
-import { ghostPillSm, stageCard, whitePillSm } from '../components/stage';
+import { ghostPillSm, whitePillSm } from '../components/stage';
+import { ShowMore } from './ShowMore';
+import { useStepped } from './stepped';
 import type { LandingLesson, LandingQuestion } from './types';
 
 /**
  * Questions for you.
  *
- * A person is waiting, so these come before any finding. Each one is the
- * question as it was sent, the page it was sent from (a way into the reader),
- * who — or "Someone", when they chose to send it without a name — and when.
- * Answering happens here: write, then choose whether it goes to them alone or
- * lands on that page for every member.
+ * A person is waiting, so the waiting ones come before the map. Each is the
+ * question as it was sent, who sent it (or "Someone", when they chose to
+ * send it without a name), when, and the page it came from, as a way into
+ * the reader. Answering happens in the row: write, then choose whether it
+ * goes to them alone or lands on that page for every member. An answered
+ * question leaves the list for the Answered fold at the foot of the door.
+ *
+ * The longest-waiting come first, three of them; the rest open ten at a time.
+ *
+ * A hairline list, not cards: the rows are the content.
  */
 
 /** "just now", "2 hours ago", "yesterday", "3 days ago". */
@@ -26,26 +33,27 @@ function when(t: (k: string, v?: Record<string, number>) => string, iso: string,
   return t('questions.when.days', { count: Math.floor(hours / 24) });
 }
 
-export function QuestionsRow({
-  questions,
-  lessons,
-  spaceId,
-  accent,
-  onAnswer,
-}: {
+/** How many rows a list opens on, and how many each Show more adds. */
+const FIRST = 3;
+const STEP = 10;
+
+const longestWaiting = (a: LandingQuestion, b: LandingQuestion) => Date.parse(a.createdAt) - Date.parse(b.createdAt);
+const lastAnswered = (a: LandingQuestion, b: LandingQuestion) => Date.parse(b.answer?.at ?? b.createdAt) - Date.parse(a.answer?.at ?? a.createdAt);
+
+interface RowsProps {
   questions: LandingQuestion[];
   lessons: Map<string, LandingLesson>;
   spaceId: string;
   accent: string;
-  onAnswer: (questionId: string, text: string, forEveryone: boolean) => void;
-}) {
+}
+
+/** The questions still waiting for an answer. */
+export function QuestionsRow({ onAnswer, ...props }: RowsProps & { onAnswer: (questionId: string, text: string, forEveryone: boolean) => void }) {
   const { t } = useTranslation('v4Landing');
-  const reduce = useReducedMotion();
   const [openId, setOpenId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
-
-  const ordered = [...questions].sort((a, b) => Number(Boolean(a.answer)) - Number(Boolean(b.answer)) || Date.parse(b.createdAt) - Date.parse(a.createdAt));
-  if (ordered.length === 0) return <p className="text-[15px] text-quiet">{t('questions.none')}</p>;
+  const ordered = [...props.questions].sort(longestWaiting);
+  const step = useStepped(ordered.length, FIRST, STEP);
 
   const send = (q: LandingQuestion, forEveryone: boolean) => {
     const text = draft.trim();
@@ -56,78 +64,129 @@ export function QuestionsRow({
   };
 
   return (
-    <ol className="space-y-3">
-      {ordered.map((q) => {
-        const lesson = lessons.get(q.lessonId);
-        const open = openId === q.id;
-        const pageHref = `/v4/space/${spaceId}/lesson/${q.lessonId}/faces?page=${q.page}`;
-        return (
-          <motion.li
-            key={q.id}
-            layout={!reduce}
-            className={cn(stageCard, 'p-5 sm:p-6', q.answer && 'opacity-80')}
-            style={!q.answer && open ? { borderColor: `color-mix(in srgb, ${accent} 35%, transparent)` } : undefined}
-          >
-            <div className="flex items-start gap-4">
-              {q.asker ? (
-                <Avatar person={q.asker} size="md" />
-              ) : (
-                <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.18] text-[12px] text-quiet">
-                  ?
-                </span>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-quiet">
-                  <span className="text-foreground">{q.asker?.name ?? t('questions.someone')}</span>
-                  <span aria-hidden>·</span>
-                  <span>{when(t, q.createdAt)}</span>
-                  <span aria-hidden>·</span>
-                  <Link to={pageHref} className="console-focusable rounded-full bg-white/[0.06] px-2.5 py-0.5 text-[12px] text-foreground hover:bg-white/[0.12]">
-                    {lesson?.title}, {t('questions.page', { page: q.page })}
-                  </Link>
-                </p>
-                <p className="mt-2 text-[16px] leading-relaxed">{q.text}</p>
+    <>
+    <Rows {...props} questions={ordered.slice(0, step.shown)}>
+      {(q) =>
+        openId === q.id ? (
+          <div className="mt-4">
+            <textarea
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={t('questions.placeholder')}
+              aria-label={t('questions.placeholder')}
+              rows={3}
+              className="console-focusable w-full resize-none rounded-xl border border-white/[0.1] bg-black/40 px-4 py-3 text-[15px] leading-relaxed placeholder:text-quiet/70"
+            />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => send(q, true)} disabled={!draft.trim()} className={whitePillSm}>
+                {t('questions.everyone')}
+              </button>
+              <button type="button" onClick={() => send(q, false)} disabled={!draft.trim()} className={ghostPillSm}>
+                {t('questions.them')}
+              </button>
+              <span className="text-[12.5px] text-quiet">{t('questions.everyoneHint')}</span>
+              <button type="button" onClick={() => setOpenId(null)} className="console-focusable ml-auto rounded-full px-3 py-1.5 text-[13px] text-quiet hover:text-foreground">
+                {t('questions.close')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3">
+            <button type="button" onClick={() => { setOpenId(q.id); setDraft(''); }} className={ghostPillSm}>
+              {t('questions.answer')}
+            </button>
+          </div>
+        )
+      }
+    </Rows>
+    <ShowMore more={step.more} less={step.less} className="mt-4" />
+    </>
+  );
+}
 
-                {q.answer ? (
-                  <div className="mt-4 border-l-2 pl-4" style={{ borderColor: `color-mix(in srgb, ${accent} 60%, transparent)` }}>
+/** The answered ones, folded into one line at the foot of the door; it opens in place. */
+export function AnsweredFold(props: RowsProps) {
+  const { t } = useTranslation('v4Landing');
+  const reduce = useReducedMotion();
+  const [open, setOpen] = useState(false);
+  const ordered = [...props.questions].sort(lastAnswered);
+  const step = useStepped(ordered.length, FIRST, STEP);
+
+  return (
+    <section className="mt-16">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="console-focusable -mx-2 flex items-center gap-2 rounded-lg px-2 py-1 text-[15px] text-quiet transition-colors hover:text-foreground"
+      >
+        {t('questions.fold')}
+        <ChevronDown aria-hidden className={cn('h-4 w-4 transition-transform', open && 'rotate-180')} />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-4"
+          >
+            <Rows {...props} questions={ordered.slice(0, step.shown)}>
+              {(q) =>
+                q.answer && (
+                  <div className="mt-4 border-l-2 pl-4" style={{ borderColor: `color-mix(in srgb, ${props.accent} 60%, transparent)` }}>
                     <p className="flex items-center gap-1.5 text-[12.5px] text-quiet">
                       <Check aria-hidden className="h-3.5 w-3.5" />
                       {q.answer.forEveryone ? t('questions.answered.everyone') : t('questions.answered.them')}
                     </p>
                     <p className="mt-1.5 text-[15px] leading-relaxed">{q.answer.text}</p>
                   </div>
-                ) : open ? (
-                  <div className="mt-4">
-                    <textarea
-                      autoFocus
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      placeholder={t('questions.placeholder')}
-                      aria-label={t('questions.placeholder')}
-                      rows={3}
-                      className="console-focusable w-full resize-none rounded-xl border border-white/[0.1] bg-black/40 px-4 py-3 text-[15px] leading-relaxed placeholder:text-quiet/70"
-                    />
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <button type="button" onClick={() => send(q, true)} disabled={!draft.trim()} className={whitePillSm}>
-                        {t('questions.everyone')}
-                      </button>
-                      <button type="button" onClick={() => send(q, false)} disabled={!draft.trim()} className={ghostPillSm}>
-                        {t('questions.them')}
-                      </button>
-                      <span className="text-[12.5px] text-quiet">{t('questions.everyoneHint')}</span>
-                      <button type="button" onClick={() => setOpenId(null)} className="console-focusable ml-auto rounded-full px-3 py-1.5 text-[13px] text-quiet hover:text-foreground">
-                        {t('questions.close')}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-4">
-                    <button type="button" onClick={() => { setOpenId(q.id); setDraft(''); }} className={ghostPillSm}>
-                      {t('questions.answer')}
-                    </button>
-                  </div>
-                )}
+                )
+              }
+            </Rows>
+            <ShowMore more={step.more} less={step.less} className="mt-4" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </section>
+  );
+}
+
+/** One hairline row per question, in the order given: face, who and when, the page on the right, the question, then what follows. */
+function Rows({ questions, lessons, spaceId, children }: RowsProps & { children: (q: LandingQuestion) => ReactNode }) {
+  const { t } = useTranslation('v4Landing');
+  const reduce = useReducedMotion();
+
+  return (
+    <ol className="divide-y divide-white/[0.08] border-y border-white/[0.08]">
+      {questions.map((q) => {
+        const lesson = lessons.get(q.lessonId);
+        return (
+          <motion.li key={q.id} layout={!reduce} className="flex items-start gap-4 py-5">
+            {q.asker ? (
+              <Avatar person={q.asker} size="md" />
+            ) : (
+              <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.18] text-[12px] text-quiet">
+                ?
+              </span>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                <p className="text-[13px]">
+                  <span className="text-foreground">{q.asker?.name ?? t('questions.someone')}</span>
+                  <span className="ml-2 text-quiet">{when(t, q.createdAt)}</span>
+                </p>
+                <Link
+                  to={`/v4/space/${spaceId}/lesson/${q.lessonId}/faces?page=${q.page}`}
+                  className="console-focusable rounded-sm text-[13px] text-quiet hover:text-foreground hover:underline hover:decoration-white/30 hover:underline-offset-4"
+                >
+                  {t('questions.where', { lesson: lesson?.title ?? '', page: q.page })}
+                </Link>
               </div>
+              <p className="mt-1.5 text-[16px] leading-relaxed">{q.text}</p>
+              {children(q)}
             </div>
           </motion.li>
         );

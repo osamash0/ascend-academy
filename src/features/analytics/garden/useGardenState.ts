@@ -3,7 +3,6 @@ import { useCallback, useState } from 'react';
 export interface EvidenceRequest {
   kind: string;
   slideId?: string;
-  studentId?: string;
 }
 
 /**

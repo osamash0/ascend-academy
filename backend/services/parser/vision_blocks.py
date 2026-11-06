@@ -13,6 +13,7 @@ from backend.services.ai.vision import analyze_image_json
 from backend.services.parser.page_blocks import validate_vision_boxes, vision_blocks_to_source
 from backend.services.parser.page_images import FITZ_LOCK
 from backend.services.parser.studio_summary import clean_paragraphs
+from backend.services.ai.untrusted import one_line
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ async def read_image_page(page: Any, page_no: int, *, ai_model: str, lecture_tit
     try:
         img = await asyncio.to_thread(_jpeg, page)
         prompt = VISION_BLOCKS_PROMPT.format(
-            title=lecture_title[:200], page=page_no,
+            title=one_line(lecture_title, 200), page=page_no,
             language="German" if source_language == "de" else "English",
         )
         res = await analyze_image_json(base64.b64encode(img).decode(), prompt, ai_model)

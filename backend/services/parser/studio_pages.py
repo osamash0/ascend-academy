@@ -3,7 +3,9 @@
 
 Runs once per parse, after the reader's per-slide loop, only when
 FEATURE_STUDIO_PAGES is on. Text pages are summarised in batches of 8;
-image-only pages (scans, photos) go to vision page by page. A missing summary
+pages with no text of their own (scans, photos; route_page's "no_text") go
+to vision page by page. A figure page keeps its real blocks: Studio's vision
+read is for pages without them. A missing summary
 never sinks a page; a missing picture does, because Source view needs it.
 
 To stay well inside the job timeout on 100+ page decks, the summary calls
@@ -19,7 +21,7 @@ import logging
 from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Tuple
 from uuid import UUID
 
-from backend.services.parser.page_blocks import PageBlocks, extract_blocks, is_image_only
+from backend.services.parser.page_blocks import PageBlocks, extract_blocks, route_page
 from backend.services.parser.page_images import FITZ_LOCK, render_page_webp, store_page_image
 from backend.services.parser.studio_summary import summarize_text_pages
 from backend.services.parser.vision_blocks import read_image_page
@@ -92,7 +94,7 @@ async def build_studio_pages(
             (i + 1, await asyncio.to_thread(extract_blocks, doc[i], i + 1)) for i in range(total)
         ]
         pages = [doc[n - 1] for n, _ in extracted]
-        text_pages = [(n, pb) for n, pb in extracted if not is_image_only(pb)]
+        text_pages = [(n, pb) for n, pb in extracted if route_page(pb) != "no_text"]
         if text_pages:
             # Started now, awaited after the pictures: the calls overlap the uploads.
             summaries_task = asyncio.create_task(summarize_text_pages(
@@ -118,7 +120,7 @@ async def build_studio_pages(
                 return await read_image_page(pages[n - 1], n, ai_model=ai_model, lecture_title=lecture_title,
                                              source_language=source_language)
 
-        image_only = [n for n, pb in extracted if is_image_only(pb)]
+        image_only = [n for n, pb in extracted if route_page(pb) == "no_text"]
         reads = dict(zip(image_only, await _all(vision(n) for n in image_only)))
 
         for (n, pb), image_path in zip(extracted, image_paths):

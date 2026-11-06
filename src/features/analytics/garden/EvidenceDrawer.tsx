@@ -3,7 +3,6 @@ import type { EvidenceRequest } from './useGardenState';
 import { useEvidence } from '@/features/analytics/hooks/useEvidence';
 import { GroupedQueriesList } from './evidence/GroupedQueriesList';
 import { ConfidenceAccuracyGrid } from './evidence/ConfidenceAccuracyGrid';
-import { StudentJourneyStoryboard } from './evidence/StudentJourneyStoryboard';
 
 interface EvidenceDrawerProps {
   lectureId: string;
@@ -15,7 +14,6 @@ interface EvidenceDrawerProps {
 export function EvidenceDrawer({ lectureId, request, onClose }: EvidenceDrawerProps) {
   const { data, isLoading, isError } = useEvidence(lectureId, request.kind, {
     slideId: request.slideId,
-    studentId: request.studentId,
   });
 
   return (
@@ -35,7 +33,6 @@ export function EvidenceDrawer({ lectureId, request, onClose }: EvidenceDrawerPr
         {!isLoading && !isError && data?.kind === 'confidence_breakdown' && (
           <ConfidenceAccuracyGrid evidence={data} />
         )}
-        {!isLoading && !isError && data?.kind === 'student_journey' && <StudentJourneyStoryboard evidence={data} />}
       </div>
     </div>
   );

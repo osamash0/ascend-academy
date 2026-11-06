@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import fitz
 
-from backend.services.pdf_reader import PDFReader
+from backend.services.pdf_reader import PDFReader, page_tables, page_text_dict
 
 logger = logging.getLogger(__name__)
 
@@ -112,12 +112,12 @@ def _sync_analyze_page(
         page_area = page_rect.width * page_rect.height
 
         # All text/block data in one call
-        text_dict = page.get_text("dict")
+        text_dict = page_text_dict(page)
         blocks = text_dict.get("blocks", [])
 
         # Tables
         try:
-            tbl = page.find_tables()
+            tbl = page_tables(page)
             has_table = bool(tbl and tbl.tables)
         except Exception:
             has_table = False

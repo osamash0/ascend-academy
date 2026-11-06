@@ -2,7 +2,9 @@
 
 The detectors are untouched (spec §1.1): this builds the bundle shape
 `bundle.build_metric_bundle` builds, from a Lesson's facts. A page is one
-bundle row; its "views" are the people who read it. Then the floor: a
+bundle row; its "views" are the people who read it. The drop-off check alone
+reads `leak_rows` instead: one row per page whose "views" are the people
+still in the Lesson there (who read that page or a later one). Then the floor: a
 Lesson read by fewer than `MIN_READERS` people says nothing, and no finding
 may be about a page fewer than `MIN_READERS` people read (spec B3). People
 never enter the bundle: Strugglers is not run here.
@@ -15,7 +17,7 @@ from typing import Any
 
 from backend.services.insights import detectors
 from backend.services.insights.bundle import _safe_cv, _safe_median, _safe_quartiles
-from backend.services.insights.space_facts import SHORT_VIEW, LessonFacts, PageFacts
+from backend.services.insights.space_facts import SHORT_VIEW, LessonFacts, PageFacts, person_share
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,7 @@ def page_row(lesson_id: str, page: int, f: PageFacts) -> dict[str, Any]:
         clicked = []
     counts = {r: sum(1 for v in ratings if v == r) for r in ("got_it", "unsure", "confused")}
     rated = sum(counts.values())
-    right = sum(1 for t in tries if t.correct)
+    share = person_share(tries)
     missed = sum(1 for cleared in clicked if not cleared)
     return {
         "slide_id": f"{lesson_id}:{page}",
@@ -58,8 +60,9 @@ def page_row(lesson_id: str, page: int, f: PageFacts) -> dict[str, Any]:
         "dwell_cv": round(_safe_cv(dwell), 2),
         "short_views": sum(1 for d in dwell if d < SHORT_VIEW),
         "confusion_rate": round(counts["confused"] / rated * 100, 1) if rated else 0.0,
-        "quiz_success_rate": round(right / len(tries) * 100, 1) if tries else None,
-        "quiz_attempts": len(tries),
+        "quiz_success_rate": round(share * 100, 1) if share is not None else None,
+        # People who tried (each counted once), already at least MIN_READERS or none.
+        "quiz_attempts": len({t.user_id for t in tries}),
         "got_it": counts["got_it"],
         "unsure": counts["unsure"],
         "confused": counts["confused"],
@@ -100,10 +103,25 @@ def pages_of(insight: dict[str, Any]) -> list[int]:
     return [int(n)] if n else []
 
 
-def _drop_persists(lf: LessonFacts, page: int) -> bool:
-    """A drop after `page` is people stopping only if no later page wins readers back (else it was skipped)."""
-    after = len(lf.pages.get(page + 1, PageFacts()).readers)
-    return all(len(pf.readers) <= after for n, pf in lf.pages.items() if n > page + 1)
+def leak_rows(lf: LessonFacts) -> list[dict[str, Any]]:
+    """What the drop-off check reads: one row per page of the Lesson, `view_count` = people still in it.
+
+    "Still in the Lesson at page n" is everyone who read page n or any later page, taken as a
+    union of people (one person on two pages counts once). A page skipped and returned to
+    never reads as a stop, and a page after which nobody reads falls to what is left, down to
+    zero, which `lesson_bundle` (rows only for pages someone read) cannot show. The drop's
+    percentage is over the people still in the Lesson; the floor in `above_floor` is still
+    the page's own readers.
+    """
+    # No single member can extend a Lesson: a page past its length is ignored, and with the
+    # length unknown the Lesson ends at the last page `MIN_READERS` people read.
+    last = lf.lesson.pages or max((n for n, pf in lf.pages.items() if len(pf.readers) >= MIN_READERS), default=0)
+    still: set[str] = set()
+    rows: list[dict[str, Any]] = []
+    for n in range(last, 0, -1):
+        still |= lf.pages.get(n, PageFacts()).readers
+        rows.append({"slide_id": f"{lf.lesson.id}:{n}", "slide_number": n, "title": str(n), "view_count": len(still)})
+    return rows[::-1]
 
 
 def lesson_insights(lf: LessonFacts) -> list[dict[str, Any]]:
@@ -112,11 +130,13 @@ def lesson_insights(lf: LessonFacts) -> list[dict[str, Any]]:
         return []
     bundle = lesson_bundle(lf)
     found: list[dict[str, Any]] = []
+    # The leak's pct is over people still in the Lesson; the floor below is the page's own readers.
+    leak_bundle = {**bundle, "slides": leak_rows(lf)}
     for detect in detectors.DETECTORS:
         if detect is detectors.detect_silent_strugglers:
             continue  # person-level: never in the owner's view (spec §0)
         try:
-            found.extend(detect(bundle))
+            found.extend(detect(leak_bundle if detect is detectors.detect_leaky_bucket else bundle))
         except Exception:
             logger.exception("landing: detector failed: %s", getattr(detect, "__name__", detect))
 
@@ -125,8 +145,10 @@ def lesson_insights(lf: LessonFacts) -> list[dict[str, Any]]:
         return bool(pages) and all(len(lf.pages.get(p, PageFacts()).readers) >= MIN_READERS for p in pages)
 
     def kept(insight: dict[str, Any]) -> bool:
-        if insight.get("kind") == "leaky_bucket":
-            return _drop_persists(lf, pages_of(insight)[0])
+        if insight.get("kind") == "quiz_misalignment":
+            # "It read easily" is said only when five of the page's readers said how it read.
+            pf = lf.pages.get(pages_of(insight)[0], PageFacts())
+            return sum(1 for u in pf.ratings if u in pf.readers) >= MIN_READERS
         return True
 
     return [i for i in found if above_floor(i) and kept(i)]

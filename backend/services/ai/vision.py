@@ -174,14 +174,15 @@ def _sync_analyze_vision_with_usage(
         except Exception as exc:
             msg = str(exc).lower()
             # Mirror the text-chain classification in `_generate_with_rotation`:
-            # a 404 (model retired) or 402 (billing) is permanent, so disable
-            # the provider instead of re-trying it on every subsequent slide.
-            # Checked before the rate-limit sniff — a 402 body can contain the
-            # word "quota" without being a throttle.
+            # a 404 (model retired), 402 (billing) or 401 (key rejected) is
+            # permanent, so disable the provider instead of re-trying it on
+            # every subsequent slide. Checked before the rate-limit sniff — a
+            # 402 body can contain the word "quota" without being a throttle.
             is_permanent = (
-                _http_status(exc) in (402, 404)
+                _http_status(exc) in (401, 402, 404)
                 or "error code: 404" in msg
                 or "error code: 402" in msg
+                or "error code: 401" in msg
                 or "model_not_found" in msg
                 or "payment_required" in msg
             )
@@ -190,7 +191,7 @@ def _sync_analyze_vision_with_usage(
             )
             if is_permanent:
                 _rotator.record_unavailable(
-                    provider, "402/404 from provider (model gone or billing)"
+                    provider, "401/402/404 from provider (key rejected, billing or model gone)"
                 )
                 logger.error(
                     "❌ Vision provider '%s' permanently unavailable — skipping "

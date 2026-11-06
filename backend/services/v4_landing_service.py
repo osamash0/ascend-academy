@@ -3,13 +3,15 @@
 Who may open it is decided first (`assert_space_owner`); then the Space's
 activity is read once, folded into facts, run through the insight engine,
 floored and translated into the `Landing` shape. Nothing in the payload
-names a member or quotes one (spec §0). Cached per Space for five minutes.
+names a member or quotes one (spec §0). There is no person-level view of a Space
+at all (decided 2026-11-05). Cached per Space for five minutes.
 `accent` and each Lesson's `color` are left to the app (Plan 3 draws them from
 the Lesson's order until a sampled hue is stored at ingest); `questions` arrive
 with the questions channel (Plan 4).
 """
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Optional
 from uuid import UUID
 
@@ -18,11 +20,10 @@ from backend.domain.authorization import assert_space_owner
 from backend.services import analytics_cache
 from backend.services.insights.figures import figures
 from backend.services.insights.landing_map import collapse_healthy, help_index, lesson_light, rank, to_landing
-from backend.services.insights.people import journey, strugglers
 from backend.services.insights.sources.space import SpaceData, load_space_data
 from backend.services.insights.space_engine import MIN_READERS, lesson_insights
 from backend.services.insights.space_facts import LessonFacts, lesson_facts
-from backend.services.insights.themes import balanced_questions, themes_for
+from backend.services.insights.themes import themes_for
 from backend.services.v4_personal import is_personal
 
 _SPACE_SQL = """
@@ -93,7 +94,7 @@ async def landing_from(data: SpaceData, lang: str) -> dict[str, Any]:
             "title": lesson.title,
             "order": lesson.order,
             "pages": lesson.pages,
-            "readers": len(lf.readers),
+            # No per-Lesson reader count: in a small group, "three read it" says who (story 3).
             "light": lesson_light(found, len(lf.readers)) if above else "few",
         }
         if above and len(lf.readers) >= MIN_READERS:
@@ -125,40 +126,31 @@ async def _themes(
     data: SpaceData, facts: dict[str, LessonFacts], ranked: list[dict[str, Any]], lang: str
 ) -> list[dict[str, Any]]:
     """Themes for the most-asked-about hotspots: pages the ranked findings already floored and
-    kept within their Lesson. Askers are the page's readers who asked, and the model hears
-    each of them in turn (`balanced_questions`), never one person's flood."""
+    kept within their Lesson. Askers are the page's readers who wrote something; each page goes
+    to `themes_for` as {asker: their questions}, which hears them in turn (`balanced_questions`,
+    a few each, never one person's flood) and caches by who asked."""
     hot: list[tuple[int, str, int, dict[str, list[str]]]] = []
     for insight in ranked:
         if insight["kind"] != "confusion_hotspot":
             continue
         pf = facts[insight["lessonId"]].pages.get(insight["page"])
-        askers = (pf.ask & pf.readers) if pf else set()
-        if len(askers) >= MIN_READERS:
-            by_person = {user: texts for user, texts in pf.ask_texts.items() if user in askers}
-            hot.append((len(askers), insight["lessonId"], insight["page"], by_person))
+        # An asker is a reader of the page who wrote something: an Ask opened and left empty is help, not words.
+        # In insertion order, not set order, so the model's questions come in the same order every run.
+        by_person = {user: texts for user, texts in pf.ask_texts.items() if user in pf.readers} if pf else {}
+        if len(by_person) >= MIN_READERS:
+            hot.append((len(by_person), insight["lessonId"], insight["page"], by_person))
     hot.sort(key=lambda x: x[0], reverse=True)
-    out: list[dict[str, Any]] = []
-    for askers, lesson_id, page, by_person in hot[:THEMES_PAGES]:
-        found = await themes_for(
+    picked = hot[:THEMES_PAGES]
+    # At once, not one after another; each call already turns its own failure into no themes.
+    made = await asyncio.gather(*(
+        themes_for(
             space_id=data.space_id, owner_id=data.owner_id, lesson_id=lesson_id,
-            page=page, texts=balanced_questions(by_person), askers=askers, lang=lang,
+            page=page, by_person=by_person, lang=lang,
         )
-        if found:
-            out.append({"lessonId": lesson_id, "page": page, "askers": askers, "themes": found})
-    return out
-
-
-async def get_people(space_id: UUID, user_id: str, salt: str) -> dict[str, Any]:
-    """Strugglers by per-Space pseudonym (flag-only; not cached)."""
-    row = await space_row(space_id, user_id)
-    assert_space_owner(row, user_id)
-    data = await load_space_data(space_id, row["title"] or "", str(row["professor_id"]))
-    return {"strugglers": strugglers(data, salt)}
-
-
-async def get_journey(space_id: UUID, user_id: str, salt: str, person: str, lesson_id: str) -> Optional[list]:
-    """One pseudonym's way through one Lesson (flag-only); None when not found."""
-    row = await space_row(space_id, user_id)
-    assert_space_owner(row, user_id)
-    data = await load_space_data(space_id, row["title"] or "", str(row["professor_id"]))
-    return journey(data, salt, person, lesson_id)
+        for askers, lesson_id, page, by_person in picked
+    ))
+    return [
+        {"lessonId": lesson_id, "page": page, "askers": askers, "themes": found}
+        for (askers, lesson_id, page, _), found in zip(picked, made)
+        if found
+    ]

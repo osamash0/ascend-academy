@@ -8,6 +8,9 @@ Covers:
 """
 from __future__ import annotations
 
+import asyncio
+from pathlib import Path
+
 import fitz
 import pytest
 
@@ -312,3 +315,25 @@ async def test_analyze_page_layout_passes_odl_data(sample_pdf_bytes):
     odl = {"type": "table", "content": "| a | b |\n| 1 | 2 |"}
     layout = await analyze_page_layout_async(reader, 0, odl_page=odl)
     assert "| a | b |" in layout.odl_table_md
+
+
+# ---------------------------------------------------------------------------
+# analyze_page_layout_async — many pages at once (file_parse_service gathers
+# up to LAYOUT_SEM_LIMIT of them in threads)
+# ---------------------------------------------------------------------------
+
+DECK = Path(__file__).resolve().parents[3] / "public/v4-mock/normalization.pdf"
+
+
+async def test_pages_analysed_at_once_read_as_they_do_one_at_a_time():
+    """PyMuPDF's table search keeps the page it reads in module globals and
+    switches the process-wide small glyph heights on while it runs. Two at
+    once mixed their pages' tables and left the switch on, so text boxes, and
+    the reading order built from them, changed for every later page."""
+    data = DECK.read_bytes()
+    reader = PDFReader(data)
+    pages = range(24)
+    one_at_a_time = [await analyze_page_layout_async(reader, i) for i in pages]
+    at_once = await asyncio.gather(*(analyze_page_layout_async(reader, i) for i in pages))
+    assert list(at_once) == one_at_a_time
+    assert fitz.TOOLS.set_small_glyph_heights() is False

@@ -227,11 +227,12 @@ export interface TreeNode {
 
 // ─── Analytics ───────────────────────────────────────────────────────────────
 
+/** People, never the owner; each figure is null until five people stand behind it. */
 export interface LectureOverview {
-  total_students: number;
-  completion_rate: number;
-  average_score: number;
-  average_time_minutes: number;
+  total_students: number | null;
+  completion_rate: number | null;
+  average_score: number | null;
+  average_time_minutes: number | null;
   engagement_level: string;
 }
 
@@ -245,11 +246,12 @@ export interface SlideAnalytics {
   slide_id?: string;
   slide_number: number;
   title: string;
-  view_count: number;
-  average_time_seconds: number;
-  drop_off_rate: number;
-  confusion_rate?: number;
-  quiz_attempts?: number;
+  // null = fewer than 5 people stand behind it: nothing is said (never 0)
+  view_count: number | null;
+  average_time_seconds: number | null;
+  drop_off_rate: number | null;
+  confusion_rate?: number | null;
+  quiz_attempts?: number | null;
   quiz_success_rate?: number | null;
   recommendation_label?: SlideRecommendationLabel;
   recommendation_reasons?: string[];
@@ -258,9 +260,10 @@ export interface SlideAnalytics {
 export interface QuizAnalytics {
   question_id: string;
   question_text: string;
-  success_rate: number;
-  difficulty: string;
-  attempts: number;
+  /** People, from each one's first try; null until five people have tried the question. */
+  success_rate: number | null;
+  difficulty: string | null;
+  attempts: number | null;
 }
 
 export interface StudentPerformance {

@@ -115,93 +115,266 @@ def get_auth_client(token: str = None) -> Client:
     return client
 
 
+#: People a slide needs before the legacy views say anything about how they feel about it.
+#: Same figure as the v4 door's MIN_READERS (space_engine); kept here to avoid an import cycle.
+MIN_PEOPLE = 5
+
+_RATINGS = ("got_it", "unsure", "confused")
+
+
+def lecture_owner_id(client: Client, lecture_id: str) -> Optional[str]:
+    """The lecture's owner (`lectures.professor_id`), whose own reading never counts."""
+    rows = client.table("lectures").select("professor_id").eq("id", lecture_id).execute().data or []
+    return rows[0].get("professor_id") if rows else None
+
+
+def people_ratings(events: List[Dict[str, Any]], owner_id: Optional[str], slide_id: Optional[str] = None) -> Dict[str, Dict[str, str]]:
+    """Each person's latest check-in per slide, as {slide_id: {user_id: rating}}.
+
+    Takes events oldest first (latest write wins). The owner and events without a
+    person are dropped. Counting people, not events, is what makes the floor mean 5 people.
+    """
+    out: Dict[str, Dict[str, str]] = {}
+    for ev in events:
+        uid = ev.get("user_id")
+        if not uid or uid == owner_id:
+            continue
+        ed = ev.get("event_data") or {}
+        sid = ed.get("slideId")
+        rating = ed.get("rating")
+        if not sid or rating not in _RATINGS or (slide_id is not None and sid != slide_id):
+            continue
+        out.setdefault(sid, {})[uid] = rating
+    return out
+
+
+def _floored_counts(events: List[Dict[str, Any]], owner_id: Optional[str]) -> Dict[str, Dict[str, int]]:
+    """{slide_id: {got_it, unsure, confused}} over people, only for slides MIN_PEOPLE+ people rated."""
+    result: Dict[str, Dict[str, int]] = {}
+    for sid, by_person in people_ratings(events, owner_id).items():
+        if len(by_person) < MIN_PEOPLE:
+            continue
+        counts = {r: 0 for r in _RATINGS}
+        for rating in by_person.values():
+            counts[rating] += 1
+        result[sid] = counts
+    return result
+
+
+def _confidence_counts_by_slide(
+    client: Client, lecture_id: str, owner_id: Optional[str] = None, owner_known: bool = False
+) -> Dict[str, Dict[str, int]]:
+    """{slide_id: {got_it, unsure, confused}} over people, only for slides 5+ people rated."""
+    events = _fetch_all(client.table("learning_events")\
+        .select("user_id, event_data, created_at")\
+        .eq("event_type", "confidence_rating")\
+        .eq("event_data->>lectureId", str(lecture_id))\
+        .order("created_at"))
+    if not owner_known:
+        owner_id = lecture_owner_id(client, lecture_id)
+    return _floored_counts(events, owner_id)
+
+
+#: The dashboard's quiz-score bands; counts only, the dashboard never lists a learner (decided 2026-11-05).
+_SCORE_EDGES = (20, 40, 60, 80)
+
+
+def score_bands(scores: list) -> list:
+    """People per quiz-score band (0-20, 21-40, 41-60, 61-80, 81-100); empty under MIN_PEOPLE people."""
+    if len(scores) < MIN_PEOPLE:
+        return []
+    bands = [0] * (len(_SCORE_EDGES) + 1)
+    for sc in scores:
+        value = float(sc or 0)
+        bands[sum(1 for edge in _SCORE_EDGES if value > edge)] += 1
+    return bands
+
+
+def _same_person(uid: Any, other: Any) -> bool:
+    return other is not None and str(uid) == str(other)
+
+
+def people_first_tries(events: List[Dict[str, Any]], owner_id: Optional[str]) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    """Each person's first try per question, as {question_id: {user_id: event_data}}.
+
+    Takes events oldest first. One person trying N times is one person, and the owner and
+    events without a person are dropped: the floor means 5 people, never 5 tries.
+    """
+    out: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    for ev in events:
+        uid = ev.get("user_id")
+        ed = ev.get("event_data") or {}
+        qid = ed.get("questionId")
+        if not uid or _same_person(uid, owner_id) or not qid:
+            continue
+        out.setdefault(qid, {}).setdefault(str(uid), ed)
+    return out
+
+
+def legacy_questions(rows: List[Dict[str, Any]], owner_id: Optional[str]) -> Optional[List[Dict[str, Any]]]:
+    """The legacy tutor questions that may be shown word for word, or None while fewer than 5 people asked.
+
+    rows: [{user_id, event_data (dict), created_at}] newest first. v4 reader questions never count
+    or appear here (they reach owners only as themes), the owner is not an asker, and rows without
+    a person are dropped. The rows returned are the caller's own; callers must not pass a user id on.
+    """
+    kept: List[Dict[str, Any]] = []
+    askers: set = set()
+    for r in rows:
+        ed = r.get("event_data") or {}
+        uid = r.get("user_id")
+        if ed.get("source") == "v4_reader" or not uid or _same_person(uid, owner_id):
+            continue
+        if not (ed.get("query") or "").strip():
+            continue
+        askers.add(str(uid))
+        kept.append(r)
+    return kept if len(askers) >= MIN_PEOPLE else None
+
+
+def legacy_question_feed(rows: List[Dict[str, Any]], owner_id: Optional[str]) -> List[Dict[str, Any]]:
+    """Legacy tutor questions word for word, newest first, only when 5+ people asked in the Lecture.
+
+    Neither a name nor a user id leaves this function. Under the floor the answer is an empty list.
+    """
+    return [
+        {"slide_title": (r.get("event_data") or {}).get("slideTitle", "Unknown Slide"),
+         "query_text": r["event_data"]["query"].strip(), "created_at": r.get("created_at", "")}
+        for r in legacy_questions(rows, owner_id) or []
+    ]
+
+
 @cached_analytic("overview")
 def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
-    """Get high-level metrics for a lecture (cached)."""
+    """High-level metrics for a lecture (cached). Counts people, never the owner; any figure fewer
+    than MIN_PEOPLE people stand behind is None, never 0."""
     client = get_auth_client(token)
+    owner_id = lecture_owner_id(client, lecture_id)
 
-    progress_data = _fetch_all(client.table("student_progress")\
+    progress_data = [p for p in _fetch_all(client.table("student_progress")\
         .select("user_id, completed_at, quiz_score, total_questions_answered")\
-        .eq("lecture_id", lecture_id))
+        .eq("lecture_id", lecture_id)) if p.get("user_id") and not _same_person(p["user_id"], owner_id)]
 
-    total_students = len(progress_data)
-
-    if total_students == 0:
+    people = {str(p["user_id"]) for p in progress_data}
+    if len(people) < MIN_PEOPLE:
         return {
-            "total_students": 0,
-            "completion_rate": 0,
-            "average_score": 0,
-            "average_time_minutes": 0,
+            "total_students": None,
+            "completion_rate": None,
+            "average_score": None,
+            "average_time_minutes": None,
             "engagement_level": "No Data"
         }
 
-    completed = len([p for p in progress_data if p.get("completed_at")])
-    completion_rate = (completed / total_students) * 100 if total_students > 0 else 0
+    completed = {str(p["user_id"]) for p in progress_data if p.get("completed_at")}
+    completion_rate = len(completed) / len(people) * 100
 
-    # Get average time from lecture_complete events (was querying wrong event_type before)
+    # Average time per person (a person finishing twice counts once), from lecture_complete events
     events_data = _fetch_all(client.table("learning_events")\
-        .select("event_data")\
+        .select("user_id, event_data")\
         .eq("event_type", "lecture_complete")\
         .eq("event_data->>lectureId", str(lecture_id)))
 
-    total_time = 0
-    event_count = 0
+    durations: Dict[str, List[float]] = {}
     for event in events_data:
-        if event.get("event_data") and isinstance(event["event_data"], dict):
-            duration = event["event_data"].get("total_duration_seconds", 0)
-            total_time += duration
-            event_count += 1
+        uid = event.get("user_id")
+        ed = event.get("event_data")
+        if not uid or _same_person(uid, owner_id) or not isinstance(ed, dict):
+            continue
+        durations.setdefault(str(uid), []).append(ed.get("total_duration_seconds", 0) or 0)
 
-    avg_time_minutes = (total_time / event_count / 60) if event_count > 0 else 0
-
-    if avg_time_minutes > 20:
-        engagement = "High"
-    elif avg_time_minutes > 8:
-        engagement = "Medium"
+    if len(durations) >= MIN_PEOPLE:
+        avg_time_minutes: Optional[float] = round(
+            sum(sum(d) / len(d) for d in durations.values()) / len(durations) / 60, 1)
+        engagement = "High" if avg_time_minutes > 20 else "Medium" if avg_time_minutes > 8 else "Low"
     else:
-        engagement = "Low"
+        avg_time_minutes, engagement = None, "No Data"
 
-    quiz_takers = [p for p in progress_data if (p.get("total_questions_answered") or 0) > 0]
-    avg_score = sum(p.get("quiz_score", 0) for p in quiz_takers) / len(quiz_takers) if quiz_takers else 0.0
+    quiz_takers = {str(p["user_id"]): p.get("quiz_score") or 0
+                   for p in progress_data if (p.get("total_questions_answered") or 0) > 0}
+    avg_score = round(sum(quiz_takers.values()) / len(quiz_takers), 1) if len(quiz_takers) >= MIN_PEOPLE else None
 
     return {
-        "total_students": total_students,
+        "total_students": len(people),
         "completion_rate": round(completion_rate, 1),
-        "average_score": round(avg_score, 1),
-        "average_time_minutes": round(avg_time_minutes, 1),
+        "average_score": avg_score,
+        "average_time_minutes": avg_time_minutes,
         "engagement_level": engagement
     }
 
 
+def _viewers_by_slide(client: Client, lecture_id: str, owner_id: Optional[str]) -> tuple:
+    """(people who viewed each slide, each person's total time on each slide), the owner left out.
+
+    The second is {slide_id: {user_id: seconds summed over that person's views}}: one person
+    opening a slide ten times is one person with one total, never ten durations.
+    """
+    view_events = _fetch_all(client.table("learning_events")\
+        .select("user_id, event_data")\
+        .eq("event_type", "slide_view")\
+        .eq("event_data->>lectureId", str(lecture_id)))
+    viewers: Dict[str, set] = {}
+    durations: Dict[str, Dict[str, float]] = {}
+    for ev in view_events:
+        uid = ev.get("user_id")
+        ed = ev.get("event_data") or {}
+        sid = ed.get("slideId")
+        if not uid or _same_person(uid, owner_id) or not sid:
+            continue
+        viewers.setdefault(sid, set()).add(uid)
+        per_person = durations.setdefault(sid, {})
+        per_person[str(uid)] = per_person.get(str(uid), 0.0) + float(ed.get("duration_seconds") or 0)
+    return viewers, durations
+
+
+@cached_analytic("slide_viewers")
+def get_slide_viewer_counts(lecture_id: str, token: str = None) -> Dict[str, int]:
+    """How many people viewed each slide (the owner left out), floor not applied.
+
+    Only the insight bundle reads this, for the slide-to-slide comparison in its drop-off
+    finding; it is never sent to a client as a per-slide figure.
+    """
+    client = get_auth_client(token)
+    viewers, _ = _viewers_by_slide(client, lecture_id, lecture_owner_id(client, lecture_id))
+    return {sid: len(people) for sid, people in viewers.items()}
+
+
+@cached_analytic("lecture_people")
+def get_lecture_people_count(lecture_id: str, token: str = None) -> int:
+    """How many people opened the lecture (the owner left out), floor not applied.
+
+    Only the insight bundle reads this, for the reach of its findings; it is never sent to a client.
+    """
+    client = get_auth_client(token)
+    owner_id = lecture_owner_id(client, lecture_id)
+    rows = _fetch_all(client.table("student_progress").select("user_id").eq("lecture_id", lecture_id))
+    return len({str(r["user_id"]) for r in rows if r.get("user_id") and not _same_person(r["user_id"], owner_id)})
+
+
 @cached_analytic("slides")
 def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
-    """Get per-slide analytics (cached)."""
+    """Per-slide analytics (cached). Counts people, never the owner; a slide fewer than
+    MIN_PEOPLE people viewed, tried or rated says nothing (null, never 0)."""
     from backend.services.recommendations import compute_slide_recommendation
 
     client = get_auth_client(token)
+    owner_id = lecture_owner_id(client, lecture_id)
 
     slides_data = _fetch_all(client.table("slides")\
         .select("id, slide_number, title")\
         .eq("lecture_id", lecture_id)\
         .order("slide_number"))
 
-    # Need total_students for drop-off calculation
+    # Need total_students for drop-off calculation (people, not the owner)
     progress_data = _fetch_all(client.table("student_progress")\
         .select("user_id")\
         .eq("lecture_id", lecture_id))
-    total_students = len(progress_data)
+    total_students = len({r.get("user_id") for r in progress_data if r.get("user_id") != owner_id})
 
-    # Slide views (camelCase 'slideId' in event_data)
-    view_events = _fetch_all(client.table("learning_events")\
-        .select("event_data")\
-        .eq("event_type", "slide_view")\
-        .eq("event_data->>lectureId", str(lecture_id)))
+    # Slide views (camelCase 'slideId' in event_data), over people
+    viewers, durations = _viewers_by_slide(client, lecture_id, owner_id)
 
-    # Confidence ratings — used to compute confusion_rate per slide
-    confidence_events = _fetch_all(client.table("learning_events")\
-        .select("event_data")\
-        .eq("event_type", "confidence_rating")\
-        .eq("event_data->>lectureId", str(lecture_id)))
+    # Confidence check-ins, over people: a slide under MIN_PEOPLE raters has no entry
+    conf_by_slide = _confidence_counts_by_slide(client, lecture_id, owner_id, owner_known=True)
 
     # Quiz attempts joined with their slide via quiz_questions
     quiz_questions = _fetch_all(client.table("quiz_questions")\
@@ -210,67 +383,63 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
     qid_to_slide = {q["id"]: q["slide_id"] for q in quiz_questions}
 
     quiz_events = _fetch_all(client.table("learning_events")\
-        .select("event_data")\
+        .select("user_id, event_data, created_at")\
         .eq("event_type", "quiz_attempt")\
-        .eq("event_data->>lectureId", str(lecture_id)))
+        .eq("event_data->>lectureId", str(lecture_id))\
+        .order("created_at"))
 
-    # Aggregate per-slide quiz totals/correct
-    quiz_by_slide: Dict[str, Dict[str, int]] = {}
-    for ev in quiz_events:
-        ed = ev.get("event_data") or {}
-        sid = qid_to_slide.get(ed.get("questionId"))
+    # Per slide, each person's first try on each of its questions: {slide_id: {user_id: [correct]}}.
+    # A retry never counts, and one person is one person however often they tried (as /quizzes).
+    quiz_by_slide: Dict[str, Dict[str, List[bool]]] = {}
+    for qid, by_person in people_first_tries(quiz_events or [], owner_id).items():
+        sid = qid_to_slide.get(qid)
         if not sid:
             continue
-        bucket = quiz_by_slide.setdefault(sid, {"attempts": 0, "correct": 0})
-        bucket["attempts"] += 1
-        if ed.get("correct"):
-            bucket["correct"] += 1
-
-    # Aggregate confusion per slide
-    conf_by_slide: Dict[str, Dict[str, int]] = {}
-    for ev in confidence_events:
-        ed = ev.get("event_data") or {}
-        sid = ed.get("slideId")
-        rating = ed.get("rating")
-        if not sid or rating not in ("got_it", "unsure", "confused"):
-            continue
-        b = conf_by_slide.setdefault(sid, {"got_it": 0, "unsure": 0, "confused": 0})
-        b[rating] += 1
+        for uid, ed in by_person.items():
+            quiz_by_slide.setdefault(sid, {}).setdefault(uid, []).append(bool(ed.get("correct")))
 
     slide_analytics = []
     for slide in slides_data:
         sid = slide["id"]
-        slide_views = [e for e in view_events
-                       if e.get("event_data", {}).get("slideId") == sid]
 
-        view_count = len(slide_views)
-        avg_time = sum(e.get("event_data", {}).get("duration_seconds", 0)
-                      for e in slide_views) / view_count if view_count > 0 else 0
-        drop_off = 100 * (1 - (view_count / total_students)) if total_students > 0 else 0
+        # Views: too few people is null, never 0 (and the figures derived from them go with it).
+        n_viewers = len(viewers.get(sid, ()))
+        seen = n_viewers >= MIN_PEOPLE
+        view_count = n_viewers if seen else None
+        # Each viewer's own total time on the slide, then the mean over viewers.
+        avg_time = round(sum(durations[sid].values()) / len(durations[sid]), 1) if seen else None
+        drop_off = max(0.0, 100 * (1 - (n_viewers / total_students))) if seen and total_students > 0 else (0.0 if seen else None)
 
-        cb = conf_by_slide.get(sid, {"got_it": 0, "unsure": 0, "confused": 0})
-        conf_total = cb["got_it"] + cb["unsure"] + cb["confused"]
-        confusion_rate = round((cb["confused"] / conf_total * 100), 1) if conf_total > 0 else 0.0
+        cb = conf_by_slide.get(sid)
+        confusion_rate = round(cb["confused"] / sum(cb.values()) * 100, 1) if cb else None
 
-        qb = quiz_by_slide.get(sid, {"attempts": 0, "correct": 0})
-        quiz_attempts = qb["attempts"]
-        quiz_success_rate = round((qb["correct"] / quiz_attempts * 100), 1) if quiz_attempts > 0 else None
+        # quiz_attempts is the people who tried; the success rate is each one's own share of
+        # first tries right, averaged over them (one person on ten questions outweighs no one).
+        qb = quiz_by_slide.get(sid) or {}
+        tried = len(qb) >= MIN_PEOPLE
+        quiz_attempts = len(qb) if tried else None
+        quiz_success_rate = (
+            round(sum(sum(v) / len(v) for v in qb.values()) / len(qb) * 100, 1) if tried else None)
 
-        label, reasons = compute_slide_recommendation(
-            drop_off_rate=max(0.0, drop_off),
-            confusion_rate=confusion_rate,
-            quiz_success_rate=quiz_success_rate,
-            view_count=view_count,
-            quiz_attempts=quiz_attempts,
-        )
+        if seen:
+            label, reasons = compute_slide_recommendation(
+                drop_off_rate=drop_off,
+                confusion_rate=confusion_rate or 0.0,
+                quiz_success_rate=quiz_success_rate,
+                view_count=view_count,
+                quiz_attempts=quiz_attempts or 0,
+            )
+        else:
+            # Nothing is said about a slide too few people viewed; the existing neutral label says so.
+            label, reasons = "insufficient_data", ["low_view_count"]
 
         slide_analytics.append({
             "slide_id": sid,
             "slide_number": slide["slide_number"],
             "title": slide.get("title", f"Slide {slide['slide_number']}"),
             "view_count": view_count,
-            "average_time_seconds": round(avg_time, 1),
-            "drop_off_rate": round(max(0, drop_off), 1),
+            "average_time_seconds": avg_time,
+            "drop_off_rate": round(drop_off, 1) if drop_off is not None else None,
             "confusion_rate": confusion_rate,
             "quiz_attempts": quiz_attempts,
             "quiz_success_rate": quiz_success_rate,
@@ -283,28 +452,37 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
 
 @cached_analytic("quizzes")
 def get_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
-    """Get quiz difficulty analytics (cached)."""
+    """Quiz difficulty per question (cached). Counts people (each one's first try), never the
+    owner; a question fewer than MIN_PEOPLE people tried says nothing (null, never 0)."""
     client = get_auth_client(token)
+    owner_id = lecture_owner_id(client, lecture_id)
 
     quiz_data = _fetch_all(client.table("quiz_questions")\
         .select("id, question_text, slides!inner(lecture_id)")\
         .eq("slides.lecture_id", lecture_id))
 
     events_data = _fetch_all(client.table("learning_events")\
-        .select("event_data")\
+        .select("user_id, event_data, created_at")\
         .eq("event_type", "quiz_attempt")\
-        .eq("event_data->>lectureId", str(lecture_id)))
+        .eq("event_data->>lectureId", str(lecture_id))\
+        .order("created_at"))
 
-    attempts_data = events_data or []
+    tries = people_first_tries(events_data or [], owner_id)
     quiz_analytics = []
 
     for question in quiz_data:
-        q_attempts = [e for e in attempts_data if e.get("event_data", {}).get("questionId") == question["id"]]
-        total_q = len(q_attempts)
-        correct_q = len([e for e in q_attempts if e.get("event_data", {}).get("correct")])
+        people = tries.get(question["id"], {})
+        if len(people) < MIN_PEOPLE:
+            quiz_analytics.append({
+                "question_id": question["id"],
+                "question_text": question["question_text"],
+                "success_rate": None,
+                "difficulty": None,
+                "attempts": None,
+            })
+            continue
 
-        success_rate = (correct_q / total_q * 100) if total_q > 0 else 0
-
+        success_rate = sum(1 for ed in people.values() if ed.get("correct")) / len(people) * 100
         if success_rate > 80:
             difficulty = "Easy"
         elif success_rate > 60:
@@ -317,10 +495,10 @@ def get_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any
             "question_text": question["question_text"],
             "success_rate": round(success_rate, 1),
             "difficulty": difficulty,
-            "attempts": total_q
+            "attempts": len(people)
         })
 
-    return sorted(quiz_analytics, key=lambda x: x["success_rate"])
+    return sorted(quiz_analytics, key=lambda x: (x["success_rate"] is None, x["success_rate"] or 0))
 
 
 @cached_analytic("students")
@@ -379,38 +557,47 @@ def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str
 
 @cached_analytic("distractors")
 def get_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
-    """Show which wrong answer options students pick most per question (cached)."""
+    """Which wrong answer options people pick most per question (cached). Counts people (each
+    one's first try), never the owner; under MIN_PEOPLE people the shares are withheld."""
     client = get_auth_client(token)
+    owner_id = lecture_owner_id(client, lecture_id)
 
     quiz_data = _fetch_all(client.table("quiz_questions")\
         .select("id, question_text, options, correct_answer, slides!inner(lecture_id)")\
         .eq("slides.lecture_id", lecture_id))
 
     events_data = _fetch_all(client.table("learning_events")\
-        .select("event_data")\
+        .select("user_id, event_data, created_at")\
         .eq("event_type", "quiz_attempt")\
-        .eq("event_data->>lectureId", str(lecture_id)))
+        .eq("event_data->>lectureId", str(lecture_id))\
+        .order("created_at"))
 
-    attempts_data = events_data or []
+    tries = people_first_tries(events_data or [], owner_id)
     result = []
 
     for question in quiz_data:
-        q_attempts = [
-            e["event_data"] for e in attempts_data
-            if e.get("event_data", {}).get("questionId") == question["id"]
-        ]
+        people = tries.get(question["id"], {})
+        base = {
+            "question_id": question["id"],
+            "question_text": question["question_text"],
+            "options": question.get("options", []),
+            "correct_answer": question.get("correct_answer"),
+        }
+        if len(people) < MIN_PEOPLE:
+            result.append({**base, "answer_distribution": {}, "most_common_wrong_answer": None,
+                           "all_common_wrong_answers": [], "total_attempts": None})
+            continue
 
-        total_attempts = len(q_attempts)
         answer_distribution: Dict[str, int] = {}
-        for attempt in q_attempts:
+        for attempt in people.values():
             selected = attempt.get("selectedAnswer")
             if selected is not None:
                 key = str(selected)
                 answer_distribution[key] = answer_distribution.get(key, 0) + 1
-        
+
         correct_idx = str(question.get("correct_answer", -1))
         wrong_counts = {k: v for k, v in answer_distribution.items() if k != correct_idx}
-        
+
         # Tie-breaking distractor analysis
         most_common_wrongs = []
         if wrong_counts:
@@ -418,14 +605,11 @@ def get_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str
             most_common_wrongs = [int(k) for k, v in wrong_counts.items() if v == max_v]
 
         result.append({
-            "question_id": question["id"],
-            "question_text": question["question_text"],
-            "options": question.get("options", []),
-            "correct_answer": question.get("correct_answer"),
+            **base,
             "answer_distribution": answer_distribution,
             "most_common_wrong_answer": most_common_wrongs[0] if most_common_wrongs else None,
             "all_common_wrong_answers": most_common_wrongs,
-            "total_attempts": total_attempts
+            "total_attempts": len(people)
         })
 
     return result
@@ -435,40 +619,32 @@ def _calculate_retry_performance(
     questions: List[Dict[str, Any]],
     first_attempt_events: List[Dict[str, Any]],
     retry_attempt_events: List[Dict[str, Any]],
+    owner_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """Pure aggregator: rank questions by first- and second-attempt miss rate.
+    """Pure aggregator: rank questions by first- and second-attempt miss rate, over people.
 
     questions: [{id, question_text}]
-    first_attempt_events / retry_attempt_events: [{event_data: {questionId, correct}}]
+    first_attempt_events / retry_attempt_events: [{user_id, event_data: {questionId, correct}}],
+    oldest first. Each person counts once per side (their first try, their first retry), the
+    owner never counts, and a side fewer than MIN_PEOPLE people stand behind is None, never 0.
 
-    Returns rows sorted by first_attempt_miss_rate desc; questions with no
-    first-attempt data go to the end.
+    Returns rows sorted by first_attempt_miss_rate desc; questions with no first-attempt
+    figure go to the end.
     """
-    by_q_first: Dict[str, List[bool]] = {}
-    for e in first_attempt_events:
-        ed = e.get("event_data") or {}
-        qid = ed.get("questionId")
-        if qid:
-            by_q_first.setdefault(qid, []).append(bool(ed.get("correct")))
+    first_by_q = people_first_tries(first_attempt_events, owner_id)
+    retry_by_q = people_first_tries(retry_attempt_events, owner_id)
 
-    by_q_retry: Dict[str, List[bool]] = {}
-    for e in retry_attempt_events:
-        ed = e.get("event_data") or {}
-        qid = ed.get("questionId")
-        if qid:
-            by_q_retry.setdefault(qid, []).append(bool(ed.get("correct")))
+    def side(people: Dict[str, Dict[str, Any]]) -> tuple:
+        if len(people) < MIN_PEOPLE:
+            return None, None, None
+        misses = sum(1 for ed in people.values() if not ed.get("correct"))
+        return len(people), misses, round(misses / len(people) * 100, 1)
 
     rows = []
     for q in questions:
         qid = q["id"]
-        first = by_q_first.get(qid, [])
-        retry = by_q_retry.get(qid, [])
-        first_total = len(first)
-        first_misses = sum(1 for c in first if not c)
-        retry_total = len(retry)
-        retry_misses = sum(1 for c in retry if not c)
-        first_rate = round((first_misses / first_total) * 100, 1) if first_total else 0.0
-        retry_rate = round((retry_misses / retry_total) * 100, 1) if retry_total else 0.0
+        first_total, first_misses, first_rate = side(first_by_q.get(qid, {}))
+        retry_total, retry_misses, retry_rate = side(retry_by_q.get(qid, {}))
         rows.append({
             "question_id": qid,
             "question_text": q.get("question_text", ""),
@@ -481,9 +657,9 @@ def _calculate_retry_performance(
         })
 
     rows.sort(key=lambda r: (
-        0 if r["first_attempt_total"] > 0 else 1,
-        -r["first_attempt_miss_rate"],
-        -r["retry_miss_rate"],
+        0 if r["first_attempt_total"] is not None else 1,
+        -(r["first_attempt_miss_rate"] or 0),
+        -(r["retry_miss_rate"] or 0),
         r["question_id"],
     ))
     return rows
@@ -493,63 +669,25 @@ def _calculate_retry_performance(
 def get_retry_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     """Per-question first-attempt vs second-attempt miss rates for a lecture (cached)."""
     client = get_auth_client(token)
+    owner_id = lecture_owner_id(client, lecture_id)
 
     quiz_data = _fetch_all(client.table("quiz_questions")
         .select("id, question_text, slides!inner(lecture_id)")
         .eq("slides.lecture_id", lecture_id))
 
     first_events = _fetch_all(client.table("learning_events")
-        .select("event_data")
+        .select("user_id, event_data, created_at")
         .eq("event_type", "quiz_attempt")
-        .eq("event_data->>lectureId", str(lecture_id)))
+        .eq("event_data->>lectureId", str(lecture_id))
+        .order("created_at"))
 
     retry_events = _fetch_all(client.table("learning_events")
-        .select("event_data")
+        .select("user_id, event_data, created_at")
         .eq("event_type", "quiz_retry_attempt")
-        .eq("event_data->>lectureId", str(lecture_id)))
+        .eq("event_data->>lectureId", str(lecture_id))
+        .order("created_at"))
 
-    return _calculate_retry_performance(quiz_data, first_events, retry_events)
-
-
-@cached_analytic("dropoff")
-def get_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
-    """Show which slide most students abandon the lecture on (cached)."""
-    client = get_auth_client(token)
-
-    progress_data = _fetch_all(client.table("student_progress")\
-        .select("user_id, last_slide_viewed, completed_at")\
-        .eq("lecture_id", lecture_id))
-
-    slides_data = _fetch_all(client.table("slides")\
-        .select("id, slide_number, title")\
-        .eq("lecture_id", lecture_id)\
-        .order("slide_number"))
-
-    total_started = len(progress_data)
-
-    # Only count students who never finished
-    dropouts = [p for p in progress_data if not p.get("completed_at")]
-
-    # Count dropouts per slide number
-    dropout_by_slide: Dict[int, int] = {}
-    for p in dropouts:
-        slide_idx = p.get("last_slide_viewed")
-        slide_num = (slide_idx + 1) if slide_idx is not None else 1
-        dropout_by_slide[slide_num] = dropout_by_slide.get(slide_num, 0) + 1
-
-    # Build slide title map
-    slide_title_map = {s["slide_number"]: s.get("title") or f"Slide {s['slide_number']}" for s in slides_data}
-
-    result = []
-    for slide_num, count in sorted(dropout_by_slide.items()):
-        result.append({
-            "slide_number": slide_num,
-            "title": slide_title_map.get(slide_num, f"Slide {slide_num}"),
-            "dropout_count": count,
-            "dropout_percentage": round((count / total_started * 100) if total_started > 0 else 0, 1)
-        })
-
-    return result
+    return _calculate_retry_performance(quiz_data, first_events, retry_events, owner_id)
 
 
 @cached_analytic("confidence_by_slide")
@@ -557,10 +695,7 @@ def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str
     """Per-slide confidence breakdown (got_it / unsure / confused; cached)."""
     client = get_auth_client(token)
 
-    events_data = _fetch_all(client.table("learning_events")\
-        .select("event_data")\
-        .eq("event_type", "confidence_rating")\
-        .eq("event_data->>lectureId", str(lecture_id)))
+    slide_conf = _confidence_counts_by_slide(client, lecture_id)
 
     slides_data = _fetch_all(client.table("slides")\
         .select("id, slide_number, title")\
@@ -568,18 +703,6 @@ def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str
         .order("slide_number"))
 
     slide_id_map = {s["id"]: s for s in slides_data}
-
-    # Aggregate confidence per slide
-    slide_conf: Dict[str, Dict[str, int]] = {}
-    for e in events_data:
-        ev_data = e.get("event_data", {})
-        sid = ev_data.get("slideId")
-        rating = ev_data.get("rating")
-        if not sid or rating not in ("got_it", "unsure", "confused"):
-            continue
-        if sid not in slide_conf:
-            slide_conf[sid] = {"got_it": 0, "unsure": 0, "confused": 0}
-        slide_conf[sid][rating] += 1
 
     result = []
     for sid, counts in slide_conf.items():
@@ -602,31 +725,17 @@ def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str
 
 @cached_analytic("ai_queries")
 def get_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
-    """Return the latest student AI tutor queries for this lecture (cached)."""
+    """The latest legacy AI tutor questions for this lecture (cached); empty under 5 askers."""
     client = get_auth_client(token)
+    owner_id = lecture_owner_id(client, lecture_id)
 
     events_data = _fetch_all(client.table("learning_events")\
-        .select("event_data, created_at")\
+        .select("user_id, event_data, created_at")\
         .eq("event_type", "ai_tutor_query")\
         .contains("event_data", {"lectureId": lecture_id})\
         .order("created_at", desc=True))
 
-    result = []
-    for e in events_data:
-        ev_data = e.get("event_data", {})
-        # v4 reader questions reach owners only as themes over 5+ askers, never verbatim (spec §0).
-        if ev_data.get("source") == "v4_reader":
-            continue
-        query_text = ev_data.get("query", "").strip()
-        if not query_text:
-            continue
-        result.append({
-            "slide_title": ev_data.get("slideTitle", "Unknown Slide"),
-            "query_text": query_text,
-            "created_at": e.get("created_at", "")
-        })
-
-    return result
+    return legacy_question_feed(events_data, owner_id)
 
 
 @cached_analytic("insights")
@@ -644,163 +753,135 @@ def get_lecture_insights(lecture_id: str, token: str = None) -> Dict[str, Any]:
     }
 
 
-def _feed_and_ticker(ticker_rows) -> tuple:
-    """The AI-question feed and the live ticker, built from the dashboard's ticker rows."""
-    ai_query_feed = []
-    live_ticker = []
-    for r in ticker_rows:
-        evd = json.loads(r["event_data"]) if isinstance(r["event_data"], str) else r["event_data"]
-        # v4 reader questions reach owners only as themes over 5+ askers, never verbatim (spec §0).
-        if r["type"] == "ai_tutor_query" and evd.get("source") == "v4_reader":
-            continue
-        slide_title = evd.get("slideTitle", "Unknown Slide")
+#: The event kinds the dashboard's "this week" counts speak about.
+_TICKER_KINDS = ("quiz_attempt", "slide_back_navigation", "ai_tutor_query")
 
-        if r["type"] == "ai_tutor_query":
-            q_text = evd.get("query", "").strip()
-            if q_text:
-                ai_query_feed.append({"slide_title": slide_title, "query_text": q_text, "created_at": r["time"]})
-                if len(live_ticker) < 15:
-                    live_ticker.append({"type": r["type"], "description": f'Asked AI Tutor: "{q_text[:40]}..."', "time": r["time"]})
-        elif len(live_ticker) < 15:
-            if r["type"] == "slide_back_navigation":
-                desc = f"Navigated backwards from {evd.get('fromSlideId', 'Unknown')} (Revision)"
-            else:
-                desc = f"{'Passed' if evd.get('correct') else 'Failed'} quiz on {slide_title}"
-            live_ticker.append({"type": r["type"], "description": desc, "time": r["time"]})
-    return ai_query_feed, live_ticker
+
+def _event_dict(raw: Any) -> Dict[str, Any]:
+    """asyncpg hands jsonb back as text."""
+    return json.loads(raw) if isinstance(raw, str) else (raw or {})
+
+
+def _slide_performance(slide_rows: list, events: List[Dict[str, Any]], owner_id: Optional[str]) -> List[Dict[str, Any]]:
+    """The dashboard's per-slide figures, over people and never the owner.
+
+    A figure appears only when MIN_PEOPLE people stand behind it (None otherwise, never 0):
+    time and the confusion index need 5 viewers of the slide, the quiz figures 5 people who
+    tried it, the tutor and go-back counts 5 people who did it. `events` run oldest first.
+    """
+    viewers: Dict[str, set] = {}
+    durations: Dict[str, List[float]] = {}
+    tries: Dict[str, Dict[tuple, bool]] = {}
+    askers: Dict[str, set] = {}
+    revisers: Dict[str, set] = {}
+    for ev in events:
+        uid = ev.get("user_id")
+        if not uid or _same_person(uid, owner_id):
+            continue
+        uid = str(uid)
+        ed = ev["event_data"]
+        kind = ev["type"]
+        for sid in {ed.get("slideId"), ed.get("fromSlideId")} - {None}:
+            if kind == "slide_view":
+                viewers.setdefault(sid, set()).add(uid)
+                durations.setdefault(sid, []).append(ed.get("duration_seconds") or 0)
+            elif kind == "quiz_attempt":
+                tries.setdefault(sid, {}).setdefault((uid, ed.get("questionId")), bool(ed.get("correct")))
+            elif kind == "ai_tutor_query":
+                askers.setdefault(sid, set()).add(uid)
+            elif kind == "slide_back_navigation":
+                revisers.setdefault(sid, set()).add(uid)
+
+    def floored(n: int) -> Optional[int]:
+        return n if n >= MIN_PEOPLE else None
+
+    perf = []
+    for r in slide_rows:
+        sid = r["id"]
+        n_viewers = len(viewers.get(sid, ()))
+        seen = n_viewers >= MIN_PEOPLE
+        slide_tries = tries.get(sid, {})
+        answerers = {u for u, _ in slide_tries}
+        tried = len(answerers) >= MIN_PEOPLE
+        asked, went_back = len(askers.get(sid, ())), len(revisers.get(sid, ()))
+        missed = {u for (u, _), ok in slide_tries.items() if not ok}
+
+        # The index is built only from shares of people, each over its own 5-people floor, so no
+        # count under the floor can be read back out of it. It is None when no component passes.
+        parts = []
+        if seen and asked >= MIN_PEOPLE:
+            parts.append(min(1.0, asked / n_viewers))
+        if seen and went_back >= MIN_PEOPLE:
+            parts.append(min(1.0, went_back / n_viewers))
+        if seen and tried:
+            parts.append(len(missed) / len(answerers))
+
+        perf.append({
+            "id": sid,
+            "name": r["name"],
+            "avgDuration": round(sum(durations[sid]) / len(durations[sid])) if seen else None,
+            "correctRate": round(sum(slide_tries.values()) / len(slide_tries) * 100) if tried else None,
+            "quizAttempts": len(answerers) if tried else None,
+            "aiQueries": floored(asked),
+            "revisions": floored(went_back),
+            "confusionIndex": min(100, max(10, round(sum(parts) * 100))) if parts else None,
+        })
+    return sorted(perf, key=lambda x: (x["avgDuration"] is None, -(x["avgDuration"] or 0)))
 
 
 @cached_analytic_async("dashboard")
 async def get_dashboard_data(lecture_id: str, token: str = None):
-    """Get comprehensive advanced dashboard analytics in a single call using high-performance SQL."""
+    """Advanced dashboard analytics in a single call.
+
+    asyncpg bypasses RLS, so the privacy rules are applied here: people (never events or tries)
+    are counted, the lecture's owner never counts, and any figure fewer than MIN_PEOPLE people
+    stand behind is None or absent, never 0.
+    """
     try:
         async with await get_db_connection() as conn:
-            # Overview Stats
-            overview_row = await conn.fetchrow("""
-                SELECT 
-                    COUNT(DISTINCT user_id)::int as "uniqueStudents",
-                    COALESCE(SUM(total_questions_answered), 0)::int as "totalAttempts",
-                    COALESCE(SUM(correct_answers), 0)::int as "totalCorrect",
-                    ROUND(COALESCE(AVG(CASE WHEN total_questions_answered > 0 THEN (correct_answers::float / total_questions_answered * 100) ELSE NULL END), 0))::int as "averageScore"
-                FROM student_progress 
-                WHERE lecture_id = $1::uuid
-            """, lecture_id)
+            owner_id = await conn.fetchval("SELECT professor_id FROM lectures WHERE id = $1::uuid", lecture_id)
 
-            # Activity By Day (Last 7 days)
-            activity_rows = await conn.fetch("""
-                WITH days AS (
-                    SELECT CURRENT_DATE - i as day 
-                    FROM generate_series(0, 6) i
-                )
-                SELECT 
-                    TO_CHAR(days.day, 'Dy') as "date",
-                    COUNT(le.id)::int as "attempts"
-                FROM days
-                LEFT JOIN learning_events le ON le.created_at::date = days.day 
-                    AND le.event_type = 'quiz_attempt'
-                    AND le.event_data->>'lectureId' = $1
-                GROUP BY days.day
-                ORDER BY days.day ASC
-            """, lecture_id)
-
-            # Slide Performance
-            slide_rows = await conn.fetch("""
-                SELECT 
-                    s.id, 
-                    s.title as "name",
-                    ROUND(COALESCE(AVG((le.event_data->>'duration_seconds')::int) FILTER (WHERE le.event_type = 'slide_view'), 0))::int as "avgDuration",
-                    COUNT(le.id) FILTER (WHERE le.event_type = 'quiz_attempt')::int as "quizAttempts",
-                    COUNT(le.id) FILTER (WHERE le.event_type = 'quiz_attempt' AND (le.event_data->>'correct')::boolean = true)::int as "quizCorrect",
-                    COUNT(le.id) FILTER (WHERE le.event_type = 'ai_tutor_query')::int as "aiQueries",
-                    COUNT(le.id) FILTER (WHERE le.event_type = 'slide_back_navigation')::int as "revisions"
-                FROM slides s
-                LEFT JOIN learning_events le ON le.event_data->>'lectureId' = $1 
-                    AND (le.event_data->>'slideId' = s.id::text OR le.event_data->>'fromSlideId' = s.id::text)
-                WHERE s.lecture_id = $1::uuid
-                GROUP BY s.id, s.title, s.slide_number
-                ORDER BY "avgDuration" DESC
-            """, lecture_id)
-
-            # Students Matrix
-            student_rows = await conn.fetch("""
-                SELECT 
-                    p.user_id as "student_id",
-                    p.quiz_score as "quiz_score",
-                    COALESCE(array_length(p.completed_slides, 1), 0)::int as "completed_count",
-                    COUNT(le.id) FILTER (WHERE le.event_type = 'ai_tutor_query')::int as "ai_interactions",
-                    COUNT(le.id) FILTER (WHERE le.event_type = 'slide_back_navigation')::int as "revisions"
+            # One row per person who opened the lecture
+            progress_rows = await conn.fetch("""
+                SELECT p.user_id, p.quiz_score, p.total_questions_answered, p.correct_answers
                 FROM student_progress p
-                LEFT JOIN learning_events le ON le.user_id = p.user_id 
-                    AND le.event_data->>'lectureId' = $1
                 WHERE p.lecture_id = $1::uuid
-                GROUP BY p.user_id, p.quiz_score, p.completed_slides
-                ORDER BY p.quiz_score DESC
             """, lecture_id)
 
-            # Slide Count for matrix calc
-            num_slides = await conn.fetchval("SELECT COUNT(*)::int FROM slides WHERE lecture_id = $1::uuid", lecture_id)
-            num_slides = max(1, num_slides)
+            slide_rows = await conn.fetch("""
+                SELECT s.id::text AS "id", s.title AS "name"
+                FROM slides s
+                WHERE s.lecture_id = $1::uuid
+                ORDER BY s.slide_number
+            """, lecture_id)
 
-            # Confidence Map (Overall counts)
-            conf_counts = await conn.fetchrow("""
-                SELECT 
-                    COUNT(le.id) FILTER (WHERE le.event_data->>'rating' = 'got_it')::int as "got_it",
-                    COUNT(le.id) FILTER (WHERE le.event_data->>'rating' = 'unsure')::int as "unsure",
-                    COUNT(le.id) FILTER (WHERE le.event_data->>'rating' = 'confused')::int as "confused"
+            # Everything the per-slide figures, the retry table, the week counts and the question
+            # feed are made of, oldest first (a person's first try is the one that counts).
+            event_rows = await conn.fetch("""
+                SELECT le.user_id, le.event_type AS "type", le.event_data,
+                       le.created_at::text AS "time",
+                       le.created_at::date::text AS "day",
+                       (le.created_at >= now() - interval '7 days') AS "recent"
+                FROM learning_events le
+                WHERE le.event_data->>'lectureId' = $1
+                    AND le.event_type IN ('slide_view', 'quiz_attempt', 'quiz_retry_attempt',
+                                          'ai_tutor_query', 'slide_back_navigation')
+                ORDER BY le.created_at ASC
+            """, lecture_id)
+
+            # Confidence Map: read as events, counted as people in Python.
+            conf_rows = await conn.fetch("""
+                SELECT le.user_id, le.event_data
                 FROM learning_events le
                 WHERE le.event_type = 'confidence_rating' AND le.event_data->>'lectureId' = $1
+                ORDER BY le.created_at ASC
             """, lecture_id)
 
-            # Retry Performance — first-attempt vs second-attempt miss rates per question.
-            # First and retry events are pre-aggregated separately to avoid the
-            # N×M row multiplication that would occur from joining both event
-            # sets in a single FROM clause.
-            retry_rows = await conn.fetch("""
-                WITH first_agg AS (
-                    SELECT
-                        event_data->>'questionId' AS question_id,
-                        COUNT(*)::int AS total,
-                        COUNT(*) FILTER (WHERE (event_data->>'correct')::boolean = false)::int AS misses
-                    FROM learning_events
-                    WHERE event_type = 'quiz_attempt'
-                      AND event_data->>'lectureId' = $1
-                    GROUP BY event_data->>'questionId'
-                ),
-                retry_agg AS (
-                    SELECT
-                        event_data->>'questionId' AS question_id,
-                        COUNT(*)::int AS total,
-                        COUNT(*) FILTER (WHERE (event_data->>'correct')::boolean = false)::int AS misses
-                    FROM learning_events
-                    WHERE event_type = 'quiz_retry_attempt'
-                      AND event_data->>'lectureId' = $1
-                    GROUP BY event_data->>'questionId'
-                )
-                SELECT
-                    q.id::text AS "question_id",
-                    q.question_text AS "question_text",
-                    COALESCE(fa.total, 0)::int AS "first_attempt_total",
-                    COALESCE(fa.misses, 0)::int AS "first_attempt_misses",
-                    COALESCE(ra.total, 0)::int AS "retry_total",
-                    COALESCE(ra.misses, 0)::int AS "retry_misses"
+            question_rows = await conn.fetch("""
+                SELECT q.id::text AS "id", q.question_text AS "question_text"
                 FROM quiz_questions q
                 JOIN slides s ON s.id = q.slide_id
-                LEFT JOIN first_agg fa ON fa.question_id = q.id::text
-                LEFT JOIN retry_agg ra ON ra.question_id = q.id::text
                 WHERE s.lecture_id = $1::uuid
-            """, lecture_id)
-
-            # Live Ticker & AI Queries
-            ticker_rows = await conn.fetch("""
-                SELECT 
-                    event_type as "type",
-                    event_data,
-                    created_at::text as "time"
-                FROM learning_events
-                WHERE event_data->>'lectureId' = $1
-                    AND event_type IN ('ai_tutor_query', 'slide_back_navigation', 'quiz_attempt')
-                ORDER BY created_at DESC
-                LIMIT 50
             """, lecture_id)
 
     except Exception as e:
@@ -808,63 +889,82 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
         # Fallback to sync supabase if pool fails (optional, but safer to just raise)
         raise
 
-    # 3. Post-process (Small Python loops)
-    processed_slides = []
-    for r in slide_rows:
-        corr_rate = round((r["quizCorrect"] / r["quizAttempts"] * 100)) if r["quizAttempts"] > 0 else 0
-        raw_confusion = (r["aiQueries"] * 30) + (r["revisions"] * 15) + ((r["quizAttempts"] - r["quizCorrect"]) * 10)
-        processed_slides.append({
-            **dict(r),
-            "correctRate": corr_rate,
-            "confusionIndex": min(100, max(10, raw_confusion + 10))
-        })
+    owner_key = str(owner_id) if owner_id else None
 
-    processed_students = []
-    for r in student_rows:
-        prog_pct = round((r["completed_count"] / num_slides) * 100)
-        processed_students.append({
-            "student_id": r["student_id"],
-            "student_name": generate_anon_name(r["student_id"]),
-            "progress_percentage": prog_pct,
-            "quiz_score": r["quiz_score"],
-            "typology": calculate_student_typology(prog_pct, r["quiz_score"], r["ai_interactions"], r["revisions"]),
-            "ai_interactions": r["ai_interactions"],
-            "revisions": r["revisions"]
-        })
+    # Overview, over people. Opening the lecture makes a person; answering makes a scorer.
+    people = {str(r["user_id"]): r for r in progress_rows
+              if r["user_id"] and str(r["user_id"]) != owner_key}
+    scorers = [r for r in people.values() if (r["total_questions_answered"] or 0) > 0]
+    overview: Dict[str, Any] = {
+        "uniqueStudents": len(people) if len(people) >= MIN_PEOPLE else None,
+        "totalAttempts": None, "averageScore": None,
+    }
+    if len(scorers) >= MIN_PEOPLE:
+        # People who answered at least once, never a count of answers.
+        overview["totalAttempts"] = len(scorers)
+        overview["averageScore"] = round(sum(
+            (r["correct_answers"] or 0) / r["total_questions_answered"] * 100 for r in scorers) / len(scorers))
+    score_band_counts = score_bands([r["quiz_score"] for r in scorers])
 
-    ai_query_feed, live_ticker = _feed_and_ticker(ticker_rows)
+    events = [{"user_id": str(r["user_id"]) if r["user_id"] else None, "type": r["type"],
+               "event_data": _event_dict(r["event_data"]), "time": r["time"],
+               "day": r["day"], "recent": r["recent"]} for r in event_rows]
+    others = [e for e in events if e["user_id"] and e["user_id"] != owner_key]
 
-    # Compute miss-rates from raw counts (kept out of SQL to avoid div-by-zero noise)
-    retry_performance = []
-    for r in retry_rows:
-        d = dict(r)
-        ft = d["first_attempt_total"]
-        rt = d["retry_total"]
-        d["first_attempt_miss_rate"] = round((d["first_attempt_misses"] / ft) * 100, 1) if ft else 0.0
-        d["retry_miss_rate"] = round((d["retry_misses"] / rt) * 100, 1) if rt else 0.0
-        retry_performance.append(d)
-    retry_performance.sort(key=lambda r: (
-        0 if r["first_attempt_total"] > 0 else 1,
-        -r["first_attempt_miss_rate"],
-        -r["retry_miss_rate"],
-        r["question_id"],
-    ))
+    conf_events = []
+    for r in conf_rows:
+        conf_events.append({"user_id": str(r["user_id"]) if r["user_id"] else None,
+                            "event_data": _event_dict(r["event_data"])})
+    # None, not zeros, when no slide reaches the floor: "not enough people" is not "nobody understood".
+    conf_counts: Optional[Dict[str, int]] = None
+    for counts in _floored_counts(conf_events, owner_key).values():
+        conf_counts = conf_counts or {k: 0 for k in _RATINGS}
+        for k in _RATINGS:
+            conf_counts[k] += counts[k]
 
-    result = {
-        "overview": {**dict(overview_row), "totalEvents": sum(dict(conf_counts).values()) + len(ticker_rows)},
-        "activityByDay": [dict(r) for r in activity_rows],
-        "slidePerformance": processed_slides,
-        "studentsMatrix": processed_students,
-        "confidenceMap": dict(conf_counts),
+    conf_others = [e for e in conf_events if e["user_id"] and e["user_id"] != owner_key]
+    active = {e["user_id"] for e in others} | {e["user_id"] for e in conf_others}
+    # People who did anything at all (the key keeps its old name; it is a count of people, never events).
+    overview["totalEvents"] = len(active) if len(active) >= MIN_PEOPLE else None
+
+    # People who answered a quiz question on each day this week; a day under 5 people is None.
+    today = datetime.now(timezone.utc).date()
+    days = [today - timedelta(days=6 - i) for i in range(7)]
+    activity_by_day = []
+    for d in days:
+        n = len({e["user_id"] for e in others if e["type"] == "quiz_attempt" and e["day"] == d.isoformat()})
+        activity_by_day.append({"date": d.strftime("%a"), "people": n if n >= MIN_PEOPLE else None})
+
+    # The week in counts of people per kind, never one person's event, and only from 5 people.
+    live_ticker = []
+    for kind in _TICKER_KINDS:
+        n = len({e["user_id"] for e in others if e["recent"] and e["type"] == kind})
+        if n >= MIN_PEOPLE:
+            live_ticker.append({"type": kind, "people": n})
+
+    ai_query_feed = legacy_question_feed(
+        [{"user_id": e["user_id"], "event_data": e["event_data"], "created_at": e["time"]}
+         for e in reversed(events) if e["type"] == "ai_tutor_query"],
+        owner_key)
+
+    retry_performance = _calculate_retry_performance(
+        [{"id": r["id"], "question_text": r["question_text"]} for r in question_rows],
+        [e for e in events if e["type"] == "quiz_attempt"],
+        [e for e in events if e["type"] == "quiz_retry_attempt"],
+        owner_key)
+
+    return {
+        "overview": overview,
+        "activityByDay": activity_by_day,
+        "slidePerformance": _slide_performance([dict(r) for r in slide_rows], events, owner_key),
+        "scoreBands": score_band_counts,
+        "confidenceMap": conf_counts,
         "liveTicker": live_ticker,
         "aiQueryFeed": ai_query_feed[:50],
         "retryPerformance": retry_performance,
-        # Re-using slide_rows for a simpler confidence map if needed, or just passing overall
-        "dropoffData": [], # Can be added if needed, but keeping it light for now
-        "confidenceBySlide": [] # Can be added similarly
+        "dropoffData": [],  # Can be added if needed, but keeping it light for now
+        "confidenceBySlide": []  # Can be added similarly
     }
-
-    return result
 
 
 def _group_events_by_user(events_data: list) -> dict:
@@ -884,83 +984,6 @@ def _group_events_by_slide(events_data: list) -> dict:
         sid = ev_data.get("slideId") or ev_data.get("fromSlideId")
         if sid: groups[sid].append(ev)
     return groups
-
-
-def _calculate_overview_stats(progress_data: list, total_events: int, student_count: int) -> dict:
-    total_attempts = sum(p.get("total_questions_answered") or 0 for p in progress_data)
-    total_correct = sum(p.get("correct_answers") or 0 for p in progress_data)
-    average_score = round((total_correct / total_attempts * 100) if total_attempts > 0 else 0)
-    return {
-        "uniqueStudents": student_count,
-        "totalAttempts": total_attempts,
-        "totalCorrect": total_correct,
-        "averageScore": average_score,
-        "totalEvents": total_events
-    }
-
-
-def _calculate_activity_by_day(events_data: list) -> list:
-    last_7_days = [(datetime.now() - timedelta(days=6 - i)).strftime("%Y-%m-%d") for i in range(7)]
-    events_by_day = {}
-    for ev in events_data:
-        if ev.get("event_type") == "quiz_attempt":
-            day = ev.get("created_at", "")[:10]
-            events_by_day[day] = events_by_day.get(day, 0) + 1
-            
-    return [
-        {"date": datetime.strptime(d, "%Y-%m-%d").strftime("%a"), "attempts": events_by_day.get(d, 0)}
-        for d in last_7_days
-    ]
-
-
-def _calculate_slide_performance(slides_data: list, events_by_slide: dict) -> list:
-    perf = []
-    for s in slides_data:
-        sid = s["id"]
-        slide_events = events_by_slide.get(sid, [])
-        st = {"duration": 0, "views": 0, "quizCorrect": 0, "quizAttempts": 0, "aiQueries": 0, "revisions": 0}
-        for ev in slide_events:
-            evt, evd = ev.get("event_type"), ev.get("event_data", {})
-            if evt == "slide_view":
-                st["duration"] += evd.get("duration_seconds", 0)
-                st["views"] += 1
-            elif evt == "quiz_attempt":
-                st["quizAttempts"] += 1
-                if evd.get("correct"): st["quizCorrect"] += 1
-            elif evt == "ai_tutor_query": st["aiQueries"] += 1
-            elif evt == "slide_back_navigation": st["revisions"] += 1
-
-        avg_dur = round(st["duration"] / st["views"]) if st["views"] > 0 else 0
-        corr_rate = round((st["quizCorrect"] / st["quizAttempts"]) * 100) if st["quizAttempts"] > 0 else 0
-        raw_confusion = (st["aiQueries"] * 30) + (st["revisions"] * 15) + ((st["quizAttempts"] - st["quizCorrect"]) * 10)
-        
-        perf.append({
-            "id": sid, "name": s["title"], "avgDuration": avg_dur, "correctRate": corr_rate,
-            "quizAttempts": st["quizAttempts"], "aiQueries": st["aiQueries"], "revisions": st["revisions"],
-            "confusionIndex": min(100, max(10, raw_confusion + 10))
-        })
-    return sorted(perf, key=lambda x: x["avgDuration"], reverse=True)
-
-
-def _calculate_students_matrix(progress_data: list, events_by_user: dict, num_slides: int) -> list:
-    matrix = []
-    num_slides = max(1, num_slides)
-    for p in progress_data:
-        uid = p["user_id"]
-        completed_count = len(p.get("completed_slides") or [])
-        prog_pct = round((completed_count / num_slides) * 100)
-        score = p.get("quiz_score", 0)
-        stud_events = events_by_user.get(uid, [])
-        stud_ai_queries = sum(1 for e in stud_events if e.get("event_type") == "ai_tutor_query")
-        stud_revisions = sum(1 for e in stud_events if e.get("event_type") == "slide_back_navigation")
-
-        typology = calculate_student_typology(prog_pct, score, stud_ai_queries, stud_revisions)
-
-        matrix.append({
-            "student_id": uid, "student_name": generate_anon_name(uid), "progress_percentage": prog_pct,
-            "quiz_score": score, "typology": typology, "ai_interactions": stud_ai_queries, "revisions": stud_revisions
-        })
-    return sorted(matrix, key=lambda x: x["quiz_score"], reverse=True)
 
 
 def _calculate_confidence_map(slides_data: list, events_by_slide: dict) -> tuple:
@@ -1035,24 +1058,38 @@ async def _compute_professor_overview(
     days: int,
     token: Optional[str],
 ) -> Dict[str, Any]:
+    """The course-wide figures, over people. The course's owner (and every lecture's owner) never
+    counts, and a figure fewer than MIN_PEOPLE people stand behind is None, never 0:
+
+    - active_students: people with any event in the window.
+    - average_completion: each person's own mean completion over the lectures they opened, averaged.
+    - average_quiz_accuracy: each person's own share right (correct / answered), averaged over the
+      people who answered; never weighted by how many questions one person answered.
+    - median_time_minutes: each person's mean lecture_complete duration in the window, the median
+      over people.
+    - weakest_concepts / weakest_slides: per item, each person's first try on each of its questions;
+      `attempts` is the people who tried, `miss_rate` 100 minus the mean of each one's share right.
+      An item fewer than MIN_PEOPLE people tried is absent.
+    - activity_sparkline: people active per day, None on a day under MIN_PEOPLE.
+    """
     from collections import defaultdict
     import asyncio
     client = get_auth_client(token) if token else supabase_admin
 
-    # 1. Lectures in this course
+    # 1. Lectures in this course, and who owns them (their own reading never counts)
     lec_rows = await asyncio.to_thread(
         _fetch_all,
         client.table("lectures")
-        .select("id, title, total_slides")
+        .select("id, title, total_slides, professor_id")
         .eq("course_id", course_id)
     )
     lecture_ids = [l["id"] for l in lec_rows]
 
     empty: Dict[str, Any] = {
-        "active_students": 0,
-        "average_completion": 0.0,
-        "average_quiz_accuracy": 0.0,
-        "median_time_minutes": 0.0,
+        "active_students": None,
+        "average_completion": None,
+        "average_quiz_accuracy": None,
+        "median_time_minutes": None,
         "weakest_concepts": [],
         "weakest_slides": [],
         "activity_sparkline": _empty_sparkline(days),
@@ -1061,6 +1098,16 @@ async def _compute_professor_overview(
     }
     if not lecture_ids:
         return empty
+
+    course_rows = await asyncio.to_thread(
+        _fetch_all, client.table("courses").select("professor_id").eq("id", course_id))
+    owners = {str(r["professor_id"]) for r in [*lec_rows, *course_rows] if r.get("professor_id")}
+
+    def _learner(uid: Any) -> Optional[str]:
+        """The person behind a row, or None for no person or an owner."""
+        if not uid or str(uid) in owners:
+            return None
+        return str(uid)
 
     total_slides_by_lec = {
         l["id"]: max(1, int(l.get("total_slides") or 1)) for l in lec_rows
@@ -1080,19 +1127,16 @@ async def _compute_professor_overview(
     # 3. Recent learning events (last `days` days).
     #
     # P5-2 (Foundation 10x roadmap §13, OLTP/OLAP split — staged lift (a)):
-    # active_students / median_time_minutes / activity_sparkline no longer
-    # scan every learning_events row for the course; they read
+    # active_students / activity_sparkline no longer scan every learning_events
+    # row for the course; they read the per-day `active_user_ids` of
     # `mv_course_daily_activity` (supabase/migrations/
     # 20260720000001_professor_overview_daily_activity_mv.sql), a per
     # (course_id, day) rollup refreshed on a schedule by an Arq cron job
     # (backend/workers/arq_worker.py, every 10 minutes — see that file for
-    # the bounded-staleness rationale). weakest_concepts/weakest_slides still
-    # need item-level slide_id/question_id granularity the rollup doesn't
-    # carry, so they read a narrower *live* quiz_attempt-only query below
-    # (previously this fetched ALL event types for the window and filtered
-    # to quiz_attempt in Python; querying only quiz_attempt rows cuts the
-    # payload without changing the result).
-    from datetime import timezone
+    # the bounded-staleness rationale). The rollup's durations carry no person,
+    # so median_time reads a narrow live lecture_complete query, and
+    # weakest_concepts/weakest_slides need each person's first try per question,
+    # so they read a narrow live quiz_attempt query.
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     def _row_to_dict(r):
@@ -1105,12 +1149,25 @@ async def _compute_professor_overview(
                 d["event_data"] = {}
         return d
 
+    def _at(e: Dict[str, Any]) -> datetime:
+        created_at_val = e.get("created_at")
+        if isinstance(created_at_val, datetime):
+            return created_at_val if created_at_val.tzinfo else created_at_val.replace(tzinfo=timezone.utc)
+        if isinstance(created_at_val, str):
+            try:
+                dt_val = datetime.fromisoformat(created_at_val.replace('Z', '+00:00'))
+                return dt_val if dt_val.tzinfo else dt_val.replace(tzinfo=timezone.utc)
+            except ValueError:
+                pass
+        return datetime.now(timezone.utc)
+
     use_mv = client.__class__.__name__ != "FakeSupabaseClient"
 
+    people_by_day: Dict[str, set] = defaultdict(set)
     if not use_mv:
         # Unit-test path (FakeSupabaseClient simulates PostgREST, not a real
         # Postgres connection the MV could live in): compute everything from
-        # the raw event set exactly as before the P5-2 change.
+        # the raw event set.
         course_events = []
         for lid in lecture_ids:
             events_data = await asyncio.to_thread(
@@ -1119,46 +1176,20 @@ async def _compute_professor_overview(
                 .select("user_id, event_type, event_data, created_at")
                 .eq("event_data->>lectureId", str(lid))
             )
-            for e in events_data:
-                created_at_val = e.get("created_at")
-                if isinstance(created_at_val, str):
-                    try:
-                        dt_val = datetime.fromisoformat(created_at_val.replace('Z', '+00:00'))
-                    except ValueError:
-                        dt_val = datetime.now(timezone.utc)
-                elif isinstance(created_at_val, datetime):
-                    dt_val = created_at_val
-                else:
-                    dt_val = datetime.now(timezone.utc)
+            course_events.extend(e for e in events_data if _at(e) >= cutoff)
 
-                if dt_val >= cutoff:
-                    course_events.append(e)
-
-        active_students = len({
-            e["user_id"] for e in course_events if e.get("user_id")
-        })
-
-        durations: List[float] = []
         for e in course_events:
-            if e.get("event_type") != "lecture_complete":
-                continue
-            d = (e.get("event_data") or {}).get("total_duration_seconds")
-            if isinstance(d, (int, float)) and d > 0:
-                durations.append(d / 60.0)
-        median_time = _median(durations)
-
-        # quiz_attempt subset for step 7 below.
-        quiz_attempt_events = [
-            e for e in course_events if e.get("event_type") == "quiz_attempt"
-        ]
-        by_day_events = course_events
+            uid = _learner(e.get("user_id"))
+            if uid:
+                people_by_day[_at(e).date().isoformat()].add(uid)
+        quiz_attempt_events = [e for e in course_events if e.get("event_type") == "quiz_attempt"]
+        complete_events = [e for e in course_events if e.get("event_type") == "lecture_complete"]
     else:
         today = datetime.now(timezone.utc).date()
         window_start = today - timedelta(days=days - 1)
         async with await get_db_connection() as conn:
             mv_rows = await conn.fetch("""
-                SELECT activity_day, tracked_event_count, active_user_ids,
-                       lecture_complete_durations_seconds
+                SELECT activity_day, active_user_ids
                 FROM mv_course_daily_activity
                 WHERE course_id = $1::uuid
                   AND activity_day BETWEEN $2::date AND $3::date
@@ -1166,48 +1197,64 @@ async def _compute_professor_overview(
             """, course_id, window_start, today)
 
             quiz_rows = await conn.fetch("""
-                SELECT event_data, created_at
+                SELECT user_id, event_type, event_data, created_at
                 FROM learning_events
-                WHERE event_type = 'quiz_attempt'
+                WHERE event_type IN ('quiz_attempt', 'lecture_complete')
                   AND created_at >= $1::timestamptz
                   AND (event_data->>'lectureId') = ANY($2::text[])
+                ORDER BY created_at
             """, cutoff, lecture_ids)
-        quiz_attempt_events = [_row_to_dict(r) for r in quiz_rows]
+        live = [_row_to_dict(r) for r in quiz_rows]
+        quiz_attempt_events = [e for e in live if e.get("event_type") == "quiz_attempt"]
+        complete_events = [e for e in live if e.get("event_type") == "lecture_complete"]
 
-        active_user_set: set = set()
-        durations: List[float] = []
-        tracked_by_day: Dict[date, int] = {}
         for r in mv_rows:
             day = r["activity_day"]
-            tracked_by_day[day] = int(r["tracked_event_count"] or 0)
+            day_key = day.isoformat() if isinstance(day, (datetime, date)) else str(day)[:10]
             for uid in (r["active_user_ids"] or []):
-                if uid:
-                    active_user_set.add(uid)
-            for secs in (r["lecture_complete_durations_seconds"] or []):
-                if secs and secs > 0:
-                    durations.append(float(secs) / 60.0)
+                person = _learner(uid)
+                if person:
+                    people_by_day[day_key].add(person)
 
-        active_students = len(active_user_set)
-        median_time = _median(durations)
-        by_day_events = None  # sparkline built directly from tracked_by_day below
+    floor = MIN_PEOPLE
 
-    # 4. Average completion across progress rows
-    completion_pcts: List[float] = []
+    active_people = set().union(*people_by_day.values()) if people_by_day else set()
+    active_students = len(active_people) if len(active_people) >= floor else None
+
+    # Median time: each person's mean lecture_complete duration, then the median over people.
+    durations_by_person: Dict[str, List[float]] = defaultdict(list)
+    for e in complete_events:
+        uid = _learner(e.get("user_id"))
+        d = (e.get("event_data") or {}).get("total_duration_seconds")
+        if uid and isinstance(d, (int, float)) and d > 0:
+            durations_by_person[uid].append(d / 60.0)
+    per_person_minutes = [sum(v) / len(v) for v in durations_by_person.values()]
+    median_time = round(_median(per_person_minutes), 1) if len(per_person_minutes) >= floor else None
+
+    # 4. Completion: each person's own mean over the lectures they opened, then the mean over people.
+    completion_by_person: Dict[str, List[float]] = defaultdict(list)
+    answered_by_person: Dict[str, List[int]] = defaultdict(lambda: [0, 0])
     for p in progress:
+        uid = _learner(p.get("user_id"))
+        if not uid:
+            continue
         total = total_slides_by_lec.get(p.get("lecture_id"), 1)
         completed = len(p.get("completed_slides") or [])
-        completion_pcts.append(min(100.0, round((completed / total) * 100, 1)))
+        completion_by_person[uid].append(min(100.0, (completed / total) * 100))
+        answered = int(p.get("total_questions_answered") or 0)
+        if answered > 0:
+            answered_by_person[uid][0] += int(p.get("correct_answers") or 0)
+            answered_by_person[uid][1] += answered
     avg_completion = (
-        round(sum(completion_pcts) / len(completion_pcts), 1)
-        if completion_pcts else 0.0
+        round(sum(sum(v) / len(v) for v in completion_by_person.values()) / len(completion_by_person), 1)
+        if len(completion_by_person) >= floor else None
     )
 
-    # 5. Average quiz accuracy (weighted by attempts)
-    total_q = sum(int(p.get("total_questions_answered") or 0) for p in progress)
-    total_c = sum(int(p.get("correct_answers") or 0) for p in progress)
-    avg_accuracy = round((total_c / total_q) * 100, 1) if total_q > 0 else 0.0
+    # 5. Quiz accuracy: each person's own share right, then the mean over people (never attempt-weighted).
+    shares = [min(1.0, c / n) for c, n in answered_by_person.values() if n > 0]
+    avg_accuracy = round(sum(shares) / len(shares) * 100, 1) if len(shares) >= floor else None
 
-    # 7. Weakest concepts (degrades to weakest slides)
+    # 7. Weakest concepts (degrades to weakest slides), from each person's first try per question
     slides = await asyncio.to_thread(
         _fetch_all,
         client.table("slides")
@@ -1228,17 +1275,11 @@ async def _compute_professor_overview(
         q["id"]: ((q.get("metadata") or {}).get("concept") or "").strip()
         for q in questions
     }
+    q_slide = {q["id"]: q.get("slide_id") for q in questions}
 
-    concept_stats: Dict[str, Dict[str, int]] = defaultdict(
-        lambda: {"attempts": 0, "correct": 0}
-    )
-    slide_stats: Dict[str, Dict[str, int]] = defaultdict(
-        lambda: {"attempts": 0, "correct": 0}
-    )
+    tries = []
     for e in quiz_attempt_events:
-        ed_raw = e.get("event_data") or {}
-        import json
-        ed = json.loads(ed_raw) if isinstance(ed_raw, str) else ed_raw
+        ed = e.get("event_data") or {}
         if isinstance(ed, str):
             try:
                 ed = json.loads(ed)
@@ -1246,27 +1287,30 @@ async def _compute_professor_overview(
                 ed = {}
         if not isinstance(ed, dict):
             ed = {}
-        qid = ed.get("questionId")
-        is_correct = bool(ed.get("correct"))
+        tries.append({"user_id": _learner(e.get("user_id")), "event_data": ed, "created_at": _at(e)})
+    tries.sort(key=lambda e: e["created_at"])  # oldest first: a person's first try is theirs
+    first_tries = people_first_tries(tries, None)  # owners are already out (_learner)
+
+    # {item: {person: [first try right?, ...]}}
+    concept_people: Dict[str, Dict[str, List[bool]]] = defaultdict(lambda: defaultdict(list))
+    slide_people: Dict[str, Dict[str, List[bool]]] = defaultdict(lambda: defaultdict(list))
+    for qid, by_person in first_tries.items():
         concept = q_concept.get(qid)
-        if concept:
-            concept_stats[concept]["attempts"] += 1
-            if is_correct:
-                concept_stats[concept]["correct"] += 1
-        sid = ed.get("slideId")
-        if sid:
-            slide_stats[sid]["attempts"] += 1
-            if is_correct:
-                slide_stats[sid]["correct"] += 1
+        for uid, ed in by_person.items():
+            right = bool(ed.get("correct"))
+            if concept:
+                concept_people[concept][uid].append(right)
+            sid = q_slide.get(qid) or ed.get("slideId")
+            if sid:
+                slide_people[sid][uid].append(right)
+
+    def _miss(by_person: Dict[str, List[bool]]) -> float:
+        return round((1 - sum(sum(v) / len(v) for v in by_person.values()) / len(by_person)) * 100, 1)
 
     weakest_concepts = sorted(
         [
-            {
-                "concept": c,
-                "miss_rate": round((1 - s["correct"] / s["attempts"]) * 100, 1),
-                "attempts": s["attempts"],
-            }
-            for c, s in concept_stats.items() if s["attempts"] > 0
+            {"concept": c, "miss_rate": _miss(by_person), "attempts": len(by_person)}
+            for c, by_person in concept_people.items() if len(by_person) >= floor
         ],
         key=lambda r: (-r["miss_rate"], -r["attempts"]),
     )[:5]
@@ -1274,7 +1318,7 @@ async def _compute_professor_overview(
     weakest_slides: List[Dict[str, Any]] = []
     if not weakest_concepts:
         title_map = {s["id"]: s.get("title") or "Untitled" for s in slides}
-        
+
         irrelevant_keywords = {"intro", "welcome", "date", "info", "agenda", "organization", "logistics", "syllabus", "admin", "overview"}
         def is_relevant_slide(title: str) -> bool:
             t = title.lower()
@@ -1285,47 +1329,28 @@ async def _compute_professor_overview(
                 {
                     "slide_id": sid,
                     "title": title_map.get(sid) or "Untitled",
-                    "miss_rate": round((1 - s["correct"] / s["attempts"]) * 100, 1),
-                    "attempts": s["attempts"],
+                    "miss_rate": _miss(by_person),
+                    "attempts": len(by_person),
                 }
-                for sid, s in slide_stats.items() 
-                if s["attempts"] > 0 and is_relevant_slide(title_map.get(sid) or "Untitled")
+                for sid, by_person in slide_people.items()
+                if len(by_person) >= floor and is_relevant_slide(title_map.get(sid) or "Untitled")
             ],
             key=lambda r: (-r["miss_rate"], -r["attempts"]),
         )[:5]
 
-    # 8. 7-day activity sparkline (counts learning_events tied to course)
-    if use_mv:
-        # tracked_by_day is already the exact per-day count of the same
-        # five event types the branch below filters for (see the
-        # `tracked_event_count` FILTER clause in the migration).
-        by_day: Dict[str, int] = {d.isoformat(): c for d, c in tracked_by_day.items()}
-    else:
-        by_day = defaultdict(int)
-        for e in by_day_events:
-            if e.get("event_type") not in (
-                "quiz_attempt", "slide_view", "ai_tutor_query",
-                "lecture_complete", "confidence_rating",
-            ):
-                continue
-            created = e.get("created_at")
-            if isinstance(created, (datetime, date)):
-                day = created.isoformat()[:10]
-            else:
-                day = (created or "")[:10]
-            if day:
-                by_day[day] += 1
+    # 8. Activity sparkline: people active per day, None on a day under the floor
     today = datetime.now(timezone.utc).date()
     sparkline = []
     for i in range(days - 1, -1, -1):
         d = (today - timedelta(days=i)).isoformat()
-        sparkline.append({"date": d, "count": by_day.get(d, 0)})
+        n = len(people_by_day.get(d, ()))
+        sparkline.append({"date": d, "people": n if n >= floor else None})
 
     return {
         "active_students": active_students,
         "average_completion": avg_completion,
         "average_quiz_accuracy": avg_accuracy,
-        "median_time_minutes": round(median_time, 1),
+        "median_time_minutes": median_time,
         "weakest_concepts": weakest_concepts,
         "weakest_slides": weakest_slides,
         "activity_sparkline": sparkline,
@@ -1346,7 +1371,7 @@ def _median(values: List[float]) -> float:
 def _empty_sparkline(days: int) -> List[Dict[str, Any]]:
     today = datetime.now(timezone.utc).date()
     return [
-        {"date": (today - timedelta(days=i)).isoformat(), "count": 0}
+        {"date": (today - timedelta(days=i)).isoformat(), "people": None}
         for i in range(days - 1, -1, -1)
     ]
 
@@ -1387,32 +1412,39 @@ async def _compute_lecture_benchmark_metrics(
         asyncio.to_thread(get_slide_analytics, lecture_id, token),
     )
 
+    # A lecture fewer than MIN_PEOPLE people opened says nothing: every metric is None (never 0),
+    # and it is left out of the peer summary.
+    if overview.get("total_students") is None:
+        return {k: None for k in _BENCHMARK_METRIC_KEYS}
+
     # Engagement
-    avg_time = float(overview.get("average_time_minutes") or 0)
+    avg_time = overview.get("average_time_minutes")
     completion = float(overview.get("completion_rate") or 0)
     students = int(overview.get("total_students") or 0)
     # Lecture-level drop-off mirrors what the dashboard shows: students who
-    # started but didn't finish (= 100% − completion rate). Per-slide
-    # percentages from get_dropoff_map are NOT additive and can't be averaged
-    # into a meaningful lecture-level number, so we don't use them here.
+    # started but didn't finish (= 100% − completion rate). Per-slide drop-off
+    # percentages are NOT additive and can't be averaged into a meaningful
+    # lecture-level number, so we don't use them here.
     drop_off = round(max(0.0, 100.0 - completion), 1)
 
-    # Quiz performance
-    avg_score = float(overview.get("average_score") or 0)
-    answered = [q for q in quizzes if (q.get("attempts") or 0) > 0]
+    # Quiz performance (a question under the floor has a null rate and does not count)
+    avg_score = overview.get("average_score")
+    answered = [q for q in quizzes if q.get("success_rate") is not None]
     mastery = (
-        round(sum(1 for q in answered if (q.get("success_rate") or 0) >= 80)
+        round(sum(1 for q in answered if q["success_rate"] >= 80)
               / len(answered) * 100, 1)
-        if answered else 0.0
+        if answered else None
     )
     struggle = (
-        round(sum(1 for q in answered if (q.get("success_rate") or 0) < 60)
+        round(sum(1 for q in answered if q["success_rate"] < 60)
               / len(answered) * 100, 1)
-        if answered else 0.0
+        if answered else None
     )
     # Distractor confusion: questions where the most-picked wrong answer
     # accounts for >= 50% of all wrong picks (a clear pile-up on one
     # distractor — usually a sign of an ambiguous option or shared misconception).
+    # The picks are people (each one's first try); a pile-up needs MIN_PEOPLE people
+    # on that one wrong answer, so two people never make a "shared" misconception.
     confused_qs = 0
     relevant_qs = 0
     for d in distractors:
@@ -1426,10 +1458,10 @@ async def _compute_lecture_benchmark_metrics(
             (v for k, v in dist.items() if k != correct_idx),
             default=0,
         )
-        if (top_wrong / wrong_total) >= 0.5:
+        if top_wrong >= MIN_PEOPLE and (top_wrong / wrong_total) >= 0.5:
             confused_qs += 1
     distractor_confusion = (
-        round(confused_qs / relevant_qs * 100, 1) if relevant_qs else 0.0
+        round(confused_qs / relevant_qs * 100, 1) if relevant_qs else None
     )
 
     # Concept coverage — distinct non-empty concept tags on this lecture's questions.
@@ -1462,11 +1494,11 @@ async def _compute_lecture_benchmark_metrics(
     )
 
     return {
-        "avg_time_minutes": round(avg_time, 1),
+        "avg_time_minutes": round(float(avg_time), 1) if avg_time is not None else None,
         "completion_rate": round(completion, 1),
         "unique_students": students,
         "drop_off_rate": drop_off,
-        "avg_score": round(avg_score, 1),
+        "avg_score": round(float(avg_score), 1) if avg_score is not None else None,
         "mastery_rate": mastery,
         "struggle_rate": struggle,
         "distractor_confusion": distractor_confusion,
@@ -1475,13 +1507,16 @@ async def _compute_lecture_benchmark_metrics(
     }
 
 
-def _summarize_metric_pack(packs: List[Dict[str, float]]) -> Dict[str, Dict[str, float]]:
-    """avg/min/max/count for each benchmark metric across a peer set."""
-    summary: Dict[str, Dict[str, float]] = {}
+def _summarize_metric_pack(packs: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """avg/min/max/count for each benchmark metric across a peer set.
+
+    A withheld metric (None) is left out; with nothing left the figures are None, never 0.
+    """
+    summary: Dict[str, Dict[str, Any]] = {}
     for k in _BENCHMARK_METRIC_KEYS:
-        vals = [float(p.get(k) or 0) for p in packs]
+        vals = [float(p[k]) for p in packs if p.get(k) is not None]
         if not vals:
-            summary[k] = {"avg": 0.0, "min": 0.0, "max": 0.0, "count": 0}
+            summary[k] = {"avg": None, "min": None, "max": None, "count": 0}
             continue
         summary[k] = {
             "avg": round(sum(vals) / len(vals), 1),
@@ -1497,17 +1532,16 @@ def _aggregate_course_metrics(
 ) -> Dict[str, float]:
     """Course-level metric pack = average of its lectures' packs.
 
-    Empty courses get zeros so they still render in the comparison table.
+    Lectures that were withheld (None) are left out of each average; a course with nothing
+    left to average gets None, never 0.
     """
-    if not lecture_packs:
-        return {k: 0 for k in _BENCHMARK_METRIC_KEYS}
-    out: Dict[str, float] = {}
+    out: Dict[str, Any] = {}
     for k in _BENCHMARK_METRIC_KEYS:
-        vals = [float(p.get(k) or 0) for p in lecture_packs]
-        out[k] = round(sum(vals) / len(vals), 1) if vals else 0.0
+        vals = [float(p[k]) for p in lecture_packs if p.get(k) is not None]
+        out[k] = round(sum(vals) / len(vals), 1) if vals else None
     # unique_students is more meaningful as a sum across the course
-    out["unique_students"] = int(sum(int(p.get("unique_students") or 0)
-                                     for p in lecture_packs))
+    students = [int(p["unique_students"]) for p in lecture_packs if p.get("unique_students") is not None]
+    out["unique_students"] = sum(students) if students else None
     return out
 
 
@@ -1554,7 +1588,7 @@ async def get_lecture_benchmarks(lecture_id: str, token: Optional[str]) -> Dict[
             metrics = await _compute_lecture_benchmark_metrics(s["id"], token)
         except Exception as e:
             logger.warning("Benchmark metric compute failed for %s: %s", s["id"], e)
-            metrics = {k: 0 for k in _BENCHMARK_METRIC_KEYS}
+            metrics = {k: None for k in _BENCHMARK_METRIC_KEYS}
         return {
             "lecture_id": s["id"],
             "title": s.get("title") or "Untitled",

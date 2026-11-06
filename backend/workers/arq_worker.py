@@ -364,5 +364,8 @@ class WorkerSettings:
     # Keep completed job results for 7 days so the SSE endpoint can replay.
     keep_result = 604_800
 
-    # 5 retries with exponential backoff for transient failures.
+    # Upper bound on attempts for jobs that ask to be retried. Arq only
+    # retries a job that raises `arq.worker.Retry` (only
+    # localization_service does, with its own backoff); a plain exception
+    # fails the job on its first attempt and lands in the dead-letter table.
     max_tries = 5

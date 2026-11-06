@@ -5,9 +5,11 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { whitePillSm } from '../components/stage';
+import { formatList } from '../i18n/format';
 import { cardCopy } from './copy';
 import { RING, cellColor } from './light';
 import { GridPicture, ThemesPicture } from './Picture';
+import { ShowMore } from './ShowMore';
 import type { LandingInsight, LandingLesson, Themes } from './types';
 
 /**
@@ -19,7 +21,26 @@ import type { LandingInsight, LandingLesson, Themes } from './types';
  * opens in place onto why it matters and its evidence (what people asked,
  * clicked against missed), with the way into the page. Nothing is listed
  * twice: the map is the findings.
+ *
+ * Only Lessons enough people have been through are drawn, so a dark strip
+ * always means landing, never "nobody looked". The rest are named once,
+ * below the map. A Lesson's reader count is not shown: the figures above
+ * already say how many read, and a drop between Lessons is a finding.
+ *
+ * A big Space folds only what needs nothing. A Lesson with a lit page is
+ * always drawn, in its place; a run of QUIET_RUN or more quiet Lessons folds
+ * into one line where it sits and opens there. A Lesson says its LOUDEST
+ * findings, the rest on request, while every lit page stays on its strip.
+ * A long Lesson wraps at ROW pages a row, so each page stays big enough to
+ * tap. The Lessons too new to say are named up to NAMES, the rest on request.
  */
+const QUIET_RUN = 3;
+const LOUDEST = 2;
+const ROW = 40;
+const NAMES = 4;
+
+type Segment = { kind: 'lesson'; lesson: LandingLesson } | { kind: 'run'; key: string; lessons: LandingLesson[] };
+
 export function LessonMap({
   spaceId,
   lessons,
@@ -34,118 +55,182 @@ export function LessonMap({
   const { t } = useTranslation('v4Landing');
   const reduce = useReducedMotion();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [openRuns, setOpenRuns] = useState<ReadonlySet<string>>(new Set());
+  const [allFinds, setAllFinds] = useState<ReadonlySet<string>>(new Set());
+  const [allNames, setAllNames] = useState(false);
+  const toggle = (set: ReadonlySet<string>, key: string) => {
+    const next = new Set(set);
+    if (!next.delete(key)) next.add(key);
+    return next;
+  };
 
   const pageHref = (lessonId: string, page: number) => `/v4/space/${spaceId}/lesson/${lessonId}/faces?page=${page}`;
+  const drawn = lessons.filter((l) => l.light !== 'few');
+  const few = lessons.filter((l) => l.light === 'few');
+  const quiet = (l: LandingLesson) => !insights.some((i) => i.lessonId === l.id && (i.page || i.first));
 
-  return (
-    <ol className="relative">
-      <span aria-hidden className="absolute bottom-8 left-[19px] top-6 w-px bg-gradient-to-b from-white/[0.18] via-white/[0.08] to-transparent" />
-      {lessons.map((l, li) => {
-        const few = l.light === 'few';
-        const finds = insights.filter((i) => i.lessonId === l.id);
-        // The pages each finding is about: one page, or a stretch.
-        const lit = new Map<number, LandingInsight>();
-        for (const f of finds) {
-          if (f.page) lit.set(f.page, f);
-          else if (f.first && f.last) for (let p = f.first; p <= f.last; p++) lit.set(p, f);
-        }
-        return (
-          <li key={l.id} className="relative grid grid-cols-[40px_minmax(0,1fr)] gap-x-5 pb-10">
-            <Marker order={l.order} color={l.color} strength={RING[l.light]} reduce={Boolean(reduce)} />
-            <div className="min-w-0 pt-1">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-6">
-                <h3 className="text-[21px] font-medium leading-tight tracking-[-0.015em]">
-                  <Link to={`/v4/space/${spaceId}/lesson/${l.id}`} className="console-focusable rounded-sm hover:underline hover:decoration-white/30 hover:underline-offset-4">
-                    {l.title}
+  // Quiet Lessons in a row: short runs stay drawn, long ones fold where they sit.
+  const segments: Segment[] = [];
+  for (let i = 0; i < drawn.length; ) {
+    let j = i;
+    while (j < drawn.length && quiet(drawn[j])) j++;
+    if (j - i >= QUIET_RUN) {
+      segments.push({ kind: 'run', key: drawn[i].id, lessons: drawn.slice(i, j) });
+      i = j;
+    } else {
+      for (const l of drawn.slice(i, Math.max(j, i + 1))) segments.push({ kind: 'lesson', lesson: l });
+      i = Math.max(j, i + 1);
+    }
+  }
+
+  const lessonRow = (l: LandingLesson, li: number) => {
+      const finds = insights.filter((i) => i.lessonId === l.id).sort((a, b) => b.severity - a.severity);
+      const said = allFinds.has(l.id) ? finds : finds.slice(0, LOUDEST);
+      // The pages each finding is about: one page, or a stretch.
+      const lit = new Map<number, LandingInsight>();
+      for (const f of finds) {
+        if (f.page) lit.set(f.page, f);
+        else if (f.first && f.last) for (let p = f.first; p <= f.last; p++) lit.set(p, f);
+      }
+      return (
+        <li key={l.id} className="relative grid grid-cols-[40px_minmax(0,1fr)] gap-x-5 pb-10">
+          <Marker order={l.order} color={l.color} strength={RING[l.light]} reduce={Boolean(reduce)} />
+          <div className="min-w-0 pt-1">
+            <h3 className="text-[21px] font-medium leading-tight tracking-[-0.015em]">
+              <Link to={`/v4/space/${spaceId}/lesson/${l.id}`} className="console-focusable rounded-sm hover:underline hover:decoration-white/30 hover:underline-offset-4">
+                {l.title}
+              </Link>
+            </h3>
+
+            {/* The pages. */}
+            <div
+              className="mt-5 grid items-end gap-[3px]"
+              style={{ gridTemplateColumns: `repeat(${Math.min(l.pages, ROW)}, minmax(0, 1fr))`, rowGap: l.pages > ROW ? 28 : undefined }}
+            >
+              {Array.from({ length: l.pages }, (_, i) => {
+                const page = i + 1;
+                const f = lit.get(page) ?? null;
+                const color = cellColor(l.color, l.help?.[i] ?? 0, f?.attention ?? null);
+                const labelled = f && (f.page === page || f.first === page);
+                const cell = (
+                  <motion.span
+                    className={cn('block w-full rounded-[3px]', f ? 'h-9' : 'h-6', !color && 'bg-white/[0.06]')}
+                    style={color ?? undefined}
+                    initial={reduce ? false : { opacity: 0, scaleY: 0.4 }}
+                    animate={{ opacity: 1, scaleY: 1 }}
+                    transition={{ duration: 0.4, delay: reduce ? 0 : Math.min(0.5, 0.15 + li * 0.04 + i * 0.012), ease: [0.16, 1, 0.3, 1] }}
+                  />
+                );
+                return f ? (
+                  <Link
+                    key={page}
+                    to={pageHref(l.id, page)}
+                    aria-label={t('lessons.cell', { page, lesson: l.title })}
+                    className="console-focusable relative block rounded-[3px] transition-[filter] hover:brightness-110"
+                  >
+                    {cell}
+                    {labelled && <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[12px] font-medium tabular-nums">{page}</span>}
                   </Link>
-                </h3>
-                <span className="text-[13px] tabular-nums text-quiet">{few ? t('light.few') : t('lessons.readers', { count: l.readers })}</span>
-              </div>
+                ) : (
+                  <span key={page} aria-hidden className="block">
+                    {cell}
+                  </span>
+                );
+              })}
+            </div>
 
-              {/* The pages. */}
-              <div className="mt-5 grid items-end gap-[3px]" style={{ gridTemplateColumns: `repeat(${l.pages}, minmax(0, 1fr))` }}>
-                {Array.from({ length: l.pages }, (_, i) => {
-                  const page = i + 1;
-                  const f = lit.get(page) ?? null;
-                  const color = few ? null : cellColor(l.color, l.help?.[i] ?? 0, f?.attention ?? null);
-                  const labelled = f && (f.page === page || f.first === page);
-                  const cell = (
-                    <motion.span
-                      className={cn('block w-full rounded-[3px]', f ? 'h-9' : 'h-6', !color && (few ? 'bg-white/[0.05]' : 'bg-white/[0.06]'))}
-                      style={color ?? undefined}
-                      initial={reduce ? false : { opacity: 0, scaleY: 0.4 }}
-                      animate={{ opacity: 1, scaleY: 1 }}
-                      transition={{ duration: 0.4, delay: reduce ? 0 : Math.min(0.5, 0.15 + li * 0.04 + i * 0.012), ease: [0.16, 1, 0.3, 1] }}
-                    />
-                  );
-                  return f ? (
-                    <Link
-                      key={page}
-                      to={pageHref(l.id, page)}
-                      aria-label={t('lessons.cell', { page, lesson: l.title })}
-                      className="console-focusable relative block rounded-[3px] transition-[filter] hover:brightness-110"
-                    >
-                      {cell}
-                      {labelled && <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[12px] font-medium tabular-nums">{page}</span>}
-                    </Link>
-                  ) : (
-                    <span key={page} aria-hidden className="block">
-                      {cell}
-                    </span>
+            {/* Each finding, as one sentence; it opens in place. */}
+            {finds.length > 0 && (
+              <ul className="mt-3.5 space-y-1">
+                {said.map((f) => {
+                  const open = openId === f.id;
+                  const copy = cardCopy(t, f, l.title);
+                  const pageThemes = f.themes ? themes.find((th) => th.lessonId === f.lessonId && th.page === f.page) : undefined;
+                  const page = f.page ?? f.first;
+                  return (
+                    <li key={f.id}>
+                      <button
+                        type="button"
+                        aria-expanded={open}
+                        onClick={() => setOpenId(open ? null : f.id)}
+                        className={cn(
+                          'console-focusable -mx-2 rounded-lg px-2 py-1 text-left text-[14.5px] leading-relaxed transition-colors hover:bg-white/[0.04]',
+                          f.attention === 'act' || open ? 'text-foreground' : 'text-quiet',
+                        )}
+                      >
+                        {copy.summary}
+                      </button>
+                      <AnimatePresence initial={false}>
+                        {open && (
+                          <motion.div
+                            initial={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                            className="mb-3 mt-2 space-y-5 rounded-xl bg-white/[0.03] p-5"
+                          >
+                            <p className="max-w-[60ch] text-[14.5px] leading-relaxed text-quiet">{copy.why}</p>
+                            {pageThemes && <ThemesPicture themes={pageThemes} />}
+                            {f.grid && page && <GridPicture grid={f.grid} page={page} color={l.color} />}
+                            <Link to={page ? pageHref(l.id, page) : `/v4/space/${spaceId}/lesson/${l.id}`} className={whitePillSm}>
+                              {page ? t('feed.openPage', { page }) : t('lessons.open', { lesson: l.title })}
+                              <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
+                            </Link>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
+            )}
+            {finds.length > LOUDEST && (
+              <ShowMore
+                className="mt-1"
+                more={allFinds.has(l.id) ? undefined : () => setAllFinds((a) => toggle(a, l.id))}
+                less={allFinds.has(l.id) ? () => setAllFinds((a) => toggle(a, l.id)) : undefined}
+              />
+            )}
+          </div>
+        </li>
+      );
+  };
 
-              {/* Each finding, as one sentence; it opens in place. */}
-              {finds.length > 0 && (
-                <ul className="mt-3.5 space-y-1">
-                  {finds.map((f) => {
-                    const open = openId === f.id;
-                    const copy = cardCopy(t, f, l.title);
-                    const pageThemes = f.themes ? themes.find((th) => th.lessonId === f.lessonId && th.page === f.page) : undefined;
-                    const page = f.page ?? f.first;
-                    return (
-                      <li key={f.id}>
-                        <button
-                          type="button"
-                          aria-expanded={open}
-                          onClick={() => setOpenId(open ? null : f.id)}
-                          className={cn(
-                            'console-focusable -mx-2 rounded-lg px-2 py-1 text-left text-[14.5px] leading-relaxed transition-colors hover:bg-white/[0.04]',
-                            f.attention === 'act' || open ? 'text-foreground' : 'text-quiet',
-                          )}
-                        >
-                          {copy.summary}
-                        </button>
-                        <AnimatePresence initial={false}>
-                          {open && (
-                            <motion.div
-                              initial={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0 }}
-                              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                              className="mb-3 mt-2 space-y-5 rounded-xl bg-white/[0.03] p-5"
-                            >
-                              <p className="max-w-[60ch] text-[14.5px] leading-relaxed text-quiet">{copy.why}</p>
-                              {pageThemes && <ThemesPicture themes={pageThemes} />}
-                              {f.grid && page && <GridPicture grid={f.grid} page={page} color={l.color} />}
-                              <Link to={page ? pageHref(l.id, page) : `/v4/space/${spaceId}/lesson/${l.id}`} className={whitePillSm}>
-                                {page ? t('feed.openPage', { page }) : t('lessons.open', { lesson: l.title })}
-                                <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
-                              </Link>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
+  return (
+    <>
+    <ol className="relative">
+      <span aria-hidden className="absolute bottom-8 left-[19px] top-6 w-px bg-gradient-to-b from-white/[0.18] via-white/[0.08] to-transparent" />
+      {segments.map((seg) => {
+        if (seg.kind === 'lesson') return lessonRow(seg.lesson, drawn.indexOf(seg.lesson));
+        if (openRuns.has(seg.key))
+          return [
+            ...seg.lessons.map((l) => lessonRow(l, drawn.indexOf(l))),
+            <li key={`${seg.key}-less`} className="relative grid grid-cols-[40px_minmax(0,1fr)] gap-x-5 pb-10">
+              <span aria-hidden />
+              <ShowMore less={() => setOpenRuns((r) => toggle(r, seg.key))} />
+            </li>,
+          ];
+        return (
+          <li key={seg.key} className="relative grid grid-cols-[40px_minmax(0,1fr)] gap-x-5 pb-10">
+            <span aria-hidden />
+            <ShowMore more={() => setOpenRuns((r) => toggle(r, seg.key))} moreLabel={t('lessons.quietRun', { count: seg.lessons.length })} />
           </li>
         );
       })}
     </ol>
+    {few.length > 0 && (
+      <div className="ml-[60px]">
+        <p className="text-[14.5px] leading-relaxed text-quiet">
+          {few.length <= NAMES || allNames
+            ? t('lessons.few', { lessons: formatList(few.map((l) => l.title)) })
+            : t('lessons.fewSome', { lessons: few.slice(0, NAMES).map((l) => l.title).join(', '), count: few.length - NAMES })}
+        </p>
+        {few.length > NAMES && (
+          <ShowMore className="mt-1" moreLabel={t('fold.all')} more={allNames ? undefined : () => setAllNames(true)} less={allNames ? () => setAllNames(false) : undefined} />
+        )}
+      </div>
+    )}
+    </>
   );
 }
 

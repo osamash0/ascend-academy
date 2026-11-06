@@ -92,35 +92,23 @@ export const defaultHandlers = [
       ],
     }),
   ),
-  ...dual("get", `${API}/api/analytics/lecture/:id/students`, () =>
-    HttpResponse.json({
-      success: true,
-      data: [
-        {
-          student_id: "s1",
-          student_name: "Nexus-ABCD",
-          progress_percentage: 80,
-          quiz_score: 90,
-          typology: "Natural Comprehension",
-          ai_interactions: 1,
-          revisions: 0,
-        },
-      ],
-    }),
-  ),
   ...dual("get", `${API}/api/analytics/lecture/:id/dashboard`, () =>
     HttpResponse.json({
       success: true,
+      // The dashboard's floored shape: people, never events; null under five people.
       data: {
-        overview: {},
+        overview: { uniqueStudents: null, totalAttempts: null, averageScore: null, totalEvents: null },
+        activityByDay: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((date) => ({ date, people: null })),
         slidePerformance: [],
-        studentsMatrix: [],
-        confidenceMap: { got_it: 0, unsure: 0, confused: 0 },
+        scoreBands: [],
+        confidenceMap: null,
+        liveTicker: [],
+        aiQueryFeed: [],
+        retryPerformance: [],
+        dropoffData: [],
+        confidenceBySlide: [],
       },
     }),
-  ),
-  ...dual("get", `${API}/api/analytics/lecture/:id/dropoff`, () =>
-    HttpResponse.json({ success: true, data: [] }),
   ),
   ...dual("get", `${API}/api/analytics/lecture/:id/distractors`, () =>
     HttpResponse.json({ success: true, data: [] }),

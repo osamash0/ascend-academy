@@ -19,6 +19,7 @@ from backend.domain.parse_models import RunStatus
 from backend.services.parser import persist, unified_orchestrator as uo
 
 OWNER = "11111111-1111-1111-1111-111111111111"
+REAL_SYNTHESIZE_SLIDE = uo._synthesize_slide
 QUIZ_STATS = {"proposed": 2, "kept": 1, "repaired": 0, "dropped": 1, "drop_reasons": {"no_source": 1}}
 LONG_A = "Breadth-first search visits every vertex level by level from the source."
 LONG_B = "Depth-first search follows one branch to its end before it backtracks."
@@ -83,7 +84,8 @@ async def test_synthesize_slide_uses_text_when_present(monkeypatch):
         return {"title": "Real Title", "aiInsight": "A clear explanation.", "slideType": "text"}
 
     monkeypatch.setattr(synthesis, "analyze_slide", fake_analyze_slide)
-    out = await uo._synthesize_slide(0, "A slide with plenty of real text content here.", "ctx", "openai", b"")
+    out = await uo._synthesize_slide(0, "A slide with plenty of real text content here.", "ctx", "openai", b"",
+                                    route_reason="text")
     assert out["title"] == "Real Title"
     assert out["summary"] == "A clear explanation."
     assert out["vision_routed"] is False
@@ -98,7 +100,7 @@ async def test_synthesize_slide_uses_vision_when_text_empty(monkeypatch):
         return {"content_extraction": {"main_topic": "Diagram Topic", "summary": "What the diagram shows."}}
 
     monkeypatch.setattr(vision, "analyze_slide_vision", fake_vision)
-    out = await uo._synthesize_slide(2, "", "ctx", "openai", b"%PDF")
+    out = await uo._synthesize_slide(2, "", "ctx", "openai", b"%PDF", route_reason="no_text")
     assert out["title"] == "Diagram Topic"
     assert out["summary"] == "What the diagram shows."
     assert out["vision_routed"] is True
@@ -120,7 +122,7 @@ async def test_synthesize_slide_vision_routed_true_even_when_typed_non_image(mon
         }
 
     monkeypatch.setattr(vision, "analyze_slide_vision", fake_vision)
-    out = await uo._synthesize_slide(0, "", "ctx", "openai", b"%PDF")
+    out = await uo._synthesize_slide(0, "", "ctx", "openai", b"%PDF", route_reason="no_text")
     assert out["slide_type"] == "math-diagram"
     assert out["vision_routed"] is True
 
@@ -134,15 +136,65 @@ async def test_synthesize_slide_vision_failure_still_marks_vision_routed(monkeyp
         raise RuntimeError("vision provider down")
 
     monkeypatch.setattr(vision, "analyze_slide_vision", failing_vision)
-    out = await uo._synthesize_slide(0, "", "ctx", "openai", b"%PDF")
+    out = await uo._synthesize_slide(0, "", "ctx", "openai", b"%PDF", route_reason="no_text")
     assert out["vision_routed"] is True  # the attempt was made, even though it failed
+
+
+async def test_synthesize_slide_follows_the_route_not_the_text_length(monkeypatch):
+    """The page decided the route; a short text layer (a .pptx's own text,
+    say) must not send a text page to vision on its own."""
+    import backend.services.parser.synthesis as synthesis
+
+    async def fake_analyze_slide(num, text, ctx, model, source_language="en"):
+        return {"title": "Kurz", "aiInsight": "Erklärt.", "slideType": "text"}
+
+    monkeypatch.setattr(synthesis, "analyze_slide", fake_analyze_slide)
+    monkeypatch.setattr(uo, "_render_page_jpeg", lambda pdf, idx: pytest.fail("no vision on a text route"))
+    out = await uo._synthesize_slide(0, "Kurz", "ctx", "openai", b"%PDF", route_reason="text")
+    assert out["vision_routed"] is False
+    assert out["route_reason"] == "text"
+
+
+async def test_a_figure_page_is_explained_by_vision_but_keeps_its_own_text(monkeypatch):
+    import backend.services.ai.vision as vision
+
+    monkeypatch.setattr(uo, "_render_page_jpeg", lambda pdf, idx: b"jpegbytes")
+
+    async def fake_vision(b64, text, model, ctx):
+        return {"content_extraction": {"main_topic": "B-Baum", "summary": "Der Baum nach dem Einfügen.",
+                                       "key_points": ["Wurzel teilt sich"]}}
+
+    monkeypatch.setattr(vision, "analyze_slide_vision", fake_vision)
+    caption = "Abbildung 2: Der B-Baum nach dem Einfügen von 17"
+    out = await uo._synthesize_slide(0, caption, "ctx", "openai", b"%PDF", route_reason="figure")
+    assert out["vision_routed"] is True
+    assert out["route_reason"] == "figure"
+    assert out["content"] == caption
+    assert out["summary"] == "Der Baum nach dem Einfügen."
+    assert out["title"] == "B-Baum"
+
+
+async def test_a_no_text_page_takes_its_content_from_vision(monkeypatch):
+    import backend.services.ai.vision as vision
+
+    monkeypatch.setattr(uo, "_render_page_jpeg", lambda pdf, idx: b"jpegbytes")
+
+    async def fake_vision(b64, text, model, ctx):
+        return {"content_extraction": {"main_topic": "Notizen", "summary": "Handschrift.",
+                                       "key_points": ["Erster Punkt"]}}
+
+    monkeypatch.setattr(vision, "analyze_slide_vision", fake_vision)
+    monkeypatch.setattr(vision, "format_slide_content", lambda ce: "Erster Punkt")
+    out = await uo._synthesize_slide(0, "", "ctx", "openai", b"%PDF", route_reason="no_text")
+    assert out["content"] == "Erster Punkt"
+    assert out["route_reason"] == "no_text"
 
 
 # ── _review_flag_for: Roadmap Phase 5.1 "needs review" heuristic ─────────────
 
 def test_review_flag_synthesis_failed_takes_priority():
     needs_review, reason = uo._review_flag_for(
-        synthesis_failed=True, vision_routed=True, raw_title="Has A Title", raw_summary="Has a summary"
+        synthesis_failed=True, vision_rescue=True, raw_title="Has A Title", raw_summary="Has a summary"
     )
     assert needs_review is True
     assert reason == "synthesis_failed"
@@ -150,7 +202,7 @@ def test_review_flag_synthesis_failed_takes_priority():
 
 def test_review_flag_vision_rescue():
     needs_review, reason = uo._review_flag_for(
-        synthesis_failed=False, vision_routed=True, raw_title="Diagram", raw_summary="Shows a graph"
+        synthesis_failed=False, vision_rescue=True, raw_title="Diagram", raw_summary="Shows a graph"
     )
     assert needs_review is True
     assert reason == "vision_rescue"
@@ -158,7 +210,7 @@ def test_review_flag_vision_rescue():
 
 def test_review_flag_empty_content():
     needs_review, reason = uo._review_flag_for(
-        synthesis_failed=False, vision_routed=False, raw_title="", raw_summary=""
+        synthesis_failed=False, vision_rescue=False, raw_title="", raw_summary=""
     )
     assert needs_review is True
     assert reason == "empty_content"
@@ -170,7 +222,7 @@ def test_review_flag_title_present_but_summary_empty_still_flagged():
     title — an AND-only check here would silently under-flag slides like an
     agenda/divider where the LLM produces a title but no real explanation."""
     needs_review, reason = uo._review_flag_for(
-        synthesis_failed=False, vision_routed=False, raw_title="Course Roadmap", raw_summary=""
+        synthesis_failed=False, vision_rescue=False, raw_title="Course Roadmap", raw_summary=""
     )
     assert needs_review is True
     assert reason == "empty_content"
@@ -178,7 +230,7 @@ def test_review_flag_title_present_but_summary_empty_still_flagged():
 
 def test_review_flag_summary_present_but_title_empty_still_flagged():
     needs_review, reason = uo._review_flag_for(
-        synthesis_failed=False, vision_routed=False, raw_title="", raw_summary="Some real explanation."
+        synthesis_failed=False, vision_rescue=False, raw_title="", raw_summary="Some real explanation."
     )
     assert needs_review is True
     assert reason == "empty_content"
@@ -186,7 +238,7 @@ def test_review_flag_summary_present_but_title_empty_still_flagged():
 
 def test_review_flag_healthy_slide_not_flagged():
     needs_review, reason = uo._review_flag_for(
-        synthesis_failed=False, vision_routed=False, raw_title="Real Title", raw_summary="Real summary"
+        synthesis_failed=False, vision_rescue=False, raw_title="Real Title", raw_summary="Real summary"
     )
     assert needs_review is False
     assert reason is None
@@ -203,12 +255,18 @@ def _uploader_is_a_professor(monkeypatch):
     )
 
 
-def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pages=None):
+def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pages=None, routes=None):
     rec = {"status": [], "errors": [], "lectures": [], "slides": [], "deck_quiz": [],
            "finalize": [], "run_lecture": [], "cleared": [], "titled": [], "pdf": [],
            "poster": [], "poster_url": []}
     run = types.SimpleNamespace(run_id=uuid4(), status=run_status, lecture_id=lecture_id)
     pages = pages if pages is not None else ["text 0", "text 1", "text 2"]
+    # Routing reads the PDF page (page_blocks.route_page), which these fakes
+    # do not have: by default a fixture's short pages stand for scans and its
+    # long pages for text, as each test's page text intends.
+    routes = routes if routes is not None else [
+        "text" if len(p.strip()) >= 25 else "no_text" for p in pages
+    ]
 
     async def get_or_create_run(pdf_hash, lid, ver, **_kwargs):
         return run
@@ -225,7 +283,7 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     async def fetch_pdf(pdf_hash):
         return b"%PDF-fake"
 
-    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text"}
 
     async def store_pdf(lecture_id, filename, pdf_bytes):
@@ -305,6 +363,7 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     monkeypatch.setattr(uo.repos, "set_page_count", set_page_count)
     monkeypatch.setattr(uo, "_fetch_pdf_bytes", fetch_pdf)
     monkeypatch.setattr(uo, "_extract_pages", lambda pdf, odl=None: pages)
+    monkeypatch.setattr(uo, "_route_pages", lambda pdf: routes)
     monkeypatch.setattr(uo, "_synthesize_slide", synth)
     monkeypatch.setattr(uo, "_store_lecture_pdf", store_pdf)
     monkeypatch.setattr(persist, "create_lecture", create_lecture)
@@ -392,8 +451,8 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
 
     async def fake_batch_analyze_text_slides(slides_input, ai_model="cerebras", blueprint=None, **_kw):
         # Roadmap P3-1: default fake for the batched text-synthesis path so
-        # any test whose fixture pages happen to be >= _MIN_TEXT_FOR_SYNTH
-        # chars (routing them through the batch call, not _synthesize_slide)
+        # any test whose fixture pages route to "text" (through the batch
+        # call, not _synthesize_slide)
         # still gets deterministic, offline output shaped like the "synth"
         # per-slide fake above — same title/summary pattern — so existing
         # assertions on slide title/summary content stay valid regardless of
@@ -594,7 +653,7 @@ async def test_parse_pdf_unified_propagates_vision_routed_on_slide_event(monkeyp
     pages."""
     rec, run = _patch_common(monkeypatch, pages=["text 0", "", "text 2"])
 
-    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         if idx == 1:
             return {"title": "Scan", "content": text, "summary": "s", "slide_type": "image-only", "vision_routed": True}
         return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text", "vision_routed": False}
@@ -615,7 +674,7 @@ async def test_parse_pdf_unified_marks_needs_review_on_synthesis_exception(monke
     left literally no trace anywhere. It must now be visibly flagged."""
     rec, run = _patch_common(monkeypatch, pages=["text 0", "text 1", "text 2"])
 
-    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         if idx == 1:
             raise RuntimeError("LLM timed out")
         return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text", "vision_routed": False}
@@ -637,7 +696,7 @@ async def test_parse_pdf_unified_warns_with_run_id_when_a_slide_ends_up_empty(mo
 
     rec, run = _patch_common(monkeypatch, pages=["text 0", "text 1", "text 2"])
 
-    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         summary = "" if idx == 1 else f"sum{idx}"
         return {"title": f"S{idx}", "content": text, "summary": summary, "slide_type": "text", "vision_routed": False}
 
@@ -655,7 +714,7 @@ async def test_parse_pdf_unified_warns_with_run_id_when_a_slide_ends_up_empty(mo
 async def test_parse_pdf_unified_marks_needs_review_on_vision_rescue(monkeypatch):
     rec, run = _patch_common(monkeypatch, pages=["text 0", "", "text 2"])
 
-    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         if idx == 1:
             return {"title": "Scan", "content": text, "summary": "s", "slide_type": "image-only", "vision_routed": True}
         return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text", "vision_routed": False}
@@ -685,7 +744,7 @@ async def test_parse_pdf_unified_passes_review_flags_to_persist_insert_slide(mon
     page reload, not just live in-flight for the current upload session."""
     rec, run = _patch_common(monkeypatch, pages=["text 0", "", "text 2"])
 
-    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         if idx == 1:
             return {"title": "Scan", "content": text, "summary": "s", "slide_type": "image-only", "vision_routed": True}
         return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text", "vision_routed": False}
@@ -923,7 +982,7 @@ async def test_course_context_hint_threaded_into_meta_and_per_slide_context(monk
 
     captured_slide_ctx = []
 
-    async def fake_synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def fake_synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         captured_slide_ctx.append(ctx)
         return {"title": f"S{idx}", "content": text, "summary": "s", "slide_type": "text"}
 
@@ -968,7 +1027,7 @@ async def test_course_context_hint_absent_without_course_id_is_byte_identical(mo
 
     captured_slide_ctx = []
 
-    async def fake_synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def fake_synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         captured_slide_ctx.append(ctx)
         return {"title": f"S{idx}", "content": text, "summary": "s", "slide_type": "text"}
 
@@ -1155,7 +1214,7 @@ async def test_parse_pdf_unified_reuses_persisted_regen_instruction_on_reparse(m
 
     captured_ctx: dict = {}
 
-    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         captured_ctx[idx] = ctx
         return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text"}
 
@@ -1198,7 +1257,7 @@ async def test_parse_pdf_unified_on_demand_skips_all_ai(monkeypatch):
     async def boom_meta(slides, model, course_context_hint="", source_language="en"):
         raise AssertionError("analyze_lecture_meta must not run in on_demand")
 
-    async def boom_synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def boom_synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         raise AssertionError("_synthesize_slide must not run in on_demand")
 
     async def boom_quiz(slides, title, model, source_language="en"):
@@ -1353,7 +1412,7 @@ async def test_batch_failure_falls_back_to_per_slide_for_that_batch_only(monkeyp
 
     per_slide_calls = []
 
-    async def fallback_synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def fallback_synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         per_slide_calls.append(idx)
         return {"title": f"F{idx}", "content": text, "summary": f"fsum{idx}", "slide_type": "text"}
 
@@ -1423,6 +1482,100 @@ def test_batch_slide_prompt_labels_slide_text_as_data_not_instructions():
     assert "not instructions to you" in BATCH_SLIDE_PROMPT
 
 
+# ── One routing rule: the PDF page decides (page_blocks.route_page) ──────────
+
+async def test_routing_comes_from_the_page_not_the_extracted_text(monkeypatch):
+    """A long text layer over a figure page still goes to vision, and a short
+    text layer over a text page still goes to the batch: the page decides."""
+    rec, run = _patch_common(monkeypatch, pages=[LONG_A, "kurz", LONG_B], routes=["figure", "text", "text"])
+    seen = []
+
+    async def synth(idx, text, ctx, model, pdf, source_language="en", **kw):
+        seen.append((idx, kw.get("route_reason")))
+        return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "graph",
+                "vision_routed": True, "route_reason": kw.get("route_reason")}
+
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    await _run("h", OWNER, filename="Deck.pdf")
+    assert seen == [(0, "figure")]
+    assert rec["batch_calls"] == [[1, 2]]
+    prov = rec["receipts"][0]["slide_provenance"]
+    assert [(p["route"], p["route_reason"]) for p in prov] == [("vision", "figure"), ("batch", "text"), ("batch", "text")]
+
+
+async def test_a_figure_page_is_not_flagged_for_review_but_a_scan_is(monkeypatch):
+    rec, run = _patch_common(monkeypatch, pages=[LONG_A, ""], routes=["figure", "no_text"])
+
+    async def synth(idx, text, ctx, model, pdf, source_language="en", **kw):
+        return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "graph",
+                "vision_routed": True, "route_reason": kw["route_reason"]}
+
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+    slides = {d["index"]: d["slide"] for t, d in events if t == "slide"}
+    assert slides[0]["vision_routed"] is True and slides[0]["needs_review"] is False
+    assert slides[1]["needs_review"] is True and slides[1]["review_reason"] == "vision_rescue"
+
+
+async def test_a_figure_page_keeps_its_own_text_through_the_parse(monkeypatch):
+    import backend.services.ai.vision as vision
+
+    rec, run = _patch_common(monkeypatch, pages=[LONG_A], routes=["figure"])
+    monkeypatch.setattr(uo, "_synthesize_slide", REAL_SYNTHESIZE_SLIDE)
+    monkeypatch.setattr(uo, "_render_page_jpeg", lambda pdf, idx: b"jpegbytes")
+
+    async def fake_vision(b64, text, model, ctx):
+        return {"slide_type": "graph", "content_extraction": {"main_topic": "Fig", "summary": "s",
+                                                              "key_points": ["what vision wrote"]}}
+
+    monkeypatch.setattr(vision, "analyze_slide_vision", fake_vision)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+    (slide,) = [d["slide"] for t, d in events if t == "slide"]
+    assert slide["content"] == LONG_A
+    assert slide["summary"] == "s"
+
+
+async def test_on_demand_never_reads_the_page_for_routing(monkeypatch):
+    rec, run = _patch_common(monkeypatch, pages=["raw text 0"])
+    monkeypatch.setattr(uo, "_route_pages", lambda pdf: pytest.fail("Skip AI needs no routing"))
+    events = await _run("h", OWNER, filename="Deck.pdf", parsing_mode="on_demand")
+    assert [t for t, _ in events][-1] == "complete"
+
+
+def test_route_pages_reads_each_pdf_page():
+    import fitz
+
+    d = fitz.open()
+    pic = d.new_page(width=400, height=300)
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 50, 50), False)
+    pix.clear_with(200)
+    pic.insert_image(fitz.Rect(50, 50, 350, 250), pixmap=pix)
+    txt = d.new_page(width=400, height=300)
+    for k, y in enumerate((40, 70, 100, 130, 160, 190)):
+        txt.insert_text((20, y), f"Zeile {k} mit ausreichend eigenem Text darin", fontsize=12)
+    pdf = d.tobytes()
+    d.close()
+    assert uo._route_pages(pdf) == ["no_text", "text"]
+
+
+def test_route_pages_reads_a_page_it_cannot_measure_as_text(monkeypatch):
+    """A page extract_blocks chokes on must not fail the parse: the text batch
+    is the cheap, safe default."""
+    import fitz
+    from backend.services.parser import page_blocks
+
+    d = fitz.open()
+    d.new_page()
+    pdf = d.tobytes()
+    d.close()
+
+    def boom(page, n):
+        raise ValueError("odd page")
+
+    monkeypatch.setattr(page_blocks, "extract_blocks", boom)
+    assert uo._route_pages(pdf) == ["text"]
+
+
 # ── Arc 5: parse receipt ─────────────────────────────────────────────────────
 
 async def test_parse_pdf_unified_writes_a_parse_receipt(monkeypatch):
@@ -1445,7 +1598,7 @@ async def test_receipt_provenance_records_batch_and_vision_routes(monkeypatch):
     assert prov[0] == {
         "index": 0, "route": "batch", "prompt": "BATCH_SLIDE_PROMPT",
         "prompt_version": PROMPT_VERSIONS["BATCH_SLIDE_PROMPT"], "requested_model": "groq",
-        "input_text": "raw", "served_by": [], "cost_usd": 0.0,
+        "route_reason": "text", "input_text": "raw", "served_by": [], "cost_usd": 0.0,
         "synthesis_failed": False, "needs_review": False, "review_reason": None,
     }
     assert prov[2]["input_text"] == "raw"
@@ -1453,6 +1606,7 @@ async def test_receipt_provenance_records_batch_and_vision_routes(monkeypatch):
     assert prov[2]["route"] == "vision"
     assert prov[2]["prompt"] == "SLIDE_VISION_PROMPT"
     assert prov[2]["requested_model"] == uo.settings.vision_model
+    assert prov[2]["route_reason"] == "no_text"
 
 
 async def test_receipt_marks_per_slide_fallback_when_batch_fails(monkeypatch):
@@ -1472,7 +1626,7 @@ async def test_receipt_marks_per_slide_fallback_when_batch_fails(monkeypatch):
 async def test_receipt_flags_a_failed_slide(monkeypatch):
     rec, run = _patch_common(monkeypatch)
 
-    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         if idx == 1:
             raise RuntimeError("provider exploded")
         return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text"}
@@ -1492,6 +1646,7 @@ async def test_on_demand_receipt_is_heuristic_with_no_quiz_grounding(monkeypatch
     assert receipt["slide_provenance"][0]["prompt"] is None
     assert receipt["slide_provenance"][0]["prompt_version"] is None
     assert receipt["slide_provenance"][0]["requested_model"] is None
+    assert receipt["slide_provenance"][0]["route_reason"] is None
     assert receipt["quiz_grounding"] is None
 
 
@@ -1567,7 +1722,7 @@ async def test_per_slide_fallback_gets_stripped_text_but_slides_keep_raw_content
 
     seen = {}
 
-    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         seen[idx] = text
         return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text"}
 
@@ -1619,7 +1774,7 @@ async def test_on_demand_receipt_has_no_input_text(monkeypatch):
 def test_prompt_versions_follow_the_input_contract_policy():
     from backend.services.ai.prompts import PROMPT_VERSIONS
     # Single-caller prompts whose input changed: bumped.
-    assert PROMPT_VERSIONS["SLIDE_ANALYSIS_PROMPT"] == "v3"
+    assert PROMPT_VERSIONS["SLIDE_ANALYSIS_PROMPT"] == "v4"  # v4: text fenced + defused
     assert PROMPT_VERSIONS["LECTURE_META_ANALYSIS_PROMPT"] == "v3"
     # Shared with raw-text callers (file_parse_service, slide_synth_service): not
     # bumped; slide_provenance[].input_text says what each slide received.
@@ -1645,7 +1800,7 @@ async def test_each_parse_llm_call_runs_inside_its_scope(monkeypatch):
         return [{"index": s["index"], "title": "T", "summary": "S", "slide_type": "text"}
                 for s in slides_input]
 
-    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         snap(f"slide{idx}")
         return {"title": "T", "content": text, "summary": "S", "slide_type": "text", "vision_routed": True}
 
@@ -1682,7 +1837,7 @@ async def test_per_slide_fallback_calls_are_scoped_to_their_own_slide(monkeypatc
 
     seen = {}
 
-    async def synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         await asyncio.sleep(0)  # interleave the gathered tasks
         c = current_llm_call_context()
         seen[idx] = (c.slide_indices, c.prompt_name)

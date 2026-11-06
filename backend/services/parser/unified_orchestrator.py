@@ -72,9 +72,10 @@ logger = logging.getLogger(__name__)
 REDIS_CHANNEL_PREFIX = "parse:"
 PIPELINE_VERSION_UNIFIED = "5"
 
-# Below this many chars of extractable text, a slide is treated as image-only
-# and routed to the vision model instead of text synthesis.
-_MIN_TEXT_FOR_SYNTH = 25
+# The model reads boilerplate-stripped text unless stripping leaves fewer
+# chars than this; then it reads the raw page (deck_plan.synthesis_text).
+# Not a routing rule: which pages go to vision is page_blocks.route_page.
+_MIN_STRIPPED_CHARS = 25
 
 # Ceiling on waiting for in-flight slide embeddings to land at the end of a
 # parse (and again for the one retry pass). Embeddings run at concurrency 3,
@@ -176,6 +177,38 @@ def _extract_pages(pdf_bytes: bytes, odl_pages: Optional[Dict[int, dict]] = None
     return pages
 
 
+def _route_one(page: Any, idx: int) -> str:
+    """page_blocks.route_page for one PDF page. A page it cannot measure is
+    read as text: the batch is the cheap, safe default."""
+    from backend.services.parser import page_blocks
+    try:
+        return page_blocks.route_page(page_blocks.extract_blocks(page, idx + 1))
+    except Exception as exc:
+        logger.warning("routing page %d failed, reading it as text: %s", idx, exc)
+        return "text"
+
+
+def _route_pages(pdf_bytes: bytes) -> List[str]:
+    """Each page's route ("no_text" / "figure" / "text"), always measured on
+    the PDF page itself, whichever parser supplied the text."""
+    import fitz
+    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        return [_route_one(page, i) for i, page in enumerate(doc)]
+
+
+def _route_page_at(pdf_bytes: bytes, idx: int) -> str:
+    """One page's route; "text" when there is no readable PDF to look at."""
+    import fitz
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    except Exception:
+        return "text"
+    with doc:
+        if not 0 <= idx < doc.page_count:
+            return "text"
+        return _route_one(doc[idx], idx)
+
+
 def _render_page_jpeg(pdf_bytes: bytes, idx: int) -> bytes:
     import fitz
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
@@ -185,19 +218,21 @@ def _render_page_jpeg(pdf_bytes: bytes, idx: int) -> bytes:
 
 async def _synthesize_slide(
     idx: int, text: str, lecture_context: str, ai_model: str, pdf_bytes: bytes,
-    source_language: str = "en",
+    source_language: str = "en", *, route_reason: str,
 ) -> Dict[str, Any]:
-    """One slide → {title, content, summary, slide_type, vision_routed}.
-    Text-based synthesis when the slide has text; vision when it's
-    image-only. Never raises.
+    """One slide → {title, content, summary, slide_type, vision_routed, route_reason}.
+    ``route_reason`` is the page's route (page_blocks.route_page): "text" is
+    read from the text; "no_text" and "figure" go to vision. A figure page
+    keeps its own text as content; vision explains what the figure shows.
+    Never raises.
 
-    ``vision_routed`` (Roadmap Phase 2.2, AC2) is the reliable "this slide
-    needed OCR/vision rescue" signal — NOT the same question as
-    ``slide_type``, since a vision-routed slide can still come back typed
-    "math-diagram"/"graph"/"mixed" rather than "image-only".
+    ``vision_routed`` (Roadmap Phase 2.2, AC2) says the slide went to vision —
+    NOT the same question as ``slide_type``, since a vision-routed slide can
+    still come back typed "math-diagram"/"graph"/"mixed" rather than
+    "image-only".
     """
     text = text or ""
-    if len(text.strip()) >= _MIN_TEXT_FOR_SYNTH:
+    if route_reason == "text":
         from backend.services.parser.synthesis import analyze_slide
         res = await analyze_slide(idx + 1, text, lecture_context, ai_model, source_language)
         if not isinstance(res, dict):
@@ -208,8 +243,9 @@ async def _synthesize_slide(
             "summary": (res.get("aiInsight") or "").strip(),
             "slide_type": res.get("slideType") or "text",
             "vision_routed": False,
+            "route_reason": route_reason,
         }
-    # Image-only slide → render + vision.
+    # No text, or a figure carrying the page → render + vision.
     try:
         import base64
         from backend.services.ai.orchestrator import enforce_llm_budget
@@ -223,7 +259,7 @@ async def _synthesize_slide(
             base64.b64encode(img).decode(), text, settings.vision_model, lecture_context
         )
         ce = (vres.get("content_extraction") or {}) if isinstance(vres, dict) else {}
-        content = format_slide_content(ce) or text
+        content = text if route_reason == "figure" and text.strip() else (format_slide_content(ce) or text)
         summary = (ce.get("summary") or "").strip()
         if not summary:
             kps = ce.get("key_points") or []
@@ -234,21 +270,24 @@ async def _synthesize_slide(
             "summary": summary,
             "slide_type": vres.get("slide_type") or "image-only",
             "vision_routed": True,
+            "route_reason": route_reason,
         }
     except Exception as exc:
         logger.warning("vision synth slide %d failed: %s", idx, exc)
-        return {"title": "", "content": text, "summary": "", "slide_type": "image-only", "vision_routed": True}
+        return {"title": "", "content": text, "summary": "", "slide_type": "image-only",
+                "vision_routed": True, "route_reason": route_reason}
 
 
 async def _synthesize_slide_scoped(
     idx: int, text: str, lecture_context: str, ai_model: str, pdf_bytes: bytes,
-    source_language: str, *, prompt_name: str,
+    source_language: str, *, prompt_name: str, route_reason: str,
 ) -> Dict[str, Any]:
     """_synthesize_slide inside this slide's LLM call scope (Arc 7). Entered
     INSIDE the coroutine: asyncio.gather copies the context when it creates
     each task, so a scope around the gather would tag every slide the same."""
     with llm_call_scope(slide_indices=(idx,), prompt_name=prompt_name):
-        return await _synthesize_slide(idx, text, lecture_context, ai_model, pdf_bytes, source_language)
+        return await _synthesize_slide(idx, text, lecture_context, ai_model, pdf_bytes, source_language,
+                                       route_reason=route_reason)
 
 
 async def _synthesize_text_slides_individually(
@@ -273,7 +312,7 @@ async def _synthesize_text_slides_individually(
 
     results = await asyncio.gather(
         *[_synthesize_slide_scoped(idx, text, _ctx(idx), ai_model, pdf_bytes, source_language,
-                                   prompt_name=_ROUTE_PROMPTS["per_slide"])
+                                   prompt_name=_ROUTE_PROMPTS["per_slide"], route_reason="text")
           for idx, text in text_items],
         return_exceptions=True,
     )
@@ -373,6 +412,7 @@ async def _synthesize_text_slide_batch(
             "summary": summary.strip(),
             "slide_type": item.get("slide_type") or "text",
             "vision_routed": False,
+            "route_reason": "text",
             "route": "batch",
         }
     if missing:
@@ -392,11 +432,13 @@ async def _synthesize_text_slide_batch(
 
 
 def _review_flag_for(
-    *, synthesis_failed: bool, vision_routed: bool, raw_title: str, raw_summary: str
+    *, synthesis_failed: bool, vision_rescue: bool, raw_title: str, raw_summary: str
 ) -> tuple[bool, Optional[str]]:
     """Cheap, deterministic (no extra LLM call) "needs review" heuristic —
     Roadmap Phase 5.1. Priority order matches severity: a synthesis exception
     is worse than a vision rescue, which is worse than merely-empty output.
+    A rescue is a page with no text of its own (route "no_text"); a figure
+    page read by vision has its text and is not one.
     Zero silent failures: every one of these previously either vanished
     entirely (the exception branch at the call site discards `vision_routed`
     when re-wrapping into a fallback dict) or was only ever visible in the
@@ -404,7 +446,7 @@ def _review_flag_for(
     """
     if synthesis_failed:
         return True, "synthesis_failed"
-    if vision_routed:
+    if vision_rescue:
         return True, "vision_rescue"
     # Either half missing is enough — matches the pre-existing batch-review
     # heuristic this replaces (which flagged on an empty summary alone); a
@@ -460,12 +502,14 @@ def _provenance_entry(
     needs_review: bool,
     review_reason: Optional[str],
     input_text: Optional[str] = None,
+    route_reason: Optional[str] = None,
 ) -> Dict[str, Any]:
     """One slide's receipt line. ``requested_model`` is the model the parse
     asked for (head of the provider chain); the serving provider/model/cost are
     added at finalize by _llm_usage_receipt. ``input_text`` says whether the
     prompt got boilerplate-stripped or raw text: BATCH_SLIDE_PROMPT is shared
-    with raw-text callers, so its version tag alone cannot say."""
+    with raw-text callers, so its version tag alone cannot say. ``route_reason``
+    is why the page went where it did (page_blocks.route_page; None without AI)."""
     from backend.services.ai.prompts import get_prompt_version
 
     prompt = _ROUTE_PROMPTS.get(route)
@@ -481,6 +525,7 @@ def _provenance_entry(
         "prompt": prompt,
         "prompt_version": get_prompt_version(prompt) if prompt else None,
         "requested_model": model,
+        "route_reason": route_reason,
         "input_text": input_text,
         "synthesis_failed": synthesis_failed,
         "needs_review": needs_review,
@@ -870,6 +915,8 @@ async def parse_pdf_unified(
         # ``on_demand`` (Skip AI): persist raw extracted slides with no LLM
         # synthesis, quizzes, or deck summary; the editor enhances them later.
         ai_mode = parsing_mode != "on_demand"
+        # One routing rule, measured on the PDF page (page_blocks.route_page).
+        routes = await asyncio.to_thread(_route_pages, pdf_bytes) if ai_mode else []
 
         # ── Budget pre-flight gate (Roadmap P3-1) ─────────────────────────────
         # Abort BEFORE creating the lecture or spending a single LLM call if
@@ -1030,10 +1077,7 @@ async def parse_pdf_unified(
                 # slides still go per-slide to the vision model — vision isn't
                 # batchable today, so this doesn't change vision's cost/shape.
                 chunk_idxs = list(range(chunk_start, chunk_end))
-                text_idxs = [
-                    i for i in chunk_idxs
-                    if len((raw_slides[i] or "").strip()) >= _MIN_TEXT_FOR_SYNTH
-                ]
+                text_idxs = [i for i in chunk_idxs if routes[i] == "text"]
                 vision_idxs = [i for i in chunk_idxs if i not in text_idxs]
                 vision_idx_set = set(vision_idxs)
 
@@ -1041,10 +1085,10 @@ async def parse_pdf_unified(
                 if text_idxs:
                     from backend.services.parser.deck_plan import synthesis_text
                     # Arc 7: the model reads boilerplate-stripped text (raw
-                    # fallback under _MIN_TEXT_FOR_SYNTH); routing above and the
-                    # persisted content below stay on the raw page.
+                    # fallback under _MIN_STRIPPED_CHARS); the persisted
+                    # content below stays on the raw page.
                     text_items = [
-                        (i, synthesis_text(raw_slides[i], skeleton, i, _MIN_TEXT_FOR_SYNTH))
+                        (i, synthesis_text(raw_slides[i], skeleton, i, _MIN_STRIPPED_CHARS))
                         for i in text_idxs
                     ]
                     synth_inputs.update(text_items)
@@ -1063,6 +1107,7 @@ async def parse_pdf_unified(
                         _synthesize_slide_scoped(
                             i, raw_slides[i], _ctx_with_instruction(i), ai_model, pdf_bytes,
                             source_language, prompt_name=_ROUTE_PROMPTS["vision"],
+                            route_reason=routes[i],
                         )
                         for i in vision_idxs
                     ], return_exceptions=True)
@@ -1088,11 +1133,12 @@ async def parse_pdf_unified(
                 raw_title = (res.get("title") or "").strip()
                 title = raw_title or _first_line(raw_slides[i]) or f"Slide {i + 1}"
                 vision_routed = bool(res.get("vision_routed", False))
+                route_reason = routes[i] if ai_mode else None
                 raw_summary = str(res.get("summary") or "").strip()
                 needs_review, review_reason = (
                     _review_flag_for(
                         synthesis_failed=synthesis_failed,
-                        vision_routed=vision_routed,
+                        vision_rescue=vision_routed and route_reason == "no_text",
                         raw_title=raw_title,
                         raw_summary=raw_summary,
                     )
@@ -1108,9 +1154,11 @@ async def parse_pdf_unified(
                     i, route, ai_model=ai_model, synthesis_failed=synthesis_failed,
                     needs_review=needs_review, review_reason=review_reason,
                     input_text=_input_text_kind(route, raw_slides[i], synth_inputs.get(i)),
+                    route_reason=route_reason,
                 ))
                 # Text routes echo the (stripped) synthesis input as content;
                 # students must see the real page, so pin it to the raw text.
+                # (A figure page's vision result already keeps its own text.)
                 content = (
                     raw_slides[i] if route in ("batch", "per_slide")
                     else res.get("content", raw_slides[i])

@@ -1,6 +1,7 @@
 name: ascend-academy-prod
 
-# Production stack for shared university server deployment.
+# Production stack: one Hetzner VM (learnstation.app), deployed by hand over
+# SSH; see docs/runbooks/deploy-main-to-prod.md.
 # See docker-compose.yml for local development usage.
 
 networks:

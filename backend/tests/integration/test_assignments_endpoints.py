@@ -411,8 +411,8 @@ class TestEnrollableStudents:
         )
         patch_supabase.tables.setdefault("profiles", []).extend(
             [
-                {"user_id": student_user.id, "full_name": "Stu Dent"},
-                {"user_id": "stranger-uid", "full_name": "Not Mine"},
+                {"user_id": student_user.id, "full_name": "Stu Dent", "show_in_spaces": True},
+                {"user_id": "stranger-uid", "full_name": "Not Mine", "show_in_spaces": True},
             ]
         )
         _auth_as(app, professor_user)
@@ -429,6 +429,29 @@ class TestEnrollableStudents:
         assert ids == [student_user.id]
         # Email is intentionally not part of the response (PII minimization).
         assert "email" not in data[0]
+
+    def test_a_learner_who_did_not_choose_to_be_seen_is_not_on_the_roster(
+        self, app, patch_supabase, professor_user
+    ):
+        # One lecture this professor owns, three learners with progress on it. Only one
+        # switched "show me in Spaces" on; false and NULL both mean "not opted in".
+        _seed_lecture(patch_supabase, "lec-1", professor_user.id)
+        patch_supabase.tables["student_progress"] = [
+            {"user_id": "stu-seen", "lecture_id": "lec-1"},
+            {"user_id": "stu-hidden", "lecture_id": "lec-1"},
+            {"user_id": "stu-unset", "lecture_id": "lec-1"},
+        ]
+        patch_supabase.tables["profiles"] = [
+            {"user_id": "stu-seen", "full_name": "Mira", "show_in_spaces": True},
+            {"user_id": "stu-hidden", "full_name": "Jonas", "show_in_spaces": False},
+            {"user_id": "stu-unset", "full_name": "Lea", "show_in_spaces": None},
+        ]
+        _auth_as(app, professor_user)
+        r = TestClient(app).get(
+            "/api/assignments/_meta/students", headers={"Authorization": "Bearer t"}
+        )
+        assert r.status_code == 200
+        assert [p["full_name"] for p in r.json()["data"]] == ["Mira"]
 
     def test_student_gets_403(self, app, patch_supabase, student_user):
         _auth_as(app, student_user)

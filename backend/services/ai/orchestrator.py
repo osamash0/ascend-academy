@@ -1123,6 +1123,16 @@ def _generate_with_rotation(
                 or "error code: 404" in msg
                 or "status 404" in msg
             )
+            # A 401 means the key itself was rejected (revoked, wrong, typo'd
+            # in the env): it never starts working mid-process. A 403 is NOT
+            # treated the same way, because it can be about one request
+            # (OpenRouter answers a moderation-flagged prompt with 403), and
+            # one student's message must not take a provider out for everyone.
+            is_unauthorized = (
+                _http_status(exc) == 401
+                or "error code: 401" in msg
+                or "status 401" in msg
+            )
             if is_payment_required:
                 _rotator.record_unavailable(pid, "402 payment required (billing)")
                 last_exc = exc
@@ -1135,6 +1145,14 @@ def _generate_with_rotation(
                 _rotator.record_rate_limit(pid)
                 last_exc = exc
                 logger.warning("⚠️  Provider '%s' rate-limited, trying next", pid)
+            elif is_unauthorized:
+                _rotator.record_unavailable(pid, "401 from provider (API key rejected)")
+                last_exc = exc
+                logger.error(
+                    "🔑 Provider '%s' rejected its API key — disabling for the rest "
+                    "of this process: %s",
+                    pid, exc,
+                )
             elif is_model_not_found:
                 _rotator.record_unavailable(pid, "404 from provider (model or route gone)")
                 last_exc = exc
@@ -1690,12 +1708,14 @@ def _build_cross_slide_quiz_prompt(blueprint: Dict[str, Any], summary: str) -> s
                 takeaways_lines.append(f"- {section}: {kt}")
     section_takeaways = "\n".join(takeaways_lines) or "- (none provided)"
 
+    from backend.services.ai.untrusted import inert
+
     return CROSS_SLIDE_DECK_QUIZ_PROMPT.format(
-        cross_concepts=cross_concepts,
-        section_takeaways=section_takeaways,
-        slide_titles=slide_titles,
-        slide_bridges=slide_bridges,
-        summary=(summary or "").strip()[:3000],
+        cross_concepts=inert(cross_concepts),
+        section_takeaways=inert(section_takeaways),
+        slide_titles=inert(slide_titles),
+        slide_bridges=inert(slide_bridges),
+        summary=inert((summary or "").strip()[:3000]),
     )
 
 
@@ -1940,6 +1960,27 @@ def _map_batch_reply(
     return usable
 
 
+def _batch_slide_sections(slides: List[Dict[str, Any]], idx_to_plan: Dict[int, Dict]) -> List[str]:
+    """One ``=== SLIDE N ===`` section per slide. The slide text and the plan
+    are defused (`untrusted.inert`), so a slide cannot write a separator or a
+    ``</context_only>`` of its own and pass its text off as another slide's."""
+    from backend.services.ai.untrusted import inert, one_line
+
+    sections: List[str] = []
+    for s in slides:
+        body = inert(s["text"]) or "(no extracted text)"
+        plan = idx_to_plan.get(s["index"])
+        if plan:
+            proposed = one_line(plan.get("proposed_title", ""), 120)
+            concepts = one_line(", ".join(plan.get("concepts", [])[:4]), 300)
+            body = f"[Proposed title: {proposed}] [Key concepts: {concepts}]\n" + body
+        section = f"=== SLIDE {s['page_number']} (index={s['index']}) ===\n{body}"
+        if s.get("context_only"):
+            section = f"<context_only>\n{section}\n</context_only>"
+        sections.append(section)
+    return sections
+
+
 async def batch_analyze_text_slides(
     slides: List[Dict[str, Any]],
     ai_model: str = "groq",
@@ -2029,9 +2070,10 @@ async def batch_analyze_text_slides(
         bp_title   = blueprint.get("lecture_title", "")
         bp_summary = blueprint.get("overall_summary", "")
         if bp_title or bp_summary:
+            from backend.services.ai.untrusted import inert, one_line
             bp_header = (
-                f"\n\nLECTURE MASTER PLAN:\nTitle: {bp_title}\n"
-                f"Summary: {bp_summary[:800]}\n"
+                f"\n\nLECTURE MASTER PLAN:\nTitle: {one_line(bp_title, 200)}\n"
+                f"Summary: {inert(bp_summary[:800])}\n"
             )
         idx_to_plan = {p["index"]: p for p in blueprint.get("slide_plans", [])}
 
@@ -2042,18 +2084,7 @@ async def batch_analyze_text_slides(
     # generate questions for them, and we drop any returned object whose
     # index lands in ``context_only_indices`` below.
     context_only_indices = {s["index"] for s in slides if s.get("context_only")}
-    slide_sections: List[str] = []
-    for s in slides:
-        body = s["text"] or "(no extracted text)"
-        plan = idx_to_plan.get(s["index"])
-        if plan:
-            proposed = plan.get("proposed_title", "")
-            concepts = ", ".join(plan.get("concepts", [])[:4])
-            body = f"[Proposed title: {proposed}] [Key concepts: {concepts}]\n" + body
-        section = f"=== SLIDE {s['page_number']} (index={s['index']}) ===\n{body}"
-        if s.get("context_only"):
-            section = f"<context_only>\n{section}\n</context_only>"
-        slide_sections.append(section)
+    slide_sections = _batch_slide_sections(slides, idx_to_plan)
 
     context_header = ""
     if context_only_indices:

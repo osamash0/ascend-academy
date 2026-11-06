@@ -1,7 +1,5 @@
 import type { Insight } from '@/features/analytics/types';
-import type { EvidenceRequest } from './useGardenState';
 import { ConfusionWaveChart } from './viz/ConfusionWaveChart';
-import { AtRiskStudentList } from './viz/AtRiskStudentList';
 import { SlideRangeList } from './viz/SlideRangeList';
 import { MetricTiles, type MetricTile } from './viz/MetricTiles';
 
@@ -10,21 +8,23 @@ function num(m: Insight['metrics'], k: string): number {
   return typeof v === 'number' ? v : Number(v) || 0;
 }
 
+/** A count of people; null when fewer than five people stand behind it. */
+function count(m: Insight['metrics'], k: string): string {
+  const v = m[k];
+  return v == null ? '—' : String(num(m, k));
+}
+
 interface Layer2VizProps {
   insight: Insight;
-  onOpenEvidence?: (request: EvidenceRequest) => void;
 }
 
 /** Dispatches an expanded insight to its kind-specific Layer-2 visualization. */
-export function Layer2Viz({ insight, onOpenEvidence }: Layer2VizProps) {
+export function Layer2Viz({ insight }: Layer2VizProps) {
   const m = insight.metrics;
 
   switch (insight.kind) {
     case 'confusion_hotspot':
       return <ConfusionWaveChart insight={insight} />;
-
-    case 'silent_strugglers':
-      return <AtRiskStudentList insight={insight} onOpenEvidence={onOpenEvidence} />;
 
     case 'confusion_block':
       return <SlideRangeList insight={insight} />;
@@ -50,7 +50,7 @@ export function Layer2Viz({ insight, onOpenEvidence }: Layer2VizProps) {
     case 'skipped_slide': {
       const tiles: MetricTile[] = [
         { label: 'Median time on slide', value: `${Math.round(num(m, 'medianDwellSeconds'))}s` },
-        { label: 'Skimmed in under 4s', value: `${num(m, 'shortViews')}` },
+        { label: 'Skimmed in under 4s', value: count(m, 'shortViews') },
         { label: 'Views', value: `${num(m, 'viewCount')}` },
       ];
       return <MetricTiles tiles={tiles} />;
@@ -67,7 +67,7 @@ export function Layer2Viz({ insight, onOpenEvidence }: Layer2VizProps) {
 
     case 'speed_bump': {
       const tiles: MetricTile[] = [
-        { label: 'Backtracked from next slide', value: `${num(m, 'backtracksFromNext')}` },
+        { label: 'Backtracked from next slide', value: count(m, 'backtracksFromNext') },
         { label: 'Median time on slide', value: `${Math.round(num(m, 'medianDwellSeconds'))}s` },
         { label: 'Lecture median', value: `${Math.round(num(m, 'lectureMedianDwellSeconds'))}s` },
       ];
@@ -77,7 +77,7 @@ export function Layer2Viz({ insight, onOpenEvidence }: Layer2VizProps) {
     case 'calibration_gap': {
       const tiles: MetricTile[] = [
         { label: 'Said "got it" but failed', value: `${Math.round(num(m, 'overconfidenceRate'))}%` },
-        { label: 'Overconfident students', value: `${num(m, 'overconfidentCount')}` },
+        { label: 'Overconfident students', value: count(m, 'overconfidentCount') },
         { label: 'Confident & quizzed', value: `${num(m, 'confidentStudents')}` },
       ];
       return <MetricTiles tiles={tiles} />;
@@ -87,7 +87,7 @@ export function Layer2Viz({ insight, onOpenEvidence }: Layer2VizProps) {
       const tiles: MetricTile[] = [
         { label: 'Felt confused', value: `${Math.round(num(m, 'confusionRate'))}%` },
         { label: 'Median time on slide', value: `${Math.round(num(m, 'medianDwellSeconds'))}s` },
-        { label: 'Asked the AI tutor', value: `${num(m, 'aiQueryCount')}` },
+        { label: 'Asked the AI tutor', value: count(m, 'aiQueryCount') },
       ];
       return <MetricTiles tiles={tiles} />;
     }
@@ -104,7 +104,7 @@ export function Layer2Viz({ insight, onOpenEvidence }: Layer2VizProps) {
     default:
       return <MetricTiles tiles={Object.entries(m).slice(0, 3).map(([key, value]) => ({
         label: key.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase()),
-        value: String(value),
+        value: value == null ? '—' : String(value),
       }))} />;
   }
 }

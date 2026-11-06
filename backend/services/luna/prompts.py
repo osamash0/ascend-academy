@@ -4,9 +4,11 @@ Slide text and learner words are data, never instructions."""
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from backend.services.ai.untrusted import inert, one_line
 from backend.services.ai.voice import with_voice
 from backend.services.luna.validate import PageIndex
 from backend.services.v4_reader_service import write_in as _reader_write_in
@@ -45,26 +47,39 @@ def write_in(locale: str, served: str) -> str:
     return f"{line}\n{DE_WORDS}" if locale.split("-")[0] == "de" else line
 
 
+# Slots whose value is our own prompt text (or, for pages, our own fences
+# around text that `_pages` has already defused). Every other slot carries
+# something from the upload, the learner or an earlier model answer, and is
+# defused on the way in, so a new slot is safe by default.
+_OWN_MARKUP = frozenset({"rules", "blocks", "write_in", "recap_rule", "pages"})
+_SLOT = re.compile(r"<<(\w+)>>")
+
+
 def _fill(template: str, **slots: str) -> str:
-    out = template
-    for k, v in slots.items():
-        out = out.replace(f"<<{k}>>", v)
-    return out
+    """Fill ``<<slot>>`` placeholders in one pass. A value is never scanned
+    again, so a page or a learner that writes "<<rules>>" gets that text, not
+    a second copy of the rules."""
+    values = {k: v if k in _OWN_MARKUP else inert(v) for k, v in slots.items()}
+    return _SLOT.sub(lambda m: values.get(m.group(1), m.group(0)), template)
 
 
 def memory_block(lines: list[dict]) -> str:
     if not lines:
         return "nothing yet"
-    return "\n".join(f"- [{m['id']}] ({m['kind']}) {m['text']}" for m in lines)
+    return "\n".join(f"- [{m['id']}] ({m['kind']}) {one_line(m['text'], 200)}" for m in lines)
+
+
+def _lesson(view: LessonView) -> str:
+    return one_line(view.title, 200).replace('"', "'")
 
 
 def _titles(view: LessonView) -> str:
-    return "\n".join(f"{n}: {t[:50]}" for n, t in view.titles[:250])
+    return "\n".join(f"{n}: {one_line(t, 50)}" for n, t in view.titles[:250])
 
 
 def _pages(view: LessonView) -> str:
     return "\n".join(
-        f"<<<page {lid == view.lecture_id and n or f'{lid}:{n}'}>>>\n{text}\n<<<end>>>"
+        f"<<<page {lid == view.lecture_id and n or f'{lid}:{n}'}>>>\n{inert(text)}\n<<<end>>>"
         for (lid, n), text in sorted(view.pages.texts.items(), key=lambda kv: (kv[0][0] != view.lecture_id, kv[0][1]))
     )
 
@@ -98,7 +113,7 @@ Answer with ONE JSON object only:
 
 def plan_prompt(view: LessonView, *, page: int, opener: str, memory: list[dict], locale: str) -> str:
     return with_voice(_fill(
-        PLAN, lesson=view.title, lecture_id=view.lecture_id, page=str(page),
+        PLAN, lesson=_lesson(view), lecture_id=view.lecture_id, page=str(page),
         opener=opener.strip()[:300].replace('"', "'") or "(nothing yet)", memory=memory_block(memory),
         titles=_titles(view), pages=_pages(view), rules=RULES, write_in=write_in(locale, view.served),
     ), structured=True)
@@ -147,14 +162,14 @@ def turn_prompt(
         verdict = "answered it right" if check_result.get("correct") else "answered it wrong"
         check = f'They just {verdict}: "{str(check_result.get("question", ""))[:200]}".'
     return with_voice(_fill(
-        TURN, lesson=view.title, lecture_id=view.lecture_id,
+        TURN, lesson=_lesson(view), lecture_id=view.lecture_id,
         plan=json.dumps([{k: s[k] for k in ("id", "kind", "title", "status")} | {"page": s["target"]["page"]} for s in plan], ensure_ascii=False),
         step=json.dumps(step, ensure_ascii=False) if step else "none (free conversation)",
         reading_at=f"page {reading_at}" if reading_at else "unknown",
         check_result=check, memory=memory_block(memory), recap=recap or "nothing yet",
         recent="\n".join(f"{t['role']}: {json.dumps(t['content'], ensure_ascii=False)[:400]}" for t in recent) or "none",
         text=(text or "(no words: continue the plan)").strip()[:600].replace('"', "'"),
-        related="\n".join(f"- {r['lecture_title']} p.{r['page']} (lecture id {r['lecture_id']}): {r['snippet'][:160]}" for r in related) or "none",
+        related="\n".join(f"- {one_line(r['lecture_title'], 120)} p.{r['page']} (lecture id {r['lecture_id']}): {one_line(r['snippet'], 160)}" for r in related) or "none",
         titles=_titles(view), pages=_pages(view),
         recap_rule='Also write "recap": 2-4 sentences summarising the whole session so far.' if write_recap else 'Leave "recap" empty.',
         blocks=BLOCKS, rules=RULES, write_in=write_in(locale, view.served),
@@ -186,7 +201,7 @@ Answer with ONE JSON object only:
 
 def wrap_prompt(view: LessonView, *, plan: list[dict], turns: list[dict], memory: list[dict], locale: str) -> str:
     return with_voice(_fill(
-        WRAP, lesson=view.title, lecture_id=view.lecture_id,
+        WRAP, lesson=_lesson(view), lecture_id=view.lecture_id,
         plan=json.dumps(plan, ensure_ascii=False),
         turns="\n".join(f"{t['role']}: {json.dumps(t['content'], ensure_ascii=False)[:300]}" for t in turns) or "none",
         memory=memory_block(memory), titles=_titles(view), rules=RULES, write_in=write_in(locale, view.served),
@@ -207,7 +222,7 @@ Answer with ONE JSON object only:
 
 def practice_prompt(view: LessonView, *, shaky: list[str], missed: list[str], locale: str) -> str:
     return with_voice(_fill(
-        PRACTICE, lesson=view.title, pages=_pages(view),
+        PRACTICE, lesson=_lesson(view), pages=_pages(view),
         shaky="; ".join(shaky) or "nothing named", missed="; ".join(missed) or "none",
         rules=RULES, write_in=write_in(locale, view.served),
     ), structured=True)

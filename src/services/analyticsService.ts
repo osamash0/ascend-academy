@@ -11,12 +11,6 @@ import type {
 } from '@/types/domain';
 import type { InsightFeed, InsightEvidence } from '@/features/analytics/types';
 
-export interface DropoffPoint {
-  slide_number: number;
-  title: string;
-  dropoff_count: number;
-}
-
 export interface ConfidenceBySlide {
   slide_number: number;
   title: string;
@@ -63,23 +57,9 @@ export async function getQuizAnalytics(lectureId: string): Promise<QuizAnalytics
   return res.data;
 }
 
-export async function getStudentPerformance(lectureId: string): Promise<StudentPerformance[]> {
-  const res = await apiClient.get<{ success: boolean; data: StudentPerformance[] }>(
-    `/api/analytics/lecture/${lectureId}/students`,
-  );
-  return res.data;
-}
-
 export async function getDashboardData(lectureId: string): Promise<DashboardData> {
   const res = await apiClient.get<{ success: boolean; data: DashboardData }>(
     `/api/analytics/lecture/${lectureId}/dashboard`,
-  );
-  return res.data;
-}
-
-export async function getDropoffMap(lectureId: string): Promise<DropoffPoint[]> {
-  const res = await apiClient.get<{ success: boolean; data: DropoffPoint[] }>(
-    `/api/analytics/lecture/${lectureId}/dropoff`,
   );
   return res.data;
 }
@@ -105,14 +85,19 @@ export async function getAiQueryFeed(lectureId: string): Promise<AiQueryFeedItem
   return res.data;
 }
 
+/**
+ * The course-wide overview. Every figure counts people (never the owner) and is null when fewer
+ * than five people stand behind it; `attempts` on a weak spot is the people who tried it.
+ */
 export interface ProfessorOverview {
-  active_students: number;
-  average_completion: number;
-  average_quiz_accuracy: number;
-  median_time_minutes: number;
+  active_students: number | null;
+  average_completion: number | null;
+  average_quiz_accuracy: number | null;
+  median_time_minutes: number | null;
   weakest_concepts: { concept: string; miss_rate: number; attempts: number }[];
   weakest_slides: { slide_id: string; title: string; miss_rate: number; attempts: number }[];
-  activity_sparkline: { date: string; count: number }[];
+  /** People active that day; null under five. */
+  activity_sparkline: { date: string; people: number | null }[];
   lecture_count: number;
   days: number;
 }
@@ -140,11 +125,10 @@ export async function getLectureInsights(lectureId: string): Promise<InsightFeed
 export async function getInsightEvidence(
   lectureId: string,
   kind: string,
-  params: { slideId?: string; studentId?: string },
+  params: { slideId?: string },
 ): Promise<InsightEvidence> {
   const query = new URLSearchParams({ kind });
   if (params.slideId) query.set('slide_id', params.slideId);
-  if (params.studentId) query.set('student_id', params.studentId);
   const res = await apiClient.get<{ success: boolean; data: InsightEvidence }>(
     `/api/analytics/lecture/${lectureId}/evidence?${query.toString()}`,
   );
@@ -214,23 +198,25 @@ export async function professorChat(messages: ChatTurn[], aiModel = 'cerebras'):
 
 // ── Comparative Benchmarks (Task #50) ─────────────────────────────────────
 
+/** A figure is null when fewer than five people stand behind it (never 0). */
 export interface BenchmarkMetricPack {
-  avg_time_minutes: number;
-  completion_rate: number;
-  unique_students: number;
-  drop_off_rate: number;
-  avg_score: number;
-  mastery_rate: number;
-  struggle_rate: number;
-  distractor_confusion: number;
-  concept_count: number;
-  needs_review_share: number;
+  avg_time_minutes: number | null;
+  completion_rate: number | null;
+  unique_students: number | null;
+  drop_off_rate: number | null;
+  avg_score: number | null;
+  mastery_rate: number | null;
+  struggle_rate: number | null;
+  distractor_confusion: number | null;
+  concept_count: number | null;
+  needs_review_share: number | null;
 }
 
+/** Over the peers that had a figure; null with count 0 when none did. */
 export interface BenchmarkPeerSummary {
-  avg: number;
-  min: number;
-  max: number;
+  avg: number | null;
+  min: number | null;
+  max: number | null;
   count: number;
 }
 

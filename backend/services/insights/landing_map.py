@@ -17,6 +17,10 @@ HELP_FULL = 0.5
 
 _BAND = {"act": 2, "watch": 1, "calm": 0}
 
+#: People said the page had clicked, then missed its checkpoint. Nobody asks about a page they
+#: think they understood, so within a band these lead: the owner is the only one who can catch them.
+TRAPS = frozenset({"calibration_gap", "silent_misleader"})
+
 #: The kinds the door is told; any other finding maps to None. `silent_misleader` is not one:
 #: its "then N% of them missed" is over clicked pairs, and with the people gate (`page_row`) it
 #: fires only on fewer than five of them; five or more is a `calibration_gap`, honestly paired.
@@ -133,12 +137,13 @@ def lesson_light(found: list[dict[str, Any]], readers: int) -> str:
 
 
 def rank(insights: list[dict[str, Any]], readers_by_lesson: dict[str, int]) -> list[dict[str, Any]]:
-    """Loudest first: by band, then by severity × the Lesson's readers, then severity.
-    The door reads `insights[0]` as the one page to open."""
+    """Loudest first: by band, then traps before the rest, then by severity × the Lesson's
+    readers, then severity. The door reads `insights[0]` as the one page to open."""
     return sorted(
         insights,
         key=lambda i: (
             _BAND[i["attention"]],
+            i.get("kind") in TRAPS,
             i["severity"] * readers_by_lesson.get(i["lessonId"], 0),
             i["severity"],
         ),
