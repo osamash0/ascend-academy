@@ -1,0 +1,198 @@
+/*
+ * The Layout face (LayoutLayer.tsx), ported from the demo's `.blk` and
+ * `.reink` rules. Colours are the app's own tokens, never literals of their own.
+ *
+ * Night (the reader's night paper): the layer reads the dark root tokens as
+ * they are, and its ground is --surface-1, which is the #141414 the night
+ * page is painted. Paper (the default): the same names, rescoped to the app's
+ * light theme (`.light` in src/index.css), whose --surface-1 is the white of
+ * the pdf.js page slot. The `.light` class itself is not used: it paints its
+ * own background, which would cover the holes.
+ *
+ * The term colour is the reader's accent, sampled from the deck, like every
+ * other mark in the reader.
+ */
+.ls-layout {
+  --ls-ground: hsl(var(--surface-1));
+  --ls-ink: hsl(var(--foreground));
+  --ls-quiet: rgb(var(--text-quiet));
+  --ls-faint: rgb(var(--text-faint));
+  --ls-hair: hsl(var(--border));
+  --ls-term: var(--reader-accent, hsl(var(--secondary)));
+  position: absolute;
+  inset: 0;
+  z-index: 3; /* over the pdf.js text layer (2), under the reader's marks (Spotlight, 10) */
+  container-type: inline-size;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--ls-ink);
+}
+
+.ls-layout:not([data-night]) {
+  --surface-1: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --border: 210 15% 90%;
+  --secondary: 0 0% 35%;
+  /* The quiet scale is white-on-dark at the root; on paper it is the ink at the same steps. */
+  --text-quiet: 15 23 42 / 0.72;
+  --text-faint: 15 23 42 / 0.5;
+}
+
+.ls-layout .ls-ground,
+.ls-layout .reink {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.ls-layout .ls-ground path {
+  fill: var(--ls-ground);
+}
+
+.ls-layout .reink {
+  overflow: visible;
+}
+
+.ls-layout .reink path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ls-term) 70%, transparent);
+  stroke-width: 1.1;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+}
+
+.ls-layout .reink path.f {
+  fill: color-mix(in srgb, var(--ls-term) 70%, transparent);
+}
+
+/* Each block at its own box. Sizes are the fitter's; these group defaults (the middle of its range) keep it legible until then. */
+.ls-layout .blk {
+  position: absolute;
+  line-height: 1.38;
+  color: var(--ls-ink);
+  pointer-events: auto;
+}
+
+.ls-layout .blk[data-group='h'] {
+  font-size: 2.55cqw;
+}
+
+.ls-layout .blk[data-group='body'] {
+  font-size: 1.675cqw;
+}
+
+.ls-layout .blk[data-group='small'] {
+  font-size: 1.225cqw;
+}
+
+.ls-layout .blk[data-group='row'] {
+  font-size: 1.125cqw;
+}
+
+/* A hole: nothing drawn, and the page under it takes the pointer. */
+.ls-layout .blk[data-group='fig'] {
+  pointer-events: none;
+}
+
+.ls-layout .blk.h {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.ls-layout .blk.h .sub {
+  display: block;
+  margin-top: 0.18em;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--ls-quiet);
+}
+
+.ls-layout .blk.label {
+  font-weight: 500;
+  color: var(--ls-faint);
+  letter-spacing: 0.005em;
+}
+
+/* A list item: the reader's hairline in the accent (Prose), not a dot. */
+.ls-layout .blk .li {
+  position: relative;
+  padding-left: 1em;
+}
+
+.ls-layout .blk .li + .li {
+  margin-top: 0.2em;
+}
+
+.ls-layout .blk .li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.69em;
+  width: 0.55em;
+  height: 1px;
+  background: var(--ls-term);
+}
+
+.ls-layout .blk.row {
+  display: flex;
+  align-items: center;
+  box-shadow: inset 0 -1px 0 var(--ls-hair);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Never cut text: wrap. */
+.ls-layout .blk.row span {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-right: 0.6em;
+  overflow-wrap: anywhere;
+}
+
+.ls-layout .blk.row.head {
+  color: var(--ls-faint);
+  font-weight: 500;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ls-quiet) 50%, transparent);
+}
+
+.ls-layout .blk.table {
+  display: flex;
+  flex-direction: column;
+  font-variant-numeric: tabular-nums;
+}
+
+.ls-layout .blk.table .tr {
+  display: grid;
+  flex: 1 1 0;
+  align-items: center;
+  box-shadow: inset 0 -1px 0 var(--ls-hair);
+}
+
+.ls-layout .blk.table .tr:first-child {
+  color: var(--ls-faint);
+  font-weight: 500;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ls-quiet) 50%, transparent);
+}
+
+/* Never break a word: the fitter shrinks the type instead. */
+.ls-layout .blk.table .tr span {
+  padding-right: 0.6em;
+  white-space: nowrap;
+}
+
+.ls-layout .blk.math {
+  font-family: 'STIX Two Text', 'Cambria Math', 'Times New Roman', serif;
+  letter-spacing: 0.01em;
+}
+
+.ls-layout .blk sub {
+  font-size: 0.7em;
+  line-height: 0;
+  vertical-align: -0.25em;
+}
+
+.ls-layout .blk.linked {
+  color: var(--ls-term);
+}
