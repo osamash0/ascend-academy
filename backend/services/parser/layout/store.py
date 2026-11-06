@@ -1,0 +1,89 @@
+"""Layout face store: build every page's Layout page, write them to lecture_layouts.
+
+Deterministic, no AI calls, no uploads. FITZ_LOCK is taken once around repeated_places
+and once per page around build_page_layout (never nested; no layout helper takes it).
+One page that fails is stored as "original" (reasons ["layout failed"]); the others go on.
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from typing import Any, Dict, List
+from uuid import UUID
+
+from backend.services.parser.layout.build import LAYOUT_VERSION, build_page_layout
+from backend.services.parser.layout.figures import repeated_places
+from backend.services.parser.page_images import FITZ_LOCK
+
+logger = logging.getLogger(__name__)
+
+
+def _repeated(doc: Any) -> set:
+    with FITZ_LOCK:
+        return repeated_places(doc)
+
+
+def _page(doc: Any, n: int, repeated: set) -> Dict[str, Any]:
+    with FITZ_LOCK:
+        return build_page_layout(doc[n - 1], n, repeated)
+
+
+def _failed(n: int) -> Dict[str, Any]:
+    return {"page": n, "verdict": "original", "reasons": ["layout failed"], "blocks": [], "paths": [],
+            "version": LAYOUT_VERSION}
+
+
+async def build_layouts(lecture_id: UUID | str, pdf_bytes: bytes) -> int:
+    """Build and store the Layout page of every page. Returns the number of pages written."""
+    import fitz
+
+    doc = await asyncio.to_thread(lambda: fitz.open(stream=pdf_bytes, filetype="pdf"))
+    try:
+        total = doc.page_count
+        repeated = await asyncio.to_thread(_repeated, doc)
+        pages: List[Dict[str, Any]] = []
+        for n in range(1, total + 1):
+            try:
+                pages.append(await asyncio.to_thread(_page, doc, n, repeated))
+            except Exception as exc:
+                logger.warning("layout failed for page %d (stored as original): %s", n, exc)
+                pages.append(_failed(n))
+    finally:
+        doc.close()
+    await upsert_layouts(lecture_id, pages)
+    return len(pages)
+
+
+async def upsert_layouts(lecture_id: UUID | str, pages: List[Dict[str, Any]]) -> None:
+    """All rows in one transaction, then the rows beyond the last page go (a re-parse of a shorter file)."""
+    from backend.core.database import get_db_connection
+
+    lid = UUID(str(lecture_id))
+    async with await get_db_connection() as conn:
+        async with conn.transaction():
+            for p in pages:
+                await conn.execute(
+                    """
+                    INSERT INTO public.lecture_layouts (lecture_id, page, layout, version, updated_at)
+                    VALUES ($1, $2, $3::jsonb, $4, now())
+                    ON CONFLICT (lecture_id, page) DO UPDATE SET
+                      layout = EXCLUDED.layout, version = EXCLUDED.version, updated_at = now()
+                    """,
+                    lid, p["page"], json.dumps(p), p.get("version", LAYOUT_VERSION),
+                )
+            await conn.execute(
+                "DELETE FROM public.lecture_layouts WHERE lecture_id = $1 AND page > $2",
+                lid, len(pages),
+            )
+
+
+async def load_layouts(lecture_id: UUID | str) -> List[Dict[str, Any]]:
+    from backend.core.database import get_db_connection
+
+    async with await get_db_connection() as conn:
+        rows = await conn.fetch(
+            "SELECT layout FROM public.lecture_layouts WHERE lecture_id = $1 ORDER BY page",
+            UUID(str(lecture_id)),
+        )
+    return [json.loads(r["layout"]) if isinstance(r["layout"], str) else r["layout"] for r in rows]

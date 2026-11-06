@@ -1227,6 +1227,16 @@ async def parse_pdf_unified(
                 source_language=source_language, emit=emit,
             )
 
+        # ── 4a′. Layout face ──────────────────────────────────────────────────
+        # Each page re-set as blocks with a verdict. Deterministic, no AI calls;
+        # a failure here never fails the parse (the Page face is unaffected).
+        if settings.feature_layout_face and created_lecture_id is not None:
+            try:
+                from backend.services.parser.layout.store import build_layouts
+                await build_layouts(created_lecture_id, pdf_bytes)
+            except Exception as exc:
+                logger.warning("layout pass failed (non-fatal): %s", exc)
+
         # ── 4b. Course-context extraction from administrative slides ─────────
         # A parallel side-channel — does NOT change what gets synthesized or
         # quizzed above; it only feeds course_context. Best-effort, non-fatal.

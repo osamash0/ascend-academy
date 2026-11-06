@@ -226,3 +226,11 @@ def test_a_page_with_only_figures_has_no_text_layer():
     d, p = text_page()
     fig = {"id": "d1-0", "kind": "figure", "bbox": [0, 0, 1, 1], "text": ""}
     assert server_checks(p, [fig], [], [], [], []) == ["no text layer"]
+
+
+def test_a_lost_single_character_word_is_not_rescued_by_a_one_token_run():
+    d = fitz.open()
+    p = d.new_page(width=600, height=800)
+    p.insert_text((60, 100), "Let x x", fontsize=14)
+    # the block holds "x" once; the second "x" is lost, and a run of ONE token is no split word
+    assert server_checks(p, blocks_for("Let x", (0.05, 0.1, 0.5, 0.14)), [], [], [], []) == ["1 of 3 words missing"]
