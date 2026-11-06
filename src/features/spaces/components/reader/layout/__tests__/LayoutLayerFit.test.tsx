@@ -67,7 +67,7 @@ describe('LayoutLayer fit and check', () => {
     expect(onChecked).toHaveBeenCalledWith(true);
   });
 
-  it('passes on a failing check', () => {
+  it('reports a failing check', () => {
     checkLayer.mockReturnValue({ pass: false, reasons: ['1 lines collide'] });
     const onChecked = vi.fn();
     render(<LayoutLayer page={page} onChecked={onChecked} />);
@@ -115,7 +115,9 @@ describe('LayoutLayer fit and check', () => {
     fitLayer.mockImplementation(markOver(['a']));
     const onChecked = vi.fn();
     render(<LayoutLayer page={page} onChecked={onChecked} />);
-    expect(fitLayer.mock.calls.length).toBeLessThanOrEqual(3);
+    // Exactly two passes: the first finds `a` and makes it a window; the second finds it again, but it already is one, so it checks.
+    expect(fitLayer).toHaveBeenCalledTimes(2);
+    expect(checkLayer).toHaveBeenCalledTimes(1);
     expect(onChecked).toHaveBeenCalledTimes(1);
   });
 
@@ -150,5 +152,64 @@ describe('LayoutLayer fit and check', () => {
     render(<LayoutLayer page={{ page: 3, verdict: 'original', reasons: ['x'], version: 1 }} onChecked={onChecked} />);
     expect(fitLayer).not.toHaveBeenCalled();
     expect(onChecked).not.toHaveBeenCalled();
+  });
+
+  describe('when web fonts arrive', () => {
+    class Fonts extends EventTarget {
+      status = 'loading';
+      ready = Promise.resolve(this);
+    }
+    let fonts: Fonts;
+
+    beforeEach(() => {
+      fonts = new Fonts();
+      Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
+    });
+    afterEach(() => {
+      delete (document as unknown as { fonts?: unknown }).fonts;
+    });
+
+    it('fits and checks again on loadingdone, and the latest onChecked is the verdict', async () => {
+      const onChecked = vi.fn();
+      render(<LayoutLayer page={page} onChecked={onChecked} />);
+      await act(async () => {}); // fonts.ready
+      const fits = fitLayer.mock.calls.length;
+      const checks = onChecked.mock.calls.length;
+      checkLayer.mockReturnValue({ pass: false, reasons: ['1 lines collide'] });
+      await act(async () => {
+        fonts.dispatchEvent(new Event('loadingdone'));
+      });
+      expect(fitLayer).toHaveBeenCalledTimes(fits + 1);
+      expect(onChecked).toHaveBeenCalledTimes(checks + 1);
+      expect(onChecked).toHaveBeenLastCalledWith(false);
+    });
+
+    it('computes the windows again with the new metrics', async () => {
+      let pass = 0;
+      fitLayer.mockImplementation((el) => markOver(pass++ === 0 ? ['a'] : [])(el));
+      const { container } = render(<LayoutLayer page={page} onChecked={vi.fn()} />);
+      await act(async () => {});
+      // With the first font `a` did not fit; with the new one nothing is marked, so it is text again.
+      await act(async () => {
+        fonts.dispatchEvent(new Event('loadingdone'));
+      });
+      expect(container.querySelector<HTMLElement>('[data-id="a"]')!.dataset.kind).toBe('p');
+    });
+
+    it('fits again when the fonts promise settles', async () => {
+      render(<LayoutLayer page={page} onChecked={vi.fn()} />);
+      expect(fitLayer).toHaveBeenCalledTimes(1);
+      await act(async () => {});
+      expect(fitLayer).toHaveBeenCalledTimes(2);
+    });
+
+    it('stops listening when the layer goes', async () => {
+      const { unmount } = render(<LayoutLayer page={page} onChecked={vi.fn()} />);
+      await act(async () => {});
+      unmount();
+      fitLayer.mockClear();
+      fonts.dispatchEvent(new Event('loadingdone'));
+      expect(fitLayer).not.toHaveBeenCalled();
+    });
   });
 });

@@ -42,10 +42,11 @@ export function LayoutLayer({
 const MIN_WIDTH = 50;
 const NONE: ReadonlySet<string> = new Set();
 
-/** The blocks that did not fit, for one page at one width. They are windows until either changes. */
+/** The blocks that did not fit, for one page at one width and one state of the fonts. They are windows until any of them changes. */
 interface Over {
   page: LayoutReady | null;
   width: number;
+  fonts: number;
   ids: ReadonlySet<string>;
 }
 
@@ -60,7 +61,8 @@ function ReadyLayer({
 }) {
   const root = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  const [over, setOver] = useState<Over>({ page: null, width: 0, ids: NONE });
+  const [fonts, setFonts] = useState(0);
+  const [over, setOver] = useState<Over>({ page: null, width: 0, fonts: 0, ids: NONE });
   const heard = useRef(onChecked);
   useLayoutEffect(() => {
     heard.current = onChecked;
@@ -84,20 +86,42 @@ function ReadyLayer({
     return () => ro.disconnect();
   }, []);
 
-  const windows = over.page === page && over.width === width ? over.ids : NONE;
+  /*
+   * The type is measured in the fonts the browser has at that moment, and a swapped-in font (Inter is
+   * font-display: swap, its latin-ext subset loads on demand) has other metrics. So fit and check run
+   * again when the fonts are ready and whenever more of them finish loading. That means onChecked can
+   * be called again for the same page: the latest call is the verdict.
+   */
+  useLayoutEffect(() => {
+    const set = typeof document === 'undefined' ? undefined : (document.fonts as FontFaceSet | undefined);
+    if (!set) return;
+    let live = true;
+    const bump = () => live && setFonts((n) => n + 1);
+    if (set.status !== 'loaded') void set.ready.then(bump);
+    set.addEventListener('loadingdone', bump);
+    return () => {
+      live = false;
+      set.removeEventListener('loadingdone', bump);
+    };
+  }, []);
 
-  /* Fit, and give the blocks that fit no size to the windows (which runs this again, once). Then check. */
+  const windows = over.page === page && over.width === width && over.fonts === fonts ? over.ids : NONE;
+
+  /*
+   * Fit, and give the blocks that fit no size to the windows (which runs this again, once). Then check.
+   * Callers must pass a stable `page` object: a new identity for the same page refits and re-checks.
+   */
   useLayoutEffect(() => {
     const el = root.current;
     if (!el || width <= MIN_WIDTH) return;
     fitLayer(el);
     const found = [...el.querySelectorAll<HTMLElement>('.blk[data-over]')].map((e) => e.dataset.id ?? '');
     if (found.some((id) => !windows.has(id))) {
-      setOver({ page, width, ids: new Set([...windows, ...found]) });
+      setOver({ page, width, fonts, ids: new Set([...windows, ...found]) });
       return;
     }
     heard.current?.(checkLayer(el).pass);
-  }, [page, width, windows]);
+  }, [page, width, fonts, windows]);
 
   const set = layoutBlocks(page, windows);
   const holes = set.filter(({ k }) => k === 'fig' || k === 'window').map(({ b }) => b.bbox);

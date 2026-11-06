@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RANGE, ownSize, sharedSize } from '../fit';
+import { RANGE, fitLayer, ownSize, sharedSize } from '../fit';
 
 describe('RANGE', () => {
   it('holds the demo ranges, in page widths, for the four fitted groups', () => {
@@ -61,5 +61,83 @@ describe('sharedSize', () => {
   it('is the floor of the range when no block has a size', () => {
     expect(sharedSize([], 1.05, 2.3)).toBe(1.05);
     expect(sharedSize([0, 0], 1.05, 2.3)).toBe(1.05);
+  });
+});
+
+describe('fitLayer', () => {
+  /** A block that fits its box up to `limit` cqw (jsdom cannot lay out text, so the metrics are defined). */
+  const block = (group: string, limit: number, text = 'Some text') => {
+    const e = document.createElement('div');
+    e.className = 'blk';
+    e.dataset.group = group;
+    e.textContent = text;
+    /* jsdom's CSS parser drops the cqw unit, so the element's style is a plain object here. */
+    Object.defineProperty(e, 'style', { value: { fontSize: '' } });
+    const size = () => parseFloat(e.style.fontSize);
+    Object.defineProperty(e, 'scrollHeight', { get: () => (size() <= limit ? 10 : 30) });
+    Object.defineProperty(e, 'clientHeight', { get: () => 10 });
+    Object.defineProperty(e, 'scrollWidth', { get: () => 10 });
+    Object.defineProperty(e, 'clientWidth', { get: () => 10 });
+    return e;
+  };
+  const layer = (...els: HTMLElement[]) => {
+    const root = document.createElement('div');
+    root.className = 'ls-layout';
+    els.forEach((e) => root.appendChild(e));
+    return root;
+  };
+  const px = (e: HTMLElement) => parseFloat(e.style.fontSize);
+
+  it('sets the group top size, in cqw, where every block fits', () => {
+    const a = block('body', 9);
+    const h = block('h', 9);
+    fitLayer(layer(a, h));
+    expect(a.style.fontSize).toBe('2.3cqw');
+    expect(h.style.fontSize).toBe('3.5cqw');
+  });
+
+  it('shares one size per group: the cramped block takes its own, the rest the shared one', () => {
+    const fine = Array.from({ length: 7 }, () => block('body', 1.9));
+    const cramped = block('body', 1.2);
+    fitLayer(layer(cramped, ...fine));
+    fine.forEach((e) => expect(px(e)).toBeGreaterThan(1.89));
+    fine.forEach((e) => expect(px(e)).toBeLessThanOrEqual(1.9));
+    expect(px(cramped)).toBeLessThanOrEqual(1.2);
+    expect(px(cramped)).toBeGreaterThan(1.1);
+  });
+
+  it('does not let a block with hardly any text pull the shared size down', () => {
+    const fine = Array.from({ length: 7 }, () => block('body', 1.9));
+    const cramped = block('body', 1.2);
+    const short = block('body', 1.06, 'ab');
+    fitLayer(layer(short, cramped, ...fine));
+    fine.forEach((e) => expect(px(e)).toBeGreaterThan(1.89));
+    expect(px(short)).toBeLessThanOrEqual(1.06);
+  });
+
+  it('marks a block that fits no size data-over, and leaves its neighbours alone', () => {
+    const lost = block('body', 0.5);
+    const ok = block('body', 9);
+    fitLayer(layer(lost, ok));
+    expect(lost.dataset.over).toBe('1');
+    expect(ok.dataset.over).toBeUndefined();
+  });
+
+  it('clears a mark from an earlier pass', () => {
+    const e = block('row', 9);
+    e.dataset.over = '1';
+    fitLayer(layer(e));
+    expect(e.dataset.over).toBeUndefined();
+    expect(e.style.fontSize).toBe('1.45cqw');
+  });
+
+  it('never touches a hole (a figure or window) and measures each group in its own range', () => {
+    const hole = block('fig', 0.1);
+    const row = block('row', 0.9);
+    fitLayer(layer(hole, row));
+    expect(hole.style.fontSize).toBe('');
+    expect(hole.dataset.over).toBeUndefined();
+    expect(px(row)).toBeLessThanOrEqual(0.9);
+    expect(px(row)).toBeGreaterThan(0.8);
   });
 });
