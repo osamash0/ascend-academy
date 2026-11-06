@@ -153,6 +153,23 @@ def test_under_the_spaces_floor_it_says_so_with_no_findings_and_no_light(monkeyp
     assert body["figures"]["cleared"] == {"value": None, "history": []}
 
 
+def test_the_cache_key_moves_with_the_wire_shape(monkeypatch):
+    """A payload cached before this shape (help 0 under the floor) is never served after it."""
+    seen = {}
+
+    async def row(space_id, uid):
+        return {"id": space_id, "title": "Database Systems", "professor_id": uuid.UUID(OWNER), "is_member": False}
+
+    async def cached(key, view, compute, **kw):
+        seen.update(kw["params"])
+        return {}
+
+    monkeypatch.setattr(service, "space_row", row)
+    monkeypatch.setattr(service.analytics_cache, "get_or_compute_async", cached)
+    asyncio.run(service.get_landing(SPACE, OWNER, "en"))
+    assert seen == {"lang": "en", "v": "landing-v2"}
+
+
 def test_a_finding_beyond_the_lessons_last_page_is_dropped_but_not_when_its_pages_are_unknown():
     # Events are members' own inserts: ten of them can claim to be foggy on pages a Lesson does not have.
     def foggy_through_page_nine(lesson):

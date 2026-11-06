@@ -194,8 +194,6 @@ def test_a_page_four_people_reached_says_nothing_even_if_all_four_were_foggy(doo
     assert body["themes"] == [] and door.prompts == []
 
 
-@pytest.mark.xfail(strict=True, reason="help_share() returns 0.0 under the page floor, the same value as a landing page "
-                                       "— not in Plan 3")
 def test_one_member_opening_page_one_does_not_make_pages_four_people_read_look_like_landing(door):
     """Four read all of Normalization, all foggy on page 3; a fifth opens only page 1. Pages 2 to 4 still say nothing (null), never 'landing' (0)."""
     four = range(4)

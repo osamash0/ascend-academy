@@ -164,8 +164,17 @@ def test_help_is_the_share_of_readers_who_needed_the_page_never_brighter_than_ha
     loud = PageFacts(readers=people(10), ask=people(4), returners={"r9"})
     few = PageFacts(readers=people(3), ask=people(3))
     lf = facts({1: quiet, 2: loud, 3: few}, count=4)
-    assert help_share(quiet) == 0.1 and help_share(few) == 0.0
-    assert help_index({"l1": lf}) == {"l1": [0.2, 1.0, 0.0, 0.0]}
+    assert help_share(quiet) == 0.1 and help_share(few) is None
+    assert help_index({"l1": lf}) == {"l1": [0.2, 1.0, None, None]}
+
+
+def test_a_page_fewer_than_five_read_says_nothing_and_nothing_is_not_landing():
+    # Five read page 1 and nobody needed it: landing (0). Four read page 2, all asking: nothing to say (None).
+    landing = PageFacts(readers=people(5))
+    few = PageFacts(readers=people(4), ask=people(4))
+    lf = facts({1: landing, 2: few}, count=3)
+    assert help_share(landing) == 0.0 and help_share(few) is None
+    assert help_index({"l1": lf}) == {"l1": [0.0, None, None]}
 
 
 def test_a_page_beyond_the_lessons_pages_does_not_lengthen_its_help():
@@ -178,7 +187,7 @@ def test_a_hidden_page_beyond_the_lessons_pages_does_not_dim_the_shown_ones():
     shown = {1: PageFacts(readers=people(10), explain={"r0"}), 2: PageFacts(readers=people(10), ask=people(4))}
     alone = help_index({"l1": facts(shown, count=4)})
     hidden = PageFacts(readers=people(5, prefix="h"), ask=people(5, prefix="h"))
-    assert help_index({"l1": facts({**shown, 9: hidden}, count=4)}) == alone == {"l1": [0.2, 0.8, 0.0, 0.0]}
+    assert help_index({"l1": facts({**shown, 9: hidden}, count=4)}) == alone == {"l1": [0.2, 0.8, None, None]}
 
 
 def test_a_lesson_without_a_page_count_is_as_long_as_its_highest_page_read():

@@ -30,26 +30,30 @@ _KINDS = {
 }
 
 
-def help_share(f: PageFacts) -> float:
-    """Of the people who read this page, the share who needed it; 0 under the floor."""
+def help_share(f: PageFacts) -> Optional[float]:
+    """Of the people who read this page, the share who needed it.
+
+    None while fewer than `MIN_READERS` people read it: such a page says nothing, and
+    nothing is not 0, which the door draws as landing (story 5; Abi, 2026-11-06)."""
     if len(f.readers) < MIN_READERS:
-        return 0.0
+        return None
     return len(f.helped & f.readers) / len(f.readers)
 
 
-def help_index(facts: dict[str, LessonFacts]) -> dict[str, list[float]]:
-    """Per Lesson, one 0–1 value per page: its help share, normalised over the Space.
+def help_index(facts: dict[str, LessonFacts]) -> dict[str, list[Optional[float]]]:
+    """Per Lesson, one value per page: its help share, normalised over the Space to 0–1, or
+    None for a page fewer than `MIN_READERS` people read (the door draws it as an outline).
 
     As long as the Lesson has pages (else the highest page seen), so a page number
     beyond them never lengthens the list, and normalised over those shown pages only,
     so a page no one is shown never sets the scale."""
-    shares: dict[str, list[float]] = {}
+    shares: dict[str, list[Optional[float]]] = {}
     for lid, lf in facts.items():
         # The Lesson's own page count when it has one; else the highest page seen (never above MAX_PAGE).
         length = lf.lesson.pages if lf.lesson.pages > 0 else max(lf.pages, default=0)
-        shares[lid] = [help_share(lf.pages[n]) if n in lf.pages else 0.0 for n in range(1, length + 1)]
-    scale = max(HELP_FULL, max((v for s in shares.values() for v in s), default=0.0))
-    return {lid: [round(min(1.0, v / scale), 2) for v in s] for lid, s in shares.items()}
+        shares[lid] = [help_share(lf.pages.get(n, PageFacts())) for n in range(1, length + 1)]
+    scale = max(HELP_FULL, max((v for s in shares.values() for v in s if v is not None), default=0.0))
+    return {lid: [None if v is None else round(min(1.0, v / scale), 2) for v in s] for lid, s in shares.items()}
 
 
 def grid(f: PageFacts) -> Optional[dict[str, int]]:

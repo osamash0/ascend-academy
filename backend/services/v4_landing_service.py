@@ -45,7 +45,9 @@ async def space_row(space_id: UUID, user_id: str) -> Optional[dict[str, Any]]:
     return dict(row) if row else None
 
 
-LANDING_VERSION = "landing-v1"
+#: Moves whenever the payload's shape does, so a cached older shape is never served.
+#: v2 (2026-11-06): a page under the floor is null in `help`, never 0.
+LANDING_VERSION = "landing-v2"
 LANDING_TTL = 300
 #: Themes are made for at most this many pages per Space at a time, the most-asked first.
 THEMES_PAGES = 5
