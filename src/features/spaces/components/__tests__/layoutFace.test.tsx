@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactNode, RefObject } from 'react';
 import type { LayoutReady } from '../reader/layout/types';
@@ -157,6 +157,18 @@ describe('the Layout switch on the Page face', () => {
     await open();
     expect(screen.queryByRole('switch', { name: 'Layout' })).toBeNull();
     expect(layer()).toBeNull();
+  });
+
+  it('hands focus to the Page tab when a page turn takes the focused switch away', async () => {
+    await open();
+    const s = screen.getByRole('switch', { name: 'Layout' });
+    s.focus();
+    /* Page 2 has no Layout: the switch goes. */
+    await key('ArrowRight', s);
+    expect(screen.queryByRole('switch', { name: 'Layout' })).toBeNull();
+    expect(screen.getByTestId('slot')).toHaveAttribute('data-pdf-page', '2');
+    const views = screen.getByRole('tablist', { name: 'How to read this page' });
+    expect(document.activeElement).toBe(within(views).getByRole('tab', { selected: true }));
   });
 
   it('belongs to the Page view: Explain has neither the switch nor the layer', async () => {
