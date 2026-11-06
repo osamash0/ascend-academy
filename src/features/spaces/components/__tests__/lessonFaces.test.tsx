@@ -26,9 +26,22 @@ vi.mock('../../data/reading', async (original) => ({
     counted.push({ page, notATurn });
   },
 }));
+/*
+ * The words the Spotlight would light. The overlay is the Layout layer (when it
+ * is on) and then the Spotlight, so the words are read off the Spotlight.
+ */
+type Overlay = { props?: { words?: string | null; children?: unknown } } | undefined;
+function spotOf(overlay: Overlay): string {
+  if (overlay?.props && 'words' in overlay.props) return overlay.props.words ?? '';
+  const kids = overlay?.props?.children;
+  const spot = (Array.isArray(kids) ? kids : [kids]).find(
+    (k): k is { props: { words?: string | null } } => !!k && typeof k === 'object' && 'props' in k && 'words' in (k as { props: object }).props,
+  );
+  return spot?.props.words ?? '';
+}
 vi.mock('@/components/pdf', () => ({
   PdfPage: ({ page }: { page: number }) => <div data-testid="sheet" data-page={page} />,
-  PdfPager: ({ rootRef, page, overlay, onAspect, onLoad, onFirstRender }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: { props?: { words?: string | null } }; onAspect?: (a: number) => void; onLoad?: (n: number) => void; onFirstRender?: (c: HTMLCanvasElement | null) => void }) => {
+  PdfPager: ({ rootRef, page, overlay, onAspect, onLoad, onFirstRender }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: Overlay; onAspect?: (a: number) => void; onLoad?: (n: number) => void; onFirstRender?: (c: HTMLCanvasElement | null) => void }) => {
     jumps.push(page);
     useEffect(() => {
       onAspect?.(mockAspect);
@@ -41,7 +54,7 @@ vi.mock('@/components/pdf', () => ({
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
     /* The words the Spotlight would light, recorded rather than drawn. */
     return (
-      <div ref={rootRef} data-testid="document" data-spot={overlay?.props?.words ?? ''}>
+      <div ref={rootRef} data-testid="document" data-spot={spotOf(overlay)}>
         Page {page}
       </div>
     );

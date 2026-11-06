@@ -1,8 +1,10 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { classify, cleanText, groupOf, type LayoutClass } from './classify';
 import { fitLayer } from './fit';
 import { checkLayer } from './layoutGate';
+import { morphIn, settle } from './morph';
 import type { Box, LayoutBlock, LayoutPage, LayoutReady } from './types';
 import './layout.css';
 
@@ -23,19 +25,28 @@ import './layout.css';
  * fits no size becomes a window, a hole like a figure, and the layer is then
  * checked in the browser (`layoutGate.ts`); `onChecked` hears the verdict once
  * per fit. A page the browser checks fail is for the caller to show as the
- * original.
+ * original: it can keep the layer mounted with `shown={false}` (laid out,
+ * measured, never seen), so a later check can still pass it.
+ *
+ * It enters with the morph (`morph.ts`) once a page first passes its checks;
+ * under reduced motion it is simply there.
+ *
+ * Screen readers keep the pdf.js text layer underneath (the same words), so
+ * the layer is hidden from them and the page is never read twice.
  */
 export function LayoutLayer({
   page,
   night = false,
+  shown = true,
   onChecked,
 }: {
   page: LayoutPage;
   night?: boolean;
+  shown?: boolean;
   onChecked?: (pass: boolean) => void;
 }) {
   if (page.verdict !== 'layout') return null;
-  return <ReadyLayer page={page} night={night} onChecked={onChecked} />;
+  return <ReadyLayer page={page} night={night} shown={shown} onChecked={onChecked} />;
 }
 
 /** A layer narrower than this has no real width: a hidden pane. Fitting there would pass every check by accident. */
@@ -53,10 +64,12 @@ interface Over {
 function ReadyLayer({
   page,
   night,
+  shown,
   onChecked,
 }: {
   page: LayoutReady;
   night: boolean;
+  shown: boolean;
   onChecked?: (pass: boolean) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
@@ -64,6 +77,10 @@ function ReadyLayer({
   const [fonts, setFonts] = useState(0);
   const [over, setOver] = useState<Over>({ page: null, width: 0, fonts: 0, ids: NONE });
   const heard = useRef(onChecked);
+  const still = useRef(false);
+  still.current = useReducedMotion() === true;
+  /* The page the morph last ran for: it plays once per page, on its first passing check. */
+  const morphed = useRef<LayoutReady | null>(null);
   useLayoutEffect(() => {
     heard.current = onChecked;
   });
@@ -114,19 +131,33 @@ function ReadyLayer({
   useLayoutEffect(() => {
     const el = root.current;
     if (!el || width <= MIN_WIDTH) return;
+    /* A block mid-rise is not where it rests: measure the layer at rest. */
+    settle(el);
     fitLayer(el);
     const found = [...el.querySelectorAll<HTMLElement>('.blk[data-over]')].map((e) => e.dataset.id ?? '');
     if (found.some((id) => !windows.has(id))) {
       setOver({ page, width, fonts, ids: new Set([...windows, ...found]) });
       return;
     }
-    heard.current?.(checkLayer(el).pass);
+    const pass = checkLayer(el).pass;
+    heard.current?.(pass);
+    if (pass && morphed.current !== page) {
+      morphed.current = page;
+      if (!still.current) morphIn(el);
+    }
   }, [page, width, fonts, windows]);
 
   const set = layoutBlocks(page, windows);
   const holes = set.filter(({ k }) => k === 'fig' || k === 'window').map(({ b }) => b.bbox);
   return (
-    <div ref={root} className="ls-layout" data-layout-page={page.page} data-night={night ? '' : undefined}>
+    <div
+      ref={root}
+      className="ls-layout"
+      aria-hidden="true"
+      data-layout-page={page.page}
+      data-night={night ? '' : undefined}
+      data-veiled={shown ? undefined : ''}
+    >
       <svg data-ground className="ls-ground" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden>
         <path fillRule="evenodd" d={groundPath(holes)} />
       </svg>

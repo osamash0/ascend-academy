@@ -29,6 +29,14 @@
   color: var(--ls-ink);
 }
 
+/*
+ * A layer the browser checks failed: still laid out and measured (a later check
+ * may pass it), never seen, and the page underneath takes every pointer.
+ */
+.ls-layout[data-veiled] {
+  visibility: hidden;
+}
+
 .ls-layout:not([data-night]) {
   --surface-1: 0 0% 100%;
   --foreground: 222 47% 11%;

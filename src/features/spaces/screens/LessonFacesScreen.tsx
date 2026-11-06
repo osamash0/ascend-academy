@@ -60,6 +60,9 @@ import { LunaMark } from '../components/reader/luna/LunaMark';
 import { useLunaConductor } from '../components/reader/luna/useLunaConductor';
 import { markOffered, shouldOffer } from '../components/reader/luna/lunaOffer';
 import { Spotlight } from '../components/reader/Spotlight';
+import { LayoutLayer } from '../components/reader/layout/LayoutLayer';
+import { LayoutSwitch } from '../components/reader/layout/LayoutSwitch';
+import { useLayoutFace } from '../components/reader/layout/useLayoutFace';
 import { LessonToc } from '../components/reader/LessonToc';
 import { ExplainPanel } from '../components/reader/iui/ExplainPanel';
 import { beatsFromMarkdown } from '../components/reader/beats';
@@ -241,6 +244,14 @@ export default function LessonFacesScreen() {
   const shape = shapeOf(aspect);
   /* The page in view. The document is a deck: one page, turned sideways. */
   const [pdfPage, setPdfPage] = useState(() => askedPage ?? 1);
+  /*
+   * Layout: the page re-set in the reader's type, a switch on the Page face of
+   * a deck. It is there only where this page has a Layout that passed its checks.
+   */
+  const layout = useLayoutFace(content.layouts, pdfPage);
+  const onPageFace = view === 'slide' && shape === 'slides';
+  const canLayout = onPageFace && layout.available;
+  const { toggle: toggleLayout } = layout;
 
 
   const pdfRef = useRef<HTMLDivElement>(null);
@@ -754,6 +765,12 @@ export default function LessonFacesScreen() {
         toggleFull();
         return;
       }
+      /* L shows the page re-set, where there is a Layout to switch to; elsewhere it is just a letter. */
+      if ((e.key === 'l' || e.key === 'L') && canLayout) {
+        e.preventDefault();
+        toggleLayout();
+        return;
+      }
       /* One key per view tab, in the order they stand. */
       const face = views[Number(e.key) - 1];
       if (/^[1-9]$/.test(e.key) && face) {
@@ -782,7 +799,7 @@ export default function LessonFacesScreen() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [bench, turnPage, stepBeat, view, studio, toggleFull, canFull, pickView, shape, views]);
+  }, [bench, turnPage, stepBeat, view, studio, toggleFull, canFull, pickView, shape, views, canLayout, toggleLayout]);
 
   /* `\` toggles the studio. Not in a field, not while practising. */
   useEffect(() => {
@@ -1378,10 +1395,12 @@ export default function LessonFacesScreen() {
           {night ? <Sun aria-hidden className="h-4 w-4" /> : <Moon aria-hidden className="h-4 w-4" />}
         </button>
       </div>
+      {/* The view tabs, and the Layout switch at their end: in their row and their shape, not one of them. */}
+      <div className={cn('flex items-center rounded-full p-1', overPage)}>
       <div
         role="tablist"
         aria-label={tr('views.label')}
-        className={cn('flex rounded-full p-1', overPage)}
+        className="flex"
         onKeyDown={(e) =>
           onTabKeys(e, VIEWS.length, Math.max(0, VIEWS.findIndex((v) => v.id === view)), (i) => pickView(VIEWS[i].id))
         }
@@ -1415,6 +1434,8 @@ export default function LessonFacesScreen() {
             </button>
           );
         })}
+      </div>
+      <LayoutSwitch on={layout.on} available={canLayout} onToggle={toggleLayout} />
       </div>
       </motion.div>
 
@@ -1482,7 +1503,20 @@ export default function LessonFacesScreen() {
             onAspect={setAspect}
             onFirstRender={onPagerPaint}
             rootRef={pdfRef}
-            overlay={<Spotlight words={spot} />}
+            overlay={
+              <>
+                {onPageFace && layout.on && layout.ready && (
+                  <LayoutLayer
+                    page={layout.ready}
+                    night={night}
+                    shown={layout.available}
+                    onChecked={(pass) => layout.ready && layout.checked(layout.ready.page, pass)}
+                  />
+                )}
+                {/* After the layer: the reader's marks stay on top. */}
+                <Spotlight words={spot} />
+              </>
+            }
             zoomable
             className="absolute inset-0 overflow-hidden"
           />

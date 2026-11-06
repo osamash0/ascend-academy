@@ -331,5 +331,9 @@
     "explain": "Explain is ready for this page.",
     "practice": "Practise is ready.",
     "stopped": "Luna couldn't finish reading this — what she read is here."
+  },
+  "layout": {
+    "switch": "Layout",
+    "switchLabel": "Show this page re-set"
   }
 }

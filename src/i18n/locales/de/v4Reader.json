@@ -331,5 +331,9 @@
     "explain": "Erklären ist für diese Seite bereit.",
     "practice": "Üben ist bereit.",
     "stopped": "Luna konnte das nicht fertig lesen — was sie gelesen hat, ist hier."
+  },
+  "layout": {
+    "switch": "Layout",
+    "switchLabel": "Zeig diese Seite neu gesetzt"
   }
 }
