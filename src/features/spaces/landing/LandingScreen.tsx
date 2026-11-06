@@ -9,6 +9,7 @@ import { useViewer } from '../data/viewer';
 import { useLanding } from '../data/landing';
 import { ledeKey } from './copy';
 import { Figures } from './Figures';
+import { hasOutline } from './light';
 import { LessonMap } from './LessonMap';
 import { LunaBubble } from './LunaBubble';
 import { AnsweredFold, QuestionsRow } from './QuestionsRow';
@@ -65,6 +66,9 @@ export default function LandingScreen({ spaceId }: { spaceId: string }) {
       ? t('door.lede.actPages', { count: asking, lesson: loudestLesson.title })
       : t('door.lede.actPage', { lesson: loudestLesson.title });
 
+  // The map explains an outline only when it draws one.
+  const outlined = landing.lessons.some((l) => l.light !== 'few' && hasOutline(l));
+
   return (
     <Scene surface={SURFACES.course} status="progress" motionKey={`landing-${spaceId}`} accent={accent}>
       <SpacesTopBar active="spaces" viewer={viewer} />
@@ -102,7 +106,7 @@ export default function LandingScreen({ spaceId }: { spaceId: string }) {
 
           {/* Under the floor Luna has said so; a map of dark Lessons would only say it again. */}
           {!under && (
-            <StageRow id="landing-lessons" title={t('lessons.title')} lede={t('lessons.mapLede')}>
+            <StageRow id="landing-lessons" title={t('lessons.title')} lede={t(outlined ? 'lessons.mapLedeOutlined' : 'lessons.mapLede')}>
               <LessonMap spaceId={spaceId} lessons={landing.lessons} insights={landing.insights} themes={landing.themes} />
             </StageRow>
           )}

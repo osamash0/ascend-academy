@@ -8,7 +8,8 @@ import type { Landing } from '../landing/types';
 import { SendSheet } from '../landing/SendToSpace';
 import { AnsweredHere } from '../landing/AnsweredHere';
 import { ledeKey } from '../landing/copy';
-import { dbsLanding, friendsLanding } from '../mocks/landing';
+import { cellColor, hasOutline } from '../landing/light';
+import { bigLanding, dbsLanding, friendsLanding } from '../mocks/landing';
 
 /*
  * How it's landing — the owner's door, on fixtures (spec
@@ -90,8 +91,8 @@ describe('the owner’s door', () => {
     // A Lesson's readers are not counted again under the figures.
     expect(screen.queryByText(/\d+ readers?$/)).toBeNull();
     // Lessons too few have been through are named once, below the map, not drawn.
-    expect(screen.getByText('Integrity, Transactions, Query Processing, and Index Structures: too few readers yet.')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Integrity' })).toBeNull();
+    expect(screen.getByText('Transactions, Query Processing, and Index Structures: too few readers yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Transactions' })).toBeNull();
   });
 
   it('a finding says its page, not its Lesson again', () => {
@@ -193,8 +194,33 @@ describe('the owner’s door', () => {
     expect(screen.getByText('2 Seiten brauchen dich. Fang mit Normalization an.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Seite 12 von Normalization' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Fragen an dich' })).toBeInTheDocument();
-    expect(screen.getByText('Integrity, Transactions, Query Processing und Index Structures: noch zu wenige Lesende.')).toBeInTheDocument();
+    expect(screen.getByText('Transactions, Query Processing und Index Structures: noch zu wenige Lesende.')).toBeInTheDocument();
     expect(screen.getByText('Jemand')).toBeInTheDocument();
+  });
+});
+
+describe('an outline', () => {
+  it('a page too few people have reached is an outline: drawn, never lit, and it opens nothing', () => {
+    door('s-dbs');
+    const lesson = screen.getByRole('heading', { level: 3, name: 'Integrity' }).closest('li')!;
+    // Nine people have started Integrity; past page 6 fewer than five have been through a page.
+    expect(lesson.querySelectorAll('[data-cell="outline"]')).toHaveLength(10);
+    expect(lesson.querySelectorAll('[data-cell="page"]')).toHaveLength(6);
+    expect(within(lesson).queryAllByRole('link', { name: /^Page \d+ of Integrity$/ })).toHaveLength(0);
+    // The map says what an outline is, once, because one is on screen.
+    expect(screen.getByText(/Too few people have reached an outlined one yet\./)).toBeInTheDocument();
+  });
+
+  it('with no outline on the map, the map does not explain one', () => {
+    door('s-big');
+    expect(screen.queryByText(/outlined/)).toBeNull();
+  });
+
+  it('a Lesson has an outline when any of its pages is null', () => {
+    const [full] = dbsLanding.lessons;
+    expect(hasOutline(full)).toBe(false);
+    expect(hasOutline({ ...full, help: [0.3, null] })).toBe(true);
+    expect(hasOutline({ ...full, help: undefined })).toBe(false);
   });
 });
 
@@ -247,6 +273,16 @@ describe('a big Space folds what needs nothing', () => {
     expect(titlesDrawn()).not.toContain('Use cases');
   });
 
+  it('a Lesson with an outlined page is never folded away as landing', () => {
+    fixture.override = {
+      ...bigLanding,
+      lessons: bigLanding.lessons.map((l) => (l.id === 'l-s-big-3' ? { ...l, help: l.help!.map((h, i) => (i >= 10 ? null : h)) } : l)),
+    };
+    door('s-big');
+    expect(titlesDrawn()).toContain('Use cases');
+    expect(screen.getByRole('button', { name: '5 Lessons landing' })).toBeInTheDocument();
+  });
+
   it('a Lesson with many findings says its two loudest; its pages stay lit either way', () => {
     door('s-big');
     const lesson = screen.getByRole('heading', { level: 3, name: 'Concurrency' }).closest('li')!;
@@ -293,6 +329,12 @@ describe('sending a question to the Space', () => {
 });
 
 describe('the lede', () => {
+  it('a page with nothing to say never takes a colour', () => {
+    expect(cellColor('#06b6d4', null, null)).toBeNull();
+    expect(cellColor('#06b6d4', 0.8, null)).not.toBeNull();
+    expect(cellColor('#06b6d4', 0.05, null)).toBeNull();
+  });
+
   it('follows the loudest finding, and the floor before anything', () => {
     expect(ledeKey(dbsLanding.insights, dbsLanding.reach)).toBe('act');
     expect(ledeKey(friendsLanding.insights, friendsLanding.reach)).toBe('floor');
@@ -305,5 +347,7 @@ describe('the lede', () => {
       if (l.light === 'few') expect(l.help).toBeUndefined();
       else expect(l.help).toHaveLength(l.pages);
     }
+    // A null is a page too few have reached; every other value is 0–1.
+    for (const v of dbsLanding.lessons.flatMap((l) => l.help ?? [])) expect(v === null || (v >= 0 && v <= 1)).toBe(true);
   });
 });

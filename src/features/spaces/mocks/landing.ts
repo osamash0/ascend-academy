@@ -9,8 +9,9 @@ import { lindqvist, okonkwo, weber, ferreira, keller, viewer } from './people';
  *
  *   • Database Systems: 184 members, 131 reading, ten Lessons — the Space a
  *     professor runs. Seven findings across six Lessons, three questions
- *     waiting, one already answered for everyone, and four Lessons that are
- *     too new to say anything about. The numbers are shaped to look like a
+ *     waiting, one already answered for everyone, one Lesson people are only
+ *     starting (its later pages are outlines), and three Lessons too new to
+ *     say anything about. The numbers are shaped to look like a
  *     real term (one hot page, one trap, one wall), not to look tidy.
  *
  *   • Linear Algebra, together: six friends, four of them reading — the Space
@@ -35,12 +36,14 @@ const RAISE: Record<Attention, number> = { act: 1, watch: 0.62, calm: 0.4 };
 /**
  * One help value per page: a calm floor, each finding's page raised by its
  * attention, and the pages either side carrying a little of it, because
- * trouble is rarely one page wide.
+ * trouble is rarely one page wide. Past `reached`, fewer than five people
+ * have been through a page: null, as the engine sends it.
  */
-function helpFor(pages: number, findings: LandingInsight[]): number[] {
-  const values = Array.from({ length: pages }, (_, i) => 0.06 + ((i * 7) % 5) * 0.012);
+function helpFor(pages: number, findings: LandingInsight[], reached = pages): (number | null)[] {
+  const values: (number | null)[] = Array.from({ length: pages }, (_, i) => (i < reached ? 0.06 + ((i * 7) % 5) * 0.012 : null));
   const raise = (i: number, v: number) => {
-    if (i >= 0 && i < pages) values[i] = Math.max(values[i], v);
+    if (i < 0 || i >= reached) return;
+    values[i] = Math.max(values[i] as number, v);
   };
   for (const f of findings) {
     if (!f.page) continue;
@@ -52,14 +55,17 @@ function helpFor(pages: number, findings: LandingInsight[]): number[] {
   return values;
 }
 
-type LessonSeed = Omit<LandingLesson, 'color' | 'help'>;
+type LessonSeed = Omit<LandingLesson, 'color' | 'help'> & {
+  /** Pages at least five people have been through; the rest are outlines. All of them when absent. */
+  reached?: number;
+};
 
 /** Colour from the cover palette; help from the findings, unless under the floor. */
 const lessonsFrom = (seeds: LessonSeed[], insights: LandingInsight[]): LandingLesson[] =>
-  seeds.map((l) => ({
+  seeds.map(({ reached, ...l }) => ({
     ...l,
     color: stageAccentFor(l.order),
-    help: l.light === 'few' ? undefined : helpFor(l.pages, insights.filter((i) => i.lessonId === l.id)),
+    help: l.light === 'few' ? undefined : helpFor(l.pages, insights.filter((i) => i.lessonId === l.id), reached),
   }));
 
 /* ── Database Systems ─────────────────────────────────────────────── */
@@ -139,7 +145,8 @@ const DBS_LESSONS = lessonsFrom(
     { id: 'l-s-dbs-4', title: 'Normalization', order: 4, pages: 12, readers: 118, light: 'act' },
     { id: 'l-s-dbs-5', title: 'Relational Algebra', order: 5, pages: 20, readers: 96, light: 'act' },
     { id: 'l-s-dbs-6', title: 'SQL', order: 6, pages: 28, readers: 84, light: 'watch' },
-    { id: 'l-s-dbs-7', title: 'Integrity', order: 7, pages: 16, readers: 3, light: 'few' },
+    // Nine people have started it; past page 6 fewer than five have been through a page.
+    { id: 'l-s-dbs-7', title: 'Integrity', order: 7, pages: 16, readers: 9, light: 'calm', reached: 6 },
     { id: 'l-s-dbs-8', title: 'Transactions', order: 8, pages: 26, readers: 0, light: 'few' },
     { id: 'l-s-dbs-9', title: 'Query Processing', order: 9, pages: 30, readers: 0, light: 'few' },
     { id: 'l-s-dbs-10', title: 'Index Structures', order: 10, pages: 24, readers: 0, light: 'few' },

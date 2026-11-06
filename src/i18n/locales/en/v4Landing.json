@@ -56,6 +56,7 @@
     "readers_other": "{{count}} readers",
     "open": "Open {{lesson}}",
     "mapLede": "Each cell is a page. The brighter it is, the more people needed help there; a labelled one opens that page.",
+    "mapLedeOutlined": "Each cell is a page. The brighter it is, the more people needed help there; a labelled one opens that page. Too few people have reached an outlined one yet.",
     "cell": "Page {{page}} of {{lesson}}",
     "few": "{{lessons}}: too few readers yet.",
     "quietRun_one": "{{count}} Lesson landing",

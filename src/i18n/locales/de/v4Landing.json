@@ -56,6 +56,7 @@
     "readers_other": "{{count}} Lesende",
     "open": "{{lesson}} öffnen",
     "mapLede": "Jede Zelle ist eine Seite. Je heller, desto mehr Leute brauchten dort Hilfe; eine beschriftete öffnet die Seite.",
+    "mapLedeOutlined": "Jede Zelle ist eine Seite. Je heller, desto mehr Leute brauchten dort Hilfe; eine beschriftete öffnet die Seite. Eine umrandete Seite haben noch zu wenige Leute erreicht.",
     "cell": "Seite {{page}} von {{lesson}}",
     "few": "{{lessons}}: noch zu wenige Lesende.",
     "quietRun_one": "{{count}} Lektion kommt an",

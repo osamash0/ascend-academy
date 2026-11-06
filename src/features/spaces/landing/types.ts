@@ -51,9 +51,11 @@ export interface LandingLesson {
   /**
    * How much each page asked of people, 0–1, one value per page: the engine's
    * per-page help index (Explain and Ask opened, foggy check-ins, turning
-   * back). Absent while the Lesson is under the floor.
+   * back). `null` is a page fewer than `floor` people have reached: it says
+   * nothing, which is not landing, so the door draws it as an outline.
+   * Absent while the whole Lesson is under the floor.
    */
-  help?: number[];
+  help?: (number | null)[];
 }
 
 /** Check-in against checkpoint, paired per person. */

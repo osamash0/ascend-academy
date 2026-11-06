@@ -95,7 +95,7 @@ export default function MockupTiles() {
             const flags = finds.filter((f) => f.kind !== 'healthy').length;
             const few = l.light === 'few';
             const hot = finds.flatMap((f) => (f.page ? [f.page] : []));
-            const values = l.help ?? Array.from({ length: 12 }, (_, k) => 3 + ((k * 5) % 4));
+            const values = (l.help ?? Array.from({ length: 12 }, (_, k) => 3 + ((k * 5) % 4))).map((v) => v ?? 0);
             const max = Math.max(...values, 1);
             return (
               <motion.button
