@@ -220,6 +220,21 @@ async def graph_concepts(lecture_id: UUID) -> list[dict[str, Any]]:
         return []
 
 
+async def layout_pages(lecture_id: UUID) -> list[dict[str, Any]]:
+    """The Layout face's pages, by page. Empty when the flag is off, nothing is stored or the read fails."""
+    from backend.core.config import settings
+
+    if not settings.feature_layout_face:
+        return []
+    try:
+        from backend.services.parser.layout.store import load_layouts
+
+        return list(await load_layouts(lecture_id) or [])
+    except Exception as exc:
+        logger.warning("v4 reader: layouts unavailable for %s: %s", lecture_id, exc)
+        return []
+
+
 async def get_lecture(lecture_id: UUID, locale: str) -> dict[str, Any]:
     meta = await _lecture_row(lecture_id)
     content, served = await get_lecture_content_for_locale(lecture_id, locale)
@@ -240,6 +255,7 @@ async def get_lecture(lecture_id: UUID, locale: str) -> dict[str, Any]:
         "source_language": meta["source_language"],
         "content_revision": meta["content_revision"],
     }
+    layouts = await layout_pages(lecture_id)
     return {
         "bundle": {
             "locale": served,
@@ -260,6 +276,7 @@ async def get_lecture(lecture_id: UUID, locale: str) -> dict[str, Any]:
         },
         "concepts": await graph_concepts(lecture_id),
         "pdf_signed_url": await signed_pdf_url(meta["pdf_url"]),
+        **({"layouts": layouts} if layouts else {}),
     }
 
 
