@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Scene, SURFACES } from '../components/Scene';
 import { SpacesTopBar } from '../components/SpacesTopBar';
-import { NotFound } from '../components/states';
+import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { Masthead, Skylight, StageRow, backLink, whitePill } from '../components/stage';
 import { useViewer } from '../data/viewer';
 import { useLanding } from '../data/landing';
@@ -31,17 +31,25 @@ import type { LandingLesson } from './types';
  * person the owner didn't hear from: everything but the questions is an
  * aggregate over at least `floor` people, with the owner's own reading left
  * out. Under the floor it says so once, and shows no figures and no light.
+ * Live, it waits on the stage's skeleton and fails with a way to try again;
+ * a door that is not yours is simply not there.
  */
 export default function LandingScreen({ spaceId }: { spaceId: string }) {
   const viewer = useViewer();
   const { t } = useTranslation('v4Landing');
-  const { state, landing, answer } = useLanding(spaceId);
+  const { state, landing, answer, retry } = useLanding(spaceId);
 
   if (state !== 'ready' || !landing) {
     return (
       <Scene surface={SURFACES.course} status="progress" motionKey={`landing-${spaceId}`}>
         <SpacesTopBar active="spaces" viewer={viewer} />
-        <NotFound what="space" back={{ to: '/v4/spaces', place: 'spaces' }} />
+        {state === 'loading' ? (
+          <DetailSkeleton />
+        ) : state === 'error' ? (
+          <SpacesError what="space" onRetry={retry} />
+        ) : (
+          <NotFound what="space" back={{ to: '/v4/spaces', place: 'spaces' }} />
+        )}
       </Scene>
     );
   }

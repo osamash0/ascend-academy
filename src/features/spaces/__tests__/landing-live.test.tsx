@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import i18n from '@/i18n';
 import { createLiveRepository, type V4Transport } from '../data/liveRepository';
 import { stageAccentFor } from '../components/stage';
 import { setLiveWorld } from '../data/world';
 import { emptyWorld } from './emptyWorld';
+import LandingScreen from '../landing/LandingScreen';
 import type { LandingQuestion } from '../landing/types';
 
 const { landingApi } = vi.hoisted(() => ({ landingApi: vi.fn() }));
@@ -98,5 +101,65 @@ describe('the door’s data, live', () => {
     expect(result.current.state).toBe('empty');
     expect(result.current.landing).toBeNull();
     expect(landingApi).not.toHaveBeenCalled();
+  });
+});
+
+const door = () =>
+  render(
+    <MemoryRouter>
+      <LandingScreen spaceId={SPACE} />
+    </MemoryRouter>,
+  );
+
+describe('the door, live', () => {
+  const live = () => {
+    vi.stubEnv('VITE_V4_DATA_MODE', 'live');
+    setLiveWorld(emptyWorld());
+  };
+
+  it('waits on the stage, then says it could not load, with a way to try again', async () => {
+    live();
+    landingApi.mockRejectedValue(Object.assign(new Error('500'), { status: 500 }));
+    door();
+    expect(screen.getByLabelText('Loading')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
+
+  it('a door that is not yours, or gone, is simply not there', async () => {
+    live();
+    landingApi.mockRejectedValue(Object.assign(new Error('404'), { status: 404 }));
+    door();
+    expect(await screen.findByText('That Space isn’t here')).toBeInTheDocument();
+  });
+
+  it('under the floor: Luna says it once, with no count, no figures and no map', async () => {
+    live();
+    landingApi.mockResolvedValue(wire);
+    door();
+    expect(await screen.findByText('A few people have been reading. Patterns show once five people have been through a page.')).toBeInTheDocument();
+    expect(screen.getAllByText(/Patterns show once five/)).toHaveLength(1);
+    expect(screen.queryByText(/members read this week/)).toBeNull();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Lessons' })).toBeNull();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Questions for you' })).toBeNull();
+  });
+
+  it('a question that arrives live is read, opens its page, and offers no answer that goes nowhere', async () => {
+    live();
+    landingApi.mockResolvedValue({ ...wire, questions: [waiting] });
+    door();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Questions for you' })).toBeInTheDocument();
+    expect(screen.getByText('Only 2×2?')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Vectors, page 6' })).toHaveAttribute('href', `/v4/space/${SPACE}/lesson/l1/faces?page=6`);
+    expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
+  });
+
+  it('reads in German', async () => {
+    live();
+    landingApi.mockResolvedValue(wire);
+    await i18n.changeLanguage('de');
+    door();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Wie es ankommt' })).toBeInTheDocument();
+    expect(screen.getByText('Ein paar Leute haben gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.')).toBeInTheDocument();
+    await i18n.changeLanguage('en');
   });
 });
