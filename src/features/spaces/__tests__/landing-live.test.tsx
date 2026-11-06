@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import i18n from '@/i18n';
 import { createLiveRepository, type V4Transport } from '../data/liveRepository';
@@ -119,10 +119,14 @@ describe('the door, live', () => {
 
   it('waits on the stage, then says it could not load, with a way to try again', async () => {
     live();
-    landingApi.mockRejectedValue(Object.assign(new Error('500'), { status: 500 }));
+    landingApi.mockRejectedValueOnce(Object.assign(new Error('500'), { status: 500 })).mockResolvedValueOnce(wire);
     door();
     expect(screen.getByLabelText('Loading')).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+    // Trying again asks the endpoint a second time, and the door opens on what it says.
+    expect(await screen.findByText('A few people have been reading. Patterns show once five people have been through a page.')).toBeInTheDocument();
+    expect(landingApi).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
   });
 
   it('a door that is not yours, or gone, is simply not there', async () => {
