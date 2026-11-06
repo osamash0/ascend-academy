@@ -2,12 +2,13 @@
  * The Layout face (LayoutLayer.tsx), ported from the demo's `.blk` and
  * `.reink` rules. Colours are the app's own tokens, never literals of their own.
  *
- * Night (the reader's night paper): the layer reads the dark root tokens as
- * they are, and its ground is --surface-1, which is the #141414 the night
- * page is painted. Paper (the default): the same names, rescoped to the app's
- * light theme (`.light` in src/index.css), whose --surface-1 is the white of
- * the pdf.js page slot. The `.light` class itself is not used: it paints its
- * own background, which would cover the holes.
+ * Both branches set their tokens themselves, so the app's own theme (a
+ * `.light` root from ThemeProvider) never reaches the layer. Night (the
+ * reader's night paper): the dark root's values, whose --surface-1 is the
+ * #141414 the night page is painted. Paper (the default): the app's light
+ * theme (`.light` in src/index.css), whose --surface-1 is the white of the
+ * pdf.js page slot. The `.light` class itself is not used: it paints its own
+ * background, which would cover the holes.
  *
  * The term colour is the reader's accent, sampled from the deck, like every
  * other mark in the reader.
@@ -36,6 +37,16 @@
   /* The quiet scale is white-on-dark at the root; on paper it is the ink at the same steps. */
   --text-quiet: 15 23 42 / 0.72;
   --text-faint: 15 23 42 / 0.5;
+}
+
+/* The dark root's values (src/index.css :root), set here so a light app theme cannot leak in. */
+.ls-layout[data-night] {
+  --surface-1: 0 0% 8%;
+  --foreground: 0 0% 96%;
+  --border: 0 0% 15%;
+  --secondary: 0 0% 62%;
+  --text-quiet: 255 255 255 / 0.72;
+  --text-faint: 255 255 255 / 0.5;
 }
 
 .ls-layout .ls-ground,

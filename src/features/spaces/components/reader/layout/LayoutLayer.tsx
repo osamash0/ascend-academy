@@ -102,7 +102,9 @@ function Table({ rows, colW }: { rows: string[][]; colW?: number[] }) {
     colW && colW.length === n
       ? colW
       : Array.from({ length: n }, (_, i) => Math.max(3, ...rows.map((r) => (r[i] ?? '').length)));
-  const cols = w.map((x) => `${x}fr`).join(' ');
+  /* As shares of the table's width: the grid reads an fr sum below 1 as a part of the free space. */
+  const sum = w.reduce((a, x) => a + Math.max(0, x), 0);
+  const cols = w.map((x) => `minmax(0, ${sum > 0 ? +(Math.max(0, x) / sum).toFixed(4) : 1}fr)`).join(' ');
   return (
     <>
       {rows.map((r, ri) => (

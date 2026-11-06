@@ -113,7 +113,8 @@ describe('LayoutLayer', () => {
     expect(el.dataset.group).toBe('row');
     const rows = el.querySelectorAll<HTMLElement>('.tr');
     expect(rows).toHaveLength(2);
-    expect(rows[0].style.gridTemplateColumns).toBe('0.2fr 0.3fr');
+    // The original widths as shares of the table, so the columns fill its box.
+    expect(rows[0].style.gridTemplateColumns).toBe('minmax(0, 0.4fr) minmax(0, 0.6fr)');
     expect(rows[1].querySelectorAll('span')).toHaveLength(2);
   });
 
@@ -139,6 +140,25 @@ describe('LayoutLayer', () => {
   it('follows the reader into night paper', () => {
     expect(draw(page([])).querySelector('.ls-layout')!.hasAttribute('data-night')).toBe(false);
     expect(draw(page([]), true).querySelector('.ls-layout')!.hasAttribute('data-night')).toBe(true);
+  });
+
+  it('sets both paper and night tokens itself, so the app theme never leaks in', () => {
+    const css = readFileSync(join(process.cwd(), 'src/features/spaces/components/reader/layout/layout.css'), 'utf8');
+    const scope = (sel: string) => css.slice(css.indexOf(`${sel} {`), css.indexOf('}', css.indexOf(`${sel} {`)));
+    for (const sel of ['.ls-layout:not([data-night])', '.ls-layout[data-night]']) {
+      const body = scope(sel);
+      for (const token of ['--surface-1:', '--foreground:', '--border:', '--secondary:', '--text-quiet:', '--text-faint:'])
+        expect(body, `${sel} ${token}`).toContain(token);
+    }
+    expect(scope('.ls-layout[data-night]')).toContain('--surface-1: 0 0% 8%;');
+  });
+
+  it('sets a letter and a lone i or j as an index in maths', () => {
+    const c = draw(page([{ id: 'm', kind: 'paragraph', bbox: [0.1, 0.2, 0.9, 0.3], text: '∀x i ∈ X ⇒ y j , z' }]));
+    const el = blockEl(c, 'm')!;
+    expect(el.dataset.kind).toBe('math');
+    expect([...el.querySelectorAll('sub')].map((s) => s.textContent)).toEqual(['i', 'j']);
+    expect(el.textContent).toBe('∀xi ∈ X ⇒ yj, z');
   });
 
   it('renders text as React nodes, never as HTML', () => {
