@@ -58,13 +58,13 @@ class StubPage:
 
 
 def test_pua_map_reads_the_symbol_font_of_the_span():
-    page = StubPage([{"font": "Symbol", "text": ""}])
-    assert pua_map(page) == {"": "α"}
+    page = StubPage([{"font": "Symbol", "text": "\uf061"}])
+    assert pua_map(page) == {"\uf061": "α"}
 
 
 def test_pua_map_reads_wingdings_arrows():
-    page = StubPage([{"font": "Wingdings-Regular", "text": ""}])
-    assert pua_map(page) == {"": "→"}
+    page = StubPage([{"font": "Wingdings-Regular", "text": "\uf0e0"}])
+    assert pua_map(page) == {"\uf0e0": "→"}
 
 
 def test_pua_map_ignores_ordinary_characters():

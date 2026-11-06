@@ -6,8 +6,10 @@ from backend.services.parser.layout.geometry import area, inter, near, union, wh
 
 PAGE_NUMBER = re.compile(r"^(slide|folie|seite|page|s\.)?\s*\d+(\s*(/|of|von)\s*\d+)?$", re.IGNORECASE)
 LINE_NUMBER = re.compile(r"^\s*(\d{1,3})[:.)]?\s")
-OUTER_BAND = 0.86          # the bottom band starts here (y0 above it) ...
-TOP_BAND = 0.1             # ... and the top band ends here (y1 below it)
+OUTER_BAND = 0.86          # furniture: the bottom band starts here (y0 above it) ...
+TOP_BAND = 0.1             # ... and the top band ends here (y1 below it); used by drop_furniture and the chip rule
+STROKE_BOTTOM = 0.88       # reink's header and footer bands (the reference's thresholds): bottom starts here ...
+STROKE_TOP = 0.12          # ... and the top band ends here
 KEEP_OUT_SHARE = 0.5       # an item this much inside a table or figure is shown there
 CHIP_BAND_SIZE = 0.06      # an empty closed shape this small in the outer band is a page-number chip
 CHIP_SIZE = 0.04           # an empty closed shape this small, alone, is a stray outline
@@ -16,6 +18,10 @@ CLUSTER = 3                # items that make a cluster
 
 def _in_band(y0, y1):
     return y0 > OUTER_BAND or y1 < TOP_BAND
+
+
+def _in_stroke_band(y0, y1):
+    return y0 > STROKE_BOTTOM or y1 < STROKE_TOP
 
 
 def drop_furniture(blocks, footers, page_no):
@@ -95,7 +101,7 @@ def reink(page, keep_out, texts=()):
         w, h = nb[2] - nb[0], nb[3] - nb[1]
         if (w > 0.6 and h < 0.012) or (w > 0.8 and h < 0.04) or (h > 0.8 and w < 0.04) or w * h > 0.25:
             continue                                   # title underlines, bars, rules, side bars, backgrounds
-        if w > 0.2 and h < 0.06 and _in_band(nb[1], nb[3]):
+        if w > 0.2 and h < 0.06 and _in_stroke_band(nb[1], nb[3]):
             continue                                   # header and footer bands (and their pieces)
         if max(w, h) < 0.01:
             continue                                   # specks: drawn bullets, dots

@@ -142,3 +142,29 @@ def test_a_diagram_is_reported_as_a_cluster_of_items():
     page.draw_line((420, 230), (500, 230), color=(0, 0, 0))
     _, diagrams = reink(page, [], [])
     assert len(diagrams) == 1 and len(diagrams[0]["items"]) == 5
+
+
+# --- the 6% chip rule, isolated; and the reference's header/footer bands for reink -----------------------
+def test_a_five_percent_empty_shape_in_the_footer_band_is_a_chip_and_not_redrawn():
+    doc, page = page_800x600()
+    page.draw_rect(fitz.Rect(700, 560, 740, 590), color=(0, 0, 0))     # 5% x 5%: above the 4% stray rule
+    paths, _ = reink(page, [], [])
+    assert paths == []
+
+
+def test_the_same_five_percent_shape_mid_page_is_redrawn():
+    doc, page = page_800x600()
+    page.draw_rect(fitz.Rect(700, 280, 740, 310), color=(0, 0, 0))
+    paths, _ = reink(page, [], [])
+    assert len(paths) == 1
+
+
+def test_reink_bands_are_the_references_not_the_furniture_bands():
+    doc, page = page_800x600()
+    # a wide thin box between 0.86 and 0.88 of the height is outside reink's band (it starts at 0.88)
+    page.draw_rect(fitz.Rect(200, 521, 440, 545), color=(0, 0, 0))     # y 0.868..0.908, w 0.3, h 0.04
+    paths, _ = reink(page, [], [])
+    assert len(paths) == 1
+    doc2, page2 = page_800x600()
+    page2.draw_rect(fitz.Rect(200, 535, 440, 559), color=(0, 0, 0))    # y 0.892..0.932: inside the band
+    assert reink(page2, [], [])[0] == []
