@@ -108,7 +108,7 @@ def server_checks(page, blocks, pics, diagrams, paths, dropped, marks=0, pua=Non
     if marks:
         reasons.append(f"{marks} marks lost")
     if under:
-        reasons.append(f"{under} lines under a crop")
+        reasons.append(f"{under} line{'s' if under > 1 else ''} under a crop")
     if lost_pics:
         reasons.append(f"{lost_pics} picture{'s' if lost_pics > 1 else ''} lost or cut")
     if broken:

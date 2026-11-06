@@ -335,3 +335,12 @@ def test_a_page_with_too_many_lines_is_held_and_stores_none_of_them():
     lp = build_page_layout(p, 1, set())
     assert lp["verdict"] == "original" and "too many lines" in lp["reasons"]
     assert lp["paths"] == []
+
+
+def test_lines_under_a_crop_are_counted_in_words():
+    d, p = text_page()
+    fig = {"id": "d1-0", "kind": "figure", "bbox": [0.05, 0.08, 0.95, 0.2], "text": ""}
+    one = [{"id": "p1-b0", "kind": "paragraph", "bbox": [0.1, 0.1, 0.6, 0.15], "text": "Hello world"}]
+    two = one + [{"id": "p1-b1", "kind": "paragraph", "bbox": [0.1, 0.15, 0.6, 0.19], "text": "A second line of plain text"}]
+    assert "1 line under a crop" in server_checks(p, one + [fig], [], [], [], [])
+    assert "2 lines under a crop" in server_checks(p, two + [fig], [], [], [], [])
