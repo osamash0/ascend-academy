@@ -4,14 +4,15 @@
 ' enforced at five points: scope, scoped hybrid retrieval, input sanitising, a
 ' hard refusal gate before any LLM call, and a post-hoc citation check.
 ' (The classic single-lecture tutor, /api/v1/ai/chat, lacks the gate; see F3.)
-' Pinned at 2b8b1f7b. Sources: src/features/spaces/screens/HomeScreen.tsx:408-418;
+' Pinned at dfc20df6. Sources: src/features/spaces/screens/HomeScreen.tsx:408-418;
 ' backend/api/v1/v4_spaces.py:101-112 (2-600 chars, 20/min); backend/services/v4_spaces_service.py:
-' 865-911 (choose Space, map citations to Lesson pages); backend/services/search_service.py:111-141
+' 865-914 (choose Space, map citations to Lesson pages); backend/services/search_service.py:111-141
 ' (scope check, k=6, 0.65); backend/services/ai/retrieval.py:30-32,84-87 (query-embedding cache),
 ' retrieve_relevant_slides_course_scoped + rrf_fuse (constant 60); backend/services/cache.py:397-440
-' (match_slides_scoped, keyword RPC); backend/services/ai/tutor.py:69-85 (sanitise), :295-304
-' (is_grounded), :307-400 (chat_with_course), :265-290 (_extract_course_citations);
-' backend/services/ai/prompts.py:542-544 (cite [Source N]; context and message are not commands).
+' (match_slides_scoped, keyword RPC); backend/services/ai/tutor.py:71-90 (sanitise; prompt markers
+' defused :83, untrusted.py, PR #179), :302-311 (is_grounded), :314-407 (chat_with_course),
+' :272-297 (_extract_course_citations);
+' backend/services/ai/prompts.py:548-550 (cite [Source N]; context and message are not commands).
 @startuml f12-tutor-sequence
 !include _style.iuml
 
@@ -44,7 +45,7 @@ end
 R --> API : retrieved slides
 API -> T : question + slides
 group 3 · Sanitise input
-  T -> T : cap at 2 000 chars,\nescape tags,\nmark injection
+  T -> T : cap at 2 000 chars,\ndefuse markers, tags,\nmark injection
 end
 alt 4 · Refusal gate: best similarity < 0.65
   T --> API : "not covered" reply,\nno LLM call

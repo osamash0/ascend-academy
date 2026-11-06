@@ -1,9 +1,9 @@
 ' F7 -- Production deployment topology.
 ' Chapter 4 (Design). UML deployment diagram.
-' Pinned revision 2b8b1f7b (2026-11-02). Claim supported: five containers on
+' Pinned revision dfc20df6 (2026-11-06). Claim supported: five containers on
 ' one small VM behind a host nginx that terminates TLS, plus managed and
 ' free-tier services for data, mail, monitoring and off-site backups.
-' Sources: docker-compose.prod.yml:6-197, Dockerfile.frontend:14-62,
+' Sources: docker-compose.prod.yml:7-198, Dockerfile.frontend:14-62,
 ' deploy/server/heartbeat/*, deploy/server/offsite-backup/*,
 ' docs/runbooks/deploy-main-to-prod.md:6-9, docs/runbooks/domain-dns-and-email.md,
 ' docs/runbooks/monitoring-and-backups.md, docs/ops/2026-10-30-learnstation-app-move.md.

@@ -1,11 +1,15 @@
 ' F11 -- LLM provider failover (text chains).
 ' Chapter 4. UML activity diagram.
-' Pinned revision 2b8b1f7b (2026-11-02). Claim supported: the chains hold eight
-' entries on six credentials; failures are classified four ways (402, 429,
-' 404, other) and only the last class carries no penalty.
+' Pinned revision dfc20df6 (2026-11-06). Claim supported: the chains hold eight
+' entries on six credentials; failures are classified five ways (402, 429,
+' 401, 404, other) and only the last class carries no penalty. A 401 (key
+' rejected) disables like 402 and 404; a 403 stays "other" on purpose, since
+' OpenRouter answers a moderation-flagged prompt with 403.
 ' Sources: backend/services/ai/orchestrator.py (registry :239-367, chains
-' :386-397, availability :672-742, rotation :1019-1151, wrappers :1494-1599),
-' backend/services/llm_client.py:34-79, backend/services/ai/vision.py:117-208.
+' :386-397, availability :672-742, rotation :1019-1169 with
+' 401 at :1126-1135 + :1148-1155, wrappers :1512-1617),
+' backend/services/llm_client.py:34-79, backend/services/ai/vision.py:117-209
+' (401/402/404 permanent :177-195).
 @startuml f11-provider-chain
 !include _style.iuml
 
@@ -26,7 +30,6 @@ never a fallback to the raw chain);
 note right
   Still weak:
   gemma+gemini, groq_fast+groq share keys
-  401/403 carry no penalty, so they re-fire
   8 attempts budgeted, at most 4 fit in 25 s
 end note
 while (next provider?) is (yes)
@@ -37,10 +40,10 @@ while (next provider?) is (yes)
     :disable until\nrestart (billing);
   elseif (429 (text)) then (yes)
     :backoff 90 s·2^n,\nmax 600 s;
-  elseif (404) then (yes)
-    :disable until\nrestart (model);
+  elseif (401/404) then (yes)
+    :disable until\nrestart (key\nor model);
   else (other)
-    :no penalty; <<#DCDCDC>>
+    :no penalty,\n403 included; <<#DCDCDC>>
   endif
 endwhile (none left: raise last error)
 stop
@@ -48,7 +51,7 @@ stop
 legend bottom
   BULK      groq_fast > cloudflare > gemma > mistral > openrouter > gemini > groq > openai
   QUALITY  groq > openrouter > cloudflare > gemini > mistral > groq_fast > gemma > openai
-  openai_only mode: both chains are [openai]. Vision: gemini > openai; 402/404 disable.
+  openai_only mode: both chains are [openai]. Vision: gemini > openai; 401/402/404 disable.
 endlegend
 
 @enduml

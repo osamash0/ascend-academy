@@ -4,16 +4,17 @@
 ' corpus, each with a different groundedness guarantee. In production the three
 ' v4 surfaces are what students reach; the classic lecture tutor, the weakest
 ' regime, is now reached only by professors (or by everyone when v4 is off).
-' Pinned at 2b8b1f7b. Sources:
-'   A  backend/api/v1/v4_reader.py:80-107,175-193; backend/services/v4_reader_service.py:605-613
-'      (SOURCE_GROUNDING_RULES), :674-700 / :770-810 (one page, <=3500 chars), :676/:790 (cache keys)
+' Pinned at dfc20df6. Sources:
+'   A  backend/api/v1/v4_reader.py:80-107,175-193; backend/services/v4_reader_service.py:611-622
+'      (SOURCE_GROUNDING_RULES; data-not-instructions :619-621), :683-684 (slide text defused),
+'      :705-728 / :820-860 (one page, <=3500 chars), :707/:840 (cache keys)
 '   B  backend/services/luna/context.py:13-33 (page window +-1, 2500 chars); session_service.py:115-117
-'      (find_in_course, Postgres full-text); luna/prompts.py:26 (page text is DATA);
+'      (find_in_course, Postgres full-text); luna/prompts.py:28 (page text is DATA);
 '      luna/validate.py:85-91,135-147 (page must exist; phrase kept only if verbatim)
-'   C  backend/services/v4_spaces_service.py:865-896 -> search_service.ask_course -> tutor.py:307-342
-'      (is_grounded :295-304, refusal :339-340); retrieval.py:30-32 (k=6, 0.65);
+'   C  backend/services/v4_spaces_service.py:865-899 -> search_service.ask_course -> tutor.py:314-349
+'      (is_grounded :302-311, refusal :346-347); retrieval.py:30-32 (k=6, 0.65);
 '      src/features/spaces/screens/HomeScreen.tsx:408-418 (citation chips)
-'   D  tutor.py:186-189 (former refusal removed), retrieval.py:30-31 (k=5, 0.65), tutor.py:117-144
+'   D  tutor.py:193-196 (former refusal removed), retrieval.py:30-31 (k=5, 0.65), tutor.py:124-151
 '      (post-hoc citation filter); src/App.tsx:657-664 (students redirected to v4)
 @startuml f3-grounded-vs-ungrounded
 !include _style.iuml
@@ -27,7 +28,7 @@ skinparam rectangle {
 
 rectangle "**A — Reader: Explain / Ask**\n//one page, in the reader//" as A #F2F2F2 {
   rectangle "Current page only, at most 3 500 chars\n**no retrieval**: nothing to cite" as A1 #DCDCDC
-  rectangle "Prompt: stated facts only;\nsay so if the page lacks it" as A2
+  rectangle "Prompt: stated facts only; page text\nis data, fence defused; say if missing" as A2
   rectangle "Checked UI blocks,\ncached per content revision" as A3
   A1 --> A2
   A2 --> A3

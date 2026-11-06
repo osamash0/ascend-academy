@@ -1,15 +1,20 @@
-' F8 -- The ingestion pipeline at the thesis revision (2b8b1f7b).
+' F8 -- The ingestion pipeline at the thesis revision (dfc20df6).
 ' HERO FIGURE. Chapter 4.
 ' Claim supported: two entry routes (the classic SSE stream and the v4 poll
 ' routes) admit a PDF synchronously and converge on one stored object and one
 ' Arq job; the job does all content work server-side and persists page by
 ' page, so the reader can open the file long before the parse finishes.
-' Sources: upload.py:146-266 (SSE route), :568-760 (batch);
+' Each page is routed once per parse (page text counted without running
+' footers): < 25 chars -> no_text, vision, flagged for review; < 150 chars
+' with figures covering >= 5% of the page -> figure, vision adds title and
+' summary, the page keeps its own text; else text, batched 8 per call.
+' Sources: upload.py:146-266 (SSE route), :571-763 (batch);
 ' v4_spaces.py:180-195 + materials_service.py:105-146 (v4 route);
 ' v4_spaces_service.py:477-536 (instant reader); unified_orchestrator.py:
-' 797-840 (run row, guards), :853-976 (extract, enhance), :1007-1166 (pages),
-' :1197-1237 (deck quiz), :1237-1390 (finalize), :1393-1451 (failure path).
-' Not drawn, on purpose: the headroom gate (:880-893; cannot trip while an
+' 842-885 (run row, guards), :898-1023 (extract, enhance), :919 (routes),
+' :1054-1214 (pages; routes applied :1080), :1245-1285 (deck quiz), :1285-1438
+' (finalize), :1441-1499 (failure path); page_blocks.py:201-219 (route_page).
+' Not drawn, on purpose: the headroom gate (:927-940; cannot trip while an
 ' unmetered provider such as OpenAI is configured) and the flag-gated steps
 ' that are off in production (Studio pages, course context, cross-lecture
 ' quiz, review cards, concept graph). The reject label is padded with
@@ -55,10 +60,10 @@ endif
 :Extract: PyMuPDF text per page, page count stored.
 Enhance: title + summary (text layer only), create or
 reuse the lecture row, poster, compacted reader copy.;
-if (page has >= 25 chars of text?) then (yes)
+if (page route (set once per parse)?) then (text)
   :one LLM call per 8 pages;
-else (no)
-  :vision call per page;
+else (no_text: < 25 chars\nfigure: < 150 chars, figures >= 5%)
+  :vision per page; figure keeps its text, no_text flagged;
 endif
 :persist each page, start its embedding task; <<output>>
 :Deck quiz: 5-8 questions, each citing its slide, re-answered

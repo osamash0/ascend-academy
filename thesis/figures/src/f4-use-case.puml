@@ -3,13 +3,13 @@
 ' Claim supported: students work in the v4 app; authoring a Space is gated on
 ' ownership, not role (any student or professor can create and publish one);
 ' the professor console and the admin tools remain classic.
-' Pinned at 2b8b1f7b, production flags FEATURE_V4, _V4_READER, _LUNA_SESSIONS,
+' Pinned at dfc20df6, production flags FEATURE_V4, _V4_READER, _LUNA_SESSIONS,
 ' _STUDENT_UPLOADS on. Sources: src/lib/auth.tsx:9 (roles); backend/core/auth_middleware.py:
 ' 260-263 (require_student, require_creator); backend/api/v1/v4_reader.py:80,175 (explain, ask),
 ' :129-146 (practice), :229 (rehearsal), :254 (checkpoint), :279 (teach-back);
 ' backend/api/v1/v4_luna.py:94-218 (sessions, memory, due practice); backend/api/v1/v4_spaces.py:
 ' 59,75 (create, publish), :85-94 (join, leave), :108 (ask), :137 (notes), :180 (uploads);
-' backend/api/v1/v4_landing.py:34 (landing); backend/api/v1/launch_control.py:24,42;
+' backend/api/v1/v4_landing.py:33 (landing); backend/api/v1/launch_control.py:24,42;
 ' backend/api/v1/admin.py (roles, stats, LLM spend, backups, analytics reset);
 ' src/App.tsx:384-395,558-630 (classic tools behind their flags).
 @startuml f4-use-case

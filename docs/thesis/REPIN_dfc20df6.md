@@ -24,6 +24,20 @@ Macros (`thesis/metadata.tex`):
 | #179 | Uploaded and learner text can no longer forge prompt markers (`untrusted.py`) | ch5 injection defences; F3, F12, F14; ledger 5.7/5.8 |
 | #178 | One routing rule, `page_blocks.route_page`: no text / figure / text | ch4 routing subsection rewrite (the 25-character rule becomes found-then-fixed); F8; appendix row for the threshold; the routing study as evaluation material |
 
+## Status (2026-11-06)
+
+Done and committed on the thesis branch:
+- Chapter 4: routing (#178), 401 handling (#177), compose files, honest comments, pin macros, F11 caption.
+- Appendix A: all 53 rows re-read (the routing row became three rows; eight rows moved lines); CONSTANTS.md has a dfc20df6 section.
+- Chapter 5 briefs: the analytics finding found-then-fixed (#175, #176), the injection defences (#179), the tutor docstring and retrieval cite (#177), about 25 line moves.
+- Chapter 6: the F17 caption has twelve flags.
+- Figures: F1, F8 (routing), F11 (401), F17 (12 flags, 8 with a UI side), F16 (printed tutor range); F3 and F12 labels (#179); every header and MANIFEST row moved to dfc20df6.
+
+Still open:
+- [ ] The retrieval grid re-run (below).
+- [ ] The ledger "@main" column (below).
+- [ ] The chapter 6 briefs, written against 0be0081 and never re-verified (separate pass).
+
 ## Also re-run at the new pin
 
 - [ ] `python -m backend.eval.retrieval_grid` (F19; its course column predates `b66a97c6`)

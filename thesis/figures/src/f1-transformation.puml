@@ -3,15 +3,15 @@
 ' Claim supported: the thesis title made visual. One PDF in; the original kept as
 ' the reading surface, plus a set of addressable learning objects derived from it,
 ' each feeding a capability that is live for students in production.
-' Pinned at 2b8b1f7b. Sources: backend/services/upload_service.py:13 (1-300 pages);
-' backend/services/parser/unified_orchestrator.py:166-176 (PyMuPDF), :77 + :1033-1037 (text vs
-' vision routing), :672-703 (compact reading copy in lecture-pdfs); backend/services/ai/
-' orchestrator.py:158 (8 slides per call); backend/services/parser/synthesis.py:154 (5-8 deck MCQs) + persist.py:299-343
-' (insert_deck_quizzes; per-slide questions are discarded, unified_orchestrator.py:1123, :1241);
+' Pinned at dfc20df6. Sources: backend/services/upload_service.py:13 (1-300 pages);
+' backend/services/parser/unified_orchestrator.py:167-177 (PyMuPDF), :919 + page_blocks.py:201-219
+' (text / figure / no_text routing), unified_orchestrator.py:717-748 (compact reading copy in lecture-pdfs); backend/services/ai/
+' orchestrator.py:158 (8 slides per call); backend/services/parser/synthesis.py:163 (5-8 deck MCQs) + persist.py:299-343
+' (insert_deck_quizzes; per-slide questions are discarded, unified_orchestrator.py:1171, :1289);
 ' backend/services/ai/embeddings.py:29 (768 dims); backend/services/parser/persist.py:4-5,233-258;
 ' capabilities: backend/api/v1/v4_reader.py:80,175 (explain, ask), :129-146 + v4_practice_service.py:3
-' (practice from quiz_questions), :254 + v4_rehearsal_service.py:409 (checkpoint from slide text); backend/services/luna/context.py:13-33;
-' backend/services/v4_spaces_service.py:865-896 (Home ask -> course tutor).
+' (practice from quiz_questions), :254 + v4_rehearsal_service.py:410 (checkpoint from slide text); backend/services/luna/context.py:13-33;
+' backend/services/v4_spaces_service.py:865-899 (Home ask -> course tutor).
 @startuml f1-transformation
 !include _style.iuml
 
@@ -28,7 +28,7 @@ rectangle "**INPUT** — one PDF" as IN #F2F2F2 {
 
 rectangle "**TRANSFORMATION** — in the worker, server-authoritative" as MID #DCDCDC {
   rectangle "1. Extract\npage text (PyMuPDF),\nstore the PDF" as T1
-  rectangle "2. Route\ntext pages vs\nimage-only pages" as T2
+  rectangle "2. Route\ntext / figure /\nno-text pages" as T2
   rectangle "3. Synthesise\nbatched LLM,\n8 slides per call" as T3
   rectangle "4. Embed\n768-dim\nvectors" as T4
   T1 -right-> T2

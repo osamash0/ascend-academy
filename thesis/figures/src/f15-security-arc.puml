@@ -1,5 +1,5 @@
 ' F15 -- Privilege-escalation hardening arc.
-' Chapter 5. UML state diagram. Pinned revision 2b8b1f7b.
+' Chapter 5. UML state diagram. Pinned revision dfc20df6.
 ' Claim supported: authorisation was hardened step by step, in two phases.
 ' Phase 1 (Jan-Jun 2026): five steps over six migrations; step 1 itself
 ' created the hole step 2 closes, and step 3 made the leak step 5 closes

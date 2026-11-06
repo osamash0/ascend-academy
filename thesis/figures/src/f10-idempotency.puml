@@ -1,5 +1,5 @@
 ' F10 -- Layered idempotency in the content-addressed ingestion pipeline,
-' at the thesis revision (2b8b1f7b).
+' at the thesis revision (dfc20df6).
 ' HERO FIGURE. Chapter 4.
 ' Claim supported: a re-submitted file meets nine mechanisms in four layers;
 ' eight are live. L0 (the parse-cache replay) is still read on the classic
@@ -11,9 +11,9 @@
 ' Smetana from staircasing; "note left" is misplaced by Smetana, so one note.
 ' Sources: cache.py:191-231, upload.py:195-206, file_parse_service.py:1148
 ' (L0); upload_service.py:105-120 (L1); materials_service.py:90-120,
-' upload.py:630-697 (L2); repos.py:44-100, migration 20260730000000:50 (L3);
-' unified_orchestrator.py:817-822 (L4); job_locks.py:33-54,
-' unified_orchestrator.py:68, :826-832 (L5); :947-951 (L6); :672-703,
+' upload.py:633-700 (L2); repos.py:44-100, migration 20260730000000:50 (L3);
+' unified_orchestrator.py:862-867 (L4); job_locks.py:33-54,
+' unified_orchestrator.py:68, :871-877 (L5); :994-998 (L6); :717-748,
 ' poster.py:116-128, repos.py:483-512 (L7); file_parse_service.py:827-841,
 ' cache.py:554-556 (L8). Edge case: reconcile.py:45-49, :123-129,
 ' arq_worker.py:67.

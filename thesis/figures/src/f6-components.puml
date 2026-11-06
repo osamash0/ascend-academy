@@ -1,10 +1,10 @@
 ' F6 -- Component view of the deployed system.
 ' Chapter 4. UML component diagram.
-' Pinned revision 2b8b1f7b (2026-11-02). Claim supported: production runs five
+' Pinned revision dfc20df6 (2026-11-06). Claim supported: production runs five
 ' containers; LLM providers are called directly (no gateway); the database is
 ' reached on two paths, and the v4 app needs the direct asyncpg one.
-' Sources: docker-compose.prod.yml:15-197, nginx.conf:26-29, Dockerfile.frontend:59,
-' backend/main.py:267-279, :364-440, backend/core/database.py:150-190,
+' Sources: docker-compose.prod.yml:16-198, nginx.conf:26-29, Dockerfile.frontend:59,
+' backend/main.py:267-279, :364-443, backend/core/database.py:150-190,
 ' backend/workers/arq_worker.py:83-103, :321-359, backend/services/upload_service.py:45-62, :325-336,
 ' backend/services/ai/orchestrator.py:92-138, :239-397.
 @startuml f6-components

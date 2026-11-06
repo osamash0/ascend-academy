@@ -1,10 +1,10 @@
 ' F18 -- Evaluation setup.
 ' Chapter 6 (Evaluation). Concept diagram.
-' Claim supported: four evaluation instruments exist at 2b8b1f7b, and they differ in
+' Claim supported: four evaluation instruments exist at dfc20df6, and they differ in
 ' what they can measure. The scorecard harness proves its scorers but cannot measure
 ' the live system; the retrieval grid produced F19's numbers; the parser benchmark is
 ' a pre-registered, blind, human-judged comparison of 11 text-extraction methods.
-' Pinned at 2b8b1f7b. Sources: backend/eval/{golden_sets,pipeline,scorer,judge,run_eval}.py
+' Pinned at dfc20df6. Sources: backend/eval/{golden_sets,pipeline,scorer,judge,run_eval}.py
 ' (run_eval.py:1-7; pipeline.py:78-104 LivePipeline refuses synthetic deck ids);
 ' backend/eval/retrieval_grid.py:1-45, data/golden_set.json (50 questions), verify_anchors.py;
 ' backend/eval/parser_bench/{blinding,schedule,ranking,checks,results}.py, ranking.py:1-15

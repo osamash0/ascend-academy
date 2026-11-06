@@ -463,9 +463,9 @@ intended database, and the running one has to be inspected.
 
 \thesisfigure{f11-provider-chain}
   {LLM failover. The registry holds nine entries, but the two chains use eight
-   of them on six credentials; payment (402) and missing-model (404) failures
-   disable a provider until restart, rate limits back off, and every other
-   failure carries no penalty.}
+   of them on six credentials; a rejected key (401), payment (402) and a missing
+   model (404) disable a provider until restart, rate limits back off, and every
+   other failure, 403 included, carries no penalty.}
   {fig:provider-chain}
 
 Every generated artefact depends on a large language model. The platform was

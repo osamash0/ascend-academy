@@ -7,7 +7,7 @@
 ' Data: thesis/results/20260917T214528Z/grid_results.{md,csv} (run 2026-09-17 at
 ' a696be1-dirty, 170 commits after 0be0081). The course-scoped search changed on
 ' 2026-10-14 (b66a97c6, migration 20261014000000_match_slides_scoped_by_pdf_hash.sql),
-' so the course row predates the pinned revision 2b8b1f7b and should be re-run there.
+' so the course row predates the pinned revision dfc20df6 and should be re-run there.
 ' Defaults: backend/services/ai/retrieval.py:30-32.
 @startuml f19-results
 !include _style.iuml

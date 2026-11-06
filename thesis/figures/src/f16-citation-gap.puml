@@ -1,13 +1,13 @@
 ' F16 -- Source attribution: from computed-but-discarded to shown.
 ' Chapter 6 (Evaluation). Concept diagram.
 ' Claim supported: at 0be0081 the server computed and validated citations that no
-' interface a student could reach displayed. At 2b8b1f7b the gap is closed for
+' interface a student could reach displayed. At dfc20df6 the gap is closed for
 ' students by replacement, not repair: the v4 surfaces show attribution, while the
 ' classic components still discard it.
-' Pinned at 2b8b1f7b. Sources: backend/services/ai/tutor.py:117-144 (_extract_citations);
-' backend/services/v4_spaces_service.py:886-896 + src/features/spaces/screens/HomeScreen.tsx:408-418
+' Pinned at dfc20df6. Sources: backend/services/ai/tutor.py:124-151 (_extract_citations);
+' backend/services/v4_spaces_service.py:886-899 + src/features/spaces/screens/HomeScreen.tsx:408-418
 ' (Home chips); backend/services/luna/validate.py:85-91,135-147 + components/reader/luna/MoveMark.tsx
-' (Luna moves); backend/services/v4_reader_service.py:397 (reader "spot", length-checked only);
+' (Luna moves); backend/services/v4_reader_service.py:403 (reader "spot", length-checked only);
 ' src/pages/LectureView.tsx:43 (ChatMessage has no citations); src/features/student/components/
 ' InlineLecturePlayer.tsx:831-833 (label from the visible slide); src/components/LectureChat.tsx
 ' (imported only by its test); src/App.tsx:197-212,645-656,657-664 (StudentV4Redirect).
@@ -22,7 +22,7 @@ skinparam rectangle {
 }
 
 rectangle "**Server** — unchanged since August" as SRV #F2F2F2 {
-  rectangle "Tutor reply cites [Slide N] / [Source N];\nany index outside the retrieved set\nis dropped (tutor.py:117-144)" as S1
+  rectangle "Tutor reply cites [Slide N] / [Source N];\nany index outside the retrieved set\nis dropped (tutor.py:124-151)" as S1
 }
 
 rectangle "**v4 — what students reach**" as V4 #BFBFBF {

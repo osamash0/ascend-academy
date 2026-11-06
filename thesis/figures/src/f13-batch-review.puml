@@ -4,7 +4,7 @@
 ' AI-extracted content is visible from the moment the parse finishes; "Done
 ' reviewing" is a localStorage flag, not a publish action. The v4 owner path
 ' (adding Lessons to a Space) has no review step at all.
-' Pinned at 2b8b1f7b. Sources: src/pages/BatchReviewPage.tsx:21-35 (no draft state,
+' Pinned at dfc20df6. Sources: src/pages/BatchReviewPage.tsx:21-35 (no draft state,
 ' localStorage key); backend/services/parser/repos.py:156-216 (batch aggregate, flagged at :184);
 ' src/services/lectureService.ts:650-655 (patched fields); src/App.tsx:779-786 (route);
 ' src/features/spaces/data/liveRepository.ts:256-269 (v4 addLessons -> /api/upload/batch, no review UI).

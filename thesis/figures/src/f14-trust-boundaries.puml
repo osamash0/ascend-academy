@@ -1,5 +1,5 @@
 ' F14 -- Trust boundaries: three client-facing walls and the backend wall.
-' Chapter 5 (Implementation). Concept diagram. Pinned revision 2b8b1f7b.
+' Chapter 5 (Implementation). Concept diagram. Pinned revision dfc20df6.
 ' Claim supported: a browser holding the anon key meets three database-side
 ' boundaries (table RLS, function EXECUTE grants, storage policies). The
 ' FastAPI backend is a fourth boundary: most routes run as service_role or

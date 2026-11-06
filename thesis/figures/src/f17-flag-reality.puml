@@ -1,18 +1,19 @@
 ' F17 -- Built versus delivered.
 ' Chapter 6 (Evaluation). Concept diagram.
-' Claim supported: what a student can reach is decided by 13 backend flags, all
+' Claim supported: what a student can reach is decided by 12 backend flags, all
 ' default False, of which production switches on four. Since 2026-10-29/30 each
 ' UI flag is derived from its backend flag, which removed the August half-states;
 ' two gaps remain where a flag does not say what it seems to.
-' Pinned at 2b8b1f7b. Sources: backend/core/config.py:106-219 (flags),
-' docker-compose.prod.yml:142-153 (derived VITE flags), src/App.tsx:384-395
+' Pinned at dfc20df6 (FEATURE_LANDING_PEOPLE removed by PR #175). Sources:
+' backend/core/config.py:106-213 (flags), docker-compose.prod.yml:143-154
+' (derived VITE flags, 8 of the 12), src/App.tsx:384-395
 ' (ClassicTool), src/App.tsx:197-212 (StudentV4Redirect), backend/main.py:258
-' (search router), backend/services/v4_spaces_service.py:865-896 (Home ask),
+' (search router), backend/services/v4_spaces_service.py:865-899 (Home ask),
 ' backend/services/review/mastery.py:28-31 (cascade).
 @startuml f17-flag-reality
 !include _style.iuml
 
-title Built versus delivered — 13 flags, 4 on in production
+title Built versus delivered — 12 flags, 4 on in production
 
 skinparam rectangle {
   BackgroundColor #FFFFFF
@@ -31,11 +32,11 @@ rectangle "**ON in production** since 2026-10-29/30" as ON #BFBFBF {
 
 rectangle "**OFF** — code default" as OFF #F2F2F2 {
   rectangle "REVIEW_ENGINE · EXAM_MODE\nSTUDY_GUIDE · GLOBAL_SEARCH\nASK_LUNA\n//classic tools, no v4 room yet//" as OFF1
-  rectangle "COURSE_BRAIN · STUDIO_PAGES\nLANDING_PEOPLE\nLLM_PROMPT_LOGGING\n//backend only//" as OFF2
+  rectangle "COURSE_BRAIN · STUDIO_PAGES\nLLM_PROMPT_LOGGING\n//backend only//" as OFF2
 }
 
 rectangle "**How a flag reaches the screen**" as HOW #FFFFFF {
-  rectangle "**One switch per feature**\nthe prod build copies each backend flag\ninto its VITE_FEATURE_* build argument\n(8 of the 13 have a UI side)" as SW
+  rectangle "**One switch per feature**\nthe prod build copies each backend flag\ninto its VITE_FEATURE_* build argument\n(8 of the 12 have a UI side)" as SW
   rectangle "**Classic rooms**\na student is redirected to the v4 room\nthat replaced it; a classic tool whose\nbackend is off answers 404" as GATE
   SW -[hidden]right- GATE
 }
