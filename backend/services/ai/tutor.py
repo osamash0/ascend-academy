@@ -1,12 +1,13 @@
 """
 Grounded Socratic AI Tutor.
 
-The tutor answers strictly from RETRIEVED CONTEXT (top-K relevant slides
-plus the current slide as anchor) and cites the slides it used.  When no
-retrieved slide passes the similarity threshold, we short-circuit to a
-deterministic Socratic refusal *before* the LLM call — saving a token
-round-trip and guaranteeing the tutor never falls back to the model's
-parametric knowledge.
+The tutor grounds its answer in RETRIEVED CONTEXT (top-K relevant slides
+plus the current slide as anchor) and cites the slides it used; citations
+to slides outside the retrieved set are dropped. There is no refusal gate:
+when nothing passes the similarity threshold, the context falls back to the
+`slide_text` the caller sent, and the prompt lets the model add knowledge
+beyond the slides as long as it is marked as such (a Markdown blockquote).
+The course tutor below does keep a refusal gate (`is_grounded`).
 
 All user-controlled inputs (`user_message`, `chat_history`) are sanitized
 before interpolation. Slide content is NOT run through the same sanitizer
