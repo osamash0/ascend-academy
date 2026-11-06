@@ -73,9 +73,9 @@ V4_READER = {
 
 
 def _rows():
-    return [
-        {"event_data": V4_READER, "created_at": "2026-10-28T10:00:00Z"},
-        {"event_data": LEGACY, "created_at": "2026-10-27T10:00:00Z"},
+    # Five different people asked the legacy question, so the floor is met; one more asked via v4.
+    return [{"user_id": "v4-asker", "event_data": V4_READER, "created_at": "2026-10-28T10:00:00Z"}] + [
+        {"user_id": f"u{i}", "event_data": LEGACY, "created_at": "2026-10-27T10:00:00Z"} for i in range(5)
     ]
 
 
@@ -84,23 +84,21 @@ def test_ai_query_feed_skips_v4_reader_questions(monkeypatch):
     # `__wrapped__` is the uncached compute function under @cached_analytic, so
     # the test reads the rows rather than a cache entry from an earlier run.
     out = analytics_service.get_ai_query_feed.__wrapped__("lec1", "tok")
-    assert [row["query_text"] for row in out] == ["what is a tuple?"]
+    assert [row["query_text"] for row in out] == ["what is a tuple?"] * 5
 
 
 def test_ai_queries_evidence_skips_v4_reader_questions(monkeypatch):
     monkeypatch.setattr(analytics_service, "get_auth_client", lambda token=None: _Client(_rows()))
     out = evidence.get_ai_queries_evidence("lec1", "s1", "tok")
-    assert [row["query"] for row in out["queries"]] == ["what is a tuple?"]
-    assert out["totalCount"] == 1
+    assert [row["query"] for row in out["queries"]] == ["what is a tuple?"] * 5
+    assert out["totalCount"] == 5
 
 
-def test_dashboard_feed_and_ticker_skip_v4_reader_questions():
-    # asyncpg returns jsonb as text, so the v4 row arrives as a JSON string and
-    # exercises the parse branch in the helper.
-    rows = [
-        {"type": "ai_tutor_query", "event_data": json.dumps(V4_READER), "time": "2026-10-28T10:00:00Z"},
-        {"type": "ai_tutor_query", "event_data": LEGACY, "time": "2026-10-27T10:00:00Z"},
-    ]
-    feed, ticker = analytics_service._feed_and_ticker(rows)
-    assert [row["query_text"] for row in feed] == ["what is a tuple?"]
-    assert [row["description"] for row in ticker] == ['Asked AI Tutor: "what is a tuple?..."']
+def test_dashboard_feed_skips_v4_reader_questions():
+    # The dashboard's feed is this same function (see test_legacy_people_gate for the full path).
+    feed = analytics_service.legacy_question_feed(
+        [{"user_id": "v4-asker", "event_data": V4_READER, "created_at": "2026-10-28T10:00:00Z"}]
+        + [{"user_id": f"u{i}", "event_data": LEGACY, "created_at": "2026-10-27T10:00:00Z"} for i in range(5)],
+        owner_id=None)
+    assert {row["query_text"] for row in feed} == {"what is a tuple?"}
+    assert len(feed) == 5

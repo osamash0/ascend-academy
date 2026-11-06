@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { StudioCanvasRoute } from './lazyScreens';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -95,6 +96,10 @@ export default function LibraryScreen() {
    */
   const accepts = shelfAcceptsFiles();
   const navigate = useNavigate();
+  /* A dropped file opens straight into the reader: have it here before the drop, so no loader stands in between. */
+  useEffect(() => {
+    if (accepts) void StudioCanvasRoute.preload().catch(() => {});
+  }, [accepts]);
   const bring = useBringIn(
     state === 'ready' && accepts,
     (ids) => {

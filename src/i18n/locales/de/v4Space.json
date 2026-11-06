@@ -541,6 +541,8 @@
     }
   },
   "practiceScreen": {
+    "originalLanguage": "Diese Fragen sind auf {{language}}. Eine Übersetzung ist noch nicht verfügbar.",
+    "languages": { "en": "Englisch", "de": "Deutsch" },
     "empty": {
       "title": "Hier gibt es noch keine Übungen",
       "body": "Für {{lesson}} wurde bisher nichts geschrieben."

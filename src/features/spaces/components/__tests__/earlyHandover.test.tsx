@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useEffect } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type { ShelfItem } from '../../studio/shelf';
 
@@ -48,8 +49,11 @@ vi.mock('../../data/uploads', async (orig) => ({
   localFileFor: uploadsMock.localFileFor,
   duplicateOffShelf: uploadsMock.duplicateOffShelf,
 }));
-vi.mock('../reader/EarlyReader', () => ({
-  EarlyReader: (p: {
+/* How often the stand-in reader mounted: a remount is the file opened again. */
+const earlyMounts = vi.hoisted(() => ({ n: 0 }));
+vi.mock('../reader/EarlyReader', async () => {
+  const { useEffect } = await import('react');
+  return { EarlyReader: (p: {
     initialPage?: number;
     refused?: boolean;
     already?: boolean;
@@ -57,10 +61,16 @@ vi.mock('../reader/EarlyReader', () => ({
     filename?: string;
     onPage?: (n: number) => void;
     onReady: (l: string, n: number) => void;
+    onResolved?: (id: string, n: number) => void;
     onRetry?: () => void;
-  }) => (
+  }) => {
+    useEffect(() => {
+      earlyMounts.n += 1;
+    }, []);
+    return (
     <div
       data-testid="early"
+      data-early-reader
       data-initial={p.initialPage}
       data-refused={String(!!p.refused)}
       data-already={String(!!p.already)}
@@ -73,16 +83,22 @@ vi.mock('../reader/EarlyReader', () => ({
       <button type="button" onClick={() => p.onReady('L1', 7)}>
         hand over
       </button>
+      <button type="button" onClick={() => p.onResolved?.('run-1', 7)}>
+        accepted
+      </button>
       {p.onRetry && (
         <button type="button" onClick={p.onRetry}>
           retry
         </button>
       )}
     </div>
-  ),
-}));
+    );
+  } };
+});
 
 const { default: StudioCanvasScreen } = await import('../../screens/StudioCanvasScreen');
+const { MotionRoot } = await import('../MotionRoot');
+const curtain = await import('../reader/curtain');
 
 const item = (over: Partial<ShelfItem> = {}, lessonId = ''): ShelfItem =>
   ({
@@ -116,9 +132,33 @@ const mount = (path = '/v4/library/m/run-1') =>
     </MemoryRouter>,
   );
 const here = () => screen.getByTestId('loc').textContent;
+/* The Lesson's screen, counting its mounts: each one loads the Lesson again. */
+const facesMounts = { n: 0 };
+const Faces = () => {
+  useEffect(() => {
+    facesMounts.n += 1;
+  }, []);
+  return <p>faces</p>;
+};
+/* As in the app: the screen under the v4 layout route, whose fade is keyed on the screen. */
+const mountInApp = (path: string) =>
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route element={<MotionRoot />}>
+          <Route path="/v4/library/m/:materialId" element={<StudioCanvasScreen />} />
+          <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<Faces />} />
+        </Route>
+      </Routes>
+      <Probe />
+    </MemoryRouter>,
+  );
 
 beforeEach(() => {
   shelfState.item = item();
+  earlyMounts.n = 0;
+  facesMounts.n = 0;
+  curtain.__dropCurtain();
   Object.values(uploadsMock).forEach((f) => f.mockClear());
   uploadsMock.canResend.mockReturnValue(false);
   uploadsMock.localFileFor.mockReturnValue(null);
@@ -131,6 +171,30 @@ describe('the early reader hands over to the Lesson', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'hand over' }));
     expect(here()).toBe('/v4/space/u/lesson/L1/faces?page=7&run=run-1');
     expect(uploadsMock.release).toHaveBeenCalledWith('run-1', 'L1');
+  });
+
+  it('its own handover holds the reader on screen for the Lesson to lift', async () => {
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'hand over' }));
+    expect(screen.getByText('faces')).toBeInTheDocument();
+    expect(curtain.curtainUp()).toBe(true);
+  });
+
+  it('the shelf noticing the Lesson first holds the reader on screen too, and keeps page 1', async () => {
+    mount();
+    await screen.findByTestId('early');
+    act(() => setItem(item({ stage: 'ready' }, 'L1')));
+    expect(await screen.findByText('faces')).toBeInTheDocument();
+    /* Page 1 is a page too: the Lesson is told, never left to guess. */
+    expect(here()).toBe('/v4/space/u/lesson/L1/faces?page=1');
+    expect(curtain.curtainUp()).toBe(true);
+  });
+
+  it('a link to a Lesson already made opens it plainly, with nothing held', async () => {
+    shelfState.item = item({ stage: 'ready' }, 'L1');
+    mount('/v4/library/m/run-1?page=5');
+    expect(await screen.findByText('faces')).toBeInTheDocument();
+    expect(curtain.curtainUp()).toBe(false);
   });
 
   it('the shelf noticing the Lesson first keeps the page too (the race)', async () => {
@@ -203,5 +267,49 @@ describe('a file already in your Library, whose Lesson is not on the shelf', () 
     expect(early).toHaveAttribute('data-name', 'again.pdf');
     expect(early).toHaveAttribute('data-initial', '3');
     expect(screen.queryByText(/only on this device/i)).toBeNull();
+  });
+});
+
+describe('the swap from the temporary id is the same reader', () => {
+  it('stays mounted when the server accepts the file: the file is not opened again', async () => {
+    shelfState.item = item({ id: 'sending-1' });
+    mountInApp('/v4/library/m/sending-1');
+    expect(await screen.findByTestId('early')).toHaveAttribute('data-id', 'sending-1');
+    expect(earlyMounts.n).toBe(1);
+    /* Accepted: the shelf now holds the run, and the reader moves to its id. */
+    act(() => setItem(item({ id: 'run-1' })));
+    fireEvent.click(screen.getByRole('button', { name: 'accepted' }));
+    expect(here()).toBe('/v4/library/m/run-1?page=7');
+    await waitFor(() => expect(screen.getByTestId('early')).toHaveAttribute('data-id', 'run-1'));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 300)); // past the route fade, were there one
+    });
+    expect(screen.getAllByTestId('early')).toHaveLength(1);
+    expect(earlyMounts.n).toBe(1);
+  });
+
+  it('the page read before the swap is the page the Lesson opens at', async () => {
+    shelfState.item = item({ id: 'sending-1' });
+    mountInApp('/v4/library/m/sending-1');
+    fireEvent.click(await screen.findByRole('button', { name: 'turn to 7' }));
+    act(() => setItem(item({ id: 'run-1' })));
+    fireEvent.click(screen.getByRole('button', { name: 'accepted' }));
+    await waitFor(() => expect(screen.getByTestId('early')).toHaveAttribute('data-id', 'run-1'));
+    /* The shelf's poll sees the Lesson before the reader does. */
+    act(() => setItem(item({ id: 'run-1', stage: 'developing' }, 'L1')));
+    await waitFor(() => expect(here()).toBe('/v4/space/u/lesson/L1/faces?page=7&run=run-1'));
+  });
+
+  it('the Lesson takes over in place: mounted once, under the still, with no fade in between', async () => {
+    shelfState.item = item({ id: 'run-1' });
+    mountInApp('/v4/library/m/run-1');
+    fireEvent.click(await screen.findByRole('button', { name: 'hand over' }));
+    expect(here()).toBe('/v4/space/u/lesson/L1/faces?page=7&run=run-1');
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 300)); // past the route fade, were there one
+    });
+    expect(screen.getAllByText('faces')).toHaveLength(1);
+    expect(screen.queryByTestId('early')).toBeNull();
+    expect(facesMounts.n).toBe(1);
   });
 });

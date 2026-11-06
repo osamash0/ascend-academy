@@ -132,8 +132,8 @@ async def reader_practice(request: Request, lecture_id: UUID, user: Any = Depend
     """The lecture's real quiz questions, as v4 PracticeQuestions."""
     from backend.services.v4_practice_service import questions_for
 
-    await _lecture_access(lecture_id, user)
-    return {"questions": await questions_for(lecture_id)}
+    uid = await _lecture_access(lecture_id, user)
+    return {"questions": await questions_for(lecture_id, locale=await _lang(request, uid))}
 
 
 class _Answer(BaseModel):

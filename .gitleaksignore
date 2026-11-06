@@ -150,3 +150,17 @@
 3585ef3ec117f27953a4bbbec486600299486369:backend/services/v4_teachback_service.py:generic-api-key:34
 4d552c340ac8c844698384a46e5d45e64d99b9d6:backend/services/v4_teachback_service.py:generic-api-key:34
 7122798a85c5eab17b07a46e64ad9c928a58d880:backend/services/v4_teachback_service.py:generic-api-key:34
+
+# --------------------------------------------------------------------------
+# 2026-10-31: the parser benchmark's made-up test key (PR #168)
+# --------------------------------------------------------------------------
+# The paid-method tests and their plan use one fixed fake value (sk-test-
+# followed by a word and digits, 25 characters) to prove the real key is never
+# printed or sent. It grants nothing: the real key exists only in a 0600 file
+# outside the repository and was never committed. The lines now carry an inline
+# `gitleaks:allow`; these four fingerprints cover the PR's first commit, which
+# predates it. Triaged on PR #168 before listing.
+e2cc63c57acfc87641cf14ebba450c02c64ef511:backend/tests/unit/test_parser_bench_paid.py:generic-api-key:16
+e2cc63c57acfc87641cf14ebba450c02c64ef511:backend/tests/unit/test_parser_bench_ai_vision.py:generic-api-key:23
+e2cc63c57acfc87641cf14ebba450c02c64ef511:docs/superpowers/plans/2026-10-30-parser-bench-3a-ai-vision.md:generic-api-key:1303
+e2cc63c57acfc87641cf14ebba450c02c64ef511:docs/superpowers/plans/2026-10-30-parser-bench-3a-ai-vision.md:generic-api-key:1675

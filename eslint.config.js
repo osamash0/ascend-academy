@@ -8,6 +8,7 @@ export default tseslint.config(
   {
     ignores: [
       "dist/**",
+      "backend/eval/parser_bench/viewer/dist/**",
       ".local/**",
       "node_modules/**",
       "coverage/**",

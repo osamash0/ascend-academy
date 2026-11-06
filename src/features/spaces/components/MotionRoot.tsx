@@ -1,6 +1,8 @@
+import { useRef } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { LiveGate } from '../data/viewer';
+import { isInPlace } from './inPlace';
 
 /**
  * The one `MotionConfig` for the whole v4 namespace.
@@ -39,7 +41,15 @@ const screenKey = (pathname: string) =>
   pathname.replace(/^(\/v4\/space\/[^/]+)\/(map|members)$/, '$1');
 
 export function MotionRoot() {
-  const { pathname } = useLocation();
+  const { pathname, state } = useLocation();
+  /* A path reached with `IN_PLACE` answers to the key of the screen it came from, for as long as you stay on it. */
+  const alias = useRef<{ path: string; key: string } | null>(null);
+  const shown = useRef<string>('');
+  const own = screenKey(pathname);
+  if (isInPlace(state) && shown.current && shown.current !== own && alias.current?.path !== pathname)
+    alias.current = { path: pathname, key: shown.current };
+  const key = alias.current?.path === pathname ? alias.current.key : own;
+  shown.current = key;
   return (
     <MotionConfig
       transition={{ duration: MOTION_DURATION, ease: MOTION_EASE }}
@@ -67,7 +77,7 @@ export function MotionRoot() {
       <LiveGate>
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
-          key={screenKey(pathname)}
+          key={key}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

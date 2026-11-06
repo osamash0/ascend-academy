@@ -17,8 +17,8 @@ These tests assert, at the Postgres layer:
     real fix is at the ACL layer, not just the internal guard).
   - the legitimate service-role path (mirroring `supabase_admin.rpc(...)` in
     backend/api/v1/admin.py) still works post-fix.
-  - grant_xp rejects p_xp outside (0, 500] and still grants correctly inside
-    that range.
+  - grant_xp rejects p_xp outside (0, 500] and grants an earned badge reward.
+    Quiz rewards now use grant_quiz_xp's server-side answer check.
 
 Gated behind the `db` marker (boots a real Postgres via testcontainers).
 """
@@ -207,6 +207,10 @@ def test_grant_xp_allows_max_legitimate_badge_reward(db_conn, make_user):
     the cap must not clip a real, legitimate grant."""
     student = make_user(role="student")
     with db_conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO achievements(user_id,badge_name) VALUES (%s,'Polymath')",
+            (str(student),),
+        )
         _as_user(cur, student)
         try:
             cur.execute("SELECT grant_xp(500, 'badge:Polymath', 'badge:Polymath')")
@@ -216,12 +220,13 @@ def test_grant_xp_allows_max_legitimate_badge_reward(db_conn, make_user):
             _reset_user(cur)
 
 
-def test_grant_xp_normal_grant_still_works(db_conn, make_user):
+def test_verified_quiz_reward_still_works(db_conn, make_user, make_lecture, make_slide, make_quiz):
     student = make_user(role="student")
+    qid = make_quiz(make_slide(make_lecture(student)))
     with db_conn.cursor() as cur:
         _as_user(cur, student)
         try:
-            cur.execute("SELECT grant_xp(10, 'quiz_correct')")
+            cur.execute("SELECT grant_quiz_xp(%s, 3)", (str(qid),))
             cur.execute("SELECT total_xp FROM profiles WHERE user_id = %s", (str(student),))
             assert cur.fetchone()[0] == 10
         finally:

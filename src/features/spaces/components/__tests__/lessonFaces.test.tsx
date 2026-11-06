@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent, act, within, cleanup } from '@testi
 import { BrowserRouter, MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, type RefObject } from 'react';
 import LessonFacesScreen from '../../screens/LessonFacesScreen';
+import { __dropCurtain, curtainUp, holdCurtain } from '../reader/curtain';
 
 /*
  * The file itself is not rendered here: react-pdf needs a canvas and a worker
@@ -16,6 +17,8 @@ let mockPages = 0;
 const scrolled: number[] = [];
 /* The scroll's page reports, driven by hand; and what the reading count was handed, render by render. */
 let scrollReports: ((page: number) => void) | undefined;
+/* A page of the scroll painting, driven by hand. */
+let paintPage: (page: number) => void = () => {};
 const counted: { page: number; notATurn?: { current: number | null } }[] = [];
 vi.mock('../../data/reading', async (original) => ({
   ...(await original<typeof import('../../data/reading')>()),
@@ -25,11 +28,16 @@ vi.mock('../../data/reading', async (original) => ({
 }));
 vi.mock('@/components/pdf', () => ({
   PdfPage: ({ page }: { page: number }) => <div data-testid="sheet" data-page={page} />,
-  PdfPager: ({ rootRef, page, overlay, onAspect, onLoad }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: { props?: { words?: string | null } }; onAspect?: (a: number) => void; onLoad?: (n: number) => void }) => {
+  PdfPager: ({ rootRef, page, overlay, onAspect, onLoad, onFirstRender }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: { props?: { words?: string | null } }; onAspect?: (a: number) => void; onLoad?: (n: number) => void; onFirstRender?: (c: HTMLCanvasElement | null) => void }) => {
     jumps.push(page);
     useEffect(() => {
       onAspect?.(mockAspect);
       if (mockPages) onLoad?.(mockPages);
+      /* The first paint, a canvas of the file's own shape. */
+      const c = document.createElement('canvas');
+      c.width = 1000;
+      c.height = Math.round(1000 * mockAspect);
+      onFirstRender?.(c);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
     /* The words the Spotlight would light, recorded rather than drawn. */
     return (
@@ -38,13 +46,15 @@ vi.mock('@/components/pdf', () => ({
       </div>
     );
   },
-  PdfScroll: ({ scrollRef, onPage, onLoad, onFirstRender }: { scrollRef: RefObject<HTMLDivElement>; onPage?: (p: number) => void; onLoad?: (n: number) => void; onFirstRender?: (c: null) => void }) => {
+  PdfScroll: ({ scrollRef, onPage, onLoad, onFirstRender, onRenderPage }: { scrollRef: RefObject<HTMLDivElement>; onPage?: (p: number) => void; onLoad?: (n: number) => void; onFirstRender?: (c: null) => void; onRenderPage?: (p: number) => void }) => {
     scrollReports = onPage;
+    paintPage = (p) => onRenderPage?.(p);
     /* Like the real one: the file opens first, the first page paints later. */
     useEffect(() => {
       onLoad?.(10);
       const t = setTimeout(() => {
         scrolled.push(-1); // marker: first render
+        onRenderPage?.(1);
         onFirstRender?.(null);
       }, 50);
       return () => clearTimeout(t);
@@ -383,6 +393,33 @@ describe('a document scrolls', () => {
       await waitFor(() => expect(scrolled.slice(scrolled.indexOf(-1))).toContain(3));
     } finally {
       mockAspect = 405 / 720;
+    }
+  });
+
+  it('from the early reader, its still stays until the page it was on has painted here', async () => {
+    mockAspect = 842 / 595;
+    scrolled.length = 0;
+    holdCurtain(document.body.appendChild(document.createElement('div')));
+    try {
+      await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=3');
+      await waitFor(() => expect(scrolled.slice(scrolled.indexOf(-1))).toContain(3));
+      /* Page 1 has painted, and the scroll is at page 3: not yet. */
+      expect(curtainUp()).toBe(true);
+      act(() => paintPage(3));
+      expect(curtainUp()).toBe(false);
+    } finally {
+      mockAspect = 405 / 720;
+      __dropCurtain();
+    }
+  });
+
+  it('a deck lifts the still on its first paint', async () => {
+    holdCurtain(document.body.appendChild(document.createElement('div')));
+    try {
+      await renderFaces('/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=2');
+      await waitFor(() => expect(curtainUp()).toBe(false));
+    } finally {
+      __dropCurtain();
     }
   });
 

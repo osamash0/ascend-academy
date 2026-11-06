@@ -9,7 +9,9 @@
       "calm": "Es kommt an. Heute braucht dich nichts.",
       "floor_one": "{{count}} Person hat gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.",
       "floor_other": "{{count}} Leute haben gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.",
-      "actPage": "Eine Seite braucht dich: {{lesson}}, Seite {{page}}. Der Rest kommt an."
+      "actPage": "In {{lesson}} braucht dich eine Seite. Der Rest kommt an.",
+      "actPages_one": "{{count}} Seite braucht dich. Fang mit {{lesson}} an.",
+      "actPages_other": "{{count}} Seiten brauchen dich. Fang mit {{lesson}} an."
     },
     "ownOnly": "Dein eigenes Lesen zählt nie mit."
   },
@@ -26,17 +28,17 @@
   },
   "questions": {
     "title": "Fragen an dich",
-    "none": "Noch hat niemand eine Frage geschickt. Wenn jemand das tut, landet sie zuerst hier.",
     "someone": "Jemand",
     "page": "Seite {{page}}",
+    "where": "{{lesson}}, Seite {{page}}",
     "answer": "Antworten",
     "placeholder": "Antwort schreiben",
     "them": "Nur ihr/ihm antworten",
     "everyone": "Für alle antworten",
     "everyoneHint": "Erscheint auf dieser Seite für alle Mitglieder",
     "answered": {
-      "them": "Beantwortet · nur für sie",
-      "everyone": "Beantwortet · für alle"
+      "them": "Privat beantwortet",
+      "everyone": "Für alle beantwortet"
     },
     "close": "Schließen",
     "when": {
@@ -45,7 +47,8 @@
       "hours_other": "vor {{count}} Stunden",
       "days_one": "gestern",
       "days_other": "vor {{count}} Tagen"
-    }
+    },
+    "fold": "Beantwortet"
   },
   "lessons": {
     "title": "Lektionen",
@@ -53,7 +56,11 @@
     "readers_other": "{{count}} Lesende",
     "open": "{{lesson}} öffnen",
     "mapLede": "Jede Zelle ist eine Seite. Je heller, desto mehr Leute brauchten dort Hilfe; eine beschriftete öffnet die Seite.",
-    "cell": "Seite {{page}} von {{lesson}}"
+    "cell": "Seite {{page}} von {{lesson}}",
+    "few": "{{lessons}}: noch zu wenige Lesende.",
+    "quietRun_one": "{{count}} Lektion kommt an",
+    "quietRun_other": "{{count}} Lektionen kommen an",
+    "fewSome": "{{lessons}} und {{count}} weitere: noch zu wenige Lesende."
   },
   "feed": {
     "title": "Was dich braucht",
@@ -62,7 +69,7 @@
   "kind": {
     "confusion_hotspot": {
       "headline": "Eine Seite, auf der viele Hilfe suchen",
-      "summary": "Auf Seite {{page}} von {{lesson}} haben {{askers}} Leute Erklären geöffnet oder gefragt, und {{foggy}}% fanden es noch nebelig.",
+      "summary": "Auf Seite {{page}} haben {{askers}} Leute Erklären geöffnet oder gefragt, und {{foggy}}% fanden es noch nebelig.",
       "why": "So gebündelte Hilfesuche heißt meist: Auf der Seite fehlt ein Schritt, nicht bei den Leuten, die sie lesen."
     },
     "silent_misleader": {
@@ -72,7 +79,7 @@
     },
     "skipped_slide": {
       "headline": "Eine Seite, die übersprungen wird",
-      "summary": "Leute bleiben im Median {{seconds}} s auf Seite {{page}} von {{lesson}}, bevor sie weitergehen.",
+      "summary": "Leute bleiben im Median {{seconds}} s auf Seite {{page}}, bevor sie weitergehen.",
       "why": "Entweder bringt die Seite nichts Neues, oder sie sieht so aus. Wenn sie wichtig ist, braucht sie einen Grund zum Anhalten."
     },
     "speed_bump": {
@@ -82,17 +89,17 @@
     },
     "overpacked": {
       "headline": "Eine Seite, die zu viel auf einmal will",
-      "summary": "Seite {{page}} hält Leute {{ratio}}× länger als der Rest von {{lesson}}, und viele suchen dort Hilfe.",
+      "summary": "Seite {{page}} hält Leute {{ratio}}× länger als die anderen Seiten, und viele suchen dort Hilfe.",
       "why": "Lange, ungleiche Zeit plus Hilfesuche ist die Form von zwei Ideen auf einer Seite."
     },
     "leaky_bucket": {
       "headline": "Eine Lektion, die schwer wird",
-      "summary": "{{pct}}% der Lesenden haben direkt nach Seite {{page}} von {{lesson}} aufgehört.",
+      "summary": "{{pct}}% der Lesenden haben direkt nach Seite {{page}} aufgehört.",
       "why": "Ein so scharfer Abfall ist eine Wand, keine Müdigkeit. Die Seite davor ist die, die du dir ansiehst."
     },
     "confusion_block": {
       "headline": "Ein Abschnitt, in dem der Faden riss",
-      "summary": "Die Seiten {{first}}–{{last}} von {{lesson}} waren für die meisten nebelig.",
+      "summary": "Die Seiten {{first}} bis {{last}} waren für die meisten nebelig.",
       "why": "Ein fehlendes Glied früh im Abschnitt macht jede Seite danach schwerer."
     },
     "quiz_misalignment": {
@@ -152,5 +159,10 @@
       "clicked": "Hat klick gemacht",
       "foggy": "Noch nebelig"
     }
+  },
+  "fold": {
+    "more": "Mehr zeigen",
+    "less": "Weniger zeigen",
+    "all": "Alle zeigen"
   }
 }

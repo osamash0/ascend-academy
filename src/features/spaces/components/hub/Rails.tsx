@@ -431,7 +431,8 @@ export function HubPill({
     small ? 'px-7 py-[11px] text-[14px]' : 'px-10 py-[14px] text-[15px]',
     disabled
       ? 'cursor-not-allowed bg-white/[0.08] text-quiet'
-      : 'console-focusable bg-white/[0.16] hover:bg-white/[0.26]',
+      : // Solid white: the one action should be the brightest thing on the stage, not a grey pill.
+        'console-focusable bg-white text-slate-900 hover:bg-white/90',
   );
 
   if (disabled) {

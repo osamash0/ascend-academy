@@ -541,6 +541,8 @@
     }
   },
   "practiceScreen": {
+    "originalLanguage": "These questions are in {{language}}. A translation isn’t available yet.",
+    "languages": { "en": "English", "de": "German" },
     "empty": {
       "title": "No practice here yet",
       "body": "Nothing has been written for {{lesson}} so far."

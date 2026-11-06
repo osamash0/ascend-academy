@@ -11,16 +11,14 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
-import sentry_sdk
 from backend.core.config import settings
 from backend.core.logging_config import setup_logging, set_correlation_id
+from backend.core import sentry
 
 # Initialize JSON structured logging
 setup_logging()
 
-if os.environ.get("SENTRY_DSN"):
-    from backend.core.sentry import build_sentry_options
-    sentry_sdk.init(**build_sentry_options(os.environ["SENTRY_DSN"], env=settings.env))
+sentry.init_sentry(settings.env)
 
 from backend.api.v1.analytics import router as analytics_router
 from backend.api.v1.auth import router as auth_router
@@ -376,8 +374,11 @@ async def readiness_check():
     ok = True
 
     # Postgres via the asyncpg pool. Only critical when DATABASE_URL is actually
-    # configured — the app supports a REST-only (Supabase) mode with no pool, and
-    # we must not report not-ready (and block frontend startup) in that mode.
+    # configured: routes that use the Supabase REST client still work without a
+    # pool, and we must not report not-ready (and block frontend startup) then.
+    # It is not a complete mode, though: parsing needs the pool
+    # (`parser/repos._pool()` raises), so without DATABASE_URL every upload
+    # fails while this check reports ready.
     from backend.core.database import db_pool, DB_URL
     if not DB_URL:
         checks["database"] = "not_configured"

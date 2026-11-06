@@ -15,6 +15,14 @@ import pytest
 from backend.services.parser import synthesis
 
 
+@pytest.fixture(autouse=True)
+def _lexical_stage_only(monkeypatch):
+    """These tests pin the lexical grounding stage and count its LLM calls. The
+    answer check adds one call per kept question; it is pinned in
+    test_quiz_answer_check.py."""
+    monkeypatch.setattr(synthesis, "CHECK_ANSWERS", False)
+
+
 @pytest.fixture
 def llm(monkeypatch):
     """Capture prompts and drive canned raw model output for both LLM entry

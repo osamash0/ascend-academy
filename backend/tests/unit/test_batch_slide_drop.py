@@ -193,7 +193,7 @@ async def test_unified_batch_helper_retries_flagged_slides_per_slide(llm, monkey
     llm["replies"] = [_reply(items[:4]), _reply([])]
     per_slide: List[int] = []
 
-    async def fake_synth(idx, text, ctx, model, pdf, source_language="en"):
+    async def fake_synth(idx, text, ctx, model, pdf, source_language="en", **_kw):
         per_slide.append(idx)
         return {"title": f"T{idx}", "content": text, "summary": f"Zusammenfassung {idx}",
                 "slide_type": "text", "vision_routed": False}

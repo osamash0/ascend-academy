@@ -70,7 +70,8 @@ describe('one language for the whole app', () => {
     const repo = await loadLiveRepository();
     await repo.explainPage('lec', 34);
     await repo.findInCourse('c', 'join');
-    expect(calls).toEqual(['/api/v1/v4/reader/lectures/lec/pages/34/explain?lang=de', '/api/v1/v4/reader/courses/c/find?q=join&lang=de']);
+    await repo.practice('lec', 'en');
+    expect(calls).toEqual(['/api/v1/v4/reader/lectures/lec/pages/34/explain?lang=de', '/api/v1/v4/reader/courses/c/find?q=join&lang=de', '/api/v1/v4/reader/lectures/lec/practice?lang=en']);
     vi.unstubAllEnvs();
     vi.doUnmock('@/lib/apiClient');
   });

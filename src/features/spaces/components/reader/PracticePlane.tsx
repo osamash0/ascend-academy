@@ -6,6 +6,7 @@ import { gradeAnswer, type PracticeQuestion, type ServerGrade } from '../../data
 import { Pressable } from '../Pressable';
 import { Plane } from './Planes';
 import { useSummoned } from './useSummoned';
+import { PracticeLanguageNote } from '../PracticeLanguageNote';
 
 /**
  * The workbench, with practice on it.
@@ -101,7 +102,8 @@ export function PracticePlane({ open, lessonTitle, questions, onClose, onAnswer 
             <p className="text-[15px] leading-[1.6] text-quiet">{t('practice.empty')}</p>
           ) : (
             <>
-              <h2 className="text-[20px] font-semibold leading-[1.35] tracking-[-0.01em] text-foreground">
+              <PracticeLanguageNote language={q.language} />
+              <h2 lang={q.language} className="text-[20px] font-semibold leading-[1.35] tracking-[-0.01em] text-foreground">
                 {q.prompt}
               </h2>
               <div className="mt-6 flex flex-col gap-2">
@@ -128,7 +130,7 @@ export function PracticePlane({ open, lessonTitle, questions, onClose, onAnswer 
                       )}
                     >
                       {right && <Check aria-hidden className="mt-1 h-4 w-4 shrink-0" />}
-                      <span>{c}</span>
+                      <span lang={q.language}>{c}</span>
                     </Pressable>
                   );
                 })}
@@ -137,7 +139,7 @@ export function PracticePlane({ open, lessonTitle, questions, onClose, onAnswer 
               {graded && (
                 <p aria-live="polite" className="mt-5 text-[14.5px] leading-[1.6] text-quiet">
                   <span className="font-medium text-foreground">{graded.correct ? t('practice.right') : t('practice.notQuite')}</span>
-                  {graded.explanation}
+                  <span lang={q.language}>{graded.explanation}</span>
                 </p>
               )}
               {xp > 0 && (

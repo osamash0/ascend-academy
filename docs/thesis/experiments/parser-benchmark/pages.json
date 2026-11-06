@@ -1,0 +1,245 @@
+{
+  "seed": 20261030,
+  "pages": [
+    {
+      "key": "swt-p3",
+      "source": "swt",
+      "file": "Course SWT/Slides/2.pdf",
+      "sha256": "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17",
+      "page": 3,
+      "type": "lists",
+      "how": "chosen",
+      "reason": "title plus four top-level symbol-font bullets, each with italic red-square sub-bullets, two levels deep, no figure"
+    },
+    {
+      "key": "swt-p21",
+      "source": "swt",
+      "file": "Course SWT/Slides/2.pdf",
+      "sha256": "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17",
+      "page": 21,
+      "type": "layout",
+      "how": "chosen",
+      "reason": "three coloured header boxes across the top with grey arrows under them, symbol-font bullets with italic sub-bullets on the left"
+    },
+    {
+      "key": "swt-p26",
+      "source": "swt",
+      "file": "Course SWT/Slides/2.pdf",
+      "sha256": "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17",
+      "page": 26,
+      "type": "diagram",
+      "how": "chosen",
+      "reason": "sequence diagram with three lifelines, arrows and small note boxes beside a bullet list with two levels"
+    },
+    {
+      "key": "swt-p17",
+      "source": "swt",
+      "file": "Course SWT/Slides/2.pdf",
+      "sha256": "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17",
+      "page": 17,
+      "type": "diagram",
+      "how": "chosen",
+      "reason": "shaded repository diagram with callout bubbles and a highlighted box, interleaved with bullets and short monospace command lines"
+    },
+    {
+      "key": "swt-p16",
+      "source": "swt",
+      "file": "Course SWT/Slides/2.pdf",
+      "sha256": "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17",
+      "page": 16,
+      "type": "diagram",
+      "how": "random",
+      "reason": "random draw, seed 20261030"
+    },
+    {
+      "key": "swt-p39",
+      "source": "swt",
+      "file": "Course SWT/Slides/2.pdf",
+      "sha256": "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17",
+      "page": 39,
+      "type": "diagram",
+      "how": "random",
+      "reason": "random draw, seed 20261030"
+    },
+    {
+      "key": "dbs-p7",
+      "source": "dbs",
+      "file": "03 DBS Normalization.pdf",
+      "sha256": "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131",
+      "page": 7,
+      "type": "table_formula",
+      "how": "chosen",
+      "reason": "one wide data table of eleven columns with bracket annotations above and below, almost no running text"
+    },
+    {
+      "key": "dbs-p32",
+      "source": "dbs",
+      "file": "03 DBS Normalization.pdf",
+      "sha256": "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131",
+      "page": 32,
+      "type": "table_formula",
+      "how": "chosen",
+      "reason": "definitions with a column of aligned functional-dependency formulas using arrows and set notation, two heading levels"
+    },
+    {
+      "key": "dbs-p73",
+      "source": "dbs",
+      "file": "03 DBS Normalization.pdf",
+      "sha256": "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131",
+      "page": 73,
+      "type": "dense_text",
+      "how": "chosen",
+      "reason": "four levels of nested bullets with formulas and subscripts, no figure, text fills the page"
+    },
+    {
+      "key": "dbs-p35",
+      "source": "dbs",
+      "file": "03 DBS Normalization.pdf",
+      "sha256": "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131",
+      "page": 35,
+      "type": "lists",
+      "how": "chosen",
+      "reason": "numbered list of four dependencies, then bulleted calculation steps with set notation"
+    },
+    {
+      "key": "dbs-p30",
+      "source": "dbs",
+      "file": "03 DBS Normalization.pdf",
+      "sha256": "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131",
+      "page": 30,
+      "type": "lists",
+      "how": "random",
+      "reason": "random draw, seed 20261030"
+    },
+    {
+      "key": "dbs-p74",
+      "source": "dbs",
+      "file": "03 DBS Normalization.pdf",
+      "sha256": "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131",
+      "page": 74,
+      "type": "dense_text",
+      "how": "random",
+      "reason": "random draw, seed 20261030"
+    },
+    {
+      "key": "sr-p22",
+      "source": "sr",
+      "file": " 03__SR_Prozesse_v07_27.04.2025.pdf",
+      "sha256": "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5",
+      "page": 22,
+      "type": "diagram",
+      "how": "chosen",
+      "reason": "large flowchart of coloured boxes, a diamond decision and many arrows, no running text"
+    },
+    {
+      "key": "sr-p45",
+      "source": "sr",
+      "file": " 03__SR_Prozesse_v07_27.04.2025.pdf",
+      "sha256": "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5",
+      "page": 45,
+      "type": "layout",
+      "how": "chosen",
+      "reason": "two framed algorithm boxes side by side with a two-column process header each, bold captions underneath"
+    },
+    {
+      "key": "sr-p39",
+      "source": "sr",
+      "file": " 03__SR_Prozesse_v07_27.04.2025.pdf",
+      "sha256": "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5",
+      "page": 39,
+      "type": "table_formula",
+      "how": "chosen",
+      "reason": "stepped timeline chart of five bars above a small black-header table of three columns and five rows"
+    },
+    {
+      "key": "sr-p18",
+      "source": "sr",
+      "file": " 03__SR_Prozesse_v07_27.04.2025.pdf",
+      "sha256": "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5",
+      "page": 18,
+      "type": "layout",
+      "how": "chosen",
+      "reason": "two text columns with bold headings, a framed yellow code box spanning the bottom"
+    },
+    {
+      "key": "sr-p31",
+      "source": "sr",
+      "file": " 03__SR_Prozesse_v07_27.04.2025.pdf",
+      "sha256": "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5",
+      "page": 31,
+      "type": "lists",
+      "how": "random",
+      "reason": "random draw, seed 20261030"
+    },
+    {
+      "key": "sr-p74",
+      "source": "sr",
+      "file": " 03__SR_Prozesse_v07_27.04.2025.pdf",
+      "sha256": "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5",
+      "page": 74,
+      "type": "lists",
+      "how": "random",
+      "reason": "random draw, seed 20261030"
+    },
+    {
+      "key": "sheets1-p1",
+      "source": "sheets",
+      "file": "Course SWT/ueb01.pdf",
+      "sha256": "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa",
+      "page": 1,
+      "type": "dense_text",
+      "how": "chosen",
+      "reason": "letterhead block, long justified paragraphs and a long bullet list, two footnotes"
+    },
+    {
+      "key": "sheets1-p3",
+      "source": "sheets",
+      "file": "Course SWT/ueb01.pdf",
+      "sha256": "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa",
+      "page": 3,
+      "type": "lists",
+      "how": "chosen",
+      "reason": "numbered section headings with a bulleted list of questions under each, inline links and footnotes"
+    },
+    {
+      "key": "sheets2-p4",
+      "source": "sheets",
+      "file": "Course SWT/ueb02.pdf",
+      "sha256": "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97",
+      "page": 4,
+      "type": "lists",
+      "how": "chosen",
+      "reason": "heading, bulleted list with a numbered sub-list of linked items, bullets with bold hint line, footnotes"
+    },
+    {
+      "key": "sheets2-p6",
+      "source": "sheets",
+      "file": "Course SWT/ueb02.pdf",
+      "sha256": "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97",
+      "page": 6,
+      "type": "dense_text",
+      "how": "chosen",
+      "reason": "several monospace code blocks between bold sub-headings, then a numbered list of tasks with bold lead-ins"
+    },
+    {
+      "key": "sheets1-p6",
+      "source": "sheets",
+      "file": "Course SWT/ueb01.pdf",
+      "sha256": "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa",
+      "page": 6,
+      "type": "dense_text",
+      "how": "random",
+      "reason": "random draw, seed 20261030"
+    },
+    {
+      "key": "sheets2-p7",
+      "source": "sheets",
+      "file": "Course SWT/ueb02.pdf",
+      "sha256": "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97",
+      "page": 7,
+      "type": "lists",
+      "how": "random",
+      "reason": "random draw, seed 20261030"
+    }
+  ]
+}

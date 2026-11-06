@@ -40,9 +40,15 @@ describe('a Space’s window is its own first page', () => {
     expect(container.querySelector('[data-drawn-page]')).toBeNull();
   });
 
-  it('shows a light page at night — inverted — and a dark page simply quietened', () => {
-    expect(WINDOW_LOOKS.calm.light.rest).toContain('invert(1)');
-    expect(WINDOW_LOOKS.calm.light.lifted).toContain('invert(1)');
+  it('shows a light page as dimmed paper, never inverted, and a dark page simply quietened', () => {
+    for (const look of [WINDOW_LOOKS.calm.light.rest, WINDOW_LOOKS.calm.light.lifted]) {
+      expect(look).not.toContain('invert');
+      expect(look).toContain('grayscale(1)');
+      // Dimmed: paper never reaches full brightness on the black stage.
+      const b = Number(look.match(/brightness\(([\d.]+)\)/)?.[1]);
+      expect(b).toBeGreaterThan(0.5);
+      expect(b).toBeLessThan(0.8);
+    }
     expect(WINDOW_LOOKS.calm.dark.rest).not.toContain('invert');
     const px = (v: number, n = 16) => Array.from({ length: n }, () => [v, v, v, 255]).flat();
     // A white slide with a little black text is light; a dark photo is not.

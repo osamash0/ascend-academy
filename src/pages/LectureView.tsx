@@ -808,11 +808,9 @@ export default function LectureView() {
 
       queryClient.invalidateQueries({ queryKey: ['student-progress', user?.id] });
 
-      // XP, level-ups and count-based badges are handled by the gamification
-      // engine. grantXp refreshes the profile so the global level-up modal can
-      // fire; the day-streak is still owned by record_daily_activity() on the
-      // dashboard, so we deliberately don't touch current_streak here.
-      await gamification.grantXp(10, 'quiz_correct');
+      // Submit the actual answer: the server validates it and deduplicates
+      // against the live reader's reward for this same question.
+      await gamification.grantQuizXp(currentQuestion.id, selectedIndex);
 
       // In-session correct-answer streak → "On Fire" (5) / "Unstoppable" (10).
       correctStreakRef.current += 1;

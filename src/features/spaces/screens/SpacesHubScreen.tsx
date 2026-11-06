@@ -256,11 +256,21 @@ export default function SpacesHubScreen() {
       </div>
 
       <div data-hub className="relative z-[2]">
-        {/* ── Calm hero: 100vh, copy anchored left at ~34vh ── */}
-        <section className="relative flex h-screen flex-col justify-end px-[22px] sm:px-16">
+        {/* ── Calm hero: 100vh, the copy standing on the row ── */}
+        {/*
+          The copy is anchored from the bottom, a fixed `pb-12` above Your
+          Spaces, the way a console's info block stands on its tile row. Anchored
+          from the top (pt-[34vh], mb-auto) nothing held the two apart: on a
+          laptop a two-line name pushed Enter up against New Space, and every
+          Space with a longer description moved the row. Now a longer name grows
+          the copy upward, so Enter and the row stay put while you scrub.
+          `min-h-[640px]` keeps a very short window from tucking the title
+          under the bar.
+        */}
+        <section className="relative flex h-screen min-h-[640px] flex-col justify-end px-[22px] sm:px-16">
           {/* The selected Space through its window, right of the copy. */}
           <HeroCover space={space} swapping={swapping} />
-          <div className="relative mb-auto max-w-[560px] pt-[30vh] sm:pt-[34vh]">
+          <div className="relative max-w-[560px] pb-12">
             {/*
               Out fast, swap, in — the spec's phrasing, and the mock's actual
               mechanism: one element that dips to transparent, has its content
@@ -290,8 +300,12 @@ export default function SpacesHubScreen() {
                 <p className="mb-3 min-h-[1.25em] text-[13px] text-label">
                   {space && space.id === lastOpenedId ? t('hub.hero.lastOpened') : null}
                 </p>
-                {/* Weight 300 — the one light weight in the product. */}
-                <h1 className="mb-[22px] text-[clamp(46px,5.6vw,74px)] font-light leading-[1.03] tracking-[-1px]">
+                {/*
+                  Weight 300 — the one light weight in the product. Sized by
+                  height as well as width: the copy grows upward from the row,
+                  so a short laptop needs a smaller name to stay clear of the bar.
+                */}
+                <h1 className="mb-[22px] text-[clamp(40px,min(5.6vw,8.2vh),74px)] font-light leading-[1.03] tracking-[-1px]">
                   {hero.title}
                 </h1>
                 {hero.desc && (
@@ -323,6 +337,11 @@ export default function SpacesHubScreen() {
             the rails you scrolled down to read.
           */}
           {/*
+            Sort and New Space act on Your Spaces, so they sit on its label's
+            line: the name on the left, its controls on the right. Between
+            the hero's button and the row they read as a third, unowned group,
+            and New Space (solid white) outshone the one action, Enter.
+
             Sorted, with the control beside the row rather than gated on a
             count.
             `notes-spaces-screen.md` says "sort control … past ~8 Spaces", and
@@ -330,42 +349,45 @@ export default function SpacesHubScreen() {
             has five, so the control would never have rendered and the whole
             path would have shipped unexercised — and a control that appears at
             eight and vanishes at seven is a moving target in a row whose job
-            is to be the one stable thing on the page.
+            is to be the one stable thing on the page. On a phone the row
+            swipes and the header has room for one control, so sort steps
+            aside there and New Space stays.
           */}
-          {/* No GUTTER here: the section already has it, and twice put New Space a gutter right of "Your Spaces". */}
-          <div className="flex items-center justify-end gap-1">
-            <Pressable
-              type="button"
-              onClick={newSpace}
-              className="console-focusable mr-auto flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1 text-[12.5px] font-semibold text-slate-900"
-            >
-              <Plus aria-hidden className="h-3.5 w-3.5" />
-              {t('hub.legacy.newSpace')}
-            </Pressable>
-            {(['active', 'name'] as const).map((by) => (
-              <Pressable
-                key={by}
-                subtle
-                type="button"
-                aria-pressed={sort === by}
-                onClick={() => setSort(by)}
-                className={cn(
-                  'console-focusable rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors',
-                  sort === by
-                    ? 'bg-white/[0.14] text-foreground'
-                    : 'text-quiet hover:bg-white/[0.06] hover:text-foreground',
-                )}
-              >
-                {by === 'active' ? t('hub.sort.active') : t('hub.sort.name')}
-              </Pressable>
-            ))}
-          </div>
           <SpaceChipRow
             spaces={sortedMine}
             selected={selected}
             onSelect={setSelected}
             onOpen={(id) =>
               id === DISCOVER_ID ? railsRef.current?.scrollIntoView({ block: 'start' }) : navigate(`/v4/space/${id}`)
+            }
+            actions={
+              <>
+                {(['active', 'name'] as const).map((by) => (
+                  <Pressable
+                    key={by}
+                    subtle
+                    type="button"
+                    aria-pressed={sort === by}
+                    onClick={() => setSort(by)}
+                    className={cn(
+                      'console-focusable hidden whitespace-nowrap rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors sm:inline-flex',
+                      sort === by
+                        ? 'bg-white/[0.14] text-foreground'
+                        : 'text-quiet hover:bg-white/[0.06] hover:text-foreground',
+                    )}
+                  >
+                    {by === 'active' ? t('hub.sort.active') : t('hub.sort.name')}
+                  </Pressable>
+                ))}
+                <Pressable
+                  type="button"
+                  onClick={newSpace}
+                  className="console-focusable flex items-center gap-1.5 whitespace-nowrap rounded-full border border-white/25 px-3.5 py-1 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-white/[0.06] sm:ml-2"
+                >
+                  <Plus aria-hidden className="h-3.5 w-3.5" />
+                  {t('hub.legacy.newSpace')}
+                </Pressable>
+              </>
             }
           />
           <NewSpaceDialog open={newOpen} onOpenChange={setNewOpen} />

@@ -120,9 +120,9 @@ def test_corpus_totals_of_nothing_is_zero_not_a_crash():
     assert t.mean_span_new == 0.0 and t.meta_share_new == 0.0 and t.tokens_saved_per_slide == 0.0
 
 
-def test_synth_min_chars_matches_the_orchestrator():
+def test_synth_min_chars_matches_the_orchestrators_fallback():
     from backend.services.parser import unified_orchestrator as uo
-    assert SYNTH_MIN_CHARS == uo._MIN_TEXT_FOR_SYNTH
+    assert SYNTH_MIN_CHARS == uo._MIN_STRIPPED_CHARS
 
 
 def test_text_routed_skips_image_only_pages():

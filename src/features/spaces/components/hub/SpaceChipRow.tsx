@@ -42,12 +42,19 @@ export function SpaceChipRow({
   selected,
   onSelect,
   onOpen,
+  actions,
 }: {
   spaces: Space[];
   selected: string;
   onSelect: (id: string) => void;
   /** The selected chip clicked again: open it, as the hero's pill does. */
   onOpen?: (id: string) => void;
+  /**
+   * The row's own controls (sort, New Space), on the label's line. They act on
+   * this row, so they sit with its name rather than floating between the
+   * hero's button and the row.
+   */
+  actions?: React.ReactNode;
 }) {
   const { t } = useTranslation('v4Spaces');
   const hoverTimer = useRef<number | null>(null);
@@ -92,7 +99,10 @@ export function SpaceChipRow({
       hero, so the row stands clear of it there. MobileNav swaps at `md`.
     */
     <div className="pb-[96px] md:pb-[34px]">
-      <p className="mb-[14px] text-[13.5px] text-quiet">{t('hub.chips.yours')}</p>
+      <div className="mb-[14px] flex items-center justify-between gap-3">
+        <p className="whitespace-nowrap text-[13.5px] text-quiet">{t('hub.chips.yours')}</p>
+        {actions && <div className="flex items-center gap-1">{actions}</div>}
+      </div>
       <div
         ref={rowRef}
         role="listbox"

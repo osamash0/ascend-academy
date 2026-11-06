@@ -38,15 +38,6 @@ INTENTS: Dict[str, Dict[str, Any]] = {
             "Easiest quiz questions",
         ],
     },
-    "struggling_students": {
-        "description": "List students whose quiz accuracy is below a threshold.",
-        "params": {"max_accuracy_percent": "int 0-100, default 40"},
-        "examples": [
-            "Show me students whose quiz accuracy is below 40%",
-            "Who is failing the quizzes?",
-            "Students under 50% accuracy",
-        ],
-    },
     "completion_count": {
         "description": "How many students finished the lecture, total students, completion rate.",
         "params": {},
@@ -90,7 +81,7 @@ def list_suggested_questions() -> List[str]:
     return [
         "Which slide had the highest drop-off rate?",
         "Which 3 quiz questions had the lowest correct rate?",
-        "Show me students whose quiz accuracy is below 40%",
+        "Which slide had the most confused readers?",
         "How many students finished the lecture?",
         "What concepts are students most confused about?",
     ]
@@ -159,7 +150,8 @@ def _clamp_int(val: Any, *, default: int, lo: int, hi: int) -> int:
 def _exec_top_dropoff_slides(lecture_id: str, token: str, params: Dict[str, Any]) -> Dict[str, Any]:
     limit = _clamp_int(params.get("limit"), default=5, lo=1, hi=20)
     order = (params.get("order") or "highest").lower()
-    slides = analytics_service.get_slide_analytics(lecture_id, token)
+    # A slide too few people viewed has a null drop-off (never 0): it does not rank.
+    slides = [s for s in analytics_service.get_slide_analytics(lecture_id, token) if s.get("drop_off_rate") is not None]
     rows = sorted(slides, key=lambda s: s.get("drop_off_rate", 0.0),
                   reverse=(order != "lowest"))[:limit]
     table = [
@@ -189,9 +181,10 @@ def _exec_top_dropoff_slides(lecture_id: str, token: str, params: Dict[str, Any]
 def _exec_worst_quiz_questions(lecture_id: str, token: str, params: Dict[str, Any]) -> Dict[str, Any]:
     limit = _clamp_int(params.get("limit"), default=3, lo=1, hi=20)
     order = (params.get("order") or "lowest").lower()
-    qs = analytics_service.get_quiz_analytics(lecture_id, token)
-    qs = [q for q in qs if q.get("attempts", 0) > 0]
-    rows = sorted(qs, key=lambda q: q.get("success_rate", 0.0),
+    all_qs = analytics_service.get_quiz_analytics(lecture_id, token)
+    # A question fewer than 5 people tried has a null success rate (never 0): it does not rank.
+    qs = [q for q in all_qs if q.get("success_rate") is not None]
+    rows = sorted(qs, key=lambda q: q["success_rate"],
                   reverse=(order == "highest"))[:limit]
     table = [
         {"question": (r["question_text"][:90] + "…") if len(r["question_text"]) > 90 else r["question_text"],
@@ -200,6 +193,9 @@ def _exec_worst_quiz_questions(lecture_id: str, token: str, params: Dict[str, An
         for r in rows
     ]
     if not rows:
+        if all_qs:
+            return {"answer_text": "Too few students have answered any quiz question to say which is hardest yet.",
+                    "table": [], "chart": None}
         return {"answer_text": "No quiz attempts have been recorded yet.", "table": [], "chart": None}
     direction = "lowest" if order != "highest" else "highest"
     answer = (
@@ -216,39 +212,24 @@ def _exec_worst_quiz_questions(lecture_id: str, token: str, params: Dict[str, An
     return {"answer_text": answer, "table": table, "chart": chart}
 
 
-def _exec_struggling_students(lecture_id: str, token: str, params: Dict[str, Any]) -> Dict[str, Any]:
-    threshold = _clamp_int(params.get("max_accuracy_percent"), default=40, lo=0, hi=100)
-    students = analytics_service.get_student_performance(lecture_id, token)
-    rows = [s for s in students if (s.get("quiz_score") or 0) < threshold]
-    table = [
-        {"student": s.get("student_name") or s.get("student_id", "")[:8],
-         "quiz_score": s.get("quiz_score", 0),
-         "progress": s.get("progress_percentage", 0)}
-        for s in rows
-    ]
-    if not rows:
-        answer = f"No students are below {threshold}% quiz accuracy — nice work."
-    else:
-        answer = f"{len(rows)} student(s) are below {threshold}% quiz accuracy."
-    return {"answer_text": answer, "table": table, "chart": None}
-
-
 def _exec_completion_count(lecture_id: str, token: str, params: Dict[str, Any]) -> Dict[str, Any]:
     overview = analytics_service.get_lecture_overview(lecture_id, token)
-    total = overview.get("total_students", 0)
-    rate = overview.get("completion_rate", 0)
-    completed = round(total * rate / 100) if total else 0
+    total = overview.get("total_students")
+    # Under 5 people the overview says nothing (None, never 0): neither does Ask.
+    if not total:
+        return {"answer_text": "Too few students have opened this lecture to say anything about them yet.",
+                "table": [], "chart": None}
+    rate = overview.get("completion_rate") or 0
+    completed = round(total * rate / 100)
+    average = overview.get("average_score")
     table = [
         {"metric": "Students started", "value": total},
         {"metric": "Students completed", "value": completed},
         {"metric": "Completion rate", "value": f"{rate}%"},
-        {"metric": "Average score", "value": f"{overview.get('average_score', 0)}%"},
     ]
-    answer = (
-        f"{completed} of {total} students have finished the lecture "
-        f"({rate}% completion rate)."
-        if total else "No student progress recorded yet."
-    )
+    if average is not None:
+        table.append({"metric": "Average score", "value": f"{average}%"})
+    answer = f"{completed} of {total} students have finished the lecture ({rate}% completion rate)."
     return {"answer_text": answer, "table": table, "chart": None}
 
 
@@ -303,7 +284,6 @@ def _exec_ai_query_themes(lecture_id: str, token: str, params: Dict[str, Any]) -
 _EXECUTORS = {
     "top_dropoff_slides": _exec_top_dropoff_slides,
     "worst_quiz_questions": _exec_worst_quiz_questions,
-    "struggling_students": _exec_struggling_students,
     "completion_count": _exec_completion_count,
     "confusion_topics": _exec_confusion_topics,
     "ai_query_themes": _exec_ai_query_themes,

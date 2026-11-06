@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useInView, useReducedMotion } from 'motion/react';
@@ -322,6 +322,7 @@ const DWELL = 4600;
 
 function LivePage() {
   const { t } = useTranslation('landing');
+  const id = useId();
   const reduce = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -365,6 +366,21 @@ function LivePage() {
         ref={tabsRef}
         role="tablist"
         aria-label={t('story.hero.try')}
+        onKeyDown={(event) => {
+          const index = VIEWS.indexOf(view);
+          let next: number;
+          switch (event.key) {
+            case 'ArrowRight': next = (index + 1) % VIEWS.length; break;
+            case 'ArrowLeft': next = (index - 1 + VIEWS.length) % VIEWS.length; break;
+            case 'Home': next = 0; break;
+            case 'End': next = VIEWS.length - 1; break;
+            default: return;
+          }
+          event.preventDefault();
+          touch();
+          show(VIEWS[next]);
+          tabsRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+        }}
         className="relative mx-auto flex w-fit items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1 backdrop-blur"
       >
         {VIEWS.map((v) => {
@@ -373,7 +389,14 @@ function LivePage() {
             <button
               key={v}
               role="tab"
+              id={`${id}-${v}`}
+              aria-controls={`${id}-panel`}
               aria-selected={on}
+              tabIndex={on ? 0 : -1}
+              onFocus={() => {
+                touch();
+                show(v);
+              }}
               onClick={() => {
                 touch();
                 show(v);
@@ -408,7 +431,14 @@ function LivePage() {
       </div>
 
       {/* The page. Every view is the same page — it changes in place. */}
-      <div className="relative mt-5 aspect-[4/5] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0b] [container-type:inline-size] sm:aspect-[16/10] shadow-[0_50px_140px_-30px_rgba(0,0,0,0.95)]">
+      <div
+        id={`${id}-panel`}
+        role="tabpanel"
+        aria-labelledby={`${id}-${view}`}
+        tabIndex={0}
+        onFocusCapture={touch}
+        className="relative mt-5 aspect-[4/5] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0b] [container-type:inline-size] sm:aspect-[16/10] shadow-[0_50px_140px_-30px_rgba(0,0,0,0.95)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+      >
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div
             key={view}

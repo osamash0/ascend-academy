@@ -6,19 +6,29 @@ const render = (ui: React.ReactElement) => rtl(<MemoryRouter>{ui}</MemoryRouter>
 const base = { pdfUrl: 'x', pages: 10, pagesRead: 3, pagesReady: [], practiceReady: false, readable: false, stage: 'developing', lessonId: null } as any;
 const state: { reading: any; url: string | null; aspect: number } = { reading: base, url: 'blob:x', aspect: 0.56 };
 const scrollTo = vi.hoisted(() => vi.fn());
+/* The scroll's mounts (each one opens the file) and its page reports, driven by hand. */
+const scroll = vi.hoisted(() => ({ mounts: 0, files: [] as string[], report: (_p: number) => {} }));
 vi.mock('../../../data/useEarlyReading', () => ({ useEarlyReading: () => state }));
-vi.mock('@/components/pdf', () => ({
-  PdfPager: ({ onAspect }: any) => {
-    onAspect?.(state.aspect);
-    return <div data-testid="pager" />;
-  },
-  PdfScroll: (props: any) => (
-    /* Like the real one: the first page paints after mount. A click stands in for that paint. */
-    <div ref={props.scrollRef} data-testid="scroll" onClick={() => props.onFirstRender?.(null)} />
-  ),
-  scrollToPdfPage: (...a: unknown[]) => scrollTo(...a),
-  warmPdfWorker: () => {},
-}));
+vi.mock('@/components/pdf', async () => {
+  const { useEffect } = await import('react');
+  return {
+    PdfPager: ({ onAspect }: any) => {
+      onAspect?.(state.aspect);
+      return <div data-testid="pager" />;
+    },
+    PdfScroll: (props: any) => {
+      scroll.report = props.onPage;
+      useEffect(() => {
+        scroll.mounts += 1;
+        scroll.files.push(props.file);
+      }, []); // eslint-disable-line react-hooks/exhaustive-deps
+      /* Like the real one: the first page paints after mount. A click stands in for that paint. */
+      return <div ref={props.scrollRef} data-testid="scroll" onClick={() => props.onFirstRender?.(null)} />;
+    },
+    scrollToPdfPage: (...a: unknown[]) => scrollTo(...a),
+    warmPdfWorker: () => {},
+  };
+});
 
 const uploadsMock = vi.hoisted(() => ({ to: null as string | null, subs: new Set<() => void>(), v: 0 }));
 vi.mock('../../../data/uploads', () => ({
@@ -34,6 +44,8 @@ beforeEach(() => {
   state.url = 'blob:x';
   state.aspect = 0.56;
   scrollTo.mockClear();
+  scroll.mounts = 0;
+  scroll.files = [];
 });
 
 const resolve = (to: string) =>
@@ -211,5 +223,62 @@ describe('EarlyReader', () => {
     render(<EarlyReader uploadId="run-1" filename="N.pdf" onReady={() => {}} />);
     fireEvent.keyDown(window, { key: 'ArrowRight', metaKey: true });
     expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '1');
+  });
+});
+
+describe('EarlyReader on a document (scrolled, not turned)', () => {
+  beforeEach(() => {
+    uploadsMock.to = null;
+    state.aspect = 1.41;
+  });
+
+  it('carries the page scrolled to through the swap to the real id and into the handover', () => {
+    const onResolved = vi.fn();
+    const onReady = vi.fn();
+    const onPage = vi.fn();
+    const props = { filename: 'ueb00.pdf', onReady, onResolved, onPage };
+    const { rerender } = render(<EarlyReader uploadId="sending-1" {...props} />);
+    expect(screen.getByTestId('scroll')).toBeInTheDocument();
+    act(() => scroll.report(3));
+    expect(onPage).toHaveBeenLastCalledWith(3);
+    resolve('run-9');
+    expect(onResolved).toHaveBeenCalledWith('run-9', 3);
+    /* The swap: the same reader, on the real id. */
+    rerender(
+      <MemoryRouter>
+        <EarlyReader uploadId="run-9" initialPage={3} {...props} />
+      </MemoryRouter>,
+    );
+    act(() => scroll.report(4));
+    state.reading = { ...base, readable: true, lessonId: 'L1', pagesRead: 5 };
+    rerender(
+      <MemoryRouter>
+        <EarlyReader uploadId="run-9" initialPage={3} {...props} />
+      </MemoryRouter>,
+    );
+    expect(onReady).toHaveBeenCalledWith('L1', 4);
+  });
+
+  it('keeps the file open across the swap: one scroll, one load', () => {
+    const props = { filename: 'ueb00.pdf', onReady: () => {} };
+    const { rerender } = rtl(
+      <MemoryRouter>
+        <EarlyReader uploadId="sending-1" {...props} />
+      </MemoryRouter>,
+    );
+    act(() => scroll.report(2));
+    rerender(
+      <MemoryRouter>
+        <EarlyReader uploadId="run-9" initialPage={2} {...props} />
+      </MemoryRouter>,
+    );
+    expect(scroll.mounts).toBe(1);
+    expect(scroll.files).toEqual(['blob:x']);
+    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '2');
+  });
+
+  it('is marked as the early reader, so the handover can hold what it shows', () => {
+    const { container } = render(<EarlyReader uploadId="run-1" filename="N.pdf" onReady={() => {}} />);
+    expect(container.querySelector('[data-early-reader]')).not.toBeNull();
   });
 });

@@ -289,7 +289,9 @@ export function createLiveRepository(http: V4Transport) {
       return false;
     },
     /** The lecture's real quiz questions, as PracticeQuestions. */
-    practice: (id: string) => http.get<{ questions: PracticeQuestion[] }>(`${root}/reader/lectures/${idPath(id)}/practice`),
+    practice: (id: string, language?: string) => http.get<{ questions: PracticeQuestion[] }>(
+      `${root}/reader/lectures/${idPath(id)}/practice${language ? `?lang=${encodeURIComponent(language)}` : ''}`,
+    ),
     /** Graded on the server; logs a first try or a retry and grants XP once per question. */
     answerPractice: (id: string, questionId: string, answer: string, session?: string | null) =>
       http.post<{ correct: boolean; correctAnswer: string; explanation: string; xp: number }>(
@@ -371,7 +373,9 @@ export async function loadLiveRepository(): Promise<LiveRepository> {
  * be answered in the old language until the profile write landed.
  */
 function withLanguage(http: V4Transport): V4Transport {
-  const tag = (path: string) => `${path}${path.includes('?') ? '&' : '?'}lang=${(i18n.language || 'en').split('-')[0]}`;
+  const tag = (path: string) => /[?&]lang=/.test(path)
+    ? path
+    : `${path}${path.includes('?') ? '&' : '?'}lang=${(i18n.language || 'en').split('-')[0]}`;
   return {
     get: <T>(path: string) => http.get<T>(tag(path)),
     post: <T>(path: string, body: unknown) => http.post<T>(tag(path), body),

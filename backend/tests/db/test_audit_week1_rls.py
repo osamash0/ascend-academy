@@ -157,11 +157,12 @@ def test_add_xp_to_user_is_not_callable_by_signed_in_users(db_conn, make_user):
         _reset_user(cur)
 
 
-def test_grant_xp_still_works_for_signed_in_users(db_conn, make_user):
+def test_signed_in_user_can_claim_a_verified_quiz_reward(db_conn, make_user, make_lecture, make_slide, make_quiz):
     uid = make_user("student")
+    qid = make_quiz(make_slide(make_lecture(uid)))
     with db_conn.cursor() as cur:
         _as_user(cur, uid)
-        cur.execute("SELECT public.grant_xp(10, 'audit_test')")
+        cur.execute("SELECT public.grant_quiz_xp(%s, 3)", (str(qid),))
         _reset_user(cur)
         cur.execute("SELECT total_xp FROM public.profiles WHERE user_id = %s", (str(uid),))
         assert cur.fetchone()[0] >= 10

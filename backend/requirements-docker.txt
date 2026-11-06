@@ -28,7 +28,7 @@ asyncpg>=0.29,<0.31
 # a 5.x that is vulnerable by definition. This file is what the production
 # image installs and it was never audited, so that went unnoticed the whole
 # time requirements.txt was being kept clean.
-pypdf>=6.21.2,<7.0
+pypdf>=6.21.4,<7.0
 PyMuPDF==1.27.1
 # qpdf (bundled in the wheel) rewrites each lecture PDF's reading copy so its
 # first page needs fewer byte ranges -- see backend/services/parser/compact_pdf.py.

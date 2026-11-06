@@ -102,6 +102,8 @@ Statuses: **current** = describes the code on `main` today; **historical** = a d
 | `docs/thesis/ARCHITECTURE_PRIMER.md` | 2026-08-28 | Thesis learning document, derived from main @ 0be0081 | reference |  |
 | `docs/thesis/NOTES.md` | 2026-09-17 | Thesis session notes | reference |  |
 | `docs/thesis/THESIS_PLAN.md` | 2026-08-28 | Thesis preparation plan | reference |  |
+| `docs/timeline/development-timeline.md` | 2026-11-06 | Development timeline 2026-01-23 to 2026-11-02 for the thesis: phases, key decisions with sources, lessons, open questions, thesis hints | reference |  |
+| `docs/timeline/00-overview.md` … `10-*.md` | 2026-11-06 | Method and raw counts (00), then one file per phase with dated entries marked [Confirmed]/[Inferred], effort stats and challenges | reference | `docs/timeline/development-timeline.md` |
 
 ## Other folders in the root
 

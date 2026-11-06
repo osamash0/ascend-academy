@@ -1,12 +1,13 @@
 """
 Grounded Socratic AI Tutor.
 
-The tutor answers strictly from RETRIEVED CONTEXT (top-K relevant slides
-plus the current slide as anchor) and cites the slides it used.  When no
-retrieved slide passes the similarity threshold, we short-circuit to a
-deterministic Socratic refusal *before* the LLM call — saving a token
-round-trip and guaranteeing the tutor never falls back to the model's
-parametric knowledge.
+The tutor grounds its answer in RETRIEVED CONTEXT (top-K relevant slides
+plus the current slide as anchor) and cites the slides it used; citations
+to slides outside the retrieved set are dropped. There is no refusal gate:
+when nothing passes the similarity threshold, the context falls back to the
+`slide_text` the caller sent, and the prompt lets the model add knowledge
+beyond the slides as long as it is marked as such (a Markdown blockquote).
+The course tutor below does keep a refusal gate (`is_grounded`).
 
 All user-controlled inputs (`user_message`, `chat_history`) are sanitized
 before interpolation. Slide content is NOT run through the same sanitizer
@@ -31,6 +32,7 @@ from backend.services.llm_client import LLMBudgetExceededError
 from .orchestrator import generate_text
 from .prompts import COURSE_TUTOR_SOCRATIC_PROMPT, TUTOR_SOCRATIC_PROMPT
 from .retrieval import retrieve_relevant_slides, DEFAULT_THRESHOLD
+from .untrusted import inert, one_line
 from .voice import VOICE_PROSE, LANG_MATCH
 
 logger = logging.getLogger(__name__)
@@ -76,6 +78,9 @@ def _sanitize_user_input(text: str, max_chars: int) -> str:
     # Truncate
     if len(text) > max_chars:
         text = text[:max_chars] + " […truncated]"
+    # Defuse the bracket labels and fences our prompts use ([RETRIEVED
+    # CONTEXT], [Slide N], …) so the message cannot open a section of its own.
+    text = inert(text)
     # Neutralize XML-ish tags so users can't open/close our prompt sections
     text = text.replace("<", "&lt;").replace(">", "&gt;")
     # Soft-flag injection attempts (the model still sees the words, but
@@ -96,13 +101,15 @@ def _build_context_block(
     currently looking at), so the tutor still has something to ground on.
     """
     if not retrieved:
-        return (fallback_slide_text or "")[:_MAX_SLIDE_CHARS]
+        return inert((fallback_slide_text or "")[:_MAX_SLIDE_CHARS])
 
     blocks: List[str] = []
     budget = _MAX_SLIDE_CHARS
     for r in retrieved:
-        snippet = (r.get("content") or "")[:_MAX_PER_SLIDE_CHARS]
-        title = r.get("title") or ""
+        # Slide text is quoted, never rewritten, except for the markers it
+        # could use to forge a label or a header of ours (untrusted.inert).
+        snippet = inert((r.get("content") or "")[:_MAX_PER_SLIDE_CHARS])
+        title = one_line(r.get("title"), 200)
         header = f"[Slide {r['slide_index'] + 1}] {title}".strip()
         block = f"{header}\n{snippet}"
         if len(block) > budget:
@@ -248,9 +255,9 @@ def _build_course_context_block(retrieved: List[Dict[str, Any]]) -> str:
     blocks: List[str] = []
     budget = _MAX_SLIDE_CHARS
     for i, r in enumerate(retrieved, start=1):
-        snippet = (r.get("content") or "")[:_MAX_PER_SLIDE_CHARS]
-        title = r.get("title") or ""
-        lecture_title = r.get("lecture_title") or "Untitled lecture"
+        snippet = inert((r.get("content") or "")[:_MAX_PER_SLIDE_CHARS])
+        title = one_line(r.get("title"), 200)
+        lecture_title = one_line(r.get("lecture_title"), 200) or "Untitled lecture"
         header = f"[Source {i}] ({lecture_title}, Slide {r['slide_index'] + 1}) {title}".strip()
         block = f"{header}\n{snippet}"
         if len(block) > budget:
