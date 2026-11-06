@@ -63,6 +63,11 @@ def _patch_synthesis(monkeypatch, *, pages, deck_quiz):
     monkeypatch.setattr(uo, "_fetch_pdf_bytes", _areturn(b"%PDF-fake"))
     monkeypatch.setattr(uo, "_store_lecture_pdf", _areturn(None))
     monkeypatch.setattr(uo, "_extract_pages", lambda pdf, odl=None: pages)
+    # Routing reads the PDF page, which b"%PDF-fake" is not: short pages stand
+    # for scans and long ones for text, as in the unit tests' _patch_common.
+    monkeypatch.setattr(uo, "_route_pages", lambda pdf: [
+        "text" if len(p.strip()) >= 25 else "no_text" for p in pages
+    ])
     monkeypatch.setattr(uo, "_synthesize_slide", synth)
     monkeypatch.setattr(synthesis, "analyze_lecture_meta", _areturn({"title": "E2E Lecture", "summary": "Deck summary."}))
     monkeypatch.setattr(synthesis, "generate_quiz_questions", _areturn(deck_quiz))
