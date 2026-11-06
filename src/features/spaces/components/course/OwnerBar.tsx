@@ -16,7 +16,8 @@ const ACCEPT = '.pdf,.ppt,.pptx,application/pdf';
  *
  * Three things an owner needs here and nowhere else: add Lessons, decide
  * who sees the Space, and a way to the course manager for everything rarer
- * (rename, reorder, remove, analytics). One white action — Add a Lesson
+ * (rename, reorder, remove). How the Space is landing has its own room, from
+ * the masthead. One white action — Add a Lesson
  * while the Space is empty, otherwise the quiet pill; the rest stay quiet.
  */
 export function OwnerBar({
