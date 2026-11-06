@@ -43,6 +43,7 @@ from backend.services.parser.deck_plan import (
     select_slides,
 )
 from backend.services.parser.quiz_grounding import STRUCTURAL_REASONS, GroundingVerdict, assess_grounding
+from backend.services.ai.untrusted import inert, one_line
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +109,7 @@ async def analyze_lecture_meta(
     skeleton = skeleton or build_deck_skeleton(slides)
     picked = select_meta_slides(skeleton)
     combined_text = "\n\n".join(
-        f"[Slide {i + 1}]: {skeleton.slides[i].text[:400]}" for i in picked
+        f"[Slide {i + 1}]: {inert(skeleton.slides[i].text[:400])}" for i in picked
     )
     prompt = LECTURE_META_ANALYSIS_PROMPT.format(
         combined_text=combined_text,
@@ -120,6 +121,19 @@ async def analyze_lecture_meta(
     return parse_json_response(raw)
 
 
+def slide_analysis_prompt(slide_number: int, text: str, lecture_context: str, output_language: str) -> str:
+    """SLIDE_ANALYSIS_PROMPT filled in, with the slide text and the lecture
+    context defused (`untrusted.inert`) so the text cannot close its fence."""
+    from backend.services.ai.untrusted import inert
+
+    return SLIDE_ANALYSIS_PROMPT.format(
+        lecture_context=inert(lecture_context[:1000]),
+        slide_number=slide_number,
+        text=inert(text[:1500]),
+        output_language=output_language,
+    )
+
+
 async def analyze_slide(
     slide_number: int,
     text: str,
@@ -128,12 +142,7 @@ async def analyze_slide(
     source_language: str = "en",
 ) -> Dict[str, Any]:
     """Analyze a single slide; returns the LLM result dict."""
-    prompt = SLIDE_ANALYSIS_PROMPT.format(
-        lecture_context=lecture_context[:1000],
-        slide_number=slide_number,
-        text=text[:1500],
-        output_language=_output_language(source_language),
-    )
+    prompt = slide_analysis_prompt(slide_number, text, lecture_context, _output_language(source_language))
     raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
     res = parse_json_response(raw)
     if not isinstance(res, dict):
@@ -169,10 +178,10 @@ async def generate_quiz_questions(
         return []
 
     slide_summary = "\n\n".join(
-        f"[Slide {i + 1}]: {skeleton.slides[i].text[:500]}" for i in picked
+        f"[Slide {i + 1}]: {inert(skeleton.slides[i].text[:500])}" for i in picked
     )
     prompt = SYNTHESIS_DECK_QUIZ_PROMPT.format(
-        lecture_title=lecture_title,
+        lecture_title=one_line(lecture_title, 200),
         slide_summary=slide_summary,
         output_language=_output_language(source_language),
     )
@@ -202,10 +211,10 @@ async def _repair_question(
     """One regeneration against the cited slide only. The returned question
     is pinned to that slide, so a model cannot repair by relocating."""
     prompt = SYNTHESIS_QUIZ_REPAIR_PROMPT.format(
-        lecture_title=lecture_title,
-        concept=str(q.get("concept") or q.get("question") or "")[:200],
+        lecture_title=one_line(lecture_title, 200),
+        concept=inert(str(q.get("concept") or q.get("question") or "")[:200]),
         slide_number=slide_number,
-        slide_text=skeleton.slides[slide_number - 1].text[:1500],
+        slide_text=inert(skeleton.slides[slide_number - 1].text[:1500]),
         output_language=_output_language(source_language),
     )
     try:
@@ -252,8 +261,8 @@ async def _check_answer(
     listed = "\n".join(f"{letter}) {opt}" for letter, opt in zip(_OPTION_LETTERS, options))
     prompt = SYNTHESIS_QUIZ_VERIFY_PROMPT.format(
         slide_number=slide_number,
-        slide_text=skeleton.slides[slide_number - 1].text[:1500],
-        question=str(q.get("question") or "")[:500],
+        slide_text=inert(skeleton.slides[slide_number - 1].text[:1500]),
+        question=inert(str(q.get("question") or "")[:500]),
         options=listed,
     )
     try:
@@ -414,8 +423,8 @@ async def generate_cross_lecture_questions(
     concept_list = "\n".join(f'- "{p["top_concept"]}" (from lecture: {p["title"]})' for p in candidates)
     prompt = CROSS_LECTURE_QUIZ_PROMPT.format(
         num_candidates=len(candidates),
-        lecture_title=lecture_title,
-        concept_list=concept_list,
+        lecture_title=one_line(lecture_title, 200),
+        concept_list=inert(concept_list),
     )
     try:
         raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
@@ -472,7 +481,7 @@ async def extract_syllabus_facts(text: str, ai_model: str) -> Dict[str, Any]:
     """Extract structured course facts from an administrative/organizational
     slide's text (Roadmap Phase 3, "course brain"). Best-effort — callers
     treat a failure or empty result as "nothing extracted", never fatal."""
-    prompt = SYLLABUS_FACTS_EXTRACTION_PROMPT.format(text=text[:2000])
+    prompt = SYLLABUS_FACTS_EXTRACTION_PROMPT.format(text=inert(text[:2000]))
     try:
         raw = await generate_text(prompt, ai_model=ai_model)
         res = parse_json_response(raw)

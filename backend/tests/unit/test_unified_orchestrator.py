@@ -1619,7 +1619,7 @@ async def test_on_demand_receipt_has_no_input_text(monkeypatch):
 def test_prompt_versions_follow_the_input_contract_policy():
     from backend.services.ai.prompts import PROMPT_VERSIONS
     # Single-caller prompts whose input changed: bumped.
-    assert PROMPT_VERSIONS["SLIDE_ANALYSIS_PROMPT"] == "v3"
+    assert PROMPT_VERSIONS["SLIDE_ANALYSIS_PROMPT"] == "v4"  # v4: text fenced + defused
     assert PROMPT_VERSIONS["LECTURE_META_ANALYSIS_PROMPT"] == "v3"
     # Shared with raw-text callers (file_parse_service, slide_synth_service): not
     # bumped; slide_provenance[].input_text says what each slide received.

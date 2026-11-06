@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 from .orchestrator import generate_text, parse_json_response
 from .prompts import ASK_LUNA_PROMPT
 from .tutor import _sanitize_user_input
+from .untrusted import one_line
 from .voice import VOICE_STRUCTURED
 
 logger = logging.getLogger(__name__)
@@ -149,7 +150,7 @@ def build_learner_context(profile: Optional[Dict[str, Any]], progress: List[Dict
         if answered < 3:
             continue
         title = ((row.get("lectures") or {}) or {}).get("title") or "a lecture"
-        scored.append((row.get("correct_answers", 0) / answered, title[:80]))
+        scored.append((row.get("correct_answers", 0) / answered, one_line(title, 80)))
     if scored:
         scored.sort()
         weakest = [t for pct, t in scored if pct < 0.7][:2]
