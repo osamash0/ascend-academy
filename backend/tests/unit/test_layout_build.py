@@ -9,7 +9,7 @@ from PIL import Image
 from backend.services.parser.layout.build import LAYOUT_VERSION, build_page_layout
 from backend.services.parser.layout.checks import norm_word, server_checks
 from backend.services.parser.layout.figures import repeated_places
-from backend.services.parser.layout.strokes import line_key, running_lines
+from backend.services.parser.layout.furniture import footline_totals, line_key, running_lines
 
 ROOT = Path(__file__).resolve().parents[3]
 PDF = ROOT / "public/v4-mock/normalization.pdf"
@@ -27,8 +27,8 @@ def doc():
 
 @pytest.fixture(scope="module")
 def layouts(doc):
-    rep, running = repeated_places(doc), running_lines(doc)
-    return [build_page_layout(doc[n - 1], n, rep, running) for n in range(1, 13)]
+    rep, running, totals = repeated_places(doc), running_lines(doc), footline_totals(doc)
+    return [build_page_layout(doc[n - 1], n, rep, running, totals) for n in range(1, 13)]
 
 
 def text_page(lines=("Hello world", "A second line of plain text"), step=60):
@@ -76,7 +76,7 @@ def test_only_figures_have_no_text(layouts):
 def test_normalization_page_26_keeps_its_last_line(doc):
     # page_blocks called the last sub-bullet a footer (low on the page, set smaller than the body); it runs on no
     # other page, so it stays a block and the page is layout with the line kept
-    lp = build_page_layout(doc[25], 26, repeated_places(doc), running_lines(doc))
+    lp = build_page_layout(doc[25], 26, repeated_places(doc), running_lines(doc), footline_totals(doc))
     assert lp["verdict"] == "layout", lp["reasons"]
     assert any("ActorName}" in b["text"] and "Year" in b["text"] and b["bbox"][1] > 0.94 for b in lp["blocks"])
 
@@ -174,7 +174,7 @@ def band_page(line, y=790, size=8):
 
 
 def test_a_running_footer_in_the_outer_band_outside_every_block_is_not_missing():
-    d, p = band_page("Footer words here 3")
+    d, p = band_page("Footer words here 1")                                  # page 1: its own number is left out
     running = {("bottom", line_key("Footer words here"))}
     assert server_checks(p, blocks_for("Body", (0.05, 0.1, 0.3, 0.14)), [], [], [], [], running=running) == []
 
@@ -208,14 +208,17 @@ def test_a_content_line_near_the_bottom_that_page_blocks_calls_a_footer_stays_an
 
 
 def test_a_beamer_footline_ending_in_n_of_N_is_dropped_and_the_page_passes():
-    for parts in ((("Linear cryptanalysis 3 / 58", 40),), (("Linear cryptanalysis", 40), ("3 / 58", 720))):
+    for parts in ((("Linear cryptanalysis {n} / 58", 40),), (("Linear cryptanalysis", 40), ("{n} / 58", 720))):
         d = fitz.open()
-        p = d.new_page(width=800, height=450)
-        p.insert_text((40, 60), "Body text of the page", fontsize=20)
-        p.insert_text((40, 120), "More body text for the median size", fontsize=20)
-        for text, x in parts:
-            p.insert_text((x, 440), text, fontsize=10)
-        lp = build_page_layout(p, 3, set(), set())
+        for n in range(1, 4):
+            p = d.new_page(width=800, height=450)
+            p.insert_text((40, 60), f"Body text of page {n}", fontsize=20)
+            p.insert_text((40, 120), "More body text for the median size", fontsize=20)
+            for text, x in parts:
+                p.insert_text((x, 440), text.format(n=n), fontsize=10)
+        totals = footline_totals(d)
+        assert totals == {58}
+        lp = build_page_layout(d[2], 3, set(), set(), totals)
         assert lp["verdict"] == "layout", lp["reasons"]
         assert not any("cryptanalysis" in b["text"] or "58" in b["text"] for b in lp["blocks"])
 

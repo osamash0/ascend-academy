@@ -1,7 +1,7 @@
 """Layout face store: build every page's Layout page, write them to lecture_layouts.
 
-Deterministic, no AI calls, no uploads. FITZ_LOCK is taken once around repeated_places and
-running_lines, and once per page around build_page_layout (never nested; no layout helper takes it).
+Deterministic, no AI calls, no uploads. FITZ_LOCK is taken once around repeated_places,
+running_lines and footline_totals, and once per page around build_page_layout (never nested; no layout helper takes it).
 One page that fails is stored as "original" (reasons ["layout failed"]); the others go on.
 """
 from __future__ import annotations
@@ -14,21 +14,21 @@ from uuid import UUID
 
 from backend.services.parser.layout.build import LAYOUT_VERSION, build_page_layout
 from backend.services.parser.layout.figures import repeated_places
-from backend.services.parser.layout.strokes import running_lines
+from backend.services.parser.layout.furniture import footline_totals, running_lines
 from backend.services.parser.page_images import FITZ_LOCK
 
 logger = logging.getLogger(__name__)
 
 
 def _per_document(doc: Any) -> tuple:
-    """What is computed once per document: logos' places and running headers and footers."""
+    """What is computed once per document: logos' places, running headers and footers, footline totals."""
     with FITZ_LOCK:
-        return repeated_places(doc), running_lines(doc)
+        return repeated_places(doc), running_lines(doc), footline_totals(doc)
 
 
-def _page(doc: Any, n: int, repeated: set, running: set) -> Dict[str, Any]:
+def _page(doc: Any, n: int, repeated: set, running: set, totals: set) -> Dict[str, Any]:
     with FITZ_LOCK:
-        return build_page_layout(doc[n - 1], n, repeated, running)
+        return build_page_layout(doc[n - 1], n, repeated, running, totals)
 
 
 def _failed(n: int) -> Dict[str, Any]:
@@ -44,11 +44,11 @@ async def compute_layouts(pdf_bytes: bytes) -> List[Dict[str, Any]]:
     doc = await asyncio.to_thread(lambda: fitz.open(stream=pdf_bytes, filetype="pdf"))
     try:
         total = doc.page_count
-        repeated, running = await asyncio.to_thread(_per_document, doc)
+        repeated, running, totals = await asyncio.to_thread(_per_document, doc)
         pages: List[Dict[str, Any]] = []
         for n in range(1, total + 1):
             try:
-                pages.append(await asyncio.to_thread(_page, doc, n, repeated, running))
+                pages.append(await asyncio.to_thread(_page, doc, n, repeated, running, totals))
             except Exception as exc:
                 logger.warning("layout failed for page %d (stored as original): %s", n, exc)
                 pages.append(_failed(n))

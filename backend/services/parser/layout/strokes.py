@@ -1,15 +1,13 @@
-"""Redrawn lines and page furniture: a page's own vector strokes become hairline paths, footers and page-number
-boxes go, algorithm line numbers are recognised. Callers hold FITZ_LOCK (this module never takes it)."""
+"""Redrawn lines: a page's own vector strokes become hairline paths, page-number chips are not redrawn, algorithm
+line numbers are recognised. Footers and page numbers as text: furniture.py. Callers hold FITZ_LOCK (this module
+never takes it)."""
 import re
-import unicodedata
 
 from backend.services.parser.layout.geometry import area, inter, near, union, white
 
-PAGE_NUMBER = re.compile(r"^(slide|folie|seite|page|s\.)?\s*\d+(\s*(/|of|von)\s*\d+)?$", re.IGNORECASE)
-FOOTLINE = re.compile(r"(\d+)\s*/\s*(\d+)\s*$")   # a band row ending in "n / N": a beamer footline
 LINE_NUMBER = re.compile(r"^\s*(\d{1,3})[:.)]?\s")
 OUTER_BAND = 0.86          # furniture: the bottom band starts here (y0 above it) ...
-TOP_BAND = 0.1             # ... and the top band ends here (y1 below it); used by drop_furniture and the chip rule
+TOP_BAND = 0.1             # ... and the top band ends here (y1 below it); used by furniture.py and the chip rule
 STROKE_BOTTOM = 0.88       # reink's header and footer bands (the reference's thresholds): bottom starts here ...
 STROKE_TOP = 0.12          # ... and the top band ends here
 KEEP_OUT_SHARE = 0.5       # an item this much inside a table or figure is shown there
@@ -22,10 +20,6 @@ MARK_GAP = 0.1             # specks this close (page fractions) are one plot
 MARK_TEXT_PAD = (0.02, 0.01)   # a speck this close to a text block is its bullet or decoration
 DETAIL_HOST = 0.01         # a speck on a redrawn drawing smaller than this (area) is a detail of it (an icon's keys) ...
 DETAIL_PAD = 0.005         # ... "on" meaning inside its box padded by this much
-RUNNING_PAGES = 3          # a band line on this many pages (and on 30% of them) is a running header or footer
-RUNNING_SHARE = 0.3        # (the same bar as figures.repeated_places)
-ROW_OVERLAP = 0.5          # band lines sharing this much of the smaller one's height are one row
-ROW_PAD = 0.01             # a block this close to a footline row (vertically) lies on it
 
 
 def _in_band(y0, y1):
@@ -34,100 +28,6 @@ def _in_band(y0, y1):
 
 def _in_stroke_band(y0, y1):
     return y0 > STROKE_BOTTOM or y1 < STROKE_TOP
-
-
-def band(box):
-    """"bottom" or "top" for a box in the outer band, else None."""
-    return "bottom" if box[1] > OUTER_BAND else "top" if box[3] < TOP_BAND else None
-
-
-def line_key(text):
-    """A line compared across pages: without digits (the page number changes), case, spacing and punctuation."""
-    return "".join(c for c in unicodedata.normalize("NFKC", text or "").lower() if c.isalpha())
-
-
-def page_lines(page):
-    """The page's text lines from its words: {(block_no, line_no): (box, text)}, box in page fractions."""
-    W, H = page.rect.width, page.rect.height
-    lines = {}
-    for x0, y0, x1, y1, t, bno, lno, _ in page.get_text("words"):
-        box, words = lines.setdefault((bno, lno), ([x0 / W, y0 / H, x1 / W, y1 / H], []))
-        box[:] = [min(box[0], x0 / W), min(box[1], y0 / H), max(box[2], x1 / W), max(box[3], y1 / H)]
-        words.append(t)
-    return {k: (box, " ".join(words)) for k, (box, words) in lines.items()}
-
-
-def running_lines(doc):
-    """Running headers and footers: {(band, line_key)} of lines that sit in the same outer band on at least
-    RUNNING_PAGES pages and RUNNING_SHARE of the document. Computed on every call; the caller computes it once
-    per document and passes it on."""
-    seen = {}
-    for i in range(doc.page_count):
-        keys = {(band(box), line_key(text)) for box, text in page_lines(doc[i]).values()}
-        for k in keys:
-            if k[0] and k[1]:
-                seen[k] = seen.get(k, 0) + 1
-    return {k for k, c in seen.items() if c >= max(RUNNING_PAGES, RUNNING_SHARE * doc.page_count)}
-
-
-def footlines(page, page_no=None):
-    """Rows of the outer band whose text, read left to right, ends in "n / N" with 1 <= n <= N and N >= 2 (or
-    N >= the page's number): a beamer footline ("<section title> ... 3 / 58"). The whole row is furniture: a
-    learner never sees a page number on a Layout page. Returns the rows' boxes."""
-    rows = []
-    for box, text in sorted(page_lines(page).values(), key=lambda bt: bt[0][1]):
-        side = band(box)
-        if not side:
-            continue
-        for r in rows:
-            ov = min(r["box"][3], box[3]) - max(r["box"][1], box[1])
-            if r["band"] == side and ov >= ROW_OVERLAP * min(r["box"][3] - r["box"][1], box[3] - box[1]):
-                r["lines"].append((box, text))
-                r["box"] = union([r["box"], box])
-                break
-        else:
-            rows.append({"band": side, "box": list(box), "lines": [(box, text)]})
-    out = []
-    for r in rows:
-        m = FOOTLINE.search(" ".join(t for _, t in sorted(r["lines"], key=lambda bt: bt[0][0])))
-        if m:
-            n, total = int(m.group(1)), int(m.group(2))
-            if 1 <= n <= total and (total >= 2 or (page_no and total >= page_no)):
-                out.append([round(v, 4) for v in r["box"]])
-    return out
-
-
-def _on_row(bb, row):
-    return bb[1] >= row[1] - ROW_PAD and bb[3] <= row[3] + ROW_PAD and bb[0] < row[2] and bb[2] > row[0]
-
-
-def furniture(box, text, running=frozenset()):
-    """Text that is page furniture: in the outer band, and each of its lines a page number or a running line
-    (at most one page number: a row of numbers is a chart's axis). Anything else near the page's edge is content
-    (a list's last line, a closing question)."""
-    side = band(box)
-    lines = [ln.strip() for ln in (text or "").split("\n") if ln.strip()]
-    numbers = sum(1 for ln in lines if PAGE_NUMBER.match(ln))
-    return (bool(side and lines) and numbers <= 1
-            and all(PAGE_NUMBER.match(ln) or (side, line_key(ln)) in running for ln in lines))
-
-
-def drop_furniture(blocks, footers, page_no, running=frozenset(), footlines=()):
-    """Remove footers (ids from page_blocks.extract_blocks) that are furniture, bare page numbers in the outer
-    band, and every block on a footline row (footlines(page)). page_blocks calls any small line low on the page a
-    footer; only one whose lines run across the document (running_lines) or are page numbers goes. Returns the
-    dropped boxes and the footline rows, for the word check. page_no is the page's number (1-based)."""
-    foot = set(footers or [])
-    kept, dropped = [], []
-    for b in blocks:
-        bb, text = b["bbox"], (b.get("text") or "").strip()
-        if ((b["id"] in foot and furniture(bb, text, running)) or (PAGE_NUMBER.match(text) and _in_band(bb[1], bb[3]))
-                or any(_on_row(bb, row) for row in footlines)):
-            dropped.append(bb)
-        else:
-            kept.append(b)
-    blocks[:] = kept
-    return dropped + [list(row) for row in footlines]
 
 
 def numbered_lines(text):

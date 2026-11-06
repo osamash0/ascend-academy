@@ -2,8 +2,7 @@
 algorithm line numbers, stray outline chips."""
 import fitz
 
-from backend.services.parser.layout.strokes import (drop_furniture, footlines, line_key, link_labels, lost_marks,
-                                                    numbered_lines, reink, running_lines)
+from backend.services.parser.layout.strokes import link_labels, lost_marks, numbered_lines, reink
 
 
 def page_800x600():
@@ -40,102 +39,7 @@ def test_link_labels_without_paths_changes_nothing():
     assert "linked" not in a
 
 
-# --- flaw 1: footers and page-number boxes ----------------------------------------------------------------
-def test_a_running_footer_id_is_dropped_and_its_box_returned():
-    body = blk(0, "paragraph", [0.1, 0.2, 0.9, 0.4], "Body text")
-    foot = blk(1, "paragraph", [0.1, 0.92, 0.5, 0.96], "Institute of things 4")
-    blocks = [body, foot]
-    dropped = drop_furniture(blocks, ["p1-b1"], 1, {("bottom", line_key("Institute of things"))})
-    assert blocks == [body] and dropped == [[0.1, 0.92, 0.5, 0.96]]
-
-
-def test_a_footer_id_whose_text_runs_on_no_other_page_stays_a_block():
-    # page_blocks calls any small line low on the page a footer: a list's last, smaller sub-bullet is one
-    body = blk(0, "paragraph", [0.1, 0.2, 0.9, 0.4], "Body text")
-    last = blk(1, "list", [0.09, 0.95, 0.33, 1.0], "\u2022 {Title, ActorName} \u219b Year")
-    blocks = [body, last]
-    assert drop_furniture(blocks, ["p1-b1"], 1, {("bottom", line_key("Institute of things"))}) == []
-    assert blocks == [body, last]
-    assert drop_furniture(blocks, ["p1-b1"], 1) == [] and blocks == [body, last]     # nothing known to run: kept
-
-
-def test_a_footer_of_many_numbers_is_a_chart_axis_not_a_page_number():
-    axis = blk(1, "paragraph", [0.16, 0.92, 0.72, 0.94], "1950\n1960\n1970\n1980")
-    blocks = [axis]
-    assert drop_furniture(blocks, ["p1-b1"], 1) == [] and blocks == [axis]
-    one = blk(2, "paragraph", [0.9, 0.95, 0.96, 0.98], "Running title\n3 / 25")
-    blocks = [one]
-    assert drop_furniture(blocks, ["p1-b2"], 1, {("bottom", line_key("Running title"))}) == [one["bbox"]]
-
-
-def test_a_band_row_ending_in_n_of_N_is_a_footline_and_a_fraction_out_of_range_is_not():
-    doc, page = page_800x600()
-    page.insert_text((20, 590), "Linear cryptanalysis", fontsize=8)          # beamer: title left, number right
-    page.insert_text((740, 590), "3 / 58", fontsize=8)
-    page.insert_text((20, 20), "Ratio 3 to 4", fontsize=8)                    # top band, no n / N at the end
-    page.insert_text((60, 300), "Body 1 / 2", fontsize=12)                    # n / N, but not in the band
-    rows = footlines(page, 3)
-    assert len(rows) == 1 and rows[0][1] > 0.95 and rows[0][0] < 0.04 and rows[0][2] > 0.94   # one row, both ends
-    for bad in ("Step 5 / 3", "Slide 0 / 4"):                                  # n > N, n < 1
-        d, pg = page_800x600()
-        pg.insert_text((20, 590), bad, fontsize=8)
-        assert footlines(pg, 5) == []
-    d, pg = page_800x600()
-    pg.insert_text((20, 590), "Intro 1 / 1", fontsize=8)
-    assert footlines(pg, 1) and not footlines(pg, 2)                           # N must reach 2 or the page's number
-
-
-def test_a_block_on_a_footline_row_is_dropped_and_the_row_returned():
-    body = blk(0, "paragraph", [0.1, 0.2, 0.9, 0.4], "Body text")
-    title = blk(1, "paragraph", [0.02, 0.97, 0.3, 0.99], "Linear cryptanalysis")
-    num = blk(2, "paragraph", [0.92, 0.97, 0.98, 0.99], "3 / 58")
-    blocks = [body, title, num]
-    row = [0.025, 0.972, 0.975, 0.988]
-    dropped = drop_furniture(blocks, [], 3, footlines=[row])
-    assert blocks == [body] and row in dropped and title["bbox"] in dropped and num["bbox"] in dropped
-
-
-def three_pages(footer="Institute of things", extra=None):
-    doc = fitz.open()
-    for n in range(1, 4):
-        p = doc.new_page(width=800, height=600)
-        p.insert_text((60, 100), f"Body of page {n}", fontsize=20)
-        p.insert_text((60, 580), f"{footer} {n}", fontsize=9)
-        if extra and n == 2:
-            p.insert_text((60, 545), extra, fontsize=12)
-    return doc
-
-
-def test_running_lines_are_band_lines_on_many_pages_page_numbers_aside():
-    doc = three_pages(extra="Which keys are minimal")
-    running = running_lines(doc)
-    assert ("bottom", line_key("Institute of things 7")) in running
-    assert ("bottom", line_key("Which keys are minimal")) not in running      # on one page only
-    assert not any(k[1] == line_key("Body of page 1") for k in running)        # not in the band
-    assert ("top", line_key("Institute of things")) not in running            # the same text, the other band
-
-
-def test_line_key_ignores_digits_case_spacing_and_punctuation():
-    assert line_key("Slide 26 \u00b7 Thorsten Papenbrock") == line_key("slide 3 thorstenpapenbrock")
-    assert line_key("2 / 82") == ""
-
-
-def test_a_bare_page_number_in_the_outer_band_is_dropped():
-    cases = ["12", "Slide 3", "folie 4 / 20", "Seite 2 von 9", "S. 7", "Page 1 of 3"]
-    blocks = [blk(i, "paragraph", [0.9, 0.93, 0.96, 0.97], t) for i, t in enumerate(cases)]
-    top = blk(9, "paragraph", [0.9, 0.02, 0.96, 0.06], "5")
-    blocks.append(top)
-    drop_furniture(blocks, [], 1)
-    assert blocks == []
-
-
-def test_a_number_in_the_body_or_a_sentence_in_the_band_stays():
-    mid = blk(0, "paragraph", [0.4, 0.5, 0.45, 0.54], "12")
-    sentence = blk(1, "paragraph", [0.1, 0.93, 0.6, 0.97], "Step 3 of the proof")
-    blocks = [mid, sentence]
-    assert drop_furniture(blocks, [], 1) == [] and blocks == [mid, sentence]
-
-
+# --- flaw 1: page-number chips (footers and page numbers as text: test_layout_furniture.py) ----------------
 def test_an_empty_page_number_chip_in_the_outer_band_is_not_redrawn():
     doc, page = page_800x600()
     page.draw_rect(fitz.Rect(740, 570, 770, 590), color=(0, 0, 0))     # 30 x 20 pt, no text

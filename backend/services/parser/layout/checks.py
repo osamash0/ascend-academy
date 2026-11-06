@@ -6,10 +6,10 @@ import unicodedata
 
 from backend.services.parser.layout.chars import ARROWS
 from backend.services.parser.layout.geometry import area, centre_in, inter
-from backend.services.parser.layout.strokes import furniture, page_lines
+from backend.services.parser.layout.furniture import furniture, page_lines
 
 COVERAGE = 0.98          # share of the PDF's words that must be set in type, in a figure, dropped or furniture
-#                          (furniture: a page number or a running line in the outer band, strokes.furniture)
+#                          (furniture: a page number or a running line in the outer band, furniture.furniture)
 PICTURE_COVER = 0.85     # share of a picture a figure box must cover
 DIAGRAM_KEPT = 0.6       # share of a diagram's items that must survive (redrawn, or inside a figure or table)
 UNDER_CROP = 0.2         # share of a text block a figure box may cover
@@ -52,7 +52,7 @@ def server_checks(page, blocks, pics, diagrams, paths, dropped, marks=0, pua=Non
     """The reasons this page cannot be set as Layout: [] when it can.
     blocks: the page's final blocks; pics: picture boxes; diagrams: reink's diagrams; paths: reink's paths;
     dropped: boxes of furniture that was removed on purpose; marks: strokes.lost_marks (a plot's markers
-    that are not redrawn); pua: the page's chars.pua_map; running: strokes.running_lines of the document."""
+    that are not redrawn); pua: the page's chars.pua_map; running: furniture.running_lines of the document."""
     texts = [b for b in blocks if b["kind"] != "figure"]
     figs = [b["bbox"] for b in blocks if b["kind"] == "figure"]
     if not texts:
@@ -75,7 +75,7 @@ def server_checks(page, blocks, pics, diagrams, paths, dropped, marks=0, pua=Non
         total += 1
         if any(centre_in(box, f) for f in figs) or any(centre_in(box, d) for d in dropped):
             continue
-        if not any(centre_in(box, b["bbox"], 0.01) for b in blocks) and furniture(line_box, line, running):
+        if not any(centre_in(box, b["bbox"], 0.01) for b in blocks) and furniture(line_box, line, running, page.number + 1):
             continue                                   # a page number or a running line, in no block
         if typed.get(t, 0) > 0:
             typed[t] -= 1

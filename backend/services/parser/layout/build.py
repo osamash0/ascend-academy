@@ -1,6 +1,7 @@
 """One page in, one Layout page out: the PDF's own text and drawings, re-set as blocks, with the server checks
 that decide whether the page is offered as Layout or stays the original. No AI, no rendering of page images.
-The caller holds FITZ_LOCK for the page and computes repeated_places(doc) and running_lines(doc) once per document."""
+The caller holds FITZ_LOCK for the page and computes repeated_places(doc), running_lines(doc) and
+footline_totals(doc) once per document."""
 import re
 
 from backend.services.parser.layout.chars import (dingbat_paren_arrow, fix_chars, fix_dingbat_bullets, fix_paren_bullets,
@@ -9,8 +10,8 @@ from backend.services.parser.layout.checks import TOO_MANY_LINES, server_checks
 from backend.services.parser.layout.figures import (apply_pictures, apply_regions, content_pictures, diagram_regions,
                                                     drop_blank_figures, trim_figures)
 from backend.services.parser.layout.geometry import area, inter
-from backend.services.parser.layout.strokes import (drop_furniture, footlines, link_labels, lost_marks, numbered_lines,
-                                                    reink)
+from backend.services.parser.layout.furniture import drop_furniture, footlines
+from backend.services.parser.layout.strokes import link_labels, lost_marks, numbered_lines, reink
 from backend.services.parser.layout.tables import apply_tables, table_grids
 from backend.services.parser.page_blocks import extract_blocks
 
@@ -41,13 +42,14 @@ def _set(text, m, paren, wing):
     return fix_chars(text, wing)
 
 
-def build_page_layout(page, n, repeated, running=frozenset()):
+def build_page_layout(page, n, repeated, running=frozenset(), footline_totals=frozenset()):
     """The Layout page of PDF page n (1-based): {"page", "verdict", "reasons", "blocks", "paths", "version"}.
-    running: strokes.running_lines(doc). Without it no line counts as a running header or footer: footers stay
-    as type, and a band line in no block is a missing word (never a silently lost line)."""
+    running: furniture.running_lines(doc); footline_totals: furniture.footline_totals(doc). Without them no line
+    counts as a running header, footer or footline: footers stay as type, and a band line in no block is a
+    missing word (never a silently lost line)."""
     pb = extract_blocks(page, n)
     blocks = pb["blocks"]
-    dropped = drop_furniture(blocks, pb["footers"], n, running, footlines(page, n))
+    dropped = drop_furniture(blocks, pb["footers"], n, running, footlines(page, footline_totals))
     m, wing, paren = pua_map(page), wing_bullets(page), dingbat_paren_arrow(page)
     for b in blocks:                                       # symbol-font characters, ligatures, accents, bullets
         b["text"] = _set(b.get("text", ""), m, paren, wing)
