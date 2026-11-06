@@ -73,3 +73,23 @@ def fix_dingbat_bullets(text: str, m: dict[str, str]) -> str:
         return text
     arrow = next(iter(set(m.values()) & ARROWS), None)
     return text[:1] + text[1:].replace(" • ", f" {arrow} ") if arrow else text
+
+
+# A Wingdings arrow is not always a private-use glyph: some decks set it as plain ASCII in a dingbat font
+# (Wingdings 3 draws its arrow as "}"), and a text layer or an extractor may show it as ")". Real parentheses
+# and braces must stay, so only a page that has such a span in a dingbat font is touched, and only a bare
+# mark at the start of a line.
+PAREN_ARROW = {")", "}"}
+_PAREN_BULLET = re.compile(r"(?m)^[ \t]*[)}][ \t]+(?=\S)")
+
+
+def dingbat_paren_arrow(page):
+    """True when this page sets an arrow bullet as a bare ")" or "}" in a Wingdings font."""
+    return any("wingdings" in s["font"].lower() and s["text"].strip() in PAREN_ARROW
+               for b in page.get_text("dict")["blocks"] for ln in b.get("lines", []) for s in ln["spans"])
+
+
+def fix_paren_bullets(text):
+    """A ")" (or "}") at the start of a line, followed by space, is the arrow bullet: call only when
+    dingbat_paren_arrow(page) is true."""
+    return _PAREN_BULLET.sub("→ ", text) if text else text
