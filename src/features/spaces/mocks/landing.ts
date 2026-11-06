@@ -205,7 +205,7 @@ export const dbsLanding: Landing = {
   spaceName: 'Database Systems',
   accent: '#06b6d4',
   members: 184,
-  readers: 131,
+  reach: 'enough',
   floor: 5,
   figures: {
     reading: { value: 131, history: [62, 88, 97, 104, 112, 109, 124, 131] },
@@ -225,12 +225,12 @@ export const friendsLanding: Landing = {
   spaceName: 'Linear Algebra, together',
   accent: '#84cc16',
   members: 6,
-  readers: 4,
+  reach: 'few',
   floor: 5,
   figures: {
-    reading: { value: 4, history: [0, 1, 2, 2, 3, 3, 4, 4] },
-    landing: { value: 0, history: [] },
-    cleared: { value: 0, history: [] },
+    reading: { value: null, history: [null, null, null, null, null, null, null, null] },
+    landing: { value: null, history: [] },
+    cleared: { value: null, history: [] },
   },
   lessons: lessonsFrom(
     [
@@ -327,7 +327,7 @@ export const bigLanding: Landing = {
   spaceName: 'Software Engineering',
   accent: '#f59e0b',
   members: 212,
-  readers: 154,
+  reach: 'enough',
   floor: 5,
   figures: {
     reading: { value: 154, history: [80, 96, 110, 121, 133, 140, 149, 154] },

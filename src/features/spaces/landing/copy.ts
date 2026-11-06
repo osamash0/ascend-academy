@@ -1,4 +1,4 @@
-import type { LandingInsight } from './types';
+import type { LandingInsight, Reach } from './types';
 
 /** The translator, narrowed to what the copy needs (keeps `i18next` itself outside the seal). */
 export type Translate = (key: string, values?: Record<string, string | number>) => string;
@@ -27,9 +27,10 @@ export function cardCopy(t: Translate, insight: LandingInsight, lesson: string):
   };
 }
 
-/** The feed's lede: the loudest finding sets the tone. */
-export function ledeKey(insights: LandingInsight[], readers: number, floor: number): 'act' | 'watch' | 'calm' | 'floor' {
-  if (readers < floor) return 'floor';
+/** The door's lede: the floor before anything, then the loudest finding sets the tone. */
+export function ledeKey(insights: LandingInsight[], reach: Reach): 'act' | 'watch' | 'calm' | 'floor' | 'none' {
+  if (reach === 'none') return 'none';
+  if (reach === 'few') return 'floor';
   if (insights.some((i) => i.attention === 'act')) return 'act';
   if (insights.some((i) => i.attention === 'watch')) return 'watch';
   return 'calm';

@@ -159,7 +159,9 @@ describe('the owner’s door', () => {
 
   it('under the floor it says so once, with no figures and no light', () => {
     door('s-friends');
-    expect(screen.getByText('4 people have been reading. Patterns show once five people have been through a page.')).toBeInTheDocument();
+    expect(screen.getByText('A few people have been reading. Patterns show once five people have been through a page.')).toBeInTheDocument();
+    // No count: in a group of six, "4 people" is nearly who.
+    expect(screen.queryByText(/\d+ (people|person) ha(ve|s) been reading/)).toBeNull();
     expect(screen.queryByText(/members read this week/)).toBeNull();
     expect(screen.queryByRole('link', { name: /^Open page/ })).toBeNull();
     expect(screen.queryByRole('link', { name: /^Page \d+ of/ })).toBeNull();
@@ -168,6 +170,20 @@ describe('the owner’s door', () => {
     expect(screen.queryByText(/too few/)).toBeNull();
     // A question still comes through: that is the one thing a person chose to send.
     expect(screen.getByText(/determinant trick on page 6/)).toBeInTheDocument();
+  });
+
+  it('with nobody reading yet, Luna says nobody, never a few', () => {
+    fixture.override = { ...friendsLanding, reach: 'none', questions: [] };
+    door('s-friends');
+    expect(screen.getByText('Nobody has been reading yet. Patterns show once five people have been through a page.')).toBeInTheDocument();
+    expect(screen.queryByText(/A few people/)).toBeNull();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Lessons' })).toBeNull();
+  });
+
+  it('under the floor, in German, without a count', async () => {
+    await i18n.changeLanguage('de');
+    door('s-friends');
+    expect(screen.getByText('Ein paar Leute haben gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.')).toBeInTheDocument();
   });
 
   it('reads in German the way the glossary says', async () => {
@@ -278,9 +294,10 @@ describe('sending a question to the Space', () => {
 
 describe('the lede', () => {
   it('follows the loudest finding, and the floor before anything', () => {
-    expect(ledeKey(dbsLanding.insights, dbsLanding.readers, dbsLanding.floor)).toBe('act');
-    expect(ledeKey(friendsLanding.insights, friendsLanding.readers, friendsLanding.floor)).toBe('floor');
-    expect(ledeKey([], 40, 5)).toBe('calm');
+    expect(ledeKey(dbsLanding.insights, dbsLanding.reach)).toBe('act');
+    expect(ledeKey(friendsLanding.insights, friendsLanding.reach)).toBe('floor');
+    expect(ledeKey([], 'enough')).toBe('calm');
+    expect(ledeKey(dbsLanding.insights, 'none')).toBe('none');
   });
 
   it('each Lesson above the floor carries one help value per page', () => {

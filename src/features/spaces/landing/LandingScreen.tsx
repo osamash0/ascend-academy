@@ -46,8 +46,10 @@ export default function LandingScreen({ spaceId }: { spaceId: string }) {
   }
 
   const lessons = new Map<string, LandingLesson>(landing.lessons.map((l) => [l.id, l]));
-  const lede = ledeKey(landing.insights, landing.readers, landing.floor);
-  const loudest = lede === 'floor' ? undefined : landing.insights[0];
+  const lede = ledeKey(landing.insights, landing.reach);
+  // Under the floor Luna says so, once; no figures and no map say it again.
+  const under = lede === 'floor' || lede === 'none';
+  const loudest = under ? undefined : landing.insights[0];
   const loudestLesson = loudest ? lessons.get(loudest.lessonId) : undefined;
   const accent = loudestLesson?.color ?? landing.accent;
   const waiting = landing.questions.filter((q) => !q.answer);
@@ -58,7 +60,7 @@ export default function LandingScreen({ spaceId }: { spaceId: string }) {
   const asking = landing.insights.filter((i) => i.attention === 'act' && (i.page || i.first)).length;
 
   const ledeText = !onePage
-    ? t(`door.lede.${lede}`, { count: landing.readers })
+    ? t(`door.lede.${lede}`)
     : asking > 1
       ? t('door.lede.actPages', { count: asking, lesson: loudestLesson.title })
       : t('door.lede.actPage', { lesson: loudestLesson.title });
@@ -86,7 +88,7 @@ export default function LandingScreen({ spaceId }: { spaceId: string }) {
             )}
           </div>
 
-          {lede !== 'floor' && (
+          {!under && (
             <div className="mt-14">
               <Figures landing={landing} accent={accent} />
             </div>
@@ -99,7 +101,7 @@ export default function LandingScreen({ spaceId }: { spaceId: string }) {
           )}
 
           {/* Under the floor Luna has said so; a map of dark Lessons would only say it again. */}
-          {lede !== 'floor' && (
+          {!under && (
             <StageRow id="landing-lessons" title={t('lessons.title')} lede={t('lessons.mapLede')}>
               <LessonMap spaceId={spaceId} lessons={landing.lessons} insights={landing.insights} themes={landing.themes} />
             </StageRow>

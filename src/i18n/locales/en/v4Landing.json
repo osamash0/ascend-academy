@@ -7,8 +7,8 @@
       "act": "One page is asking for you. The rest is landing.",
       "watch": "Nothing urgent. A few pages are worth a look.",
       "calm": "It's landing. Nothing needs you today.",
-      "floor_one": "{{count}} person has been reading. Patterns show once five people have been through a page.",
-      "floor_other": "{{count}} people have been reading. Patterns show once five people have been through a page.",
+      "floor": "A few people have been reading. Patterns show once five people have been through a page.",
+      "none": "Nobody has been reading yet. Patterns show once five people have been through a page.",
       "actPage": "{{lesson}} has one page asking for you. The rest is landing.",
       "actPages_one": "{{count}} page is asking for you. Start with {{lesson}}.",
       "actPages_other": "{{count}} pages are asking for you. Start with {{lesson}}."

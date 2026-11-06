@@ -7,8 +7,8 @@
       "act": "Eine Seite braucht dich. Der Rest kommt an.",
       "watch": "Nichts Dringendes. Ein paar Seiten lohnen einen Blick.",
       "calm": "Es kommt an. Heute braucht dich nichts.",
-      "floor_one": "{{count}} Person hat gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.",
-      "floor_other": "{{count}} Leute haben gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.",
+      "floor": "Ein paar Leute haben gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.",
+      "none": "Noch hat niemand gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.",
       "actPage": "In {{lesson}} braucht dich eine Seite. Der Rest kommt an.",
       "actPages_one": "{{count}} Seite braucht dich. Fang mit {{lesson}} an.",
       "actPages_other": "{{count}} Seiten brauchen dich. Fang mit {{lesson}} an."

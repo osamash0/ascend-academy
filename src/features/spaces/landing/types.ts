@@ -19,6 +19,12 @@ export type Attention = 'act' | 'watch' | 'calm';
 /** A Lesson's light: its worst finding, or `few` while under the reader floor. */
 export type LessonLight = Attention | 'few';
 
+/**
+ * How far a Space's reading has got, never how many: nobody yet, fewer than
+ * `floor` people, or enough to say something. In a group of two a count is who.
+ */
+export type Reach = 'none' | 'few' | 'enough';
+
 /** The detector kinds of the insight engine (backend/services/insights). */
 export type InsightKind =
   | 'confusion_hotspot'
@@ -120,8 +126,8 @@ export interface Landing {
   /** The Space's one colour, for when no Lesson leads. */
   accent: string;
   members: number;
-  /** Members who have read anything, the owner excluded. */
-  readers: number;
+  /** How far the members' reading has got (the owner excluded). Under the floor there are no figures and no map. */
+  reach: Reach;
   /** People a page needs before anything is said about it. */
   floor: number;
   /** Readers this week; percent of pages landing; percent of checkpoints cleared first try. */
