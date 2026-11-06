@@ -444,17 +444,15 @@ intended database, and the running one has to be inspected.
 
 Every generated artefact depends on a large language model. The platform was
 first built to run on free tiers, and its code still contains a multi-provider
-design for that purpose. The operator's decision for production is an
-\emph{OpenAI-only} mode with a single paid provider. This section explains how
-the design arrived there, describes the multi-provider mechanism the code keeps,
-and then the OpenAI-only mode.
-\TODO{Verify on the server that \code{AI\_PROVIDER\_MODE=openai\_only} is set
-and no other provider key remains, and note the date it was switched on. On
-2026-10-29 the server still ran the multi-provider mode (mode unset; Groq,
-Gemini, OpenRouter and Cerebras keys present), with OpenAI carrying most calls.
-The legal pages name the providers and must change with the switch.}
+design for that purpose, which is also what production runs. Alongside it, the
+code contains an \emph{OpenAI-only} mode with a single paid provider. That mode is
+the operator's intended target, but on 5 November 2026 it was not switched on:
+the production server had no provider mode set, and keys for eight providers
+besides OpenAI were present. This section explains how the design arrived at
+this state, describes the multi-provider mechanism that runs, and then the
+OpenAI-only mode that is built but switched off.
 
-\subsection{From Free Tiers to One Paid Provider}
+\subsection{From Free Tiers Towards One Paid Provider}
 \label{sec:provider-history}
 
 The provider changed many times in ten months. Generation began with a local
@@ -467,12 +465,17 @@ almost immediately. In September the failover logic moved into two ordered
 chains inside the application. For the October launch an OpenAI-only mode was
 added, together with spending caps per student.
 
-The repository does not record why OpenAI-only was chosen for the launch. The
+In practice the system already leans on the paid provider. A query of the
+cost ledger on 29 October 2026 showed OpenAI carrying most calls over the
+preceding 30 days, with Groq answering the reader's Explain requests and Luna
+sessions and Gemini producing the embeddings; the other providers were rarely
+reached. The repository does not record why OpenAI-only became the target. The
 author's account is that the free tiers were not reliable enough for bulk
 parsing because of their rate limits, that the self-built router did not make up
-for this, and that a single paid provider under hard spending limits was the most
-reliable option available. The analysis in \cref{sec:multi-provider} gives
-concrete reasons for that judgement.
+for this, and that the OpenAI key was the one that worked reliably. The analysis
+in \cref{sec:multi-provider} gives concrete reasons for that judgement.
+\TODO{Re-run the cost-ledger query (calls per provider and feature, last 30
+days) and cite the exact numbers instead of this summary.}
 
 \paragraph{Why the gateway was removed.}
 A gateway such as LiteLLM routes requests to many providers without changes to
@@ -485,12 +488,12 @@ stack from starting. It had also been exposed without authentication on a
 development server in June, and its package carried eight known
 vulnerabilities. It was removed in August 2026. In hindsight the decision is
 simple: a gateway pays off with many callers and many providers, and this system
-ended with one caller and, in production, one provider.
+ended with one caller and with most of its traffic on one provider.
 
 \subsection{The Multi-Provider Mechanism}
 \label{sec:multi-provider}
 
-The multi-provider design remains in the code as the default mode
+The multi-provider design is the default mode, and the one production runs
 (\cref{fig:provider-chain}). A registry describes each provider: model,
 credential, daily request limit, requests and tokens per minute, and the date
 those limits were last verified. Two ordered chains draw on it. The \emph{bulk}
@@ -530,7 +533,7 @@ The registry also treats its own numbers as perishable: a test fails when a
 reachable provider's limits were last verified more than 45 days ago, because
 free-tier limits change without notice.
 
-\subsection{Production: OpenAI-Only}
+\subsection{The OpenAI-Only Mode: Built, Not Yet Switched On}
 \label{sec:openai-only}
 
 In OpenAI-only mode, both chains collapse to the single OpenAI entry. Text
@@ -541,13 +544,17 @@ API and the worker refuse to boot if any other provider's key is present, or if
 the OpenAI key is missing. The code gives the reason: a misconfigured deployment
 must not quietly send student data to a provider the privacy policy does not
 name. The mode is therefore as much a data-protection boundary as a reliability
-choice.
-\TODO{Confirm on the server which models production sets
-(\code{OPENAI\_MODEL}, \code{OPENAI\_BULK\_MODEL}, \code{OPENAI\_VISION\_MODEL})
-and whether \code{LLM\_TIMEOUT\_SECONDS} overrides the 25\,s default; the code
-notes that OpenAI batch calls can exceed it.}
+choice. Switching it on is not a configuration flip alone: the other keys must be
+removed, every slide must be embedded again (the two embedding models' vectors
+are not comparable), and the privacy pages, which name the providers, must change
+with it.
+\TODO{Note which OpenAI models production sets (\code{OPENAI\_MODEL},
+\code{OPENAI\_BULK\_MODEL}, \code{OPENAI\_VISION\_MODEL}) and whether
+\code{LLM\_TIMEOUT\_SECONDS} overrides the 25\,s default; the code notes that
+OpenAI batch calls can exceed it.}
 
-With one provider, failover is gone, and the failure classes change meaning.
+Once switched on, the mode removes failover, and the failure classes change
+meaning.
 A rate limit no longer blacks out the service: the backoff is a soft gate that is
 relaxed when it would leave no provider at all, so the next call still goes out.
 A payment or ``model not found'' error, by contrast, disables the only provider
@@ -563,21 +570,23 @@ deliberately not the model that wrote the question; the code records that when
 the author's model checked its own question, it repeated the same misreading. In
 OpenAI-only mode the checker resolves to OpenAI's quality model, so the check
 stays independent only if that model differs from the bulk model that wrote the
-question.
-\TODO{Check this in production; it belongs in \cref{ch:implementation}'s
-assessment section as well.}
+question. In production today the default mode applies, so the checker is Groq.
+\TODO{Carry this into \cref{ch:implementation}'s assessment section: switching to
+OpenAI-only requires a separate checking model to keep the check independent.}
 
 \paragraph{Cost controls.}
-In this mode every call is paid, so the spending limits carry the design. Each
+The spending limits are written for the paid provider, which carries most
+traffic now and would carry all of it in OpenAI-only mode. Each
 user has a monthly cost cap (by default \$2), checked before every call and, for
 parses, enforced for students. All users together have a daily ceiling on
 OpenAI (by default \$10), a hard gate that also binds embeddings: once it is
 reached, generation stops until the next day. Every call, including embeddings,
-is written to a cost ledger, so in this mode the ledger is complete. Two limits
-are weaker than they look. The per-user cap fails open if Redis is unavailable.
+is written to a cost ledger. In the default mode that runs today, the ledger
+estimates cost only for OpenAI and records every free-tier call at zero; only
+OpenAI-only mode would make it complete. Two limits are weaker than they look. The per-user cap fails open if Redis is unavailable.
 And a pre-parse check that the chain has enough request headroom for the deck
-never fires here, because OpenAI has no configured daily request limit and so
-counts as unlimited.
+never fires while OpenAI is configured, because it has no configured daily
+request limit and so counts as unlimited.
 
 \section{Summary}
 \label{sec:design-summary}
@@ -586,10 +595,11 @@ The design separates admission, which is synchronous, cheap and early, from
 processing, which is asynchronous, durable and server-authoritative. It relies
 on content addressing and several overlapping idempotency mechanisms, with a
 deliberately weak lock. For model access it moved from a chain of free tiers,
-through a gateway that was later removed, to a single paid provider under hard
-cost limits; the multi-provider chain remains in the code as the fallback mode.
-Each mechanism has a documented edge: route-dependent admission, a retry setting
-that does not retry, per-hash rather than per-owner locking, and a provider that
-is now a single point of failure. These edges, and the drift between the
+through a gateway that was later removed, towards a single paid provider under
+hard cost limits: production still runs the multi-provider chain, with most
+traffic on OpenAI, and an OpenAI-only mode is built but not switched on. Each
+mechanism has a documented edge: route-dependent admission, a retry setting that
+does not retry, per-hash rather than per-owner locking, and a provider chain
+shallower than its length. These edges, and the drift between the
 repository and the deployed system, are taken up again in
 \cref{ch:evaluation}.
