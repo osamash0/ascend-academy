@@ -213,3 +213,27 @@ describe('LayoutLayer: a selection holds only words the learner sees', () => {
     expect(rule('.ls-layout .ls-ground path {')).toContain('pointer-events: visiblePainted');
   });
 });
+
+describe('LayoutLayer: a linked label reads on paper', () => {
+  const css = () => readFileSync(join(process.cwd(), 'src/features/spaces/components/reader/layout/layout.css'), 'utf8');
+  const rule = (src: string, sel: string) => {
+    const at = src.indexOf(`${sel} {`);
+    expect(at, sel).toBeGreaterThan(-1);
+    return src.slice(at, src.indexOf('}', at));
+  };
+
+  /*
+   * The accent is lifted for a dark ground (L 58-72%), which on white paper is
+   * as low as 1.1:1 (a light yellow). Darkened in oklab to 55% it reaches at
+   * least 5.3:1 for every accent sampleAccent can return.
+   */
+  it('sets linked text on paper in the accent darkened to text contrast', () => {
+    expect(rule(css(), '.ls-layout:not([data-night]) .blk.linked')).toContain(
+      'color: color-mix(in oklab, var(--ls-term) 55%, black);',
+    );
+  });
+
+  it('keeps the accent itself for linked text at night', () => {
+    expect(rule(css(), '.ls-layout .blk.linked')).toContain('color: var(--ls-term);');
+  });
+});

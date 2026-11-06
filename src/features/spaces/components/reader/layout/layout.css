@@ -228,3 +228,13 @@
 .ls-layout .blk.linked {
   color: var(--ls-term);
 }
+
+/*
+ * The accent is lifted to read on a dark ground (sampleAccent: L 58-72%); on white paper that is as
+ * low as 1.1:1. As text on paper it is darkened in oklab to 55%, which keeps its hue and reaches at
+ * least 5.3:1 for any accent in that band (blue 220/80/65 10.9:1, yellow 50/90/60 6.4:1, green
+ * 140/60/60 7.7:1). Strokes and hairlines keep the accent itself.
+ */
+.ls-layout:not([data-night]) .blk.linked {
+  color: color-mix(in oklab, var(--ls-term) 55%, black);
+}
