@@ -71,7 +71,10 @@
     "confusion_hotspot": {
       "headline": "Eine Seite, auf der viele Hilfe suchen",
       "summary": "Auf Seite {{page}} haben {{askers}} Leute Erklären geöffnet oder gefragt, und {{foggy}}% fanden es noch nebelig.",
-      "why": "So gebündelte Hilfesuche heißt meist: Auf der Seite fehlt ein Schritt, nicht bei den Leuten, die sie lesen."
+      "why": "So gebündelte Hilfesuche heißt meist: Auf der Seite fehlt ein Schritt, nicht bei den Leuten, die sie lesen.",
+      "headlineFoggy": "Eine Seite, die nebelig bleibt",
+      "summaryFoggy": "Auf Seite {{page}} fanden {{foggy}}% es noch nebelig.",
+      "whyFoggy": "Eine Seite, die für so viele nebelig bleibt, braucht meist einen Schritt auf der Seite selbst, nicht bei den Leuten, die sie lesen."
     },
     "silent_misleader": {
       "headline": "Eine Seite mit einer Falle",

@@ -20,10 +20,12 @@ export function cardCopy(t: Translate, insight: LandingInsight, lesson: string):
   const m = insight.metrics;
   const values: Record<string, string | number> = { ...m, lesson, page: insight.page ?? '', first: insight.first ?? '', last: insight.last ?? '' };
   if (insight.kind === 'overpacked' && typeof m.ratio === 'number') values.ratio = m.ratio.toFixed(1);
+  // A hotspot sent without `askers` (fewer than five people asked) speaks of the foggy share alone.
+  const foggy = insight.kind === 'confusion_hotspot' && typeof m.askers !== 'number' ? 'Foggy' : '';
   return {
-    headline: t(`kind.${insight.kind}.headline`, values),
-    summary: t(`kind.${insight.kind}.summary`, values),
-    why: t(`kind.${insight.kind}.why`, values),
+    headline: t(`kind.${insight.kind}.headline${foggy}`, values),
+    summary: t(`kind.${insight.kind}.summary${foggy}`, values),
+    why: t(`kind.${insight.kind}.why${foggy}`, values),
   };
 }
 

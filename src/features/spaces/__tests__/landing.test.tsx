@@ -408,6 +408,26 @@ describe('each finding says only what its numbers back', () => {
     expect(de('kind.healthy.summary')).toBe('Eine Seite hier hat den Leuten etwas abverlangt, und die meisten haben ihre Fragen danach beim ersten Versuch richtig beantwortet.');
   });
 
+  it('a hotspot sent without askers says only its foggy share, never a number of people', () => {
+    const lone = dbsLanding.insights.find((i) => i.kind === 'confusion_hotspot')!;
+    const { askers: _askers, ...metrics } = lone.metrics;
+    fixture.override = { ...dbsLanding, insights: dbsLanding.insights.map((i) => (i === lone ? { ...i, metrics: { ...metrics, foggy: 46 } } : i)) };
+    door('s-dbs');
+    expect(screen.getByText('On page 12, 46% said it was still foggy.')).toBeInTheDocument();
+    expect(screen.queryByText(HOTSPOT)).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/undefined|NaN|\bpeople opened Explain/);
+  });
+
+  it('the foggy variant of a hotspot is in both languages, and speaks of no one by number', () => {
+    expect(en('kind.confusion_hotspot.headlineFoggy')).toBe('A page that runs foggy');
+    for (const t of [en, de]) {
+      const sentence = t('kind.confusion_hotspot.summaryFoggy', { page: 12, foggy: 46 });
+      expect(sentence).toMatch(/46%/);
+      expect(sentence).not.toMatch(/askers|undefined|\{\{/);
+      expect(t('kind.confusion_hotspot.whyFoggy')).not.toMatch(/[–—!]/);
+    }
+  });
+
   it.each(['en', 'de'])('no finding sentence names its Lesson (%s)', (lng) => {
     const t = i18n.getFixedT(lng, 'v4Landing');
     const kinds = ['confusion_hotspot', 'skipped_slide', 'speed_bump', 'overpacked', 'leaky_bucket', 'confusion_block', 'quiz_misalignment', 'calibration_gap', 'healthy'];

@@ -71,7 +71,10 @@
     "confusion_hotspot": {
       "headline": "A page where many ask for help",
       "summary": "On page {{page}}, {{askers}} people opened Explain or asked, and {{foggy}}% said it was still foggy.",
-      "why": "Help-seeking this concentrated usually means a step is missing on the page itself, not in the people reading it."
+      "why": "Help-seeking this concentrated usually means a step is missing on the page itself, not in the people reading it.",
+      "headlineFoggy": "A page that runs foggy",
+      "summaryFoggy": "On page {{page}}, {{foggy}}% said it was still foggy.",
+      "whyFoggy": "A page that stays foggy for this many usually lacks a step on the page itself, not in the people reading it."
     },
     "silent_misleader": {
       "headline": "A page that hides a trap",
