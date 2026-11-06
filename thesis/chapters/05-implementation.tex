@@ -1,7 +1,7 @@
 \chapter{Implementation}
 \label{ch:implementation}
 
-% Briefs re-verified against \thesisCommit{} on 2026-11-05; evidence in
+% Briefs re-verified against 2b8b1f7b (\thesisPreviousCommit) on 2026-11-05; evidence in
 % docs/thesis/evidence/CLAIMS_LEDGER.md, section "Chapter 5 re-verified".
 % Each \TODO is evidence and structure for the author's own prose, not text.
 
@@ -45,7 +45,7 @@ test compares package names only (\code{tests/unit/test\_requirements\_parity.py
 One library constraint, found after the pinned revision: PyMuPDF's table search
 keeps page state in module globals, so concurrent layout analysis mixed pages
 (13--22 of 82 differed); fixed with one lock in \code{b137e1b5} (PR \#174,
-2026-11-05). At \thesisCommit{} the threaded analysis ran only on legacy import
+2026-11-05). At \thesisPreviousCommit{} the threaded analysis ran only on legacy import
 routes and behind the switched-off Studio pages flag; the live parse reads text
 single-threaded (\code{unified\_orchestrator.py:166--176, 854}), so no reported
 result depends on it.
@@ -107,7 +107,7 @@ query plan before saying more.}
 order and say, for each, what it guarantees and what it does not.
 (1) Scope: the chosen Space must be one the caller belongs to
 (\code{v4\_spaces\_service.py:876--895}, \code{search\_service.py:127--129}).
-Found, then fixed: at \thesisCommit{} this check also rejected an owner who had
+Found, then fixed: at \thesisPreviousCommit{} this check also rejected an owner who had
 not joined their own Space, and the request failed with a server error; fixed
 in \code{4d2a6e41} (PR \#173, 2026-11-05) with
 \code{tests/unit/test\_v4\_ask.py}.
@@ -294,7 +294,7 @@ Postgres use the admin connection, so row-level security is bypassed; unit tests
 use an in-memory fake without it (\code{tests/conftest.py:246--258}); the
 browser tests mock Supabase. No test checks a boundary through an API route.
 A consequence of ``ownership, not role'' that this audit found, open at
-\thesisCommit{}: a student who owns a Space reaches the classic per-lecture
+\thesisPreviousCommit{} \TODO{closed after that pin by PR \#176 (\code{3260cab7}); rewrite as found-then-fixed}: a student who owns a Space reaches the classic per-lecture
 analytics for its Lessons, which check ownership but not role
 (\code{api/v1/analytics.py:186--198}), and one of them reads through the
 connection that bypasses row-level security and returns members' raw user ids
