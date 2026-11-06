@@ -1,7 +1,7 @@
 % ---------------------------------------------------------------------------
-% DRAFT, 2026-11-05. Written with AI assistance (Claude) from facts verified
-% against the code at 2b8b1f7b (file:line evidence in the session that wrote
-% it; re-check any line you quote). The author must read, revise and own every
+% DRAFT, 2026-11-05, updated 2026-11-06 for the final pin dfc20df6. Written
+% with AI assistance (Claude) from facts verified against the code (file:line
+% evidence in the session that wrote it; re-check any line you quote). The author must read, revise and own every
 % sentence before submission. Captions are the ones the figure pass of
 % 2026-11-05 wrote for the figures redrawn at 2b8b1f7b (F9 is now F9 + F9b);
 % the text was aligned with them, including F10's L0-L8 numbering.
@@ -13,9 +13,10 @@ This chapter answers RQ1's architectural half: what structure supports the
 transformation reliably. \Cref{ch:implementation} then covers how the
 content-facing features consume the result.
 
-The description is pinned to revision \code{2b8b1f7b} (2 November 2026), the
-code that serves the live application. An earlier audit of this repository was
-made at \code{0be0081} (18 August 2026). Where a finding from that audit has
+The description is pinned to revision \code{\thesisCommit} (6 November 2026).
+Two earlier states serve as reference points: an audit of the repository at
+\code{\thesisEarlierCommit} (18 August 2026), and the previous pin
+\code{\thesisPreviousCommit} (2 November 2026). Where a finding from either has
 since been fixed, it is reported as \emph{found, then fixed}, because the change
 itself is part of the design story.
 
@@ -41,7 +42,7 @@ instances serve as cache and as job broker.
 The backend calls every LLM provider directly from one module
 (\code{backend/services/ai/orchestrator.py}). Failover, rate limiting and cost
 accounting live in that module, not in a separate service. This was not always
-so. At \code{0be0081} the production stack still contained a LiteLLM gateway
+so. At \code{\thesisEarlierCommit} the production stack still contained a LiteLLM gateway
 container, and the API carried its base URL in its environment, although no code
 path sent traffic through it. The container was removed from the production
 compose file on 28 August 2026, and the remaining configuration and legacy code
@@ -76,9 +77,11 @@ The API exposes a liveness probe (\code{/health}) and a readiness probe
 (\code{/health/ready}). The readiness probe checks the database, both Redis
 instances and whether a worker is alive when jobs are waiting. One condition
 deserves mention: when no database URL is configured, the probe records the
-database as \code{not\_configured} and still reports ready. The code comment
-calls this a supported ``REST-only'' mode. That mode no longer exists in any
-useful sense, because the pipeline and the v4 routes fail without the pool. In
+database as \code{not\_configured} and still reports ready. Routes that use the
+Supabase HTTP client still work without the pool, but the pipeline and the v4
+routes do not, so this is not a usable mode; at \code{\thesisPreviousCommit} the
+code comment still called it a supported ``REST-only'' mode, and it now says
+plainly that every upload fails while the check reports ready. In
 production the URL is set and the pool is initialised at start-up, so this is a
 latent gap rather than a live fault: a misconfiguration would pass the health
 check and surface only as failing requests.
@@ -122,15 +125,17 @@ authentication and storage are a managed Supabase project in the EU (Ireland)
 region on the free tier, which provides no point-in-time recovery.
 
 \paragraph{A reproducibility finding.}
-The repository holds four compose files. One describes local development, with
-Prometheus and Grafana. The production file's own header still names ``a shared
-university server''. A staging file defines two services and refers to Redis
-hosts it does not define. A fourth targets Oracle Cloud. None names the host
-actually used. Together with the host proxy and the nightly database dump script,
-which also exist only on the server, this means the deployed system cannot be
-reconstructed from the repository alone. The gap is narrower than it was in
-August: the deploy, monitoring and backup procedures are now written down as
-runbooks, and the heartbeat and off-site backup scripts are versioned. But the
+Until November the repository held four compose files: one for local
+development, a production file whose header named ``a shared university
+server'', a staging file that referred to Redis hosts it did not define, and one
+for Oracle Cloud. None named the host actually used. The staging and Oracle files
+were deleted and the production header now names the Hetzner machine (found,
+then fixed). What still exists only on the server is the host proxy
+configuration and the nightly database dump script, so the deployed system
+still cannot be reconstructed from the repository alone. The gap is narrower
+than it was in August: the deploy, monitoring and backup procedures are written
+down as runbooks, and the heartbeat and off-site backup scripts are versioned.
+But the
 system's ground truth is still the server, not the repository; this is why the
 project's own rules say to inspect the running images rather than trust
 \code{git log}.
@@ -228,12 +233,18 @@ server-authoritative was one of the reasons for the rebuild.
 \subsection{Routing: Text versus Vision}
 \label{sec:routing}
 
-The live routing rule is a single threshold: a page with at least 25 characters
-of extractable text is a text slide; a page with fewer is treated as an image and
-sent to a vision model. Text slides are synthesised in batches of eight with one
-model call per batch, falling back to one call per slide. Vision slides are
-rendered as images at twice the base resolution. If the vision call fails, the
-raw text is kept and the slide is flagged for review.
+One function decides how each page is read, measured on the PDF page itself
+whichever parser supplied the text. It counts the page's own text, leaving out
+running footers, and the share of the page that figures cover. A page with fewer
+than 25 characters of text has nothing to read but the picture (a scan, a photo)
+and goes to a vision model. A page with fewer than 150 characters whose figures
+cover at least 5\,\% of it is carried by its figure and also goes to vision,
+keeping its own text as content while the vision model supplies title and
+summary. Every other page is text. Text pages are synthesised in batches of
+eight with one model call per batch, falling back to one call per slide; vision
+pages are rendered as images at twice the base resolution. If a vision call fails
+for a page without text, the raw text is kept and the slide is flagged for
+review. The reason for each page's route is stored in its parse receipt.
 
 Before synthesis, a deterministic step that uses no model plans the deck. It
 finds boilerplate (lines that recur on at least 60\,\% of pages, such as footers
@@ -244,13 +255,27 @@ then sees text with the boilerplate removed, while the stored slide keeps the
 original. Because this step makes no model call, it can be tested exhaustively,
 including with property-based tests.
 
-The simple threshold is worth stating plainly, because the repository long
-suggested more. A generator-aware classifier existed. It was archived, then
-deleted in September 2026. A second router, with priorities for skipped,
+This rule replaced a single character threshold (found, then fixed). Until
+November a page went to vision only if it had fewer than 25 characters of raw
+extracted text, and the decision was made in four places with three different
+measures. A study on 25 lecture decks (1{,}593 pages) showed what that meant: the
+old rule sent 12 pages to vision, almost all empty closing pages, while none of
+the 421 pages containing a figure reached a vision model. A page number and a
+footer were enough to push a diagram over the threshold. The new rule sends 87
+pages of the same corpus to vision, at the cost of one vision call per figure
+page. An offline check (\code{backend/eval/routing\_check.py}) fails if a change
+moves that count outside 75 to 100.
+\TODO{The study's hand labels (all pages with 25--150 raw characters and a
+figure, labelled by the author, not blind) support the rule as a pilot only; do
+not report them as an accuracy. 21 of the 75 figure pages were not labelled.
+The production effect is visible only after a deploy and re-parse; see the
+\code{route\_reason} in a parse receipt.}
+
+The history is worth stating plainly, because the repository long suggested a
+richer design than ran. A generator-aware classifier existed; it was archived,
+then deleted in September 2026. A second router, with priorities for skipped,
 tabular, mathematical and visual pages, still exists, but only an older pipeline
-entry point calls it, and that entry point has no callers. This is a small,
-clean example of documentation and dormant code describing a richer design than
-the one that runs.
+entry point calls it, and that entry point has no callers.
 
 \subsection{Idempotency}
 \label{sec:idempotency}
@@ -326,8 +351,9 @@ generic message, and the error is re-raised. A refusal because the user's LLM
 budget is exhausted is the exception: it ends the job normally.
 
 The queue's retry setting does not do what it appears to. The worker is
-configured with \code{max\_tries = 5}, and the code comment reads ``5 retries
-with exponential backoff''. In the installed Arq~0.28, however, an ordinary
+configured with \code{max\_tries = 5}; until November its comment read
+``5 retries with exponential backoff'' (the comment now says what follows). In
+the installed Arq~0.28, however, an ordinary
 exception finishes a job on its first try; the retry budget applies only to
 jobs that explicitly request a retry, are cancelled, or are lost in a worker
 crash. The parse job never requests a retry. A job that exceeds its timeout is
@@ -341,7 +367,7 @@ state the version explicitly.}
 Above the job, a scheduled sweep runs every ten minutes. A run stuck in
 \code{extracting} for more than 25 minutes is resolved: completed with its real
 slide count if slides exist, failed otherwise. A run still \code{queued} after
-six hours is marked failed. At \code{0be0081} only the first case was handled;
+six hours is marked failed. At \code{\thesisEarlierCommit} only the first case was handled;
 the second was added in September 2026 (found, then fixed). A dead-letter table
 records jobs that end unsuccessfully, though not budget refusals, and not runs
 that were skipped because their lock was held.
@@ -370,8 +396,8 @@ once before giving up.
    \code{space\_id} text links.}
   {fig:er-learning}
 
-The schema is defined only by plain SQL migrations (137 files at
-\code{2b8b1f7b}). They create 79 tables, one of which is the default partition
+The schema is defined only by plain SQL migrations (139 files at
+\code{\thesisCommit}). They create 79 tables, one of which is the default partition
 of the event table, so 78 logical tables. Thirty-six of them form the core of
 the domain, drawn in two parts: \cref{fig:er} shows identity, Spaces, content and
 parsing, and \cref{fig:er-learning} the learner-facing tables for practice, Luna
@@ -503,31 +529,33 @@ quality. Both hold the same eight providers in different orders and end with
 OpenAI as a last resort. A call walks its chain and skips any provider that is
 unavailable.
 
-A failed call is classified four ways. A payment error (HTTP 402) and a
-``model not found'' error (404) disable the provider for the rest of the
-process. A rate-limit error (429) starts a backoff of 90~seconds that doubles
+A failed call is classified four ways. A rejected key (HTTP 401), a payment
+error (402) and a ``model not found'' error (404) disable the provider for the
+rest of the process. A 403 deliberately does not, because one provider answers a
+moderation-flagged prompt with 403. A rate-limit error (429) starts a backoff of 90~seconds that doubles
 with each repeat, up to ten minutes. Every other error carries no penalty: the
 call moves on to the next provider. The classification is partly by status code
 and partly by matching text in the exception message.
 
-The chain looks deeper than it is, in three ways.
+The chain looks deeper than it is, in two ways, and a third weakness was
+found and fixed.
 \begin{enumerate}
   \item \emph{Shared failure domains.} The eight entries use six credentials:
     two Groq models share one key, and two Google models share another. A revoked
     or exhausted key takes out both entries at once.
-  \item \emph{Unclassified authentication errors.} No branch handles an
-    authentication failure (401 or 403). A revoked key falls into the
-    ``no penalty'' class and is tried again on every call.
   \item \emph{A retry budget the timeout cannot reach.} The call wrapper retries
     rate-limit errors up to eight times, waiting 4, 4, 8, 16 seconds and more,
     but the whole loop runs under a 25-second timeout. At most four attempts
     fit, fewer with real latency, and each attempt is a full traversal of the
     chain.
 \end{enumerate}
-The handling of payment errors is a found-then-fixed case. At \code{0be0081} a
-provider whose credit had run out was retried on every call; Cerebras, which
+Two failure classes are found-then-fixed cases. At \code{\thesisEarlierCommit}
+a provider whose credit had run out was retried on every call; Cerebras, which
 then headed both chains, later failed in exactly this way. Payment errors were
-made permanent in September 2026, and Cerebras left both chains in October.
+made permanent in September 2026, and Cerebras left both chains in October. At
+\code{\thesisPreviousCommit} no branch handled a rejected key either: a revoked
+key fell into the ``no penalty'' class and was tried again on every call, until
+401 joined the permanent classes in November.
 
 The registry also treats its own numbers as perishable: a test fails when a
 reachable provider's limits were last verified more than 45 days ago, because
@@ -557,9 +585,9 @@ Once switched on, the mode removes failover, and the failure classes change
 meaning.
 A rate limit no longer blacks out the service: the backoff is a soft gate that is
 relaxed when it would leave no provider at all, so the next call still goes out.
-A payment or ``model not found'' error, by contrast, disables the only provider
-until the process restarts, and with it every AI feature. An authentication error
-fails each call on its own. The design accepts this trade: fewer, more
+A rejected key, a payment error or a ``model not found'' error, by contrast,
+disables the only provider until the process restarts, and with it every AI
+feature. The design accepts this trade: fewer, more
 predictable failure modes in exchange for a single point of failure that is
 watched by the operator.
 

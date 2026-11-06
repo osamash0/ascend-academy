@@ -258,3 +258,13 @@ described a prompt whose output is never stored: the per-slide `questions` are s
 stored questions are the deck quiz (`insert_deck_quizzes`, `unified_orchestrator.py:1241`): the prompt
 asks for 5–8 (`ai/prompts.py:416`) and the code caps the list at 12 (`parser/synthesis.py:50`). The
 appendix row now says so. This was already the case at 0be0081 (`insert_deck_quizzes` only, line 865).
+
+## Re-verified at dfc20df6 (2026-11-06, final pin)
+
+All 53 appendix rows were re-read against the code at `dfc20df6`.
+
+- **Value changed (1):** "Text-versus-vision threshold, 25 chars, `unified_orchestrator.py:77`" is gone. PR #178 replaced it with `page_blocks.route_page` (`page_blocks.py:213-219`): `NO_TEXT_CHARS = 25` (:201), `FIGURE_TEXT_CHARS = 150` (:202), `FIGURE_MIN_SHARE = 0.05` (:203); text is counted without running footers, and figures are image blocks of 0.002-0.6 of the page (:24-25). The 25 left at `unified_orchestrator.py:78` is `_MIN_STRIPPED_CHARS`, only the `synthesis_text` raw-text fallback ("Not a routing rule"). The appendix now has three rows for the rule.
+- **Line moved (8):** student uploads/month `config.py:134`; `max_tries` `arq_worker.py:371` (its comment now says arq retries only jobs that raise `Retry`); deck quiz `ai/prompts.py:422`, `synthesis.py:52` (was already :51 at 2b8b1f7b); per-user cap `config.py:194`; OpenAI daily ceiling `config.py:187`; context caps `tutor.py:42-43`; history window `tutor.py:44-45`; user message cap `ai_content.py:54`.
+- **Why `config.py` moved:** PR #175 removed `feature_landing_people` and `landing_pseudonym_salt` (6 lines; the old lines 133-138), so everything after line 132 moved up by 6.
+- **Unchanged:** the other 44 rows, values and lines.
+- In the sections above, these references also move: `LLM_PARSE_BUDGET_ENFORCE` `config.py:205-206`; the openai_only override `config.py:230-232`; the row-57 note `unified_orchestrator.py:1171` and `:1289`.
