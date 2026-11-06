@@ -43,7 +43,7 @@ describe('useLayoutFace: when the page can be shown re-set', () => {
   it('is not available on a page that failed in the browser, and the latest check wins', () => {
     const map = layouts(ready(2), ready(3));
     const { result, rerender } = renderHook(({ page }) => useLayoutFace(map, page), { initialProps: { page: 2 } });
-    act(() => result.current.markFailed(2));
+    act(() => result.current.checked(2, false));
     expect(result.current.available).toBe(false);
     /* Still mountable: a later check (fonts arriving) may pass it again. */
     expect(result.current.ready).toEqual(ready(2));
@@ -60,10 +60,39 @@ describe('useLayoutFace: when the page can be shown re-set', () => {
     const { result, rerender } = renderHook(({ map }) => useLayoutFace(map, 2), {
       initialProps: { map: layouts(ready(2)) },
     });
-    act(() => result.current.markFailed(2));
+    act(() => result.current.checked(2, false));
     expect(result.current.available).toBe(false);
     rerender({ map: layouts(ready(2)) });
     expect(result.current.available).toBe(true);
+  });
+});
+
+describe('useLayoutFace: the morph is for switching on, not for turning pages', () => {
+  it('enters on the page where the switch was turned on', () => {
+    const map = layouts(ready(1), ready(2));
+    const { result } = renderHook(() => useLayoutFace(map, 1));
+    expect(result.current.entering).toBe(false);
+    act(() => result.current.toggle());
+    expect(result.current.entering).toBe(true);
+  });
+
+  it('does not enter after a page turn, nor on coming back to that page', () => {
+    const map = layouts(ready(1), ready(2));
+    const { result, rerender } = renderHook(({ page }) => useLayoutFace(map, page), { initialProps: { page: 1 } });
+    act(() => result.current.toggle());
+    rerender({ page: 2 });
+    expect(result.current.entering).toBe(false);
+    rerender({ page: 1 });
+    expect(result.current.entering).toBe(false);
+  });
+
+  it('does not enter when the Lesson opens with the switch left on, nor once it is off', () => {
+    window.localStorage.setItem(LAYOUT_FACE_KEY, '1');
+    const { result } = renderHook(() => useLayoutFace(layouts(ready(1)), 1));
+    expect(result.current.on).toBe(true);
+    expect(result.current.entering).toBe(false);
+    act(() => result.current.toggle());
+    expect(result.current.entering).toBe(false);
   });
 });
 

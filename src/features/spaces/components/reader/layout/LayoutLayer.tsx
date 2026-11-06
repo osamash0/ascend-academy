@@ -28,8 +28,11 @@ import './layout.css';
  * original: it can keep the layer mounted with `shown={false}` (laid out,
  * measured, never seen), so a later check can still pass it.
  *
- * It enters with the morph (`morph.ts`) once a page first passes its checks;
- * under reduced motion it is simply there.
+ * It enters with the morph (`morph.ts`) when `enter` says the switch was just
+ * turned on, once the page first passes its checks, and at most once while it
+ * is mounted. A page turn never morphs: the next page is simply there, re-set,
+ * with no fade for the original to show through. Under reduced motion it is
+ * always simply there.
  *
  * Screen readers keep the pdf.js text layer underneath (the same words), so
  * the layer is hidden from them and the page is never read twice.
@@ -38,15 +41,17 @@ export function LayoutLayer({
   page,
   night = false,
   shown = true,
+  enter = false,
   onChecked,
 }: {
   page: LayoutPage;
   night?: boolean;
   shown?: boolean;
+  enter?: boolean;
   onChecked?: (pass: boolean) => void;
 }) {
   if (page.verdict !== 'layout') return null;
-  return <ReadyLayer page={page} night={night} shown={shown} onChecked={onChecked} />;
+  return <ReadyLayer page={page} night={night} shown={shown} enter={enter} onChecked={onChecked} />;
 }
 
 /** A layer narrower than this has no real width: a hidden pane. Fitting there would pass every check by accident. */
@@ -65,11 +70,13 @@ function ReadyLayer({
   page,
   night,
   shown,
+  enter,
   onChecked,
 }: {
   page: LayoutReady;
   night: boolean;
   shown: boolean;
+  enter: boolean;
   onChecked?: (pass: boolean) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
@@ -79,10 +86,12 @@ function ReadyLayer({
   const heard = useRef(onChecked);
   const still = useRef(false);
   still.current = useReducedMotion() === true;
-  /* The page the morph last ran for: it plays once per page, on its first passing check. */
-  const morphed = useRef<LayoutReady | null>(null);
+  /* The morph is the switch's entrance: once per mount, on the first passing check while `enter` holds. */
+  const entering = useRef(enter);
+  const entered = useRef(false);
   useLayoutEffect(() => {
     heard.current = onChecked;
+    entering.current = enter;
   });
 
   /* The layer's width, and again when it changes by more than a pixel. A hidden pane (0) never counts. */
@@ -141,8 +150,8 @@ function ReadyLayer({
     }
     const pass = checkLayer(el).pass;
     heard.current?.(pass);
-    if (pass && morphed.current !== page) {
-      morphed.current = page;
+    if (pass && entering.current && !entered.current) {
+      entered.current = true;
       if (!still.current) morphIn(el);
     }
   }, [page, width, fonts, windows]);

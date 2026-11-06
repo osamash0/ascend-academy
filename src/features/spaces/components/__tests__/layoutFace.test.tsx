@@ -19,6 +19,9 @@ vi.mock('@/lib/featureFlags', async (original) => {
 });
 
 const mock = vi.hoisted(() => ({ layouts: new Map<number, unknown>() }));
+/* The layer's own fit and browser checks are tested on their own; here every page passes. */
+vi.mock('../reader/layout/fit', () => ({ fitLayer: () => {} }));
+vi.mock('../reader/layout/layoutGate', () => ({ checkLayer: () => ({ pass: true, reasons: [] }) }));
 vi.mock('../../data/useReader', async (original) => {
   const real = await original<typeof import('../../data/useReader')>();
   return {
@@ -34,9 +37,10 @@ vi.mock('@/components/pdf', async () => {
   const { useEffect } = await import('react');
   return {
     PdfPage: ({ page }: { page: number }) => <div data-testid="sheet" data-page={page} />,
-    PdfPager: ({ rootRef, page, overlay, onAspect, onFirstRender }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: ReactNode; onAspect?: (a: number) => void; onFirstRender?: (c: HTMLCanvasElement | null) => void }) => {
+    PdfPager: ({ rootRef, page, overlay, onAspect, onLoad, onFirstRender }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: ReactNode; onAspect?: (a: number) => void; onLoad?: (n: number) => void; onFirstRender?: (c: HTMLCanvasElement | null) => void }) => {
       useEffect(() => {
         onAspect?.(405 / 720);
+        onLoad?.(4);
         onFirstRender?.(null);
       }, []); // eslint-disable-line react-hooks/exhaustive-deps
       return (
@@ -164,5 +168,65 @@ describe('the Layout switch on the Page face', () => {
     expect(layer()).toBeNull();
     await key('l');
     expect(window.localStorage.getItem(LAYOUT_FACE_KEY)).toBe('1');
+  });
+});
+
+describe('the morph belongs to switching Layout on, not to turning pages', () => {
+  /* The layers each animation was started on, in order. */
+  let animated: Element[] = [];
+
+  beforeEach(() => {
+    animated = [];
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      () => ({ width: 640, height: 360, left: 0, top: 0, right: 640, bottom: 360, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect,
+    );
+    (HTMLElement.prototype as unknown as { animate: unknown }).animate = function (this: Element) {
+      animated.push(this);
+      return { playState: 'running', finish: () => {} };
+    };
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (HTMLElement.prototype as unknown as { animate?: unknown }).animate;
+  });
+
+  it('plays when the switch is turned on', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('switch', { name: 'Layout' }));
+    expect(animated[0]).toBe(layer());
+  });
+
+  it('does not play on a page turn: the next page shows re-set at once, even after a page without a Layout', async () => {
+    mock.layouts = new Map([
+      [1, ready(1)],
+      [2, ready(2)],
+      [4, ready(4)],
+    ]);
+    await open();
+    fireEvent.click(screen.getByRole('switch', { name: 'Layout' }));
+    const entered = animated.length;
+    expect(entered).toBeGreaterThan(0);
+    await key('ArrowRight');
+    expect(layer()).toHaveAttribute('data-layout-page', '2');
+    await key('ArrowRight');
+    expect(layer()).toBeNull();
+    await key('ArrowRight');
+    expect(layer()).toHaveAttribute('data-layout-page', '4');
+    expect(animated.length).toBe(entered);
+  });
+
+  it('does not play when the Lesson opens with Layout left on', async () => {
+    window.localStorage.setItem(LAYOUT_FACE_KEY, '1');
+    await open();
+    expect(layer()).not.toBeNull();
+    expect(animated).toHaveLength(0);
+  });
+
+  it('switching off is instant: the layer is gone at once', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('switch', { name: 'Layout' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Layout' }));
+    expect(layer()).toBeNull();
   });
 });

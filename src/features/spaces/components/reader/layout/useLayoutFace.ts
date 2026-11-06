@@ -34,10 +34,15 @@ export interface LayoutFace {
    * arriving) can pass it again. Null when there is nothing to mount.
    */
   ready: LayoutReady | null;
+  /**
+   * The switch was turned on just now, on this page: the layer enters with the
+   * morph. A page turn ends it, so the next page shows re-set at once; a Lesson
+   * opened with the switch left on never enters either.
+   */
+  entering: boolean;
   toggle(): void;
   /** The browser checks' verdict for a page; the latest one counts. */
   checked(page: number, pass: boolean): void;
-  markFailed(page: number): void;
 }
 
 /**
@@ -57,11 +62,17 @@ export function useLayoutFace(layouts: ReadonlyMap<number, LayoutPage>, page: nu
   const ready = FEATURES.layoutFace && here?.verdict === 'layout' ? here : null;
   const available = ready !== null && pages.get(page) !== true;
 
+  /* The page the switch was turned on at. Any page turn ends the entrance, even back to that page. */
+  const [enterAt, setEnterAt] = useState<number | null>(null);
+  if (enterAt !== null && enterAt !== page) setEnterAt(null);
+  const entering = on && enterAt === page;
+
   const toggle = useCallback(() => {
     const next = !on;
     setOn(next);
+    setEnterAt(next ? page : null);
     writeOn(next);
-  }, [on]);
+  }, [on, page]);
 
   const checked = useCallback(
     (p: number, pass: boolean) =>
@@ -72,7 +83,6 @@ export function useLayoutFace(layouts: ReadonlyMap<number, LayoutPage>, page: nu
       }),
     [layouts],
   );
-  const markFailed = useCallback((p: number) => checked(p, false), [checked]);
 
-  return { on, available, ready, toggle, checked, markFailed };
+  return { on, available, ready, entering, toggle, checked };
 }

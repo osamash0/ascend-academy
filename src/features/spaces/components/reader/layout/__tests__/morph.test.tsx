@@ -110,27 +110,53 @@ describe('the morph, by numbers', () => {
   });
 });
 
-describe('LayoutLayer enters with the morph', () => {
+describe('LayoutLayer enters with the morph when the switch is turned on', () => {
   it('morphs once the page has passed its checks', () => {
-    const { container } = render(<LayoutLayer page={page(3)} />);
+    const { container } = render(<LayoutLayer page={page(3)} enter />);
     const root = container.querySelector('.ls-layout')!;
     expect(calls.map((c) => c.el)).toEqual([root, ...root.querySelectorAll('.blk')]);
   });
 
+  it('is simply there when it was not switched on just now (a page turn, or a Lesson opened with it on)', () => {
+    render(<LayoutLayer page={page(3)} />);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('shows the next page re-set directly: a page turn never morphs, so the original never shows through', () => {
+    const { container, rerender } = render(<LayoutLayer page={page(3)} enter />);
+    const first = calls.length;
+    expect(first).toBeGreaterThan(0);
+    rerender(<LayoutLayer page={page(3, 5)} />);
+    expect(container.querySelector('.ls-layout')).toHaveAttribute('data-layout-page', '5');
+    expect(calls.length).toBe(first);
+    /* Not even when the caller still says enter: one entrance per switching on. */
+    rerender(<LayoutLayer page={page(3, 6)} enter />);
+    expect(calls.length).toBe(first);
+  });
+
+  it('enters later on the same page when its first check failed and a later one passes', async () => {
+    checkLayer.mockReturnValue({ pass: false, reasons: ['1 lines collide'] });
+    render(<LayoutLayer page={page(2)} enter />);
+    expect(calls).toHaveLength(0);
+    checkLayer.mockReturnValue({ pass: true, reasons: [] });
+    await act(async () => fontsDone?.());
+    expect(calls.length).toBeGreaterThan(0);
+  });
+
   it('is instant under reduced motion: no animation at all', () => {
     motion.reduce = true;
-    render(<LayoutLayer page={page(3)} />);
+    render(<LayoutLayer page={page(3)} enter />);
     expect(calls).toHaveLength(0);
   });
 
   it('never morphs a page that failed its checks', () => {
     checkLayer.mockReturnValue({ pass: false, reasons: ['1 lines collide'] });
-    render(<LayoutLayer page={page(3)} />);
+    render(<LayoutLayer page={page(3)} enter />);
     expect(calls).toHaveLength(0);
   });
 
   it('measures a recheck at rest and does not morph the same page twice', async () => {
-    render(<LayoutLayer page={page(3)} />);
+    render(<LayoutLayer page={page(3)} enter />);
     const first = calls.length;
     const seen: number[] = [];
     checkLayer.mockImplementation(() => {

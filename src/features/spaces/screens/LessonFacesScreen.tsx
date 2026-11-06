@@ -1397,45 +1397,45 @@ export default function LessonFacesScreen() {
       </div>
       {/* The view tabs, and the Layout switch at their end: in their row and their shape, not one of them. */}
       <div className={cn('flex items-center rounded-full p-1', overPage)}>
-      <div
-        role="tablist"
-        aria-label={tr('views.label')}
-        className="flex"
-        onKeyDown={(e) =>
-          onTabKeys(e, VIEWS.length, Math.max(0, VIEWS.findIndex((v) => v.id === view)), (i) => pickView(VIEWS[i].id))
-        }
-      >
-        {views.map((v) => {
-          const on = view === v.id;
-          return (
-            <button
-              key={v.id}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              tabIndex={on ? 0 : -1}
-              onClick={() => {
-                pickView(v.id);
-              }}
-              className={cn(
-                'console-focusable relative h-8 rounded-full px-4 text-[13px] transition-colors',
-                on ? 'text-background' : 'text-quiet hover:text-foreground',
-                lights.rings === 'tabs' && v.id !== 'slide' && 'ring-1 ring-white/60',
-              )}
-            >
-              {on && (
-                <motion.span
-                  layoutId="faces-view"
-                  transition={{ duration: reduce ? 0 : timing.card }}
-                  className="absolute inset-0 rounded-full bg-white"
-                />
-              )}
-              <span className="relative">{tr(`views.${v.label}`)}</span>
-            </button>
-          );
-        })}
-      </div>
-      <LayoutSwitch on={layout.on} available={canLayout} onToggle={toggleLayout} />
+        <div
+          role="tablist"
+          aria-label={tr('views.label')}
+          className="flex"
+          onKeyDown={(e) =>
+            onTabKeys(e, VIEWS.length, Math.max(0, VIEWS.findIndex((v) => v.id === view)), (i) => pickView(VIEWS[i].id))
+          }
+        >
+          {views.map((v) => {
+            const on = view === v.id;
+            return (
+              <button
+                key={v.id}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                tabIndex={on ? 0 : -1}
+                onClick={() => {
+                  pickView(v.id);
+                }}
+                className={cn(
+                  'console-focusable relative h-8 rounded-full px-4 text-[13px] transition-colors',
+                  on ? 'text-background' : 'text-quiet hover:text-foreground',
+                  lights.rings === 'tabs' && v.id !== 'slide' && 'ring-1 ring-white/60',
+                )}
+              >
+                {on && (
+                  <motion.span
+                    layoutId="faces-view"
+                    transition={{ duration: reduce ? 0 : timing.card }}
+                    className="absolute inset-0 rounded-full bg-white"
+                  />
+                )}
+                <span className="relative">{tr(`views.${v.label}`)}</span>
+              </button>
+            );
+          })}
+        </div>
+        <LayoutSwitch on={layout.on} available={canLayout} onToggle={toggleLayout} />
       </div>
       </motion.div>
 
@@ -1510,6 +1510,7 @@ export default function LessonFacesScreen() {
                     page={layout.ready}
                     night={night}
                     shown={layout.available}
+                    enter={layout.entering}
                     onChecked={(pass) => layout.ready && layout.checked(layout.ready.page, pass)}
                   />
                 )}

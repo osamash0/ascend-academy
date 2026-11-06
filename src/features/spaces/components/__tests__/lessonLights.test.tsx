@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent, act, cleanup } from '@testing-libra
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { useEffect, type RefObject } from 'react';
 import LessonFacesScreen from '../../screens/LessonFacesScreen';
+import { spotOf, type Overlay } from './spotOf';
 
 /*
  * The file itself is not rendered here: react-pdf needs a canvas and a worker
@@ -13,19 +14,6 @@ const mockAspect = 405 / 720;
 /* How many pages the stand-in pager says the file has; 0 keeps it silent (no timeline). */
 let mockPages = 0;
 const scrolled: number[] = [];
-/*
- * The words the Spotlight would light. The overlay is the Layout layer (when it
- * is on) and then the Spotlight, so the words are read off the Spotlight.
- */
-type Overlay = { props?: { words?: string | null; children?: unknown } } | undefined;
-function spotOf(overlay: Overlay): string {
-  if (overlay?.props && 'words' in overlay.props) return overlay.props.words ?? '';
-  const kids = overlay?.props?.children;
-  const spot = (Array.isArray(kids) ? kids : [kids]).find(
-    (k): k is { props: { words?: string | null } } => !!k && typeof k === 'object' && 'props' in k && 'words' in (k as { props: object }).props,
-  );
-  return spot?.props.words ?? '';
-}
 vi.mock('@/components/pdf', () => ({
   PdfPage: ({ page }: { page: number }) => <div data-testid="sheet" data-page={page} />,
   PdfPager: ({ rootRef, page, overlay, onAspect, onLoad }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: Overlay; onAspect?: (a: number) => void; onLoad?: (n: number) => void }) => {
