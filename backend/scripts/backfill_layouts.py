@@ -13,7 +13,8 @@ EGRESS COST: reading a PDF out of Supabase Storage counts against egress. Same t
 mitigations as backfill_lecture_posters:
 
   * PDFs come from the content-addressed `pdf-uploads` bucket, grouped by pdf_hash,
-    so a PDF shared by N lectures is downloaded once, not N times.
+    so a PDF shared by N lectures is downloaded once, not N times (and its layouts
+    are built once, then written to each lecture).
   * `--local-dir` sources bytes from a local folder by SHA-256 match first (zero
     egress for any PDF you still have on disk).
 
@@ -46,7 +47,7 @@ if str(_ROOT) not in sys.path:
 from backend.core.database import get_db_connection
 from backend.scripts.backfill_lecture_posters import _download_pdf, _index_local_pdfs
 from backend.services.parser.layout.build import LAYOUT_VERSION
-from backend.services.parser.layout.store import build_layouts
+from backend.services.parser.layout.store import compute_layouts, upsert_layouts
 
 logger = logging.getLogger("backfill_layouts")
 
@@ -137,11 +138,19 @@ async def run(
             failed += len(rows)
             continue
 
+        # One build serves every lecture sharing that PDF; each lecture gets its own rows.
+        try:
+            pages = await compute_layouts(pdf_bytes)
+        except Exception as exc:
+            logger.warning("layouts failed for %s -- skipping %d lecture(s): %s", digest[:16], len(rows), exc)
+            failed += len(rows)
+            continue
+
         for row in rows:
             try:
-                pages = await build_layouts(row["id"], pdf_bytes)
+                await upsert_layouts(row["id"], pages)
                 built += 1
-                logger.info("layouts %s (%d pages) <- %s", row["id"][:8], pages, (row["title"] or "")[:48])
+                logger.info("layouts %s (%d pages) <- %s", row["id"][:8], len(pages), (row["title"] or "")[:48])
             except Exception as exc:
                 logger.warning("layouts failed for lecture %s: %s", row["id"], exc)
                 failed += 1

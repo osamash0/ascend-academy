@@ -64,6 +64,15 @@ def test_a_page_that_raises_is_stored_as_original_and_the_others_still_get_writt
     assert any(p["blocks"] for i, p in enumerate(pages) if i != 2)
 
 
+def test_compute_layouts_builds_the_pages_without_writing(monkeypatch, pdf_bytes, page_count):
+    async def no_db(*a):
+        raise AssertionError("compute_layouts must not write")
+
+    monkeypatch.setattr(store, "upsert_layouts", no_db)
+    pages = asyncio.run(store.compute_layouts(pdf_bytes))
+    assert [p["page"] for p in pages] == list(range(1, page_count + 1))
+
+
 def test_fitz_lock_is_taken_per_call_and_never_nested(monkeypatch, pdf_bytes):
     holds = []
 
@@ -113,6 +122,9 @@ class FakeConn:
     async def execute(self, sql, *args):
         self.log.append(("execute", " ".join(sql.split()), args))
 
+    async def executemany(self, sql, rows):
+        self.log.append(("executemany", " ".join(sql.split()), list(rows)))
+
     async def fetch(self, sql, *args):
         self.log.append(("fetch", " ".join(sql.split()), args))
         return self.rows
@@ -127,21 +139,20 @@ def patch_db(monkeypatch, conn):
     monkeypatch.setattr(database, "get_db_connection", get_conn)
 
 
-def test_upsert_writes_all_rows_then_deletes_the_rest_in_one_transaction(monkeypatch):
+def test_upsert_writes_all_rows_in_one_batch_then_deletes_the_rest_in_one_transaction(monkeypatch):
     log = []
     patch_db(monkeypatch, FakeConn(log))
     pages = [{"page": i, "verdict": "layout", "reasons": [], "blocks": [], "paths": [], "version": LAYOUT_VERSION}
              for i in (1, 2, 3)]
     asyncio.run(store.upsert_layouts(LECTURE, pages))
-    kinds = [e[0] for e in log]
-    assert kinds[0] == "begin" and kinds[-1] == "commit" and kinds.count("begin") == 1
-    sqls = [e[1] for e in log if e[0] == "execute"]
-    assert len(sqls) == 4
-    assert all("INSERT INTO public.lecture_layouts" in s and "ON CONFLICT (lecture_id, page) DO UPDATE" in s
-               for s in sqls[:3])
-    assert "::jsonb" in sqls[0]
-    assert sqls[3].startswith("DELETE FROM public.lecture_layouts") and "page > $2" in sqls[3]
-    assert log[-2][2][1] == 3  # delete after the last page
+    assert [e[0] for e in log] == ["begin", "executemany", "execute", "commit"]
+    _, insert, rows = log[1]
+    assert "INSERT INTO public.lecture_layouts" in insert and "ON CONFLICT (lecture_id, page) DO UPDATE" in insert
+    assert "::jsonb" in insert
+    assert [r[1] for r in rows] == [1, 2, 3] and all(str(r[0]) == LECTURE and r[3] == LAYOUT_VERSION for r in rows)
+    _, delete, args = log[2]
+    assert delete.startswith("DELETE FROM public.lecture_layouts") and "page > $2" in delete
+    assert args[1] == 3  # delete after the last page
 
 
 def test_load_layouts_returns_the_pages_in_order(monkeypatch):

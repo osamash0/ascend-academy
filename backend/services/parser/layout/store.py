@@ -34,8 +34,9 @@ def _failed(n: int) -> Dict[str, Any]:
             "version": LAYOUT_VERSION}
 
 
-async def build_layouts(lecture_id: UUID | str, pdf_bytes: bytes) -> int:
-    """Build and store the Layout page of every page. Returns the number of pages written."""
+async def compute_layouts(pdf_bytes: bytes) -> List[Dict[str, Any]]:
+    """The Layout page of every page of one PDF, in page order. Writes nothing: a PDF shared by several lectures
+    is built once (backfill) and written to each."""
     import fitz
 
     doc = await asyncio.to_thread(lambda: fitz.open(stream=pdf_bytes, filetype="pdf"))
@@ -51,6 +52,12 @@ async def build_layouts(lecture_id: UUID | str, pdf_bytes: bytes) -> int:
                 pages.append(_failed(n))
     finally:
         doc.close()
+    return pages
+
+
+async def build_layouts(lecture_id: UUID | str, pdf_bytes: bytes) -> int:
+    """Build and store the Layout page of every page. Returns the number of pages written."""
+    pages = await compute_layouts(pdf_bytes)
     await upsert_layouts(lecture_id, pages)
     return len(pages)
 
@@ -62,16 +69,15 @@ async def upsert_layouts(lecture_id: UUID | str, pages: List[Dict[str, Any]]) ->
     lid = UUID(str(lecture_id))
     async with await get_db_connection() as conn:
         async with conn.transaction():
-            for p in pages:
-                await conn.execute(
-                    """
-                    INSERT INTO public.lecture_layouts (lecture_id, page, layout, version, updated_at)
-                    VALUES ($1, $2, $3::jsonb, $4, now())
-                    ON CONFLICT (lecture_id, page) DO UPDATE SET
-                      layout = EXCLUDED.layout, version = EXCLUDED.version, updated_at = now()
-                    """,
-                    lid, p["page"], json.dumps(p), p.get("version", LAYOUT_VERSION),
-                )
+            await conn.executemany(
+                """
+                INSERT INTO public.lecture_layouts (lecture_id, page, layout, version, updated_at)
+                VALUES ($1, $2, $3::jsonb, $4, now())
+                ON CONFLICT (lecture_id, page) DO UPDATE SET
+                  layout = EXCLUDED.layout, version = EXCLUDED.version, updated_at = now()
+                """,
+                [(lid, p["page"], json.dumps(p), p.get("version", LAYOUT_VERSION)) for p in pages],
+            )
             await conn.execute(
                 "DELETE FROM public.lecture_layouts WHERE lecture_id = $1 AND page > $2",
                 lid, len(pages),

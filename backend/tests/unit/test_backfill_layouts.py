@@ -1,8 +1,9 @@
 """Unit tests for `backend.scripts.backfill_layouts`.
 
-No database and no storage: the lecture query, the download and `build_layouts`
-are stubbed. Selection (missing / stale / current / --force), one download per
-pdf_hash, --local-dir and --dry-run (downloads nothing, builds nothing).
+No database and no storage: the lecture query, the download, `compute_layouts`
+and `upsert_layouts` are stubbed. Selection (missing / stale / current / --force),
+one download and one build per pdf_hash, --local-dir and --dry-run (downloads
+nothing, builds nothing).
 """
 from __future__ import annotations
 
@@ -32,6 +33,7 @@ class Env:
         self.queried: list = []
         self.downloads: list = []
         self.built: list = []
+        self.computed: list = []
 
         async def fake_fetch(*, lecture_id=None):
             self.queried.append(lecture_id)
@@ -41,13 +43,17 @@ class Env:
             self.downloads.append(pdf_hash)
             return b"%PDF-" + (pdf_hash or "x").encode()
 
-        async def fake_build(lecture_id, pdf_bytes):
-            self.built.append((str(lecture_id), pdf_bytes))
-            return 4
+        async def fake_compute(pdf_bytes):
+            self.computed.append(pdf_bytes)
+            return [{"page": 1, "src": pdf_bytes}]
+
+        async def fake_upsert(lecture_id, pages):
+            self.built.append((str(lecture_id), pages[0]["src"]))
 
         monkeypatch.setattr(bf, "_fetch_lectures", fake_fetch)
         monkeypatch.setattr(bf, "_download_pdf", fake_download)
-        monkeypatch.setattr(bf, "build_layouts", fake_build)
+        monkeypatch.setattr(bf, "compute_layouts", fake_compute)
+        monkeypatch.setattr(bf, "upsert_layouts", fake_upsert)
 
     def built_ids(self):
         return sorted(i for i, _ in self.built)
@@ -135,12 +141,33 @@ async def test_missing_pdf_counts_as_failed_and_goes_on(monkeypatch):
 async def test_build_failure_goes_on_and_exits_nonzero(monkeypatch):
     env = Env(monkeypatch, [_row("a"), _row("b")])
 
-    async def boom(lecture_id, pdf_bytes):
+    async def boom(lecture_id, pages):
         if str(lecture_id) == "a":
-            raise RuntimeError("bad pdf")
-        env.built.append((str(lecture_id), pdf_bytes))
-        return 1
+            raise RuntimeError("db down")
+        env.built.append((str(lecture_id), pages[0]["src"]))
 
-    monkeypatch.setattr(bf, "build_layouts", boom)
+    monkeypatch.setattr(bf, "upsert_layouts", boom)
     assert await _run() == 1
     assert env.built_ids() == ["b"]
+
+
+@pytest.mark.asyncio
+async def test_lectures_sharing_one_pdf_are_built_once_and_written_each(monkeypatch):
+    env = Env(monkeypatch, [_row("a", h=H1), _row("b", h=H1), _row("c", h=H2)])
+    assert await _run() == 0
+    assert len(env.computed) == 2
+    assert env.built_ids() == ["a", "b", "c"]
+
+
+@pytest.mark.asyncio
+async def test_a_pdf_that_cannot_be_built_fails_every_lecture_sharing_it(monkeypatch):
+    env = Env(monkeypatch, [_row("a", h=H1), _row("b", h=H1), _row("c", h=H2)])
+
+    async def compute(pdf_bytes):
+        if pdf_bytes.endswith(H1.encode()):
+            raise RuntimeError("bad pdf")
+        return [{"page": 1, "src": pdf_bytes}]
+
+    monkeypatch.setattr(bf, "compute_layouts", compute)
+    assert await _run() == 1
+    assert env.built_ids() == ["c"]
