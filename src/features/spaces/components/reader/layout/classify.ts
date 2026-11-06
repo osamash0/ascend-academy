@@ -13,7 +13,7 @@ export type LayoutClass = 'h' | 'p' | 'l' | 'row' | 'math' | 'label' | 'table' |
 /** The fitter's groups (`data-group`): one type size per group per page. */
 export type LayoutGroup = 'h' | 'body' | 'small' | 'row' | 'fig';
 
-const PUA = /[-]/;
+const PUA = /[\uE000-\uF8FF]/;
 const PAGE_NUMBER = /^(slide|folie|seite|page|s\.)\s*\d+(\s*(\/|of|von)\s*\d+)?$/i;
 
 /**
@@ -27,7 +27,7 @@ export function cleanText(text: string): string {
     .split('\n')
     .map((l) =>
       l
-        .replace(/^[-]\s*/, '')
+        .replace(/^[\uE000-\uF8FF]\s*/, '')
         .replace(/\s*([→⇒←⇐↔⇔])\s*/g, ' $1 ')
         .trim(),
     )

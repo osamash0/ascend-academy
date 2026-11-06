@@ -24,7 +24,11 @@ export interface LayoutBlock {
   diagram?: boolean;
 }
 
-/** An SVG path in a 0..1000 box, placed by `bbox`. */
+/**
+ * A vector stroke or fill from the page, redrawn by the layer. `d` is already in
+ * page space: a 0..1000 box over the whole page (the layer's one SVG viewBox).
+ * `bbox` is the path's extent as page fractions; it is not used for placement.
+ */
 export interface LayoutPath {
   d: string;
   bbox: Box;

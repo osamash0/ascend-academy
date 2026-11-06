@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { classify, groupOf } from '../classify';
 import type { LayoutBlock } from '../types';
@@ -74,5 +76,13 @@ describe('groupOf', () => {
     expect(groupOf('table')).toBe('row');
     expect(groupOf('fig')).toBe('fig');
     expect(groupOf('window')).toBe('fig');
+  });
+});
+
+describe('classify.ts source', () => {
+  it('names private-use characters by escape, never as invisible literals', () => {
+    const src = readFileSync(join(process.cwd(), 'src/features/spaces/components/reader/layout/classify.ts'), 'utf8');
+    expect(src).not.toMatch(/[\uE000-\uF8FF]/);
+    expect(src).toContain('\\uE000-\\uF8FF');
   });
 });
