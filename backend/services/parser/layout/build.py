@@ -45,7 +45,7 @@ def build_page_layout(page, n, repeated):
     trim_figures(blocks)
     pics = content_pictures(page, repeated)
     apply_pictures(n, blocks, pics)
-    drop_blank_figures(page, blocks, [b["bbox"] for b in blocks if b.get("picture")] if pics else ())
+    drop_blank_figures(page, blocks, [b["bbox"] for b in blocks if b.get("picture")])
     keep_out = [g["bbox"] for g in grids] + [b["bbox"] for b in blocks if b["kind"] == "figure"]
     texts = [(b["bbox"], len(b["text"]), b["kind"]) for b in blocks if b.get("text") and b["kind"] not in ("figure", "table")]
     paths, diagrams = reink(page, keep_out, texts)

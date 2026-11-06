@@ -13,8 +13,9 @@ UNDER_CROP = 0.2         # share of a text block a figure box may cover
 CROP_SHARE = 0.35        # share of the text area that may still be symbol-font crops
 FURNITURE_BOTTOM = 0.86  # words in the outer band outside every block are page furniture
 FURNITURE_TOP = 0.1
+RUN_MAX = 12             # tokens in a run that stands for one split word
 
-_PUA = re.compile("[-]")
+_PUA = re.compile("[\ue000-\uf8ff]")
 _BROKEN = re.compile(r"[¨´ˆ˜]|(^|\s)§\s")
 
 
@@ -24,10 +25,6 @@ def norm_word(w):
     s = re.sub(r"[\x1b-\x1f]", "", (w or "").lower())
     s = "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.category(c).startswith("M"))
     return "".join(c for c in s if c.isalnum())
-
-
-def _inside(w, b, pad=0.004):
-    return centre_in(w, b, pad)
 
 
 def _words(page):
@@ -54,25 +51,31 @@ def server_checks(page, blocks, pics, diagrams, paths, dropped):
                 typed[t] = typed.get(t, 0) + 1
     typed_all = " ".join(typed)
     # A sub/superscript is its own span: the PDF's word "A1,A2" or "ti[X]" is "A 1 ,A 2" or "t i [X]" in the block.
-    # Only blocks that hold such single-character pieces are also searched with their spaces taken out.
-    joined = [norm_word(b.get("text") or "") for b in texts
-              if any(len(norm_word(w)) == 1 for w in (b.get("text") or "").split())]
+    # Such a word is rescued only when it equals a run of neighbouring tokens of ONE block that holds a
+    # single-character piece (a run is at most RUN_MAX tokens).
+    runs = set()
+    for b in texts:
+        toks = [t for t in (norm_word(w) for w in (b.get("text") or "").split()) if t]
+        for i in range(len(toks)):
+            for j in range(i + 1, min(len(toks), i + RUN_MAX) + 1):
+                if any(len(t) == 1 for t in toks[i:j]):
+                    runs.add("".join(toks[i:j]))
     total = missing = 0
     for box, word in _words(page):
         t = norm_word(word)
         if not t:
             continue
         total += 1
-        if any(_inside(box, f) for f in figs) or any(_inside(box, d) for d in dropped):
+        if any(centre_in(box, f) for f in figs) or any(centre_in(box, d) for d in dropped):
             continue
-        if not any(_inside(box, b["bbox"], 0.01) for b in blocks) and (box[1] > FURNITURE_BOTTOM or box[3] < FURNITURE_TOP):
+        if not any(centre_in(box, b["bbox"], 0.01) for b in blocks) and (box[1] > FURNITURE_BOTTOM or box[3] < FURNITURE_TOP):
             continue
         if typed.get(t, 0) > 0:
             typed[t] -= 1
             continue
         if len(t) > 2 and t in typed_all:
             continue                                   # hyphenation or ligatures split a word differently
-        if len(t) > 1 and any(t in j for j in joined):
+        if t in runs:
             continue
         missing += 1
     coverage = 1 - missing / total if total else 1
@@ -80,11 +83,11 @@ def server_checks(page, blocks, pics, diagrams, paths, dropped):
     drawn = {tuple(p["bbox"]) for p in paths}
     holders = figs + [b["bbox"] for b in blocks if b["kind"] == "table"]
     lost_diagrams = sum(1 for g in diagrams
-                        if sum(1 for it in g["items"] if tuple(it) in drawn or any(_inside(it, h, 0.01) for h in holders))
+                        if sum(1 for it in g["items"] if tuple(it) in drawn or any(centre_in(it, h, 0.01) for h in holders))
                         < DIAGRAM_KEPT * len(g["items"]))
     # 3. a figure box over set type repeats the type's words
     under = sum(1 for b in texts if area(b["bbox"]) > 0
-                and sum(area(inter(b["bbox"], f)) for f in figs) > UNDER_CROP * area(b["bbox"]))
+                and any(area(inter(b["bbox"], f)) > UNDER_CROP * area(b["bbox"]) for f in figs))
     # 4. pictures: every picture is still shown whole
     lost_pics = sum(1 for pic in pics if area(pic) > 0
                     and sum(area(inter(pic, f)) for f in figs) / area(pic) < PICTURE_COVER)

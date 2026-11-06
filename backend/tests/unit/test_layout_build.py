@@ -63,10 +63,10 @@ def test_no_text_holds_a_tex_ligature_code_or_a_private_use_character(layouts):
     for lp in layouts:
         for b in lp["blocks"]:
             for s in [b["text"]] + [c for r in b.get("rows", []) for c in r]:
-                assert not any("\x1b" <= c <= "\x1f" or "" <= c <= "" for c in s)
+                assert not any("\x1b" <= c <= "\x1f" or "\ue000" <= c <= "\uf8ff" for c in s)
 
 
-def test_blocks_are_in_reading_order_and_only_figures_have_no_text(layouts):
+def test_only_figures_have_no_text(layouts):
     for lp in layouts:
         for b in lp["blocks"]:
             assert b["text"] or b["kind"] == "figure"
@@ -137,6 +137,41 @@ def test_a_word_the_block_sets_with_spaces_between_sub_and_superscripts_is_not_m
     p.insert_text((60, 100), "A1,A2", fontsize=14)
     assert server_checks(p, blocks_for("A 1 ,A 2", (0.05, 0.1, 0.3, 0.14)), [], [], [], []) == []
     assert server_checks(p, blocks_for("B 1 ,B 2", (0.05, 0.1, 0.3, 0.14)), [], [], [], []) == ["1 of 1 words missing"]
+
+
+def test_a_lost_two_letter_word_is_not_rescued_by_a_one_character_token_elsewhere():
+    d = fitz.open()
+    p = d.new_page(width=600, height=800)
+    p.insert_text((60, 100), "Let x be a function on the set", fontsize=14)
+    # "x" and "a" are single-character tokens, but "on" is no run of neighbouring tokens: it is lost
+    assert server_checks(p, blocks_for("Let x be a function the set"), [], [], [], []) == ["1 of 8 words missing"]
+
+
+def test_a_word_that_only_matches_across_a_word_boundary_is_not_rescued():
+    d = fitz.open()
+    p = d.new_page(width=600, height=800)
+    p.insert_text((60, 100), "Slim 1 x", fontsize=14)
+    p.insert_text((60, 130), "mx", fontsize=14)
+    # tokens "slim" "1" "x": "mx" = tail of "slim" + "x" crosses a word boundary; "1x" would be a run, "mx" is not
+    reasons = server_checks(p, blocks_for("Slim 1 x", (0.05, 0.1, 0.5, 0.14)), [], [], [], [])
+    assert reasons == ["1 of 4 words missing"]
+
+
+def test_a_run_never_crosses_into_another_block():
+    d = fitz.open()
+    p = d.new_page(width=600, height=800)
+    p.insert_text((60, 100), "A1", fontsize=14)
+    blocks = [{"id": "a", "kind": "paragraph", "bbox": [0.05, 0.1, 0.2, 0.14], "text": "A"},
+              {"id": "b", "kind": "paragraph", "bbox": [0.05, 0.3, 0.2, 0.34], "text": "1"}]
+    assert server_checks(p, blocks, [], [], [], []) == ["1 of 1 words missing"]
+
+
+def test_two_small_figure_boxes_that_sum_past_a_fifth_are_not_under_a_crop():
+    d, p = text_page(("Hello world",))
+    para = {"id": "p1-b0", "kind": "paragraph", "bbox": [0.1, 0.1, 0.5, 0.2], "text": "Hello world"}
+    small = [{"id": f"f{i}", "kind": "figure", "bbox": [0.1 + 0.2 * i, 0.1, 0.1 + 0.2 * i + 0.1, 0.12], "text": ""} for i in range(2)]
+    # each box covers 5% of the block, together 10%: no one box covers more than 20%
+    assert server_checks(p, [para] + small, [], [], [], []) == []
 
 
 def test_furniture_words_in_the_outer_band_outside_every_block_are_not_missing():
