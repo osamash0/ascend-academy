@@ -13,7 +13,6 @@ UNDER_CROP = 0.2         # share of a text block a figure box may cover
 CROP_SHARE = 0.35        # share of the text area that may still be symbol-font crops
 FURNITURE_BOTTOM = 0.86  # words in the outer band outside every block are page furniture
 FURNITURE_TOP = 0.1
-RUN_MAX = 12             # tokens in a run that stands for one split word
 
 _PUA = re.compile("[\ue000-\uf8ff]")
 _BROKEN = re.compile(r"[¨´ˆ˜]|(^|\s)§\s")
@@ -50,16 +49,6 @@ def server_checks(page, blocks, pics, diagrams, paths, dropped):
             if t:
                 typed[t] = typed.get(t, 0) + 1
     typed_all = " ".join(typed)
-    # A sub/superscript is its own span: the PDF's word "A1,A2" or "ti[X]" is "A 1 ,A 2" or "t i [X]" in the block.
-    # Such a word is rescued only when it equals a run of neighbouring tokens of ONE block that holds a
-    # single-character piece (a run is 2 to RUN_MAX tokens: one token is no split word).
-    runs = set()
-    for b in texts:
-        toks = [t for t in (norm_word(w) for w in (b.get("text") or "").split()) if t]
-        for i in range(len(toks)):
-            for j in range(i + 2, min(len(toks), i + RUN_MAX) + 1):
-                if any(len(t) == 1 for t in toks[i:j]):
-                    runs.add("".join(toks[i:j]))
     total = missing = 0
     for box, word in _words(page):
         t = norm_word(word)
@@ -75,8 +64,6 @@ def server_checks(page, blocks, pics, diagrams, paths, dropped):
             continue
         if len(t) > 2 and t in typed_all:
             continue                                   # hyphenation or ligatures split a word differently
-        if t in runs:
-            continue
         missing += 1
     coverage = 1 - missing / total if total else 1
     # 2. lost diagrams: every cluster of drawn items is still drawn (redrawn, or inside a figure or table)

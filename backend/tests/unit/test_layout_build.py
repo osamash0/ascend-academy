@@ -72,8 +72,9 @@ def test_only_figures_have_no_text(layouts):
             assert b["text"] or b["kind"] == "figure"
 
 
-def test_at_least_eight_of_twelve_normalization_pages_are_layout(layouts):
-    assert sum(lp["verdict"] == "layout" for lp in layouts) >= 8
+def test_at_least_seven_of_twelve_normalization_pages_are_layout(layouts):
+    # page 8 is held for split sub/superscripts ("A 1 ,A 2") until the vision pass
+    assert sum(lp["verdict"] == "layout" for lp in layouts) >= 7
 
 
 # --- built in code ---------------------------------------------------------------------------------------
@@ -131,39 +132,20 @@ def test_words_missing_from_the_blocks_are_reported():
     assert reasons == ["6 of 8 words missing"]
 
 
-def test_a_word_the_block_sets_with_spaces_between_sub_and_superscripts_is_not_missing():
+def test_a_sub_and_superscript_the_block_splits_into_pieces_is_reported_as_words_missing():
     d = fitz.open()
     p = d.new_page(width=600, height=800)
     p.insert_text((60, 100), "A1,A2", fontsize=14)
-    assert server_checks(p, blocks_for("A 1 ,A 2", (0.05, 0.1, 0.3, 0.14)), [], [], [], []) == []
-    assert server_checks(p, blocks_for("B 1 ,B 2", (0.05, 0.1, 0.3, 0.14)), [], [], [], []) == ["1 of 1 words missing"]
+    # the PDF's word "A1,A2" is "A 1 ,A 2" in the block: set flat, so the page stays the original until the vision pass
+    assert server_checks(p, blocks_for("A 1 ,A 2", (0.05, 0.1, 0.3, 0.14)), [], [], [], []) == ["1 of 1 words missing"]
 
 
-def test_a_lost_two_letter_word_is_not_rescued_by_a_one_character_token_elsewhere():
+def test_a_lost_two_letter_word_is_reported():
     d = fitz.open()
     p = d.new_page(width=600, height=800)
     p.insert_text((60, 100), "Let x be a function on the set", fontsize=14)
-    # "x" and "a" are single-character tokens, but "on" is no run of neighbouring tokens: it is lost
+    # "on" is missing from the block
     assert server_checks(p, blocks_for("Let x be a function the set"), [], [], [], []) == ["1 of 8 words missing"]
-
-
-def test_a_word_that_only_matches_across_a_word_boundary_is_not_rescued():
-    d = fitz.open()
-    p = d.new_page(width=600, height=800)
-    p.insert_text((60, 100), "Slim 1 x", fontsize=14)
-    p.insert_text((60, 130), "mx", fontsize=14)
-    # tokens "slim" "1" "x": "mx" = tail of "slim" + "x" crosses a word boundary; "1x" would be a run, "mx" is not
-    reasons = server_checks(p, blocks_for("Slim 1 x", (0.05, 0.1, 0.5, 0.14)), [], [], [], [])
-    assert reasons == ["1 of 4 words missing"]
-
-
-def test_a_run_never_crosses_into_another_block():
-    d = fitz.open()
-    p = d.new_page(width=600, height=800)
-    p.insert_text((60, 100), "A1", fontsize=14)
-    blocks = [{"id": "a", "kind": "paragraph", "bbox": [0.05, 0.1, 0.2, 0.14], "text": "A"},
-              {"id": "b", "kind": "paragraph", "bbox": [0.05, 0.3, 0.2, 0.34], "text": "1"}]
-    assert server_checks(p, blocks, [], [], [], []) == ["1 of 1 words missing"]
 
 
 def test_two_small_figure_boxes_that_sum_past_a_fifth_are_not_under_a_crop():
@@ -226,11 +208,3 @@ def test_a_page_with_only_figures_has_no_text_layer():
     d, p = text_page()
     fig = {"id": "d1-0", "kind": "figure", "bbox": [0, 0, 1, 1], "text": ""}
     assert server_checks(p, [fig], [], [], [], []) == ["no text layer"]
-
-
-def test_a_lost_single_character_word_is_not_rescued_by_a_one_token_run():
-    d = fitz.open()
-    p = d.new_page(width=600, height=800)
-    p.insert_text((60, 100), "Let x x", fontsize=14)
-    # the block holds "x" once; the second "x" is lost, and a run of ONE token is no split word
-    assert server_checks(p, blocks_for("Let x", (0.05, 0.1, 0.5, 0.14)), [], [], [], []) == ["1 of 3 words missing"]
