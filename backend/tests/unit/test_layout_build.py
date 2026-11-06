@@ -208,3 +208,19 @@ def test_a_page_with_only_figures_has_no_text_layer():
     d, p = text_page()
     fig = {"id": "d1-0", "kind": "figure", "bbox": [0, 0, 1, 1], "text": ""}
     assert server_checks(p, [fig], [], [], [], []) == ["no text layer"]
+
+
+def test_a_vector_scatter_plot_whose_markers_are_not_redrawn_is_held():
+    from backend.tests.unit.test_layout_strokes import scatter_page
+
+    doc, page = scatter_page()
+    lp = build_page_layout(page, 1, set())
+    assert lp["verdict"] == "original"
+    assert "60 marks lost" in lp["reasons"]
+
+
+def test_lost_marks_are_a_reason():
+    d, p = text_page(("Body",))
+    blocks = blocks_for("Body", (0.05, 0.1, 0.3, 0.14))
+    assert server_checks(p, blocks, [], [], [], [], marks=12) == ["12 marks lost"]
+    assert server_checks(p, blocks, [], [], [], [], marks=0) == []

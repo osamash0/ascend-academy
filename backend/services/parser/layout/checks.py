@@ -31,10 +31,11 @@ def _words(page):
     return [([x0 / W, y0 / H, x1 / W, y1 / H], t) for x0, y0, x1, y1, t, *_ in page.get_text("words") if t.strip()]
 
 
-def server_checks(page, blocks, pics, diagrams, paths, dropped):
+def server_checks(page, blocks, pics, diagrams, paths, dropped, marks=0):
     """The reasons this page cannot be set as Layout: [] when it can.
     blocks: the page's final blocks; pics: picture boxes; diagrams: reink's diagrams; paths: reink's paths;
-    dropped: boxes of furniture that was removed on purpose."""
+    dropped: boxes of furniture that was removed on purpose; marks: strokes.lost_marks (a plot's markers
+    that are not redrawn)."""
     texts = [b for b in blocks if b["kind"] != "figure"]
     figs = [b["bbox"] for b in blocks if b["kind"] == "figure"]
     if not texts:
@@ -86,6 +87,8 @@ def server_checks(page, blocks, pics, diagrams, paths, dropped):
 
     if lost_diagrams:
         reasons.append(f"{lost_diagrams} diagram{'s' if lost_diagrams > 1 else ''} lost")
+    if marks:
+        reasons.append(f"{marks} marks lost")
     if under:
         reasons.append(f"{under} lines under a crop")
     if lost_pics:

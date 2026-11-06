@@ -7,7 +7,7 @@ from backend.services.parser.layout.checks import server_checks
 from backend.services.parser.layout.figures import (apply_pictures, apply_regions, content_pictures, diagram_regions,
                                                     drop_blank_figures, trim_figures)
 from backend.services.parser.layout.geometry import area, inter
-from backend.services.parser.layout.strokes import drop_furniture, link_labels, numbered_lines, reink
+from backend.services.parser.layout.strokes import drop_furniture, link_labels, lost_marks, numbered_lines, reink
 from backend.services.parser.layout.tables import apply_tables, table_grids
 from backend.services.parser.page_blocks import extract_blocks
 
@@ -50,7 +50,7 @@ def build_page_layout(page, n, repeated):
     texts = [(b["bbox"], len(b["text"]), b["kind"]) for b in blocks if b.get("text") and b["kind"] not in ("figure", "table")]
     paths, diagrams = reink(page, keep_out, texts)
     link_labels(blocks, paths)
-    reasons = server_checks(page, blocks, pics, diagrams, paths, dropped)
+    reasons = server_checks(page, blocks, pics, diagrams, paths, dropped, marks=lost_marks(page, keep_out, texts, paths))
     blocks.sort(key=lambda b: b.get("readingOrder", 999))
     return {"page": n, "verdict": "original" if reasons else "layout", "reasons": reasons,
             "blocks": [{k: b[k] for k in KEEP if k in b} for b in blocks], "paths": paths, "version": LAYOUT_VERSION}

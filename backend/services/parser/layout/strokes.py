@@ -14,6 +14,12 @@ KEEP_OUT_SHARE = 0.5       # an item this much inside a table or figure is shown
 CHIP_BAND_SIZE = 0.06      # an empty closed shape this small in the outer band is a page-number chip
 CHIP_SIZE = 0.04           # an empty closed shape this small, alone, is a stray outline
 CLUSTER = 3                # items that make a cluster
+SPECK = 0.01               # a drawn item smaller than this on both sides is a speck: reink does not redraw it
+MARKS = 8                  # this many specks near one another, away from text, are a plot's marks
+MARK_GAP = 0.1             # specks this close (page fractions) are one plot
+MARK_TEXT_PAD = (0.02, 0.01)   # a speck this close to a text block is its bullet or decoration
+DETAIL_HOST = 0.01         # a speck on a redrawn drawing smaller than this (area) is a detail of it (an icon's keys) ...
+DETAIL_PAD = 0.005         # ... "on" meaning inside its box padded by this much
 
 
 def _in_band(y0, y1):
@@ -103,8 +109,8 @@ def reink(page, keep_out, texts=()):
             continue                                   # title underlines, bars, rules, side bars, backgrounds
         if w > 0.2 and h < 0.06 and _in_stroke_band(nb[1], nb[3]):
             continue                                   # header and footer bands (and their pieces)
-        if max(w, h) < 0.01:
-            continue                                   # specks: drawn bullets, dots
+        if max(w, h) < SPECK:
+            continue                                   # specks: drawn bullets, dots (lost_marks counts the others)
         pad = [nb[0] - 0.01, nb[1] - 0.01, nb[2] + 0.01, nb[3] + 0.01]
         inside = [t for t in texts if area(inter(t[0], pad)) >= 0.8 * max(area(t[0]), 1e-9)]
         closed = _closed(d)
@@ -143,6 +149,41 @@ def reink(page, keep_out, texts=()):
     diagrams = [{"bbox": [round(v, 4) for v in union([o["bbox"] for o in g])], "items": [o["bbox"] for o in g]}
                 for g in groups if len(g) >= CLUSTER and area(union([o["bbox"] for o in g])) >= 0.01]
     return paths, diagrams
+
+
+def lost_marks(page, keep_out, texts=(), paths=()):
+    """Specks reink does not redraw that are content, not decoration: a scatter plot's markers. A speck counts when
+    it lies away from every text block (a bullet sits beside its text), outside every table and figure (shown there),
+    off every small redrawn drawing (a clip-art icon's keys, an arrow's head: the drawing itself is still shown)
+    and outside the header and footer bands (navigation dots); it is lost when at least MARKS such specks lie near
+    one another. Returns how many marks are lost (0 when none).
+    texts: [(bbox, chars, kind)] of the page's text blocks, as for reink; paths: reink's paths."""
+    W, H = page.rect.width, page.rect.height
+    px, py = MARK_TEXT_PAD
+    pads = [[t[0][0] - px, t[0][1] - py, t[0][2] + px, t[0][3] + py] for t in texts]
+    pads += [[b[0] - DETAIL_PAD, b[1] - DETAIL_PAD, b[2] + DETAIL_PAD, b[3] + DETAIL_PAD]
+             for b in (p["bbox"] for p in paths) if area(b) < DETAIL_HOST]
+    specks = []
+    for d in page.get_drawings():
+        if white(d.get("color")) and white(d.get("fill")):
+            continue
+        r = d["rect"]
+        nb = [r.x0 / W, r.y0 / H, r.x1 / W, r.y1 / H]
+        if nb[0] < -0.001 or nb[1] < -0.001 or nb[2] > 1.001 or nb[3] > 1.001:
+            continue
+        if max(nb[2] - nb[0], nb[3] - nb[1]) >= SPECK or _in_stroke_band(nb[1], nb[3]):
+            continue
+        cx, cy = (nb[0] + nb[2]) / 2, (nb[1] + nb[3]) / 2
+        if any(p[0] <= cx <= p[2] and p[1] <= cy <= p[3] for p in pads) or _in_keep_out(nb, keep_out):
+            continue
+        specks.append(nb)
+    groups = []
+    for sp in specks:
+        hit = [g for g in groups if any(near(sp, o, MARK_GAP) for o in g)]
+        for g in hit:
+            groups.remove(g)
+        groups.append(sum(hit, []) + [sp])
+    return sum(len(g) for g in groups if len(g) >= MARKS)
 
 
 def link_labels(blocks, paths):

@@ -2,7 +2,7 @@
 algorithm line numbers, stray outline chips."""
 import fitz
 
-from backend.services.parser.layout.strokes import drop_furniture, link_labels, numbered_lines, reink
+from backend.services.parser.layout.strokes import drop_furniture, link_labels, lost_marks, numbered_lines, reink
 
 
 def page_800x600():
@@ -168,3 +168,64 @@ def test_reink_bands_are_the_references_not_the_furniture_bands():
     doc2, page2 = page_800x600()
     page2.draw_rect(fitz.Rect(200, 535, 440, 559), color=(0, 0, 0))    # y 0.892..0.932: inside the band
     assert reink(page2, [], [])[0] == []
+
+
+# --- marks: specks reink does not redraw (a scatter plot's markers) ----------------------------------------
+def scatter_page(n=60):
+    """A 960x540 slide: a vector scatter plot of n 5-pt markers, axes and tick labels."""
+    doc = fitz.open()
+    page = doc.new_page(width=960, height=540)
+    page.insert_text((80, 50), "Measured latency per request", fontsize=20)
+    page.draw_line((150, 460), (850, 460), color=(0, 0, 0))            # x axis
+    page.draw_line((150, 100), (150, 460), color=(0, 0, 0))            # y axis
+    for i, t in enumerate(("0", "10", "20", "30", "40")):
+        page.insert_text((145 + i * 170, 480), t, fontsize=10)
+        page.insert_text((120, 460 - i * 85), t, fontsize=10)
+    for i in range(n):
+        x, y = 170 + i * 11, 440 - i * 5 + ((i * 37) % 23 - 11)
+        page.draw_circle((x, y), 2.5, color=(0.1, 0.2, 0.8), fill=(0.1, 0.2, 0.8))
+    return doc, page
+
+
+def test_a_scatter_plots_markers_are_lost_marks():
+    doc, page = scatter_page()
+    assert lost_marks(page, [], []) == 60
+
+
+def test_marks_inside_a_figure_or_table_are_shown_there():
+    doc, page = scatter_page()
+    assert lost_marks(page, [[0.1, 0.1, 0.95, 0.9]], []) == 0
+
+
+def test_a_few_marks_are_not_a_plot():
+    doc, page = scatter_page(n=5)
+    assert lost_marks(page, [], []) == 0
+
+
+def test_drawn_bullets_beside_their_text_are_not_lost_marks():
+    doc = fitz.open()
+    page = doc.new_page(width=960, height=540)
+    for i in range(10):
+        page.draw_circle((62, 100 + i * 20), 2.5, color=(0, 0, 0), fill=(0, 0, 0))
+    lst = ([72 / 960, 90 / 540, 600 / 960, 300 / 540], 400, "list")
+    assert lost_marks(page, [], [lst]) == 0
+
+
+def test_the_details_of_a_small_redrawn_drawing_are_not_lost_marks():
+    doc = fitz.open()
+    page = doc.new_page(width=960, height=540)
+    page.draw_rect(fitz.Rect(400, 200, 440, 230), color=(0, 0, 0))                # a keyboard, redrawn
+    for i in range(12):
+        page.draw_rect(fitz.Rect(403 + (i % 6) * 6, 205 + (i // 6) * 10, 406 + (i % 6) * 6, 208 + (i // 6) * 10),
+                       color=(0, 0, 0), fill=(0.5, 0.5, 0.5))                     # its keys: specks
+    paths, _ = reink(page, [], [])
+    assert lost_marks(page, [], [], paths) == 0
+    assert lost_marks(page, [], [], []) == 12
+
+
+def test_navigation_dots_in_the_header_band_are_furniture_not_lost_marks():
+    doc = fitz.open()
+    page = doc.new_page(width=960, height=540)
+    for i in range(12):
+        page.draw_circle((600 + i * 8, 20), 2, color=(0, 0, 0), fill=(0, 0, 0))   # beamer mini-frames
+    assert lost_marks(page, [], []) == 0
