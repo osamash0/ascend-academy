@@ -405,3 +405,74 @@ async def test_the_lock_is_released_even_when_the_request_is_cancelled():
         scope.cancel()
         await started.aclose()
     assert sid not in store.locked
+
+
+CHECK = {"question": "Which rows must agree on Y?", "options": [
+    {"text": "Any two that agree on X", "correct": True, "why": "That is the definition."},
+    {"text": "All of them", "why": "Only rows that agree on X."},
+]}
+
+
+async def test_a_right_answer_closes_the_step_and_the_check_is_not_asked_again():
+    """Seen live: after a right answer the model re-asked its own check and the plan stood still."""
+    store = FakeStore()
+    repeat = {"say": "Right. One more time:", "check": {**CHECK, "question": "which rows must agree on y"}, "step_done": False}
+    ai = scripted(PLAN_REPLY, {"say": "Here is the idea.", "check": CHECK}, repeat)
+    sid = await _started(store, ai)
+    await _events(await svc.open_turn(store, user_id=U, session_id=sid, client_turn_id=str(uuid.uuid4()), text=None,
+                                      action="accept_plan", plan_edit=None, reading_at=4, check_result=None,
+                                      locale="en", ai=ai, load=fake_load))
+    events = await _events(await svc.open_turn(store, user_id=U, session_id=sid, client_turn_id=str(uuid.uuid4()), text=None,
+                                               action="continue", plan_edit=None, reading_at=4,
+                                               check_result={"question": CHECK["question"], "correct": True},
+                                               locale="en", ai=ai, load=fake_load))
+    kinds = [e for e, _ in events]
+    assert "blocks" not in kinds, "the answered check came back"
+    plan = dict(events)["plan"]["plan"]
+    assert [s["status"] for s in plan] == ["done", "current", "todo"]
+    assert "step is done" in ai.calls[-1] and "Do not ask it again" in ai.calls[-1]
+
+
+async def test_a_wrong_answer_keeps_the_step_but_never_repeats_the_question():
+    store = FakeStore()
+    ai = scripted(PLAN_REPLY, {"say": "Here is the idea.", "check": CHECK},
+                  {"say": "Not quite. Look at the line again.", "check": CHECK, "step_done": False})
+    sid = await _started(store, ai)
+    await _events(await svc.open_turn(store, user_id=U, session_id=sid, client_turn_id=str(uuid.uuid4()), text=None,
+                                      action="accept_plan", plan_edit=None, reading_at=4, check_result=None,
+                                      locale="en", ai=ai, load=fake_load))
+    events = await _events(await svc.open_turn(store, user_id=U, session_id=sid, client_turn_id=str(uuid.uuid4()), text=None,
+                                               action="continue", plan_edit=None, reading_at=4,
+                                               check_result={"question": CHECK["question"], "correct": False},
+                                               locale="en", ai=ai, load=fake_load))
+    assert "blocks" not in [e for e, _ in events]
+    assert [s["status"] for s in dict(events)["plan"]["plan"]] == ["current", "todo", "todo"]
+    assert "a different question" in ai.calls[-1]
+
+
+async def test_a_step_without_a_move_goes_to_the_plans_page_once():
+    """Seen live: 'look at page 7' in prose, no move, and the page on the right stayed put."""
+    store = FakeStore()
+    ai = scripted(PLAN_REPLY, {"say": "Look at the outline on page 4."}, {"say": "Still here."})
+    sid = await _started(store, ai)
+    # Home has no reading position: the plan's page is the move.
+    events = await _events(await svc.open_turn(store, user_id=U, session_id=sid, client_turn_id=str(uuid.uuid4()), text=None,
+                                               action="accept_plan", plan_edit=None, reading_at=None, check_result=None,
+                                               locale="en", ai=ai, load=fake_load))
+    assert [e for e, _ in events] == ["move", "say", "plan", "end"]
+    assert events[0][1] == {"lecture_id": L, "page": 4}
+    # The same step again: Luna is already there, so no second move.
+    events = await _events(await svc.open_turn(store, user_id=U, session_id=sid, client_turn_id=str(uuid.uuid4()), text=None,
+                                               action="continue", plan_edit=None, reading_at=None, check_result=None,
+                                               locale="en", ai=ai, load=fake_load))
+    assert [e for e, _ in events] == ["say", "plan", "end"]
+
+
+async def test_a_question_from_the_learner_does_not_move_the_page_by_itself():
+    store = FakeStore()
+    ai = scripted(PLAN_REPLY, {"say": "Good question: it means the rows agree."})
+    sid = await _started(store, ai)
+    events = await _events(await svc.open_turn(store, user_id=U, session_id=sid, client_turn_id=str(uuid.uuid4()),
+                                               text="what does X → Y mean?", action="accept_plan", plan_edit=None,
+                                               reading_at=None, check_result=None, locale="en", ai=ai, load=fake_load))
+    assert [e for e, _ in events] == ["say", "plan", "end"]

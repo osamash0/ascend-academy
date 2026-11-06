@@ -189,8 +189,12 @@ export function useLunaSession(opts: {
       const controller = new AbortController();
       abort.current = controller;
       try {
-        // Where the reader is only means something inside the session's own Lesson.
-        const here = lessonRef.current === ref.current.lectureId ? { reading_at: readingAt() } : {};
+        // Where the reader is only means something inside the session's own Lesson —
+        // and only when there is a reading position at all (Home has none until Luna
+        // has moved somewhere; `readingAt` then answers 0, and the server treats a
+        // missing position as unknown rather than as page 1).
+        const at = readingAt();
+        const here = lessonRef.current === ref.current.lectureId && at > 0 ? { reading_at: at } : {};
         await lunaApi.turn(sid, { ...body, client_turn_id: id, ...here }, (event) => {
           if (controller.signal.aborted) return;
           if (event.type === 'move') onMove(event.data);
@@ -214,7 +218,8 @@ export function useLunaSession(opts: {
       inFlight.current = true;
       dispatch({ type: 'opening', opener });
       try {
-        const out = await lunaApi.start({ space_id: opts.spaceId, lecture_id: opts.lessonId, page: readingAt(), opener });
+        // A session starts on a page; with no reading position it starts at the first.
+        const out = await lunaApi.start({ space_id: opts.spaceId, lecture_id: opts.lessonId, page: Math.max(1, readingAt()), opener });
         dispatch({ type: 'started', session: out.session, say: out.say, opener });
       } catch (err) {
         dispatch({ type: 'failed', detail: errorText(err) });

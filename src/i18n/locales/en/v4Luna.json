@@ -29,5 +29,6 @@
     "faded": "Faded", "edit": "Edit", "save": "Save", "delete": "Delete", "forget": "Forget everything",
     "error": "That didn't work. Try again in a moment.",
     "forgetConfirm": "Luna will forget everything she knows about you. This can't be undone."
-  }
+  },
+  "homeChat": { "back": "Home", "wrapUp": "Wrap up", "wrapped": "That was the session. Open the Lesson to keep reading.", "newest": "Newest", "page": "Page", "pageN": "Page {{page}}", "openPage": "Open the page", "openPageLabel": "Open {{lesson}}, page {{page}}", "showPage": "Show page {{page}}", "reading": "Luna is reading", "askAbout": "Ask about it", "askMore": "Ask Luna more…", "kept": "Your conversation with Luna is kept.", "openIt": "Open it", "check": "Check", "tryAgain": "Try again", "hint": "Look at the page once more, then try again.", "aside": "The page Luna is on", "stepOf": "Step {{n}} of {{total}}", "skip": "Skip", "plan": "The plan" }
 }

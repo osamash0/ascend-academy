@@ -58,6 +58,12 @@ export interface LunaHeroProps {
   cheer?: number;
   /** Late at night: heavier lids, a yawn now and then. */
   sleepy?: boolean;
+  /**
+   * Somewhere on the page worth a look — -1..1 on each axis, as the gaze is
+   * — for instance the page she has just cited. While set it wins over the
+   * pointer and over `attention`; clear it and she goes back to following you.
+   */
+  glance?: { x: number; y: number } | null;
   className?: string;
 }
 
@@ -71,6 +77,7 @@ export function LunaHero({
   nudge = 0,
   cheer = 0,
   sleepy = false,
+  glance = null,
   className,
 }: LunaHeroProps) {
   const { t } = useTranslation('avatar');
@@ -97,6 +104,7 @@ export function LunaHero({
   const sx = useSpring(gx, { stiffness: 140, damping: 16, mass: 0.6 });
   const sy = useSpring(gy, { stiffness: 140, damping: 16, mass: 0.6 });
   const looking = attention !== 'idle';
+  const aimed = glance !== null;
 
   useEffect(() => {
     if (reduce) return;
@@ -104,7 +112,7 @@ export function LunaHero({
     let wander = 0;
     const onMove = (e: PointerEvent) => {
       last = Date.now();
-      if (looking) return;
+      if (looking || aimed) return;
       const r = ref.current?.getBoundingClientRect();
       if (!r) return;
       const dx = e.clientX - (r.left + r.width / 2);
@@ -116,7 +124,7 @@ export function LunaHero({
     };
     // Left alone, she looks around — the difference between a picture and someone.
     const look = () => {
-      if (!looking && Date.now() - last > 3200) {
+      if (!looking && !aimed && Date.now() - last > 3200) {
         gx.set((Math.random() * 2 - 1) * 0.85);
         gy.set((Math.random() * 2 - 1) * 0.55);
       }
@@ -128,15 +136,22 @@ export function LunaHero({
       window.removeEventListener('pointermove', onMove);
       clearTimeout(wander);
     };
-  }, [reduce, looking, gx, gy]);
+  }, [reduce, looking, aimed, gx, gy]);
 
   // Listening: she looks down at what you are writing.
   useEffect(() => {
-    if (looking) {
+    if (looking && !aimed) {
       gx.set(0);
       gy.set(0.95);
     }
-  }, [looking, gx, gy]);
+  }, [looking, aimed, gx, gy]);
+
+  // A glance: the page tells her where to look, and she looks there.
+  useEffect(() => {
+    if (!glance) return;
+    gx.set(glance.x);
+    gy.set(glance.y);
+  }, [glance, gx, gy]);
 
   // Depth: helmet < face < eyes < pupils, so the head turns rather than slides.
   const helmetX = useTransform(sx, (v) => v * 1.4);

@@ -29,5 +29,6 @@
     "faded": "Verblasst", "edit": "Bearbeiten", "save": "Speichern", "delete": "Löschen", "forget": "Alles vergessen",
     "error": "Das hat nicht geklappt. Versuch es gleich nochmal.",
     "forgetConfirm": "Luna vergisst alles, was sie über dich weiß. Das lässt sich nicht rückgängig machen."
-  }
+  },
+  "homeChat": { "back": "Zurück", "wrapUp": "Abschließen", "wrapped": "Das war die Session. Öffne die Lektion, um weiterzulesen.", "newest": "Neueste", "page": "Seite", "pageN": "Seite {{page}}", "openPage": "Seite öffnen", "openPageLabel": "{{lesson}}, Seite {{page}} öffnen", "showPage": "Seite {{page}} zeigen", "reading": "Luna liest", "askAbout": "Frag dazu", "askMore": "Frag Luna weiter…", "kept": "Dein Gespräch mit Luna bleibt erhalten.", "openIt": "Öffnen", "check": "Prüfen", "tryAgain": "Nochmal", "hint": "Schau noch einmal auf die Seite und versuch es dann nochmal.", "aside": "Die Seite, auf der Luna gerade ist", "stepOf": "Schritt {{n}} von {{total}}", "skip": "Überspringen", "plan": "Der Plan" }
 }

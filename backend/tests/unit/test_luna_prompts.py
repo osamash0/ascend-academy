@@ -23,7 +23,7 @@ def test_turn_prompt_names_the_step_the_reading_position_and_the_check_result():
         memory=MEMORY, reading_at=2, text="why?", check_result={"question": "Q", "correct": False},
         related=[], locale="en",
     )
-    assert "What an FD says" in p and "page 2" in p and "answered it wrong" in p and "why?" in p
+    assert "What an FD says" in p and "page 2" in p and "answered this check wrong" in p and "why?" in p
 
 
 def test_wrap_and_practice_prompts_render():
