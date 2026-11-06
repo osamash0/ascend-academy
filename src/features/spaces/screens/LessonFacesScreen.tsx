@@ -67,7 +67,7 @@ import { LessonToc } from '../components/reader/LessonToc';
 import { ExplainPanel } from '../components/reader/iui/ExplainPanel';
 import { beatsFromMarkdown } from '../components/reader/beats';
 import { FoundLine, type Found } from '../components/reader/FoundLine';
-import { findRange } from '../components/reader/findText';
+import { findOnPage, findRange } from '../components/reader/findText';
 import { anchorY, timing } from '../components/reader/Planes';
 import {
   anchorForPage,
@@ -708,7 +708,8 @@ export default function LessonFacesScreen() {
         where === 'pdf' && page !== undefined
           ? root?.querySelector<HTMLElement>(`[data-pdf-page="${page}"]`) ?? null
           : root;
-      const range = el ? findRange(el, text) : null;
+      /* On the page, where the learner sees the words: the Layout layer when it is shown. */
+      const range = el ? (where === 'pdf' ? findOnPage(el, text) : findRange(el, text)) : null;
       if (!range) {
         if (++tries < 150) requestAnimationFrame(tick);
         return;
