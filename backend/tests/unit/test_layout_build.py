@@ -9,6 +9,7 @@ from PIL import Image
 from backend.services.parser.layout.build import LAYOUT_VERSION, build_page_layout
 from backend.services.parser.layout.checks import norm_word, server_checks
 from backend.services.parser.layout.figures import repeated_places
+from backend.services.parser.layout.strokes import line_key, running_lines
 
 ROOT = Path(__file__).resolve().parents[3]
 PDF = ROOT / "public/v4-mock/normalization.pdf"
@@ -26,8 +27,8 @@ def doc():
 
 @pytest.fixture(scope="module")
 def layouts(doc):
-    rep = repeated_places(doc)
-    return [build_page_layout(doc[n - 1], n, rep) for n in range(1, 13)]
+    rep, running = repeated_places(doc), running_lines(doc)
+    return [build_page_layout(doc[n - 1], n, rep, running) for n in range(1, 13)]
 
 
 def text_page(lines=("Hello world", "A second line of plain text"), step=60):
@@ -70,6 +71,14 @@ def test_only_figures_have_no_text(layouts):
     for lp in layouts:
         for b in lp["blocks"]:
             assert b["text"] or b["kind"] == "figure"
+
+
+def test_normalization_page_26_keeps_its_last_line(doc):
+    # page_blocks called the last sub-bullet a footer (low on the page, set smaller than the body); it runs on no
+    # other page, so it stays a block and the page is layout with the line kept
+    lp = build_page_layout(doc[25], 26, repeated_places(doc), running_lines(doc))
+    assert lp["verdict"] == "layout", lp["reasons"]
+    assert any("ActorName}" in b["text"] and "Year" in b["text"] and b["bbox"][1] > 0.94 for b in lp["blocks"])
 
 
 def test_at_least_seven_of_twelve_normalization_pages_are_layout(layouts):
@@ -156,13 +165,62 @@ def test_two_small_figure_boxes_that_sum_past_a_fifth_are_not_under_a_crop():
     assert server_checks(p, [para] + small, [], [], [], []) == []
 
 
-def test_furniture_words_in_the_outer_band_outside_every_block_are_not_missing():
+def band_page(line, y=790, size=8):
     d = fitz.open()
     p = d.new_page(width=600, height=800)
     p.insert_text((60, 100), "Body", fontsize=14)
-    p.insert_text((60, 790), "Footer words here", fontsize=8)
-    reasons = server_checks(p, blocks_for("Body", (0.05, 0.1, 0.3, 0.14)), [], [], [], [])
-    assert reasons == []
+    p.insert_text((60, y), line, fontsize=size)
+    return d, p
+
+
+def test_a_running_footer_in_the_outer_band_outside_every_block_is_not_missing():
+    d, p = band_page("Footer words here 3")
+    running = {("bottom", line_key("Footer words here"))}
+    assert server_checks(p, blocks_for("Body", (0.05, 0.1, 0.3, 0.14)), [], [], [], [], running=running) == []
+
+
+def test_a_page_number_in_the_outer_band_outside_every_block_is_not_missing():
+    for line in ("12", "Slide 3", "Seite 2 von 9"):
+        d, p = band_page(line)
+        assert server_checks(p, blocks_for("Body", (0.05, 0.1, 0.3, 0.14)), [], [], [], []) == []
+
+
+def test_a_content_line_near_the_page_edge_in_no_block_is_missing():
+    # y = 0.9: in the outer band, but it runs on no other page and is no page number: the page loses a line
+    d, p = band_page("Which keys are minimal", y=725, size=14)
+    blocks = blocks_for("Body", (0.05, 0.1, 0.3, 0.14))
+    assert server_checks(p, blocks, [], [], [], []) == ["4 of 5 words missing"]
+    assert server_checks(p, blocks, [], [], [], [], running={("bottom", line_key("Footer words"))}) == [
+        "4 of 5 words missing"]
+    d, p = band_page("Which keys are minimal", y=30, size=14)               # the top band too
+    assert server_checks(p, blocks, [], [], [], []) == ["4 of 5 words missing"]
+
+
+def test_a_content_line_near_the_bottom_that_page_blocks_calls_a_footer_stays_and_the_page_is_layout():
+    d = fitz.open()
+    p = d.new_page(width=800, height=450)
+    for i, ln in enumerate(("Keys of a relation", "A key is a minimal set of attributes", "Subsets?")):
+        p.insert_text((40, 60 + 40 * i), ln, fontsize=20)
+    p.insert_text((70, 440), "Which keys are minimal", fontsize=12)       # y0 > 0.9, smaller: a "footer" to page_blocks
+    lp = build_page_layout(p, 1, set(), set())
+    assert lp["verdict"] == "layout", lp["reasons"]
+    assert any(b["text"] == "Which keys are minimal" for b in lp["blocks"])
+
+
+def test_a_running_footer_on_three_built_pages_is_dropped_and_each_page_is_layout():
+    d = fitz.open()
+    for n in range(1, 4):
+        p = d.new_page(width=800, height=450)
+        p.insert_text((40, 60), f"Body text of page {n}", fontsize=20)
+        p.insert_text((40, 120), "More body text for the median size", fontsize=20)
+        p.insert_text((40, 440), f"Database Systems, Normalization {n}", fontsize=10)
+    running = running_lines(d)
+    for n in range(1, 4):
+        lp = build_page_layout(d[n - 1], n, set(), running)
+        assert lp["verdict"] == "layout", lp["reasons"]
+        assert not any("Database" in b["text"] for b in lp["blocks"])
+    lp = build_page_layout(d[0], 1, set())                    # nothing known to run: the footer stays, as type
+    assert lp["verdict"] == "layout" and any("Database" in b["text"] for b in lp["blocks"])
 
 
 def test_a_word_inside_a_dropped_box_is_not_missing():

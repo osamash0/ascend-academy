@@ -48,10 +48,10 @@ def test_one_row_per_page_in_page_order(monkeypatch, pdf_bytes, page_count):
 
 
 def test_a_page_that_raises_is_stored_as_original_and_the_others_still_get_written(monkeypatch, pdf_bytes, page_count):
-    def flaky(page, n, repeated):
+    def flaky(page, n, repeated, running=frozenset()):
         if n == 3:
             raise RuntimeError("boom")
-        return build_page_layout(page, n, repeated)
+        return build_page_layout(page, n, repeated, running)
 
     monkeypatch.setattr(store, "build_page_layout", flaky)
     n, written = run_build(monkeypatch, pdf_bytes)

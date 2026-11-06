@@ -1,6 +1,6 @@
 """One page in, one Layout page out: the PDF's own text and drawings, re-set as blocks, with the server checks
 that decide whether the page is offered as Layout or stays the original. No AI, no rendering of page images.
-The caller holds FITZ_LOCK for the page and computes repeated_places(doc) once per document."""
+The caller holds FITZ_LOCK for the page and computes repeated_places(doc) and running_lines(doc) once per document."""
 import re
 
 from backend.services.parser.layout.chars import (dingbat_paren_arrow, fix_chars, fix_dingbat_bullets, fix_paren_bullets,
@@ -40,11 +40,13 @@ def _set(text, m, paren, wing):
     return fix_chars(text, wing)
 
 
-def build_page_layout(page, n, repeated):
-    """The Layout page of PDF page n (1-based): {"page", "verdict", "reasons", "blocks", "paths", "version"}."""
+def build_page_layout(page, n, repeated, running=frozenset()):
+    """The Layout page of PDF page n (1-based): {"page", "verdict", "reasons", "blocks", "paths", "version"}.
+    running: strokes.running_lines(doc). Without it no line counts as a running header or footer: footers stay
+    as type, and a band line in no block is a missing word (never a silently lost line)."""
     pb = extract_blocks(page, n)
     blocks = pb["blocks"]
-    dropped = drop_furniture(blocks, pb["footers"], n)
+    dropped = drop_furniture(blocks, pb["footers"], n, running)
     m, wing, paren = pua_map(page), wing_bullets(page), dingbat_paren_arrow(page)
     for b in blocks:                                       # symbol-font characters, ligatures, accents, bullets
         b["text"] = _set(b.get("text", ""), m, paren, wing)
@@ -68,7 +70,7 @@ def build_page_layout(page, n, repeated):
     paths, diagrams = reink(page, keep_out, texts)
     link_labels(blocks, paths)
     reasons = server_checks(page, blocks, pics, diagrams, paths, dropped, marks=lost_marks(page, keep_out, texts, paths),
-                            pua=m)
+                            pua=m, running=running)
     blocks.sort(key=lambda b: b.get("readingOrder", 999))
     if TOO_MANY_LINES in reasons:
         paths = []                                     # held, never drawn: not stored either

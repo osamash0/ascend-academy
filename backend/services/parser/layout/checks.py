@@ -6,14 +6,14 @@ import unicodedata
 
 from backend.services.parser.layout.chars import ARROWS
 from backend.services.parser.layout.geometry import area, centre_in, inter
+from backend.services.parser.layout.strokes import furniture, page_lines
 
 COVERAGE = 0.98          # share of the PDF's words that must be set in type, in a figure, dropped or furniture
+#                          (furniture: a page number or a running line in the outer band, strokes.furniture)
 PICTURE_COVER = 0.85     # share of a picture a figure box must cover
 DIAGRAM_KEPT = 0.6       # share of a diagram's items that must survive (redrawn, or inside a figure or table)
 UNDER_CROP = 0.2         # share of a text block a figure box may cover
 CROP_SHARE = 0.35        # share of the text area that may still be symbol-font crops
-FURNITURE_BOTTOM = 0.86  # words in the outer band outside every block are page furniture
-FURNITURE_TOP = 0.1
 TOO_MANY_LINES = "too many lines"
 MAX_PATHS = 400          # more redrawn lines than this is a hatching, a map or a plot of many points: too heavy to send
 
@@ -41,15 +41,18 @@ def norm_word(w):
 
 
 def _words(page):
+    """[(box, word, line)]: each word of the PDF with its line's (box, text)."""
     W, H = page.rect.width, page.rect.height
-    return [([x0 / W, y0 / H, x1 / W, y1 / H], t) for x0, y0, x1, y1, t, *_ in page.get_text("words") if t.strip()]
+    lines = page_lines(page)
+    return [([x0 / W, y0 / H, x1 / W, y1 / H], t, lines[(b, ln)])
+            for x0, y0, x1, y1, t, b, ln, _ in page.get_text("words") if t.strip()]
 
 
-def server_checks(page, blocks, pics, diagrams, paths, dropped, marks=0, pua=None):
+def server_checks(page, blocks, pics, diagrams, paths, dropped, marks=0, pua=None, running=frozenset()):
     """The reasons this page cannot be set as Layout: [] when it can.
     blocks: the page's final blocks; pics: picture boxes; diagrams: reink's diagrams; paths: reink's paths;
     dropped: boxes of furniture that was removed on purpose; marks: strokes.lost_marks (a plot's markers
-    that are not redrawn); pua: the page's chars.pua_map."""
+    that are not redrawn); pua: the page's chars.pua_map; running: strokes.running_lines of the document."""
     texts = [b for b in blocks if b["kind"] != "figure"]
     figs = [b["bbox"] for b in blocks if b["kind"] == "figure"]
     if not texts:
@@ -65,15 +68,15 @@ def server_checks(page, blocks, pics, diagrams, paths, dropped, marks=0, pua=Non
                 typed[t] = typed.get(t, 0) + 1
     typed_all = " ".join(typed)
     total = missing = 0
-    for box, word in _words(page):
+    for box, word, (line_box, line) in _words(page):
         t = norm_word(word)
         if not t:
             continue
         total += 1
         if any(centre_in(box, f) for f in figs) or any(centre_in(box, d) for d in dropped):
             continue
-        if not any(centre_in(box, b["bbox"], 0.01) for b in blocks) and (box[1] > FURNITURE_BOTTOM or box[3] < FURNITURE_TOP):
-            continue
+        if not any(centre_in(box, b["bbox"], 0.01) for b in blocks) and furniture(line_box, line, running):
+            continue                                   # a page number or a running line, in no block
         if typed.get(t, 0) > 0:
             typed[t] -= 1
             continue
