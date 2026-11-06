@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 import fitz  # noqa: E402
 
-from backend.services.parser.page_blocks import extract_blocks, is_image_only  # noqa: E402
+from backend.services.parser.page_blocks import extract_blocks, route_page  # noqa: E402
 
 
 def measure(pdf: Path) -> tuple[int, int, int, int]:
@@ -24,7 +24,7 @@ def measure(pdf: Path) -> tuple[int, int, int, int]:
         for i, page in enumerate(d):
             pb = extract_blocks(page, i + 1)
             pages += 1
-            image += is_image_only(pb)
+            image += route_page(pb) == "no_text"
             blocks += len(pb["blocks"])
             footer += len(pb["footers"])
     return pages, image, blocks, footer

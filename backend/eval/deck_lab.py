@@ -49,7 +49,7 @@ from backend.services.parser.quiz_grounding import SUPPORT_THRESHOLD, assess_gro
 QUIZ_BUDGET = 10
 META_BUDGET = 15
 QUIZ_MIN_CHARS = 50  # select_slides' default; also the eligibility rule
-SYNTH_MIN_CHARS = 25  # unified_orchestrator._MIN_TEXT_FOR_SYNTH (pinned by a unit test;
+SYNTH_MIN_CHARS = 25  # unified_orchestrator._MIN_STRIPPED_CHARS (pinned by a unit test;
                       # importing the orchestrator here would pull in supabase/redis)
 
 
@@ -118,7 +118,9 @@ def boilerplate_tokens_removed(pages: Sequence[str], skeleton: DeckSkeleton) -> 
 
 
 def text_routed(pages: Sequence[str]) -> list[int]:
-    """Pages per-slide TEXT synthesis handles; the rest go to vision."""
+    """Pages with text to strip, the text-only stand-in for routing: the lab
+    reads page text, not the PDF page that page_blocks.route_page measures, so
+    it keeps the pre-2026-11 rule (>= SYNTH_MIN_CHARS chars) for comparable runs."""
     return [i for i, p in enumerate(pages) if len((p or "").strip()) >= SYNTH_MIN_CHARS]
 
 
