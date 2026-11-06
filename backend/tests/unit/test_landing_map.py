@@ -28,18 +28,39 @@ def engine(kind, page=None, severity=0.8, attention="act", **metrics):
 
 
 def test_a_hotspot_tells_how_many_people_asked_and_how_many_said_foggy():
-    pf = PageFacts(readers=people(10), explain={"r0", "r1"}, ask={"r1", "r2", "r3"})
+    pf = PageFacts(readers=people(10), explain={"r0", "r1", "r2"}, ask={"r1", "r2", "r3", "r4"})
     out = to_landing(engine("confusion_hotspot", 3, confusionRate=61.4), facts({3: pf}))
     assert out == {
         "id": "l1:confusion_hotspot:x", "kind": "confusion_hotspot", "attention": "act", "severity": 0.8,
-        "lessonId": "l1", "page": 3, "metrics": {"askers": 4, "foggy": 61},
+        "lessonId": "l1", "page": 3, "metrics": {"askers": 5, "foggy": 61},
     }
 
 
+def test_a_hotspot_never_counts_one_to_four_askers():
+    # In a small group "three asked" says who. The detector fires on the foggy share alone,
+    # so the number of askers may be under the floor: then it is left out and `foggy` stands.
+    for asked in range(0, 5):
+        pf = PageFacts(readers=people(10), ask=people(asked))
+        out = to_landing(engine("confusion_hotspot", 3, confusionRate=61.4), facts({3: pf}))
+        assert out["metrics"] == {"foggy": 61}, asked
+    pf = PageFacts(readers=people(10), explain=people(5))
+    assert to_landing(engine("confusion_hotspot", 3, confusionRate=61.4), facts({3: pf}))["metrics"] == {"askers": 5, "foggy": 61}
+
+
 def test_someone_who_asked_without_reading_the_page_is_not_counted_among_its_askers():
-    pf = PageFacts(readers=people(10), explain={"r0"}, ask={"r1", "ghost"})
+    # Five who asked, but one of them has no counted read: four askers, so none is told.
+    pf = PageFacts(readers=people(10), explain={"r0", "r1"}, ask={"r2", "r3", "ghost"})
     out = to_landing(engine("confusion_hotspot", 3, confusionRate=50.0), facts({3: pf}))
-    assert out["metrics"]["askers"] == 2
+    assert out["metrics"] == {"foggy": 50}
+    pf = PageFacts(readers=people(10), explain={"r0", "r1"}, ask={"r2", "r3", "r4", "ghost"})
+    assert to_landing(engine("confusion_hotspot", 3, confusionRate=50.0), facts({3: pf}))["metrics"]["askers"] == 5
+
+
+def test_a_speed_bump_of_fewer_than_five_turning_back_never_reaches_the_door():
+    lf = facts({4: PageFacts(readers=people(10))})
+    for backs in (0, 2, 4):
+        assert to_landing(engine("speed_bump", 4, backtracksFromNext=backs), lf) is None, backs
+    assert to_landing(engine("speed_bump", 4, backtracksFromNext=5), lf)["metrics"] == {"backs": 5}
 
 
 def test_a_calibration_gap_tells_its_share_and_carries_its_grid():
@@ -47,7 +68,8 @@ def test_a_calibration_gap_tells_its_share_and_carries_its_grid():
     pf = PageFacts(readers=people(10), pairs=pairs)
     out = to_landing(engine("calibration_gap", 9, overconfidenceRate=60.0), facts({9: pf}))
     assert out["metrics"] == {"pct": 60}
-    assert out["grid"] == {"clickedCleared": 2, "clickedMissed": 3, "foggyCleared": 1, "foggyMissed": 0}
+    # Cells of 1-4 people are hidden (null); a cell of 0 names nobody and stays 0.
+    assert out["grid"] == {"clickedCleared": None, "clickedMissed": None, "foggyCleared": None, "foggyMissed": 0}
 
 
 def test_a_silent_misleader_is_never_told_even_with_a_full_grid():
@@ -68,7 +90,7 @@ def test_a_grid_counts_only_the_pages_readers():
     assert grid(PageFacts(readers=people(10), pairs=pairs)) is None
     pairs["r4"] = ("confused", True)
     assert grid(PageFacts(readers=people(10), pairs=pairs)) == {
-        "clickedCleared": 0, "clickedMissed": 4, "foggyCleared": 1, "foggyMissed": 0,
+        "clickedCleared": 0, "clickedMissed": None, "foggyCleared": None, "foggyMissed": 0,
     }
 
 
@@ -164,8 +186,17 @@ def test_help_is_the_share_of_readers_who_needed_the_page_never_brighter_than_ha
     loud = PageFacts(readers=people(10), ask=people(4), returners={"r9"})
     few = PageFacts(readers=people(3), ask=people(3))
     lf = facts({1: quiet, 2: loud, 3: few}, count=4)
-    assert help_share(quiet) == 0.1 and help_share(few) == 0.0
-    assert help_index({"l1": lf}) == {"l1": [0.2, 1.0, 0.0, 0.0]}
+    assert help_share(quiet) == 0.1 and help_share(few) is None
+    assert help_index({"l1": lf}) == {"l1": [0.2, 1.0, None, None]}
+
+
+def test_a_page_fewer_than_five_read_says_nothing_and_nothing_is_not_landing():
+    # Five read page 1 and nobody needed it: landing (0). Four read page 2, all asking: nothing to say (None).
+    landing = PageFacts(readers=people(5))
+    few = PageFacts(readers=people(4), ask=people(4))
+    lf = facts({1: landing, 2: few}, count=3)
+    assert help_share(landing) == 0.0 and help_share(few) is None
+    assert help_index({"l1": lf}) == {"l1": [0.0, None, None]}
 
 
 def test_a_page_beyond_the_lessons_pages_does_not_lengthen_its_help():
@@ -178,7 +209,7 @@ def test_a_hidden_page_beyond_the_lessons_pages_does_not_dim_the_shown_ones():
     shown = {1: PageFacts(readers=people(10), explain={"r0"}), 2: PageFacts(readers=people(10), ask=people(4))}
     alone = help_index({"l1": facts(shown, count=4)})
     hidden = PageFacts(readers=people(5, prefix="h"), ask=people(5, prefix="h"))
-    assert help_index({"l1": facts({**shown, 9: hidden}, count=4)}) == alone == {"l1": [0.2, 0.8, 0.0, 0.0]}
+    assert help_index({"l1": facts({**shown, 9: hidden}, count=4)}) == alone == {"l1": [0.2, 0.8, None, None]}
 
 
 def test_a_lesson_without_a_page_count_is_as_long_as_its_highest_page_read():
@@ -189,3 +220,14 @@ def test_a_lesson_without_a_page_count_is_as_long_as_its_highest_page_read():
 def test_a_grid_needs_five_pairs():
     four = PageFacts(readers=people(10), pairs={f"r{i}": ("got_it", True) for i in range(4)})
     assert grid(four) is None
+
+
+def test_a_grid_cell_of_one_to_four_people_is_hidden_zero_and_five_are_told():
+    pairs = (
+        {f"a{i}": ("got_it", True) for i in range(5)}      # clickedCleared: 5, told
+        | {f"b{i}": ("got_it", False) for i in range(4)}   # clickedMissed: 4, hidden
+        | {"c0": ("confused", True)}                       # foggyCleared: 1, hidden
+    )                                                      # foggyMissed: 0, stays 0
+    assert grid(PageFacts(readers=set(pairs), pairs=pairs)) == {
+        "clickedCleared": 5, "clickedMissed": None, "foggyCleared": None, "foggyMissed": 0,
+    }

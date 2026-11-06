@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Scene, SURFACES } from '../components/Scene';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
+import { ghostPill } from '../components/stage';
 import { useCourse, useCourseLinks, useFind, useRehearsalHistory } from '../data/useReader';
 import { CourseMap } from '../components/course/CourseMap';
 import { latestInCourse, readTo, readTrail } from '../data/trail';
@@ -170,13 +171,21 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
           </p>
           <h1 className="mt-3 text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[64px]">{course.title}</h1>
           {course.author && <p className="mt-4 text-[14px] text-quiet">{course.author}</p>}
-          <Link
-            to={`/v4/space/${course.id}/rehearse`}
-            className="console-focusable mt-8 inline-flex h-12 items-center gap-2 rounded-full bg-white px-6 text-[15px] font-medium text-background"
-          >
-            <Target aria-hidden className="h-4 w-4" />
-            {t('course.rehearse')}
-          </Link>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              to={`/v4/space/${course.id}/rehearse`}
+              className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-6 text-[15px] font-medium text-background"
+            >
+              <Target aria-hidden className="h-4 w-4" />
+              {t('course.rehearse')}
+            </Link>
+            {/* The owner's door (spec C2): one quiet pill, no number on it. */}
+            {space && owner && !space.personal && (
+              <Link to={`/v4/space/${space.id}/landing`} className={ghostPill}>
+                {t('v4Landing:door.pill')}
+              </Link>
+            )}
+          </div>
           {ownerBar}
         </div>
 

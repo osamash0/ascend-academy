@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import type { Attention, LessonLight } from './types';
+import type { Attention, LandingLesson, LessonLight } from './types';
 
 /**
  * Attention as light, in the Lesson's own colour.
@@ -21,12 +21,19 @@ export const RING: Record<LessonLight, number> = { act: 100, watch: 55, calm: 28
 const LANDING = 0.12;
 
 /**
- * A page cell's colour, or null for the neutral ground (drawn with a class).
+ * A page cell's colour, or null for no colour (drawn with a class: the dark
+ * ground for a landing page, an outline for a page with nothing to say yet).
  * A page a finding is about is lit outright; any other page shows its help
- * index as a share of the Lesson's colour.
+ * index as a share of the Lesson's colour. A page fewer than the floor have
+ * reached (`help` null) never takes a colour.
  */
-export function cellColor(color: string, help: number, finding: Attention | null): CSSProperties | null {
+export function cellColor(color: string, help: number | null, finding: Attention | null): CSSProperties | null {
   if (finding) return { background: finding === 'calm' ? mix(color, 55) : color };
-  if (help > LANDING) return { background: mix(color, Math.round(help * 70)) };
+  if (help !== null && help > LANDING) return { background: mix(color, Math.round(help * 70)) };
   return null;
+}
+
+/** Does this Lesson have a page too few people have reached? Such a Lesson is drawn with an outline and never folds as landing. */
+export function hasOutline(lesson: LandingLesson): boolean {
+  return Boolean(lesson.help?.some((h) => h === null));
 }

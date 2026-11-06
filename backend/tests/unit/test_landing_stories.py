@@ -152,12 +152,27 @@ def test_four_people_reading_closely_get_lunas_floor_line_and_nothing_else(door)
     four = range(4)
     data = space([lesson(NORM, 4)], reads(four, NORM, [1, 2, 3, 4]) + hotspot(four, NORM, 3, askers=4, foggy=4))
     body = door.look(data)
-    assert (body["readers"], body["floor"]) == (4, 5)
+    assert (body["reach"], body["floor"]) == ("few", 5)
+    assert "readers" not in body  # in a group of two, a count is who (Abi, 2026-11-06)
     assert body["insights"] == [] and body["themes"] == [] and door.prompts == []
     assert [lesson["light"] for lesson in body["lessons"]] == ["few"]
     assert all("help" not in lesson for lesson in body["lessons"])
     assert body["figures"]["landing"] == {"value": None, "history": []}
     assert body["figures"]["cleared"] == {"value": None, "history": []}
+
+
+def test_a_space_nobody_has_read_yet_says_so_without_a_count(door):
+    """A Space with a Lesson and no reading at all: reach is none, so Luna can say nobody yet, never 'a few'."""
+    body = door.look(space([lesson(NORM, 4)], []))
+    assert body["reach"] == "none" and "readers" not in body
+    assert body["insights"] == [] and [x["light"] for x in body["lessons"]] == ["few"]
+
+
+def test_one_person_reading_is_a_few_not_one(door):
+    """One member reads one page: the owner is told 'few', never 'one'."""
+    body = door.look(space([lesson(NORM, 4)], reads([0], NORM, [1])))
+    assert body["reach"] == "few"
+    assert '"readers"' not in json.dumps(body)
 
 
 def test_a_lesson_three_people_read_says_nothing_while_its_neighbour_speaks(door):
@@ -194,8 +209,6 @@ def test_a_page_four_people_reached_says_nothing_even_if_all_four_were_foggy(doo
     assert body["themes"] == [] and door.prompts == []
 
 
-@pytest.mark.xfail(strict=True, reason="help_share() returns 0.0 under the page floor, the same value as a landing page "
-                                       "— not in Plan 3")
 def test_one_member_opening_page_one_does_not_make_pages_four_people_read_look_like_landing(door):
     """Four read all of Normalization, all foggy on page 3; a fifth opens only page 1. Pages 2 to 4 still say nothing (null), never 'landing' (0)."""
     four = range(4)
@@ -285,14 +298,18 @@ def test_cleared_counts_each_person_once_however_many_questions_they_answered(do
     assert door.look(data)["figures"]["cleared"]["value"] == 20
 
 
-def test_one_person_turning_back_twelve_times_is_no_speed_bump_three_people_are(door):
-    """Page 2 holds people long; one reader turns back to it from page 3 twelve times: no finding. Three readers once each: a speed bump."""
+def test_one_person_turning_back_twelve_times_is_no_speed_bump_five_people_are(door):
+    """Page 2 holds people long; one reader turns back to it from page 3 twelve times: no finding.
+    Three or four readers once each: the engine sees a speed bump, the door says nothing (in a small
+    group "four turned back" says who). Five: a speed bump the owner is told."""
     ten = range(10)
     base = reads(ten, NORM, [1, 3, 4]) + reads(ten, NORM, [2], seconds=80)
     one = space([lesson(NORM, 4)], base + [back(0, NORM, 3, 2, second=s) for s in range(12)])
-    three = space([lesson(NORM, 4)], base + [back(i, NORM, 3, 2) for i in range(3)])
+    four = space([lesson(NORM, 4)], base + [back(i, NORM, 3, 2) for i in range(4)])
+    five = space([lesson(NORM, 4)], base + [back(i, NORM, 3, 2) for i in range(5)])
     assert kinds(door.look(one), "speed_bump") == []
-    assert [(i["page"], i["metrics"]) for i in kinds(door.look(three), "speed_bump")] == [(2, {"backs": 3})]
+    assert kinds(door.look(four), "speed_bump") == []
+    assert [(i["page"], i["metrics"]) for i in kinds(door.look(five), "speed_bump")] == [(2, {"backs": 5})]
 
 
 # ═══ Drop-off and skipping ══════════════════════════════════════════════════

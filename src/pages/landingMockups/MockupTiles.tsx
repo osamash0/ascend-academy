@@ -74,7 +74,7 @@ export default function MockupTiles() {
               {open.map((q) =>
                 q.asker ? (
                   <span key={q.id} className="rounded-full ring-2 ring-white">
-                    <Avatar person={q.asker} size="sm" />
+                    <Avatar person={{ id: q.id, name: q.asker.name, avatarUrl: null }} size="sm" />
                   </span>
                 ) : (
                   <span key={q.id} className="flex h-7 w-7 items-center justify-center rounded-full bg-black/10 text-[11px] ring-2 ring-white">
@@ -95,7 +95,7 @@ export default function MockupTiles() {
             const flags = finds.filter((f) => f.kind !== 'healthy').length;
             const few = l.light === 'few';
             const hot = finds.flatMap((f) => (f.page ? [f.page] : []));
-            const values = l.help ?? Array.from({ length: 12 }, (_, k) => 3 + ((k * 5) % 4));
+            const values = (l.help ?? Array.from({ length: 12 }, (_, k) => 3 + ((k * 5) % 4))).map((v) => v ?? 0);
             const max = Math.max(...values, 1);
             return (
               <motion.button

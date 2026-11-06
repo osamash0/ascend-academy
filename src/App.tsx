@@ -112,6 +112,8 @@ const SpacesScreen = lazy(() => import("./features/spaces/screens/SpacesScreen")
 const V4SpacesHub = lazy(() => import("./features/spaces/screens/SpacesHubScreen"));
 const SpaceRoute = lazy(() => import("./features/spaces/screens/SpaceRoute"));
 const SpaceMemberGate = lazy(() => import("./features/spaces/screens/SpaceMemberGate"));
+const SpaceOwnerGate = lazy(() => import("./features/spaces/screens/SpaceOwnerGate"));
+const V4Landing = lazy(() => import("./features/spaces/screens/LandingRoute"));
 const V4Library = lazy(() => import("./features/spaces/screens/LibraryScreen"));
 const V4Home = lazy(() => import("./features/spaces/screens/HomeScreen"));
 const V4Lesson = lazy(() => import("./features/spaces/screens/LessonScreen"));
@@ -466,6 +468,8 @@ function AppRoutes() {
             <Route path="/v4/space/:spaceId" element={<SpaceRoute />} />
             {/* Studio screen — declared before :tab so it is not swallowed as one. */}
             <Route path="/v4/space/:spaceId/manage" element={<V4SpaceManage />} />
+            {/* How it's landing: the owner's door. Declared before :tab so it is not swallowed as one. */}
+            <Route path="/v4/space/:spaceId/landing" element={<SpaceOwnerGate><V4Landing /></SpaceOwnerGate>} />
             {/* Tabs are URL segments so every one is shareable and deep-linkable. */}
             <Route path="/v4/space/:spaceId/:tab" element={<SpaceRoute />} />
             <Route path="/v4/library" element={<V4Library />} />

@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Avatar } from '../components/Avatar';
 import { ghostPillSm, whitePillSm } from '../components/stage';
 import { ShowMore } from './ShowMore';
 import { useStepped } from './stepped';
@@ -16,7 +15,7 @@ import type { LandingLesson, LandingQuestion } from './types';
  * A person is waiting, so the waiting ones come before the map. Each is the
  * question as it was sent, who sent it (or "Someone", when they chose to
  * send it without a name), when, and the page it came from, as a way into
- * the reader. Answering happens in the row: write, then choose whether it
+ * the reader. Where answering is possible, it happens in the row: write, then choose whether it
  * goes to them alone or lands on that page for every member. An answered
  * question leaves the list for the Answered fold at the foot of the door.
  *
@@ -47,8 +46,11 @@ interface RowsProps {
   accent: string;
 }
 
-/** The questions still waiting for an answer. */
-export function QuestionsRow({ onAnswer, ...props }: RowsProps & { onAnswer: (questionId: string, text: string, forEveryone: boolean) => void }) {
+/** The questions still waiting for an answer. Without `onAnswer` (live, until the Questions channel ships its composer) they are read, never offered an answer that goes nowhere. */
+export function QuestionsRow({
+  onAnswer,
+  ...props
+}: RowsProps & { onAnswer?: (questionId: string, text: string, forEveryone: boolean) => void }) {
   const { t } = useTranslation('v4Landing');
   const [openId, setOpenId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -57,7 +59,7 @@ export function QuestionsRow({ onAnswer, ...props }: RowsProps & { onAnswer: (qu
 
   const send = (q: LandingQuestion, forEveryone: boolean) => {
     const text = draft.trim();
-    if (!text) return;
+    if (!text || !onAnswer) return;
     onAnswer(q.id, text, forEveryone);
     setOpenId(null);
     setDraft('');
@@ -67,7 +69,7 @@ export function QuestionsRow({ onAnswer, ...props }: RowsProps & { onAnswer: (qu
     <>
     <Rows {...props} questions={ordered.slice(0, step.shown)}>
       {(q) =>
-        openId === q.id ? (
+        !onAnswer ? null : openId === q.id ? (
           <div className="mt-4">
             <textarea
               autoFocus
@@ -154,7 +156,7 @@ export function AnsweredFold(props: RowsProps) {
   );
 }
 
-/** One hairline row per question, in the order given: face, who and when, the page on the right, the question, then what follows. */
+/** One hairline row per question, in the order given: the initial, who and when, the page on the right, the question, then what follows. */
 function Rows({ questions, lessons, spaceId, children }: RowsProps & { children: (q: LandingQuestion) => ReactNode }) {
   const { t } = useTranslation('v4Landing');
   const reduce = useReducedMotion();
@@ -165,13 +167,10 @@ function Rows({ questions, lessons, spaceId, children }: RowsProps & { children:
         const lesson = lessons.get(q.lessonId);
         return (
           <motion.li key={q.id} layout={!reduce} className="flex items-start gap-4 py-5">
-            {q.asker ? (
-              <Avatar person={q.asker} size="md" />
-            ) : (
-              <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.18] text-[12px] text-quiet">
-                ?
-              </span>
-            )}
+            {/* A name, never a face: the asker chose to be named, not to be shown. */}
+            <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.18] text-[12px] text-quiet">
+              {q.asker?.name.trim().charAt(0).toLocaleUpperCase() || '?'}
+            </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
                 <p className="text-[13px]">

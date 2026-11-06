@@ -268,3 +268,42 @@ describe('LS-072: the owner on the stage', () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 });
+
+describe('the door, from the masthead', () => {
+  const withLessons = { state: 'ready', course: { id: SPACE, title: 'Lerngruppe', author: null, lectures: [{ id: 'l1', title: 'Intro', total_slides: 3, ideas: [] }] } };
+  beforeEach(() => useCourseMock.mockReturnValue(withLessons));
+
+  it('the person who runs the Space sees one quiet way in, with no number on it', async () => {
+    setLiveWorld(emptyWorld({ spaces: [space('owner', 'public')] }));
+    mountCourse();
+    const pill = await screen.findByRole('link', { name: 'How it’s landing' });
+    expect(pill).toHaveAttribute('href', `/v4/space/${SPACE}/landing`);
+    expect(pill.textContent).not.toMatch(/\d/);
+    expect(screen.getByRole('link', { name: /Rehearse for the exam/ })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['a member', 'member'],
+    ['someone who helps run it', 'editor'],
+  ] as const)('%s does not', async (_who, role) => {
+    setLiveWorld(emptyWorld({ spaces: [space(role)] }));
+    mountCourse();
+    expect(await screen.findByRole('heading', { name: 'Lerngruppe' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'How it’s landing' })).not.toBeInTheDocument();
+  });
+
+  it('nor does the owner of a personal Space', async () => {
+    setLiveWorld(emptyWorld({ spaces: [{ ...space('owner'), personal: true } as Space] }));
+    mountCourse();
+    expect(await screen.findByRole('heading', { name: 'Lerngruppe' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'How it’s landing' })).not.toBeInTheDocument();
+  });
+
+  it('reads in German', async () => {
+    await i18n.changeLanguage('de');
+    setLiveWorld(emptyWorld({ spaces: [space('owner', 'public')] }));
+    mountCourse();
+    expect(await screen.findByRole('link', { name: 'Wie es ankommt' })).toBeInTheDocument();
+    await i18n.changeLanguage('en');
+  });
+});

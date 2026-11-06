@@ -1,4 +1,4 @@
-import type { LandingInsight } from './types';
+import type { LandingInsight, Reach } from './types';
 
 /** The translator, narrowed to what the copy needs (keeps `i18next` itself outside the seal). */
 export type Translate = (key: string, values?: Record<string, string | number>) => string;
@@ -20,16 +20,19 @@ export function cardCopy(t: Translate, insight: LandingInsight, lesson: string):
   const m = insight.metrics;
   const values: Record<string, string | number> = { ...m, lesson, page: insight.page ?? '', first: insight.first ?? '', last: insight.last ?? '' };
   if (insight.kind === 'overpacked' && typeof m.ratio === 'number') values.ratio = m.ratio.toFixed(1);
+  // A hotspot sent without `askers` (fewer than five people asked) speaks of the foggy share alone.
+  const foggy = insight.kind === 'confusion_hotspot' && typeof m.askers !== 'number' ? 'Foggy' : '';
   return {
-    headline: t(`kind.${insight.kind}.headline`, values),
-    summary: t(`kind.${insight.kind}.summary`, values),
-    why: t(`kind.${insight.kind}.why`, values),
+    headline: t(`kind.${insight.kind}.headline${foggy}`, values),
+    summary: t(`kind.${insight.kind}.summary${foggy}`, values),
+    why: t(`kind.${insight.kind}.why${foggy}`, values),
   };
 }
 
-/** The feed's lede: the loudest finding sets the tone. */
-export function ledeKey(insights: LandingInsight[], readers: number, floor: number): 'act' | 'watch' | 'calm' | 'floor' {
-  if (readers < floor) return 'floor';
+/** The door's lede: the floor before anything, then the loudest finding sets the tone. */
+export function ledeKey(insights: LandingInsight[], reach: Reach): 'act' | 'watch' | 'calm' | 'floor' | 'none' {
+  if (reach === 'none') return 'none';
+  if (reach === 'few') return 'floor';
   if (insights.some((i) => i.attention === 'act')) return 'act';
   if (insights.some((i) => i.attention === 'watch')) return 'watch';
   return 'calm';

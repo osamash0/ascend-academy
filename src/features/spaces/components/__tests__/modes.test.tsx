@@ -83,6 +83,11 @@ const MODE: Record<string, Mode> = {
   // A router shim too: Join for a live Space you are not in, else the screen
   // the deep link asked for (LS-045). Its only UI is JoinSpaceScreen's.
   'SpaceMemberGate.tsx': 'shim',
+  // A router shim too: only the person who runs the Space gets through to
+  // How it's landing; everyone else goes back to the Space. No UI of its own.
+  'SpaceOwnerGate.tsx': 'shim',
+  // Adapts the route to LandingScreen, which owns its own loading and error.
+  'LandingRoute.tsx': 'shim',
   // Old `/lecture/:id` links: finds the Lesson's Space and redirects (LS-050).
   'LessonLinkRoute.tsx': 'shim',
   // A v4 address that leads nowhere, on the stage, not in the old console.

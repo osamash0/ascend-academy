@@ -30,39 +30,45 @@ _KINDS = {
 }
 
 
-def help_share(f: PageFacts) -> float:
-    """Of the people who read this page, the share who needed it; 0 under the floor."""
+def help_share(f: PageFacts) -> Optional[float]:
+    """Of the people who read this page, the share who needed it.
+
+    None while fewer than `MIN_READERS` people read it: such a page says nothing, and
+    nothing is not 0, which the door draws as landing (story 5; Abi, 2026-11-06)."""
     if len(f.readers) < MIN_READERS:
-        return 0.0
+        return None
     return len(f.helped & f.readers) / len(f.readers)
 
 
-def help_index(facts: dict[str, LessonFacts]) -> dict[str, list[float]]:
-    """Per Lesson, one 0–1 value per page: its help share, normalised over the Space.
+def help_index(facts: dict[str, LessonFacts]) -> dict[str, list[Optional[float]]]:
+    """Per Lesson, one value per page: its help share, normalised over the Space to 0–1, or
+    None for a page fewer than `MIN_READERS` people read (the door draws it as an outline).
 
     As long as the Lesson has pages (else the highest page seen), so a page number
     beyond them never lengthens the list, and normalised over those shown pages only,
     so a page no one is shown never sets the scale."""
-    shares: dict[str, list[float]] = {}
+    shares: dict[str, list[Optional[float]]] = {}
     for lid, lf in facts.items():
         # The Lesson's own page count when it has one; else the highest page seen (never above MAX_PAGE).
         length = lf.lesson.pages if lf.lesson.pages > 0 else max(lf.pages, default=0)
-        shares[lid] = [help_share(lf.pages[n]) if n in lf.pages else 0.0 for n in range(1, length + 1)]
-    scale = max(HELP_FULL, max((v for s in shares.values() for v in s), default=0.0))
-    return {lid: [round(min(1.0, v / scale), 2) for v in s] for lid, s in shares.items()}
+        shares[lid] = [help_share(lf.pages.get(n, PageFacts())) for n in range(1, length + 1)]
+    scale = max(HELP_FULL, max((v for s in shares.values() for v in s if v is not None), default=0.0))
+    return {lid: [None if v is None else round(min(1.0, v / scale), 2) for v in s] for lid, s in shares.items()}
 
 
-def grid(f: PageFacts) -> Optional[dict[str, int]]:
+def grid(f: PageFacts) -> Optional[dict[str, Optional[int]]]:
     """Check-in against checkpoint, paired per reader (as `page_row` pairs them); only once
-    the floor's worth of pairs exist."""
+    the floor's worth of pairs exist. A cell of 1 to `MIN_READERS - 1` people is None: in a small
+    cell the few people are findable, and a count beside it would say so. A cell of 0 names
+    nobody and stays 0."""
     pairs = [pair for user, pair in f.pairs.items() if user in f.readers]
     if len(pairs) < MIN_READERS:
         return None
-    g = {"clickedCleared": 0, "clickedMissed": 0, "foggyCleared": 0, "foggyMissed": 0}
+    g: dict[str, int] = {"clickedCleared": 0, "clickedMissed": 0, "foggyCleared": 0, "foggyMissed": 0}
     for rating, cleared in pairs:
         said = "clicked" if rating == "got_it" else "foggy"
         g[f"{said}{'Cleared' if cleared else 'Missed'}"] += 1
-    return g
+    return {cell: None if 0 < n < MIN_READERS else n for cell, n in g.items()}
 
 
 def _pct(value: Any) -> int:
@@ -70,9 +76,17 @@ def _pct(value: Any) -> int:
 
 
 def _metrics(kind: str, m: dict[str, Any], f: PageFacts) -> dict[str, float]:
+    """The numbers a kind's copy reads. Every one is a share (floored by the page's people gate), a
+    duration, a ratio or a page, or a count of people sent only from `MIN_READERS` up."""
     if kind == "confusion_hotspot":
+        # The detector fires on the foggy share alone, so askers can be 0-4, and in a small group
+        # "three asked" says who: the count is told only from `MIN_READERS` up, else only `foggy`.
         # Readers only, as `page_row` and `help_share` count: someone who asked without a counted read is no reader here.
-        return {"askers": len((f.explain | f.ask) & f.readers), "foggy": _pct(m.get("confusionRate"))}
+        out = {"foggy": _pct(m.get("confusionRate"))}
+        askers = len((f.explain | f.ask) & f.readers)
+        if askers >= MIN_READERS:
+            out = {"askers": askers, **out}
+        return out
     if kind == "skipped_slide":
         return {"seconds": _pct(m.get("medianDwellSeconds"))}
     if kind == "speed_bump":
@@ -94,6 +108,9 @@ def to_landing(insight: dict[str, Any], lf: LessonFacts) -> Optional[dict[str, A
     kind = insight.get("kind")
     pages = pages_of(insight)
     if kind not in _KINDS or not pages:
+        return None
+    if kind == "speed_bump" and int((insight.get("metrics") or {}).get("backtracksFromNext") or 0) < MIN_READERS:
+        # "Three people turned back" says who in a small group; the detector may still fire on two.
         return None
     f = lf.pages.get(pages[0]) or PageFacts()
     out: dict[str, Any] = {

@@ -23,7 +23,7 @@ const STILL_ON_MOCKS = [
 ];
 
 const ROOT = join(process.cwd(), 'src/features/spaces');
-const DIRS = ['screens', 'components', 'studio'];
+const DIRS = ['screens', 'components', 'studio', 'landing'];
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {

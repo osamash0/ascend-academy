@@ -44,7 +44,7 @@ async def test_the_owners_view_counts_its_members_and_no_one_else(
         read(user)
 
     body = await service.get_landing(space, str(owner), "en")
-    assert (body["members"], body["readers"]) == (6, 6)
+    assert (body["members"], body["reach"]) == (6, "enough")
     # Six readers lift the Lesson over the floor; no per-Lesson count goes on the wire.
     assert "readers" not in body["lessons"][0] and "help" in body["lessons"][0]
 

@@ -13,7 +13,9 @@ import type { Grid, Themes } from './types';
 /** Check-in against checkpoint: four cells, the trap cell lit. */
 export function GridPicture({ grid, page, color }: { grid: Grid; page: number; color: string }) {
   const { t } = useTranslation('v4Landing');
-  const total = grid.clickedCleared + grid.clickedMissed + grid.foggyCleared + grid.foggyMissed;
+  const total = (grid.clickedCleared ?? 0) + (grid.clickedMissed ?? 0) + (grid.foggyCleared ?? 0) + (grid.foggyMissed ?? 0);
+  // A percent beside a hidden cell would let it be worked out, so one hidden cell takes every percent with it.
+  const anyHidden = Object.values(grid).some((n) => n === null);
   if (total === 0) return <p className="text-[14px] text-quiet">{t('grid.few')}</p>;
   const cells: { key: keyof Grid; trap?: boolean }[] = [
     { key: 'clickedCleared' },
@@ -27,17 +29,31 @@ export function GridPicture({ grid, page, color }: { grid: Grid; page: number; c
       <div className="mt-3 grid grid-cols-2 gap-2.5">
         {cells.map(({ key, trap }) => {
           const count = grid[key];
-          const pct = Math.round((count / total) * 100);
+          // Too few to tell: the door's outline, no fill, no figure. The label stays so the cells do not move.
+          if (count === null) {
+            return (
+              <div key={key} data-cell="outline" className="rounded-xl border border-white/25 p-4">
+                <p className="text-[13px] leading-snug text-quiet">{t(`grid.${key}`)}</p>
+              </div>
+            );
+          }
           return (
             <div
               key={key}
+              data-cell="told"
               className="rounded-xl bg-white/[0.04] p-4"
               style={trap ? { background: mix(color, 14) } : undefined}
             >
               <p className="text-[13px] leading-snug text-quiet">{t(`grid.${key}`)}</p>
               <p className="mt-2 flex items-baseline gap-2">
-                <span className="text-[24px] font-medium tabular-nums tracking-[-0.02em]">{pct}%</span>
-                <span className="text-[12.5px] tabular-nums text-quiet">{t('grid.people', { count })}</span>
+                {!anyHidden && (
+                  <span className="text-[24px] font-medium tabular-nums tracking-[-0.02em]">{Math.round((count / total) * 100)}%</span>
+                )}
+                <span
+                  className={anyHidden ? 'text-[24px] font-medium tabular-nums tracking-[-0.02em]' : 'text-[12.5px] tabular-nums text-quiet'}
+                >
+                  {t('grid.people', { count })}
+                </span>
               </p>
             </div>
           );

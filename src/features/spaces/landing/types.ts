@@ -1,4 +1,3 @@
-import type { Person } from '../types';
 
 /**
  * How it's landing — the owner's view of a Space.
@@ -19,6 +18,12 @@ export type Attention = 'act' | 'watch' | 'calm';
 /** A Lesson's light: its worst finding, or `few` while under the reader floor. */
 export type LessonLight = Attention | 'few';
 
+/**
+ * How far a Space's reading has got, never how many: nobody yet, fewer than
+ * `floor` people, or enough to say something. In a group of two a count is who.
+ */
+export type Reach = 'none' | 'few' | 'enough';
+
 /** The detector kinds of the insight engine (backend/services/insights). */
 export type InsightKind =
   | 'confusion_hotspot'
@@ -37,25 +42,33 @@ export interface LandingLesson {
   title: string;
   order: number;
   pages: number;
-  /** Members who have read any of it. */
-  readers: number;
+  /**
+   * Lab only: the earlier directions A to D (`src/pages/landingMockups`) draw it.
+   * The wire never sends it (in a small group, "three read it" says who) and the door never reads it.
+   */
+  readers?: number;
   light: LessonLight;
   /** The Lesson's own colour. Live, the hue sampled from its first page; fixtures use the cover palette. */
   color: string;
   /**
    * How much each page asked of people, 0–1, one value per page: the engine's
    * per-page help index (Explain and Ask opened, foggy check-ins, turning
-   * back). Absent while the Lesson is under the floor.
+   * back). `null` is a page fewer than `floor` people have reached: it says
+   * nothing, which is not landing, so the door draws it as an outline.
+   * Absent while the whole Lesson is under the floor.
    */
-  help?: number[];
+  help?: (number | null)[];
 }
 
-/** Check-in against checkpoint, paired per person. */
+/**
+ * Check-in against checkpoint, paired per person. A cell of 1 to 4 people is `null`
+ * (findable, so never told); a cell of 0 names nobody and stays 0.
+ */
 export interface Grid {
-  clickedCleared: number;
-  clickedMissed: number;
-  foggyCleared: number;
-  foggyMissed: number;
+  clickedCleared: number | null;
+  clickedMissed: number | null;
+  foggyCleared: number | null;
+  foggyMissed: number | null;
 }
 
 export interface LandingInsight {
@@ -92,14 +105,19 @@ export interface LandingAnswer {
   at: string;
 }
 
+/** Who sent a question: the name they sent it with. Never an id, never a face (Plan 4, Decision 2). */
+export interface LandingAsker {
+  name: string;
+}
+
 /** A question someone chose to send to the people who run the Space. */
 export interface LandingQuestion {
   id: string;
   lessonId: string;
   page: number;
   text: string;
-  /** Null when sent without a name. The answer still finds its way back. */
-  asker: Person | null;
+  /** Null when sent without a name (or with none on the profile): "Someone". The answer still finds its way back. */
+  asker: LandingAsker | null;
   createdAt: string;
   answer?: LandingAnswer;
 }
@@ -120,9 +138,9 @@ export interface Landing {
   /** The Space's one colour, for when no Lesson leads. */
   accent: string;
   members: number;
-  /** Members who have read anything, the owner excluded. */
-  readers: number;
-  /** People a page needs before anything is said about it. */
+  /** How far the members' reading has got (the owner excluded). Under the floor there are no figures and no map. */
+  reach: Reach;
+  /** People a page needs before anything is said about it. On the wire, but the door does not read it: the copy and the map say the number themselves. */
   floor: number;
   /** Readers this week; percent of pages landing; percent of checkpoints cleared first try. */
   figures: { reading: Figure; landing: Figure; cleared: Figure };

@@ -7,8 +7,10 @@ import { Figures } from '../landing/Figures';
 import type { Landing } from '../landing/types';
 import { SendSheet } from '../landing/SendToSpace';
 import { AnsweredHere } from '../landing/AnsweredHere';
+import { QuestionsRow } from '../landing/QuestionsRow';
 import { ledeKey } from '../landing/copy';
-import { dbsLanding, friendsLanding } from '../mocks/landing';
+import { cellColor, hasOutline } from '../landing/light';
+import { bigLanding, dbsLanding, friendsLanding } from '../mocks/landing';
 
 /*
  * How it's landing — the owner's door, on fixtures (spec
@@ -32,7 +34,7 @@ const door = (spaceId: string) =>
   );
 
 const HOTSPOT = /On page 12, 41 people opened Explain or asked/;
-const TRAP = /78% said page 9 had clicked, then 61% of them missed its checkpoint/;
+const TRAP = /On page 9, 61% who said it had clicked still missed the checkpoint/;
 
 afterEach(() => {
   fixture.override = null;
@@ -43,9 +45,9 @@ describe('the owner’s door', () => {
   it('opens on Luna naming the one page, with the one action beside her', () => {
     door('s-dbs');
     expect(screen.getByRole('heading', { level: 1, name: 'How it’s landing' })).toBeInTheDocument();
-    // Two pages need the owner; Luna counts them and says where to start, the button carries the page.
-    expect(screen.getByText('2 pages are asking for you. Start with Normalization.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open page 12' })).toHaveAttribute('href', '/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=12');
+    // Two pages need the owner; the trap leads (people think they understood it), the button carries its page.
+    expect(screen.getByText('2 pages are asking for you. Start with Relational Algebra.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open page 9' })).toHaveAttribute('href', '/v4/space/s-dbs/lesson/l-s-dbs-5/faces?page=9');
     // The Space's name rides on the way back; nothing announces the title.
     expect(screen.getByRole('link', { name: 'Database Systems' })).toHaveAttribute('href', '/v4/space/s-dbs');
   });
@@ -90,8 +92,8 @@ describe('the owner’s door', () => {
     // A Lesson's readers are not counted again under the figures.
     expect(screen.queryByText(/\d+ readers?$/)).toBeNull();
     // Lessons too few have been through are named once, below the map, not drawn.
-    expect(screen.getByText('Integrity, Transactions, Query Processing, and Index Structures: too few readers yet.')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Integrity' })).toBeNull();
+    expect(screen.getByText('Transactions, Query Processing, and Index Structures: too few readers yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Transactions' })).toBeNull();
   });
 
   it('a finding says its page, not its Lesson again', () => {
@@ -121,6 +123,38 @@ describe('the owner’s door', () => {
     expect(screen.getByText('Clicked vs. missed on page 9')).toBeInTheDocument();
     expect(screen.getByText('Said clicked, missed it')).toBeInTheDocument();
     expect(screen.getByText('33 people')).toBeInTheDocument();
+  });
+
+  const withGrid = (grid: NonNullable<Landing['insights'][number]['grid']>): Landing => ({
+    ...dbsLanding,
+    insights: dbsLanding.insights.map((i) => (i.id === 'i-dbs-trap-9' ? { ...i, grid } : i)),
+  });
+  const picture = () => screen.getByText('Clicked vs. missed on page 9').closest('figure') as HTMLElement;
+
+  it('a trap picture with a cell of one to four people hides that cell and every percent', () => {
+    // The wire sends null for a cell of 1-4 people; 0 names nobody and stays 0.
+    fixture.override = withGrid({ clickedCleared: 21, clickedMissed: null, foggyCleared: null, foggyMissed: 0 });
+    door('s-dbs');
+    fireEvent.click(screen.getByRole('button', { name: TRAP }));
+    const fig = picture();
+    expect(fig.textContent).not.toContain('%');
+    expect(fig.textContent).not.toMatch(/\b1 person\b/);
+    expect(fig.querySelectorAll('[data-cell="outline"]')).toHaveLength(2);
+    expect(fig.querySelectorAll('[data-cell="outline"] span')).toHaveLength(0);
+    // The cells that are told still show their people, and the layout keeps all four cells.
+    expect(within(fig).getByText('21 people')).toBeInTheDocument();
+    expect(within(fig).getByText('0 people')).toBeInTheDocument();
+    expect(fig.querySelectorAll('p.leading-snug')).toHaveLength(4);
+  });
+
+  it('a trap picture of cells of five or more still shows counts and percents', () => {
+    door('s-dbs');
+    fireEvent.click(screen.getByRole('button', { name: TRAP }));
+    const fig = picture();
+    expect(fig.querySelectorAll('[data-cell="outline"]')).toHaveLength(0);
+    expect(within(fig).getByText('33 people')).toBeInTheDocument();
+    expect(within(fig).getByText('48%')).toBeInTheDocument();
+    expect(fig.textContent).toContain('%');
   });
 
   it('people waiting come before the map, without a count', () => {
@@ -159,7 +193,9 @@ describe('the owner’s door', () => {
 
   it('under the floor it says so once, with no figures and no light', () => {
     door('s-friends');
-    expect(screen.getByText('4 people have been reading. Patterns show once five people have been through a page.')).toBeInTheDocument();
+    expect(screen.getByText('A few people have been reading. Patterns show once five people have been through a page.')).toBeInTheDocument();
+    // No count: in a group of six, "4 people" is nearly who.
+    expect(screen.queryByText(/\d+ (people|person) ha(ve|s) been reading/)).toBeNull();
     expect(screen.queryByText(/members read this week/)).toBeNull();
     expect(screen.queryByRole('link', { name: /^Open page/ })).toBeNull();
     expect(screen.queryByRole('link', { name: /^Page \d+ of/ })).toBeNull();
@@ -170,19 +206,64 @@ describe('the owner’s door', () => {
     expect(screen.getByText(/determinant trick on page 6/)).toBeInTheDocument();
   });
 
+  it('with nobody reading yet, Luna says nobody, never a few', () => {
+    fixture.override = { ...friendsLanding, reach: 'none', questions: [] };
+    door('s-friends');
+    expect(screen.getByText('Nobody has been reading yet. Patterns show once five people have been through a page.')).toBeInTheDocument();
+    expect(screen.queryByText(/A few people/)).toBeNull();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Lessons' })).toBeNull();
+  });
+
+  it('under the floor, in German, without a count', async () => {
+    await i18n.changeLanguage('de');
+    door('s-friends');
+    expect(screen.getByText('Ein paar Leute haben gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.')).toBeInTheDocument();
+  });
+
   it('reads in German the way the glossary says', async () => {
     await i18n.changeLanguage('de');
     door('s-dbs');
     expect(screen.getByRole('heading', { level: 1, name: 'Wie es ankommt' })).toBeInTheDocument();
-    expect(screen.getByText('2 Seiten brauchen dich. Fang mit Normalization an.')).toBeInTheDocument();
+    expect(screen.getByText('2 Seiten brauchen dich. Fang mit Relational Algebra an.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Seite 12 von Normalization' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Fragen an dich' })).toBeInTheDocument();
-    expect(screen.getByText('Integrity, Transactions, Query Processing und Index Structures: noch zu wenige Lesende.')).toBeInTheDocument();
+    expect(screen.getByText('Transactions, Query Processing und Index Structures: noch zu wenige Lesende.')).toBeInTheDocument();
     expect(screen.getByText('Jemand')).toBeInTheDocument();
   });
 });
 
+describe('an outline', () => {
+  it('a page too few people have reached is an outline: drawn, never lit, and it opens nothing', () => {
+    door('s-dbs');
+    const lesson = screen.getByRole('heading', { level: 3, name: 'Integrity' }).closest('li')!;
+    // Nine people have started Integrity; past page 6 fewer than five have been through a page.
+    expect(lesson.querySelectorAll('[data-cell="outline"]')).toHaveLength(10);
+    expect(lesson.querySelectorAll('[data-cell="page"]')).toHaveLength(6);
+    expect(within(lesson).queryAllByRole('link', { name: /^Page \d+ of Integrity$/ })).toHaveLength(0);
+    // The map says what an outline is, once, because one is on screen.
+    expect(screen.getByText(/Too few people have reached an outlined one yet\./)).toBeInTheDocument();
+  });
+
+  it('with no outline on the map, the map does not explain one', () => {
+    door('s-big');
+    expect(screen.queryByText(/outlined/)).toBeNull();
+  });
+
+  it('a Lesson has an outline when any of its pages is null', () => {
+    const [full] = dbsLanding.lessons;
+    expect(hasOutline(full)).toBe(false);
+    expect(hasOutline({ ...full, help: [0.3, null] })).toBe(true);
+    expect(hasOutline({ ...full, help: undefined })).toBe(false);
+  });
+});
+
 describe('a big Space folds what needs nothing', () => {
+  it('opens on the trap, the page people wrongly think they understood', () => {
+    door('s-big');
+    expect(screen.getByText('2 pages are asking for you. Start with Concurrency.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open page 21' })).toHaveAttribute('href', '/v4/space/s-big/lesson/l-s-big-9/faces?page=21');
+  });
+
   const titlesDrawn = () => screen.queryAllByRole('heading', { level: 3 }).map((h) => h.textContent);
 
   it('shows the three longest-waiting questions, then more ten at a time', () => {
@@ -231,6 +312,16 @@ describe('a big Space folds what needs nothing', () => {
     expect(titlesDrawn()).not.toContain('Use cases');
   });
 
+  it('a Lesson with an outlined page is never folded away as landing', () => {
+    fixture.override = {
+      ...bigLanding,
+      lessons: bigLanding.lessons.map((l) => (l.id === 'l-s-big-3' ? { ...l, help: l.help!.map((h, i) => (i >= 10 ? null : h)) } : l)),
+    };
+    door('s-big');
+    expect(titlesDrawn()).toContain('Use cases');
+    expect(screen.getByRole('button', { name: '5 Lessons landing' })).toBeInTheDocument();
+  });
+
   it('a Lesson with many findings says its two loudest; its pages stay lit either way', () => {
     door('s-big');
     const lesson = screen.getByRole('heading', { level: 3, name: 'Concurrency' }).closest('li')!;
@@ -277,16 +368,105 @@ describe('sending a question to the Space', () => {
 });
 
 describe('the lede', () => {
+  it('a page with nothing to say never takes a colour', () => {
+    expect(cellColor('#06b6d4', null, null)).toBeNull();
+    expect(cellColor('#06b6d4', 0.8, null)).not.toBeNull();
+    expect(cellColor('#06b6d4', 0.05, null)).toBeNull();
+  });
+
   it('follows the loudest finding, and the floor before anything', () => {
-    expect(ledeKey(dbsLanding.insights, dbsLanding.readers, dbsLanding.floor)).toBe('act');
-    expect(ledeKey(friendsLanding.insights, friendsLanding.readers, friendsLanding.floor)).toBe('floor');
-    expect(ledeKey([], 40, 5)).toBe('calm');
+    expect(ledeKey(dbsLanding.insights, dbsLanding.reach)).toBe('act');
+    expect(ledeKey(friendsLanding.insights, friendsLanding.reach)).toBe('floor');
+    expect(ledeKey([], 'enough')).toBe('calm');
+    expect(ledeKey(dbsLanding.insights, 'none')).toBe('none');
   });
 
   it('each Lesson above the floor carries one help value per page', () => {
     for (const l of dbsLanding.lessons) {
       if (l.light === 'few') expect(l.help).toBeUndefined();
       else expect(l.help).toHaveLength(l.pages);
+    }
+    // A null is a page too few have reached; every other value is 0–1.
+    for (const v of dbsLanding.lessons.flatMap((l) => l.help ?? [])) expect(v === null || (v >= 0 && v <= 1)).toBe(true);
+  });
+});
+
+describe('questions, as they will arrive', () => {
+  it('a sender is a name, never a face', () => {
+    door('s-dbs');
+    const row = screen.getByText(/Why does the BCNF split on page 12/).closest('li')!;
+    expect(within(row).getByText('Åsa Lindqvist')).toBeInTheDocument();
+    // The quiet ring with her initial: no picture and no astronaut drawn for her.
+    expect(row.querySelector('img')).toBeNull();
+    expect(row.querySelector('svg')).toBeNull();
+    expect(within(row).getByText('Å')).toBeInTheDocument();
+  });
+
+  it('with no way to answer, a question is read and never offered an action that does nothing', () => {
+    const waiting = dbsLanding.questions.filter((q) => !q.answer);
+    render(
+      <MemoryRouter>
+        <QuestionsRow questions={waiting} lessons={new Map(dbsLanding.lessons.map((l) => [l.id, l]))} spaceId="s-dbs" accent="#06b6d4" />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/Why does the BCNF split on page 12/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
+    // Each still opens its page.
+    expect(screen.getByRole('link', { name: 'Normalization, page 12' })).toHaveAttribute('href', '/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=12');
+  });
+});
+
+describe('each finding says only what its numbers back', () => {
+  const en = i18n.getFixedT('en', 'v4Landing');
+  const de = i18n.getFixedT('de', 'v4Landing');
+
+  it('a foggy stretch claims one in four, not most', () => {
+    expect(en('kind.confusion_block.summary', { first: 3, last: 5 })).toBe('Pages 3 to 5 ran foggy for at least one in four of the people who said how those pages read.');
+    expect(de('kind.confusion_block.summary', { first: 3, last: 5 })).toBe('Von denen, die gesagt haben, wie sich die Seiten 3 bis 5 lesen, fand mindestens jede vierte sie nebelig.');
+  });
+
+  it('a page that asks too much is said to be foggy, which the engine always measured', () => {
+    expect(en('kind.overpacked.summary', { page: 7, ratio: '2.1' })).toBe('Page 7 holds people 2.1× longer than the other pages, and at least three in ten who rated it said it was still foggy.');
+    expect(de('kind.overpacked.summary', { page: 7, ratio: '2.1' })).toBe('Seite 7 hält Leute 2.1× länger als die anderen Seiten, und mindestens drei von zehn, die sie bewertet haben, fanden sie noch nebelig.');
+  });
+
+  it('a question that tests something else counts its questions, practice and checkpoints alike', () => {
+    expect(en('kind.quiz_misalignment.summary', { page: 22, pct: 38 })).toBe('Page 22 read easily, yet only 38% got its questions right first try.');
+    expect(de('kind.quiz_misalignment.summary', { page: 22, pct: 38 })).toBe('Seite 22 las sich leicht, doch nur 38% haben ihre Fragen beim ersten Versuch richtig beantwortet.');
+  });
+
+  it('a Lesson that is landing names a struggle that resolved, not an easy ride', () => {
+    expect(en('kind.healthy.summary')).toBe('A page here asked something of people, and most then got its questions right first try.');
+    expect(de('kind.healthy.summary')).toBe('Eine Seite hier hat den Leuten etwas abverlangt, und die meisten haben ihre Fragen danach beim ersten Versuch richtig beantwortet.');
+  });
+
+  it('a hotspot sent without askers says only its foggy share, never a number of people', () => {
+    const lone = dbsLanding.insights.find((i) => i.kind === 'confusion_hotspot')!;
+    const { askers: _askers, ...metrics } = lone.metrics;
+    fixture.override = { ...dbsLanding, insights: dbsLanding.insights.map((i) => (i === lone ? { ...i, metrics: { ...metrics, foggy: 46 } } : i)) };
+    door('s-dbs');
+    expect(screen.getByText('On page 12, 46% said it was still foggy.')).toBeInTheDocument();
+    expect(screen.queryByText(HOTSPOT)).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/undefined|NaN|\bpeople opened Explain/);
+  });
+
+  it('the foggy variant of a hotspot is in both languages, and speaks of no one by number', () => {
+    expect(en('kind.confusion_hotspot.headlineFoggy')).toBe('A page that runs foggy');
+    for (const t of [en, de]) {
+      const sentence = t('kind.confusion_hotspot.summaryFoggy', { page: 12, foggy: 46 });
+      expect(sentence).toMatch(/46%/);
+      expect(sentence).not.toMatch(/askers|undefined|\{\{/);
+      expect(t('kind.confusion_hotspot.whyFoggy')).not.toMatch(/[–—!]/);
+    }
+  });
+
+  it.each(['en', 'de'])('no finding sentence names its Lesson (%s)', (lng) => {
+    const t = i18n.getFixedT(lng, 'v4Landing');
+    const kinds = ['confusion_hotspot', 'skipped_slide', 'speed_bump', 'overpacked', 'leaky_bucket', 'confusion_block', 'quiz_misalignment', 'calibration_gap', 'healthy'];
+    for (const k of kinds) {
+      const s = t(`kind.${k}.summary`, { page: 12, first: 3, last: 5, lesson: 'Normalization', askers: 7, foggy: 40, seconds: 3, backs: 6, ratio: '2.1', pct: 30 });
+      expect(s, `${lng} ${k}`).not.toMatch(/Normalization/);
+      expect(s, `${lng} ${k}`).not.toMatch(/[–—]/);
     }
   });
 });
