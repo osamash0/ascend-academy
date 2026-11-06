@@ -1,6 +1,8 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { classify, cleanText, groupOf, type LayoutClass } from './classify';
+import { fitLayer } from './fit';
+import { checkLayer } from './layoutGate';
 import type { Box, LayoutBlock, LayoutPage, LayoutReady } from './types';
 import './layout.css';
 
@@ -16,13 +18,91 @@ import './layout.css';
  *
  * `night` follows the reader's night paper, so the layer's ground matches the
  * page it covers.
+ *
+ * Once the layer has a real width it fits its type (`fit.ts`). A block that
+ * fits no size becomes a window, a hole like a figure, and the layer is then
+ * checked in the browser (`layoutGate.ts`); `onChecked` hears the verdict once
+ * per fit. A page the browser checks fail is for the caller to show as the
+ * original.
  */
-export function LayoutLayer({ page, night = false }: { page: LayoutPage; night?: boolean }) {
+export function LayoutLayer({
+  page,
+  night = false,
+  onChecked,
+}: {
+  page: LayoutPage;
+  night?: boolean;
+  onChecked?: (pass: boolean) => void;
+}) {
   if (page.verdict !== 'layout') return null;
-  const set = layoutBlocks(page);
+  return <ReadyLayer page={page} night={night} onChecked={onChecked} />;
+}
+
+/** A layer narrower than this has no real width: a hidden pane. Fitting there would pass every check by accident. */
+const MIN_WIDTH = 50;
+const NONE: ReadonlySet<string> = new Set();
+
+/** The blocks that did not fit, for one page at one width. They are windows until either changes. */
+interface Over {
+  page: LayoutReady | null;
+  width: number;
+  ids: ReadonlySet<string>;
+}
+
+function ReadyLayer({
+  page,
+  night,
+  onChecked,
+}: {
+  page: LayoutReady;
+  night: boolean;
+  onChecked?: (pass: boolean) => void;
+}) {
+  const root = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  const [over, setOver] = useState<Over>({ page: null, width: 0, ids: NONE });
+  const heard = useRef(onChecked);
+  useLayoutEffect(() => {
+    heard.current = onChecked;
+  });
+
+  /* The layer's width, and again when it changes by more than a pixel. A hidden pane (0) never counts. */
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    let last = 0;
+    const measure = (w: number) => {
+      if (w > MIN_WIDTH && Math.abs(w - last) > 1) {
+        last = w;
+        setWidth(w);
+      }
+    };
+    measure(el.getBoundingClientRect().width);
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([e]) => e && measure(e.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const windows = over.page === page && over.width === width ? over.ids : NONE;
+
+  /* Fit, and give the blocks that fit no size to the windows (which runs this again, once). Then check. */
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (!el || width <= MIN_WIDTH) return;
+    fitLayer(el);
+    const found = [...el.querySelectorAll<HTMLElement>('.blk[data-over]')].map((e) => e.dataset.id ?? '');
+    if (found.some((id) => !windows.has(id))) {
+      setOver({ page, width, ids: new Set([...windows, ...found]) });
+      return;
+    }
+    heard.current?.(checkLayer(el).pass);
+  }, [page, width, windows]);
+
+  const set = layoutBlocks(page, windows);
   const holes = set.filter(({ k }) => k === 'fig' || k === 'window').map(({ b }) => b.bbox);
   return (
-    <div className="ls-layout" data-layout-page={page.page} data-night={night ? '' : undefined}>
+    <div ref={root} className="ls-layout" data-layout-page={page.page} data-night={night ? '' : undefined}>
       <svg data-ground className="ls-ground" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden>
         <path fillRule="evenodd" d={groundPath(holes)} />
       </svg>
@@ -46,9 +126,11 @@ export function LayoutLayer({ page, night = false }: { page: LayoutPage; night?:
   );
 }
 
-/** The blocks the layer sets, in reading order, with furniture left out. */
-function layoutBlocks(page: LayoutReady): Array<{ b: LayoutBlock; k: LayoutClass }> {
-  return page.blocks.map((b) => ({ b, k: classify(b) })).filter(({ k }) => k !== 'deco');
+/** The blocks the layer sets, in reading order, with furniture left out. A block that did not fit is a window. */
+function layoutBlocks(page: LayoutReady, windows: ReadonlySet<string>): Array<{ b: LayoutBlock; k: LayoutClass }> {
+  return page.blocks
+    .map((b) => ({ b, k: windows.has(b.id) ? ('window' as const) : classify(b) }))
+    .filter(({ k }) => k !== 'deco');
 }
 
 function Block({ b, k }: { b: LayoutBlock; k: LayoutClass }) {
