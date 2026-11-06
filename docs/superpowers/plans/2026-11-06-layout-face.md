@@ -46,6 +46,9 @@
 
 bbox values are page fractions `[x0, y0, x1, y1]`, top-left origin, like `SourceBlock`.
 
+An `original` page is served as `{ "page", "verdict", "reasons", "version" }` only: no `blocks`, no `paths`
+(they stay in `lecture_layouts`; final-review fix, 2026-11-06).
+
 ---
 
 # PR A — backend (branch `feat/layout-face-backend` from `origin/main`)
@@ -299,10 +302,12 @@ The build, in the reference's order (`main()`, rules branch): `extract_blocks` �
 Server checks (port of `gate()` checks that need no rendering; normalise words like `norm_` in the template: lowercase, strip `\x1b-\x1f`, NFKD, drop marks and non-alphanumerics):
 - no non-figure block → verdict `original`, reasons `["no text layer"]`;
 - words: each PDF word is matched by a text block's words (multiset), or a longer-than-2 substring of all typed text, or lies inside a figure, or inside a dropped box, or is furniture (inside no block and `y0 > 0.86` or `y1 < 0.1`); coverage < 0.98 → `"{missing} of {total} words missing"`;
-- broken characters: a text block matching `[¨´ˆ˜]` or `(^|\s)§\s` → `"broken characters in {n} blocks"`;
+- broken characters: a text block matching `[¨´ˆ˜]`, `(^|\s)§\s`, a C0 control character (a NUL) or U+FFFD, or — on a page whose `pua_map` holds a non-arrow symbol — a `"•"` that is not a line's own bullet (a lost symbol) → `"broken characters in {n} blocks"`; control characters are then stripped from everything stored;
 - pictures: each pic covered < 85% by figure boxes → `"{n} pictures lost or cut"`;
 - diagrams: fewer than 60% of a diagram's items redrawn (path bbox equal) or inside a figure/table → `"{n} diagrams lost"`;
-- under a window: a figure box covering > 20% of a text block's area → `"{n} lines under a crop"`;
+- under a window: a figure box covering > 20% of a text block's area → `"{n} lines under a crop"` (`"1 line under a crop"`);
+- marks: ≥ 8 specks near one another that reink does not redraw (away from text, tables, figures, small redrawn drawings and the header/footer bands: a scatter plot's markers) → `"{n} marks lost"`;
+- payload: more than 400 redrawn paths → `"too many lines"` (and no paths stored);
 - crops: area of blocks still holding private-use characters ÷ text area > 0.35 → `"{p}% of the text is crops"`.
 Verdict `layout` when no reason, else `original`.
 
