@@ -33,7 +33,7 @@ const door = (spaceId: string) =>
   );
 
 const HOTSPOT = /On page 12, 41 people opened Explain or asked/;
-const TRAP = /78% said page 9 had clicked, then 61% of them missed its checkpoint/;
+const TRAP = /On page 9, 61% who said it had clicked still missed the checkpoint/;
 
 afterEach(() => {
   fixture.override = null;
@@ -44,9 +44,9 @@ describe('the owner’s door', () => {
   it('opens on Luna naming the one page, with the one action beside her', () => {
     door('s-dbs');
     expect(screen.getByRole('heading', { level: 1, name: 'How it’s landing' })).toBeInTheDocument();
-    // Two pages need the owner; Luna counts them and says where to start, the button carries the page.
-    expect(screen.getByText('2 pages are asking for you. Start with Normalization.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open page 12' })).toHaveAttribute('href', '/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=12');
+    // Two pages need the owner; the trap leads (people think they understood it), the button carries its page.
+    expect(screen.getByText('2 pages are asking for you. Start with Relational Algebra.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open page 9' })).toHaveAttribute('href', '/v4/space/s-dbs/lesson/l-s-dbs-5/faces?page=9');
     // The Space's name rides on the way back; nothing announces the title.
     expect(screen.getByRole('link', { name: 'Database Systems' })).toHaveAttribute('href', '/v4/space/s-dbs');
   });
@@ -191,7 +191,7 @@ describe('the owner’s door', () => {
     await i18n.changeLanguage('de');
     door('s-dbs');
     expect(screen.getByRole('heading', { level: 1, name: 'Wie es ankommt' })).toBeInTheDocument();
-    expect(screen.getByText('2 Seiten brauchen dich. Fang mit Normalization an.')).toBeInTheDocument();
+    expect(screen.getByText('2 Seiten brauchen dich. Fang mit Relational Algebra an.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Seite 12 von Normalization' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Fragen an dich' })).toBeInTheDocument();
     expect(screen.getByText('Transactions, Query Processing und Index Structures: noch zu wenige Lesende.')).toBeInTheDocument();
@@ -225,6 +225,12 @@ describe('an outline', () => {
 });
 
 describe('a big Space folds what needs nothing', () => {
+  it('opens on the trap, the page people wrongly think they understood', () => {
+    door('s-big');
+    expect(screen.getByText('2 pages are asking for you. Start with Concurrency.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open page 21' })).toHaveAttribute('href', '/v4/space/s-big/lesson/l-s-big-9/faces?page=21');
+  });
+
   const titlesDrawn = () => screen.queryAllByRole('heading', { level: 3 }).map((h) => h.textContent);
 
   it('shows the three longest-waiting questions, then more ten at a time', () => {

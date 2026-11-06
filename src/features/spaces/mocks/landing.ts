@@ -70,7 +70,18 @@ const lessonsFrom = (seeds: LessonSeed[], insights: LandingInsight[]): LandingLe
 
 /* ── Database Systems ─────────────────────────────────────────────── */
 
+/* The first insight is the one the engine would pick: a trap leads its band. The door reads [0]. The rest are not in the engine's order. */
 const DBS_INSIGHTS: LandingInsight[] = [
+  {
+    id: 'i-dbs-trap-9',
+    kind: 'calibration_gap',
+    attention: 'act',
+    severity: 0.79,
+    lessonId: 'l-s-dbs-5',
+    page: 9,
+    metrics: { pct: 61 },
+    grid: { clickedCleared: 21, clickedMissed: 33, foggyCleared: 6, foggyMissed: 9 },
+  },
   {
     id: 'i-dbs-hotspot-12',
     kind: 'confusion_hotspot',
@@ -80,16 +91,6 @@ const DBS_INSIGHTS: LandingInsight[] = [
     page: 12,
     metrics: { askers: 41, foggy: 46, explain: 29, ask: 18, sent: 3 },
     themes: true,
-  },
-  {
-    id: 'i-dbs-trap-9',
-    kind: 'silent_misleader',
-    attention: 'act',
-    severity: 0.79,
-    lessonId: 'l-s-dbs-5',
-    page: 9,
-    metrics: { clicked: 78, missed: 61, pairs: 69 },
-    grid: { clickedCleared: 21, clickedMissed: 33, foggyCleared: 6, foggyMissed: 9 },
   },
   {
     id: 'i-dbs-wall-18',
@@ -272,9 +273,10 @@ const BIG_TITLES = [
 ];
 
 /** Lessons with a finding: 2, 9 (four of them), 12 (the 120-page one) and 20. 21 to 28 are too new to say. */
+/* The first insight is the one the engine would pick: a trap leads its band. The door reads [0]. The rest are not in the engine's order. */
 const BIG_INSIGHTS: LandingInsight[] = [
+  { id: 'i-big-9-trap', kind: 'calibration_gap', attention: 'act', severity: 0.74, lessonId: 'l-s-big-9', page: 21, metrics: { pct: 55 }, grid: { clickedCleared: 19, clickedMissed: 23, foggyCleared: 7, foggyMissed: 9 } },
   { id: 'i-big-9-hot', kind: 'confusion_hotspot', attention: 'act', severity: 0.88, lessonId: 'l-s-big-9', page: 14, metrics: { askers: 37, foggy: 52, explain: 24, ask: 19, sent: 2 } },
-  { id: 'i-big-9-trap', kind: 'silent_misleader', attention: 'act', severity: 0.74, lessonId: 'l-s-big-9', page: 21, metrics: { clicked: 71, missed: 55, pairs: 58 }, grid: { clickedCleared: 19, clickedMissed: 23, foggyCleared: 7, foggyMissed: 9 } },
   { id: 'i-big-9-bump', kind: 'speed_bump', attention: 'watch', severity: 0.51, lessonId: 'l-s-big-9', page: 6, metrics: { backs: 19, median: 66, lessonMedian: 35 } },
   { id: 'i-big-9-skip', kind: 'skipped_slide', attention: 'calm', severity: 0.36, lessonId: 'l-s-big-9', page: 24, metrics: { seconds: 4, views: 88, short: 70 } },
   { id: 'i-big-12-wall', kind: 'leaky_bucket', attention: 'watch', severity: 0.6, lessonId: 'l-s-big-12', page: 83, metrics: { pct: 27, before: 71, after: 52 } },
