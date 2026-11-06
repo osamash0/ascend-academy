@@ -169,3 +169,47 @@ describe('LayoutLayer', () => {
     expect(blockEl(c, 'x')!.textContent).toBe('<b>bold</b>');
   });
 });
+
+describe('LayoutLayer: a selection holds only words the learner sees', () => {
+  /* The layer drawn inside a page slot, as PdfPager's overlay is. */
+  const inSlot = (props: { shown?: boolean } = {}) => {
+    const slot = document.createElement('div');
+    document.body.appendChild(slot);
+    const r = render(<LayoutLayer page={page([])} {...props} />, { container: slot });
+    return { slot, ...r };
+  };
+
+  it('marks the page under it while it is shown, so the hidden text there cannot be selected', () => {
+    const { slot, rerender, unmount } = inSlot();
+    expect(slot.hasAttribute('data-layout-over')).toBe(true);
+    /* Veiled (the browser checks failed): the original is what is seen and selected. */
+    rerender(<LayoutLayer page={page([])} shown={false} />);
+    expect(slot.hasAttribute('data-layout-over')).toBe(false);
+    rerender(<LayoutLayer page={page([])} />);
+    expect(slot.hasAttribute('data-layout-over')).toBe(true);
+    /* Switched off: the page is the page again. */
+    unmount();
+    expect(slot.hasAttribute('data-layout-over')).toBe(false);
+    slot.remove();
+  });
+
+  it('never marks the page when it mounts veiled', () => {
+    const { slot } = inSlot({ shown: false });
+    expect(slot.hasAttribute('data-layout-over')).toBe(false);
+    slot.remove();
+  });
+
+  it('makes the pdf.js text under a shown layer unselectable, and lets its ground take a drag', () => {
+    const css = readFileSync(join(process.cwd(), 'src/features/spaces/components/reader/layout/layout.css'), 'utf8');
+    const rule = (sel: string) => {
+      const at = css.indexOf(sel);
+      expect(at, sel).toBeGreaterThan(-1);
+      return css.slice(at, css.indexOf('}', at));
+    };
+    const text = rule('[data-layout-over] > .react-pdf__Page .textLayer');
+    expect(text).toContain('user-select: none');
+    expect(text).toContain('-webkit-user-select: none');
+    /* The ground's paint takes the pointer; its even-odd holes still pass it to the page. */
+    expect(rule('.ls-layout .ls-ground path {')).toContain('pointer-events: visiblePainted');
+  });
+});

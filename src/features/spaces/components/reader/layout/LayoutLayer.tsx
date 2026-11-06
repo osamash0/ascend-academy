@@ -96,6 +96,18 @@ function ReadyLayer({
   });
 
   /*
+   * While the layer is seen, the page it is drawn over says so (`data-layout-over`), and the pdf.js
+   * text underneath stops being selectable (layout.css): a drag that starts on the ground must not
+   * gather hidden words the learner never saw selected. Veiled or gone, the page is the page again.
+   */
+  useLayoutEffect(() => {
+    const slot = root.current?.parentElement;
+    if (!slot || !shown) return;
+    slot.setAttribute('data-layout-over', '');
+    return () => slot.removeAttribute('data-layout-over');
+  }, [shown]);
+
+  /*
    * The layer's width, and again when it changes by more than a pixel. A hidden pane (0) never counts.
    * A resize (a zoom) is rendered and refitted inside the observer's callback, which runs between
    * layout and paint: left to React's own schedule, the browser would paint a frame of type fitted

@@ -66,8 +66,21 @@
   pointer-events: none;
 }
 
+/*
+ * The ground's paint takes the pointer, so a drag that starts in a margin starts in the layer, not
+ * in the hidden pdf.js text. The holes are cut out of its fill (even-odd), so they are not painted
+ * and the page under them still takes every click. A veiled layer is hidden, so it takes nothing.
+ */
 .ls-layout .ls-ground path {
   fill: var(--ls-ground);
+  pointer-events: visiblePainted;
+}
+
+/* Under a shown layer (LayoutLayer marks the page it covers), the pdf.js text is hidden: never selectable. */
+[data-layout-over] > .react-pdf__Page .textLayer,
+[data-layout-over] > .react-pdf__Page .textLayer * {
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .ls-layout .reink {
