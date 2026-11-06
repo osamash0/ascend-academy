@@ -1,5 +1,6 @@
 import type { Attention, Landing, LandingInsight, LandingLesson, LandingQuestion, Themes } from '../landing/types';
 import { stageAccentFor } from '../components/stage';
+import type { Person } from '../types';
 import { lindqvist, okonkwo, weber, ferreira, keller, viewer } from './people';
 
 /**
@@ -29,6 +30,9 @@ import { lindqvist, okonkwo, weber, ferreira, keller, viewer } from './people';
  */
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+
+/** A question carries the name it was sent with, nothing else (Plan 4's contract). */
+const named = (p: Person) => ({ name: p.name });
 
 /** How far a finding raises the help index of its page. */
 const RAISE: Record<Attention, number> = { act: 1, watch: 0.62, calm: 0.4 };
@@ -174,7 +178,7 @@ const DBS_QUESTIONS: LandingQuestion[] = [
     lessonId: 'l-s-dbs-4',
     page: 12,
     text: 'Why does the BCNF split on page 12 lose the dependency — isn’t 3NF supposed to keep it? Or is losing it the point?',
-    asker: lindqvist,
+    asker: named(lindqvist),
     createdAt: hoursAgo(2),
   },
   {
@@ -190,7 +194,7 @@ const DBS_QUESTIONS: LandingQuestion[] = [
     lessonId: 'l-s-dbs-6',
     page: 22,
     text: 'The practice question on page 22 asks about HAVING, but the page only shows WHERE. Am I missing a page?',
-    asker: okonkwo,
+    asker: named(okonkwo),
     createdAt: hoursAgo(70),
   },
   {
@@ -198,7 +202,7 @@ const DBS_QUESTIONS: LandingQuestion[] = [
     lessonId: 'l-s-dbs-2',
     page: 4,
     text: 'Does cardinality mean the number of rows?',
-    asker: weber,
+    asker: named(weber),
     createdAt: hoursAgo(120),
     answer: {
       text: 'No — it says how many of one thing can relate to another: one customer, many orders. The number of rows is a different question, and it changes every day.',
@@ -255,7 +259,7 @@ export const friendsLanding: Landing = {
       lessonId: 'l-s-friends-3',
       page: 6,
       text: 'Is the determinant trick on page 6 only for 2×2, or does it work for 3×3 too?',
-      asker: ferreira,
+      asker: named(ferreira),
       createdAt: hoursAgo(5),
     },
   ],
@@ -318,7 +322,7 @@ const BIG_ASKED: [number, number, string][] = [
   [19, 4, 'Is premature optimisation always bad?'],
   [25, 2, 'Is technical debt always a bad thing?'],
 ];
-const BIG_ASKERS = [lindqvist, null, okonkwo, weber, ferreira, keller];
+const BIG_ASKERS = [lindqvist, null, okonkwo, weber, ferreira, keller].map((p) => (p ? named(p) : null));
 
 const BIG_QUESTIONS: LandingQuestion[] = BIG_ASKED.map(([order, page, text], i) => ({
   id: `q-big-${i + 1}`,

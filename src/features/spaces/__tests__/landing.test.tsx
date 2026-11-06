@@ -7,6 +7,7 @@ import { Figures } from '../landing/Figures';
 import type { Landing } from '../landing/types';
 import { SendSheet } from '../landing/SendToSpace';
 import { AnsweredHere } from '../landing/AnsweredHere';
+import { QuestionsRow } from '../landing/QuestionsRow';
 import { ledeKey } from '../landing/copy';
 import { cellColor, hasOutline } from '../landing/light';
 import { bigLanding, dbsLanding, friendsLanding } from '../mocks/landing';
@@ -355,5 +356,30 @@ describe('the lede', () => {
     }
     // A null is a page too few have reached; every other value is 0–1.
     for (const v of dbsLanding.lessons.flatMap((l) => l.help ?? [])) expect(v === null || (v >= 0 && v <= 1)).toBe(true);
+  });
+});
+
+describe('questions, as they will arrive', () => {
+  it('a sender is a name, never a face', () => {
+    door('s-dbs');
+    const row = screen.getByText(/Why does the BCNF split on page 12/).closest('li')!;
+    expect(within(row).getByText('Åsa Lindqvist')).toBeInTheDocument();
+    // The quiet ring with her initial: no picture and no astronaut drawn for her.
+    expect(row.querySelector('img')).toBeNull();
+    expect(row.querySelector('svg')).toBeNull();
+    expect(within(row).getByText('Å')).toBeInTheDocument();
+  });
+
+  it('with no way to answer, a question is read and never offered an action that does nothing', () => {
+    const waiting = dbsLanding.questions.filter((q) => !q.answer);
+    render(
+      <MemoryRouter>
+        <QuestionsRow questions={waiting} lessons={new Map(dbsLanding.lessons.map((l) => [l.id, l]))} spaceId="s-dbs" accent="#06b6d4" />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/Why does the BCNF split on page 12/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
+    // Each still opens its page.
+    expect(screen.getByRole('link', { name: 'Normalization, page 12' })).toHaveAttribute('href', '/v4/space/s-dbs/lesson/l-s-dbs-4/faces?page=12');
   });
 });

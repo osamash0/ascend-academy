@@ -106,7 +106,7 @@ export default function MockupCovers() {
             const color = l ? lessonColor(l) : '#fff';
             return (
               <button key={q.id} type="button" className="flex max-w-md items-center gap-3 rounded-full border border-white/[0.1] bg-white/[0.05] py-2 pl-2 pr-4 text-left transition-colors hover:bg-white/[0.09]">
-                {q.asker ? <Avatar person={q.asker} size="md" /> : <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.2] text-[12px] text-white/50">?</span>}
+                {q.asker ? <Avatar person={{ id: q.id, name: q.asker.name, avatarUrl: null }} size="md" /> : <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.2] text-[12px] text-white/50">?</span>}
                 <span className="min-w-0">
                   <span className="block truncate text-[14px]">{q.text}</span>
                   <span className="block text-[11.5px]" style={{ color }}>

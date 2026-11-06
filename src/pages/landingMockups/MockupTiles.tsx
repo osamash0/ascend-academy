@@ -74,7 +74,7 @@ export default function MockupTiles() {
               {open.map((q) =>
                 q.asker ? (
                   <span key={q.id} className="rounded-full ring-2 ring-white">
-                    <Avatar person={q.asker} size="sm" />
+                    <Avatar person={{ id: q.id, name: q.asker.name, avatarUrl: null }} size="sm" />
                   </span>
                 ) : (
                   <span key={q.id} className="flex h-7 w-7 items-center justify-center rounded-full bg-black/10 text-[11px] ring-2 ring-white">

@@ -1,4 +1,3 @@
-import type { Person } from '../types';
 
 /**
  * How it's landing — the owner's view of a Space.
@@ -100,14 +99,19 @@ export interface LandingAnswer {
   at: string;
 }
 
+/** Who sent a question: the name they sent it with. Never an id, never a face (Plan 4, Decision 2). */
+export interface LandingAsker {
+  name: string;
+}
+
 /** A question someone chose to send to the people who run the Space. */
 export interface LandingQuestion {
   id: string;
   lessonId: string;
   page: number;
   text: string;
-  /** Null when sent without a name. The answer still finds its way back. */
-  asker: Person | null;
+  /** Null when sent without a name (or with none on the profile): "Someone". The answer still finds its way back. */
+  asker: LandingAsker | null;
   createdAt: string;
   answer?: LandingAnswer;
 }
