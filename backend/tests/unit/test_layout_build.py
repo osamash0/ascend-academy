@@ -224,3 +224,94 @@ def test_lost_marks_are_a_reason():
     blocks = blocks_for("Body", (0.05, 0.1, 0.3, 0.14))
     assert server_checks(p, blocks, [], [], [], [], marks=12) == ["12 marks lost"]
     assert server_checks(p, blocks, [], [], [], [], marks=0) == []
+
+
+# --- glyphs that cannot be trusted ------------------------------------------------------------------------
+def bullet_page(monkeypatch, lines, pua):
+    """A page whose extracted blocks carry "•" where page_blocks turned a private-use glyph into a bullet
+    (PyMuPDF's own fonts write no private-use codes, so the "·" they set stands in for it), with the page's
+    pua_map stubbed."""
+    from backend.services.parser.layout import build
+    from backend.services.parser.page_blocks import extract_blocks
+
+    def blocks(page, n):
+        pb = extract_blocks(page, n)
+        for b in pb["blocks"]:
+            b["text"] = b["text"].replace("·", "•")
+        return pb
+
+    monkeypatch.setattr(build, "extract_blocks", blocks)
+    monkeypatch.setattr(build, "pua_map", lambda page: pua)
+    d, p = text_page(lines, step=20)
+    return d, p
+
+
+def test_a_mid_line_bullet_on_a_page_with_symbol_font_characters_is_a_lost_symbol(monkeypatch):
+    d, p = bullet_page(monkeypatch, ("Let x · y hold for every pair",), {"": "≤"})
+    lp = build_page_layout(p, 1, set())
+    assert lp["verdict"] == "original"
+    assert "broken characters in 1 blocks" in lp["reasons"]
+
+
+def test_a_mixed_symbol_page_never_turns_its_bullets_into_arrows(monkeypatch):
+    d, p = bullet_page(monkeypatch, ("Let x · y hold for every pair",), {"": "→", "": "≤"})
+    lp = build_page_layout(p, 1, set())
+    assert "→" not in lp["blocks"][0]["text"]
+    assert lp["verdict"] == "original"
+
+
+def test_an_arrows_only_page_still_gets_its_arrows_back(monkeypatch):
+    d, p = bullet_page(monkeypatch, ("Let x · y hold for every pair",), {"": "→"})
+    lp = build_page_layout(p, 1, set())
+    assert lp["blocks"][0]["text"] == "Let x → y hold for every pair"
+    assert lp["verdict"] == "layout"
+
+
+def test_line_start_bullets_on_a_symbol_page_are_bullets(monkeypatch):
+    d, p = bullet_page(monkeypatch, ("· first point here", "· second point here"), {"": "≤"})
+    lp = build_page_layout(p, 1, set())
+    assert lp["verdict"] == "layout", lp["reasons"]
+
+
+def test_a_nul_or_a_replacement_character_is_a_broken_character():
+    d, p = text_page(("Hello world",))
+    for bad in ("Hello\x00 world", "Hello � world"):
+        assert server_checks(p, blocks_for(bad), [], [], [], []) == ["broken characters in 1 blocks"]
+
+
+def test_control_characters_never_reach_the_stored_page_and_the_page_is_held(monkeypatch):
+    from backend.services.parser.layout import build
+    from backend.services.parser.page_blocks import extract_blocks
+
+    def blocks(page, n):
+        pb = extract_blocks(page, n)
+        pb["blocks"][0]["text"] = "Hello\x00 world\x07"
+        return pb
+
+    monkeypatch.setattr(build, "extract_blocks", blocks)
+    d, p = text_page(("Hello world",))
+    lp = build_page_layout(p, 1, set())
+    assert lp["verdict"] == "original" and "broken characters in 1 blocks" in lp["reasons"]
+    ctl = set(map(chr, [*range(0, 9), 11, 12, *range(14, 32)]))
+    strings = lp["reasons"] + [s for b in lp["blocks"] for s in [b["text"]] + [c for r in b.get("rows", []) for c in r]]
+    assert not any(c in ctl for s in strings for c in s)
+    assert lp["blocks"][0]["text"] == "Hello world"
+
+
+def test_a_table_cell_is_scrubbed_of_control_characters(monkeypatch):
+    from backend.services.parser.layout import build
+
+    real = build.table_grids
+
+    def grids(page, m):
+        out = real(page, m)
+        out[0]["rows"][0][0] = "r0\x00c0"
+        return out
+
+    monkeypatch.setattr(build, "table_grids", grids)
+    from backend.tests.unit.test_layout_tables import grid_page
+    doc, page = grid_page()
+    lp = build_page_layout(page, 1, set())
+    table = next(b for b in lp["blocks"] if b["kind"] == "table")
+    assert table["rows"][0][0] == "r0c0" and "\x00" not in table["text"]
+    assert lp["verdict"] == "original"

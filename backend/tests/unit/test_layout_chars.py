@@ -100,3 +100,9 @@ def test_real_parentheses_are_left_alone():
     assert fix_paren_bullets("f(x) = 1") == "f(x) = 1"
     assert fix_paren_bullets("(a)\n) \nx )") == "(a)\n) \nx )"
     assert fix_paren_bullets(")x") == ")x"
+
+
+def test_dingbat_bullets_are_left_alone_when_the_page_also_maps_a_non_arrow_symbol():
+    # on a page with a Symbol-font "≤", a mid-line "•" may be that lost "≤": never guess an arrow for it
+    assert fix_dingbat_bullets("• A • B", {"": "→", "": "≤"}) == "• A • B"
+    assert fix_dingbat_bullets("• A • B", {"": "→", "": "⇒"}) == "• A → B"

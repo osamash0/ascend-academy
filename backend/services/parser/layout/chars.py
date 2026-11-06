@@ -68,8 +68,10 @@ def fix_chars(s, wing=False):
 
 
 def fix_dingbat_bullets(text: str, m: dict[str, str]) -> str:
-    """The rules extractor turns a dingbat arrow mid-line into a bullet: give the arrow back."""
-    if not m or "•" not in text[1:]:
+    """The rules extractor turns a dingbat arrow mid-line into a bullet: give the arrow back. Only on a page whose
+    private-use glyphs are all arrows: where one is a symbol ("≤", "α"), a mid-line "•" may be that symbol, and the
+    page is held instead (checks.server_checks)."""
+    if not m or "•" not in text[1:] or not set(m.values()) <= ARROWS:
         return text
     arrow = next(iter(set(m.values()) & ARROWS), None)
     return text[:1] + text[1:].replace(" • ", f" {arrow} ") if arrow else text

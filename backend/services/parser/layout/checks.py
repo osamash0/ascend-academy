@@ -4,6 +4,7 @@ Callers hold FITZ_LOCK (this module never takes it)."""
 import re
 import unicodedata
 
+from backend.services.parser.layout.chars import ARROWS
 from backend.services.parser.layout.geometry import area, centre_in, inter
 
 COVERAGE = 0.98          # share of the PDF's words that must be set in type, in a figure, dropped or furniture
@@ -15,7 +16,18 @@ FURNITURE_BOTTOM = 0.86  # words in the outer band outside every block are page 
 FURNITURE_TOP = 0.1
 
 _PUA = re.compile("[\ue000-\uf8ff]")
-_BROKEN = re.compile(r"[¨´ˆ˜]|(^|\s)§\s")
+# spacing accents, a section sign standing for a bullet, control characters (a NUL, a stray TeX code), and the
+# replacement character: what the text layer could not say
+_BROKEN = re.compile(r"[¨´ˆ˜\x00-\x08\x0b\x0c\x0e-\x1f\ufffd]|(^|\s)§\s")
+
+
+def _mid_line_bullet(text):
+    """A "•" that is not a line's own bullet: on a page with symbol-font glyphs, a symbol page_blocks lost."""
+    for ln in (text or "").split("\n"):
+        ln = ln.lstrip()
+        if "•" in (ln[1:] if ln.startswith("•") else ln):
+            return True
+    return False
 
 
 def norm_word(w):
@@ -31,11 +43,11 @@ def _words(page):
     return [([x0 / W, y0 / H, x1 / W, y1 / H], t) for x0, y0, x1, y1, t, *_ in page.get_text("words") if t.strip()]
 
 
-def server_checks(page, blocks, pics, diagrams, paths, dropped, marks=0):
+def server_checks(page, blocks, pics, diagrams, paths, dropped, marks=0, pua=None):
     """The reasons this page cannot be set as Layout: [] when it can.
     blocks: the page's final blocks; pics: picture boxes; diagrams: reink's diagrams; paths: reink's paths;
     dropped: boxes of furniture that was removed on purpose; marks: strokes.lost_marks (a plot's markers
-    that are not redrawn)."""
+    that are not redrawn); pua: the page's chars.pua_map."""
     texts = [b for b in blocks if b["kind"] != "figure"]
     figs = [b["bbox"] for b in blocks if b["kind"] == "figure"]
     if not texts:
@@ -80,7 +92,11 @@ def server_checks(page, blocks, pics, diagrams, paths, dropped, marks=0):
     lost_pics = sum(1 for pic in pics if area(pic) > 0
                     and sum(area(inter(pic, f)) for f in figs) / area(pic) < PICTURE_COVER)
     # 5. accents and bullets that reached the reader broken
-    broken = sum(1 for b in texts if _BROKEN.search(b.get("text") or ""))
+    #    and, on a page that sets symbols ("≤", "α") in a symbol font, a mid-line "•": page_blocks turned that
+    #    private-use glyph into a bullet before Layout saw it, and the symbol cannot be told back (never guessed)
+    symbols = any(v not in ARROWS for v in (pua or {}).values())
+    broken = sum(1 for b in texts if _BROKEN.search(b.get("text") or "")
+                 or (symbols and b["kind"] != "table" and _mid_line_bullet(b.get("text"))))
     # 6. crops: how much of the text is still symbol-font characters
     text_area = sum(area(b["bbox"]) for b in texts)
     crop_share = min(1, sum(area(b["bbox"]) for b in texts if _PUA.search(b.get("text") or "")) / text_area) if text_area else 0

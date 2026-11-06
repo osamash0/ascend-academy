@@ -1,6 +1,8 @@
 """One page in, one Layout page out: the PDF's own text and drawings, re-set as blocks, with the server checks
 that decide whether the page is offered as Layout or stays the original. No AI, no rendering of page images.
 The caller holds FITZ_LOCK for the page and computes repeated_places(doc) once per document."""
+import re
+
 from backend.services.parser.layout.chars import (dingbat_paren_arrow, fix_chars, fix_dingbat_bullets, fix_paren_bullets,
                                                   map_text, pua_map, wing_bullets)
 from backend.services.parser.layout.checks import server_checks
@@ -14,6 +16,21 @@ from backend.services.parser.page_blocks import extract_blocks
 LAYOUT_VERSION = 1
 KEEP = ("id", "kind", "bbox", "text", "rows", "colW", "linked", "picture", "diagram")
 TABLE_SHARE = 0.5        # a diagram region this much inside a table is that table
+# Control characters PostgreSQL's jsonb refuses (a NUL) or a reader must never see. Removed from everything stored,
+# after the checks have seen them (so the page is held: "broken characters").
+_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+def _scrub(s):
+    return _CONTROL.sub("", s) if isinstance(s, str) else s
+
+
+def _stored(b):
+    out = {k: b[k] for k in KEEP if k in b}
+    out["text"] = _scrub(out.get("text", ""))
+    if "rows" in out:
+        out["rows"] = [[_scrub(c) for c in r] for r in out["rows"]]
+    return out
 
 
 def _set(text, m, paren, wing):
@@ -50,7 +67,8 @@ def build_page_layout(page, n, repeated):
     texts = [(b["bbox"], len(b["text"]), b["kind"]) for b in blocks if b.get("text") and b["kind"] not in ("figure", "table")]
     paths, diagrams = reink(page, keep_out, texts)
     link_labels(blocks, paths)
-    reasons = server_checks(page, blocks, pics, diagrams, paths, dropped, marks=lost_marks(page, keep_out, texts, paths))
+    reasons = server_checks(page, blocks, pics, diagrams, paths, dropped, marks=lost_marks(page, keep_out, texts, paths),
+                            pua=m)
     blocks.sort(key=lambda b: b.get("readingOrder", 999))
-    return {"page": n, "verdict": "original" if reasons else "layout", "reasons": reasons,
-            "blocks": [{k: b[k] for k in KEEP if k in b} for b in blocks], "paths": paths, "version": LAYOUT_VERSION}
+    return {"page": n, "verdict": "original" if reasons else "layout", "reasons": [_scrub(r) for r in reasons],
+            "blocks": [_stored(b) for b in blocks], "paths": paths, "version": LAYOUT_VERSION}
