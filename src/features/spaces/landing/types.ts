@@ -137,7 +137,7 @@ export interface Landing {
   members: number;
   /** How far the members' reading has got (the owner excluded). Under the floor there are no figures and no map. */
   reach: Reach;
-  /** People a page needs before anything is said about it. */
+  /** People a page needs before anything is said about it. On the wire, but the door does not read it: the copy and the map say the number themselves. */
   floor: number;
   /** Readers this week; percent of pages landing; percent of checkpoints cleared first try. */
   figures: { reading: Figure; landing: Figure; cleared: Figure };

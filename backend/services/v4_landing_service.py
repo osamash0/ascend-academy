@@ -2,11 +2,11 @@
 
 Who may open it is decided first (`assert_space_owner`); then the Space's
 activity is read once, folded into facts, run through the insight engine,
-floored and translated into the `Landing` shape. Nothing in the payload
-names a member or quotes one (spec §0). Nor does it count them where a count would say
-who: a Lesson carries no reader count, and the Space says only how far its reading has got
-(`reach`). There is no person-level view of a Space
-at all (decided 2026-11-05). Cached per Space for five minutes.
+floored and translated into the `Landing` shape. Nothing in the payload names
+a member or quotes one (spec §0). Nor does it count them where a count would
+say who: a Lesson carries no reader count, and the Space says only how far its
+reading has got (`reach`). There is no person-level view of a Space at all
+(decided 2026-11-05). Cached per Space for five minutes.
 `accent` and each Lesson's `color` are left to the app (Plan 3 draws them from
 the Lesson's order until a sampled hue is stored at ingest); `questions` arrive
 with the questions channel (Plan 4).
@@ -57,7 +57,7 @@ THEMES_PAGES = 5
 
 def reach(readers: int) -> str:
     """How far the Space's reading has got, never how many: in a group of two, "1 read" is who.
-    `none` lets Luna say nobody has read yet instead of "a few" (Abi, 2026-11-06)."""
+    `none` lets Luna say nobody has read yet instead of "a few" (Plan 3 PR B, Decision 1)."""
     if readers == 0:
         return "none"
     return "few" if readers < MIN_READERS else "enough"

@@ -156,7 +156,7 @@ export function AnsweredFold(props: RowsProps) {
   );
 }
 
-/** One hairline row per question, in the order given: face, who and when, the page on the right, the question, then what follows. */
+/** One hairline row per question, in the order given: the initial, who and when, the page on the right, the question, then what follows. */
 function Rows({ questions, lessons, spaceId, children }: RowsProps & { children: (q: LandingQuestion) => ReactNode }) {
   const { t } = useTranslation('v4Landing');
   const reduce = useReducedMotion();
