@@ -42,8 +42,11 @@ export interface LandingLesson {
   title: string;
   order: number;
   pages: number;
-  /** Members who have read any of it. */
-  readers: number;
+  /**
+   * Lab only: the earlier directions A to D (`src/pages/landingMockups`) draw it.
+   * The wire never sends it (in a small group, "three read it" says who) and the door never reads it.
+   */
+  readers?: number;
   light: LessonLight;
   /** The Lesson's own colour. Live, the hue sampled from its first page; fixtures use the cover palette. */
   color: string;
