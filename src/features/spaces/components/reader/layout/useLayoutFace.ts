@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useReducer, useState } from 'react';
 import { FEATURES } from '@/lib/featureFlags';
 import type { LayoutPage, LayoutReady } from './types';
 
@@ -21,8 +21,6 @@ function writeOn(on: boolean): void {
   }
 }
 
-const NONE: ReadonlyMap<number, boolean> = new Map();
-
 export interface LayoutFace {
   /** The learner's switch, remembered. */
   on: boolean;
@@ -36,52 +34,60 @@ export interface LayoutFace {
   ready: LayoutReady | null;
   /**
    * The switch was turned on just now, on this page: the layer enters with the
-   * morph. A page turn ends it, so the next page shows re-set at once; a Lesson
-   * opened with the switch left on never enters either.
+   * morph. A page turn ends it, so the next page shows re-set at once; so does
+   * leaving the Page face or the Lesson. A Lesson opened with the switch left
+   * on never enters either.
    */
   entering: boolean;
   toggle(): void;
-  /** The browser checks' verdict for a page; the latest one counts. */
-  checked(page: number, pass: boolean): void;
+  /** The browser checks' verdict for a page's Layout (the object the layer was given); the latest one counts. */
+  checked(layout: LayoutReady, pass: boolean): void;
 }
 
 /**
  * The Layout switch on the Page face: whether it is on, and whether this page
  * has a Layout to switch to. A page held as `original`, or one failing the
  * browser checks, has none; the reader shows the original and says nothing.
+ *
+ * `face`: the Page face is the one showing. Leaving it ends an entrance.
  */
-export function useLayoutFace(layouts: ReadonlyMap<number, LayoutPage>, page: number): LayoutFace {
+export function useLayoutFace(layouts: ReadonlyMap<number, LayoutPage>, page: number, face = true): LayoutFace {
   const [on, setOn] = useState(readOn);
-  /* Failures belong to one Lesson's Layouts: a new map starts clean. */
-  const [failed, setFailed] = useState<{ of: ReadonlyMap<number, LayoutPage>; pages: ReadonlyMap<number, boolean> }>(
-    () => ({ of: layouts, pages: NONE }),
-  );
-  const pages = failed.of === layouts ? failed.pages : NONE;
+  /*
+   * The pages that failed in the browser, by their Layout object: the layer refits and re-checks
+   * exactly when the object it is given changes, so a verdict belongs to that object. Another
+   * Lesson (new objects) starts clean; the same object in a new map keeps its verdict.
+   */
+  const [failed] = useState(() => new WeakSet<LayoutReady>());
+  const [, recount] = useReducer((n: number) => n + 1, 0);
 
   const here = layouts.get(page);
   const ready = FEATURES.layoutFace && here?.verdict === 'layout' ? here : null;
-  const available = ready !== null && pages.get(page) !== true;
+  const available = ready !== null && !failed.has(ready);
 
-  /* The page the switch was turned on at. Any page turn ends the entrance, even back to that page. */
-  const [enterAt, setEnterAt] = useState<number | null>(null);
-  if (enterAt !== null && enterAt !== page) setEnterAt(null);
-  const entering = on && enterAt === page;
+  /*
+   * The Layout the switch was turned on at. A page turn ends the entrance (even back to that page),
+   * and so do leaving the Page face and another Lesson: the morph is for the switch, not a return.
+   */
+  const [enterAt, setEnterAt] = useState<LayoutReady | null>(null);
+  if (enterAt !== null && (enterAt !== ready || !face)) setEnterAt(null);
+  const entering = on && face && enterAt !== null && enterAt === ready;
 
   const toggle = useCallback(() => {
     const next = !on;
     setOn(next);
-    setEnterAt(next ? page : null);
+    setEnterAt(next ? ready : null);
     writeOn(next);
-  }, [on, page]);
+  }, [on, ready]);
 
   const checked = useCallback(
-    (p: number, pass: boolean) =>
-      setFailed((prev) => {
-        const base = prev.of === layouts ? prev.pages : NONE;
-        if (prev.of === layouts && (base.get(p) === true) === !pass) return prev;
-        return { of: layouts, pages: new Map(base).set(p, !pass) };
-      }),
-    [layouts],
+    (layout: LayoutReady, pass: boolean) => {
+      if (failed.has(layout) === !pass) return;
+      if (pass) failed.delete(layout);
+      else failed.add(layout);
+      recount();
+    },
+    [failed],
   );
 
   return { on, available, ready, entering, toggle, checked };

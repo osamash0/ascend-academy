@@ -41,18 +41,19 @@ describe('useLayoutFace: when the page can be shown re-set', () => {
   });
 
   it('is not available on a page that failed in the browser, and the latest check wins', () => {
-    const map = layouts(ready(2), ready(3));
+    const two = ready(2);
+    const map = layouts(two, ready(3));
     const { result, rerender } = renderHook(({ page }) => useLayoutFace(map, page), { initialProps: { page: 2 } });
-    act(() => result.current.checked(2, false));
+    act(() => result.current.checked(two, false));
     expect(result.current.available).toBe(false);
     /* Still mountable: a later check (fonts arriving) may pass it again. */
     expect(result.current.ready).toEqual(ready(2));
     rerender({ page: 3 });
     expect(result.current.available).toBe(true);
     rerender({ page: 2 });
-    act(() => result.current.checked(2, true));
+    act(() => result.current.checked(two, true));
     expect(result.current.available).toBe(true);
-    act(() => result.current.checked(2, false));
+    act(() => result.current.checked(two, false));
     expect(result.current.available).toBe(false);
   });
 
@@ -60,10 +61,27 @@ describe('useLayoutFace: when the page can be shown re-set', () => {
     const { result, rerender } = renderHook(({ map }) => useLayoutFace(map, 2), {
       initialProps: { map: layouts(ready(2)) },
     });
-    act(() => result.current.checked(2, false));
+    act(() => result.current.checked(result.current.ready!, false));
     expect(result.current.available).toBe(false);
     rerender({ map: layouts(ready(2)) });
     expect(result.current.available).toBe(true);
+  });
+
+  /*
+   * The layer refits and re-checks exactly when the Layout object it is given
+   * changes, so a failure belongs to that object: a new map holding the same
+   * object has not been re-checked and keeps it failed.
+   */
+  it('keeps a failure for the same Layout in a new map, which the layer would not re-check', () => {
+    const two = ready(2);
+    const { result, rerender } = renderHook(({ map }) => useLayoutFace(map, 2), {
+      initialProps: { map: layouts(two) },
+    });
+    act(() => result.current.checked(two, false));
+    expect(result.current.available).toBe(false);
+    rerender({ map: layouts(two) });
+    expect(result.current.available).toBe(false);
+    expect(result.current.ready).toBe(two);
   });
 });
 
@@ -83,6 +101,27 @@ describe('useLayoutFace: the morph is for switching on, not for turning pages', 
     rerender({ page: 2 });
     expect(result.current.entering).toBe(false);
     rerender({ page: 1 });
+    expect(result.current.entering).toBe(false);
+  });
+
+  it('does not enter again when the Page face is left and come back to', () => {
+    const map = layouts(ready(1));
+    const { result, rerender } = renderHook(({ face }) => useLayoutFace(map, 1, face), { initialProps: { face: true } });
+    act(() => result.current.toggle());
+    expect(result.current.entering).toBe(true);
+    rerender({ face: false });
+    expect(result.current.entering).toBe(false);
+    rerender({ face: true });
+    expect(result.current.entering).toBe(false);
+  });
+
+  it('does not enter in another Lesson, even on the same page number', () => {
+    const { result, rerender } = renderHook(({ map }) => useLayoutFace(map, 1), {
+      initialProps: { map: layouts(ready(1)) },
+    });
+    act(() => result.current.toggle());
+    expect(result.current.entering).toBe(true);
+    rerender({ map: layouts(ready(1)) });
     expect(result.current.entering).toBe(false);
   });
 

@@ -248,8 +248,8 @@ export default function LessonFacesScreen() {
    * Layout: the page re-set in the reader's type, a switch on the Page face of
    * a deck. It is there only where this page has a Layout that passed its checks.
    */
-  const layout = useLayoutFace(content.layouts, pdfPage);
   const onPageFace = view === 'slide' && shape === 'slides';
+  const layout = useLayoutFace(content.layouts, pdfPage, onPageFace);
   const canLayout = onPageFace && layout.available;
   const { toggle: toggleLayout } = layout;
 
@@ -1512,7 +1512,7 @@ export default function LessonFacesScreen() {
                     night={night}
                     shown={layout.available}
                     enter={layout.entering}
-                    onChecked={(pass) => layout.ready && layout.checked(layout.ready.page, pass)}
+                    onChecked={(pass) => layout.ready && layout.checked(layout.ready, pass)}
                   />
                 )}
                 {/* After the layer: the reader's marks stay on top. */}

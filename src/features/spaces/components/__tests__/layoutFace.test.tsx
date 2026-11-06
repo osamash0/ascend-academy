@@ -228,6 +228,18 @@ describe('the morph belongs to switching Layout on, not to turning pages', () =>
     expect(animated.length).toBe(entered);
   });
 
+  it('does not play again on coming back to the Page face', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('switch', { name: 'Layout' }));
+    const entered = animated.length;
+    expect(entered).toBeGreaterThan(0);
+    await key('2');
+    expect(layer()).toBeNull();
+    await key('1');
+    expect(layer()).not.toBeNull();
+    expect(animated.length).toBe(entered);
+  });
+
   it('does not play when the Lesson opens with Layout left on', async () => {
     window.localStorage.setItem(LAYOUT_FACE_KEY, '1');
     await open();
