@@ -9,7 +9,8 @@ from backend.services.parser.layout.checks import TOO_MANY_LINES, server_checks
 from backend.services.parser.layout.figures import (apply_pictures, apply_regions, content_pictures, diagram_regions,
                                                     drop_blank_figures, trim_figures)
 from backend.services.parser.layout.geometry import area, inter
-from backend.services.parser.layout.strokes import drop_furniture, link_labels, lost_marks, numbered_lines, reink
+from backend.services.parser.layout.strokes import (drop_furniture, footlines, link_labels, lost_marks, numbered_lines,
+                                                    reink)
 from backend.services.parser.layout.tables import apply_tables, table_grids
 from backend.services.parser.page_blocks import extract_blocks
 
@@ -46,7 +47,7 @@ def build_page_layout(page, n, repeated, running=frozenset()):
     as type, and a band line in no block is a missing word (never a silently lost line)."""
     pb = extract_blocks(page, n)
     blocks = pb["blocks"]
-    dropped = drop_furniture(blocks, pb["footers"], n, running)
+    dropped = drop_furniture(blocks, pb["footers"], n, running, footlines(page, n))
     m, wing, paren = pua_map(page), wing_bullets(page), dingbat_paren_arrow(page)
     for b in blocks:                                       # symbol-font characters, ligatures, accents, bullets
         b["text"] = _set(b.get("text", ""), m, paren, wing)

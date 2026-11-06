@@ -2,8 +2,8 @@
 algorithm line numbers, stray outline chips."""
 import fitz
 
-from backend.services.parser.layout.strokes import (drop_furniture, line_key, link_labels, lost_marks, numbered_lines, reink,
-                                                    running_lines)
+from backend.services.parser.layout.strokes import (drop_furniture, footlines, line_key, link_labels, lost_marks,
+                                                    numbered_lines, reink, running_lines)
 
 
 def page_800x600():
@@ -66,6 +66,33 @@ def test_a_footer_of_many_numbers_is_a_chart_axis_not_a_page_number():
     one = blk(2, "paragraph", [0.9, 0.95, 0.96, 0.98], "Running title\n3 / 25")
     blocks = [one]
     assert drop_furniture(blocks, ["p1-b2"], 1, {("bottom", line_key("Running title"))}) == [one["bbox"]]
+
+
+def test_a_band_row_ending_in_n_of_N_is_a_footline_and_a_fraction_out_of_range_is_not():
+    doc, page = page_800x600()
+    page.insert_text((20, 590), "Linear cryptanalysis", fontsize=8)          # beamer: title left, number right
+    page.insert_text((740, 590), "3 / 58", fontsize=8)
+    page.insert_text((20, 20), "Ratio 3 to 4", fontsize=8)                    # top band, no n / N at the end
+    page.insert_text((60, 300), "Body 1 / 2", fontsize=12)                    # n / N, but not in the band
+    rows = footlines(page, 3)
+    assert len(rows) == 1 and rows[0][1] > 0.95 and rows[0][0] < 0.04 and rows[0][2] > 0.94   # one row, both ends
+    for bad in ("Step 5 / 3", "Slide 0 / 4"):                                  # n > N, n < 1
+        d, pg = page_800x600()
+        pg.insert_text((20, 590), bad, fontsize=8)
+        assert footlines(pg, 5) == []
+    d, pg = page_800x600()
+    pg.insert_text((20, 590), "Intro 1 / 1", fontsize=8)
+    assert footlines(pg, 1) and not footlines(pg, 2)                           # N must reach 2 or the page's number
+
+
+def test_a_block_on_a_footline_row_is_dropped_and_the_row_returned():
+    body = blk(0, "paragraph", [0.1, 0.2, 0.9, 0.4], "Body text")
+    title = blk(1, "paragraph", [0.02, 0.97, 0.3, 0.99], "Linear cryptanalysis")
+    num = blk(2, "paragraph", [0.92, 0.97, 0.98, 0.99], "3 / 58")
+    blocks = [body, title, num]
+    row = [0.025, 0.972, 0.975, 0.988]
+    dropped = drop_furniture(blocks, [], 3, footlines=[row])
+    assert blocks == [body] and row in dropped and title["bbox"] in dropped and num["bbox"] in dropped
 
 
 def three_pages(footer="Institute of things", extra=None):

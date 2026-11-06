@@ -207,6 +207,30 @@ def test_a_content_line_near_the_bottom_that_page_blocks_calls_a_footer_stays_an
     assert any(b["text"] == "Which keys are minimal" for b in lp["blocks"])
 
 
+def test_a_beamer_footline_ending_in_n_of_N_is_dropped_and_the_page_passes():
+    for parts in ((("Linear cryptanalysis 3 / 58", 40),), (("Linear cryptanalysis", 40), ("3 / 58", 720))):
+        d = fitz.open()
+        p = d.new_page(width=800, height=450)
+        p.insert_text((40, 60), "Body text of the page", fontsize=20)
+        p.insert_text((40, 120), "More body text for the median size", fontsize=20)
+        for text, x in parts:
+            p.insert_text((x, 440), text, fontsize=10)
+        lp = build_page_layout(p, 3, set(), set())
+        assert lp["verdict"] == "layout", lp["reasons"]
+        assert not any("cryptanalysis" in b["text"] or "58" in b["text"] for b in lp["blocks"])
+
+
+def test_a_band_content_line_without_n_of_N_stays():
+    d = fitz.open()
+    p = d.new_page(width=800, height=450)
+    p.insert_text((40, 60), "Body text of the page", fontsize=20)
+    p.insert_text((40, 120), "More body text for the median size", fontsize=20)
+    p.insert_text((40, 440), "Ratio 3 to 4", fontsize=10)
+    lp = build_page_layout(p, 3, set(), set())
+    assert lp["verdict"] == "layout", lp["reasons"]
+    assert any(b["text"] == "Ratio 3 to 4" for b in lp["blocks"])
+
+
 def test_a_running_footer_on_three_built_pages_is_dropped_and_each_page_is_layout():
     d = fitz.open()
     for n in range(1, 4):

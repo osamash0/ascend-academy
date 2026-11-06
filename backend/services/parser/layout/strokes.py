@@ -6,6 +6,7 @@ import unicodedata
 from backend.services.parser.layout.geometry import area, inter, near, union, white
 
 PAGE_NUMBER = re.compile(r"^(slide|folie|seite|page|s\.)?\s*\d+(\s*(/|of|von)\s*\d+)?$", re.IGNORECASE)
+FOOTLINE = re.compile(r"(\d+)\s*/\s*(\d+)\s*$")   # a band row ending in "n / N": a beamer footline
 LINE_NUMBER = re.compile(r"^\s*(\d{1,3})[:.)]?\s")
 OUTER_BAND = 0.86          # furniture: the bottom band starts here (y0 above it) ...
 TOP_BAND = 0.1             # ... and the top band ends here (y1 below it); used by drop_furniture and the chip rule
@@ -23,6 +24,8 @@ DETAIL_HOST = 0.01         # a speck on a redrawn drawing smaller than this (are
 DETAIL_PAD = 0.005         # ... "on" meaning inside its box padded by this much
 RUNNING_PAGES = 3          # a band line on this many pages (and on 30% of them) is a running header or footer
 RUNNING_SHARE = 0.3        # (the same bar as figures.repeated_places)
+ROW_OVERLAP = 0.5          # band lines sharing this much of the smaller one's height are one row
+ROW_PAD = 0.01             # a block this close to a footline row (vertically) lies on it
 
 
 def _in_band(y0, y1):
@@ -67,6 +70,37 @@ def running_lines(doc):
     return {k for k, c in seen.items() if c >= max(RUNNING_PAGES, RUNNING_SHARE * doc.page_count)}
 
 
+def footlines(page, page_no=None):
+    """Rows of the outer band whose text, read left to right, ends in "n / N" with 1 <= n <= N and N >= 2 (or
+    N >= the page's number): a beamer footline ("<section title> ... 3 / 58"). The whole row is furniture: a
+    learner never sees a page number on a Layout page. Returns the rows' boxes."""
+    rows = []
+    for box, text in sorted(page_lines(page).values(), key=lambda bt: bt[0][1]):
+        side = band(box)
+        if not side:
+            continue
+        for r in rows:
+            ov = min(r["box"][3], box[3]) - max(r["box"][1], box[1])
+            if r["band"] == side and ov >= ROW_OVERLAP * min(r["box"][3] - r["box"][1], box[3] - box[1]):
+                r["lines"].append((box, text))
+                r["box"] = union([r["box"], box])
+                break
+        else:
+            rows.append({"band": side, "box": list(box), "lines": [(box, text)]})
+    out = []
+    for r in rows:
+        m = FOOTLINE.search(" ".join(t for _, t in sorted(r["lines"], key=lambda bt: bt[0][0])))
+        if m:
+            n, total = int(m.group(1)), int(m.group(2))
+            if 1 <= n <= total and (total >= 2 or (page_no and total >= page_no)):
+                out.append([round(v, 4) for v in r["box"]])
+    return out
+
+
+def _on_row(bb, row):
+    return bb[1] >= row[1] - ROW_PAD and bb[3] <= row[3] + ROW_PAD and bb[0] < row[2] and bb[2] > row[0]
+
+
 def furniture(box, text, running=frozenset()):
     """Text that is page furniture: in the outer band, and each of its lines a page number or a running line
     (at most one page number: a row of numbers is a chart's axis). Anything else near the page's edge is content
@@ -78,21 +112,22 @@ def furniture(box, text, running=frozenset()):
             and all(PAGE_NUMBER.match(ln) or (side, line_key(ln)) in running for ln in lines))
 
 
-def drop_furniture(blocks, footers, page_no, running=frozenset()):
-    """Remove footers (ids from page_blocks.extract_blocks) that are furniture, and bare page numbers in the outer
-    band. page_blocks calls any small line low on the page a footer; only one whose lines run across the document
-    (running_lines) or are page numbers goes. Returns the dropped boxes, for the word check. page_no is the page's
-    number (1-based), for the caller's log."""
+def drop_furniture(blocks, footers, page_no, running=frozenset(), footlines=()):
+    """Remove footers (ids from page_blocks.extract_blocks) that are furniture, bare page numbers in the outer
+    band, and every block on a footline row (footlines(page)). page_blocks calls any small line low on the page a
+    footer; only one whose lines run across the document (running_lines) or are page numbers goes. Returns the
+    dropped boxes and the footline rows, for the word check. page_no is the page's number (1-based)."""
     foot = set(footers or [])
     kept, dropped = [], []
     for b in blocks:
         bb, text = b["bbox"], (b.get("text") or "").strip()
-        if (b["id"] in foot and furniture(bb, text, running)) or (PAGE_NUMBER.match(text) and _in_band(bb[1], bb[3])):
+        if ((b["id"] in foot and furniture(bb, text, running)) or (PAGE_NUMBER.match(text) and _in_band(bb[1], bb[3]))
+                or any(_on_row(bb, row) for row in footlines)):
             dropped.append(bb)
         else:
             kept.append(b)
     blocks[:] = kept
-    return dropped
+    return dropped + [list(row) for row in footlines]
 
 
 def numbered_lines(text):
