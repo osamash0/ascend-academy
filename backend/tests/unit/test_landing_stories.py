@@ -152,12 +152,27 @@ def test_four_people_reading_closely_get_lunas_floor_line_and_nothing_else(door)
     four = range(4)
     data = space([lesson(NORM, 4)], reads(four, NORM, [1, 2, 3, 4]) + hotspot(four, NORM, 3, askers=4, foggy=4))
     body = door.look(data)
-    assert (body["readers"], body["floor"]) == (4, 5)
+    assert (body["reach"], body["floor"]) == ("few", 5)
+    assert "readers" not in body  # in a group of two, a count is who (Abi, 2026-11-06)
     assert body["insights"] == [] and body["themes"] == [] and door.prompts == []
     assert [lesson["light"] for lesson in body["lessons"]] == ["few"]
     assert all("help" not in lesson for lesson in body["lessons"])
     assert body["figures"]["landing"] == {"value": None, "history": []}
     assert body["figures"]["cleared"] == {"value": None, "history": []}
+
+
+def test_a_space_nobody_has_read_yet_says_so_without_a_count(door):
+    """A Space with a Lesson and no reading at all: reach is none, so Luna can say nobody yet, never 'a few'."""
+    body = door.look(space([lesson(NORM, 4)], []))
+    assert body["reach"] == "none" and "readers" not in body
+    assert body["insights"] == [] and [x["light"] for x in body["lessons"]] == ["few"]
+
+
+def test_one_person_reading_is_a_few_not_one(door):
+    """One member reads one page: the owner is told 'few', never 'one'."""
+    body = door.look(space([lesson(NORM, 4)], reads([0], NORM, [1])))
+    assert body["reach"] == "few"
+    assert '"readers"' not in json.dumps(body)
 
 
 def test_a_lesson_three_people_read_says_nothing_while_its_neighbour_speaks(door):
