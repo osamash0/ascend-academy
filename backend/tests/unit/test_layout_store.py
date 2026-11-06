@@ -64,6 +64,22 @@ def test_a_page_that_raises_is_stored_as_original_and_the_others_still_get_writt
     assert any(p["blocks"] for i, p in enumerate(pages) if i != 2)
 
 
+def test_a_page_whose_title_cannot_be_read_still_lets_every_page_be_built(monkeypatch, pdf_bytes, page_count):
+    from backend.services.parser.layout import furniture
+
+    real = furniture.extract_blocks
+
+    def flaky(page, n):
+        if n == 3:
+            raise RuntimeError("boom")
+        return real(page, n)
+
+    monkeypatch.setattr(furniture, "extract_blocks", flaky)
+    pages = asyncio.run(store.compute_layouts(pdf_bytes))
+    assert [p["page"] for p in pages] == list(range(1, page_count + 1))
+    assert not any(p["reasons"] == ["layout failed"] for p in pages)
+
+
 def test_compute_layouts_builds_the_pages_without_writing(monkeypatch, pdf_bytes, page_count):
     async def no_db(*a):
         raise AssertionError("compute_layouts must not write")

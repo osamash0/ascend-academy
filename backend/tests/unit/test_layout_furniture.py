@@ -170,6 +170,42 @@ def test_a_larger_content_line_sharing_the_footline_row_stays_and_its_words_are_
     assert "Which keys are minimal" in texts(lp) and not any("58" in t for t in texts(lp))
 
 
+def test_n_of_N_out_of_range_is_no_footline():
+    for bad in ("Step 5 / 3", "Slide 0 / 4"):                                 # n > N, n < 1
+        doc = fitz.open()
+        for _ in range(3):
+            _, p = page_800x600(doc)
+            body(p, "Steps")
+            p.insert_text((20, 590), bad, fontsize=8)
+        assert footline_totals(doc) == set()
+        assert footlines(doc[0], {3, 4}) == []
+
+
+def test_three_quiz_scores_on_one_page_are_content_not_a_footline():
+    # three rows, three different n, one total: but on one page, so no running count
+    doc, p = page_800x600()
+    body(p, "Quiz results")
+    for i, line in enumerate(("Quiz one 7/10", "Quiz two 8/10", "Quiz three 9/10")):
+        p.insert_text((20, 540 + 22 * i), line, fontsize=10)
+    totals = footline_totals(doc)
+    assert totals == set()
+    lp = build_page_layout(p, 1, set(), running_lines(doc), totals)
+    assert lp["verdict"] == "layout", lp["reasons"]
+    joined = " ".join(texts(lp))
+    assert all(q in joined for q in ("Quiz one 7/10", "Quiz two 8/10", "Quiz three 9/10"))
+
+
+def test_a_page_with_two_rows_of_one_total_does_not_count_for_it():
+    doc = footline_deck()                                                     # pages 1-3: n = 1, 2, 3 of 58
+    assert footline_totals(doc) == {58}
+    doc = footline_deck(pages=2)
+    _, p = page_800x600(doc)                                                  # page 3 has two "/ 58" rows
+    body(p, "Frame 3")
+    p.insert_text((20, 560), "Linear cryptanalysis 3 / 58", fontsize=8)
+    p.insert_text((20, 590), "Linear cryptanalysis 4 / 58", fontsize=8)
+    assert footline_totals(doc) == set()
+
+
 def test_a_fraction_near_the_edge_is_content():
     for line in ("The probability of heads is 1/2", "Score 7/10"):
         doc, p = page_800x600()

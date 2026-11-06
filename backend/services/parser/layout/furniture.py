@@ -2,6 +2,7 @@
 content unless it is furniture: a page that would lose it is held, never set without it.
 What needs the whole document (running_lines, footline_totals) is computed once per document by the caller and
 passed on. Callers hold FITZ_LOCK (this module never takes it)."""
+import logging
 import re
 import unicodedata
 
@@ -9,6 +10,8 @@ from backend.services.parser.layout.geometry import centre_in, union
 from backend.services.parser.layout.strokes import OUTER_BAND, TOP_BAND, _in_band
 from backend.services.parser.page_blocks import extract_blocks
 from backend.services.pdf_reader import page_text_dict
+
+logger = logging.getLogger(__name__)
 
 PAGE_NUMBER = re.compile(r"^(slide|folie|seite|page|s\.)?\s*\d+(\s*(/|of|von)\s*\d+)?$", re.IGNORECASE)
 FOOTLINE = re.compile(r"(\d+)\s*/\s*(\d+)\s*$")   # a band row ending in "n / N": a beamer footline
@@ -47,8 +50,14 @@ def page_lines(page):
 
 
 def page_title(page, n):
-    """The page's title, as a line_key: its top-most heading outside the band, else its first text block."""
-    texts = [b for b in extract_blocks(page, n)["blocks"] if b["kind"] != "figure" and b.get("text")]
+    """The page's title, as a line_key: its top-most heading outside the band, else its first text block.
+    "" when the page cannot be read: one page never costs the document its layouts."""
+    try:
+        blocks = extract_blocks(page, n)["blocks"]
+    except Exception as exc:
+        logger.warning("layout: no title for page %d (counted as untitled): %s", n, exc)
+        return ""
+    texts = [b for b in blocks if b["kind"] != "figure" and b.get("text")]
     body = [b for b in texts if not band(b["bbox"])] or texts
     heads = [b for b in body if b["kind"] == "heading"]
     first = (min(heads, key=lambda b: b["bbox"][1]) if heads
@@ -113,16 +122,21 @@ def _ending(row):
 
 
 def footline_totals(doc):
-    """The totals N of the document's footlines: an "n / N" ending band rows with at least FOOTLINE_NS different n.
-    A fraction near the edge ("Score 7/10") is not a running count. Computed on every call; the caller computes it
-    once per document and passes it on."""
-    ns = {}
+    """The totals N of the document's footlines: an "n / N" ending a band row on at least FOOTLINE_NS pages, with
+    a different n on each. One n per page per N: a page with several rows ending in "/ N" (three quiz scores out
+    of 10) does not count for that N. A fraction near the edge ("Score 7/10") is not a running count. Computed on
+    every call; the caller computes it once per document and passes it on."""
+    ns = {}                                            # N -> {page index: n, or None when the page has several}
     for i in range(doc.page_count):
+        seen = {}
         for r in _band_rows(doc[i]):
             e = _ending(r)
             if e:
-                ns.setdefault(e[1], set()).add(e[0])
-    return {total for total, seen in ns.items() if len(seen) >= FOOTLINE_NS}
+                seen[e[1]] = None if e[1] in seen else e[0]
+        for total, n in seen.items():
+            ns.setdefault(total, {})[i] = n
+    return {total for total, pages in ns.items()
+            if len({n for n in pages.values() if n is not None}) >= FOOTLINE_NS}
 
 
 def footlines(page, totals=frozenset()):
