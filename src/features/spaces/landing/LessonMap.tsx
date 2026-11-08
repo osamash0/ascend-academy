@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { whitePillSm } from '../components/stage';
 import { formatList } from '../i18n/format';
 import { cardCopy } from './copy';
-import { RING, cellColor } from './light';
+import { RING, cellColor, hasOutline } from './light';
 import { GridPicture, ThemesPicture } from './Picture';
 import { ShowMore } from './ShowMore';
 import type { LandingInsight, LandingLesson, Themes } from './types';
@@ -23,8 +23,9 @@ import type { LandingInsight, LandingLesson, Themes } from './types';
  * twice: the map is the findings.
  *
  * Only Lessons enough people have been through are drawn, so a dark strip
- * always means landing, never "nobody looked". The rest are named once,
- * below the map. A Lesson's reader count is not shown: the figures above
+ * always means landing, never "nobody looked". Inside a drawn Lesson, a page
+ * too few people have reached is a faint outline: dark is always landing, an
+ * outline is not yet anything. The rest are named once, below the map. A Lesson's reader count is not shown: the figures above
  * already say how many read, and a drop between Lessons is a finding.
  *
  * A big Space folds only what needs nothing. A Lesson with a lit page is
@@ -67,7 +68,8 @@ export function LessonMap({
   const pageHref = (lessonId: string, page: number) => `/v4/space/${spaceId}/lesson/${lessonId}/faces?page=${page}`;
   const drawn = lessons.filter((l) => l.light !== 'few');
   const few = lessons.filter((l) => l.light === 'few');
-  const quiet = (l: LandingLesson) => !insights.some((i) => i.lessonId === l.id && (i.page || i.first));
+  // Quiet: nothing to point at, and every page reached. An outlined page is not landing, so it never folds as one.
+  const quiet = (l: LandingLesson) => !insights.some((i) => i.lessonId === l.id && (i.page || i.first)) && !hasOutline(l);
 
   // Quiet Lessons in a row: short runs stay drawn, long ones fold where they sit.
   const segments: Segment[] = [];
@@ -110,11 +112,19 @@ export function LessonMap({
               {Array.from({ length: l.pages }, (_, i) => {
                 const page = i + 1;
                 const f = lit.get(page) ?? null;
-                const color = cellColor(l.color, l.help?.[i] ?? 0, f?.attention ?? null);
+                const help = l.help?.[i];
+                // Fewer than the floor have reached it: an outline, never a colour, never a way in.
+                const outlined = help === null && !f;
+                const color = cellColor(l.color, help === undefined ? 0 : help, f?.attention ?? null);
                 const labelled = f && (f.page === page || f.first === page);
                 const cell = (
                   <motion.span
-                    className={cn('block w-full rounded-[3px]', f ? 'h-9' : 'h-6', !color && 'bg-white/[0.06]')}
+                    data-cell={outlined ? 'outline' : f ? 'lit' : 'page'}
+                    className={cn(
+                      'block w-full rounded-[3px]',
+                      f ? 'h-9' : 'h-6',
+                      outlined ? 'border border-white/25' : !color && 'bg-white/[0.06]',
+                    )}
                     style={color ?? undefined}
                     initial={reduce ? false : { opacity: 0, scaleY: 0.4 }}
                     animate={{ opacity: 1, scaleY: 1 }}

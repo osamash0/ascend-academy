@@ -8,6 +8,7 @@ import type { Note, Person } from '../types';
 import type { PracticeQuestion } from '../mocks/practice';
 import type { Upload, World } from './world';
 import type { AskAnswer } from './assistant';
+import type { Landing, LandingLesson, LandingQuestion } from '../landing/types';
 
 /** An upload as the early reader sees it (GET /v4/uploads/:run/reading). */
 export interface EarlyReading {
@@ -192,6 +193,17 @@ export interface LessonBatchRow {
   title: string | null;
 }
 
+/**
+ * What `GET /v4/spaces/{id}/landing` sends: `Landing` without the colours the
+ * app draws, a Lesson without a reader count, and the Questions channel's two
+ * lists (Plan 4: waiting, answered) optional until it ships.
+ */
+export type WireLanding = Omit<Landing, 'accent' | 'lessons' | 'questions'> & {
+  lessons: Omit<LandingLesson, 'color' | 'readers'>[];
+  questions?: LandingQuestion[];
+  answered?: LandingQuestion[];
+};
+
 /** A checkpoint answer, as the reader grades it (components/rehearsal/grade.ts `Answer`). */
 export type CheckpointAnswer =
   | { kind: 'choice'; index: number }
@@ -332,6 +344,8 @@ export function createLiveRepository(http: V4Transport) {
     courseLinks: (courseId: string) =>
       http.get<{ links: ReaderLink[]; cached: boolean; complete: boolean }>(`${root}/reader/courses/${idPath(courseId)}/links`),
     rehearsalHistory: (courseId: string) => http.get<RehearsalHistory>(`${root}/reader/courses/${idPath(courseId)}/rehearsals`),
+    /* The owner's view of their Space (How it's landing). 403 for a member, 404 for anyone else. */
+    landing: (spaceId: string) => http.get<WireLanding>(`${root}/spaces/${idPath(spaceId)}/landing`),
     askPage: (id: string, page: number, question: string, thread: { question: string; title: string }[], session?: string | null) =>
       http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/ask`, {
         question,

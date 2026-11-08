@@ -1,5 +1,6 @@
 import type { Attention, Landing, LandingInsight, LandingLesson, LandingQuestion, Themes } from '../landing/types';
 import { stageAccentFor } from '../components/stage';
+import type { Person } from '../types';
 import { lindqvist, okonkwo, weber, ferreira, keller, viewer } from './people';
 
 /**
@@ -9,8 +10,9 @@ import { lindqvist, okonkwo, weber, ferreira, keller, viewer } from './people';
  *
  *   • Database Systems: 184 members, 131 reading, ten Lessons — the Space a
  *     professor runs. Seven findings across six Lessons, three questions
- *     waiting, one already answered for everyone, and four Lessons that are
- *     too new to say anything about. The numbers are shaped to look like a
+ *     waiting, one already answered for everyone, one Lesson people are only
+ *     starting (its later pages are outlines), and three Lessons too new to
+ *     say anything about. The numbers are shaped to look like a
  *     real term (one hot page, one trap, one wall), not to look tidy.
  *
  *   • Linear Algebra, together: six friends, four of them reading — the Space
@@ -29,18 +31,23 @@ import { lindqvist, okonkwo, weber, ferreira, keller, viewer } from './people';
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
 
+/** A question carries the name it was sent with, nothing else (Plan 4's contract). */
+const named = (p: Person) => ({ name: p.name });
+
 /** How far a finding raises the help index of its page. */
 const RAISE: Record<Attention, number> = { act: 1, watch: 0.62, calm: 0.4 };
 
 /**
  * One help value per page: a calm floor, each finding's page raised by its
  * attention, and the pages either side carrying a little of it, because
- * trouble is rarely one page wide.
+ * trouble is rarely one page wide. Past `reached`, fewer than five people
+ * have been through a page: null, as the engine sends it.
  */
-function helpFor(pages: number, findings: LandingInsight[]): number[] {
-  const values = Array.from({ length: pages }, (_, i) => 0.06 + ((i * 7) % 5) * 0.012);
+function helpFor(pages: number, findings: LandingInsight[], reached = pages): (number | null)[] {
+  const values: (number | null)[] = Array.from({ length: pages }, (_, i) => (i < reached ? 0.06 + ((i * 7) % 5) * 0.012 : null));
   const raise = (i: number, v: number) => {
-    if (i >= 0 && i < pages) values[i] = Math.max(values[i], v);
+    if (i < 0 || i >= reached) return;
+    values[i] = Math.max(values[i] as number, v);
   };
   for (const f of findings) {
     if (!f.page) continue;
@@ -52,19 +59,33 @@ function helpFor(pages: number, findings: LandingInsight[]): number[] {
   return values;
 }
 
-type LessonSeed = Omit<LandingLesson, 'color' | 'help'>;
+type LessonSeed = Omit<LandingLesson, 'color' | 'help'> & {
+  /** Pages at least five people have been through; the rest are outlines. All of them when absent. */
+  reached?: number;
+};
 
 /** Colour from the cover palette; help from the findings, unless under the floor. */
 const lessonsFrom = (seeds: LessonSeed[], insights: LandingInsight[]): LandingLesson[] =>
-  seeds.map((l) => ({
+  seeds.map(({ reached, ...l }) => ({
     ...l,
     color: stageAccentFor(l.order),
-    help: l.light === 'few' ? undefined : helpFor(l.pages, insights.filter((i) => i.lessonId === l.id)),
+    help: l.light === 'few' ? undefined : helpFor(l.pages, insights.filter((i) => i.lessonId === l.id), reached),
   }));
 
 /* ── Database Systems ─────────────────────────────────────────────── */
 
+/* The first insight is the one the engine would pick: a trap leads its band. The door reads [0]. The rest are not in the engine's order. */
 const DBS_INSIGHTS: LandingInsight[] = [
+  {
+    id: 'i-dbs-trap-9',
+    kind: 'calibration_gap',
+    attention: 'act',
+    severity: 0.79,
+    lessonId: 'l-s-dbs-5',
+    page: 9,
+    metrics: { pct: 61 },
+    grid: { clickedCleared: 21, clickedMissed: 33, foggyCleared: 6, foggyMissed: 9 },
+  },
   {
     id: 'i-dbs-hotspot-12',
     kind: 'confusion_hotspot',
@@ -74,16 +95,6 @@ const DBS_INSIGHTS: LandingInsight[] = [
     page: 12,
     metrics: { askers: 41, foggy: 46, explain: 29, ask: 18, sent: 3 },
     themes: true,
-  },
-  {
-    id: 'i-dbs-trap-9',
-    kind: 'silent_misleader',
-    attention: 'act',
-    severity: 0.79,
-    lessonId: 'l-s-dbs-5',
-    page: 9,
-    metrics: { clicked: 78, missed: 61, pairs: 69 },
-    grid: { clickedCleared: 21, clickedMissed: 33, foggyCleared: 6, foggyMissed: 9 },
   },
   {
     id: 'i-dbs-wall-18',
@@ -127,7 +138,7 @@ const DBS_INSIGHTS: LandingInsight[] = [
     attention: 'calm',
     severity: 0.12,
     lessonId: 'l-s-dbs-2',
-    metrics: { firstTry: 91, foggy: 6 },
+    metrics: {},
   },
 ];
 
@@ -139,7 +150,8 @@ const DBS_LESSONS = lessonsFrom(
     { id: 'l-s-dbs-4', title: 'Normalization', order: 4, pages: 12, readers: 118, light: 'act' },
     { id: 'l-s-dbs-5', title: 'Relational Algebra', order: 5, pages: 20, readers: 96, light: 'act' },
     { id: 'l-s-dbs-6', title: 'SQL', order: 6, pages: 28, readers: 84, light: 'watch' },
-    { id: 'l-s-dbs-7', title: 'Integrity', order: 7, pages: 16, readers: 3, light: 'few' },
+    // Nine people have started it; past page 6 fewer than five have been through a page.
+    { id: 'l-s-dbs-7', title: 'Integrity', order: 7, pages: 16, readers: 9, light: 'calm', reached: 6 },
     { id: 'l-s-dbs-8', title: 'Transactions', order: 8, pages: 26, readers: 0, light: 'few' },
     { id: 'l-s-dbs-9', title: 'Query Processing', order: 9, pages: 30, readers: 0, light: 'few' },
     { id: 'l-s-dbs-10', title: 'Index Structures', order: 10, pages: 24, readers: 0, light: 'few' },
@@ -166,7 +178,7 @@ const DBS_QUESTIONS: LandingQuestion[] = [
     lessonId: 'l-s-dbs-4',
     page: 12,
     text: 'Why does the BCNF split on page 12 lose the dependency — isn’t 3NF supposed to keep it? Or is losing it the point?',
-    asker: lindqvist,
+    asker: named(lindqvist),
     createdAt: hoursAgo(2),
   },
   {
@@ -182,7 +194,7 @@ const DBS_QUESTIONS: LandingQuestion[] = [
     lessonId: 'l-s-dbs-6',
     page: 22,
     text: 'The practice question on page 22 asks about HAVING, but the page only shows WHERE. Am I missing a page?',
-    asker: okonkwo,
+    asker: named(okonkwo),
     createdAt: hoursAgo(70),
   },
   {
@@ -190,7 +202,7 @@ const DBS_QUESTIONS: LandingQuestion[] = [
     lessonId: 'l-s-dbs-2',
     page: 4,
     text: 'Does cardinality mean the number of rows?',
-    asker: weber,
+    asker: named(weber),
     createdAt: hoursAgo(120),
     answer: {
       text: 'No — it says how many of one thing can relate to another: one customer, many orders. The number of rows is a different question, and it changes every day.',
@@ -205,7 +217,7 @@ export const dbsLanding: Landing = {
   spaceName: 'Database Systems',
   accent: '#06b6d4',
   members: 184,
-  readers: 131,
+  reach: 'enough',
   floor: 5,
   figures: {
     reading: { value: 131, history: [62, 88, 97, 104, 112, 109, 124, 131] },
@@ -225,12 +237,12 @@ export const friendsLanding: Landing = {
   spaceName: 'Linear Algebra, together',
   accent: '#84cc16',
   members: 6,
-  readers: 4,
+  reach: 'few',
   floor: 5,
   figures: {
-    reading: { value: 4, history: [0, 1, 2, 2, 3, 3, 4, 4] },
-    landing: { value: 0, history: [] },
-    cleared: { value: 0, history: [] },
+    reading: { value: null, history: [null, null, null, null, null, null, null, null] },
+    landing: { value: null, history: [] },
+    cleared: { value: null, history: [] },
   },
   lessons: lessonsFrom(
     [
@@ -247,7 +259,7 @@ export const friendsLanding: Landing = {
       lessonId: 'l-s-friends-3',
       page: 6,
       text: 'Is the determinant trick on page 6 only for 2×2, or does it work for 3×3 too?',
-      asker: ferreira,
+      asker: named(ferreira),
       createdAt: hoursAgo(5),
     },
   ],
@@ -265,9 +277,10 @@ const BIG_TITLES = [
 ];
 
 /** Lessons with a finding: 2, 9 (four of them), 12 (the 120-page one) and 20. 21 to 28 are too new to say. */
+/* The first insight is the one the engine would pick: a trap leads its band. The door reads [0]. The rest are not in the engine's order. */
 const BIG_INSIGHTS: LandingInsight[] = [
+  { id: 'i-big-9-trap', kind: 'calibration_gap', attention: 'act', severity: 0.74, lessonId: 'l-s-big-9', page: 21, metrics: { pct: 55 }, grid: { clickedCleared: 19, clickedMissed: 23, foggyCleared: 7, foggyMissed: 9 } },
   { id: 'i-big-9-hot', kind: 'confusion_hotspot', attention: 'act', severity: 0.88, lessonId: 'l-s-big-9', page: 14, metrics: { askers: 37, foggy: 52, explain: 24, ask: 19, sent: 2 } },
-  { id: 'i-big-9-trap', kind: 'silent_misleader', attention: 'act', severity: 0.74, lessonId: 'l-s-big-9', page: 21, metrics: { clicked: 71, missed: 55, pairs: 58 }, grid: { clickedCleared: 19, clickedMissed: 23, foggyCleared: 7, foggyMissed: 9 } },
   { id: 'i-big-9-bump', kind: 'speed_bump', attention: 'watch', severity: 0.51, lessonId: 'l-s-big-9', page: 6, metrics: { backs: 19, median: 66, lessonMedian: 35 } },
   { id: 'i-big-9-skip', kind: 'skipped_slide', attention: 'calm', severity: 0.36, lessonId: 'l-s-big-9', page: 24, metrics: { seconds: 4, views: 88, short: 70 } },
   { id: 'i-big-12-wall', kind: 'leaky_bucket', attention: 'watch', severity: 0.6, lessonId: 'l-s-big-12', page: 83, metrics: { pct: 27, before: 71, after: 52 } },
@@ -309,7 +322,7 @@ const BIG_ASKED: [number, number, string][] = [
   [19, 4, 'Is premature optimisation always bad?'],
   [25, 2, 'Is technical debt always a bad thing?'],
 ];
-const BIG_ASKERS = [lindqvist, null, okonkwo, weber, ferreira, keller];
+const BIG_ASKERS = [lindqvist, null, okonkwo, weber, ferreira, keller].map((p) => (p ? named(p) : null));
 
 const BIG_QUESTIONS: LandingQuestion[] = BIG_ASKED.map(([order, page, text], i) => ({
   id: `q-big-${i + 1}`,
@@ -327,7 +340,7 @@ export const bigLanding: Landing = {
   spaceName: 'Software Engineering',
   accent: '#f59e0b',
   members: 212,
-  readers: 154,
+  reach: 'enough',
   floor: 5,
   figures: {
     reading: { value: 154, history: [80, 96, 110, 121, 133, 140, 149, 154] },

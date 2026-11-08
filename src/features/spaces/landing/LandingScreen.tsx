@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Scene, SURFACES } from '../components/Scene';
 import { SpacesTopBar } from '../components/SpacesTopBar';
-import { NotFound } from '../components/states';
+import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { Masthead, Skylight, StageRow, backLink, whitePill } from '../components/stage';
 import { useViewer } from '../data/viewer';
 import { useLanding } from '../data/landing';
 import { ledeKey } from './copy';
 import { Figures } from './Figures';
+import { hasOutline } from './light';
 import { LessonMap } from './LessonMap';
 import { LunaBubble } from './LunaBubble';
 import { AnsweredFold, QuestionsRow } from './QuestionsRow';
@@ -30,24 +31,34 @@ import type { LandingLesson } from './types';
  * person the owner didn't hear from: everything but the questions is an
  * aggregate over at least `floor` people, with the owner's own reading left
  * out. Under the floor it says so once, and shows no figures and no light.
+ * Live, it waits on the stage's skeleton and fails with a way to try again;
+ * a door that is not yours is simply not there.
  */
 export default function LandingScreen({ spaceId }: { spaceId: string }) {
   const viewer = useViewer();
   const { t } = useTranslation('v4Landing');
-  const { state, landing, answer } = useLanding(spaceId);
+  const { state, landing, answer, retry } = useLanding(spaceId);
 
   if (state !== 'ready' || !landing) {
     return (
       <Scene surface={SURFACES.course} status="progress" motionKey={`landing-${spaceId}`}>
         <SpacesTopBar active="spaces" viewer={viewer} />
-        <NotFound what="space" back={{ to: '/v4/spaces', place: 'spaces' }} />
+        {state === 'loading' ? (
+          <DetailSkeleton />
+        ) : state === 'error' ? (
+          <SpacesError what="space" onRetry={retry} />
+        ) : (
+          <NotFound what="space" back={{ to: '/v4/spaces', place: 'spaces' }} />
+        )}
       </Scene>
     );
   }
 
   const lessons = new Map<string, LandingLesson>(landing.lessons.map((l) => [l.id, l]));
-  const lede = ledeKey(landing.insights, landing.readers, landing.floor);
-  const loudest = lede === 'floor' ? undefined : landing.insights[0];
+  const lede = ledeKey(landing.insights, landing.reach);
+  // Under the floor Luna says so, once; no figures and no map say it again.
+  const under = lede === 'floor' || lede === 'none';
+  const loudest = under ? undefined : landing.insights[0];
   const loudestLesson = loudest ? lessons.get(loudest.lessonId) : undefined;
   const accent = loudestLesson?.color ?? landing.accent;
   const waiting = landing.questions.filter((q) => !q.answer);
@@ -58,10 +69,13 @@ export default function LandingScreen({ spaceId }: { spaceId: string }) {
   const asking = landing.insights.filter((i) => i.attention === 'act' && (i.page || i.first)).length;
 
   const ledeText = !onePage
-    ? t(`door.lede.${lede}`, { count: landing.readers })
+    ? t(`door.lede.${lede}`)
     : asking > 1
       ? t('door.lede.actPages', { count: asking, lesson: loudestLesson.title })
       : t('door.lede.actPage', { lesson: loudestLesson.title });
+
+  // The map explains an outline only when it draws one.
+  const outlined = landing.lessons.some((l) => l.light !== 'few' && hasOutline(l));
 
   return (
     <Scene surface={SURFACES.course} status="progress" motionKey={`landing-${spaceId}`} accent={accent}>
@@ -86,7 +100,7 @@ export default function LandingScreen({ spaceId }: { spaceId: string }) {
             )}
           </div>
 
-          {lede !== 'floor' && (
+          {!under && (
             <div className="mt-14">
               <Figures landing={landing} accent={accent} />
             </div>
@@ -99,8 +113,8 @@ export default function LandingScreen({ spaceId }: { spaceId: string }) {
           )}
 
           {/* Under the floor Luna has said so; a map of dark Lessons would only say it again. */}
-          {lede !== 'floor' && (
-            <StageRow id="landing-lessons" title={t('lessons.title')} lede={t('lessons.mapLede')}>
+          {!under && (
+            <StageRow id="landing-lessons" title={t('lessons.title')} lede={t(outlined ? 'lessons.mapLedeOutlined' : 'lessons.mapLede')}>
               <LessonMap spaceId={spaceId} lessons={landing.lessons} insights={landing.insights} themes={landing.themes} />
             </StageRow>
           )}

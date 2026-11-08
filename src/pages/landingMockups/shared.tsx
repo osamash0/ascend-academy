@@ -58,8 +58,6 @@ export function bigNumber(i: LandingInsight): { value: string; word: string } {
       return { value: `${m.pct}%`, word: 'first try' };
     case 'skipped_slide':
       return { value: `${m.seconds} s`, word: 'on the page' };
-    case 'healthy':
-      return { value: `${m.firstTry}%`, word: 'first try' };
     default:
       return { value: '', word: '' };
   }

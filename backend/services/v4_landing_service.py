@@ -2,9 +2,11 @@
 
 Who may open it is decided first (`assert_space_owner`); then the Space's
 activity is read once, folded into facts, run through the insight engine,
-floored and translated into the `Landing` shape. Nothing in the payload
-names a member or quotes one (spec §0). There is no person-level view of a Space
-at all (decided 2026-11-05). Cached per Space for five minutes.
+floored and translated into the `Landing` shape. Nothing in the payload names
+a member or quotes one (spec §0). Nor does it count them where a count would
+say who: a Lesson carries no reader count, and the Space says only how far its
+reading has got (`reach`). There is no person-level view of a Space at all
+(decided 2026-11-05). Cached per Space for five minutes.
 `accent` and each Lesson's `color` are left to the app (Plan 3 draws them from
 the Lesson's order until a sampled hue is stored at ingest); `questions` arrive
 with the questions channel (Plan 4).
@@ -45,10 +47,20 @@ async def space_row(space_id: UUID, user_id: str) -> Optional[dict[str, Any]]:
     return dict(row) if row else None
 
 
-LANDING_VERSION = "landing-v1"
+#: Moves whenever the payload's shape does, so a cached older shape is never served.
+#: v2 (2026-11-06): a page under the floor is null in `help`, never 0; `reach` replaces `readers`.
+LANDING_VERSION = "landing-v2"
 LANDING_TTL = 300
 #: Themes are made for at most this many pages per Space at a time, the most-asked first.
 THEMES_PAGES = 5
+
+
+def reach(readers: int) -> str:
+    """How far the Space's reading has got, never how many: in a group of two, "1 read" is who.
+    `none` lets Luna say nobody has read yet instead of "a few" (Plan 3 PR B, Decision 1)."""
+    if readers == 0:
+        return "none"
+    return "few" if readers < MIN_READERS else "enough"
 
 
 async def get_landing(space_id: UUID, user_id: str, lang: str) -> dict[str, Any]:
@@ -112,7 +124,7 @@ async def landing_from(data: SpaceData, lang: str) -> dict[str, Any]:
         "spaceId": data.space_id,
         "spaceName": data.name,
         "members": len(data.members),
-        "readers": readers,
+        "reach": reach(readers),
         "floor": MIN_READERS,
         "figures": figures(data, MIN_READERS),
         "lessons": lessons,

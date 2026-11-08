@@ -7,8 +7,8 @@
       "act": "One page is asking for you. The rest is landing.",
       "watch": "Nothing urgent. A few pages are worth a look.",
       "calm": "It's landing. Nothing needs you today.",
-      "floor_one": "{{count}} person has been reading. Patterns show once five people have been through a page.",
-      "floor_other": "{{count}} people have been reading. Patterns show once five people have been through a page.",
+      "floor": "A few people have been reading. Patterns show once five people have been through a page.",
+      "none": "Nobody has been reading yet. Patterns show once five people have been through a page.",
       "actPage": "{{lesson}} has one page asking for you. The rest is landing.",
       "actPages_one": "{{count}} page is asking for you. Start with {{lesson}}.",
       "actPages_other": "{{count}} pages are asking for you. Start with {{lesson}}."
@@ -56,6 +56,7 @@
     "readers_other": "{{count}} readers",
     "open": "Open {{lesson}}",
     "mapLede": "Each cell is a page. The brighter it is, the more people needed help there; a labelled one opens that page.",
+    "mapLedeOutlined": "Each cell is a page. The brighter it is, the more people needed help there; a labelled one opens that page. Too few people have reached an outlined one yet.",
     "cell": "Page {{page}} of {{lesson}}",
     "few": "{{lessons}}: too few readers yet.",
     "quietRun_one": "{{count}} Lesson landing",
@@ -70,7 +71,10 @@
     "confusion_hotspot": {
       "headline": "A page where many ask for help",
       "summary": "On page {{page}}, {{askers}} people opened Explain or asked, and {{foggy}}% said it was still foggy.",
-      "why": "Help-seeking this concentrated usually means a step is missing on the page itself, not in the people reading it."
+      "why": "Help-seeking this concentrated usually means a step is missing on the page itself, not in the people reading it.",
+      "headlineFoggy": "A page that runs foggy",
+      "summaryFoggy": "On page {{page}}, {{foggy}}% said it was still foggy.",
+      "whyFoggy": "A page that stays foggy for this many usually lacks a step on the page itself, not in the people reading it."
     },
     "silent_misleader": {
       "headline": "A page that hides a trap",
@@ -89,8 +93,8 @@
     },
     "overpacked": {
       "headline": "A page that asks too much at once",
-      "summary": "Page {{page}} holds people {{ratio}}× longer than the other pages, and many ask for help there.",
-      "why": "Long, uneven time plus help-seeking is the shape of two ideas on one page."
+      "summary": "Page {{page}} holds people {{ratio}}× longer than the other pages, and at least three in ten who rated it said it was still foggy.",
+      "why": "Long time on a page that stays foggy, with help sought or time that varies widely, is the shape of two ideas on one page."
     },
     "leaky_bucket": {
       "headline": "A Lesson that feels heavy",
@@ -99,12 +103,12 @@
     },
     "confusion_block": {
       "headline": "A stretch where the thread got lost",
-      "summary": "Pages {{first}} to {{last}} ran foggy for most who read them.",
+      "summary": "Pages {{first}} to {{last}} ran foggy for at least one in four of the people who said how those pages read.",
       "why": "One missing link early in a stretch makes every page after it harder."
     },
     "quiz_misalignment": {
       "headline": "A question that tests something else",
-      "summary": "Page {{page}} read easily, yet only {{pct}}% passed its practice first try.",
+      "summary": "Page {{page}} read easily, yet only {{pct}}% got its questions right first try.",
       "why": "When the page is clear and the question is missed, the question is asking about something the page doesn't teach."
     },
     "calibration_gap": {
@@ -114,7 +118,7 @@
     },
     "healthy": {
       "headline": "{{lesson}} is landing well",
-      "summary": "Few asked for help, and most cleared its checkpoints first try.",
+      "summary": "A page here asked something of people, and most then got its questions right first try.",
       "why": "Nothing to change. Worth knowing which Lesson to point at when you build the next one."
     }
   },

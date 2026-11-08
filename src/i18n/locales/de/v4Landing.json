@@ -7,8 +7,8 @@
       "act": "Eine Seite braucht dich. Der Rest kommt an.",
       "watch": "Nichts Dringendes. Ein paar Seiten lohnen einen Blick.",
       "calm": "Es kommt an. Heute braucht dich nichts.",
-      "floor_one": "{{count}} Person hat gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.",
-      "floor_other": "{{count}} Leute haben gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.",
+      "floor": "Ein paar Leute haben gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.",
+      "none": "Noch hat niemand gelesen. Muster zeigen sich, sobald fünf Leute durch eine Seite sind.",
       "actPage": "In {{lesson}} braucht dich eine Seite. Der Rest kommt an.",
       "actPages_one": "{{count}} Seite braucht dich. Fang mit {{lesson}} an.",
       "actPages_other": "{{count}} Seiten brauchen dich. Fang mit {{lesson}} an."
@@ -56,6 +56,7 @@
     "readers_other": "{{count}} Lesende",
     "open": "{{lesson}} öffnen",
     "mapLede": "Jede Zelle ist eine Seite. Je heller, desto mehr Leute brauchten dort Hilfe; eine beschriftete öffnet die Seite.",
+    "mapLedeOutlined": "Jede Zelle ist eine Seite. Je heller, desto mehr Leute brauchten dort Hilfe; eine beschriftete öffnet die Seite. Eine umrandete Seite haben noch zu wenige Leute erreicht.",
     "cell": "Seite {{page}} von {{lesson}}",
     "few": "{{lessons}}: noch zu wenige Lesende.",
     "quietRun_one": "{{count}} Lektion kommt an",
@@ -70,7 +71,10 @@
     "confusion_hotspot": {
       "headline": "Eine Seite, auf der viele Hilfe suchen",
       "summary": "Auf Seite {{page}} haben {{askers}} Leute Erklären geöffnet oder gefragt, und {{foggy}}% fanden es noch nebelig.",
-      "why": "So gebündelte Hilfesuche heißt meist: Auf der Seite fehlt ein Schritt, nicht bei den Leuten, die sie lesen."
+      "why": "So gebündelte Hilfesuche heißt meist: Auf der Seite fehlt ein Schritt, nicht bei den Leuten, die sie lesen.",
+      "headlineFoggy": "Eine Seite, die nebelig bleibt",
+      "summaryFoggy": "Auf Seite {{page}} fanden {{foggy}}% es noch nebelig.",
+      "whyFoggy": "Eine Seite, die für so viele nebelig bleibt, braucht meist einen Schritt auf der Seite selbst, nicht bei den Leuten, die sie lesen."
     },
     "silent_misleader": {
       "headline": "Eine Seite mit einer Falle",
@@ -89,8 +93,8 @@
     },
     "overpacked": {
       "headline": "Eine Seite, die zu viel auf einmal will",
-      "summary": "Seite {{page}} hält Leute {{ratio}}× länger als die anderen Seiten, und viele suchen dort Hilfe.",
-      "why": "Lange, ungleiche Zeit plus Hilfesuche ist die Form von zwei Ideen auf einer Seite."
+      "summary": "Seite {{page}} hält Leute {{ratio}}× länger als die anderen Seiten, und mindestens drei von zehn, die sie bewertet haben, fanden sie noch nebelig.",
+      "why": "Viel Zeit auf einer Seite, die nebelig bleibt, dazu Hilfesuche oder stark schwankende Zeit, ist die Form von zwei Ideen auf einer Seite."
     },
     "leaky_bucket": {
       "headline": "Eine Lektion, die schwer wird",
@@ -99,12 +103,12 @@
     },
     "confusion_block": {
       "headline": "Ein Abschnitt, in dem der Faden riss",
-      "summary": "Die Seiten {{first}} bis {{last}} waren für die meisten nebelig.",
+      "summary": "Von denen, die gesagt haben, wie sich die Seiten {{first}} bis {{last}} lesen, fand mindestens jede vierte sie nebelig.",
       "why": "Ein fehlendes Glied früh im Abschnitt macht jede Seite danach schwerer."
     },
     "quiz_misalignment": {
       "headline": "Eine Frage, die etwas anderes prüft",
-      "summary": "Seite {{page}} las sich leicht, doch nur {{pct}}% haben ihre Übung beim ersten Versuch geschafft.",
+      "summary": "Seite {{page}} las sich leicht, doch nur {{pct}}% haben ihre Fragen beim ersten Versuch richtig beantwortet.",
       "why": "Wenn die Seite klar ist und die Frage daneben geht, fragt die Frage nach etwas, das die Seite nicht lehrt."
     },
     "calibration_gap": {
@@ -114,7 +118,7 @@
     },
     "healthy": {
       "headline": "{{lesson}} kommt gut an",
-      "summary": "Wenige suchten Hilfe, und die meisten haben die Checkpoints beim ersten Versuch geschafft.",
+      "summary": "Eine Seite hier hat den Leuten etwas abverlangt, und die meisten haben ihre Fragen danach beim ersten Versuch richtig beantwortet.",
       "why": "Nichts zu ändern. Gut zu wissen, welche Lektion du als Vorbild nimmst, wenn du die nächste baust."
     }
   },

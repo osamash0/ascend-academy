@@ -128,7 +128,8 @@ def test_only_the_owner_opens_it_a_member_is_told_a_stranger_learns_nothing(clie
 
 def test_the_owner_sees_the_space_in_aggregate_and_never_a_question(client):
     body = client.get(f"/api/v1/v4/spaces/{SPACE}/landing?lang=en").json()
-    assert (body["spaceName"], body["members"], body["readers"], body["floor"]) == ("Database Systems", 12, 10, 5)
+    assert (body["spaceName"], body["members"], body["reach"], body["floor"]) == ("Database Systems", 12, "enough", 5)
+    assert "readers" not in body
     assert body["questions"] == []
     normalization, joins = body["lessons"]
     assert (normalization["order"], len(normalization["help"])) == (1, 4)
@@ -146,11 +147,28 @@ def test_the_owner_sees_the_space_in_aggregate_and_never_a_question(client):
 def test_under_the_spaces_floor_it_says_so_with_no_findings_and_no_light(monkeypatch):
     few = tuple(e for e in _events() if e.user_id in {"m0", "m1", "m2", "m3"})
     body = asyncio.run(service.landing_from(_data(few), "en"))
-    assert body["readers"] == 4 and body["insights"] == [] and body["themes"] == []
+    assert body["reach"] == "few" and body["insights"] == [] and body["themes"] == []
     assert {l["light"] for l in body["lessons"]} == {"few"}
     assert all("help" not in l for l in body["lessons"])
     assert body["figures"]["landing"] == {"value": None, "history": []}
     assert body["figures"]["cleared"] == {"value": None, "history": []}
+
+
+def test_the_cache_key_moves_with_the_wire_shape(monkeypatch):
+    """A payload cached before this shape (help 0 under the floor) is never served after it."""
+    seen = {}
+
+    async def row(space_id, uid):
+        return {"id": space_id, "title": "Database Systems", "professor_id": uuid.UUID(OWNER), "is_member": False}
+
+    async def cached(key, view, compute, **kw):
+        seen.update(kw["params"])
+        return {}
+
+    monkeypatch.setattr(service, "space_row", row)
+    monkeypatch.setattr(service.analytics_cache, "get_or_compute_async", cached)
+    asyncio.run(service.get_landing(SPACE, OWNER, "en"))
+    assert seen == {"lang": "en", "v": "landing-v2"}
 
 
 def test_a_finding_beyond_the_lessons_last_page_is_dropped_but_not_when_its_pages_are_unknown():
