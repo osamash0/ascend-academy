@@ -149,6 +149,11 @@ class Settings(BaseSettings):
     # new calls, rows or uploads.
     feature_studio_pages: bool = Field(alias="FEATURE_STUDIO_PAGES", default=False)
 
+    # Layout face (docs/superpowers/specs/2026-11-06-layout-face-design.md): each page
+    # re-set as blocks with a verdict, in lecture_layouts. No AI calls, no uploads.
+    # Off = no new work or rows. Depends on migration 20261106120000_lecture_layouts.sql.
+    feature_layout_face: bool = Field(alias="FEATURE_LAYOUT_FACE", default=False)
+
     # ─── Study guide (Roadmap Phase 4.4) ────────────────────────────────────────
     # Off by default — gates GET /courses/{id}/study-guide. Depends on migration
     # 20260711020000_study_guides.sql. Set FEATURE_STUDY_GUIDE=1 to enable.

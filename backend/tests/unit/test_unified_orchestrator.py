@@ -598,6 +598,69 @@ async def test_studio_pages_failure_fails_the_run(monkeypatch):
     assert any(t == "error" for t, _ in events)
 
 
+def _patch_layouts(monkeypatch, *, fail=False):
+    from backend.services.parser.layout import store
+
+    calls = []
+
+    async def build(lecture_id, pdf_bytes):
+        calls.append(lecture_id)
+        if fail:
+            raise RuntimeError("layout broke")
+        return 3
+
+    monkeypatch.setattr(store, "build_layouts", build)
+    return calls
+
+
+async def test_layouts_not_built_with_flag_off(monkeypatch):
+    from backend.core.config import settings
+
+    _patch_common(monkeypatch)
+    monkeypatch.setattr(settings, "feature_layout_face", False)
+    calls = _patch_layouts(monkeypatch)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+    assert calls == []
+    assert events[-1][0] == "complete"
+
+
+async def test_layouts_built_for_the_lecture_when_flag_on(monkeypatch):
+    from backend.core.config import settings
+
+    rec, run = _patch_common(monkeypatch)
+    monkeypatch.setattr(settings, "feature_layout_face", True)
+    calls = _patch_layouts(monkeypatch)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+    assert calls == [rec["lectures"][0][2]]
+    assert events[-1][0] == "complete"
+
+
+async def test_a_layout_failure_never_fails_the_parse(monkeypatch):
+    from backend.core.config import settings
+
+    rec, run = _patch_common(monkeypatch)
+    monkeypatch.setattr(settings, "feature_layout_face", True)
+    calls = _patch_layouts(monkeypatch, fail=True)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+    assert len(calls) == 1
+    assert events[-1][0] == "complete"
+    assert RunStatus.COMPLETED in rec["status"] and not rec["errors"]
+
+
+async def test_run_layout_pass_holds_the_flag_and_the_failure(monkeypatch):
+    from backend.core.config import settings
+
+    calls = _patch_layouts(monkeypatch, fail=True)
+    monkeypatch.setattr(settings, "feature_layout_face", False)
+    await uo._run_layout_pass("lid", b"%PDF")
+    assert calls == []
+    monkeypatch.setattr(settings, "feature_layout_face", True)
+    await uo._run_layout_pass(None, b"%PDF")
+    assert calls == []
+    await uo._run_layout_pass("lid", b"%PDF")          # raises inside: logged, never raised
+    assert calls == ["lid"]
+
+
 async def test_parse_pdf_unified_survives_skeleton_failure(monkeypatch):
     """The deck skeleton is an optimisation input: failing to build it must
     never abort a parse (callees build their own or fall back)."""
