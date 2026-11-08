@@ -88,6 +88,7 @@
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.184.0",
     "use-sound": "^5.0.0",
+    "use-stick-to-bottom": "^1.1.6",
     "zod": "^4.6.7"
   },
   "devDependencies": {

@@ -65,6 +65,9 @@ const ALLOWED = [
   /^motion\/react$/,
   /^lucide-react$/,
   /^sonner$/,
+  // Home's Luna thread follows new words and lets go when you scroll up. Pure
+  // scroll maths on a ref, no data, no network (MIT).
+  /^use-stick-to-bottom$/,
   // Studio's one Markdown renderer (spec 3.4). Pure rendering, sanitises by default, no network.
   /^streamdown$/,
   /^vitest$/,
