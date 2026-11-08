@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { timing } from './Planes';
-import { findRange } from './findText';
+import { findOnPage } from './findText';
 
 /**
  * A light on the page: the words an answer is talking about, found on the
  * slide itself and ringed, with the rest of the page dimmed around them.
  *
  * Drawn inside the page (`PdfPager`'s overlay), so it is in the page's own
- * coordinates and slides with it. It finds its words in the page's text
- * layer — trying for a moment, since the layer paints after the canvas —
- * and, moving from one part to the next, glides rather than jumps. Words
- * the page does not carry (a scanned slide, an authored phrase) light
- * nothing, which is the honest outcome.
+ * coordinates and slides with it. It finds its words where the learner sees
+ * them: in the Layout layer when it is shown, else in the page's text layer —
+ * trying for a moment, since the layer paints after the canvas — and, moving
+ * from one part to the next, glides rather than jumps. Words the page does
+ * not carry (a scanned slide, an authored phrase) light nothing, which is
+ * the honest outcome.
  */
 
 interface Box {
@@ -37,7 +38,7 @@ export function Spotlight({ words }: { words: string | null }) {
     let frame = 0;
     const find = () => {
       const slot = ref.current?.parentElement;
-      const range = slot ? findRange(slot, words) : null;
+      const range = slot ? findOnPage(slot, words) : null;
       if (!slot || !range) {
         if (++tries < 120) frame = requestAnimationFrame(find);
         return;

@@ -8,6 +8,7 @@ import type { Note, Person } from '../types';
 import type { PracticeQuestion } from '../mocks/practice';
 import type { Upload, World } from './world';
 import type { AskAnswer } from './assistant';
+import type { LayoutPage } from '../components/reader/layout/types';
 
 /** An upload as the early reader sees it (GET /v4/uploads/:run/reading). */
 export interface EarlyReading {
@@ -164,6 +165,8 @@ export interface ReaderLecture {
   };
   concepts: ReaderConcept[];
   pdf_signed_url: string | null;
+  /** Per-page Layout (the slide re-set block by block). Only present with the flag on and rows to serve. */
+  layouts?: LayoutPage[];
 }
 
 export interface V4Transport {

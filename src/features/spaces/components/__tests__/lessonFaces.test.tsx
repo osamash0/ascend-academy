@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent, act, within, cleanup } from '@testi
 import { BrowserRouter, MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, type RefObject } from 'react';
 import LessonFacesScreen from '../../screens/LessonFacesScreen';
+import { spotOf, type Overlay } from './spotOf';
 import { __dropCurtain, curtainUp, holdCurtain } from '../reader/curtain';
 
 /*
@@ -28,7 +29,7 @@ vi.mock('../../data/reading', async (original) => ({
 }));
 vi.mock('@/components/pdf', () => ({
   PdfPage: ({ page }: { page: number }) => <div data-testid="sheet" data-page={page} />,
-  PdfPager: ({ rootRef, page, overlay, onAspect, onLoad, onFirstRender }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: { props?: { words?: string | null } }; onAspect?: (a: number) => void; onLoad?: (n: number) => void; onFirstRender?: (c: HTMLCanvasElement | null) => void }) => {
+  PdfPager: ({ rootRef, page, overlay, onAspect, onLoad, onFirstRender }: { rootRef: RefObject<HTMLDivElement>; page: number; overlay?: Overlay; onAspect?: (a: number) => void; onLoad?: (n: number) => void; onFirstRender?: (c: HTMLCanvasElement | null) => void }) => {
     jumps.push(page);
     useEffect(() => {
       onAspect?.(mockAspect);
@@ -41,7 +42,7 @@ vi.mock('@/components/pdf', () => ({
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
     /* The words the Spotlight would light, recorded rather than drawn. */
     return (
-      <div ref={rootRef} data-testid="document" data-spot={overlay?.props?.words ?? ''}>
+      <div ref={rootRef} data-testid="document" data-spot={spotOf(overlay)}>
         Page {page}
       </div>
     );
