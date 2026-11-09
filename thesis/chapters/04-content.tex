@@ -113,41 +113,23 @@ author's reconstruction and is marked as such.
   \end{tabular}
 \end{table}
 
-Three of these steps carry the design lessons that the rest of the chapter
-builds on.
-
-\paragraph{From a browser that writes to a server that writes (v1 to v5).}
-In the first generations the browser drove the parse and wrote the result.
-The v5 rebuild of June made persistence server-authoritative: a queued job
-extracts, generates and writes every page, and the browser only reads. The
-commit that introduced v5 names this as the first of the two things v4 could
-not do; the second was reading a page as an image, and on the deck that had
-exposed v4's blindness the new orchestrator routed 88 of 143 pages to vision.
-The same rebuild merged what the dead ends had taught: the routing idea of
-v2, the run table of v3, and the prompts of v4.
-
-\paragraph{Why v3 never shipped, and why Docling left.}
-The staged v3 pipeline brought heavyweight layout analysis (Docling), seven
-resumable stages and a model gateway. Its default setting was never switched
-on: the configuration default stayed at version~2 until 28 June and was then
-set to version~5 ``to match the live deployment''. No quality reason for
-abandoning Docling is recorded. The author's reconstruction is that v3 was
-never the default and v5 reused v2's PyMuPDF~\cite{pymupdf} engine, so Docling
-had no caller; it never entered the production image (its import is marked
-``parser v3/v4 only'') and was dropped from the development requirements in
-October after eight security advisories. The benchmark in
-\cref{sec:parser-bench} later rated Docling~\cite{auer2024docling} at 1128
-points, with a confidence interval that does not clear the current
-extraction: a heavy layout engine did not pay for itself on this material.
-
-\paragraph{Blind to figures (v4 to the pin).}
-On 17 June a measurement on one PowerPoint deck showed the v4 orchestrator
-sending 142 of its 143 pages to the text model, diagrams included. The reason
-was a character threshold: a page went to vision only when its raw text was
-under 25 characters. That rule survived into v5 and, duplicated in four places
-with three different measures, into October. The study in
-\cref{sec:c4-routing-study} measured what it did, and the one routing rule of
-6 November replaced it.
+Three of these steps carry the design lessons the chapter builds on. The v5
+rebuild of June made persistence server-authoritative: the browser had driven
+the parse and written the result, and the commit that introduced v5 names
+server-side writing as the first of the two things v4 could not do, the
+second being reading a page as an image (on the deck that had exposed v4's
+blindness, v5 routed 88 of 143 pages to vision). The staged v3 pipeline, with
+Docling~\cite{auer2024docling} and a model gateway, never became the default:
+the configuration default stayed at version~2 until 28 June and then jumped to
+version~5 ``to match the live deployment''. No quality reason for dropping
+Docling is recorded; the author's reconstruction is that v5 reused v2's
+PyMuPDF~\cite{pymupdf} engine, so Docling had no caller, never entered the
+production image, and left the requirements in October after eight security
+advisories. The benchmark in \cref{sec:parser-bench} later rated it at 1128
+points, with an interval that does not clear the current extraction. And the
+25-character vision threshold, which sent 142 of 143 pages of one deck to the
+text model in June, survived into v5 in four places with three measures until
+the one routing rule of 6 November replaced it (\cref{sec:c4-routing-study}).
 
 The provider layer moved as often as the pipeline: a local model (February),
 Gemini (March), Groq, then Cerebras at the head of a free-tier failover chain
@@ -176,38 +158,22 @@ used by an earlier generation, is no longer installed.
 \subsection{Synchronous Admission Control}
 \label{sec:admission}
 
-Everything that can reject an upload cheaply happens in the API, before a job is
-queued. On the main upload route, the order is:
-\begin{enumerate}
-  \item authentication, then a rate limit of five uploads per minute, keyed by a
-    hash of the user's token;
-  \item ownership of the target course, if one is given (403 otherwise);
-  \item a size-capped read (413 above 50\,MB);
-  \item validation: file type, size, the \code{\%PDF-} signature, and a page
-    count of at most 300 (400 otherwise);
-  \item a SHA-256 hash of the file, which becomes its identity for the rest of
-    the pipeline;
-  \item for students uploading privately, an atomic claim on a monthly quota;
-  \item queue backpressure: if more than 50 jobs are in the queue, the request is
-    refused with 429. The message differs depending on whether a worker is
-    alive (``busy, retry later'' versus ``temporarily unavailable'').
-\end{enumerate}
-Only then is the file stored and the job enqueued. If the queue itself is
-unreachable, the request fails visibly; outside development the API never falls
-back to parsing inside the request.
-
-The ordering is a deliberate choice. Rejecting early means a saturated system
-answers immediately with an honest status code instead of accepting work it
-cannot do and building an unbounded backlog.
-
-Two qualifications belong next to that claim. First, the backpressure check
-fails open: if the queue depth cannot be read, it counts as zero. Second, the
-three upload routes are not uniform. The batch route applies the same checks
-per file and records failures per file instead of returning an HTTP error. The
-route the v4 application uses applies the quota but no queue ceiling, and
-reports an oversized file as 400 rather than 413. Admission control is therefore
-a property of each route, not of the pipeline. Per-user LLM spending is checked
-later, inside the worker (\cref{sec:provider-strategy}).
+Everything that can reject an upload cheaply happens in the API, before a job
+is queued: authentication and a rate limit of five uploads per minute;
+ownership of the target course; a size-capped read (50\,MB); validation of
+type, signature and page count (at most 300); the SHA-256 hash of the file,
+which becomes its identity for the rest of the pipeline; for students, an
+atomic claim on a monthly quota; and queue backpressure, which refuses with
+429 when more than 50 jobs wait. Only then is the file stored and the job
+enqueued; outside development the API never falls back to parsing inside the
+request. Rejecting early means a saturated system answers at once with an
+honest status code instead of building an unbounded backlog. Two
+qualifications belong next to that claim: the backpressure check fails open
+when the queue depth cannot be read, and the three upload routes are not
+uniform (the route the v4 application uses applies the quota but no queue
+ceiling), so admission control is a property of each route, not of the
+pipeline. Per-user LLM spending is checked later, inside the worker
+(\cref{sec:provider-strategy}).
 
 \subsection{Asynchronous Processing, Page by Page}
 \label{sec:async}
@@ -283,11 +249,9 @@ rule sends 87 pages of the same corpus to vision, at the cost of one vision
 call per figure page. An offline check (\code{backend/eval/routing\_check.py})
 fails if a change moves that count outside 75 to 100.
 
-The history is worth stating plainly, because the repository long suggested a
-richer design than ran. A generator-aware classifier existed; it was archived,
-then deleted in September 2026. A second router, with priorities for skipped,
-tabular, mathematical and visual pages, still exists, but only an older pipeline
-entry point calls it, and that entry point has no callers.
+A generator-aware classifier and a second, richer router also exist in the
+repository's history; the first was deleted in September 2026 and the second
+has no live caller, so the one rule above is the whole routing design.
 
 \subsection{Parse Once: Idempotency}
 \label{sec:idempotency}
@@ -340,63 +304,40 @@ uploaders would require the second uploader to trust content generated for the
 first, and the orchestrator's own docstring declares that case out of scope.
 It is stated as future work in the final chapter.
 
-The weak link is chosen deliberately. The lock is best-effort: if Redis fails,
-the worker proceeds without it, preferring availability over strict mutual
-exclusion. The run row and replay are the backstop, but only for repeats that
-arrive one after another. If the lock is skipped and two jobs for the same owner
-run at the same time, neither finds a lecture from an earlier attempt, so both
-create one.
-
-The guarantee also has an edge between owners. Four mechanisms (L0, L1, L5 and
-L8) are keyed on the bytes alone and shared by every owner; the rest are per
-owner, run or lecture. If a second user uploads identical bytes while the first
-parse is running, the second job finds the shared lock held and ends without
-changing its run. That run stays queued until a sweep marks it failed after six
-hours; the user can then retry. If the two uploads do not overlap, each user
-pays for a full parse. Shared keys also leak across owners in two smaller
-ways. At the end of every parse, embeddings are re-attached by hash, so they end
-up pointing at whichever owner's lecture finished last. On the classic route,
-progress events go to a channel named after the hash, so a second user sees
-the first user's events. The thesis presents the second-owner case as a known
+The weak link is chosen deliberately: the lock is best-effort, so if Redis
+fails the worker proceeds without it, preferring availability over strict
+mutual exclusion, and two simultaneous jobs for one owner can then both
+create a lecture. The guarantee also has an edge between owners. Four
+mechanisms (L0, L1, L5 and L8) are keyed on the bytes alone and shared by
+every owner; the rest are per owner, run or lecture. A second user who
+uploads identical bytes while the first parse runs finds the shared lock
+held, and that run waits until the six-hour sweep fails it; if the uploads do
+not overlap, each user pays for a full parse; and at the end of every parse
+the embeddings are re-attached by hash, so they point at whichever owner's
+lecture finished last. The thesis presents the second-owner case as a known
 limitation of the design.
 
 \subsection{Failure Handling}
 \label{sec:failure-handling}
 
-Failure handling has three tiers.
-
-Inside the job, any exception is caught. If slides were already written, the
-partial lecture is finalised; in every case the run is marked failed with a
-generic message, and the error is re-raised. A refusal because the user's LLM
-budget is exhausted is the exception: it ends the job normally.
-
-The queue's retry setting does not do what it appears to. The worker is
-configured with \code{max\_tries = 5}; until November its comment read
-``5 retries with exponential backoff'' (the comment now says what follows). In
-the installed Arq~\cite{arq}, however, an ordinary
-exception finishes a job on its first try; the retry budget applies only to
-jobs that explicitly request a retry, are cancelled, or are lost in a worker
-crash. The parse job never requests a retry. A job that exceeds its timeout is
-not retried either. A failed parse is therefore never retried automatically.
-This is a good example of a configuration value that reads like a resilience
-guarantee and is not one.
+Failure handling has three tiers. Inside the job, any exception is caught: a
+partial lecture is finalised if slides were already written, the run is
+marked failed, and the error is re-raised; a refusal because the user's
+budget is exhausted ends the job normally. Above the job, a sweep every ten
+minutes resolves runs stuck in extraction for more than 25 minutes
+(completed with their real slide count if slides exist, failed otherwise)
+and marks runs still queued after six hours as failed; the second case was
+added in September 2026 (found, then fixed), and a dead-letter table records
+the failures. Finally, the user can retry a failed run, which re-queues it
+with a forced re-parse. One setting does not do what it appears to: the
+worker's \code{max\_tries = 5} reads like five retries with backoff, and its
+comment said so until November, but in the installed Arq~\cite{arq} an
+ordinary exception finishes a job on its first try, so a failed parse is
+never retried automatically. Embedding failures raise rather than return a
+zero vector, which would corrupt similarity search silently.
 \TODO{The production image pins \code{arq>=0.26,<0.27}, while development runs
 0.28.0; the retry semantics above were read in 0.28.0. Check them in 0.26, or
 state the version explicitly.}
-
-Above the job, a scheduled sweep runs every ten minutes. A run stuck in
-\code{extracting} for more than 25 minutes is resolved: completed with its real
-slide count if slides exist, failed otherwise. A run still \code{queued} after
-six hours is marked failed. At \code{\thesisEarlierCommit} only the first case was handled;
-the second was added in September 2026 (found, then fixed). A dead-letter table
-records jobs that end unsuccessfully, though not budget refusals, and not runs
-that were skipped because their lock was held.
-
-Finally, the user can retry a failed run, which re-queues it with a forced
-re-parse. Embedding failures are handled separately: the embedding service
-raises an error rather than returning a zero vector, which would otherwise
-corrupt similarity search silently, and the pipeline retries missing embeddings
-once before giving up.
 
 \section{LLM Provider Strategy}
 \label{sec:provider-strategy}
@@ -421,42 +362,26 @@ OpenAI-only mode that is built but switched off.
 \subsection{From Free Tiers Towards One Paid Provider}
 \label{sec:provider-history}
 
-The provider changed many times in ten months. Generation began with a local
-model (February 2026), moved to Google's Gemini, then to Groq, and in May to
-Cerebras as primary provider with a failover chain of free tiers; the two
-ordered chains that still run were written in that month. In the same
-month a LiteLLM gateway was added. In June the code gained an OpenAI-compatible
-provider, with the stated plan ``OpenAI now, a self-hosted university model
-later''; the recorded reason was that the free vision tiers hit their rate limits
-almost immediately. In August the gateway was removed and providers were called
-directly again; in September the two chains were revived after a check found
-eight of their nine legs dead. For the October launch an OpenAI-only mode was
-added, together with spending caps per student.
-
-In practice the system already leans on the paid provider. A query of the
-cost ledger on 29 October 2026 showed OpenAI carrying most calls over the
-preceding 30 days, with Groq answering the reader's Explain requests and Luna
-sessions and Gemini producing the embeddings; the other providers were rarely
-reached. The repository does not record why OpenAI-only became the target. The
-author's account is that the free tiers were not reliable enough for bulk
-parsing because of their rate limits, that the self-built router did not make up
-for this, and that the OpenAI key was the one that worked reliably. The analysis
-in \cref{sec:multi-provider} gives concrete reasons for that judgement.
+The provider changed many times in ten months: a local model (February
+2026), Gemini, Groq, then Cerebras at the head of a free-tier failover chain
+(May), a LiteLLM gateway (May), an OpenAI-compatible provider with the stated
+plan ``OpenAI now, a self-hosted university model later'' (June, because the
+free vision tiers hit their rate limits almost immediately), the gateway
+removed (August), the two in-process chains revived after eight of their nine
+legs were found dead (September), and an OpenAI-only option with spending caps
+for the October launch. The gateway's removal is the one step with a lesson:
+it had been introduced with a pipeline generation that never became the
+default, so it ended with no live callers while still costing 1\,GB of memory
+on a 4\,GB machine and blocking start-up when unhealthy. A gateway pays off
+with many callers and many providers; this system ended with one caller and
+most of its traffic on one provider. A query of the cost ledger on 29 October
+2026 showed OpenAI carrying most calls over the preceding 30 days, Groq
+answering the reader's Explain requests and Luna sessions, and Gemini
+producing the embeddings. The repository does not record why OpenAI-only
+became the target; the author's account is that the free tiers were not
+reliable enough for bulk parsing and the OpenAI key was the one that worked.
 \TODO{Re-run the cost-ledger query (calls per provider and feature, last 30
 days) and cite the exact numbers instead of this summary.}
-
-\paragraph{Why the gateway was removed.}
-A gateway such as LiteLLM routes requests to many providers without changes to
-application code. Here it was introduced together with a new pipeline generation
-that never became the default, and only that pipeline's stages called it. Once
-synthesis moved to the in-process orchestrator, the gateway had no live callers,
-yet it still cost 1\,GB of memory and most of a CPU on a 4\,GB machine, and the
-API and worker waited for its health check, so a gateway fault stopped the whole
-stack from starting. It had also been exposed without authentication on a
-development server in June, and its package carried eight known
-vulnerabilities. It was removed in August 2026. In hindsight the decision is
-simple: a gateway pays off with many callers and many providers, and this system
-ended with one caller and with most of its traffic on one provider.
 
 \subsection{The Multi-Provider Mechanism}
 \label{sec:multi-provider}
@@ -479,26 +404,16 @@ with each repeat, up to ten minutes. Every other error carries no penalty: the
 call moves on to the next provider. The classification is partly by status code
 and partly by matching text in the exception message.
 
-The chain looks deeper than it is, in two ways, and a third weakness was
-found and fixed.
-\begin{enumerate}
-  \item \emph{Shared failure domains.} The eight entries use six credentials:
-    two Groq models share one key, and two Google models share another. A revoked
-    or exhausted key takes out both entries at once.
-  \item \emph{A retry budget the timeout cannot reach.} The call wrapper retries
-    rate-limit errors up to eight times, waiting 4, 4, 8, 16 seconds and more,
-    but the whole loop runs under a 25-second timeout. At most four attempts
-    fit, fewer with real latency, and each attempt is a full traversal of the
-    chain.
-\end{enumerate}
-Two failure classes are found-then-fixed cases. At \code{\thesisEarlierCommit}
-a provider whose credit had run out was retried on every call; Cerebras, which
-then headed both chains, later failed in exactly this way. Payment errors were
-made permanent in September 2026, and Cerebras left both chains in October. At
-\code{\thesisPreviousCommit} no branch handled a rejected key either: a revoked
-key fell into the ``no penalty'' class and was tried again on every call, until
-401 joined the permanent classes in November.
-
+The chain looks deeper than it is. The eight entries use six credentials
+(two Groq models share one key, two Google models another), so one revoked
+key takes out two legs; and the call wrapper's eight rate-limit retries run
+under a 25-second timeout that fits at most four. Two failure classes are
+found-then-fixed cases: at \code{\thesisEarlierCommit} a provider whose
+credit had run out was retried on every call (Cerebras, then at the head of
+both chains, later failed exactly so; payment errors became permanent in
+September and Cerebras left the chains in October), and at
+\code{\thesisPreviousCommit} a rejected key was still retried on every call,
+until 401 joined the permanent classes in November.
 The registry also treats its own numbers as perishable: a test fails when a
 reachable provider's limits were last verified more than 45 days ago, because
 free-tier limits change without notice.
@@ -506,57 +421,35 @@ free-tier limits change without notice.
 \subsection{The OpenAI-Only Mode: Built, Not Yet Switched On}
 \label{sec:openai-only}
 
-In OpenAI-only mode, both chains collapse to the single OpenAI entry. Text
-generation uses a quality model and a bulk model, which default to the same model
-(\code{gpt-4o-mini}) unless configured separately; vision uses a third setting;
-embeddings use \code{text-embedding-3-small} at 768 dimensions. At start-up, the
-API and the worker refuse to boot if any other provider's key is present, or if
-the OpenAI key is missing. The code gives the reason: a misconfigured deployment
-must not quietly send student data to a provider the privacy policy does not
-name. The mode is therefore as much a data-protection boundary as a reliability
-choice. Switching it on is not a configuration flip alone: the other keys must be
-removed, every slide must be embedded again (the two embedding models' vectors
-are not comparable), and the privacy pages, which name the providers, must change
-with it.
+In OpenAI-only mode, both chains collapse to the single OpenAI entry, and the
+API and worker refuse to boot if any other provider's key is present. The
+code gives the reason: a misconfigured deployment must not quietly send
+student data to a provider the privacy policy does not name, so the mode is
+as much a data-protection boundary as a reliability choice. Switching it on
+is not a configuration flip: the other keys must be removed, every slide must
+be embedded again (the two embedding models' vectors are not comparable), and
+the privacy pages must change. The failure classes change meaning with it: a
+rate limit becomes a soft gate that never leaves the service without a
+provider, while a rejected key or a payment error disables the only provider
+until restart, and with it every AI feature. One quality mechanism depends on
+the providers being different: generated quiz questions are checked by a
+second model that was not their author (Groq's reasoning model in the default
+mode), and in OpenAI-only mode that independence holds only if the checking
+model differs from the writing one. The trust chapter takes this up.
 \TODO{Note which OpenAI models production sets (\code{OPENAI\_MODEL},
-\code{OPENAI\_BULK\_MODEL}, \code{OPENAI\_VISION\_MODEL}) and whether
-\code{LLM\_TIMEOUT\_SECONDS} overrides the 25\,s default; the code notes that
-OpenAI batch calls can exceed it. The variable is set in production (probe of
-2026-11-09); its value was not read.}
-
-Once switched on, the mode removes failover, and the failure classes change
-meaning.
-A rate limit no longer blacks out the service: the backoff is a soft gate that is
-relaxed when it would leave no provider at all, so the next call still goes out.
-A rejected key, a payment error or a ``model not found'' error, by contrast,
-disables the only provider until the process restarts, and with it every AI
-feature. The design accepts this trade: fewer, more
-predictable failure modes in exchange for a single point of failure that is
-watched by the operator.
-
-One quality mechanism depends on the providers being different. Generated quiz
-questions are checked by a second model that answers each one from its slide
-without seeing the key. In the default mode the checker is Groq's reasoning model,
-deliberately not the model that wrote the question; the code records that when
-the author's model checked its own question, it repeated the same misreading. In
-OpenAI-only mode the checker resolves to OpenAI's quality model, so the check
-stays independent only if that model differs from the bulk model that wrote the
-question. In production today the default mode applies, so the checker is Groq.
-The trust chapter takes this mechanism up.
+\code{OPENAI\_BULK\_MODEL}, \code{OPENAI\_VISION\_MODEL}); the variable
+\code{LLM\_TIMEOUT\_SECONDS} is set in production (probe of 2026-11-09), its
+value was not read.}
 
 \paragraph{Cost controls.}
-The spending limits are written for the paid provider, which carries most
-traffic now and would carry all of it in OpenAI-only mode. Each
-user has a monthly cost cap (by default \$2), checked before every call and, for
-parses, enforced for students. All users together have a daily ceiling on
-OpenAI (by default \$10), a hard gate that also binds embeddings: once it is
-reached, generation stops until the next day. Every call, including embeddings,
-is written to a cost ledger. In the default mode that runs today, the ledger
-estimates cost only for OpenAI and records every free-tier call at zero; only
-OpenAI-only mode would make it complete. Two limits are weaker than they look. The per-user cap fails open if Redis is unavailable.
-And a pre-parse check that the chain has enough request headroom for the deck
-never fires while OpenAI is configured, because it has no configured daily
-request limit and so counts as unlimited.
+Each user has a monthly cost cap (by default \$2), checked before every call
+and enforced for student parses; all users together have a daily ceiling on
+OpenAI (by default \$10) that also binds embeddings; every call is written to
+a cost ledger. In the default mode the ledger prices only OpenAI calls and
+records every free-tier call at zero. Two limits are weaker than they look:
+the per-user cap fails open if Redis is unavailable, and a pre-parse headroom
+check never fires while OpenAI is configured, because it has no daily request
+limit and so counts as unlimited.
 
 \section{Evaluation}
 \label{sec:c4-evaluation}
@@ -714,16 +607,14 @@ production machine shared with the API, the worker and two Redis instances,
 the heavy engines are not an option; the vision models are an option whose
 price is paid per page and per uploader.
 
-\paragraph{Threats.} The protocol names them before the result. The judge is
-the author of the product being judged. The automatic checks use PyMuPDF's
-own text layer as their reference, which favours current and pymupdf4llm.
-pymupdf4llm ran on PyMuPDF 1.28 while production runs 1.27. The 24 pages come
-from one university, hold no scan, and are judged one page at a time, so
-methods that keep cross-page context gain nothing. The duels within one
-comparison are not independent, the machine was not isolated, and the later
-comparisons were less blind because the judge had seen the earlier outputs.
-The heavy engines saw a 60-page cut rather than the full PDFs. None of this
-was corrected for; it is reported.
+\paragraph{Threats.} The protocol names them before the result: the judge
+is the author of the product being judged; the automatic checks use PyMuPDF's
+own text layer as reference, which favours current and pymupdf4llm;
+pymupdf4llm ran on PyMuPDF 1.28 against production's 1.27; the 24 pages come
+from one university, hold no scan and are judged one at a time; duels within
+a comparison are not independent; later comparisons were less blind; and the
+heavy engines saw a 60-page cut. None of this was corrected for; it is
+reported.
 
 \paragraph{What follows.} The production parser was not changed on this
 basis at the pin. The benchmark says that the cheapest path, PyMuPDF's text
