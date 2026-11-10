@@ -252,8 +252,9 @@ happens next.
 Two properties of the answer check are design decisions. First, the checker is
 not the author. The question is written by the small model at the head of the
 bulk chain; the check runs on the quality chain, led by a larger reasoning
-model (\cref{sec:provider-strategy}). In production both are served by the
-same provider, so the independence is one of model, not of vendor. The reason
+model (\cref{sec:provider-strategy}). At the pin the heads of both chains are models of the
+same provider (\code{orchestrator.py:389}, \code{:393}), so the
+independence is one of model, not of vendor. The reason
 is recorded with a measurement: when the author's own model family checked the
 question that started this work, it agreed with the wrong key twice. That a
 model tends to favour text like its own is also reported in the
