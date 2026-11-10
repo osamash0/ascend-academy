@@ -32,27 +32,26 @@ step for lecture material. A lecturer or a student uploads a PDF and
 reads it at once. While they read, the system turns each page into objects
 that software can address: a text of the page, a vector for search, and, for
 selected pages, questions about it (\cref{fig:transformation}). An assistant
-called Luna works on these objects, next to the page they come from. What
-readers do on the pages is recorded. A view for the owner of the material
-returns it as patterns about pages, with no names and only for pages that at
-least five people have read. Because this threshold counts the readers of a page
-and not the people behind a pattern, \cref{ch:loop} shows that a pattern can
-still rest on fewer than five people, in the extreme on one. The view was
-added to the code two days after the revision this thesis describes
-(\cref{sec:scope}).
+called Luna works on these objects, next to the page they come from. What readers do on the pages is returned to the owner of the material as
+patterns about pages, with no names and only for pages that at least five
+people have read; \cref{ch:loop} shows that a pattern can still rest on fewer
+than five people.
 
-\thesisfigure{f1-transformation}
-  {The transformation this thesis addresses. One PDF is kept as the reading
-   surface and turned into independently addressable learning objects; every
-   capability students use in production is built on one of them.}
-  {fig:transformation}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.78\textwidth]{f1-transformation}%
+  \caption{The transformation this thesis addresses. One PDF is kept as the
+    reading surface and turned into independently addressable learning
+    objects; every capability students use in production is built on one of
+    them.}%
+  \label{fig:transformation}%
+\end{figure}
 
 \section{Problem Statement}
 \label{sec:problem}
 
 The work started from five problems that the author and the co-developer
-(\cref{sec:scope}) had observed as students; they are not the result of a survey. \Cref{tab:problems} lists
-them with the mechanism that addresses each one.
+(\cref{sec:scope}) had observed as students, not from a survey (\cref{tab:problems}).
 
 \begin{table}[htbp]
   \centering\small
@@ -86,10 +85,9 @@ them with the mechanism that addresses each one.
   \end{tabular}
 \end{table}
 
-The mechanisms create a sixth problem of their own. Text and questions that
-a language model writes can be wrong, so a system that generates learning
-content has to say how it checks that content and what it does when the
-check fails.
+The mechanisms create a sixth problem: text and questions that a language
+model writes can be wrong, so the system has to say how it checks them and
+what it does when a check fails.
 
 \section{Aims and Contributions}
 \label{sec:aims}
@@ -101,17 +99,14 @@ shared content once and not once per reader.
 
 We make four contributions.
 \begin{enumerate}
-  \item A deterministic first pass over a PDF that decides without a model
-    call which pages need a vision model, with parsing at most once per
-    uploader
-    (\cref{ch:content}).
+  \item A deterministic first pass that decides without a model call which
+    pages need a vision model (\cref{ch:content}).
   \item A blind benchmark of eleven text extraction methods on 24~lecture
-    pages, judged in 283~pairwise votes under a protocol frozen before the first vote and later extended by four
-    recorded deviations (\cref{ch:content}).
-  \item A feedback loop from reader to owner whose view makes no statement
-    about a person and none about a page that fewer than five people have
-    read; where this rule is weaker than it sounds is stated in
-    \cref{sec:c5-privacy,sec:c5-findings}.
+    pages in 283~pairwise votes, under a protocol frozen before the first
+    vote and extended by four recorded deviations (\cref{ch:content}).
+  \item A feedback loop from reader to owner whose view names no person and
+    says nothing about a page that fewer than five people have read, with its
+    limits (\cref{ch:loop}).
   \item Verification of generated questions by computation and by an independent answer check, with one verifier that
     failed its test and was not adopted (\cref{ch:trust}).
 \end{enumerate}
@@ -120,10 +115,8 @@ We make four contributions.
 \label{sec:scope}
 
 This is an engineering thesis. It describes a system that runs in production
-and evaluates its parts with curated data. In November 2026 the
-production database held 216~accounts. Of these, 161 use test,
-demonstration, or invented addresses. The other 55 are on real mail or
-university domains and include the developers' own; two of the 55 had been
+and evaluates its parts with curated data. In November 2026 the production database held 55 accounts on real mail or
+university domains among 216, the developers' own included; two had been
 active in the previous seven days, one of them a developer
 (\code{docs/\allowbreak thesis/\allowbreak evidence/}). No user study was run, and no claim
 in this thesis is about what students learn.
@@ -154,19 +147,12 @@ where they matter and are marked as later.
 \label{sec:method-note}
 
 We follow a build-and-evaluate approach. Each of the three main chapters
-describes what was built and ends with an evaluation. Three evaluations had their expected outcomes
-committed to the repository before they were run: the extraction benchmark
-(\cref{sec:parser-bench}), the test of a similarity verifier on a fixed
-probe of 16 question pairs, and the repeated measurement of the tutor's
-refusal threshold (both \cref{sec:c6-evaluation}). The expectations of the
-study with scripted readers (\cref{sec:c5-evaluation}) were written before
-its first run but committed together with its results. The routing study,
-the deck-plan scorecard (\cref{sec:c4-evaluation}), and the measurement of
-the answer check (\cref{sec:c6-evaluation}) had no expectations fixed in
-advance. In this thesis \emph{we} is the voice of the text; what the author
-did alone, such as judging, labelling, and writing expectations, is
-attributed to \emph{the author}, and where both developers acted, the text
-says so. Statements about the system were checked
+describes what was built and ends with an evaluation. The extraction benchmark, the similarity verifier, and the re-run of the
+refusal gate had their expectations committed before the run; those of the
+study with scripted readers were written first but committed with its
+results; the routing study, the deck-plan scorecard, and the answer check had
+none. \emph{We} is the voice of the text; what the author did alone, such as
+judging and labelling, is attributed to \emph{the author}. Statements about the system were checked
 against the code at the revision named above, unless a section names a later
 one, and against production where the two can differ. Where the repository does
 not record a reason for a decision, we say so and do not supply one.
@@ -188,12 +174,9 @@ is question 5 for the supervisor. Align this paragraph with it.}
 
 The thesis began as a project proposal in January 2026, \enquote{Discovering
 Impact: characterizing learning interaction data in educational contexts},
-which asked four questions. Its question on how heterogeneous interaction
-events can be aggregated became RQ2. Two questions, on how students perceive
-motivation and on whether interactive content improves learning efficiency,
-need participants and remain open (\cref{sec:limitations}). Its question on
-which data profiling metrics suit interaction data is not pursued as a
-question of its own. RQ1 and RQ3 were not in the proposal.
+with four questions. Its question on aggregating interaction events became
+RQ2, two need participants and remain open (\cref{sec:limitations}), and its
+question on data profiling metrics is not pursued. RQ1 and RQ3 are new.
 \TODO{Author: say why the profiling question was dropped, and when and why
 RQ1 and RQ3 were added. The repository records neither reason.}
 
@@ -208,18 +191,11 @@ RQ1 and RQ3 were added. The repository records neither reason.}
     verified and measured, and what happens when verification fails?
 \end{description}
 
-Each question has one line through the thesis. RQ1 belongs to the first aim
-and to the first two contributions; its evidence is the routing study, the
-blind benchmark, and the deck-plan scorecard in \cref{ch:content}. RQ2
-takes up the first and third problem of \cref{tab:problems}, the second aim,
-and the third contribution; its evidence is the study with scripted readers
-in \cref{ch:loop}. RQ3 takes up the sixth problem and the fourth
-contribution; its evidence is the verifier probe and the refusal gate in
-\cref{ch:trust}. The third aim, to generate shared content once, has no
-question of its own: it is a property of the design in \cref{ch:content}
-and is described, not measured.
+RQ1 runs from the first aim to the routing study, the benchmark, and the scorecard of \cref{ch:content};
+RQ2 from the first and third problem and the second aim to the study with
+scripted readers in \cref{ch:loop}; RQ3 from the sixth problem to the probe
+and the refusal gate of \cref{ch:trust}. The third aim has no question of its
+own; it is a property of the design, described and not measured.
 
-\Cref{ch:background,ch:system} give the background and the system as a
-whole, \cref{ch:content,ch:loop,ch:trust} answer the three questions in
-order, and \cref{ch:conclusion} discusses the work and its limitations.
-\Cref{app:glossary} lists the terms of the system and of the evaluations.
+\Cref{ch:background,ch:system} give the background and the system, and
+\cref{app:glossary} lists the terms.

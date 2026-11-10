@@ -82,26 +82,11 @@ for a while. \Cref{tab:lineage} in \cref{app:detail} lists them. The
 recorded reason for each step is given where the repository holds one; where
 it does not, the reason is the author's reconstruction and is marked as such.
 
-Three of these steps carry the design lessons the chapter builds on.
-Pipeline v5, the rebuild of June, made the server the only writer of parse
-results; before, the browser had driven the parse and written the result. The
-commit that introduced pipeline v5 names server-side writing as the first of
-two things pipeline v4 could not do; the second was reading a page as an
-image. On the deck that had exposed this blindness, pipeline v5 routed 88 of
-143 pages to vision. The staged pipeline v3, with
-Docling~\cite{auer2024docling} and a model gateway, never became the default:
-the configuration default stayed at version~2 until 28 June and then jumped to
-version~5 ``to match the live deployment''. No quality reason for dropping
-Docling is recorded; the author's reconstruction is that pipeline v5 reused the
-PyMuPDF~\cite{pymupdf} engine of pipeline v2, so Docling had no caller, never entered the
-production image, and left the requirements in October after eight security
-advisories. The benchmark in \cref{sec:parser-bench} later rated Docling above the
-current extraction, but not by a margin that survives the correction for
-testing ten methods at once. And the
-25-character vision threshold, introduced with the per-page synthesis of pipeline v5
-on 17~June (\code{bd03f1d5}), came to be applied in four places with three
-measures until the one routing rule of 6 November replaced it
-(\cref{sec:c4-routing-study}).
+\Cref{sec:lineage-table} gives the three steps that carry the design
+lessons of this chapter: pipeline v5 made the server the only writer of parse
+results, the staged pipeline v3 with Docling never became the default, and a
+25-character threshold, introduced with pipeline v5 in June, decided until
+November which pages a vision model saw.
 
 \section{The Pipeline as Built}
 \label{sec:pipeline}
@@ -112,14 +97,8 @@ with PyMuPDF~\cite{pymupdf}; Docling, the heavier layout-analysis library
 used by an earlier generation, is no longer installed. In this chapter
 \emph{lecture} and \emph{slide} name the database rows that hold a Lesson
 and its pages.
-\Cref{fig:pipeline} shows the path from an upload to a readable page.
-
-\thesisfigurepage{f8-pipeline}
-  {The ingestion pipeline. Two entry routes admit a PDF synchronously and
-   converge on one content-addressed object and one Arq job, which writes each
-   page as soon as it is synthesised; pentagons mark where the reader gains
-   something --- the original PDF at once, then each persisted page.}
-  {fig:pipeline}
+\Cref{fig:pipeline} in \cref{app:figures} shows the path from an upload to a
+readable page.
 
 \subsection{Synchronous Admission Control}
 \label{sec:admission}
@@ -257,31 +236,13 @@ a sweep resolves runs that are stuck, and the user can retry. A failed parse
 is never retried automatically, although one setting of the worker reads as
 if it were (\cref{sec:failure-handling}).
 
-\section{LLM Provider Strategy}
-\label{sec:provider-strategy}
-
+\paragraph{Providers.}
 Every generated artefact depends on a hosted language model. The backend
-calls the providers directly, through two ordered chains over the same eight
-providers: a \emph{bulk} chain, ordered by capacity, for high-volume work such
-as page synthesis, and a \emph{quality} chain, ordered by expected answer
-quality, for fewer and harder calls. A call walks its chain and skips a
-provider that is unavailable. A rejected key, a payment error, and a missing
-model disable a provider until restart, a rate limit starts a backoff, and
-every other failure moves on without penalty (\cref{fig:provider-chain} in
-\cref{sec:multi-provider}). The chain is shallower than it looks: its eight
-entries use six credentials.
-
-The design comes from free tiers, whose limits are reached within minutes of
-bulk parsing. The code also contains an \emph{OpenAI-only} mode with one paid
-provider. In that mode the API and the worker refuse to start when the key of
-another provider is present, so that a misconfigured deployment cannot send
-student data to a provider that the privacy policy does not name. This mode
-is the author's target and was not switched on at the pin: a probe in
-November 2026 found six providers keyed in production
-(\cref{sec:openai-only}). Spending is bounded by a monthly cap per user (by
-default \$2) and a daily ceiling on paid calls (by default \$10), and every
-call is written to a cost ledger. \Cref{ch:trust} tests whether these limits
-hold when providers fail.
+calls the providers directly, through an ordered \emph{bulk} chain for
+high-volume work and a \emph{quality} chain for fewer and harder calls.
+Spending is capped per user and per day, and an OpenAI-only mode, which was
+not switched on at the pin, would keep content with the one provider that the
+privacy policy names (\cref{sec:provider-strategy}).
 
 \section{Evaluation}
 \label{sec:c4-evaluation}

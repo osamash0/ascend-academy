@@ -157,33 +157,21 @@ instances serve as cache and as job broker.
 
 \paragraph{No gateway on the LLM path.}
 The backend calls every LLM provider directly from one module
-(\code{backend/services/ai/orchestrator.py}). Failover, rate limiting, and cost
-accounting live in that module, not in a separate service. This was not always
-so. At \code{\thesisEarlierCommit} the production stack still contained a LiteLLM gateway
-container, and the API's environment still held the gateway's base URL,
-although no code path sent traffic through it. The container was removed
-from the production compose file by commit \code{68a091e0} of 25~August
-2026, which reached the main branch through pull request~\#51 on
-28~August; the remaining configuration and legacy code were removed by
-commit \code{7830d49a} of 18~September, merged through pull request~\#74 on
-10~October. The project's own documentation lagged behind: the backend
-README still describes the gateway as the layer through which every model
-call passes. Of all the
-documentation drift discussed in \cref{sec:reality-vs-documented}, this case is
-the most consequential, because it changes what design is being defended: not
-``one gateway in front of many providers'', but two ordered provider chains
-inside the application (\cref{sec:provider-strategy}).
+(\code{backend/\allowbreak services/\allowbreak ai/\allowbreak orchestrator.py}), where failover, rate limiting, and cost
+accounting live. At \code{\thesisEarlierCommit} the production stack still
+contained a LiteLLM gateway that no code path used; it was removed in August
+and September 2026 (\cref{tab:decisions}), and the backend README still
+describes it. The design defended here is therefore two ordered provider
+chains inside the application (\cref{sec:provider-strategy}), not a gateway
+in front of many providers.
 
 \paragraph{Two database paths.}
 The backend reaches PostgreSQL in two ways. The first is the Supabase client
 over HTTP (PostgREST), in two variants: a service-role client that bypasses
 row-level security, and an anonymous-key client that is subject to it. The
 second is a direct connection pool (asyncpg) through Supabase's transaction
-pooler. The pool is optional at start-up: if no database URL is configured, the
-application starts without it; if one is configured but unreachable, start-up
-fails fast. In practice the pool is not optional. The ingestion pipeline writes
-its runs, lectures, slides, and quiz questions through it, and every service of
-the current (v4) application uses it. Older routes still run on the HTTP client, at roughly 360 call sites in the
+pooler. The pool is optional at start-up but not in practice: the ingestion pipeline writes its runs, lectures, slides, and quiz questions
+through it, and every service of the current interface uses it. Older routes still run on the HTTP client, at roughly 360 call sites in the
 backend code (a count recorded in a comment of the production compose file).
 
 The two paths have a security consequence that shapes the rest of the design.

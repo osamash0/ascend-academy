@@ -4,12 +4,20 @@
 \chapter{Supplementary Diagrams}
 \label{app:figures}
 
-This appendix holds eight diagrams that the body refers to.
-\Cref{fig:use-case,fig:domain-model} belong to \cref{sec:stakeholders},
+This appendix holds nine diagrams that the body refers to.
+\Cref{fig:pipeline} belongs to \cref{sec:pipeline},
+\cref{fig:use-case,fig:domain-model} to \cref{sec:stakeholders},
 \cref{fig:er,fig:er-learning} to \cref{sec:data-model},
 \cref{fig:security-arc} to \cref{sec:hardening},
 \cref{fig:trust-boundaries} to \cref{sec:authorisation}, and
 \cref{fig:tutor-sequence,fig:citation-gap} to \cref{sec:tutor}.
+
+\thesisfigurepage{f8-pipeline}
+  {The ingestion pipeline. Two entry routes admit a PDF synchronously and
+   converge on one content-addressed object and one Arq job, which writes each
+   page as soon as it is synthesised; pentagons mark where the reader gains
+   something --- the original PDF at once, then each persisted page.}
+  {fig:pipeline}
 
 \thesisfigure{f4-use-case}
   {Actors and goals as implemented. Student goals are served by the current

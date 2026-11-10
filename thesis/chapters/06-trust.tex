@@ -439,45 +439,10 @@ material.
 A question that passes the gate is also not thereby answered correctly: what
 the model then writes was not measured.
 
-\section{Cost as a Question of Trust}
-\label{sec:c6-cost}
-
-A learner trusts the content. The person who runs the system also has to
-trust that the system
-does not spend without limit and does not keep calling a provider that can no
-longer answer. \Cref{app:detail} describes the chain of providers (\cref{sec:multi-provider})
-and the caps (\cref{sec:cost-controls}). Here the question is whether those limits
-hold when providers fail. It belongs to RQ3 because the answer check is
-itself a model call: what happens when verification fails depends on what
-happens when a provider fails.
-
-In October 2026 we planned a set of property tests, the Provider Chaos Lab:
-scripted providers that fail in chosen ways, a frozen clock, and five
-invariants written down before the tests. Reading the code for that plan
-turned up two defects that were live in production. The daily ceiling on paid
-calls was never enforced in the worker, the process that does all parsing,
-because the worker never opened the connection to the shared counter. And a
-retired model at one provider was never switched off, because that provider's
-library reports the HTTP status under another name; a deck of 50 pages made
-about 50 calls that could not succeed. Earlier tests had missed the second
-defect because they raised a generic error and not the library's own type.
-
-The five invariants are: a provider that answers with a permanent error
-receives no further call in the process; cumulative cost stays below the daily
-ceiling plus one call, even when every other provider fails; one request makes
-at most 64 attempts (eight providers, eight tries); if any provider answers,
-its text is returned, and unreadable JSON never reaches the caller as data;
-and a failing vision provider is switched off after its first failure. They
-are pinned by 11 property tests in four files, on a harness with 10 tests of
-its own (21 tests named \code{test\_chaos\_*} under
-\code{backend/tests/unit}), and each was checked by breaking the code on purpose and seeing the test fail.
-The fixes reached production with PR~\#92.
-
-One measure works after the fact. Every parse writes a receipt: for each page
-the route, the prompt and its version, the provider, the model, the tokens and
-the cost of each call, and the counts of questions proposed, kept, repaired,
-and dropped (migration \code{20261012000000}). The receipt does not prevent a
-wrong result. It makes one traceable to the call that produced it.
+The answer check is itself a model call, so what happens when verification
+fails also depends on what happens when a provider fails. Property tests
+written for that case, and two cost defects that planning them uncovered,
+are reported in \cref{sec:c6-cost}.
 
 \section{Where Nobody Checks}
 \label{sec:c6-missing}

@@ -113,6 +113,28 @@ check and surface only as failing requests.
 \section{Pipeline Lineage (Chapter 4)}
 \label{sec:lineage-table}
 
+Three of these steps carry the design lessons the chapter builds on.
+Pipeline v5, the rebuild of June, made the server the only writer of parse
+results; before, the browser had driven the parse and written the result. The
+commit that introduced pipeline v5 names server-side writing as the first of
+two things pipeline v4 could not do; the second was reading a page as an
+image. On the deck that had exposed this blindness, pipeline v5 routed 88 of
+143 pages to vision. The staged pipeline v3, with
+Docling~\cite{auer2024docling} and a model gateway, never became the default:
+the configuration default stayed at version~2 until 28 June and then jumped to
+version~5 ``to match the live deployment''. No quality reason for dropping
+Docling is recorded; the author's reconstruction is that pipeline v5 reused the
+PyMuPDF~\cite{pymupdf} engine of pipeline v2, so Docling had no caller, never entered the
+production image, and left the requirements in October after eight security
+advisories. The benchmark in \cref{sec:parser-bench} later rated Docling above the
+current extraction, but not by a margin that survives the correction for
+testing ten methods at once. And the
+25-character vision threshold, introduced with the per-page synthesis of pipeline v5
+on 17~June (\code{bd03f1d5}), came to be applied in four places with three
+measures until the one routing rule of 6 November replaced it
+(\cref{sec:c4-routing-study}).
+
+
 \begin{table}[H]
   \centering
   \small
@@ -224,6 +246,32 @@ zero vector, which would corrupt similarity search silently.
 \TODO{The production image pins \code{arq>=0.26,<0.27}, while development runs
 0.28.0; the retry semantics above were read in 0.28.0. Check them in 0.26, or
 state the version explicitly.}
+
+\section{The Provider Strategy (Chapter 4)}
+\label{sec:provider-strategy}
+
+Every generated artefact depends on a hosted language model. The backend
+calls the providers directly, through two ordered chains over the same eight
+providers: a \emph{bulk} chain, ordered by capacity, for high-volume work such
+as page synthesis, and a \emph{quality} chain, ordered by expected answer
+quality, for fewer and harder calls. A call walks its chain and skips a
+provider that is unavailable. A rejected key, a payment error, and a missing
+model disable a provider until restart, a rate limit starts a backoff, and
+every other failure moves on without penalty (\cref{fig:provider-chain} in
+\cref{sec:multi-provider}). The chain is shallower than it looks: its eight
+entries use six credentials.
+
+The design comes from free tiers, whose limits are reached within minutes of
+bulk parsing. The code also contains an \emph{OpenAI-only} mode with one paid
+provider. In that mode the API and the worker refuse to start when the key of
+another provider is present, so that a misconfigured deployment cannot send
+student data to a provider that the privacy policy does not name. This mode
+is the author's target and was not switched on at the pin: a probe in
+November 2026 found six providers keyed in production
+(\cref{sec:openai-only}). Spending is bounded by a monthly cap per user (by
+default \$2) and a daily ceiling on paid calls (by default \$10), and every
+call is written to a cost ledger. \Cref{ch:trust} tests whether these limits
+hold when providers fail.
 
 \section{The Provider Layer in Detail (Chapter 4)}
 \label{sec:provider-detail}
@@ -340,6 +388,38 @@ in the repository (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowb
 and the service was not adopted. It is reported here because it is a decision
 with a reason, not because it is a result.
 
+\section{The Schema Around the Log (Chapter 5)}
+\label{sec:data-model}
+
+The event log is one table among many, and the loop reads several of the
+others: who owns a Space, who is a member, which pages a Lesson has. The
+section serves RQ2 in this respect only: these tables decide whose events
+the view aggregates and who may see the result. The
+schema is defined only by plain SQL migrations (139 files at
+\code{\thesisCommit}). They create 79 tables, one of which is the default
+partition of the event table, so 78 logical tables. Thirty-six of them form
+the core of the domain. \Cref{fig:er} in \cref{app:figures} shows identity,
+Spaces, content and parsing, and \cref{fig:er-learning} the learner-facing
+tables for practice, Luna sessions, notes, and points. The rest are
+catalogues, caches, analytics roll-ups, and operational tables.
+
+\paragraph{A Space is a course.}
+The current interface speaks of \emph{Spaces}, but no Space table exists. A
+Space is a row in \code{courses}, and membership is a row in
+\code{course\_enrollments}. A student's own uploads (the Library of \cref{sec:stakeholders}) are not a
+Space row at all: they are lecture rows without a course. The cost of this choice is that
+the vocabulary of the schema (professor, course) no longer matches that of
+the product.
+
+\paragraph{Schema drift.}
+Migrations are not the only source of truth for the deployed database. The
+production database has a vector column on \code{slides} that no migration
+defines; in August 2026 it was empty in all 5{,}445 rows. Three further tables
+exist only in production (probed in October 2026), and production's migration history records two of
+the migrations. The project therefore applies migrations by hand and checks
+the outcome against the system catalogue. The repository describes the intended
+database, and the running one has to be inspected.
+
 \section{Schema Notes (Chapter 5)}
 \label{sec:schema-notes}
 
@@ -364,6 +444,70 @@ runs it records, and the event log, whose references to Lesson and page live
 in the payload for the reasons given in \cref{sec:c5-events}. The event log
 does keep a foreign key to its user, which is what the deletion cascade
 uses.
+
+\section{The Second Fence: Authorisation (Chapter 5)}
+\label{sec:authorisation}
+
+At \code{\thesisCommit} the 139 migration files contain 253 \code{CREATE
+POLICY} statements. This counts statements in the migrations, not the
+policies in force in a database, because later migrations drop and replace
+earlier ones.
+
+The owner's view is safe by what it computes. Whether the data under it is
+safe depends on who can reach the tables at all, and by which path.
+\Cref{fig:trust-boundaries} in \cref{app:figures} shows the two paths.
+
+A browser holds the anonymous key of the database service and can address the
+database directly. On that path it meets three boundaries inside the
+database: row-level security~\cite{postgresql-rls}, which is enabled on all
+79~tables, the right to execute a function, and the policies of the file
+storage. The backend takes the other path. Its service-role client and
+its SQL pool bypass row-level security (\code{core/database.py:5--6,
+150--190}), so on most backend routes, and on every route of the loop, the
+check is a line of Python that compares the caller with
+the owner of the Space or with its members. Two properties of the policies
+matter for the loop. Rows that a creator owns are guarded by ownership and
+no longer by the professor role (migration \code{20260713000000}). And
+permissive policies combine by OR: what a caller sees is the union of all
+policies that apply, so one generous policy written for an old screen
+widens every later one (\code{20260719020000}). The gap named at the end of
+\cref{sec:c5-privacy} is of this kind.
+
+\paragraph{What is tested, and what is not.}
+About 24~test files replay every migration into a throwaway PostgreSQL,
+switch to the anonymous or the signed-in role, and assert which rows and
+functions that role can reach (\code{backend/tests/db/}). The tests that
+drive API routes run either on an in-memory fake of the database or on the
+administrator's connection. No test exercises row-level security through an
+API route. The ownership checks in code and the database policies are each tested; the
+place where they meet is not.
+
+\paragraph{A fault at that meeting point.}
+At \code{\thesisPreviousCommit} the rule ``ownership, not role'' had a
+consequence that nobody intended. A student who owned a Space could call
+the analytics routes of the older interface for the Lessons in it. Those
+routes checked ownership and not the account type, and one of them returned
+members' user ids and the questions they had asked the tutor, word for
+word. The older interface showed these pages to professors only; the
+backend did not enforce that. Two changes closed it before the pinned
+revision. PR~\#176 puts every such route behind a check of the professor
+account type, covered by one test over eleven routes
+(\code{tests/integration/test\_analytics\_professor\_gate.py}). PR~\#175
+changed what the data contains: no route returns a row per student, and a
+question appears only once five different people asked it, and never with
+an id. The second change is the stronger one, because it holds even when a
+check is missing again.
+
+\paragraph{A boundary repaired in steps.}
+The owner's view is only as private as the database beneath it, which is why
+the history of that boundary belongs to the answer to RQ2. The database
+boundary was not designed once. It was repaired in nine steps
+over eleven migrations, and the faults fall into three classes: who may hold
+a role; functions that run with the rights of the role that defined them and could be
+executed by anyone; and drift between repository and production, where the
+bucket for lecture PDFs was private in the repository and could be listed
+publicly in production until October. \Cref{sec:hardening} gives the
+sequence.
 
 \section{Hardening as a Sequence (Chapter 5)}
 \label{sec:hardening}
@@ -401,6 +545,46 @@ line of code was wrong; the deployed database was not the one the
 repository described. A last step in November protects the integrity of
 profiles and points (\code{20261101015412}). The sequence has no final
 state, and we do not claim one.
+
+\section{Cost as a Question of Trust (Chapter 6)}
+\label{sec:c6-cost}
+
+A learner trusts the content. The person who runs the system also has to
+trust that the system
+does not spend without limit and does not keep calling a provider that can no
+longer answer. \Cref{app:detail} describes the chain of providers (\cref{sec:multi-provider})
+and the caps (\cref{sec:cost-controls}). Here the question is whether those limits
+hold when providers fail. It belongs to RQ3 because the answer check is
+itself a model call: what happens when verification fails depends on what
+happens when a provider fails.
+
+In October 2026 we planned a set of property tests, the Provider Chaos Lab:
+scripted providers that fail in chosen ways, a frozen clock, and five
+invariants written down before the tests. Reading the code for that plan
+turned up two defects that were live in production. The daily ceiling on paid
+calls was never enforced in the worker, the process that does all parsing,
+because the worker never opened the connection to the shared counter. And a
+retired model at one provider was never switched off, because that provider's
+library reports the HTTP status under another name; a deck of 50 pages made
+about 50 calls that could not succeed. Earlier tests had missed the second
+defect because they raised a generic error and not the library's own type.
+
+The five invariants are: a provider that answers with a permanent error
+receives no further call in the process; cumulative cost stays below the daily
+ceiling plus one call, even when every other provider fails; one request makes
+at most 64 attempts (eight providers, eight tries); if any provider answers,
+its text is returned, and unreadable JSON never reaches the caller as data;
+and a failing vision provider is switched off after its first failure. They
+are pinned by 11 property tests in four files, on a harness with 10 tests of
+its own (21 tests named \code{test\_chaos\_*} under
+\code{backend/tests/unit}), and each was checked by breaking the code on purpose and seeing the test fail.
+The fixes reached production with PR~\#92.
+
+One measure works after the fact. Every parse writes a receipt: for each page
+the route, the prompt and its version, the provider, the model, the tokens and
+the cost of each call, and the counts of questions proposed, kept, repaired,
+and dropped (migration \code{20261012000000}). The receipt does not prevent a
+wrong result. It makes one traceable to the call that produced it.
 
 \section{The Change of 24 June (Chapter 6)}
 \label{sec:c6-history-detail}
