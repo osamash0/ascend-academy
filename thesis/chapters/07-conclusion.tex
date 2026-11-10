@@ -20,47 +20,58 @@ what the work showed beyond them, states its limitations, and looks ahead.
 \label{sec:summary}
 
 \paragraph{RQ1: from PDF to structured, grounded content.}
-A lecture PDF can be transformed reliably when the first pass uses no model.
-The pipeline hashes every page, plans the deck, and decides the route of
+The pipeline is designed for reliability by a first pass that uses no model;
+its reliability end to end was not measured. The pipeline hashes every page, plans the deck, and decides the route of
 each page by one rule: a page with fewer than 25~characters of text outside
 its footer, or with a figure of at least 5\,\% of its area and fewer than
 150~characters, goes to a vision model. On our corpus this sends 87 of
-1{,}593~pages to vision. A file is parsed once per uploader. Which
+1{,}593~pages to vision. A file is parsed once per uploader, as long as the lock that excludes
+concurrent duplicates is available. Which
 extraction gives the most useful text was measured in a pre-registered blind
 benchmark: eleven methods, 24~pages from five PDFs in two languages, and
-283~pairwise votes. Transcription by a vision model wins (ratings of 1452 and
-1376), the layout-aware variant of the library that production already uses
+283~pairwise votes by the author as the only judge. Transcription by a vision
+model is rated highest (ratings of 1452 and 1376), the layout-aware variant of the library that production already uses
 is third (1263), and the heavy local converters do not beat it. The
 extraction that production runs is second to last (1000) and leaks footer
-text on 23 of 24~pages. The winner cost \$0.21 for the 24~pages. The answer
+text on 23 of 24~pages. The two vision models together cost \$0.21 for the
+24~pages. The answer
 has a clear limit: one judge, who built the system, and born-digital pages
 from one university.
 
 \paragraph{RQ2: from reader events back to the owner.}
 Learner interaction can be modelled as one governed log of 17~event types,
-eight of which the reader writes. Eleven detectors over a window of 56~days
-turn it into findings per page, and the owner sees them only as patterns
-across at least five readers, never as a statement about a person. In a
+eight of which the reader writes. Ten of eleven detectors run over a window
+of 56~days and turn it into nine kinds of finding per page. The owner's view
+shows a finding only for a page that at least five people have read and never
+names a person. Two limits remain. A hotspot can rest on three confused
+readers among thirteen, and a database policy of the older dashboard still
+lets an owner with the professor role read event rows with user ids
+(\cref{sec:c5-privacy}). In a
 study with scripted readers in eight arms, 18 of 23~expectations that were
 written down before the run were met. A Space with four members shows
 nothing; a mix of 27~readers surfaces the confusing page and the gap between
 confidence and correctness, and nothing else. The five misses were our own
 misreadings of three rules, and each is now a stated limit
-(\cref{sec:c5-evaluation}). The study tests the machinery. It says nothing
-about learners.
+(\cref{sec:c5-evaluation}). The study tests the machinery, with the
+summarising model replaced by fixed strings. It says nothing about learners
+or about what real themes reveal.
 
 \paragraph{RQ3: verifying generated content.}
 Generated content can be verified in three ways, and they are not equally
 good. Where an answer can be computed, the system computes it and does not
-ask a model. Where it cannot, an independent check on a different model
-reads the question against the page: on 16~pinned pairs it rejected none of
-16~correct keys and kept none of 16~hallucinated ones, while the lexical
-rule it replaced had rejected 14 of the 16~correct keys. A third verifier,
+ask a model. For the quiz questions written at parse time, an independent
+check on a different model reads the question against the page: on
+16~pinned pairs it disputed none of 16~correct keys and accepted none of
+16~hallucinated ones, while the lexical rule it replaced had rejected 14 of
+the 16~correct keys. A third verifier,
 a semantic similarity gate, failed its pre-registered test with 8 of
 16~false keeps at a threshold that had been fitted to the calibration data,
-and it was withdrawn and not tuned. When verification fails, the system
-drops the item; it does not show an unverified one. What is not verified at
-all is the prose of explanations and answers, where the system relies on
+and it was withdrawn and not tuned. When the check disputes a key, the
+question is dropped. When the check itself is unavailable, the question is
+kept, so an outage lets unchecked questions through; one call of the probe
+run ended that way. Multiple-choice and ordering questions in the reader and
+the rehearsal are checked for shape only and graded against the model's key.
+What is not verified at all is the prose of explanations and answers, where the system relies on
 retrieval, citations to pages, and the original page next to the text.
 
 \section{Discussion}
@@ -73,8 +84,9 @@ building the system and are lessons of one project, not general results.
 On 22~May 2026 four parsing pipelines existed in the code at once. Each had
 been started to fix the previous one, and none had been removed. Most of the
 dead tables in \cref{sec:data-model} and several faults in \cref{ch:content}
-trace back to that state. The pipeline became reliable when a single path
-was left and the others were deleted.
+trace back to that state. In our experience the pipeline became dependable
+only when a single path was left and the others were deleted; this was not
+measured.
 
 \paragraph{The simple method was never measured.}
 The text extractor in production was never chosen. It was what remained

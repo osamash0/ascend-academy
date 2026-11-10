@@ -521,8 +521,12 @@ set of types, written through one function that never fails the reader. It
 can be aggregated by a pure function over a bounded window that turns events
 into facts per page. It can be fed back in a privacy-preserving way by
 limiting the output and not the storage: no statement about a person, none
-about fewer than five readers, and an owner who is absent from their own
-numbers.
+about a page that fewer than five people have read, and an owner who is
+absent from their own numbers. The protection is that of the owner's view
+and has two stated limits: a finding can rest on fewer than five people
+(\cref{sec:c5-findings}), and a database policy of the older dashboard still
+lets an owner with the professor role read event rows with user ids
+(\cref{sec:c5-privacy}).
 
 Without seeing a single student, an owner can learn which page confuses
 readers, where readers leave, which pages are skipped, where readers turn

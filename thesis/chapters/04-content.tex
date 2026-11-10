@@ -222,8 +222,10 @@ again. Each mechanism covers a gap the others leave. The run-row key prevents tw
 records of the same work, but not two workers running it at once; the lock
 prevents that, but only while it lives; replay prevents repeating finished work,
 but not unfinished work; lecture reuse and the upserted outputs make a re-parse
-safe to repeat. Together they give at most one parse per owner and pipeline
-version, unless a re-parse is forced.
+safe to repeat. While the lock is available, they give at most one parse per
+owner and pipeline version, unless a re-parse is forced. Without the lock,
+two simultaneous jobs of one owner can both parse
+(\cref{sec:idempotency-detail}).
 
 This is the precise content of the project's ``parse once'' principle, and it
 is narrower than the phrase suggests. The bytes are stored once and the
@@ -407,9 +409,10 @@ explain part of the ranking. The current extraction carries the running
 footer into the content on 23 of 24 pages, as do pdf.js and MarkItDown (23
 each) and pymupdf4llm (20); the layout engines strip it (OpenDataLoader 4,
 Marker 1, MinerU 0), and the vision models mostly do (8 and 18). The layout
-engines pay for it elsewhere: MinerU breaks 21\,\% of line pairs and invents
-18\,\% of its words, HTML tag names among them; Docling and Marker invent
-about 7\,\%. pymupdf4llm runs its own OCR pass on pages it judges image-heavy,
+engines pay for it elsewhere: MinerU breaks 21\,\% of line pairs, and
+18\,\% of its words do not occur in PyMuPDF's text layer of the page;
+Docling and Marker reach about 7\,\%. That share counts invented words and
+HTML tag names, but also any text that the reference itself misses. pymupdf4llm runs its own OCR pass on pages it judges image-heavy,
 which is part of why it scores well and would have to be switched off before
 any production use.
 
@@ -417,8 +420,11 @@ any production use.
 page at about 62\,MB resident. The heavy engines take 1.2 to 5.8 seconds per
 page at about 0.9 to 3\,GB resident, a lower bound because memory they
 allocate on the GPU is not counted, and each needs a model download of
-several hundred megabytes. The vision transcriptions cost \$0.21 for the 24
-pages, at 1.8 to 5.7 seconds per page, and leave the server. On a 4\,GB
+several hundred megabytes. pymupdf4llm, with its OCR pass on, takes 0.56 to
+0.93 seconds per page at about 390\,MB. The two vision transcriptions
+together cost \$0.21 for the 24 pages at list prices (\$0.04 for
+\code{gpt-4.1-mini} and \$0.17 for the stronger model), at 1.8 to 5.7 seconds
+per page, and leave the server. On a 4\,GB
 production machine shared with the API, the worker, and two Redis instances,
 the heavy engines are not an option; the vision models are an option whose
 price is paid per page and per uploader.
@@ -431,11 +437,12 @@ independent; later comparisons were less blind; and the heavy engines saw a
 60-page cut. None of this was corrected for.
 
 \paragraph{What follows.} The production parser was not changed on this
-basis at the pin. The benchmark says that the cheapest path, PyMuPDF's text
-layer, is the one learners would least like to learn from, that its
-layout-aware sibling pymupdf4llm is preferred about 4.5:1 over it at almost
-no extra cost, and that transcription by a vision model is preferred further still at
-a price. The decision between the two, and the footer problem that the deck
+basis at the pin. The benchmark says that the one judge rated the cheapest
+path, PyMuPDF's text layer, second to last, above only MarkItDown; that its
+layout-aware sibling pymupdf4llm is preferred about 4.5:1 over it without a
+fee, for under a second more per page and about 330\,MB more memory in the
+tested configuration; and that transcription by a vision model is
+preferred further still at a price. The decision between the two, and the footer problem that the deck
 plan already solves for the model's input but not for the stored text, is
 open and is discussed in the final chapter.
 
@@ -459,7 +466,8 @@ How can heterogeneous lecture PDFs be transformed reliably into structured,
 grounded content? The answer this chapter gives has four parts. Identity by
 content: a SHA-256 hash names the bytes, one object is stored per hash, one
 run is kept per document, version, and uploader, and a finished run is
-replayed rather than repeated; concurrent duplicates are locked out. Decide
+replayed rather than repeated; concurrent duplicates are locked out while the
+lock in Redis is available. Decide
 before generating: a deterministic plan assigns roles and sections, strips
 boilerplate from the model's input, and selects the pages the deck-level steps
 read, with no model call. Route by the page, not by a
@@ -470,11 +478,13 @@ worker, not the browser, writes every page the moment it exists, and the
 reader opens on the original PDF at once.
 
 Which extraction methods give learners the most useful text at what cost? On
-24 pages from two courses, judged blind, a vision model's transcription is
-preferred to the current text layer at odds of more than 10:1 and costs about
-a cent a page; the layout-aware PyMuPDF path is preferred at about 4.5:1 for
-no measurable extra cost; the heavy layout engines are preferred less and
-need gigabytes of memory the production machine does not have. The current
+24 pages from two courses, judged blind by the author alone, a vision model's
+transcription is preferred to the current text layer at odds of more than
+10:1 and costs under a cent a page; the layout-aware PyMuPDF path is
+preferred at about 4.5:1 without a fee, at under a second more per page,
+measured with its OCR pass on, which production would switch off; the heavy
+layout engines are preferred less and need gigabytes of memory the production
+machine does not have. The current
 extraction was judged unusable, together with its opponent, in most of its
 first-round duels, mainly because it reads the footer as content.
 

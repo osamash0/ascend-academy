@@ -35,7 +35,8 @@ that software can address: a text of the page, the ideas on it, questions
 about it, and a vector for search (\cref{fig:transformation}). An assistant
 called Luna works on these objects and always points back to the page. What
 readers do on the pages is recorded and returned to the owner of the material
-as patterns across at least five people.
+as patterns, never about a person, and only for pages that at least five
+people have read.
 
 \thesisfigure{f1-transformation}
   {The transformation this thesis addresses. One PDF is kept as the reading
@@ -100,8 +101,10 @@ We make four contributions.
     (\cref{ch:content}).
   \item A pre-registered blind benchmark of eleven text extraction methods on
     24~lecture pages, judged in 283~pairwise votes (\cref{ch:content}).
-  \item A feedback loop from reader to owner that makes no statement about
-    a person and none about fewer than five readers (\cref{ch:loop}).
+  \item A feedback loop from reader to owner whose view makes no statement
+    about a person and none about a page that fewer than five people have
+    read; where this rule is weaker than it sounds is stated in
+    \cref{sec:c5-privacy,sec:c5-findings}.
   \item Verification of generated questions by computation and by an
     independent check, with one verifier that failed its test and was
     withdrawn (\cref{ch:trust}).

@@ -466,10 +466,14 @@ that the older tutor really puts outside knowledge into a block quote.
 \emph{How can the quality of content written by a language model be verified?}
 In this system, in three ways of falling strength. By computation, where the
 content has a formal answer: three kinds of task are graded by code and the
-model's key is never used. By an independent second reading, where it has
-not: a different model answers each quiz question from its cited page without
-the key. By structure everywhere else: pages must exist, phrases must be on
-the page, citations must point at retrieved sources, blocks must parse.
+model's key is never used. By an independent second reading, for the quiz
+questions written at parse time: a different model answers each question
+from its cited page without the key, and if that check is unavailable the
+question is kept. By structure everywhere else: pages must exist, phrases
+must be on the page, citations must point at retrieved sources, blocks must
+parse. This weakest kind also covers the multiple-choice and ordering
+questions of the reader and the rehearsal, which are graded against the
+model's key.
 
 \emph{How can it be measured?} With a small probe that is written before the
 verifier is scored and that contains both kinds of error. On 16 pairs the
