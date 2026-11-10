@@ -65,8 +65,12 @@
   sorting=nyt,
   maxbibnames=99,
   giveninits=true,
+  urldate=long,
+  dateabbrev=false,
 ]{biblatex}
 \addbibresource{references.bib}
+% Access note for every external link, month only: ``last accessed November 2026''.
+\DefineBibliographyStrings{english}{urlseen={last accessed}}
 % Let long URLs in the bibliography break after letters and digits too.
 \setcounter{biburllcpenalty}{7000}
 \setcounter{biburlucpenalty}{8000}
