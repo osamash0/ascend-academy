@@ -27,8 +27,8 @@ eleven extraction methods, and the deck-plan scorecard. Where a finding from
 an earlier state of the code has since been fixed, it is reported as
 \emph{found, then fixed}, with the earlier state named as
 \code{\thesisEarlierCommit} (August 2026) or \code{\thesisPreviousCommit}
-(2 November 2026). What the deployed server ran on submission day is stated
-once, in the architecture chapter, and not repeated here.
+(2 November 2026). What the deployed server runs is stated
+once, in \cref{sec:built-vs-deployed}, and not repeated here.
 
 \section{What the Input Looks Like}
 \label{sec:c4-requirements}
@@ -272,8 +272,8 @@ bulk parsing. The code also contains an \emph{OpenAI-only} mode with one paid
 provider. In that mode the API and the worker refuse to start when the key of
 another provider is present, so that a misconfigured deployment cannot send
 student data to a provider that the privacy policy does not name. This mode
-is the operator's target and was not switched on at the pin: a probe of
-9~November 2026 found six providers keyed in production
+is the operator's target and was not switched on at the pin: a probe in
+November 2026 found six providers keyed in production
 (\cref{sec:openai-only}). Spending is bounded by a monthly cap per user (by
 default \$2) and a daily ceiling on paid calls (by default \$10), and every
 call is written to a cost ledger. \Cref{ch:trust} tests whether these limits
@@ -339,7 +339,8 @@ one vision call per figure page. The labels contain no page judged readable
 from its text, so the study cannot estimate how many of the 87 vision calls
 are unnecessary. And \enquote{needs the image} is the author's judgement; no
 text model was run on the pages to see whether its explanation fails. The new
-rule had not been deployed at the pin.
+rule had not been deployed at the pin; it has run in production since
+November 2026.
 
 \subsection{The Text Extraction Benchmark}
 \label{sec:parser-bench}
@@ -436,7 +437,7 @@ and OpenDataLoader falls under the anchor at 916. And when the bootstrap
 resamples the 24 pages instead of single votes, which respects that votes on
 one page are not independent, H1 holds for the two vision models,
 pymupdf4llm, and MinerU (bounds 1325, 1243, 1150, and 1078) and not for
-OpenDataLoader (987). This check was added after the result, on 10~November
+OpenDataLoader (987). This check was added after the result, in November
 (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak
 parser-benchmark/\allowbreak analysis/}). The two vision models' intervals
 overlap, so their order is
