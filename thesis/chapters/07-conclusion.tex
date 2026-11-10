@@ -13,36 +13,28 @@
 \chapter{Discussion and Conclusion}
 \label{ch:conclusion}
 
-This chapter collects the answers to the three research questions, discusses
-what the work showed beyond them, states its limitations, and looks ahead.
+This chapter collects the answers to the three research questions and discusses what the work showed beyond them. It then states the limitations of the work and looks ahead.
 
 \section{Answers to the Research Questions}
 \label{sec:summary}
 
 \paragraph{RQ1: from PDF to structured, grounded content.}
-The transformation is designed for reliability by a first pass that uses no
-model. One rule, measured on the
+We design the transformation for reliability with a first pass that uses no model. One rule, measured on the
 page without its footer, sends 87 of the 1{,}593 pages of the corpus to a
 vision model. In the blind benchmark, under a protocol
 fixed before the first vote and extended to the vision models after the
-first comparison, transcription by a
-vision model was rated highest (1452 and 1376 points) and pymupdf4llm third (1263).
+first comparison, the author rated transcription by a vision model highest (1452 and 1376 points) and pymupdf4llm third (1263).
 Nine of the ten alternatives score above the production extraction; five stay
-above it at the corrected lower bound, and four when pages rather than votes
-are resampled. 
+above it at the corrected lower bound, and four when we resample pages rather than votes. 
 The limits are one judge without a second rater, born-digital pages from one
 university, later comparisons that were less blind, and a preference between
-rendered outputs that was not tested on the models that consume the text.
-Reliability end to end and the grounding of the generated page text were not
-measured.
+rendered outputs that we did not test on the models that consume the text. We measured neither end-to-end reliability nor the grounding of the page text.
 
 \paragraph{RQ2: from reader events back to the owner.}
-Interaction is modelled as one governed log of 17~event types, which the
+We model interaction as one governed log of 17~event types, which the
 Space engine turns into nine kinds of finding per page. The owner's view
 names no one and says nothing about a page that fewer than five people have
-read. In the study with scripted readers, four of the five
-expectations that a finding appears were met, and fourteen of the eighteen
-that the view stays silent, where an engine that reports nothing would meet
+read. In the study with scripted readers, the engine met four of the five expectations that a finding appears, and fourteen of the eighteen that the view stays silent, where an engine that reports nothing would meet
 sixteen; the two misses of arm~B show that the rules do not keep the promise
 made to members (\cref{sec:c5-evaluation}). By the criterion of
 \cref{sec:analytics-privacy}, that no statement is about fewer than five
@@ -52,27 +44,21 @@ owner with the professor role read event rows with user ids
 (\cref{sec:c5-privacy}).
 
 \paragraph{RQ3: verifying generated content.}
-Generated content is verified by computation where an answer can be
-computed, by the answer check for the quiz questions written during parsing,
-and by structure elsewhere. On 16~fixed pairs the answer check gave no wrong
-verdict among the calls that returned one, and one call did not; it was
-measured in-sample and without an acceptance criterion fixed in advance. The
+The system verifies generated content by computation where it can compute an answer, by the answer check for the quiz questions that a model writes during parsing, and by structure elsewhere. On 16~fixed pairs the answer check gave no wrong
+verdict among the calls that returned one, and one call did not; we measured it in-sample and without an acceptance criterion fixed in advance. The
 lexical score would have dropped 14 of the 16 correct keys, and the
-similarity score failed its pre-registered test with 8 of 16 wrong keys kept
-and was not adopted. When the check is unavailable, the question is kept. The prose of
-explanations and answers is not verified: the ask bar relies on retrieval
+similarity score failed its pre-registered test with 8 of 16 wrong keys kept, and we did not adopt it. When the check is unavailable, the system keeps the question. Nothing verifies the prose of explanations and answers: the ask bar relies on retrieval
 and on citations it does not require, and Explain, Ask, and Luna on rules in
 the prompt and on the original page next to the text.
 
 \paragraph{The three aims.}
-Of the aims in \cref{sec:aims}, the first two are met within the limits of
-RQ1 and RQ2, and the third for the readers of a Space, who share its owner's
+Of the aims in \cref{sec:aims}, the system meets the first two within the limits of RQ1 and RQ2, and the third for the readers of a Space, who share its owner's
 parse, but not for two uploaders of the same file.
 
 \section{Discussion}
 \label{sec:discussion}
 
-We first set each answer against the work of \cref{ch:background}.
+We first set each answer against the work of \cref{ch:background}. Six observations follow; they are lessons of one project, not general results.
 
 \paragraph{The answers and the literature.}
 On RQ1, the benchmark agrees with Dinh et al.\ that the page image carries
@@ -84,42 +70,33 @@ applies it to pages. It guarantees five readers behind a page, not five people b
 model judges favour their own
 output~\cite{panickssery2024selfpreference}. The probe compares verifiers and does not test that bias itself.
 
-Six observations follow; they are lessons of one project, not general results.
-
 \paragraph{One live path.}
 By the end of May 2026 the upload route switched between four parser paths,
-each started to fix the previous one and none removed. Two of the three
+each of which a developer started to fix the previous one, and none of which anyone removed. Two of the three
 tables that no live code writes (\cref{sec:schema-notes}) and several faults
 in \cref{ch:content} trace back to that state; in our experience the pipeline
-became dependable only when one path was left, which was not measured.
+became dependable only when one path remained, which we did not measure.
 
-\paragraph{The simple method was never chosen.}
-The text extractor in production was what remained when other tools were
-removed for memory, cost, or complexity. The benchmark of \cref{ch:content}
-was the first comparison it faced, and nine of the ten alternatives were
-rated above it. Measuring a method before relying on it applies to the
+\paragraph{Nobody chose the simple method.}
+The text extractor in production is what remained when the developers removed other tools for memory, cost, or complexity. The benchmark of \cref{ch:content}
+was the first comparison it faced, and the author rated nine of the ten alternatives above it. Measuring a method before relying on it applies to the
 verifiers as well: the similarity score of \cref{ch:trust} looked right and
 failed.
 
 \paragraph{Cost shaped the architecture.}
 Free and low-cost quotas explain the ordered provider chains, the spending
 caps, parsing once, and the deterministic first pass. Two faults found while
-planning the provider chaos tests were faults of cost, now guarded by five
-invariants in 11~property tests. For a system that a student can afford to
+planning the provider chaos tests were faults of cost, which five invariants now guard in 11~property tests. For a system that a student can afford to
 run, cost is a design requirement from the start.
 
 \paragraph{Agent-written code needs written-down expectations.}
-With most commits written by coding agents, the practices that kept the code
-in line with what was intended fixed an expectation before the work: a
+With about 77\,\% of the commits written by coding agents, the practices that kept the code
+in line with the intention fixed an expectation before the work: a
 failing test first, a threshold registered before a run, documented claims
-checked against the code, and a pinned revision. Several faults reported here
-were found later, where these practices had been skipped.
+checked against the code, and a pinned revision. We found several of the faults reported here later, where we had skipped these practices.
 
-\paragraph{The system was built ahead of its users.}
-Review, exams, badges, and analytics were built for learners who had not
-arrived: of twelve flags, four are switched on (\cref{sec:built-vs-deployed}).
-Feature toggles are known to accumulate as
-debt~\cite{rahman2016toggles,hodgson2017toggles}, and here the debt showed as
+\paragraph{The system ran ahead of its users.}
+The developers built review, exams, badges, and analytics for learners who had not arrived: production switches on four of twelve flags (\cref{sec:built-vs-deployed}). Feature toggles accumulate as debt~\cite{rahman2016toggles,hodgson2017toggles}, and here the debt showed as
 menu entries that led to routes answering ``not found'' until, in October,
 the build derived each interface flag from its backend flag. The move to a
 reading-first interface in October was a late correction of the same habit.
@@ -128,17 +105,14 @@ reading-first interface in October was a late correction of the same habit.
 \label{sec:reality-vs-documented}
 
 The sixth observation is that the documents of the project and the running
-system drifted apart, and that the drift was found only by reading code and
-probing production. It matters because the three answers rest on statements about the system. The cases verified here are of four
-kinds: a description of a gateway that had been removed
+system drifted apart, and that we found the drift only by reading code and probing production. It matters because the three answers rest on statements about the system. The cases verified here are of four
+kinds: a description of a gateway that the developers had removed
 (\cref{sec:architecture}); a comment saying that the proxy strips a path prefix it keeps
 (\code{nginx.conf:24}); configuration that named a server the system did not
 run on (\cref{sec:deployment}); and a production database that differed from
 the repository, with a column that no migration defines, a migration history
-of only two entries, and a storage bucket that could be listed publicly
-(\cref{sec:data-model,sec:hardening}). Such drift is well documented for
-larger
-teams~\cite{lethbridge2003documentation,aghajani2019docissues,desilva2012erosion};
+of only two entries, and a storage bucket that anyone could list
+(\cref{sec:data-model,sec:hardening}). The literature documents such drift for larger teams~\cite{lethbridge2003documentation,aghajani2019docissues,desilva2012erosion};
 in a project of one or two people, no second reader compares code, comment,
 and document. What helped was to treat the running system as the source of truth and to
 delete instead of archive.
@@ -146,30 +120,26 @@ delete instead of archive.
 \section{Limitations}
 \label{sec:limitations}
 
-The limitations of each evaluation are stated in its chapter. Seven hold for
+Each chapter states the limitations of its evaluation. Seven hold for
 the thesis as a whole.
 
 \begin{enumerate}
-  \item \emph{No learners.} No study with participants was run. Nothing in
+  \item \emph{No learners.} We ran no study with participants. Nothing in
     this thesis shows that anyone learns more, or more willingly, with the
     system than with the PDF.
-  \item \emph{The author is the judge.} The benchmark votes, the routing
-    labels, and the 16~pairs of the probe were made by the person who built
-    the system, without a second rater. The votes were blind to method names
+  \item \emph{The author is the judge.} The person who built the system made the benchmark votes, the routing labels, and the 16~pairs of the probe, without a second rater. The votes were blind to method names
     within each comparison, but later comparisons were less blind, and the
     selection of pages and pairs was not independent.
   \item \emph{One university, small samples.} All material comes from a few
     courses at one university, born-digital, in two languages. Twenty-four
     pages and sixteen pairs show where a method fails on these pages; they
     do not estimate rates in other material.
-  \item \emph{No competing system was run.} The comparison in
-    \cref{tab:related} rests on publications.
+  \item \emph{No competing system.} The comparison in \cref{tab:related} rests on publications; we ran none.
   \item \emph{The author audited the author's system.} The findings on drift and on security come from reading our own code; a
 second reader would find more.
-  \item \emph{One machine.} Nothing is known about the behaviour of the
+  \item \emph{One machine.} We know nothing about the behaviour of the
     system under load.
-  \item \emph{Two theses, one code base.} The split in \cref{sec:scope} is
-    drawn by commits. Design discussions between the two developers left
+  \item \emph{Two theses, one code base.} We draw the split in \cref{sec:scope} by commits. Design discussions between the two developers left
     no record, so the split of ideas is less sharp than the split of code.
 \end{enumerate}
 
@@ -184,40 +154,29 @@ them.
 
 The first step that should follow is the missing study, modelled on the
 trial of Learn Your Way~\cite{learnlm2025textbook}: two groups, the same
-material, one with the plain PDF and one with the reading view, and a test
-directly after and one some days later. Both groups would get the same
+material, one with the plain PDF and one with the reading view, with one test after and one some days later. Both groups would get the same
 practice questions, so that the trial isolates the reading surface, and a
 standard usability questionnaire~\cite{brooke1996sus,laugwitz2008ueq}; the
 event log of \cref{ch:loop} would supply time on page and revisits.
 
-Four engineering steps follow from the findings. First, pymupdf4llm should
-be judged against the current extraction again with its OCR pass off; if it
-still leads, it should replace the current call, and the running footer
-should be stripped from the stored text. Second, the floor of five should
-apply to the people a finding is about, the policy that lets an owner with
-the professor role read event rows should be dropped, and the retention job,
-which has never run, should be switched on. Third, the parse of a file should
-be shared across uploaders, which the content hash already permits and the
+Four engineering steps follow from the findings. First, a new comparison should judge pymupdf4llm against the current extraction with its OCR pass off; if pymupdf4llm still leads, it should replace the current call, and the parser should strip the running footer from the stored text. Second, the floor of five should
+apply to the people a finding is about, and the project should drop the policy that lets an owner with the professor role read event rows and switch on the retention job. Third, uploaders of the same file should share its parse, which the content hash already permits and the
 ownership model does not yet. Fourth, the loop needs its return channel: a
 member's question that reaches the owner, and an owner's answer that reaches
 every reader of the page.
 
-The nearest step is a fourth view of a page that rebuilds its layout as text:
-its backend (PR~\#182) is merged and switched off, and its part in the
+The nearest step is a fourth view of a page that rebuilds its layout as text. Its backend (PR~\#182) is on the main branch and off, and its part in the
 reading view (PR~\#183) has not reached the main branch.
 
-Two wider directions are ideas of the author and not results: teaching
+Two wider directions are ideas of the author and not results. They are teaching
 material versioned and shared like source code, and models that a university
 runs itself, which would keep learner questions inside the institution.
 
 \section{Closing}
 \label{sec:reflection}
 
-The thesis set out to let a lecture PDF answer questions and report how it is
-read. In the system as merged, a page can be read at once, explained, asked
-about, and practised, and its owner sees where readers struggle without being
-shown who they are. The measurements say that the text under these features
+The thesis set out to let a lecture PDF answer questions and report how people read it. In the system as merged, a reader can open a page at once, have it explained, ask about it, and practise it, and its owner sees where readers struggle without seeing who they are. The measurements say that the text under these features
 should come from a better extractor, that the loop separates scripted
 behaviours, and that one of three verifiers failed its test. The habit the
-project produced is to write down what is expected, to measure, and to report
+project produced is to write down the expectation, to measure, and to report
 the result when it disappoints.

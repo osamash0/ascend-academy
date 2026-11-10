@@ -18,15 +18,11 @@
 \chapter{Closing the Loop}
 \label{ch:loop}
 
-This chapter answers RQ2: how learner interaction events can be modelled,
-aggregated, and fed back to the owner of the material in a privacy-preserving
-way, and what an owner can learn from them without seeing a single student.
+This chapter answers RQ2: how a system can model learner interaction events, aggregate them, and feed them back to the owner of the material in a privacy-preserving way, and what an owner can learn from them without seeing a single student.
 What readers do on the pages of \cref{ch:content} travels back to the
 person who wrote them.
 
-Two revisions matter in this chapter. The event log and the aggregation
-engine are described at \code{\thesisCommit}. The screen that shows the
-result to an owner was merged two days later (PR~\#181, 8~November 2026)
+Two revisions matter in this chapter. We describe the event log and the aggregation engine at \code{\thesisCommit}. The screen that shows the result to an owner entered the main branch two days later (PR~\#181, 8~November 2026)
 with five small changes to what the engine sends
 (\cref{sec:c5-findings}), and the evaluation in
 \cref{sec:c5-evaluation} ran on that later state, revision \code{2e146f51}.
@@ -37,20 +33,15 @@ evidence is a study with scripted readers.
 \label{sec:c5-loop}
 
 \thesisfigure{f23-loop}
-  {The feedback loop in five stages. The floor of five readers is applied when
-   events are aggregated, and no name leaves the last stage.}
+  {The feedback loop in five stages. The engine applies the floor of five readers when it aggregates events, and no name leaves the last stage.}
   {fig:loop}
 
 \Cref{fig:loop} shows the path of one interaction. The reading view \emph{records} it through one function,
-\code{record\_event}, which \emph{governs} it: an event of an
-unknown type or with an unknown field is rejected. The event is \emph{stored}
-in one append-only log. When an owner asks, the engine \emph{aggregates} the
+\code{record\_event}, which \emph{governs} it: the function rejects an event of an unknown type or with an unknown field. One append-only log \emph{stores} the event. When an owner asks, the engine \emph{aggregates} the
 log of the Space's members, and the owner's view \emph{shows} the result as
 one sentence, three numbers, and a map of pages. The loop closes outside the
 software: the owner opens the page a finding points to and decides what to
-change.
-
-At every stage after storage the system speaks about pages and never about
+change. At every stage after storage the system speaks about pages and never about
 people.
 
 \section{The Event Model}
@@ -59,16 +50,15 @@ people.
 \subsection{One Log, Seventeen Governed Types}
 
 All interaction data lives in one table, \code{learning\_events}: who, when,
-an event type, and a JSON payload. The type is restricted twice. In the
+an event type, and a JSON payload. Two checks restrict the type. In the
 database a \code{CHECK} constraint lists the 17 allowed types. In the backend
 each type has a Pydantic model in one registry, and every model forbids
 unknown fields (\code{schemas/learning\_events.py}, \code{EVENT\_REGISTRY},
-\code{extra="forbid"}). An event that fails either check is not stored.
+\code{extra="forbid"}). The system does not store an event that fails either check.
 
 All backend writes go through one function, \code{record\_event}, in the
 file \code{event\_repo.py} (lines 64--91). It validates the payload and
-inserts the row inside a savepoint. If the row is rejected, the failure is
-logged and the event is dropped; the learner's request, for example turning a
+inserts the row inside a savepoint. If the database rejects the row, the function logs the failure and drops the event; the learner's request, for example turning a
 page, still succeeds. The design loses an event rather than fail a reader.
 
 \Cref{tab:events} lists the types. The reading view writes eight of the
@@ -104,39 +94,34 @@ engine reads six.
   \end{tabular}
 \end{table}
 
-Two decisions about content are visible in the table. The answer the AI gives
-to a question is never stored, only the question, cut to 400 characters. And
+The table shows two decisions about content. The system never stores the answer the AI gives to a question, only the question, cut to 400 characters. And
 nothing from a private study session with the assistant becomes an event at
 all (\code{insights/sources/space.py:38}).
 
 \subsection{Storage}
 
-The table is partitioned by month on the event's timestamp, with a default
+Postgres partitions the table by month on the event's timestamp, with a default
 partition for rows outside any month, and it has four indexes: by user, by
 lecture, by type and time, and a GIN index on the payload (migration
 \code{20260721010000}). References to the Lesson and the page live inside the
 payload and have no foreign key. This trades enforced integrity for a cheap
-insert and for partitions that can be dropped as a whole.
+insert and for partitions that an operator can drop as a whole.
 
 A daily roll-up table and a retention job exist, but the job is a dry run
-unless two environment settings are present, and they never were:
-\emph{retention has never run}, so the claim that old events are deleted
-cannot be made.
+unless two environment settings are present, and they never were.
+\emph{Retention has never run}, so we cannot claim that the system deletes old events.
 
-Events carry the real user id and are not pseudonymised; an unused helper
+Events carry the real user id without a pseudonym; an unused helper
 from an early plan for pseudonyms, \code{pseudonymize.ts}, is still in the
-frontend code. The protection that was built limits who may read the log and
+frontend code. The protection that exists limits who may read the log and
 what leaves the aggregation (\cref{sec:c5-privacy}).
 
 A member can insert events for themselves directly, through the database
 interface the browser holds. Three guards keep one member from distorting what the owner sees: a trigger rejects a client timestamp that is more than
 300~seconds away from the server's clock, the engine reads at most 5{,}000
 events per member, and it reads only the payload keys it needs (PRs~\#142
-and \#175).
-
-The event log is one table among 78; \cref{sec:data-model} describes the
-schema around it and where the database in production differs from the
-repository.
+and \#175). The event log is one table among 78; \cref{sec:data-model} describes the
+schema around it and where production differs from the repository.
 
 \section{Aggregation}
 \label{sec:c5-aggregation}
@@ -150,7 +135,7 @@ current time
 owner's screen draws. Nothing in between touches the database, which is what
 makes the study in \cref{sec:c5-evaluation} possible.
 
-The input is bounded. Members are the enrolled users without the owner. Events
+The input has bounds. Members are the enrolled users without the owner. Events
 are the six types of \cref{tab:events} from the last 56~days, at most 200{,}000
 in all. From them the engine builds, for every page, a small set of facts: who
 read it (a view with positive duration), who needed help (opened Explain or
@@ -159,7 +144,7 @@ checkpoint right or wrong at the first try.
 
 \subsection{The Floor}
 
-One constant governs what may be said. It is \code{MIN\_READERS = 5}, set in
+One constant governs what the view may say. It is \code{MIN\_READERS = 5}, set in
 \code{insights/\allowbreak space\_engine.py:25}. A page that fewer than five members other than the owner have viewed says
 nothing; these members are the page's \emph{readers}. \enquote{Nothing} is not zero: the share of readers who
 needed help on such a page is \code{null}, and the screen draws a faint outline
@@ -173,11 +158,10 @@ payload carries no number of readers but one of three words, its \emph{reach}: \
 
 A detector is a rule over the facts of one Lesson that produces a finding: a
 kind, a page, and a severity. \Cref{tab:detectors} gives each rule in one line.
-The detectors were written for the older professor dashboard and are reused.
+The developers wrote the detectors for the older professor dashboard, and the Space engine reuses them.
 The Space engine runs ten of the eleven; the one it skips is the only one
 that speaks about individual students. Nine kinds of finding can reach the
-owner's screen. In the Space engine a share of ratings, tries, or checkpoint
-pairs is used only once five of the page's readers have contributed to it
+owner's screen. The Space engine uses a share of ratings, tries, or checkpoint pairs only once five of the page's readers have contributed to it
 (\code{insights/\allowbreak space\_engine.py:38--46}), so a detector's own
 minimum of three ratings never binds there.
 
@@ -210,24 +194,19 @@ minimum of three ratings never binds there.
 
 Beside the findings the engine computes three numbers, one value per week
 for the last eight weeks (\code{insights/figures.py}): how many members read, what share of
-pages is \emph{landing}, and what share of checkpoints was cleared at the
-first try. A page lands when fewer than 20\,\% of its readers needed help
+pages is \emph{landing}, and what share of checkpoints members cleared at the first try. A page lands when fewer than 20\,\% of its readers needed help
 (\code{LANDS\_BELOW = 0.2}). A week has a value only if five members read in
 that week.
 
 One step uses a language model. For a hotspot page on which at least five
-members who read the page also asked a question, the questions are summarised
-into at most three themes of at most twelve words each, for at most five pages,
-and the result is cached for 30~days (\code{insights/themes.py}). The owner
+members who read the page also asked a question, the model summarises the questions into at most three themes of at most twelve words each, for at most five pages, and the engine caches the result for 30~days (\code{insights/themes.py}). The owner
 sees the themes and the number of askers, never a question in a member's own
 words.
 
 \section{What the Owner Sees}
 \label{sec:c5-door}
 
-The owner reaches the view from the Space's page, through one link that only
-the owner is shown. The route is guarded twice. In the browser, anyone who is
-not the owner is sent back to the Space. On the server,
+The owner reaches the view from the Space's page, through one link that only the owner sees. Two guards protect the route. The browser sends anyone who is not the owner back to the Space. On the server,
 \code{assert\_space\_owner} answers a member with 403 and anyone else with 404
 (\code{domain/authorization.py:47--62}).
 
@@ -244,12 +223,9 @@ not the owner is sent back to the Space. On the server,
 \Cref{fig:door} shows the screen above and below the floor. From top to bottom
 it holds four things. The assistant says one sentence that names the Lesson to
 look at, with one button that opens the page. Three numbers follow, each the value of the current week with its eight
-weeks as bars; a week without a value is left empty and is not drawn
-as zero. Then comes the map: one cell per page, brighter where more readers
-needed help, a faint outline where fewer than five have read. A page with a
-finding is labelled and opens that page, and the finding stands below as one
-sentence. The last line tells the owner that their own reading is never
-counted.
+weeks as bars; the screen leaves a week without a value empty and does not draw it as zero. Then comes the map: one cell per page, brighter where more readers
+needed help, a faint outline where fewer than five have read. A cell with a finding carries a label and opens that page, and the finding stands below as one
+sentence. The last line tells the owner that the view never counts their own reading.
 
 Below the floor the screen shows one sentence and nothing else. It does not say
 how many people have read.
@@ -263,11 +239,11 @@ PR~\#176 its routes require the professor role.
 
 The General Data Protection Regulation asks for data protection by design and
 by default~\cite{gdpr2016}. The system's answer is not anonymisation of the
-stored data but a limit on what leaves it. Six mechanisms carry this.
+stored data but a limit on what leaves it. Six mechanisms implement this limit.
 
 \begin{description}
   \item[No output about a person.] The owner's view has no list of students, no
-    per-student progress, and no name. This was decided on 5~November 2026.
+    per-student progress, and no name. The decision dates from 5~November 2026.
     An earlier version (PR~\#142) showed individuals under keyed pseudonyms;
     PR~\#175 removed those routes, the feature flag, and the key. The
     repository records the decision and not its reason
@@ -278,11 +254,9 @@ stored data but a limit on what leaves it. Six mechanisms carry this.
   \item[A minimum group size.] Every statement is about at least five readers
     of a page, in the spirit of the minimum group size that
     $k$-anonymity~\cite{sweeney2002kanonymity} requires of released records.
-    Below it the value is \code{null}, and the size of the group is replaced
-    by a word. \Cref{sec:c5-findings} shows where this rule is weaker than it
+    Below it the value is \code{null}, and a word replaces the size of the group. \Cref{sec:c5-findings} shows where this rule is weaker than it
     sounds.
-  \item[The owner is not in the data.] The owner's own events are removed
-    before anything is counted (\code{sources/space.py:107--112}).
+  \item[The owner is not in the data.] The engine removes the owner's own events before it counts anything (\code{sources/space.py:107--112}).
   \item[Visibility among members is opt-in.] Whether other members of a Space
     see a member's name is a profile setting that is off by default (PR~\#146).
   \item[Export and erasure.] A user can download their data and delete their
@@ -295,18 +269,15 @@ stored data but a limit on what leaves it. Six mechanisms carry this.
     browser and the table itself (\cref{sec:authorisation}).
 \end{description}
 
-What a member is told matches what is built, with the limit of
-\cref{sec:c5-findings}. The sentence shown when joining a
-Space and the privacy page both say that owners see patterns across at least
+What the system tells a member matches what it does, with the limit of
+\cref{sec:c5-findings}. The sentence that a member sees when joining a Space and the privacy page both say that owners see patterns across at least
 five people and never names (\code{v4Spaces.json:491}, \code{legal.json:35}).
 
 A second gap, besides the one in \cref{sec:c5-findings}, concerns raw rows.
 An owner who holds the professor role
 can still read the \code{learning\_events} rows of their enrolled students
-directly from the database, with user ids and without names, because a policy
-written for the older dashboard allows it (stated in PR~\#175);
-the only rows it withholds are the questions asked in the reading view. No screen uses this path. Closing it is a migration, not a redesign, and
-it is listed as future work (\cref{sec:future-work}).
+directly from the database, with user ids and without names, because a policy of the older dashboard allows it (PR~\#175 states this);
+the only rows it withholds are the questions asked in the reading view. No screen uses this path. Closing it is a migration, not a redesign, and \cref{sec:future-work} lists it as future work.
 
 Whether the data under the view is safe depends on who can reach the tables
 at all; \cref{sec:authorisation} describes the policies and their tests. One
@@ -321,19 +292,17 @@ interface, until PRs~\#175 and~\#176 closed it.
 \subsection{Method: A Study with Scripted Readers}
 \label{sec:c5-method}
 
-With no real Space above the floor, we asked a narrower question that can be
-answered: given readers who behave in known ways, does the owner's view say
+With no real Space above the floor, we asked a narrower question that the code can answer: given readers who behave in known ways, does the owner's view say
 what it should, and does it stay silent when it should? Because the engine is
 a pure function, the study needs no server. A script
 (\code{backend/eval/persona\_study.py} at revision \code{a342dea9}, where
 the engine is identical to \code{2e146f51}) builds one Space with one Lesson
 of 30~pages, lets scripted readers write five of the eight event types the reading view
 writes, straight into the engine's input and not through
-\code{record\_event}, and calls the function behind the owner's route. The summarising model is
-replaced by fixed strings, as in the unit tests. Runs are seeded
+\code{record\_event}, and calls the function behind the owner's route. Fixed strings replace the summarising model, as in the unit tests. Each run has a seed
 (20261109 plus the arm's index) and take seconds.
 
-Five personas were defined. A \emph{steady} reader reads every page for 20 to
+We defined five personas. A \emph{steady} reader reads every page for 20 to
 60~seconds, checks in with \enquote{got it}, and clears checkpoints. A
 \emph{struggling} reader dwells three times as long on pages 8 to 12, asks
 there, checks in as \enquote{confused}, misses first tries, and turns back from
@@ -343,12 +312,10 @@ spends under five seconds per page and stops at page~10. An
 checkpoint on page~10. Dwell and correctness carry random noise.
 
 Eight arms mix these personas. Before the first run the author wrote down, for every arm, which findings must appear and which must not: 23 expectations in all.
-They were written into the script in the same working session, and the commit
+The author wrote them into the script in the same working session, and the commit
 that holds them also holds the results (\code{a342dea9}), so the order is the author's statement and not a record. Where the author was
-unsure of an outcome (the confusion block and the speed bump in arm~A), none
-was written down. After seeing the result the author added two arms to explain misses; they are marked
-as post hoc and are not counted among the 23. Arm~I draws the mix of arm~H
-again, and arm~J adds a sixth persona, an asker who is confused.
+unsure of an outcome (the confusion block and the speed bump in arm~A), the author wrote none down. After seeing the result the author added two arms to explain misses; \cref{tab:persona} marks them as post hoc, and they do not count among the 23. Arm~I draws the mix of arm~H
+again, and arm~J adds a sixth persona, a confused asker.
 
 \subsection{Results}
 \label{sec:c5-results}
@@ -381,12 +348,10 @@ again, and arm~J adds a sixth persona, an asker who is confused.
   \end{tabular}
 \end{table}
 
-\Cref{tab:persona} gives the result. Of the 23 expectations, 18 were met.
+\Cref{tab:persona} gives the result. The engine met 18 of the 23 expectations.
 Nine of the 18 come from the control arm~G,
 and arms B, C, and H met none of their four expectations. Sorted by kind, the
-picture is this. Of the five expectations that a finding must appear, four
-were met. Of the eighteen that the view must stay silent or empty, fourteen
-were met. An engine that never reported anything would meet sixteen of those
+picture is this. The engine met four of the five expectations that a finding must appear and fourteen of the eighteen that the view must stay silent or empty. An engine that never reported anything would meet sixteen of those
 eighteen and none of the five
 (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak
 persona-study/\allowbreak mute\_engine.py}), so the silent part of the study
@@ -396,8 +361,7 @@ they struggled, skimmers produce a leak and skipped pages, overconfident
 readers produce a calibration gap and nothing else, and the mix of 27 surfaces
 two findings on one page and no noise. The control arm is the most important
 row. With four members the payload holds no finding, no theme, and no number,
-and the screen is the lower half of \cref{fig:door}. With four askers no
-themes are made.
+and the screen is the lower half of \cref{fig:door}. Four askers yield no themes.
 
 \subsection{Three Things the Misses Showed}
 \label{sec:c5-findings}
@@ -406,7 +370,7 @@ In none of the five misses does the code depart from its rules. They fall
 into three groups, one per paragraph below. In arms A, C, and H the author's
 expectations had misread the rules; arm~B's two misses show that the rules do
 not keep the promise made to members, that patterns rest on at least five
-people (\cref{sec:c5-privacy}). Each is a limit of what an owner can learn.
+people (\cref{sec:c5-privacy}). Each limits what an owner can learn.
 
 \paragraph{The numbers speak about this week.}
 In arms A and H all three numbers were empty although 12 and 27 members had
@@ -414,38 +378,32 @@ read. The view shows the value of the current week. The scripted readers
 read on one day each, spread over eight weeks. In arm~A no week reached five
 readers; in arm~H at most three of the eight weeks did, and the last one did
 not. Arm~I places the same 27 readers in one week and
-the numbers appear. In a small Space with a few readers per week the numbers
-stay blank even when the map is full.
+the numbers appear. A Space with fewer than five readers per week shows no numbers even when the map is full.
 
 \paragraph{The floor counts readers, not the people a finding is about.}
 In arm~B three of thirteen members were confused on page~10, and the view
 reported a hotspot. The page had thirteen readers, so it was above the floor.
-In the Space engine a share is used only once five of the page's readers have
-rated it; the hotspot rule then fires at 20\,\% confused, so one confused
+The Space engine uses a share only once five of the page's readers have rated it; the hotspot rule then fires at 20\,\% confused, so one confused
 reader among five raters is enough. Three of thirteen are 23\,\%. The view
 names nobody and sends no count of three, so
 the promise \enquote{patterns across at least five people} holds by its
-letter. It does not hold in the stronger sense that a pattern is carried by
-five people. An owner who knows the group may guess who the three are. Only
+letter. It does not hold in the stronger sense that five people stand behind a pattern. An owner who knows the group may guess who the three are. Only
 the speed bump counts the people a finding is about, and only since PR~\#181,
-which made five changes to what the engine sends: a missing share is sent as
-null and not as 0; no count under five is sent for a grid cell, for the
+which made five changes to what the engine sends: the engine sends a missing share as null and not as 0; it sends no count under five for a grid cell, for the
 askers of a hotspot, or for a speed bump; and a word replaces the reader
-count. The code is frozen at the
-pin, so we report this as a limit and name the stricter rule, five subjects per
+count. We froze the code at the pin, so we report this as a limit and name the stricter rule, five subjects per
 finding, as the change to make.
 \TODO{After the meeting of 11 November: add the supervisor's view on whether
 the stricter rule is required for the term \enquote{privacy-preserving}.}
 
 \paragraph{Themes explain a hotspot and nothing else.}
 In arm~C five members asked about the same pages and no themes appeared,
-because themes are made only for hotspot pages. Five people who ask about a
+because the engine makes themes only for hotspot pages. Five people who ask about a
 page that is not a hotspot reach no one.
 
-\subsection{What Is Tested Without the Study}
+\subsection{What the Tests Cover Without the Study}
 
-The floor and the rules above are also fixed by tests that run without
-readers. At \code{2e146f51} these are 141 unit tests of the engine, 26 of
+Tests that run without readers also fix the floor and the rules above. At \code{2e146f51} these are 141 unit tests of the engine, 26 of
 them written as plain sentences
 such as \enquote{a page four people reached says nothing even if all four were
 foggy} (\code{tests/unit/test\_landing\_stories.py}), and 62 database tests
@@ -458,27 +416,18 @@ owner gate.
 The study tests whether the aggregation separates known behaviours and
 whether the floor holds. The personas are
 clean, so the arms separate more sharply than real readers would, and there
-is one Lesson, one Space, and one seed per arm. Several outcomes sit next to
-a threshold: the hotspot of arm~B rests on 23\,\% against a rule of
-20\,\%, and with one seed we do not know how often it would appear. The
-summarising model was
-replaced by fixed strings, so the study says nothing about the themes a real
-model would write or about what they might reveal. The study was written by
-the author who wrote the engine, and expectations and code can share a
+is one Lesson, one Space, and one seed per arm. At least one outcome sits next to a threshold: the hotspot of arm~B rests on 23\,\% against a rule of
+20\,\%, and with one seed we do not know how often it would appear. Fixed strings replaced the summarising model, so the study says nothing about the themes a real
+model would write or about what they might reveal. The author who wrote the engine also wrote the study, and expectations and code can share a
 misreading.
-Whether an owner changes a page after seeing a finding, the step that would
-close the loop, was not observed.
+We did not observe whether an owner changes a page after seeing a finding, the step that would close the loop.
 
 \section{Answer to RQ2}
 \label{sec:c5-answer}
 
-Learner interaction can be modelled as one governed event log with a small
-set of types; the backend writes it through one function that never fails a
+A system can model learner interaction as one governed event log with a small set of types; the backend writes it through one function that never fails a
 reader's request, and rows that members insert directly still meet the
-database's type constraint. It
-can be aggregated by a pure function over a bounded window that turns events
-into facts per page. It can be fed back by
-limiting the output and not the storage: no statement about a person, none
+database's type constraint. A pure function over a bounded window can aggregate it and turn events into facts per page. The system can feed it back by limiting the output and not the storage: no statement about a person, none
 about a page that fewer than five people have read, and an owner who is
 absent from their own numbers. The protection is that of the owner's view; a database policy of the older
 dashboard still lets an owner with the professor role read event rows with
@@ -490,9 +439,8 @@ can carry a hotspot. It is privacy-preserving in the weaker sense that it
 names no one and says nothing about a page with fewer than five readers.
 
 The view can tell an owner, without showing a single student, which page
-confuses readers, where readers leave, which pages are skipped, where
-readers turn back, and where readers feel sure and are wrong; whether owners
-read it that way was not observed. An owner cannot learn
+confuses readers, where readers leave, which pages readers skip, where
+readers turn back, and where readers feel sure and are wrong; we did not observe whether owners read it that way. An owner cannot learn
 anything about a group under five, sees no weekly numbers in a quiet week, and
-hears questions only where a page is already a hotspot. Two things are designed and not delivered: retention has never run, and a
+hears questions only where a page is already a hotspot. The design includes two things that the system does not deliver: retention has never run, and a
 member cannot yet send a question to the owner.

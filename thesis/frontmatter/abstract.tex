@@ -11,35 +11,30 @@ describes Learnstation, a web application in production that turns an
 uploaded PDF into addressable content while the original page stays the
 reference. A reader opens the file at once; an assistant explains pages,
 asks about them, and runs practice; and a view shows the owner of the
-material how it is read.
+material how people read it.
 
 We answer three questions. First, the transformation: a first pass uses no
 model, and one rule decides which pages need a vision model and sends 87 of
 1{,}593 pages there. In a blind benchmark of eleven extraction methods on
-24~pages, with 283~pairwise votes, transcription by one of two vision models is rated highest (together they
+24~pages, with 283~pairwise votes, the author rates transcription by one of two vision models highest (together they
 cost \$0.21 for the 24~pages). Nine of the ten alternatives score above the
 extractor that production runs; five of them stay above it at the lower end
 of a bootstrap interval corrected for testing ten methods at once, and four
-still do when pages rather than votes are resampled. Second, reader
-interaction is recorded in one log whose 17~event types are fixed by a
-schema, and detectors
+still do when we resample pages rather than votes. Second, the system records reader interaction in one log whose 17~event types a schema fixes, and detectors
 turn it into nine kinds of finding per page. The owner's view shows a
 finding only for a page that at least five people have read and never names
 a person. In a study with scripted readers, four of five expected findings
 appeared, and the view stayed silent in 14 of the 18~cases in which it should have.
-Third, where the answer to a generated question can be computed, a
-learner's answer is graded against the computed result and not against the
-key the model wrote. Quiz questions written while a PDF is processed pass
+Third, where the system can compute the answer to a generated question, it grades a learner's answer against the computed result and not against the key the model wrote. Quiz questions that a model writes while the system processes a PDF pass
 an answer check on a second model, which gave no wrong verdict on a fixed
 probe of 16~pairs of a correct and a wrong answer key. A third verifier,
 which compared answer keys with the page by semantic similarity, failed its
-pre-registered test and was not adopted.
+pre-registered test, and we did not adopt it.
 
 Five limits apply. The author was the
-only judge of the benchmark. The owner's view was added to the code only
-after the revision this thesis describes. Its threshold of five counts the
+only judge of the benchmark. The owner's view entered the code only after the revision this thesis describes. Its threshold of five counts the
 readers of a page, not the people behind a finding. When the answer check is
-unavailable, a question is kept. No study with learners was run: the evaluations test the
+unavailable, the system keeps the question. We ran no study with learners: the evaluations test the
 machinery on curated material from one university and say nothing about
 learning outcomes.
 

@@ -16,8 +16,7 @@
 
 This chapter describes the system as a whole, so that the three chapters
 that follow can each go deep into one part. It covers what the system is
-for, the words it uses, what a reader can do in it today, how it is built and
-deployed, and under which constraints. It answers no research question.
+for, the words it uses, what a reader can do in it today, how we built and deployed it, and under which constraints. It answers no research question.
 
 \section{From a Course Platform to a Reader}
 \label{sec:vision}
@@ -28,38 +27,25 @@ lectures, quizzes, and a dashboard. Its first idea was to stand between the
 learning management system, which stores files, and the AI assistant, which
 knows nothing about the course. Over the year the centre moved from the
 course to the page. In the system that production has served since 29~October
-2026, anyone can upload a PDF and read it at once, and everything else is
-added to the pages while they are being read
+2026, anyone can upload a PDF and read it at once, and the system adds everything else to the pages while the reader reads them
 (\code{docs/\allowbreak superpowers/\allowbreak specs/\allowbreak 2026-10-26-library-and-spaces-design.md}).
 
-The interface was therefore built twice. The second interface, called v4 in the repository (a label
-unrelated to the numbered pipeline versions of \cref{sec:c4-lineage}), was
-written as a new part of the frontend beside the first
-one and not as a refactoring of it (\code{docs/design-v4/UI-SESSION-BRIEF.md},
-PR~\#55). The repository records how this was done and not why refactoring
-was ruled out. The author's recollection, not recorded at the time, is that
-the first interface assumed a university, with professors and courses, while
-the second was meant to work for any material and any group. The screens of
-the first interface, one per course, lecture, and professor, are called the
-\emph{older interface} below; they still exist in the code but no longer
-receive learners. The backend changed far more often:
+We therefore built the interface twice. We wrote the second interface, which the repository calls v4 (a label unrelated to the numbered pipeline versions of \cref{sec:c4-lineage}), as a new part of the frontend beside the first one and not as a refactoring of it (\code{docs/design-v4/UI-SESSION-BRIEF.md},
+PR~\#55). The repository records how we did this and not why we ruled out refactoring. The author's recollection, which nobody recorded at the time, is that the first interface assumed a university, with professors and courses, while the second had to work for any material and any group. We call the screens of the first interface, one per course, lecture, and professor, the \emph{older interface} below; they still exist in the code but no longer
+receive learners. The backend changed more often:
 \cref{sec:c4-lineage} lists nine generations of the parsing pipeline
 in ten months.
 
 Five principles hold across the current system.
 \begin{description}
-  \item[Read first.] An uploaded file is readable before any AI step has
-    finished. No feature may delay the reader.
+  \item[Read first.] A reader can open an uploaded file before any AI step has finished. No feature may delay the reader.
   \item[The original page is the reference.] The page as the author made it
     is the default view. Generated text is one switch away and never
     replaces it.
-  \item[Deterministic first, AI second.] What code can decide is decided by
-    code: page hashes, the plan of a deck, the route of a page, the grading
+  \item[Deterministic first, AI second.] Code decides what code can decide: page hashes, the plan of a deck, the route of a page, the grading
     of a computable answer.
-  \item[Parse once.] A file is processed once per uploader, and the result
-    is reused for every reader of that upload.
-  \item[The server decides.] Points, progress, and grades are computed on the
-    server; the browser displays them.
+  \item[Parse once.] The system processes a file once per uploader and reuses the result for every reader of that upload.
+  \item[The server decides.] The server computes points, progress, and grades; the browser displays them.
 \end{description}
 
 \section{Vocabulary and Roles}
@@ -72,7 +58,7 @@ the same material. A \emph{Lesson} is one uploaded document in a Space. A
 of paper. An \emph{idea} is one thing the material teaches, usually a run of
 consecutive pages that a model groups when a Lesson is first read. The
 \emph{Library} holds a person's own uploads, which the code calls materials.
-The \emph{reading view} is the screen in which a Lesson is read. It shows
+The \emph{reading view} is the screen in which a person reads a Lesson. It shows
 each page in three views: the original page, which opens first; an
 explanation that a model writes from it; and its plain text. A
 \emph{reader} is a person who reads. On a single page the reading view
@@ -84,16 +70,14 @@ The \emph{owner} is the person who made a Space and uploads its material;
 where this thesis means the person who wrote the material, it says
 \emph{lecturer}, and \emph{the author} always means the writer of this
 thesis. The words course, lecture, and slide belong to the older interface
-and to the database, where a Space is still stored as a course
+and to the database, which still stores a Space as a course
 (\cref{sec:data-model}).
 
 In the code a Space knows two roles: the \emph{owner}, who created it, and
 the \emph{member}, who joined it
 (\code{backend/services/v4\_spaces\_service.py:139--142}). Any signed-in
 user can create a Space and can join a published one. Creating a Space
-needs no particular account type, and publishing it is reserved to its
-owner, so a student can own and publish a Space. A third role, an editor, appears in design documents and
-is not built. The account types of the older interface (student, professor,
+needs no particular account type, and only its owner can publish it, so a student can own and publish a Space. A third role, an editor, appears in design documents and does not exist in the code. The account types of the older interface (student, professor,
 admin) still exist and still guard the older interface; \cref{sec:authorisation} shows one place
 where the two permission schemes, account type and Space ownership,
 conflicted. \Cref{fig:use-case} in
@@ -104,37 +88,30 @@ conflicted. \Cref{fig:use-case} in
 \label{sec:built-vs-deployed}
 
 A description of this system has to separate what exists in the code from
-what a learner can reach. Features are guarded by twelve backend flags that
-are all off by default, and production switches on four
+what a learner can reach. Twelve backend flags, all off by default, guard the features, and production switches on four
 (\cref{fig:flag-reality}): the current interface, its reading view, sessions with Luna,
 and uploads by students.
 
 \thesisfigure{f17-flag-reality}
   {Built versus delivered. Twelve backend flags, all off by default;
-   production switches on four. Since the end of October each frontend build flag is set from its backend
-   flag, which removed the screens that, at the earlier revision
-   \thesisEarlierCommit{} (August 2026), were shown while their backend was
-   off.}
+   production switches on four. Since the end of October the build sets each frontend flag from its backend flag, which removed the screens that, at the earlier revision \thesisEarlierCommit{} (August 2026), the interface showed while their backend was off.}
   {fig:flag-reality}
 
-With these four flags a learner can upload a PDF, read it in the three views of the reading view, have a page explained
-(Explain), ask a
+With these four flags a learner can upload a PDF, read it in the three views of the reading view, let Explain explain a page, ask a
 question about a page or about a whole Space and get an answer with links to
 pages, answer checkpoint questions, which a model writes for the pages of one
 idea while the learner reads, run a practice session
-with Luna whose cards are scheduled by a variant of SM-2, take notes, and
-see a history of earned points. An owner can publish a Space. The view of
-how it is read was merged two days after the pinned revision
+with Luna, whose cards a variant of SM-2 schedules, take notes, and
+see a history of earned points. An owner can publish a Space. The view of how people read it entered the main branch two days after the pinned revision
 (\cref{ch:loop}).
 
 The review engine of the older interface, an exam mode, generated study
-guides, and a global search page are built and not reachable in the current
-interface. We do not count them as delivered.
+guides, and a global search page exist in the code, and a learner cannot reach them in the current interface. We do not count them as delivered.
 
 The thesis describes revision \code{\thesisCommit}. Since November 2026
 production runs the main branch at \code{2e146f51}, which is the described
 revision and three later merges: a change to the home screen (PR~\#170),
-the owner's view of \cref{ch:loop} (PR~\#181), and the backend of a fourth view of a page, which is switched off (PR~\#182, \cref{sec:future-work}).
+the owner's view of \cref{ch:loop} (PR~\#181), and the backend of a fourth view of a page, which a flag keeps off (PR~\#182, \cref{sec:future-work}).
 
 \section{Architecture}
 \label{sec:architecture}
@@ -159,9 +136,7 @@ instances serve as cache and as job broker.
 The backend calls every LLM provider directly from one module
 (\code{backend/\allowbreak services/\allowbreak ai/\allowbreak orchestrator.py}), where failover, rate limiting, and cost
 accounting live. At \code{\thesisEarlierCommit} the production stack still
-contained a LiteLLM gateway that no code path used; it was removed in August
-and September 2026 (\cref{tab:decisions}), and the backend README still
-describes it. The design defended here is therefore two ordered provider
+contained a LiteLLM gateway that no code path used; the developers removed it in August and September 2026 (\cref{tab:decisions}), and the backend README still describes it. The design that we defend here is therefore two ordered provider
 chains inside the application (\cref{sec:provider-strategy}), not a gateway
 in front of many providers.
 
@@ -171,19 +146,16 @@ over HTTP (PostgREST), in two variants: a service-role client that bypasses
 row-level security, and an anonymous-key client that is subject to it. The
 second is a direct connection pool (asyncpg) through Supabase's transaction
 pooler. The pool is optional at start-up but not in practice: the ingestion pipeline writes its runs, lectures, slides, and quiz questions
-through it, and every service of the current interface uses it. Older routes still run on the HTTP client, at roughly 360 call sites in the
-backend code (a count recorded in a comment of the production compose file).
+through it, and every service of the current interface uses it. Older routes still run on the HTTP client, at roughly 360 call sites in the backend code (a comment of the production compose file records the count).
 
 The two paths have a security consequence that shapes the rest of the design.
 Writes through the pool and through the service-role client bypass row-level
-security~\cite{postgresql-rls}, so for those routes authorisation is enforced in
-application code, for example by an explicit course-ownership check before an
-upload is accepted. Row-level security is the boundary only for queries the
+security~\cite{postgresql-rls}, so for those routes application code enforces authorisation, for example by an explicit course-ownership check before it accepts an upload. Row-level security is the boundary only for queries the
 browser makes directly. \Cref{sec:authorisation} returns to this.
 
 \paragraph{Browser to backend.}
 The browser talks to Supabase directly only for authentication, for reading the
-user's role, and in a few remaining screens of the older interface. All data of the current interface goes through the FastAPI backend, which receives the user's
+user's role, and in the remaining screens of the older interface. All data of the current interface goes through the FastAPI backend, which receives the user's
 Supabase session token as a bearer token. A test enforces this boundary: no
 module of the v4 feature folder may import the Supabase client.
 
@@ -191,15 +163,13 @@ module of the v4 feature folder may import the Supabase client.
 Production runs on one virtual machine with two virtual CPUs and 4\,GB of
 memory, in five containers: the frontend, the API, the worker, and the two
 Redis instances. Deploys are manual, a heartbeat every five minutes reports
-to an external monitor, and a nightly database dump is encrypted and stored
-off-site. The proxy configuration of the host exists only on the server, so
-the deployed system cannot be rebuilt from the repository alone.
+to an external monitor, and a nightly job encrypts a database dump and stores it off-site. The proxy configuration of the host exists only on the server, so nobody can rebuild the deployed system from the repository alone.
 \Cref{sec:deployment} gives the detail.
 
 \section{Technology Choices}
 \label{sec:stack}
 
-Most of the stack was not chosen by deliberation. React, Vite, TypeScript,
+We did not choose most of the stack by deliberation. React, Vite, TypeScript,
 Tailwind, Supabase, and a FastAPI stub came with the scaffold of the first
 commit in January (\code{184e5742}), and Redis and nginx followed as the
 common companions. We name them as defaults and do not defend them. Seven choices

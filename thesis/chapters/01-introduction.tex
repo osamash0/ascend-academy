@@ -16,13 +16,11 @@
 Most university teaching still travels as a PDF. A lecturer writes slides,
 exports them, and uploads the file to a learning management system. Students
 download it and read it alone. From that moment the material is silent in
-both directions. The file cannot answer a question, cannot check whether a
-page was understood, and cannot tell the lecturer that half of the readers
+both directions. The file cannot answer a question, cannot check whether a reader understood a page, and cannot tell the lecturer that half of the readers
 stopped at page twelve.
 
 Large language models (LLMs) have made it cheap to add an assistant to such a file.
-This helps the individual reader, but the answer is not tied to the page it
-came from, the work is repeated by every student, and the lecturer learns nothing from it. The research on intelligent textbooks has described the
+This helps the individual reader, but nothing ties the answer to the page it came from, every student repeats the work, and the lecturer learns nothing from it. The research on intelligent textbooks has described the
 alternative for decades: reading material that carries its own structure,
 practice, and record of use~\cite{brusilovsky2022return}. What is new is that
 a language model can derive much of that structure from an ordinary PDF.
@@ -32,17 +30,13 @@ step for lecture material. A lecturer or a student uploads a PDF and
 reads it at once. While they read, the system turns each page into objects
 that software can address: a text of the page, a vector for search, and, for
 selected pages, questions about it (\cref{fig:transformation}). An assistant
-called Luna works on these objects, next to the page they come from. What readers do on the pages is returned to the owner of the material as
-patterns about pages, with no names and only for pages that at least five
+called Luna works on these objects, next to the page they come from. The system returns what readers do on the pages to the owner of the material as patterns about pages, with no names and only for pages that at least five
 people have read.
 
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.78\textwidth]{f1-transformation}%
-  \caption{The transformation this thesis addresses. One PDF is kept as the
-    reading surface and turned into independently addressable learning
-    objects; every capability students use in production is built on one of
-    them.}%
+  \caption{The transformation this thesis addresses. The system keeps one PDF as the reading surface and turns it into independently addressable learning objects; every capability students use in production builds on one of them.}%
   \label{fig:transformation}%
 \end{figure}
 
@@ -66,16 +60,14 @@ The work started from five problems that the author and the co-developer
       without names. &
       \cref{ch:loop} \\
     A learning session leaves no trace. &
-      Reading position, notes, answers, and sessions with Luna are stored per
-      page. &
+      Reading position, notes, answers, and sessions with Luna persist per page. &
       described, not evaluated \\
-    Progress is not captured, for the student or for the lecturer. &
+    Neither the student nor the lecturer sees progress. &
       The same log feeds the student's own history and the owner's
       aggregated view. &
       owner's side: \cref{ch:loop} \\
-    The cost of processing a file is paid again and again. &
-      A file is parsed at most once per uploader and feeds one shared search
-      index. &
+    Every upload pays the cost of processing a file again. &
+      The system parses a file at most once per uploader, and the text feeds one shared search index. &
       described in \cref{ch:content}, not measured \\
     Static material gives no reason to come back. &
       Practice questions, spaced review, and a ledger of experience points. &
@@ -85,7 +77,7 @@ The work started from five problems that the author and the co-developer
 \end{table}
 
 The mechanisms create a sixth problem: text and questions that a language
-model writes can be wrong, so the system has to say how it checks them and
+model writes can be wrong. The system therefore has to say how it checks them and
 what it does when a check fails.
 
 \section{Aims and Contributions}
@@ -106,8 +98,7 @@ We make four contributions.
   \item A feedback loop from reader to owner whose view names no person and
     says nothing about a page that fewer than five people have read
     (\cref{ch:loop}).
-  \item Verification of generated questions by computation and by an independent answer check, with one verifier that
-    failed its test and was not adopted (\cref{ch:trust}).
+  \item Verification of generated questions by computation and by an independent answer check, with one verifier that failed its test and that we did not adopt (\cref{ch:trust}).
 \end{enumerate}
 
 \section{Scope and Delimitation}
@@ -117,11 +108,10 @@ This is an engineering thesis. It describes a system that runs in production
 and evaluates its parts with curated data. In November 2026 the production database held 55 accounts on real mail or
 university domains among 216, the developers' own included; two had been
 active in the previous seven days, one of them a developer
-(\code{docs/\allowbreak thesis/\allowbreak evidence/}). No user study was run, and no claim
+(\code{docs/\allowbreak thesis/\allowbreak evidence/}). We ran no user study, and no claim
 in this thesis is about what students learn.
 
-Learnstation was built by two students, and each of them submits a thesis on
-the shared code base. The repository was created by the co-developer on
+Two students built Learnstation, and each of them submits a thesis on the shared code base. The co-developer created the repository on
 23~January 2026; of its commits, 101 on all branches are theirs, the last on
 28~August 2026. Their work includes the first content filter in three layers
 (commit \code{bfbe6c09}), the integration of the Groq provider
@@ -139,32 +129,21 @@ paragraph's last two sentences with the agreed wording.}
 
 The thesis describes the code at revision \code{\thesisCommit} of
 6~November 2026, called \emph{the pin} below. \emph{In the code} means
-reachable at the pin; \emph{deployed} means running in production. Three things that were merged after that date are named
-where they matter and are marked as later.
+reachable at the pin; \emph{deployed} means running in production. We name three changes that the project merged after that date where they matter, and we mark them as later.
 
 \section{Method}
 \label{sec:method-note}
 
 We follow a build-and-evaluate approach. Each of the three main chapters
-describes what was built and ends with an evaluation. The extraction benchmark, the similarity verifier, and the re-run of the
-refusal gate had their expectations committed before the run; those of the
-study with scripted readers were written first but committed with its
-results; the routing study, the deck-plan scorecard, and the answer check had
-none. \emph{We} is the voice of the text; what the author did alone, such as
-judging and labelling, is attributed to \emph{the author}. Statements about the system were checked
-against the code at the revision named above, unless a section names a later
+describes what we built and ends with an evaluation. The extraction benchmark, the similarity verifier, and the re-run of the
+refusal gate had their expectations committed before the run; we wrote those of the study with scripted readers first but committed them with its results; the routing study, the deck-plan scorecard, and the answer check had
+none. \emph{We} is the voice of the text; we attribute what the author did alone, such as judging and labelling, to \emph{the author}. We checked statements about the system against the code at the revision named above, unless a section names a later
 one, and against production where the two can differ. Where the repository does
 not record a reason for a decision, we say so and do not supply one.
 
-Most of the code was written with AI coding agents under the author's
-direction. The project's development timeline counts 1{,}229 of
-1{,}599~non-merge commits up to 4~November 2026, about 77\,\%, as written
-with an agent; for 111 of them this is inferred from the committing account. The text of this thesis
-was drafted with the help of a language model and then revised by the author.
-We consider this part of the method and not a footnote to it, because several
-practices in the later chapters, such as writing the test first,
-pre-registering thresholds, and pinning a revision, were adopted to keep
-agent-written code honest.
+AI coding agents wrote most of the code under the author's direction. The project's development timeline counts 1{,}229 of
+1{,}599~non-merge commits up to 4~November 2026, about 77\,\%, as the work of an agent; for 111 of them the timeline infers this from the committing account. The author drafted the text of this thesis with the help of a language model and then revised it.
+We consider this part of the method and not a footnote to it, because we adopted practices in the later chapters, such as writing the test first, pre-registering thresholds, and pinning a revision, to keep agent-written code honest.
 \TODO{Author: the wording the faculty requires for the declaration of AI use
 is question 5 for the supervisor. Align this paragraph with it.}
 
@@ -174,8 +153,7 @@ is question 5 for the supervisor. Align this paragraph with it.}
 The thesis began as a project proposal in January 2026, \enquote{Discovering
 Impact: characterizing learning interaction data in educational contexts},
 with four questions. Its question on aggregating interaction events became
-RQ2, two need participants and remain open (\cref{sec:limitations}), and its
-question on data profiling metrics is not pursued. RQ1 and RQ3 are new.
+RQ2, two need participants and remain open (\cref{sec:limitations}), and we do not pursue its question on data profiling metrics. RQ1 and RQ3 are new.
 \TODO{Author: say why the profiling question was dropped, and when and why
 RQ1 and RQ3 were added. The repository records neither reason.}
 
@@ -194,7 +172,6 @@ RQ1 runs from the first aim to the routing study, the benchmark, and the scoreca
 RQ2 from the first and third problem and the second aim to the study with
 scripted readers in \cref{ch:loop}; RQ3 from the sixth problem to the probe
 and the refusal gate of \cref{ch:trust}. The third aim has no question of its
-own; it is a property of the design, described and not measured.
-
+own; it is a property of the design, which we describe and do not measure.
 \Cref{ch:background,ch:system} give the background and the system, and
 \cref{app:glossary} lists the terms.
