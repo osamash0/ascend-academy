@@ -11,6 +11,8 @@
 % fig:tutor-sequence, fig:citation-gap); new labels carry a c6- prefix.
 % The author must read, revise and own every sentence before submission.
 % ---------------------------------------------------------------------------
+% 2026-11-10 (cut to length): F12 and F16 moved to appendix B; the note on
+% 24 June and the mechanisms table moved to appendix C.
 \chapter{Trusting the Machine}
 \label{ch:trust}
 
@@ -55,11 +57,6 @@ Explain and Ask on a single page of the reader. \Cref{fig:groundedness} in
 the material. This section describes the strongest of them in detail and then
 contrasts the other two.
 
-\thesisfigurepage{f12-tutor-sequence}
-  {The grounded course tutor behind the home ask bar. Groundedness is enforced
-   at five points, including a refusal before any model call.}
-  {fig:tutor-sequence}
-
 \subsection{Retrieval Inside One Space}
 \label{sec:retrieval}
 
@@ -84,7 +81,8 @@ see the material.
 \subsection{Five Points of Control}
 \label{sec:anti-hallucination}
 
-\Cref{fig:tutor-sequence} shows the path of one question.
+\Cref{fig:tutor-sequence} in \cref{app:figures} shows the path of one
+question.
 
 \begin{enumerate}
   \item \emph{Scope.} The Space must be one the caller belongs to or owns
@@ -124,20 +122,8 @@ outside the lecture if it puts it in a block quote and says that it goes
 beyond the slides (\code{ai/prompts.py:506--540}). This is a prompt rule; no
 code checks that the model keeps it.
 
-Why the refusal was removed is not recorded. The commit was written by the
-co-developer and has no message body, and the pull request that carried it
-does not mention it. It follows by one minute a commit titled ``debugging AI
-Tutor'', which repaired the chat request after the API paths had been
-versioned two days before. The only stated motive is a comment in the diff:
-the tutor should not refuse outright ``if the question is conceptual'', and
-every question now goes to the model ``so it can provide supplementary
-knowledge''. No test or measurement came with the change. The test that had
-expected the refusal was adjusted four days later (commit \code{8f986043}).
-We therefore report the change and its circumstances, and we do not supply a
-reason.
-\TODO{Author: ask the co-developer why the refusal was removed on 24 June
-(f39e93dc). If there is an answer, add one sentence here and attribute it as
-a personal communication; if not, the paragraph stands as it is.}
+Why the refusal was removed is not recorded, and we do not supply a reason;
+\cref{sec:c6-history-detail} gives what the repository shows.
 
 Two tutors therefore exist at \code{\thesisCommit}. The tutor of the older
 rooms has no gate and allows labelled outside knowledge. The course tutor
@@ -169,15 +155,9 @@ this is the weakest of the three surfaces.
 \subsection{Whether the Learner Sees the Source}
 \label{sec:citation-gap}
 
-\thesisfigure{f16-citation-gap}
-  {Source attribution. The server's validated citations reach learners through
-   the current interface; the older rooms still discard them. At
-   \thesisEarlierCommit{}, no screen a student could reach showed a source.}
-  {fig:citation-gap}
-
 A citation that is validated on the server and never shown gives the learner
 nothing to check. That was the state at \code{\thesisEarlierCommit}
-(\cref{fig:citation-gap}): the server computed and filtered citations, the one
+(\cref{fig:citation-gap} in \cref{app:figures}): the server computed and filtered citations, the one
 component that rendered them was imported only by its own test, and the
 screens in use either ignored the field or showed the page that happened to be
 open. In the current interface the ask bar shows each citation as a link to
@@ -462,41 +442,8 @@ item and never passes it through for a human to catch.
 \subsection{The Mechanisms in One Table}
 \label{sec:c6-inventory}
 
-\begin{table}[htbp]
-  \centering
-  \small
-  \caption{The 26 mechanisms that exist in the code, by what they guard. A
-    \emph{verifier} computes, validates, filters or drops; a \emph{prompt rule}
-    only instructs the model; a \emph{harness} measures offline. Source:
-    \code{docs/thesis/verification-notes/2026-11-09-trust-rq3.md}, section~11.}
-  \label{tab:mechanisms}
-  \begin{tabular}{@{}p{0.19\textwidth}cp{0.50\textwidth}p{0.17\textwidth}@{}}
-    \toprule
-    Guards & $n$ & Mechanisms & Kind \\
-    \midrule
-    Answer keys & 6 & key resolution; structural gates; lexical score (flags
-      only); answer check; repair pinned to its page; shape of options &
-      verifiers \\
-    Grading & 2 & computed answers for three kinds of task; refusal of trivial
-      tasks & verifiers \\
-    Output structure & 5 & block validation; screening of generated mini-apps;
-      Luna's page and phrase checks; teach-back quotes; links between Lessons &
-      verifiers \\
-    Citations & 4 & citation filter of each tutor; refusal gate; labelled
-      outside knowledge; anchor check of the golden set &
-      2 verifiers, 1 prompt rule, 1 harness \\
-    Foreign text & 3 & marker rewriting; sanitising of the learner's message;
-      single-pass slot filling & input side \\
-    Cost and providers & 5 & monthly cap; daily ceiling; switching off dead
-      providers; chaos tests; parse receipts & limits and tests \\
-    Measurement & 1 & the offline harnesses (probe, scorecard, retrieval grid,
-      benchmark) & harness \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\Cref{tab:mechanisms} groups everything this chapter described and a few
-mechanisms it did not. The distribution is the finding. Most verifiers guard
+\Cref{tab:mechanisms} in \cref{sec:c6-inventory-table} groups the
+26~mechanisms that exist in the code by what they guard. The distribution is the finding. Most verifiers guard
 structure and answer keys, where a check can be exact. Meaning is guarded by
 prompt rules and by one independent model, and only for quiz keys.
 

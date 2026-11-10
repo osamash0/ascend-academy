@@ -1,23 +1,76 @@
+% Drafted 2026-11-10 with AI assistance (Claude) from chapter 7. Every number
+% is taken from chapters 4 to 7. The author must read, revise and own every
+% sentence before submission.
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
 
-\TODO{Write last. A working structure, roughly one sentence each:
-(1) the problem — lecture slides are human-readable but opaque to software, so
-every downstream learning feature has to be authored by hand;
-(2) the goal — automatically derive structured, addressable educational content
-from them;
-(3) what was built — an asynchronous ingestion pipeline that extracts, routes,
-synthesises and embeds slide content, plus the learning features that consume it;
-(4) the method — design and implementation, evaluated against curated golden
-sets and a systematic audit of the deployed system;
-(5) the findings — including the ones that are uncomfortable: which advertised
-properties did not survive inspection;
-(6) the limitation — no controlled study of learning outcomes was conducted.}
+Lecture material travels as PDF. People can read such a file, but software
+cannot address what is on its pages, so the file cannot answer a question,
+check understanding, or tell its author where readers struggle. This thesis
+describes Learnstation, a web application in production that turns an
+uploaded PDF into addressable content while the original page stays the
+reference: a reader opens the file at once, an assistant explains pages,
+asks about them and runs practice, and the owner of the material sees how it
+is read.
+
+We answer three questions. First, a PDF is transformed reliably when the
+first pass uses no model: one rule decides which pages need a vision model
+and sends 87 of 1{,}593 pages there. In a pre-registered blind benchmark of
+eleven extraction methods on 24~pages with 283~pairwise votes, transcription
+by a vision model wins at \$0.21 for the 24~pages, and the extractor that
+production runs is second to last. Second, reader interaction is modelled as
+one governed log of 17~event types. Eleven detectors turn it into findings
+per page, which an owner sees only as patterns across at least five readers
+and never about a person; a study with scripted readers met 18 of
+23~expectations written down before the run. Third, generated questions are
+verified by computation where an answer can be computed and by an
+independent model check elsewhere, which on 16~pinned pairs dropped no
+correct key and kept no wrong one. A semantic similarity gate failed its
+pre-registered test and was withdrawn.
+
+Beyond these answers, the thesis reports where the system and its own
+documentation disagreed. Its main limitation is that no study with learners
+was run: the evaluations test the machinery on curated material from one
+university, with the author as judge, and say nothing about learning
+outcomes.
 
 \vspace{1cm}
 
+\begin{otherlanguage}{ngerman}
 \section*{Zusammenfassung}
 
-\TODO{German abstract, if your institute requires one. Check the regulations —
-many require both an English and a German abstract regardless of the thesis
-language.}
+Vorlesungsmaterial wird als PDF weitergegeben. Menschen können eine solche
+Datei lesen, Software kann den Inhalt ihrer Seiten jedoch nicht ansprechen:
+Die Datei beantwortet keine Frage, prüft kein Verständnis und zeigt ihrer
+Autorin oder ihrem Autor nicht, wo Lesende Schwierigkeiten haben. Diese
+Arbeit beschreibt Learnstation, eine produktiv betriebene Webanwendung, die
+ein hochgeladenes PDF in adressierbare Inhalte überführt, während die
+Originalseite die Referenz bleibt: Die Datei ist sofort lesbar, eine
+Assistentin erklärt Seiten, stellt Fragen dazu und leitet Übungen an, und
+wer das Material bereitstellt, sieht, wie es gelesen wird.
+
+Wir beantworten drei Fragen. Erstens gelingt die Umwandlung zuverlässig,
+wenn der erste Durchlauf ohne Sprachmodell auskommt: Eine einzige Regel
+entscheidet, welche Seiten ein Vision-Modell benötigen, und leitet 87 von
+1593~Seiten dorthin. In einem präregistrierten Blindvergleich von elf
+Extraktionsverfahren auf 24~Seiten mit 283~paarweisen Urteilen gewinnt die
+Transkription durch ein Vision-Modell bei Kosten von 0,21~US-Dollar für die
+24~Seiten; das in Produktion eingesetzte Verfahren liegt auf dem vorletzten
+Platz. Zweitens wird das Verhalten der Lesenden als ein kontrolliertes
+Ereignisprotokoll mit 17~Ereignistypen modelliert. Elf Detektoren leiten
+daraus Befunde pro Seite ab, die nur als Muster über mindestens fünf Lesende
+und nie über eine einzelne Person sichtbar werden; eine Studie mit
+geskripteten Lesenden erfüllte 18 von 23~vorab festgehaltenen Erwartungen.
+Drittens werden generierte Fragen durch Berechnung geprüft, wo sich eine
+Antwort berechnen lässt, und sonst durch eine unabhängige Prüfung mit einem
+zweiten Modell, die bei 16~festgelegten Paaren keinen richtigen
+Lösungsschlüssel verwarf und keinen falschen behielt. Ein Filter auf Basis
+semantischer Ähnlichkeit bestand seinen präregistrierten Test nicht und
+wurde zurückgezogen.
+
+Darüber hinaus berichtet die Arbeit, wo das System und seine eigene
+Dokumentation voneinander abwichen. Ihre wichtigste Einschränkung ist, dass
+keine Studie mit Lernenden durchgeführt wurde: Die Evaluationen prüfen die
+Mechanik an ausgewähltem Material einer Universität, mit dem Autor als
+Urteilendem, und sagen nichts über Lernerfolg aus.
+\end{otherlanguage}

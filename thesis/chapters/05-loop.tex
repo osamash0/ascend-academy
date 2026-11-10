@@ -13,26 +13,25 @@
 % now in chapters/superseded/05-implementation.tex.txt).
 % The author must read, revise and own every sentence before submission.
 % ---------------------------------------------------------------------------
+% 2026-11-10 (cut to length): schema notes and the hardening sequence moved
+% to appendix C, F14 to appendix B.
 \chapter{Closing the Loop}
 \label{ch:loop}
 
 This chapter answers RQ2: how learner interaction events can be modelled,
 aggregated and fed back to the owner of the material in a privacy-preserving
 way, and what an owner can learn from them without seeing a single student.
-\Cref{ch:content} ended with pages a learner can read. Here the direction
-turns around: what readers do on those pages travels back to the person who
-wrote them.
+What readers do on the pages of \cref{ch:content} travels back to the
+person who wrote them.
 
-Two revisions matter in this chapter. The event log and the aggregation engine
-are described at \code{\thesisCommit}, like the rest of the thesis. The screen
-that shows the result to an owner in the current interface was merged two days
-later (PR~\#181, 8~November 2026), together with two small changes to the
-engine that the text names where they apply. The evaluation in
-\cref{sec:c5-evaluation} ran on that later state, revision \code{2e146f51}
-(9~November 2026). One limit shapes the whole chapter and is stated first: since
-August 2026 the deployed system has had almost no readers, so no real Space
-holds enough activity to show anything. The evidence is therefore a study with
-scripted readers. It tests the machinery, not learners.
+Two revisions matter in this chapter. The event log and the aggregation
+engine are described at \code{\thesisCommit}. The screen that shows the
+result to an owner was merged two days later (PR~\#181, 8~November 2026)
+with two small changes to the engine, and the evaluation in
+\cref{sec:c5-evaluation} ran on that later state, revision \code{2e146f51}.
+One limit shapes the whole chapter: since August 2026 the deployed system
+has had almost no readers. The evidence is therefore a study with scripted
+readers. It tests the machinery, not learners.
 
 \section{The Loop as Built}
 \label{sec:c5-loop}
@@ -51,9 +50,8 @@ one sentence, three figures and a map of pages. The loop closes outside the
 software: the owner opens the page a finding points to and decides what to
 change.
 
-The design principle is the same at every stage after storage: the system
-speaks about pages, never about people. A page is described only when at least
-five members have read it, and an owner's own reading is left out.
+At every stage after storage the system speaks about pages and never about
+people.
 
 \section{The Event Model}
 \label{sec:c5-events}
@@ -154,30 +152,9 @@ catalogues, caches, analytics roll-ups and operational tables.
 The current interface speaks of \emph{Spaces}, but no Space table exists. A
 Space is a row in \code{courses}, and membership is a row in
 \code{course\_enrollments}. A student's personal Space is not a row at all: it
-is the set of that student's private lectures without a course. Renaming at
-the interface while keeping the schema stable was a deliberate choice; the
-cost is that the schema's vocabulary (professor, course) no longer matches
-the product's.
-
-\paragraph{Vectors.}
-Page embeddings are stored with the pgvector extension~\cite{pgvector} as
-768-dimensional vectors with an HNSW index on cosine distance. Two embedding
-models can fill that column, depending on the provider mode. Their vectors
-are not comparable, so switching models requires re-embedding every page.
-
-\paragraph{Tables without a writer, keys without a check.}
-Several tables have a schema and no live writer: a table of text chunks with
-its own vector index, the per-page parse records, and the concept-mastery
-table, whose writer returns early for every card. They are the remains of
-designs that were built ahead of their consumers. The opposite fault is a
-contract that nothing checks. Badges are awarded by name, and the award
-function returns \code{NULL} for a name it does not know. Three badge names
-used by the review feature were never added to the catalogue, so awarding
-them silently does nothing. A foreign key would not have caught this,
-because nothing is inserted. The cost ledger of model calls and the event
-log are deliberately left without foreign keys, the first to survive the
-deletion of the runs it records, the second for the reasons given in
-\cref{sec:c5-events}.
+is the set of that student's private lectures without a course. The cost of this choice is that
+the vocabulary of the schema (professor, course) no longer matches that of
+the product.
 
 \paragraph{Schema drift.}
 Migrations are not the only source of truth for the deployed database. The
@@ -185,9 +162,8 @@ production database has a vector column on \code{slides} that no migration
 defines; in August 2026 it was empty in all 5{,}445 rows. Two further tables
 exist only in production, and production's migration history records two of
 the migrations. The project therefore applies migrations by hand and checks
-the outcome against the system catalogue. This is a finding about process
-and not about the schema: the repository describes the intended database,
-and the running one has to be inspected.
+the outcome against the system catalogue. The repository describes the intended
+database, and the running one has to be inspected.
 
 \section{Aggregation}
 \label{sec:c5-aggregation}
@@ -299,16 +275,13 @@ as zero. Then comes the map: one cell per page, brighter where more readers
 needed help, a faint outline where fewer than five have read. A page with a
 finding is labelled and opens that page, and the finding stands below as one
 sentence. The last line tells the owner that their own reading is never
-counted. Between figures and map the code holds a row for questions that
-members send to the owner. It is drawn only when a question waits, and none
-can, because the channel behind it is not built (\cref{sec:c5-answer}).
+counted.
 
 Below the floor the screen shows one sentence and nothing else. It does not say
 how many people have read.
 
-The older professor dashboard still exists in the code beside this view. Since
-PR~\#175 it applies the same floor of five (\code{analytics\_service.py},
-\code{MIN\_PEOPLE = 5}) and no longer returns rows per student, and since
+The older professor dashboard still exists beside this view. Since PR~\#175
+it applies the same floor of five and returns no rows per student, and since
 PR~\#176 its routes require the professor role.
 
 \section{Privacy by Design}
@@ -369,14 +342,7 @@ it is listed as future work.
 
 The owner's view is safe by what it computes. Whether the data under it is
 safe depends on who can reach the tables at all, and by which path.
-\Cref{fig:trust-boundaries} shows the two paths.
-
-\thesisfigure{f14-trust-boundaries}
-  {Trust boundaries. A browser holding the anonymous key meets three
-   database-side boundaries --- table row-level security, function execute
-   grants and storage policies; most backend routes bypass row-level security
-   and check ownership in application code.}
-  {fig:trust-boundaries}
+\Cref{fig:trust-boundaries} in \cref{app:figures} shows the two paths.
 
 A browser holds the public key of the database service and can address the
 database directly. On that path it meets three boundaries inside the
@@ -417,41 +383,14 @@ question appears only once five different people asked it, and never with
 an id. The second change is the stronger one, because it holds even when a
 check is missing again.
 
-\subsection{Hardening as a Sequence}
-\label{sec:hardening}
-
+\paragraph{A boundary repaired in steps.}
 The database boundary was not designed once. It was repaired in nine steps
-over eleven migrations, each of which documents its own problem in its
-header (\cref{fig:security-arc} in \cref{app:figures}). We summarise the
-classes of fault and not the individual requests.
-
-The first phase, January to June 2026, concerns who may hold a role. Roles
-moved to their own table, with a policy that let a user insert their own
-row; that policy was removed in May (\code{20260502000003}). Roles were then
-set only at sign-up, and the sign-up was opened to any e-mail domain
-(\code{20260601000000}, \code{20260615000800}). This opened a read across
-courses, which a further migration closed by scoping a professor's reads to
-their own enrolled students (\code{20260621000000}). The two commits carry
-the same date, so the history shows no window of exposure. Twice in this
-phase a step opened a hole that a later step closed.
-
-The second class concerns functions that run with the rights of their
-owner. In July a function of this kind took a user id from its caller,
-checked nothing, and was executable by everyone through a default grant. It
-was reproduced on a local database, closed, and is guarded by 13~tests
-(\code{20260721000001}). The repair was incomplete, because the hosting
-service grants execution to the anonymous role directly: a probe of
-production on 11~October 2026 found 42 such functions that an anonymous
-caller could execute (\code{20261011000000}).
-
-The third class is drift between repository and production. The storage
-bucket for lecture PDFs had been made private in the repository in May.
-That migration never ran in production, so until October every lecture PDF
-could be listed publicly (\code{20261024010000}, \code{20261024020000}). No
-line of code was wrong; the deployed database was not the one the
-repository described. A last step in November protects the integrity of
-profiles and points (\code{20261101015412}). The sequence has no final
-state, and we do not claim one.
+over eleven migrations, and the faults fall into three classes: who may hold
+a role; functions that run with the rights of their owner and could be
+executed by anyone; and drift between repository and production, where the
+bucket for lecture PDFs was private in the repository and could be listed
+publicly in production until October. \Cref{sec:hardening} gives the
+sequence.
 
 \section{Evaluation}
 \label{sec:c5-evaluation}
@@ -553,43 +492,37 @@ the stricter rule is required for the term \enquote{privacy-preserving}.}
 
 \paragraph{Themes explain a hotspot and nothing else.}
 In arm~C five members asked about the same pages and no themes appeared,
-because themes are made only for hotspot pages and these askers were not
-confused. Arm~J, in which the five askers are also confused, gets themes. Five
-people who ask about a page that is not a hotspot are heard by no one.
+because themes are made only for hotspot pages. Five people who ask about a
+page that is not a hotspot are heard by no one.
 
 \subsection{What Is Tested Without the Study}
 
 The floor and the rules above are also fixed by tests that run without
-readers. The engine has 141 unit tests, 26 of them written as plain sentences
+readers: 141 unit tests of the engine, 26 of them written as plain sentences
 such as \enquote{a page four people reached says nothing even if all four were
-foggy} (\code{tests/unit/test\_landing\_stories.py}). The older analytics and
-the event writers have 130, erasure has 32, and 62 database tests replay every
-migration into an empty Postgres and check the read path and the owner gate.
-The screen has 55 frontend tests. The engine itself is small: 1{,}260 lines
-for the owner's view inside an insights package of 2{,}590 lines.
+foggy} (\code{tests/unit/test\_landing\_stories.py}), and 62 database tests
+that replay every migration into an empty Postgres and check the read path
+and the owner gate.
 
 \subsection{Limits}
 
 The study tests whether the aggregation separates known behaviours and
-whether the floor holds. It makes no claim about students. The personas are
-clean, so the arms separate more sharply than real readers would. There is one
-Lesson, one Space and one seed per arm. The themes are fixed strings. Nothing
-was written to a database; the SQL that loads the events is covered by the
-database tests, not by the study. Event volumes in production are not reported,
-because they are too small to carry a claim. Whether an owner changes a page
-after seeing a finding, the step that would close the loop, was not observed.
+whether the floor holds. The personas are
+clean, so the arms separate more sharply than real readers would, and there
+is one Lesson, one Space and one seed per arm. 
+Whether an owner changes a page after seeing a finding, the step that would
+close the loop, was not observed.
 
 \section{Answer to RQ2}
 \label{sec:c5-answer}
 
-Learner interaction can be modelled as one governed event log: a small set of
-types, each validated in code and constrained in the database, written through
-one function that never fails the reader. It can be aggregated by a pure
-function over a bounded window that turns events into facts per page and
-applies fixed rules to them. It can be fed back in a privacy-preserving way by
-limiting the output and not the storage: no statement about a person, no
-statement about fewer than five readers, no count of a small group, and an
-owner who is absent from their own numbers.
+Learner interaction can be modelled as one governed event log with a small
+set of types, written through one function that never fails the reader. It
+can be aggregated by a pure function over a bounded window that turns events
+into facts per page. It can be fed back in a privacy-preserving way by
+limiting the output and not the storage: no statement about a person, none
+about fewer than five readers, and an owner who is absent from their own
+numbers.
 
 Without seeing a single student, an owner can learn which page confuses
 readers, where readers leave, which pages are skipped, where readers turn
@@ -599,8 +532,5 @@ hears questions only where a page is already a hotspot. The floor protects
 readers of a page; it does not yet protect the few people a finding may be
 about.
 
-Two things are designed and not delivered. Retention has never run. And the
-loop has no return channel: a member cannot yet send a question to the owner,
-and the owner cannot answer for everyone. That channel is the next planned
-step, and \cref{ch:conclusion} takes it further, to an assistant that proposes
-changes to a page for the owner to approve.
+Two things are designed and not delivered: retention has never run, and a
+member cannot yet send a question to the owner.

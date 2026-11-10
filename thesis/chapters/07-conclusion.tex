@@ -45,11 +45,9 @@ study with scripted readers in eight arms, 18 of 23~expectations that were
 written down before the run were met. A Space with four members shows
 nothing; a mix of 27~readers surfaces the confusing page and the gap between
 confidence and correctness, and nothing else. The five misses were our own
-misreadings of three rules, and each rule is now a stated limit: the weekly
-figures need five readers in that week, the floor counts the readers of a
-page and not the people a finding is about, and themes of questions exist
-only for pages that are already hotspots. The study tests the machinery. It
-says nothing about learners.
+misreadings of three rules, and each is now a stated limit
+(\cref{sec:c5-evaluation}). The study tests the machinery. It says nothing
+about learners.
 
 \paragraph{RQ3: verifying generated content.}
 Generated content can be verified in three ways, and they are not equally
@@ -103,8 +101,8 @@ reports the result as a fault that was found later.
 
 \paragraph{The system was built ahead of its users.}
 Review, exams, badges and analytics were built for learners who had not
-arrived. \Cref{sec:built-vs-deployed} shows the cost: twelve flags, four
-switched on. Feature toggles are known to accumulate as
+arrived: of twelve flags, four are switched on
+(\cref{sec:built-vs-deployed}). Feature toggles are known to accumulate as
 debt~\cite{rahman2016toggles,hodgson2017toggles}. The move to a
 reading-first interface in October was a correction of this, and it came
 late.
@@ -122,24 +120,22 @@ Comments described behaviour the code did not have: a comment in the proxy
 configuration says that a path prefix is stripped, and the rule below it
 passes the path on unchanged (\code{nginx.conf:24}); a comment called a
 start-up mode supported in which every upload fails, until it was corrected
-(\cref{sec:architecture}). Configuration named a place that was not used:
+(\cref{sec:deployment}). Configuration named a place that was not used:
 the header of the production file named a university server while the
 system ran elsewhere (\cref{sec:deployment}). And the database in
 production was not the one in the repository: a column existed that no
-migration defines, two tables existed only there, and the migration history
-recorded two of the migrations (\cref{sec:data-model}).
+migration defines, the migration history recorded two of the migrations,
+and a storage bucket that the repository had made private could be listed
+publicly (\cref{sec:data-model,sec:hardening}).
 
 Such drift is well documented for larger
 teams~\cite{lethbridge2003documentation,aghajani2019docissues,desilva2012erosion}.
-In a project of one or two people it has a specific cause: the same person
-writes the code, the comment and the document, at different times, and no
-second reader compares them. Two measures helped in the last two months.
-The first is to treat the running system as the source of truth and to
-write the probe into the runbook. The second is to delete instead of
-archive: every case above involved something that was kept after it had
-stopped being true. An earlier internal audit listed twelve such cases; we
-did not re-verify that list at the pinned revision and therefore do not
-repeat its count.
+In a project of one or two people the same person writes the code, the
+comment and the document at different times, and no second reader compares
+them. Two measures helped: to treat the running system as the source of
+truth and write the probe into the runbook, and to delete instead of
+archive, because every case above involved something that was kept after it
+had stopped being true.
 
 \section{Limitations}
 \label{sec:limitations}
@@ -207,12 +203,10 @@ part of this outlook: the owner's view in the current interface (PR~\#181),
 and a third view of a page that rebuilds its layout as text (PRs~\#182 and
 \#183, switched off).
 
-Two wider directions are ideas of the author and not results. Teaching
-material could be versioned and shared as source code is, with a Space as
-the unit that others copy and improve. And a university could run the
-models itself, which would remove the dependency on external providers
-that \cref{ch:content} spends much of its design on, and would keep
-learner questions inside the institution.
+Two wider directions are ideas of the author and not results: teaching
+material that is versioned and shared as source code is, and models that a
+university runs itself, which would keep learner questions inside the
+institution.
 
 \section{Closing}
 \label{sec:reflection}

@@ -11,6 +11,9 @@
 % Labels of the moved sections are unchanged so that other chapters' \cref
 % still resolve.
 % ---------------------------------------------------------------------------
+% 2026-11-10 (cut to length): the lineage table, the idempotency layers,
+% failure handling, the provider detail and the hosted-parser trial moved to
+% appendix C; summaries stay here.
 \chapter{From Lecture Materials to Structured Content}
 \label{ch:content}
 
@@ -72,46 +75,9 @@ what a deck costs, and what leaves the server.
 
 The pipeline that runs today is the fifth numbered version and the last of
 about eight generations, several of which existed side by side in the code
-for a while. \Cref{tab:lineage} lists them. The recorded reason for each step
-is given where the repository holds one; where it does not, the reason is the
-author's reconstruction and is marked as such.
-
-\begin{table}[htbp]
-  \centering
-  \small
-  \caption{The pipeline lineage at a glance (dates are 2026). Sources: the
-    commits named in the text and the development timeline in the
-    repository.}
-  \label{tab:lineage}
-  \begin{tabular}{@{}llp{0.56\textwidth}@{}}
-    \toprule
-    Generation & Date & What it did, and what became of it \\
-    \midrule
-    v1 slide enhancement & 24 Feb & One model call per page at upload; the
-      original page shown next to the AI text. Replaced in May. \\
-    content filter & 20 Mar & Pattern check, density score, then a model
-      judge: non-teaching pages get no AI content. Folded into later
-      routing. \\
-    v2 routed pipeline & 1 May & Each page classified, then sent to text,
-      OCR or vision; a deck-level ``blueprint''. The default until June. \\
-    v3 staged pipeline & 2--19 May & Seven resumable stages, Docling, an Arq
-      job queue, pgvector, a LiteLLM gateway. Never the default; later called
-      dormant. \\
-    v4 orchestrator & 19 May & One AI stage for every external extractor.
-      Measured on 17 June: 142 of 143 pages of one deck routed to text. \\
-    v5 unified & 17 Jun & One server-side orchestrator: v2 routing, v3 run
-      table, v4 prompts, vision-capable, the server writes the result. The
-      only reachable path since 10 July. \\
-    deck plan first & 10--13 Oct & Plan the deck (roles, sections,
-      boilerplate) with no model call, then generate; parse receipts with
-      cost. Live. \\
-    page by page & 26--30 Oct & The reader opens at once and pages arrive as
-      they are written; a packed PDF copy for the reader. Live. \\
-    one routing rule & 6 Nov & Text, figure or no-text decided in one place
-      from the page itself. Live at the pin. \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+for a while. \Cref{tab:lineage} in \cref{app:detail} lists them. The
+recorded reason for each step is given where the repository holds one; where
+it does not, the reason is the author's reconstruction and is marked as such.
 
 Three of these steps carry the design lessons the chapter builds on. The v5
 rebuild of June made persistence server-authoritative: the browser had driven
@@ -130,14 +96,6 @@ points, with an interval that does not clear the current extraction. And the
 25-character vision threshold, which sent 142 of 143 pages of one deck to the
 text model in June, survived into v5 in four places with three measures until
 the one routing rule of 6 November replaced it (\cref{sec:c4-routing-study}).
-
-The provider layer moved as often as the pipeline: a local model (February),
-Gemini (March), Groq, then Cerebras at the head of a free-tier failover chain
-(May), a LiteLLM gateway (May), an OpenAI-compatible provider ``now, a
-self-hosted university model later'' (June), the gateway removed (August), the
-two in-process chains revived (September), and an OpenAI-only option with
-spending caps for the October launch. \Cref{sec:provider-strategy} returns to
-it.
 
 \section{The Pipeline as Built}
 \label{sec:pipeline}
@@ -166,14 +124,10 @@ which becomes its identity for the rest of the pipeline; for students, an
 atomic claim on a monthly quota; and queue backpressure, which refuses with
 429 when more than 50 jobs wait. Only then is the file stored and the job
 enqueued; outside development the API never falls back to parsing inside the
-request. Rejecting early means a saturated system answers at once with an
-honest status code instead of building an unbounded backlog. Two
-qualifications belong next to that claim: the backpressure check fails open
-when the queue depth cannot be read, and the three upload routes are not
-uniform (the route the v4 application uses applies the quota but no queue
-ceiling), so admission control is a property of each route, not of the
-pipeline. Per-user LLM spending is checked later, inside the worker
-(\cref{sec:provider-strategy}).
+request. Two qualifications apply: the backpressure check fails open when the queue
+depth cannot be read, and the route that the v4 application uses applies the
+quota but no queue ceiling, so admission control is a property of each route
+and not of the pipeline.
 
 \subsection{Asynchronous Processing, Page by Page}
 \label{sec:async}
@@ -256,39 +210,15 @@ has no live caller, so the one rule above is the whole routing design.
 \subsection{Parse Once: Idempotency}
 \label{sec:idempotency}
 
-\thesisfigure{f10-idempotency}
-  {Nine idempotency mechanisms in four layers, eight of them live. Thick borders
-   mark mechanisms keyed on the bytes alone and shared by every owner; the rest
-   are per owner, run or lecture, so the stack yields at most one parse per
-   owner and pipeline version, and two owners of the same bytes each pay for
-   one.}
-  {fig:idempotency}
-
 The pipeline is content-addressed: a file's SHA-256 hash is its identity.
-\Cref{fig:idempotency} shows the nine mechanisms that use this identity to avoid
-doing the same work twice, grouped in four layers; eight of them are live.
-\begin{description}
-  \item[Layer 1, the request.] \emph{L0}: a database parse cache keyed by hash.
-    The classic upload route still reads it, but the live pipeline never writes
-    it, so it can no longer hit; it is a legacy layer. \emph{L1}: the hash is the
-    stored file's name, written with upsert, so identical bytes become one
-    object. \emph{L2}: owner dedupe. The v4 route returns the Lesson the student
-    already owns, without a quota charge or a job, and the batch route skips
-    bytes the same user has already uploaded.
-  \item[Layer 2, the database.] \emph{L3}: each parse is a row in
-    \code{parse\_runs} with a unique key on hash, pipeline version and user;
-    creating it is an upsert that never overwrites an existing row's state.
-    \emph{L4}: a run that already completed is replayed from the database
-    instead of re-parsed, unless a re-parse is forced.
-  \item[Layer 3, Redis.] \emph{L5}: before parsing, the worker takes a lock on
-    the hash (\code{SET NX}, 20 minutes, longer than the 15-minute job timeout).
-  \item[Layer 4, the outputs.] \emph{L6}: a re-parse clears the lecture's content
-    but keeps the lecture, so links to it survive. \emph{L7}: the reader copy, the
-    poster image and the parse receipt are written with upsert. \emph{L8}: before
-    any paid embedding call, a slide's text hash is checked, and unchanged
-    slides are not embedded again.
-\end{description}
-Each mechanism covers a gap the others leave. The run-row key prevents two
+Nine mechanisms in four layers use this identity to avoid doing the same work
+twice, and eight of them are live (\cref{fig:idempotency} in
+\cref{sec:idempotency-detail}). The hash names the stored object, so
+identical bytes become one object. Each parse is a row with a unique key on
+hash, pipeline version and user, and a finished run is replayed from the
+database. The worker takes a lock on the hash before it parses. Outputs are
+written with upsert, and a page whose text has not changed is not embedded
+again. Each mechanism covers a gap the others leave. The run-row key prevents two
 records of the same work, but not two workers running it at once; the lock
 prevents that, but only while it lives; replay prevents repeating finished work,
 but not unfinished work; lecture reuse and the upserted outputs make a re-parse
@@ -304,152 +234,43 @@ uploaders would require the second uploader to trust content generated for the
 first, and the orchestrator's own docstring declares that case out of scope.
 It is stated as future work in the final chapter.
 
-The weak link is chosen deliberately: the lock is best-effort, so if Redis
-fails the worker proceeds without it, preferring availability over strict
-mutual exclusion, and two simultaneous jobs for one owner can then both
-create a lecture. The guarantee also has an edge between owners. Four
-mechanisms (L0, L1, L5 and L8) are keyed on the bytes alone and shared by
-every owner; the rest are per owner, run or lecture. A second user who
+The lock is best-effort by decision: if Redis fails, the worker proceeds
+without it. The guarantee also has an edge between owners. A second user who
 uploads identical bytes while the first parse runs finds the shared lock
-held, and that run waits until the six-hour sweep fails it; if the uploads do
-not overlap, each user pays for a full parse; and at the end of every parse
-the embeddings are re-attached by hash, so they point at whichever owner's
-lecture finished last. The thesis presents the second-owner case as a known
-limitation of the design.
+held, and that run waits until a sweep fails it after six hours. We report
+this as a known limitation.
 
-\subsection{Failure Handling}
-\label{sec:failure-handling}
-
-Failure handling has three tiers. Inside the job, any exception is caught: a
-partial lecture is finalised if slides were already written, the run is
-marked failed, and the error is re-raised; a refusal because the user's
-budget is exhausted ends the job normally. Above the job, a sweep every ten
-minutes resolves runs stuck in extraction for more than 25 minutes
-(completed with their real slide count if slides exist, failed otherwise)
-and marks runs still queued after six hours as failed; the second case was
-added in September 2026 (found, then fixed), and a dead-letter table records
-the failures. Finally, the user can retry a failed run, which re-queues it
-with a forced re-parse. One setting does not do what it appears to: the
-worker's \code{max\_tries = 5} reads like five retries with backoff, and its
-comment said so until November, but in the installed Arq~\cite{arq} an
-ordinary exception finishes a job on its first try, so a failed parse is
-never retried automatically. Embedding failures raise rather than return a
-zero vector, which would corrupt similarity search silently.
-\TODO{The production image pins \code{arq>=0.26,<0.27}, while development runs
-0.28.0; the retry semantics above were read in 0.28.0. Check them in 0.26, or
-state the version explicitly.}
+\paragraph{Failures.}
+A failed job finalises the pages it has written and marks its run as failed,
+a sweep resolves runs that are stuck, and the user can retry. A failed parse
+is never retried automatically, although one setting of the worker reads as
+if it were (\cref{sec:failure-handling}).
 
 \section{LLM Provider Strategy}
 \label{sec:provider-strategy}
 
-\thesisfigure{f11-provider-chain}
-  {LLM failover. The registry holds nine entries, but the two chains use eight
-   of them on six credentials; a rejected key (401), payment (402) and a missing
-   model (404) disable a provider until restart, rate limits back off, and every
-   other failure, 403 included, carries no penalty.}
-  {fig:provider-chain}
+Every generated artefact depends on a hosted language model. The backend
+calls the providers directly, through two ordered chains over the same eight
+providers: a \emph{bulk} chain, ordered by capacity, for high-volume work such
+as page synthesis, and a \emph{quality} chain, ordered by expected answer
+quality, for fewer and harder calls. A call walks its chain and skips a
+provider that is unavailable. A rejected key, a payment error and a missing
+model disable a provider until restart, a rate limit starts a backoff, and
+every other failure moves on without penalty (\cref{fig:provider-chain} in
+\cref{sec:multi-provider}). The chain is shallower than it looks: its eight
+entries use six credentials.
 
-Every generated artefact depends on a large language model. The platform was
-first built to run on free tiers, and its code still contains a multi-provider
-design for that purpose, which is also what production runs. Alongside it, the
-code contains an \emph{OpenAI-only} mode with a single paid provider. That mode is
-the operator's intended target, but it was not switched on at the pin: the
-production server had no provider mode set, and keys for several providers
-besides OpenAI were present (six providers in a probe of 9 November 2026). This section explains how the design arrived at
-this state, describes the multi-provider mechanism that runs, and then the
-OpenAI-only mode that is built but switched off.
-
-\subsection{From Free Tiers Towards One Paid Provider}
-\label{sec:provider-history}
-
-The provider changed many times in ten months: a local model (February
-2026), Gemini, Groq, then Cerebras at the head of a free-tier failover chain
-(May), a LiteLLM gateway (May), an OpenAI-compatible provider with the stated
-plan ``OpenAI now, a self-hosted university model later'' (June, because the
-free vision tiers hit their rate limits almost immediately), the gateway
-removed (August), the two in-process chains revived after eight of their nine
-legs were found dead (September), and an OpenAI-only option with spending caps
-for the October launch. The gateway's removal is the one step with a lesson:
-it had been introduced with a pipeline generation that never became the
-default, so it ended with no live callers while still costing 1\,GB of memory
-on a 4\,GB machine and blocking start-up when unhealthy. A gateway pays off
-with many callers and many providers; this system ended with one caller and
-most of its traffic on one provider. A query of the cost ledger on 29 October
-2026 showed OpenAI carrying most calls over the preceding 30 days, Groq
-answering the reader's Explain requests and Luna sessions, and Gemini
-producing the embeddings. The repository does not record why OpenAI-only
-became the target; the author's account is that the free tiers were not
-reliable enough for bulk parsing and the OpenAI key was the one that worked.
-\TODO{Re-run the cost-ledger query (calls per provider and feature, last 30
-days) and cite the exact numbers instead of this summary.}
-
-\subsection{The Multi-Provider Mechanism}
-\label{sec:multi-provider}
-
-The multi-provider design is the default mode, and the one production runs
-(\cref{fig:provider-chain}). A registry describes each provider: model,
-credential, daily request limit, requests and tokens per minute, and the date
-those limits were last verified. Two ordered chains draw on it. The \emph{bulk}
-chain, used for high-volume work such as slide synthesis, is ordered by capacity;
-the \emph{quality} chain, used for fewer but harder calls, by expected answer
-quality. Both hold the same eight providers in different orders and end with
-OpenAI as a last resort. A call walks its chain and skips any provider that is
-unavailable.
-
-A failed call is classified four ways. A rejected key (HTTP 401), a payment
-error (402) and a ``model not found'' error (404) disable the provider for the
-rest of the process. A 403 deliberately does not, because one provider answers a
-moderation-flagged prompt with 403. A rate-limit error (429) starts a backoff of 90~seconds that doubles
-with each repeat, up to ten minutes. Every other error carries no penalty: the
-call moves on to the next provider. The classification is partly by status code
-and partly by matching text in the exception message.
-
-The chain looks deeper than it is. The eight entries use six credentials
-(two Groq models share one key, two Google models another), so one revoked
-key takes out two legs; and the call wrapper's eight rate-limit retries run
-under a 25-second timeout that fits at most four. Two failure classes are
-found-then-fixed cases: at \code{\thesisEarlierCommit} a provider whose
-credit had run out was retried on every call (Cerebras, then at the head of
-both chains, later failed exactly so; payment errors became permanent in
-September and Cerebras left the chains in October), and at
-\code{\thesisPreviousCommit} a rejected key was still retried on every call,
-until 401 joined the permanent classes in November.
-The registry also treats its own numbers as perishable: a test fails when a
-reachable provider's limits were last verified more than 45 days ago, because
-free-tier limits change without notice.
-
-\subsection{The OpenAI-Only Mode: Built, Not Yet Switched On}
-\label{sec:openai-only}
-
-In OpenAI-only mode, both chains collapse to the single OpenAI entry, and the
-API and worker refuse to boot if any other provider's key is present. The
-code gives the reason: a misconfigured deployment must not quietly send
-student data to a provider the privacy policy does not name, so the mode is
-as much a data-protection boundary as a reliability choice. Switching it on
-is not a configuration flip: the other keys must be removed, every slide must
-be embedded again (the two embedding models' vectors are not comparable), and
-the privacy pages must change. The failure classes change meaning with it: a
-rate limit becomes a soft gate that never leaves the service without a
-provider, while a rejected key or a payment error disables the only provider
-until restart, and with it every AI feature. One quality mechanism depends on
-the providers being different: generated quiz questions are checked by a
-second model that was not their author (Groq's reasoning model in the default
-mode), and in OpenAI-only mode that independence holds only if the checking
-model differs from the writing one. The trust chapter takes this up.
-\TODO{Note which OpenAI models production sets (\code{OPENAI\_MODEL},
-\code{OPENAI\_BULK\_MODEL}, \code{OPENAI\_VISION\_MODEL}); the variable
-\code{LLM\_TIMEOUT\_SECONDS} is set in production (probe of 2026-11-09), its
-value was not read.}
-
-\paragraph{Cost controls.}
-Each user has a monthly cost cap (by default \$2), checked before every call
-and enforced for student parses; all users together have a daily ceiling on
-OpenAI (by default \$10) that also binds embeddings; every call is written to
-a cost ledger. In the default mode the ledger prices only OpenAI calls and
-records every free-tier call at zero. Two limits are weaker than they look:
-the per-user cap fails open if Redis is unavailable, and a pre-parse headroom
-check never fires while OpenAI is configured, because it has no daily request
-limit and so counts as unlimited.
+The design comes from free tiers, whose limits are reached within minutes of
+bulk parsing. The code also contains an \emph{OpenAI-only} mode with one paid
+provider. In that mode the API and the worker refuse to start when the key of
+another provider is present, so that a misconfigured deployment cannot send
+student data to a provider that the privacy policy does not name. This mode
+is the operator's target and was not switched on at the pin: a probe of
+9~November 2026 found six providers keyed in production
+(\cref{sec:openai-only}). Spending is bounded by a monthly cap per user (by
+default \$2) and a daily ceiling on paid calls (by default \$10), and every
+call is written to a cost ledger. \Cref{ch:trust} tests whether these limits
+hold when providers fail.
 
 \section{Evaluation}
 \label{sec:c4-evaluation}
@@ -457,8 +278,8 @@ limit and so counts as unlimited.
 Three pieces of evidence bear on RQ1. The routing study asks whether pages
 reach the right model. The extraction benchmark asks which method produces
 the text a learner would rather learn from, and at what cost. The deck-plan
-scorecard asks what the plan changed. A fourth, a one-deck trial of a hosted
-parsing service, is reported briefly because it informed a decision. What was
+scorecard asks what the plan changed. A one-deck trial of a hosted parsing service, which was not adopted, is
+recorded in \cref{sec:c4-llamaparse}. What was
 not evaluated is stated at the end of the chapter.
 
 \subsection{The Routing Study}
@@ -500,17 +321,13 @@ every page under 150 characters would have cost 149 vision calls for the same
 52 catches.
 
 \paragraph{What this does and does not show.} The labels were made by the
-author, on a sample chosen to be the hard case, before the rule was written;
-the rule was then shaped to catch them. The 52 of 53 is therefore a fit on the
-rule's calibration set, not an independent test, and the thesis does not
-report it as an accuracy. Of the 75 figure pages the rule routes to vision,
-21 were never labelled. What the study does establish is
-that the old rule routed no figure page to vision on 1{,}593 real pages, and
-that the new rule routes figure pages at about one vision call per figure
-page. Whether the vision text is better for a learner is a question the
-benchmark answers for the extraction step; the production effect of the new
-rule is visible only after a deployment and a re-parse, and it had not been
-deployed at the pin.
+author on a sample chosen to be the hard case, and the rule was then shaped
+to catch them. The 52 of 53 is a fit on the calibration set of the rule and
+not an accuracy. Of the 75 figure pages the rule routes to vision, 21 were
+never labelled. The study establishes that the old rule routed no figure
+page to vision on 1{,}593 real pages and that the new rule does so at about
+one vision call per figure page. The new rule had not been deployed at the
+pin.
 
 \subsection{The Text Extraction Benchmark}
 \label{sec:parser-bench}
@@ -556,11 +373,10 @@ not on rank. The judge was the author, which the protocol names as the first
 threat to validity.
 
 \paragraph{Procedure.} Four comparisons were judged between 30 October and
-1 November 2026: the five fast methods, then the two paid vision models, then
-the three heavy local engines on a 60-page cut of the PDFs, then the PaddleOCR
-build after its full-size sibling did not fit an 8\,GB machine. They hold
-108, 112, 50 and 13 votes, 283 in all, with the hidden repeats agreeing in 12
-of 13 cases and no vote retracted. All four are pooled on one scale.
+1 November 2026: the five fast methods, the two paid vision models, the three
+heavy local engines on a 60-page cut of the PDFs, and one smaller OCR build.
+They hold 283 votes in all; hidden repeats agreed in 12 of 13 cases, and no
+vote was retracted. All four are pooled on one scale.
 
 \thesisfigure{f20-parser-benchmark}
   {Text extraction benchmark: Bradley--Terry ratings of eleven methods from 283
@@ -608,13 +424,11 @@ the heavy engines are not an option; the vision models are an option whose
 price is paid per page and per uploader.
 
 \paragraph{Threats.} The protocol names them before the result: the judge
-is the author of the product being judged; the automatic checks use PyMuPDF's
-own text layer as reference, which favours current and pymupdf4llm;
-pymupdf4llm ran on PyMuPDF 1.28 against production's 1.27; the 24 pages come
-from one university, hold no scan and are judged one at a time; duels within
-a comparison are not independent; later comparisons were less blind; and the
-heavy engines saw a 60-page cut. None of this was corrected for; it is
-reported.
+is the author of the product; the automatic checks use PyMuPDF's own text
+layer as reference, which favours two of the methods; the 24 pages come from
+one university and hold no scan; duels within a comparison are not
+independent; later comparisons were less blind; and the heavy engines saw a
+60-page cut. None of this was corrected for.
 
 \paragraph{What follows.} The production parser was not changed on this
 basis at the pin. The benchmark says that the cheapest path, PyMuPDF's text
@@ -634,25 +448,9 @@ pages for metadata and quiz generation against the planned one. The plan's
 \emph{span}, the fraction of a deck between the first and the last page the
 quiz step reads, rose from a mean of 0.17 to 0.84; the sections the quiz
 draws on rose from 26 to all 31 eligible sections; and removing boilerplate
-saved 14{,}875 tokens of model input over the corpus. One number did not
-move: the metadata pass still sees 24\,\% of pages, because that pass selects
-by role and the roles did not change. The scorecard is deterministic and runs
-without a model, so it is a regression test as much as a measurement; it does
-not say whether the quizzes got better, only that they now draw on the whole
-deck.
-
-\subsection{A Hosted Parser, Tried Once}
-\label{sec:c4-llamaparse}
-
-On 31 October 2026 a hosted parsing service (LlamaParse) was run on one deck
-to see whether buying the extraction step would remove the problem. It did
-not. Its output mis-numbered pages until a page separator was configured, its
-Python package was deprecated during the trial, it would have added a
-dependency the production image does not carry, and it sends every uploaded
-page to a third party the privacy policy does not name. The trial is recorded
-in the repository (\code{docs/thesis/experiments/llamaparse-trial-2026-10-31.md})
-and the service was not adopted. It is reported here because it is a decision
-with a reason, not because it is a result.
+saved 14{,}875 tokens of model input over the corpus. The metadata pass still sees 24\,\% of pages. The scorecard runs without
+a model and does not say whether the quizzes got better, only that they now
+draw on the whole deck.
 
 \section{Answer to RQ1}
 \label{sec:c4-answer}

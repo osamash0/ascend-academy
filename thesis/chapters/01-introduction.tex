@@ -21,12 +21,9 @@ page was understood, and cannot tell its author that half of the readers
 stopped at page twelve.
 
 Large language models have made it cheap to add an assistant to such a file.
-A student can paste a page into a chat window and ask for an explanation.
-This helps the individual reader, but it leaves three things as they were.
-The answer is not tied to the page it came from, so nobody can check it
-against the material. The work is repeated by every student for the same
-page. And the author learns nothing from it, because the conversation happens
-elsewhere. The research on intelligent textbooks has described the
+This helps the individual reader, but the answer is not tied to the page it
+came from, the work is repeated by every student, and the author learns
+nothing from it. The research on intelligent textbooks has described the
 alternative for decades: reading material that carries its own structure,
 practice and record of use~\cite{brusilovsky2022return}. What is new is that
 a language model can derive much of that structure from an ordinary PDF.
@@ -49,10 +46,9 @@ as patterns across at least five people.
 \section{Problem Statement}
 \label{sec:problem}
 
-We started from five problems that we observed in our own courses. They are
-observations of the author and the co-developer as students, not the result
-of a survey. \Cref{tab:problems} lists them with the mechanism that addresses
-each one and the research question that examines it.
+We started from five problems that the author and the co-developer observed
+as students; they are not the result of a survey. \Cref{tab:problems} lists
+them with the mechanism that addresses each one.
 
 \begin{table}[htbp]
   \centering\small
@@ -79,52 +75,46 @@ each one and the research question that examines it.
       RQ1, \cref{ch:content} \\
     Static material gives no reason to come back. &
       Practice questions, spaced review and a ledger of experience points. &
-      described in \cref{ch:system}, not evaluated \\
+      not evaluated \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-The mechanisms create a sixth problem of their own. Text and questions that a
-language model writes can be wrong, and a wrong answer key in a quiz is worse
-than no quiz. A system that generates learning content therefore has to say
-how it checks that content and what it does when the check fails. This is the
-subject of the third research question.
+The mechanisms create a sixth problem of their own. Text and questions that
+a language model writes can be wrong, so a system that generates learning
+content has to say how it checks that content and what it does when the
+check fails.
 
 \section{Aims and Contributions}
 \label{sec:aims}
 
-The thesis has three aims. The first is to transform static lecture material
-into structured content while keeping the original page intact as the
-reference. The second is to feed what learners do back to the author of the
-material without exposing any learner. The third is to generate shared
-content once and not once per reader; in the system as built, ``once'' means
-once per uploader, and \cref{ch:content} states this limit.
+The thesis has three aims: to transform static lecture material into
+structured content while the original page stays the reference, to feed what
+learners do back to the author without exposing any learner, and to generate
+shared content once and not once per reader.
 
 We make four contributions.
 \begin{enumerate}
-  \item A deterministic first pass over a PDF that decides, without a model
-    call, which pages need a vision model, combined with parsing once per
-    uploader and one shared retrieval index (\cref{ch:content}).
+  \item A deterministic first pass over a PDF that decides without a model
+    call which pages need a vision model, with parsing once per uploader
+    (\cref{ch:content}).
   \item A pre-registered blind benchmark of eleven text extraction methods on
     24~lecture pages, judged in 283~pairwise votes (\cref{ch:content}).
-  \item A closed feedback loop from reader to owner that makes no statement
-    about a person and none about fewer than five readers, tested with
-    scripted readers (\cref{ch:loop}).
-  \item Verification of generated questions by computation where an answer
-    can be computed, and by an independent check on a different model where
-    it cannot, with one verifier that failed its test and was withdrawn
-    (\cref{ch:trust}).
+  \item A feedback loop from reader to owner that makes no statement about
+    a person and none about fewer than five readers (\cref{ch:loop}).
+  \item Verification of generated questions by computation and by an
+    independent check, with one verifier that failed its test and was
+    withdrawn (\cref{ch:trust}).
 \end{enumerate}
 
 \section{Scope and Delimitation}
 \label{sec:scope}
 
 This is an engineering thesis. It describes a system that runs in production
-and evaluates its parts with curated data. It does not measure learning
-outcomes. On 30~October 2026 the production database held 103~accounts that
-are not test accounts, and two of them had been active in the previous seven
-days. No user study was run, and no claim in this thesis is about what
-students learn.
+and evaluates its parts with curated data. On 30~October 2026 the production
+database held 103~accounts that are not test accounts, and two of them had
+been active in the previous seven days. No user study was run, and no claim
+in this thesis is about what students learn.
 
 Learnstation was built by two students, and each of them submits a thesis on
 the shared code base. The repository was created by the co-developer on
@@ -151,19 +141,16 @@ where they matter and are marked as later.
 \label{sec:method-note}
 
 We follow a build-and-evaluate approach. Each of the three main chapters
-states requirements, describes what was built, and ends with an evaluation
-whose expectations were written down before the run where that was possible.
-Every factual statement about the system was checked against the code at the
-revision named above, and against the running production system where the
-two can differ. Where the repository does not record a reason for a
-decision, we say that it is not recorded and do not supply one.
+describes what was built and ends with an evaluation whose expectations were
+written down before the run where that was possible. Every factual statement
+about the system was checked against the code at the revision named above,
+and against production where the two can differ. Where the repository does
+not record a reason for a decision, we say so and do not supply one.
 
 Most of the code was written with AI coding agents under the author's
 direction. The project's development timeline counts 1{,}229 of
 1{,}599~non-merge commits up to 4~November 2026, about 77\,\%, as written
-with an agent; for 111 of them this is inferred from the committing account
-and not from a marker in the commit. The share rose from none in the first
-of ten phases to more than 90\,\% in the last three. The text of this thesis
+with an agent; for 111 of them this is inferred from the committing account. The text of this thesis
 was drafted with the help of a language model and then revised by the author.
 We consider this part of the method and not a footnote to it, because several
 practices in the later chapters, such as writing the test first,
@@ -175,16 +162,9 @@ is question 5 for the supervisor. Align this paragraph with it.}
 \section{Research Questions}
 \label{sec:research-questions}
 
-The thesis began as a project proposal in January 2026, presented to the
-research group together with the co-developer. The proposal asked four
-questions: which profiling metrics characterise learning interaction data,
-how students perceive motivation in a gamified platform, how interaction
-events can be aggregated and analysed, and whether interactive content
-improves learning efficiency compared to static slides. Two of them need
-participants. Real use of the platform after its launch stayed close to zero,
-so these two cannot be answered, and \cref{ch:conclusion} returns to them as
-future work. The question about events survives as RQ2. The questions about
-content and about trust are new in this thesis.
+The thesis began as a project proposal in January 2026. Two of its four
+questions need participants and remain open (\cref{sec:limitations}); its
+question about interaction events survives as RQ2.
 
 \begin{description}
   \item[RQ1] How can heterogeneous lecture PDFs be reliably transformed into
@@ -197,13 +177,6 @@ content and about trust are new in this thesis.
     verified and measured, and what happens when verification fails?
 \end{description}
 
-\section{Structure}
-\label{sec:structure}
-
-\Cref{ch:background} gives the background and places the system among related
-work. \Cref{ch:system} describes Learnstation as a whole: its vocabulary, its
-architecture, how it is deployed, and what of it is switched on.
-\Cref{ch:content,ch:loop,ch:trust} answer the three research questions in
-order, each with its own evaluation. \Cref{ch:conclusion} discusses what the
-work showed beyond the three answers, states its limitations, and looks
-ahead.
+\Cref{ch:background,ch:system} give the background and the system as a
+whole, \cref{ch:content,ch:loop,ch:trust} answer the three questions in
+order, and \cref{ch:conclusion} discusses the work and its limitations.

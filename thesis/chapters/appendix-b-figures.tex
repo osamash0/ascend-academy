@@ -1,12 +1,15 @@
 % Appendix B, assembled 2026-11-10. Diagrams that the body refers to and
-% that are too large for it: F4, F5 (chapter 3), F9, F9b, F15 (chapter 5).
+% that are too large for it: F4, F5 (chapter 3), F9, F9b, F14, F15 (chapter 5),
+% F12, F16 (chapter 6).
 \chapter{Supplementary Diagrams}
 \label{app:figures}
 
-This appendix holds five diagrams that the body refers to.
+This appendix holds eight diagrams that the body refers to.
 \Cref{fig:use-case,fig:domain-model} belong to \cref{sec:stakeholders},
-\cref{fig:er,fig:er-learning} to \cref{sec:data-model}, and
-\cref{fig:security-arc} to \cref{sec:hardening}.
+\cref{fig:er,fig:er-learning} to \cref{sec:data-model},
+\cref{fig:security-arc} to \cref{sec:hardening},
+\cref{fig:trust-boundaries} to \cref{sec:authorisation}, and
+\cref{fig:tutor-sequence,fig:citation-gap} to \cref{sec:tutor}.
 
 \thesisfigure{f4-use-case}
   {Actors and goals as implemented. Student goals are the v4 app; creating
@@ -40,3 +43,21 @@ This appendix holds five diagrams that the body refers to.
    from October to November 2026. Steps 1 and 3 each opened a hole that a
    later step closed, and the arc has no final state.}
   {fig:security-arc}
+
+\thesisfigure{f14-trust-boundaries}
+  {Trust boundaries. A browser holding the anonymous key meets three
+   database-side boundaries --- table row-level security, function execute
+   grants and storage policies; most backend routes bypass row-level security
+   and check ownership in application code.}
+  {fig:trust-boundaries}
+
+\thesisfigurepage{f12-tutor-sequence}
+  {The grounded course tutor behind the home ask bar. Groundedness is enforced
+   at five points, including a refusal before any model call.}
+  {fig:tutor-sequence}
+
+\thesisfigure{f16-citation-gap}
+  {Source attribution. The server's validated citations reach learners through
+   the current interface; the older rooms still discard them. At
+   \thesisEarlierCommit{}, no screen a student could reach showed a source.}
+  {fig:citation-gap}
