@@ -1,0 +1,446 @@
+{
+  "run_id": "cmp-2026-10-31_04de",
+  "status": "finished",
+  "votes_digest": "0abdb1324bb133386edf282e9841bc1a50edd8681c532feac1ebe3237349ab47",
+  "votes": 112,
+  "retracted": 0,
+  "scheduled": 112,
+  "rounds": 14,
+  "round2_duels": 75,
+  "anchor": "current",
+  "bootstrap": {
+    "resamples": 1000,
+    "seed": 20261101
+  },
+  "ranking": [
+    {
+      "entrant": "ai_vision_strong",
+      "points": 1421.6,
+      "lo": 1321.8,
+      "hi": 1539.3,
+      "h1_lower": 1289.8,
+      "duels": 67,
+      "wins": 33,
+      "losses": 8,
+      "same": 9,
+      "both_bad": 17
+    },
+    {
+      "entrant": "ai_vision",
+      "points": 1350.1,
+      "lo": 1264.3,
+      "hi": 1454.0,
+      "h1_lower": 1234.8,
+      "duels": 85,
+      "wins": 34,
+      "losses": 23,
+      "same": 12,
+      "both_bad": 16
+    },
+    {
+      "entrant": "pymupdf4llm",
+      "points": 1262.2,
+      "lo": 1180.4,
+      "hi": 1362.5,
+      "h1_lower": 1156.3,
+      "duels": 82,
+      "wins": 24,
+      "losses": 20,
+      "same": 10,
+      "both_bad": 28
+    },
+    {
+      "entrant": "opendataloader",
+      "points": 1108.7,
+      "lo": 1046.0,
+      "hi": 1176.1,
+      "h1_lower": 1033.5,
+      "duels": 69,
+      "wins": 13,
+      "losses": 18,
+      "same": 5,
+      "both_bad": 33
+    },
+    {
+      "entrant": "pdfjs",
+      "points": 1004.2,
+      "lo": 970.0,
+      "hi": 1040.7,
+      "h1_lower": 961.0,
+      "duels": 71,
+      "wins": 2,
+      "losses": 17,
+      "same": 3,
+      "both_bad": 49
+    },
+    {
+      "entrant": "current",
+      "points": 1000.0,
+      "lo": 1000.0,
+      "hi": 1000.0,
+      "h1_lower": null,
+      "duels": 46,
+      "wins": 1,
+      "losses": 10,
+      "same": 3,
+      "both_bad": 32
+    },
+    {
+      "entrant": "markitdown",
+      "points": 947.4,
+      "lo": 827.0,
+      "hi": 1040.7,
+      "h1_lower": 776.9,
+      "duels": 20,
+      "wins": 0,
+      "losses": 11,
+      "same": 0,
+      "both_bad": 9
+    }
+  ],
+  "h1": {
+    "holds": true,
+    "above_anchor": [
+      "ai_vision",
+      "ai_vision_strong",
+      "opendataloader",
+      "pymupdf4llm"
+    ]
+  },
+  "h1_k": 6,
+  "self_consistency": {
+    "agree": 4,
+    "total": 4,
+    "share": 1.0
+  },
+  "win_rate_by_type": {
+    "ai_vision": {
+      "dense_text": {
+        "duels": 16,
+        "score": 0.531
+      },
+      "diagram": {
+        "duels": 17,
+        "score": 0.471
+      },
+      "layout": {
+        "duels": 17,
+        "score": 0.588
+      },
+      "lists": {
+        "duels": 17,
+        "score": 0.676
+      },
+      "table_formula": {
+        "duels": 18,
+        "score": 0.556
+      }
+    },
+    "ai_vision_strong": {
+      "dense_text": {
+        "duels": 14,
+        "score": 0.571
+      },
+      "diagram": {
+        "duels": 14,
+        "score": 0.679
+      },
+      "layout": {
+        "duels": 13,
+        "score": 0.692
+      },
+      "lists": {
+        "duels": 13,
+        "score": 0.692
+      },
+      "table_formula": {
+        "duels": 13,
+        "score": 0.808
+      }
+    },
+    "current": {
+      "dense_text": {
+        "duels": 10,
+        "score": 0.35
+      },
+      "diagram": {
+        "duels": 11,
+        "score": 0.318
+      },
+      "layout": {
+        "duels": 8,
+        "score": 0.375
+      },
+      "lists": {
+        "duels": 8,
+        "score": 0.5
+      },
+      "table_formula": {
+        "duels": 9,
+        "score": 0.5
+      }
+    },
+    "markitdown": {
+      "dense_text": {
+        "duels": 5,
+        "score": 0.2
+      },
+      "diagram": {
+        "duels": 3,
+        "score": 0.333
+      },
+      "layout": {
+        "duels": 6,
+        "score": 0.333
+      },
+      "lists": {
+        "duels": 3,
+        "score": 0.0
+      },
+      "table_formula": {
+        "duels": 3,
+        "score": 0.167
+      }
+    },
+    "opendataloader": {
+      "dense_text": {
+        "duels": 13,
+        "score": 0.346
+      },
+      "diagram": {
+        "duels": 15,
+        "score": 0.533
+      },
+      "layout": {
+        "duels": 12,
+        "score": 0.625
+      },
+      "lists": {
+        "duels": 14,
+        "score": 0.357
+      },
+      "table_formula": {
+        "duels": 15,
+        "score": 0.467
+      }
+    },
+    "pdfjs": {
+      "dense_text": {
+        "duels": 14,
+        "score": 0.5
+      },
+      "diagram": {
+        "duels": 14,
+        "score": 0.429
+      },
+      "layout": {
+        "duels": 13,
+        "score": 0.385
+      },
+      "lists": {
+        "duels": 16,
+        "score": 0.344
+      },
+      "table_formula": {
+        "duels": 14,
+        "score": 0.321
+      }
+    },
+    "pymupdf4llm": {
+      "dense_text": {
+        "duels": 16,
+        "score": 0.719
+      },
+      "diagram": {
+        "duels": 16,
+        "score": 0.562
+      },
+      "layout": {
+        "duels": 17,
+        "score": 0.382
+      },
+      "lists": {
+        "duels": 15,
+        "score": 0.533
+      },
+      "table_formula": {
+        "duels": 18,
+        "score": 0.444
+      }
+    }
+  },
+  "median_seconds": 10.6,
+  "checks": {
+    "ai_vision": {
+      "pages": 24,
+      "footer_leaks": 26,
+      "pages_with_footer_leak": 8,
+      "footer_token_share": 0.317,
+      "title_first": 0.667,
+      "wrong_symbols": 0,
+      "lonely_bullets": 0,
+      "broken_line_pct": 12.033,
+      "dropped_words_pct": 4.013,
+      "invented_words_pct": 5.704,
+      "headings": 25,
+      "list_items": 138,
+      "tables": 5,
+      "math_spans": 0,
+      "seconds_per_page": 2.653,
+      "peak_memory_mb": 98.2,
+      "reference_biased": false
+    },
+    "ai_vision_strong": {
+      "pages": 24,
+      "footer_leaks": 66,
+      "pages_with_footer_leak": 18,
+      "footer_token_share": 0.744,
+      "title_first": 0.667,
+      "wrong_symbols": 0,
+      "lonely_bullets": 0,
+      "broken_line_pct": 17.5,
+      "dropped_words_pct": 2.933,
+      "invented_words_pct": 13.175,
+      "headings": 46,
+      "list_items": 145,
+      "tables": 5,
+      "math_spans": 0,
+      "seconds_per_page": 4.426,
+      "peak_memory_mb": 96.0,
+      "reference_biased": false
+    },
+    "current": {
+      "pages": 24,
+      "footer_leaks": 84,
+      "pages_with_footer_leak": 23,
+      "footer_token_share": 1.0,
+      "title_first": 0.333,
+      "wrong_symbols": 132,
+      "lonely_bullets": 5,
+      "broken_line_pct": 20.804,
+      "dropped_words_pct": 0.0,
+      "invented_words_pct": 0.0,
+      "headings": 0,
+      "list_items": 9,
+      "tables": 0,
+      "math_spans": 0,
+      "seconds_per_page": 0.027,
+      "peak_memory_mb": 61.9,
+      "reference_biased": true
+    },
+    "markitdown": {
+      "pages": 24,
+      "footer_leaks": 44,
+      "pages_with_footer_leak": 23,
+      "footer_token_share": 0.707,
+      "title_first": 0.667,
+      "wrong_symbols": 132,
+      "lonely_bullets": 0,
+      "broken_line_pct": 21.827,
+      "dropped_words_pct": 3.317,
+      "invented_words_pct": 4.021,
+      "headings": 0,
+      "list_items": 5,
+      "tables": 63,
+      "math_spans": 0,
+      "seconds_per_page": 0.142,
+      "peak_memory_mb": 123.4,
+      "reference_biased": false
+    },
+    "opendataloader": {
+      "pages": 24,
+      "footer_leaks": 7,
+      "pages_with_footer_leak": 4,
+      "footer_token_share": 0.159,
+      "title_first": 0.778,
+      "wrong_symbols": 132,
+      "lonely_bullets": 0,
+      "broken_line_pct": null,
+      "dropped_words_pct": 2.983,
+      "invented_words_pct": 1.017,
+      "headings": 48,
+      "list_items": 54,
+      "tables": 5,
+      "math_spans": 0,
+      "seconds_per_page": 0.088,
+      "peak_memory_mb": 314.8,
+      "reference_biased": false
+    },
+    "pdfjs": {
+      "pages": 24,
+      "footer_leaks": 81,
+      "pages_with_footer_leak": 23,
+      "footer_token_share": 0.976,
+      "title_first": 0.333,
+      "wrong_symbols": 132,
+      "lonely_bullets": 0,
+      "broken_line_pct": 19.892,
+      "dropped_words_pct": 0.0,
+      "invented_words_pct": 0.037,
+      "headings": 0,
+      "list_items": 13,
+      "tables": 0,
+      "math_spans": 0,
+      "seconds_per_page": 0.036,
+      "peak_memory_mb": 148.6,
+      "reference_biased": false
+    },
+    "pymupdf4llm": {
+      "pages": 24,
+      "footer_leaks": 38,
+      "pages_with_footer_leak": 20,
+      "footer_token_share": 0.593,
+      "title_first": 0.722,
+      "wrong_symbols": 97,
+      "lonely_bullets": 0,
+      "broken_line_pct": 1.283,
+      "dropped_words_pct": 1.629,
+      "invented_words_pct": 18.625,
+      "headings": 43,
+      "list_items": 125,
+      "tables": 2,
+      "math_spans": 1,
+      "seconds_per_page": 0.726,
+      "peak_memory_mb": 388.5,
+      "reference_biased": true
+    }
+  },
+  "pooled": {
+    "builds_on": [
+      "cmp-2026-10-30_8825"
+    ],
+    "new_entrants": [
+      "ai_vision",
+      "ai_vision_strong"
+    ],
+    "votes": 220,
+    "sources": {
+      "cmp-2026-10-30_8825": {
+        "status": "finished",
+        "votes": 108,
+        "votes_digest": "fc4e83b1c11133b48f9cec77faa5c25d9eb1c510cbce6a87608d761fbc537668",
+        "unlocked_early": false
+      }
+    },
+    "note": "ranking, its counts, H1 and win rates use the pooled votes; votes, self-consistency and median_seconds are this comparison's own"
+  },
+  "sensitivity": {
+    "round1_only": {
+      "votes": 70,
+      "h1_above": [
+        "ai_vision",
+        "ai_vision_strong",
+        "pymupdf4llm"
+      ],
+      "h1_k": 6,
+      "h1_lower": {
+        "ai_vision": 1273.5,
+        "ai_vision_strong": 1179.2,
+        "pymupdf4llm": 1007.6,
+        "opendataloader": 892.5,
+        "pdfjs": 898.3,
+        "markitdown": 770.8
+      }
+    }
+  }
+}

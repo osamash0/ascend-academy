@@ -1,0 +1,920 @@
+{
+  "run_id": "cmp-2026-10-31_0f86",
+  "kind": "compare",
+  "record_version": 1,
+  "purpose": "benchmark",
+  "status": "finished",
+  "started_at": "2026-10-31T19:12:05+00:00",
+  "finished_at": "2026-10-31T19:35:55+00:00",
+  "protocol_commit": "dca001d4acf30a682f35a63843e24c1e337d3099",
+  "bench_tree": "1be211d90c67627e7d423e06e9c56b9f59e6eb9f3b6300f8bed56f120d99ba67",
+  "provenance": {
+    "ai_vision": {
+      "protocol_commit": "902a0e86820f242050e0bf252fccbdcbd4c94f4b",
+      "bench_tree": "4c2c20e148f00f0b1430aa7069499aeecf8326210ba0a6f46f402f6682a04836"
+    },
+    "ai_vision_strong": {
+      "protocol_commit": "902a0e86820f242050e0bf252fccbdcbd4c94f4b",
+      "bench_tree": "4c2c20e148f00f0b1430aa7069499aeecf8326210ba0a6f46f402f6682a04836"
+    },
+    "current": {
+      "protocol_commit": "e07f5c9fb8b78f530f7bcc27c66241379cb724fc",
+      "bench_tree": null
+    },
+    "docling": {
+      "protocol_commit": "dca001d4acf30a682f35a63843e24c1e337d3099",
+      "bench_tree": "1be211d90c67627e7d423e06e9c56b9f59e6eb9f3b6300f8bed56f120d99ba67"
+    },
+    "marker": {
+      "protocol_commit": "dca001d4acf30a682f35a63843e24c1e337d3099",
+      "bench_tree": "1be211d90c67627e7d423e06e9c56b9f59e6eb9f3b6300f8bed56f120d99ba67"
+    },
+    "markitdown": {
+      "protocol_commit": "e07f5c9fb8b78f530f7bcc27c66241379cb724fc",
+      "bench_tree": null
+    },
+    "mineru": {
+      "protocol_commit": "dca001d4acf30a682f35a63843e24c1e337d3099",
+      "bench_tree": "1be211d90c67627e7d423e06e9c56b9f59e6eb9f3b6300f8bed56f120d99ba67"
+    },
+    "opendataloader": {
+      "protocol_commit": "e07f5c9fb8b78f530f7bcc27c66241379cb724fc",
+      "bench_tree": null
+    },
+    "pdfjs": {
+      "protocol_commit": "e07f5c9fb8b78f530f7bcc27c66241379cb724fc",
+      "bench_tree": null
+    },
+    "pymupdf4llm": {
+      "protocol_commit": "e07f5c9fb8b78f530f7bcc27c66241379cb724fc",
+      "bench_tree": null
+    }
+  },
+  "git": {
+    "commit": "b0fbb66dd23497f91d408193a6d8f7ac5aa7695b",
+    "dirty": false
+  },
+  "checks_version": 3,
+  "seed": 20261102,
+  "anchor": "current",
+  "builds_on": [
+    "cmp-2026-10-30_8825",
+    "cmp-2026-10-31_04de"
+  ],
+  "new_entrants": [
+    "docling",
+    "marker",
+    "mineru"
+  ],
+  "opponents": [
+    "ai_vision",
+    "ai_vision_strong",
+    "current",
+    "pymupdf4llm"
+  ],
+  "entrants": {
+    "ai_vision": {
+      "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5": "2026-10-31_ai-vision-gpt-4.1-mini-2025-04-14_fdb3",
+      "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97": "2026-10-31_ai-vision-gpt-4.1-mini-2025-04-14_fab1",
+      "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa": "2026-10-31_ai-vision-gpt-4.1-mini-2025-04-14_e7e4",
+      "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131": "2026-10-31_ai-vision-gpt-4.1-mini-2025-04-14_74af",
+      "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17": "2026-10-31_ai-vision-gpt-4.1-mini-2025-04-14_cd06"
+    },
+    "ai_vision_strong": {
+      "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5": "2026-10-31_ai-vision-strong-gpt-6.1-sol_1067",
+      "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97": "2026-10-31_ai-vision-strong-gpt-6.1-sol_6ef1",
+      "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa": "2026-10-31_ai-vision-strong-gpt-6.1-sol_7577",
+      "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131": "2026-10-31_ai-vision-strong-gpt-6.1-sol_8f18",
+      "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17": "2026-10-31_ai-vision-strong-gpt-6.1-sol_6571"
+    },
+    "current": {
+      "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5": "2026-10-30_current-1.27.1_b04d",
+      "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97": "2026-10-30_current-1.27.1_e72c",
+      "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa": "2026-10-30_current-1.27.1_54b9",
+      "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131": "2026-10-30_current-1.27.1_f5fe",
+      "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17": "2026-10-30_current-1.27.1_526c"
+    },
+    "docling": {
+      "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5": "2026-10-31_docling-2.145.0_24c2",
+      "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97": "2026-10-31_docling-2.145.0_c507",
+      "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa": "2026-10-31_docling-2.145.0_4d71",
+      "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131": "2026-10-31_docling-2.145.0_4772",
+      "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17": "2026-10-31_docling-2.145.0_d8bf"
+    },
+    "marker": {
+      "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5": "2026-10-31_marker-2.1.0_559f",
+      "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97": "2026-10-31_marker-2.1.0_56d6",
+      "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa": "2026-10-31_marker-2.1.0_a052",
+      "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131": "2026-10-31_marker-2.1.0_c785",
+      "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17": "2026-10-31_marker-2.1.0_8377"
+    },
+    "markitdown": {
+      "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5": "2026-10-30_markitdown-0.1.6_4223",
+      "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97": "2026-10-30_markitdown-0.1.6_43d5",
+      "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa": "2026-10-30_markitdown-0.1.6_8ff0",
+      "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131": "2026-10-30_markitdown-0.1.6_1687",
+      "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17": "2026-10-30_markitdown-0.1.6_22f2"
+    },
+    "mineru": {
+      "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5": "2026-10-31_mineru-4.1.3_3b8d",
+      "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97": "2026-10-31_mineru-4.1.3_8b70",
+      "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa": "2026-10-31_mineru-4.1.3_7d98",
+      "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131": "2026-10-31_mineru-4.1.3_6081",
+      "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17": "2026-10-31_mineru-4.1.3_f361"
+    },
+    "opendataloader": {
+      "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5": "2026-10-30_opendataloader-2.4.1_36b1",
+      "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97": "2026-10-30_opendataloader-2.4.1_8027",
+      "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa": "2026-10-30_opendataloader-2.4.1_635a",
+      "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131": "2026-10-30_opendataloader-2.4.1_afb6",
+      "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17": "2026-10-30_opendataloader-2.4.1_c01f"
+    },
+    "pdfjs": {
+      "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5": "2026-10-30_pdfjs-5.4.296_baa3",
+      "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97": "2026-10-30_pdfjs-5.4.296_31c5",
+      "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa": "2026-10-30_pdfjs-5.4.296_cf0f",
+      "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131": "2026-10-30_pdfjs-5.4.296_3f9f",
+      "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17": "2026-10-30_pdfjs-5.4.296_bfc1"
+    },
+    "pymupdf4llm": {
+      "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5": "2026-10-30_pymupdf4llm-1.28.2_0b46",
+      "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97": "2026-10-30_pymupdf4llm-1.28.2_4fd2",
+      "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa": "2026-10-30_pymupdf4llm-1.28.2_c2a6",
+      "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131": "2026-10-30_pymupdf4llm-1.28.2_d72d",
+      "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17": "2026-10-30_pymupdf4llm-1.28.2_e22d"
+    }
+  },
+  "pages": [
+    {
+      "key": "swt-p3",
+      "source": "swt",
+      "file": "Course SWT/Slides/2.pdf",
+      "sha256": "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17",
+      "page": 3,
+      "type": "lists",
+      "how": "chosen"
+    },
+    {
+      "key": "swt-p21",
+      "source": "swt",
+      "file": "Course SWT/Slides/2.pdf",
+      "sha256": "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17",
+      "page": 21,
+      "type": "layout",
+      "how": "chosen"
+    },
+    {
+      "key": "swt-p26",
+      "source": "swt",
+      "file": "Course SWT/Slides/2.pdf",
+      "sha256": "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17",
+      "page": 26,
+      "type": "diagram",
+      "how": "chosen"
+    },
+    {
+      "key": "swt-p17",
+      "source": "swt",
+      "file": "Course SWT/Slides/2.pdf",
+      "sha256": "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17",
+      "page": 17,
+      "type": "diagram",
+      "how": "chosen"
+    },
+    {
+      "key": "swt-p16",
+      "source": "swt",
+      "file": "Course SWT/Slides/2.pdf",
+      "sha256": "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17",
+      "page": 16,
+      "type": "diagram",
+      "how": "random"
+    },
+    {
+      "key": "swt-p39",
+      "source": "swt",
+      "file": "Course SWT/Slides/2.pdf",
+      "sha256": "e03bd4a555d806a6ab25bb4ec8687ffd4edc9b9d6929d9ef2ec4d63bb37e7b17",
+      "page": 39,
+      "type": "diagram",
+      "how": "random"
+    },
+    {
+      "key": "dbs-p7",
+      "source": "dbs",
+      "file": "03 DBS Normalization.pdf",
+      "sha256": "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131",
+      "page": 7,
+      "type": "table_formula",
+      "how": "chosen"
+    },
+    {
+      "key": "dbs-p32",
+      "source": "dbs",
+      "file": "03 DBS Normalization.pdf",
+      "sha256": "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131",
+      "page": 32,
+      "type": "table_formula",
+      "how": "chosen"
+    },
+    {
+      "key": "dbs-p73",
+      "source": "dbs",
+      "file": "03 DBS Normalization.pdf",
+      "sha256": "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131",
+      "page": 73,
+      "type": "dense_text",
+      "how": "chosen"
+    },
+    {
+      "key": "dbs-p35",
+      "source": "dbs",
+      "file": "03 DBS Normalization.pdf",
+      "sha256": "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131",
+      "page": 35,
+      "type": "lists",
+      "how": "chosen"
+    },
+    {
+      "key": "dbs-p30",
+      "source": "dbs",
+      "file": "03 DBS Normalization.pdf",
+      "sha256": "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131",
+      "page": 30,
+      "type": "lists",
+      "how": "random"
+    },
+    {
+      "key": "dbs-p74",
+      "source": "dbs",
+      "file": "03 DBS Normalization.pdf",
+      "sha256": "87d6c686323cf447fc388768ce904ca11e686e2e6c6ca0802913827771a80131",
+      "page": 74,
+      "type": "dense_text",
+      "how": "random"
+    },
+    {
+      "key": "sr-p22",
+      "source": "sr",
+      "file": " 03__SR_Prozesse_v07_27.04.2025.pdf",
+      "sha256": "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5",
+      "page": 22,
+      "type": "diagram",
+      "how": "chosen"
+    },
+    {
+      "key": "sr-p45",
+      "source": "sr",
+      "file": " 03__SR_Prozesse_v07_27.04.2025.pdf",
+      "sha256": "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5",
+      "page": 45,
+      "type": "layout",
+      "how": "chosen"
+    },
+    {
+      "key": "sr-p39",
+      "source": "sr",
+      "file": " 03__SR_Prozesse_v07_27.04.2025.pdf",
+      "sha256": "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5",
+      "page": 39,
+      "type": "table_formula",
+      "how": "chosen"
+    },
+    {
+      "key": "sr-p18",
+      "source": "sr",
+      "file": " 03__SR_Prozesse_v07_27.04.2025.pdf",
+      "sha256": "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5",
+      "page": 18,
+      "type": "layout",
+      "how": "chosen"
+    },
+    {
+      "key": "sr-p31",
+      "source": "sr",
+      "file": " 03__SR_Prozesse_v07_27.04.2025.pdf",
+      "sha256": "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5",
+      "page": 31,
+      "type": "lists",
+      "how": "random"
+    },
+    {
+      "key": "sr-p74",
+      "source": "sr",
+      "file": " 03__SR_Prozesse_v07_27.04.2025.pdf",
+      "sha256": "2f7a3b33186f2352cf6998dc183006dec310434f17f055f5172a28a960afacc5",
+      "page": 74,
+      "type": "lists",
+      "how": "random"
+    },
+    {
+      "key": "sheets1-p1",
+      "source": "sheets",
+      "file": "Course SWT/ueb01.pdf",
+      "sha256": "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa",
+      "page": 1,
+      "type": "dense_text",
+      "how": "chosen"
+    },
+    {
+      "key": "sheets1-p3",
+      "source": "sheets",
+      "file": "Course SWT/ueb01.pdf",
+      "sha256": "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa",
+      "page": 3,
+      "type": "lists",
+      "how": "chosen"
+    },
+    {
+      "key": "sheets2-p4",
+      "source": "sheets",
+      "file": "Course SWT/ueb02.pdf",
+      "sha256": "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97",
+      "page": 4,
+      "type": "lists",
+      "how": "chosen"
+    },
+    {
+      "key": "sheets2-p6",
+      "source": "sheets",
+      "file": "Course SWT/ueb02.pdf",
+      "sha256": "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97",
+      "page": 6,
+      "type": "dense_text",
+      "how": "chosen"
+    },
+    {
+      "key": "sheets1-p6",
+      "source": "sheets",
+      "file": "Course SWT/ueb01.pdf",
+      "sha256": "72ee94da0e1e60c13c20226677e85b9cbc3ccb190e5d97e0749c4a47e054f6fa",
+      "page": 6,
+      "type": "dense_text",
+      "how": "random"
+    },
+    {
+      "key": "sheets2-p7",
+      "source": "sheets",
+      "file": "Course SWT/ueb02.pdf",
+      "sha256": "4001f24d87015e499f5c30bb77f1cb9863594dcc9773293b7f799d1394749a97",
+      "page": 7,
+      "type": "lists",
+      "how": "random"
+    }
+  ],
+  "schedule": [
+    {
+      "duel": 0,
+      "round": 1,
+      "a": "ai_vision_strong",
+      "b": "mineru",
+      "page": "dbs-p7",
+      "type": "table_formula",
+      "left": "ai_vision_strong",
+      "right": "mineru",
+      "repeat_of": null
+    },
+    {
+      "duel": 1,
+      "round": 1,
+      "a": "current",
+      "b": "mineru",
+      "page": "sheets1-p3",
+      "type": "lists",
+      "left": "mineru",
+      "right": "current",
+      "repeat_of": null
+    },
+    {
+      "duel": 2,
+      "round": 1,
+      "a": "ai_vision_strong",
+      "b": "marker",
+      "page": "sheets2-p4",
+      "type": "lists",
+      "left": "ai_vision_strong",
+      "right": "marker",
+      "repeat_of": null
+    },
+    {
+      "duel": 3,
+      "round": 1,
+      "a": "ai_vision",
+      "b": "marker",
+      "page": "swt-p26",
+      "type": "diagram",
+      "left": "marker",
+      "right": "ai_vision",
+      "repeat_of": null
+    },
+    {
+      "duel": 4,
+      "round": 1,
+      "a": "ai_vision",
+      "b": "mineru",
+      "page": "swt-p21",
+      "type": "layout",
+      "left": "ai_vision",
+      "right": "mineru",
+      "repeat_of": null
+    },
+    {
+      "duel": 5,
+      "round": 1,
+      "a": "ai_vision",
+      "b": "docling",
+      "page": "sr-p31",
+      "type": "lists",
+      "left": "ai_vision",
+      "right": "docling",
+      "repeat_of": null
+    },
+    {
+      "duel": 6,
+      "round": 1,
+      "a": "mineru",
+      "b": "pymupdf4llm",
+      "page": "dbs-p32",
+      "type": "table_formula",
+      "left": "pymupdf4llm",
+      "right": "mineru",
+      "repeat_of": null
+    },
+    {
+      "duel": 7,
+      "round": 1,
+      "a": "ai_vision",
+      "b": "marker",
+      "page": "sheets2-p6",
+      "type": "dense_text",
+      "left": "ai_vision",
+      "right": "marker",
+      "repeat_of": null
+    },
+    {
+      "duel": 8,
+      "round": 1,
+      "a": "docling",
+      "b": "marker",
+      "page": "sr-p18",
+      "type": "layout",
+      "left": "docling",
+      "right": "marker",
+      "repeat_of": null
+    },
+    {
+      "duel": 9,
+      "round": 1,
+      "a": "ai_vision_strong",
+      "b": "docling",
+      "page": "sr-p39",
+      "type": "table_formula",
+      "left": "docling",
+      "right": "ai_vision_strong",
+      "repeat_of": null
+    },
+    {
+      "duel": 10,
+      "round": 1,
+      "a": "ai_vision",
+      "b": "mineru",
+      "page": "swt-p16",
+      "type": "diagram",
+      "left": "ai_vision",
+      "right": "mineru",
+      "repeat_of": null
+    },
+    {
+      "duel": 11,
+      "round": 1,
+      "a": "ai_vision_strong",
+      "b": "docling",
+      "page": "dbs-p30",
+      "type": "lists",
+      "left": "ai_vision_strong",
+      "right": "docling",
+      "repeat_of": null
+    },
+    {
+      "duel": 12,
+      "round": 1,
+      "a": "current",
+      "b": "docling",
+      "page": "dbs-p32",
+      "type": "table_formula",
+      "left": "current",
+      "right": "docling",
+      "repeat_of": null
+    },
+    {
+      "duel": 13,
+      "round": 1,
+      "a": "current",
+      "b": "mineru",
+      "page": "sr-p45",
+      "type": "layout",
+      "left": "mineru",
+      "right": "current",
+      "repeat_of": null
+    },
+    {
+      "duel": 14,
+      "round": 1,
+      "a": "docling",
+      "b": "pymupdf4llm",
+      "page": "sr-p45",
+      "type": "layout",
+      "left": "docling",
+      "right": "pymupdf4llm",
+      "repeat_of": null
+    },
+    {
+      "duel": 15,
+      "round": 1,
+      "a": "docling",
+      "b": "marker",
+      "page": "sheets2-p7",
+      "type": "lists",
+      "left": "marker",
+      "right": "docling",
+      "repeat_of": null
+    },
+    {
+      "duel": 16,
+      "round": 1,
+      "a": "marker",
+      "b": "mineru",
+      "page": "sheets1-p6",
+      "type": "dense_text",
+      "left": "mineru",
+      "right": "marker",
+      "repeat_of": null
+    },
+    {
+      "duel": 17,
+      "round": 1,
+      "a": "docling",
+      "b": "pymupdf4llm",
+      "page": "dbs-p74",
+      "type": "dense_text",
+      "left": "docling",
+      "right": "pymupdf4llm",
+      "repeat_of": null
+    },
+    {
+      "duel": 18,
+      "round": 1,
+      "a": "ai_vision_strong",
+      "b": "marker",
+      "page": "sheets2-p4",
+      "type": "lists",
+      "left": "marker",
+      "right": "ai_vision_strong",
+      "repeat_of": 2
+    },
+    {
+      "duel": 19,
+      "round": 1,
+      "a": "ai_vision_strong",
+      "b": "mineru",
+      "page": "swt-p16",
+      "type": "diagram",
+      "left": "ai_vision_strong",
+      "right": "mineru",
+      "repeat_of": null
+    },
+    {
+      "duel": 20,
+      "round": 1,
+      "a": "ai_vision",
+      "b": "marker",
+      "page": "sr-p39",
+      "type": "table_formula",
+      "left": "marker",
+      "right": "ai_vision",
+      "repeat_of": null
+    },
+    {
+      "duel": 21,
+      "round": 1,
+      "a": "current",
+      "b": "docling",
+      "page": "sr-p22",
+      "type": "diagram",
+      "left": "current",
+      "right": "docling",
+      "repeat_of": null
+    },
+    {
+      "duel": 22,
+      "round": 1,
+      "a": "docling",
+      "b": "mineru",
+      "page": "dbs-p73",
+      "type": "dense_text",
+      "left": "mineru",
+      "right": "docling",
+      "repeat_of": null
+    },
+    {
+      "duel": 23,
+      "round": 1,
+      "a": "marker",
+      "b": "pymupdf4llm",
+      "page": "sr-p74",
+      "type": "lists",
+      "left": "marker",
+      "right": "pymupdf4llm",
+      "repeat_of": null
+    },
+    {
+      "duel": 24,
+      "round": 1,
+      "a": "docling",
+      "b": "marker",
+      "page": "dbs-p32",
+      "type": "table_formula",
+      "left": "marker",
+      "right": "docling",
+      "repeat_of": null
+    },
+    {
+      "duel": 25,
+      "round": 1,
+      "a": "current",
+      "b": "marker",
+      "page": "sr-p18",
+      "type": "layout",
+      "left": "current",
+      "right": "marker",
+      "repeat_of": null
+    },
+    {
+      "duel": 26,
+      "round": 1,
+      "a": "ai_vision_strong",
+      "b": "marker",
+      "page": "dbs-p73",
+      "type": "dense_text",
+      "left": "ai_vision_strong",
+      "right": "marker",
+      "repeat_of": null
+    },
+    {
+      "duel": 27,
+      "round": 1,
+      "a": "ai_vision_strong",
+      "b": "marker",
+      "page": "swt-p21",
+      "type": "layout",
+      "left": "marker",
+      "right": "ai_vision_strong",
+      "repeat_of": null
+    },
+    {
+      "duel": 28,
+      "round": 1,
+      "a": "ai_vision_strong",
+      "b": "docling",
+      "page": "dbs-p30",
+      "type": "lists",
+      "left": "docling",
+      "right": "ai_vision_strong",
+      "repeat_of": 11
+    },
+    {
+      "duel": 29,
+      "round": 1,
+      "a": "docling",
+      "b": "pymupdf4llm",
+      "page": "dbs-p7",
+      "type": "table_formula",
+      "left": "docling",
+      "right": "pymupdf4llm",
+      "repeat_of": null
+    },
+    {
+      "duel": 30,
+      "round": 1,
+      "a": "docling",
+      "b": "mineru",
+      "page": "swt-p39",
+      "type": "diagram",
+      "left": "mineru",
+      "right": "docling",
+      "repeat_of": null
+    },
+    {
+      "duel": 31,
+      "round": 1,
+      "a": "current",
+      "b": "marker",
+      "page": "dbs-p7",
+      "type": "table_formula",
+      "left": "marker",
+      "right": "current",
+      "repeat_of": null
+    },
+    {
+      "duel": 32,
+      "round": 1,
+      "a": "current",
+      "b": "docling",
+      "page": "dbs-p32",
+      "type": "table_formula",
+      "left": "docling",
+      "right": "current",
+      "repeat_of": 12
+    },
+    {
+      "duel": 33,
+      "round": 1,
+      "a": "mineru",
+      "b": "pymupdf4llm",
+      "page": "sheets1-p1",
+      "type": "dense_text",
+      "left": "mineru",
+      "right": "pymupdf4llm",
+      "repeat_of": null
+    },
+    {
+      "duel": 34,
+      "round": 1,
+      "a": "ai_vision",
+      "b": "docling",
+      "page": "sr-p18",
+      "type": "layout",
+      "left": "docling",
+      "right": "ai_vision",
+      "repeat_of": null
+    },
+    {
+      "duel": 35,
+      "round": 1,
+      "a": "current",
+      "b": "mineru",
+      "page": "sheets2-p6",
+      "type": "dense_text",
+      "left": "current",
+      "right": "mineru",
+      "repeat_of": null
+    },
+    {
+      "duel": 36,
+      "round": 1,
+      "a": "current",
+      "b": "docling",
+      "page": "sheets1-p6",
+      "type": "dense_text",
+      "left": "docling",
+      "right": "current",
+      "repeat_of": null
+    },
+    {
+      "duel": 37,
+      "round": 1,
+      "a": "marker",
+      "b": "mineru",
+      "page": "sr-p39",
+      "type": "table_formula",
+      "left": "marker",
+      "right": "mineru",
+      "repeat_of": null
+    },
+    {
+      "duel": 38,
+      "round": 1,
+      "a": "ai_vision_strong",
+      "b": "docling",
+      "page": "swt-p17",
+      "type": "diagram",
+      "left": "docling",
+      "right": "ai_vision_strong",
+      "repeat_of": null
+    },
+    {
+      "duel": 39,
+      "round": 1,
+      "a": "ai_vision",
+      "b": "mineru",
+      "page": "dbs-p32",
+      "type": "table_formula",
+      "left": "mineru",
+      "right": "ai_vision",
+      "repeat_of": null
+    },
+    {
+      "duel": 40,
+      "round": 1,
+      "a": "docling",
+      "b": "mineru",
+      "page": "dbs-p35",
+      "type": "lists",
+      "left": "mineru",
+      "right": "docling",
+      "repeat_of": null
+    },
+    {
+      "duel": 41,
+      "round": 1,
+      "a": "ai_vision",
+      "b": "docling",
+      "page": "dbs-p74",
+      "type": "dense_text",
+      "left": "docling",
+      "right": "ai_vision",
+      "repeat_of": null
+    },
+    {
+      "duel": 42,
+      "round": 1,
+      "a": "marker",
+      "b": "pymupdf4llm",
+      "page": "sr-p45",
+      "type": "layout",
+      "left": "pymupdf4llm",
+      "right": "marker",
+      "repeat_of": null
+    },
+    {
+      "duel": 43,
+      "round": 1,
+      "a": "current",
+      "b": "marker",
+      "page": "swt-p26",
+      "type": "diagram",
+      "left": "current",
+      "right": "marker",
+      "repeat_of": null
+    },
+    {
+      "duel": 44,
+      "round": 1,
+      "a": "mineru",
+      "b": "pymupdf4llm",
+      "page": "sr-p22",
+      "type": "diagram",
+      "left": "pymupdf4llm",
+      "right": "mineru",
+      "repeat_of": null
+    },
+    {
+      "duel": 45,
+      "round": 1,
+      "a": "marker",
+      "b": "pymupdf4llm",
+      "page": "swt-p39",
+      "type": "diagram",
+      "left": "pymupdf4llm",
+      "right": "marker",
+      "repeat_of": null
+    },
+    {
+      "duel": 46,
+      "round": 1,
+      "a": "docling",
+      "b": "mineru",
+      "page": "dbs-p73",
+      "type": "dense_text",
+      "left": "docling",
+      "right": "mineru",
+      "repeat_of": 22
+    },
+    {
+      "duel": 47,
+      "round": 1,
+      "a": "docling",
+      "b": "pymupdf4llm",
+      "page": "dbs-p7",
+      "type": "table_formula",
+      "left": "pymupdf4llm",
+      "right": "docling",
+      "repeat_of": 29
+    },
+    {
+      "duel": 48,
+      "round": 1,
+      "a": "ai_vision_strong",
+      "b": "mineru",
+      "page": "swt-p21",
+      "type": "layout",
+      "left": "mineru",
+      "right": "ai_vision_strong",
+      "repeat_of": null
+    },
+    {
+      "duel": 49,
+      "round": 1,
+      "a": "marker",
+      "b": "mineru",
+      "page": "swt-p3",
+      "type": "lists",
+      "left": "marker",
+      "right": "mineru",
+      "repeat_of": null
+    }
+  ],
+  "rounds": 1,
+  "round2_duels": 0,
+  "unlocked_early": null
+}

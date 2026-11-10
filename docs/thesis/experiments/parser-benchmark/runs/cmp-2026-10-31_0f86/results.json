@@ -1,0 +1,624 @@
+{
+  "run_id": "cmp-2026-10-31_0f86",
+  "status": "finished",
+  "votes_digest": "0f8edf4fee5c9940548c57e710417b75d668acb866be1050c371a8d4c648e901",
+  "votes": 50,
+  "retracted": 0,
+  "scheduled": 50,
+  "rounds": 1,
+  "round2_duels": 0,
+  "anchor": "current",
+  "bootstrap": {
+    "resamples": 1000,
+    "seed": 20261102
+  },
+  "ranking": [
+    {
+      "entrant": "ai_vision_strong",
+      "points": 1440.1,
+      "lo": 1359.4,
+      "hi": 1543.5,
+      "h1_lower": 1325.6,
+      "duels": 78,
+      "wins": 42,
+      "losses": 8,
+      "same": 10,
+      "both_bad": 18
+    },
+    {
+      "entrant": "ai_vision",
+      "points": 1365.9,
+      "lo": 1282.3,
+      "hi": 1456.6,
+      "h1_lower": 1259.9,
+      "duels": 94,
+      "wins": 41,
+      "losses": 23,
+      "same": 12,
+      "both_bad": 18
+    },
+    {
+      "entrant": "pymupdf4llm",
+      "points": 1251.4,
+      "lo": 1178.9,
+      "hi": 1334.0,
+      "h1_lower": 1152.2,
+      "duels": 92,
+      "wins": 24,
+      "losses": 21,
+      "same": 11,
+      "both_bad": 36
+    },
+    {
+      "entrant": "mineru",
+      "points": 1208.9,
+      "lo": 1106.2,
+      "hi": 1311.2,
+      "h1_lower": 1070.1,
+      "duels": 19,
+      "wins": 5,
+      "losses": 5,
+      "same": 2,
+      "both_bad": 7
+    },
+    {
+      "entrant": "marker",
+      "points": 1134.7,
+      "lo": 1018.4,
+      "hi": 1249.4,
+      "h1_lower": 967.0,
+      "duels": 19,
+      "wins": 1,
+      "losses": 6,
+      "same": 2,
+      "both_bad": 10
+    },
+    {
+      "entrant": "docling",
+      "points": 1121.3,
+      "lo": 1015.6,
+      "hi": 1234.3,
+      "h1_lower": 964.3,
+      "duels": 22,
+      "wins": 3,
+      "losses": 9,
+      "same": 0,
+      "both_bad": 10
+    },
+    {
+      "entrant": "opendataloader",
+      "points": 1104.9,
+      "lo": 1048.4,
+      "hi": 1164.5,
+      "h1_lower": 1029.6,
+      "duels": 69,
+      "wins": 13,
+      "losses": 18,
+      "same": 5,
+      "both_bad": 33
+    },
+    {
+      "entrant": "pdfjs",
+      "points": 1003.1,
+      "lo": 969.5,
+      "hi": 1037.1,
+      "h1_lower": 960.5,
+      "duels": 71,
+      "wins": 2,
+      "losses": 17,
+      "same": 3,
+      "both_bad": 49
+    },
+    {
+      "entrant": "current",
+      "points": 1000.0,
+      "lo": 1000.0,
+      "hi": 1000.0,
+      "h1_lower": null,
+      "duels": 56,
+      "wins": 1,
+      "losses": 14,
+      "same": 3,
+      "both_bad": 38
+    },
+    {
+      "entrant": "markitdown",
+      "points": 947.6,
+      "lo": 839.9,
+      "hi": 1032.9,
+      "h1_lower": 793.3,
+      "duels": 20,
+      "wins": 0,
+      "losses": 11,
+      "same": 0,
+      "both_bad": 9
+    }
+  ],
+  "h1": {
+    "holds": true,
+    "above_anchor": [
+      "ai_vision",
+      "ai_vision_strong",
+      "mineru",
+      "opendataloader",
+      "pymupdf4llm"
+    ]
+  },
+  "h1_k": 9,
+  "self_consistency": {
+    "agree": 4,
+    "total": 5,
+    "share": 0.8
+  },
+  "win_rate_by_type": {
+    "ai_vision": {
+      "dense_text": {
+        "duels": 18,
+        "score": 0.583
+      },
+      "diagram": {
+        "duels": 19,
+        "score": 0.5
+      },
+      "layout": {
+        "duels": 19,
+        "score": 0.632
+      },
+      "lists": {
+        "duels": 18,
+        "score": 0.694
+      },
+      "table_formula": {
+        "duels": 20,
+        "score": 0.575
+      }
+    },
+    "ai_vision_strong": {
+      "dense_text": {
+        "duels": 15,
+        "score": 0.567
+      },
+      "diagram": {
+        "duels": 16,
+        "score": 0.719
+      },
+      "layout": {
+        "duels": 15,
+        "score": 0.733
+      },
+      "lists": {
+        "duels": 17,
+        "score": 0.735
+      },
+      "table_formula": {
+        "duels": 15,
+        "score": 0.833
+      }
+    },
+    "current": {
+      "dense_text": {
+        "duels": 12,
+        "score": 0.292
+      },
+      "diagram": {
+        "duels": 13,
+        "score": 0.346
+      },
+      "layout": {
+        "duels": 10,
+        "score": 0.3
+      },
+      "lists": {
+        "duels": 9,
+        "score": 0.5
+      },
+      "table_formula": {
+        "duels": 12,
+        "score": 0.5
+      }
+    },
+    "docling": {
+      "dense_text": {
+        "duels": 5,
+        "score": 0.3
+      },
+      "diagram": {
+        "duels": 3,
+        "score": 0.333
+      },
+      "layout": {
+        "duels": 3,
+        "score": 0.5
+      },
+      "lists": {
+        "duels": 5,
+        "score": 0.3
+      },
+      "table_formula": {
+        "duels": 6,
+        "score": 0.417
+      }
+    },
+    "marker": {
+      "dense_text": {
+        "duels": 3,
+        "score": 0.333
+      },
+      "diagram": {
+        "duels": 3,
+        "score": 0.333
+      },
+      "layout": {
+        "duels": 4,
+        "score": 0.5
+      },
+      "lists": {
+        "duels": 5,
+        "score": 0.3
+      },
+      "table_formula": {
+        "duels": 4,
+        "score": 0.375
+      }
+    },
+    "markitdown": {
+      "dense_text": {
+        "duels": 5,
+        "score": 0.2
+      },
+      "diagram": {
+        "duels": 3,
+        "score": 0.333
+      },
+      "layout": {
+        "duels": 6,
+        "score": 0.333
+      },
+      "lists": {
+        "duels": 3,
+        "score": 0.0
+      },
+      "table_formula": {
+        "duels": 3,
+        "score": 0.167
+      }
+    },
+    "mineru": {
+      "dense_text": {
+        "duels": 5,
+        "score": 0.8
+      },
+      "diagram": {
+        "duels": 4,
+        "score": 0.375
+      },
+      "layout": {
+        "duels": 3,
+        "score": 0.333
+      },
+      "lists": {
+        "duels": 3,
+        "score": 0.5
+      },
+      "table_formula": {
+        "duels": 4,
+        "score": 0.375
+      }
+    },
+    "opendataloader": {
+      "dense_text": {
+        "duels": 13,
+        "score": 0.346
+      },
+      "diagram": {
+        "duels": 15,
+        "score": 0.533
+      },
+      "layout": {
+        "duels": 12,
+        "score": 0.625
+      },
+      "lists": {
+        "duels": 14,
+        "score": 0.357
+      },
+      "table_formula": {
+        "duels": 15,
+        "score": 0.467
+      }
+    },
+    "pdfjs": {
+      "dense_text": {
+        "duels": 14,
+        "score": 0.5
+      },
+      "diagram": {
+        "duels": 14,
+        "score": 0.429
+      },
+      "layout": {
+        "duels": 13,
+        "score": 0.385
+      },
+      "lists": {
+        "duels": 16,
+        "score": 0.344
+      },
+      "table_formula": {
+        "duels": 14,
+        "score": 0.321
+      }
+    },
+    "pymupdf4llm": {
+      "dense_text": {
+        "duels": 18,
+        "score": 0.694
+      },
+      "diagram": {
+        "duels": 18,
+        "score": 0.556
+      },
+      "layout": {
+        "duels": 19,
+        "score": 0.368
+      },
+      "lists": {
+        "duels": 16,
+        "score": 0.531
+      },
+      "table_formula": {
+        "duels": 21,
+        "score": 0.452
+      }
+    }
+  },
+  "median_seconds": 9.9,
+  "checks": {
+    "ai_vision": {
+      "pages": 24,
+      "footer_leaks": 26,
+      "pages_with_footer_leak": 8,
+      "footer_token_share": 0.317,
+      "title_first": 0.667,
+      "wrong_symbols": 0,
+      "lonely_bullets": 0,
+      "broken_line_pct": 12.033,
+      "dropped_words_pct": 4.013,
+      "invented_words_pct": 5.704,
+      "headings": 25,
+      "list_items": 138,
+      "tables": 5,
+      "math_spans": 0,
+      "seconds_per_page": 2.653,
+      "peak_memory_mb": 98.2,
+      "reference_biased": false
+    },
+    "ai_vision_strong": {
+      "pages": 24,
+      "footer_leaks": 66,
+      "pages_with_footer_leak": 18,
+      "footer_token_share": 0.744,
+      "title_first": 0.667,
+      "wrong_symbols": 0,
+      "lonely_bullets": 0,
+      "broken_line_pct": 17.5,
+      "dropped_words_pct": 2.933,
+      "invented_words_pct": 13.175,
+      "headings": 46,
+      "list_items": 145,
+      "tables": 5,
+      "math_spans": 0,
+      "seconds_per_page": 4.426,
+      "peak_memory_mb": 96.0,
+      "reference_biased": false
+    },
+    "current": {
+      "pages": 24,
+      "footer_leaks": 84,
+      "pages_with_footer_leak": 23,
+      "footer_token_share": 1.0,
+      "title_first": 0.333,
+      "wrong_symbols": 132,
+      "lonely_bullets": 5,
+      "broken_line_pct": 20.804,
+      "dropped_words_pct": 0.0,
+      "invented_words_pct": 0.0,
+      "headings": 0,
+      "list_items": 9,
+      "tables": 0,
+      "math_spans": 0,
+      "seconds_per_page": 0.027,
+      "peak_memory_mb": 61.9,
+      "reference_biased": true
+    },
+    "docling": {
+      "pages": 24,
+      "footer_leaks": 25,
+      "pages_with_footer_leak": 14,
+      "footer_token_share": 0.226,
+      "title_first": 0.667,
+      "wrong_symbols": 139,
+      "lonely_bullets": 0,
+      "broken_line_pct": 4.167,
+      "dropped_words_pct": 5.962,
+      "invented_words_pct": 7.079,
+      "headings": 63,
+      "list_items": 136,
+      "tables": 4,
+      "math_spans": 0,
+      "seconds_per_page": 2.304,
+      "peak_memory_mb": 1909.2,
+      "reference_biased": false
+    },
+    "marker": {
+      "pages": 24,
+      "footer_leaks": 1,
+      "pages_with_footer_leak": 1,
+      "footer_token_share": 0.014,
+      "title_first": 0.778,
+      "wrong_symbols": 62,
+      "lonely_bullets": 0,
+      "broken_line_pct": null,
+      "dropped_words_pct": 11.921,
+      "invented_words_pct": 7.583,
+      "headings": 43,
+      "list_items": 34,
+      "tables": 4,
+      "math_spans": 0,
+      "seconds_per_page": 3.838,
+      "peak_memory_mb": 2974.7,
+      "reference_biased": false
+    },
+    "markitdown": {
+      "pages": 24,
+      "footer_leaks": 44,
+      "pages_with_footer_leak": 23,
+      "footer_token_share": 0.707,
+      "title_first": 0.667,
+      "wrong_symbols": 132,
+      "lonely_bullets": 0,
+      "broken_line_pct": 21.827,
+      "dropped_words_pct": 3.317,
+      "invented_words_pct": 4.021,
+      "headings": 0,
+      "list_items": 5,
+      "tables": 63,
+      "math_spans": 0,
+      "seconds_per_page": 0.142,
+      "peak_memory_mb": 123.4,
+      "reference_biased": false
+    },
+    "mineru": {
+      "pages": 24,
+      "footer_leaks": 0,
+      "pages_with_footer_leak": 0,
+      "footer_token_share": 0.0,
+      "title_first": 0.778,
+      "wrong_symbols": 56,
+      "lonely_bullets": 0,
+      "broken_line_pct": 21.433,
+      "dropped_words_pct": 8.975,
+      "invented_words_pct": 18.213,
+      "headings": 48,
+      "list_items": 9,
+      "tables": 3,
+      "math_spans": 33,
+      "seconds_per_page": 2.562,
+      "peak_memory_mb": 1870.8,
+      "reference_biased": false
+    },
+    "opendataloader": {
+      "pages": 24,
+      "footer_leaks": 7,
+      "pages_with_footer_leak": 4,
+      "footer_token_share": 0.159,
+      "title_first": 0.778,
+      "wrong_symbols": 132,
+      "lonely_bullets": 0,
+      "broken_line_pct": null,
+      "dropped_words_pct": 2.983,
+      "invented_words_pct": 1.017,
+      "headings": 48,
+      "list_items": 54,
+      "tables": 5,
+      "math_spans": 0,
+      "seconds_per_page": 0.088,
+      "peak_memory_mb": 314.8,
+      "reference_biased": false
+    },
+    "pdfjs": {
+      "pages": 24,
+      "footer_leaks": 81,
+      "pages_with_footer_leak": 23,
+      "footer_token_share": 0.976,
+      "title_first": 0.333,
+      "wrong_symbols": 132,
+      "lonely_bullets": 0,
+      "broken_line_pct": 19.892,
+      "dropped_words_pct": 0.0,
+      "invented_words_pct": 0.037,
+      "headings": 0,
+      "list_items": 13,
+      "tables": 0,
+      "math_spans": 0,
+      "seconds_per_page": 0.036,
+      "peak_memory_mb": 148.6,
+      "reference_biased": false
+    },
+    "pymupdf4llm": {
+      "pages": 24,
+      "footer_leaks": 38,
+      "pages_with_footer_leak": 20,
+      "footer_token_share": 0.593,
+      "title_first": 0.722,
+      "wrong_symbols": 97,
+      "lonely_bullets": 0,
+      "broken_line_pct": 1.283,
+      "dropped_words_pct": 1.629,
+      "invented_words_pct": 18.625,
+      "headings": 43,
+      "list_items": 125,
+      "tables": 2,
+      "math_spans": 1,
+      "seconds_per_page": 0.726,
+      "peak_memory_mb": 388.5,
+      "reference_biased": true
+    }
+  },
+  "pooled": {
+    "builds_on": [
+      "cmp-2026-10-30_8825",
+      "cmp-2026-10-31_04de"
+    ],
+    "new_entrants": [
+      "docling",
+      "marker",
+      "mineru"
+    ],
+    "opponents": [
+      "ai_vision",
+      "ai_vision_strong",
+      "current",
+      "pymupdf4llm"
+    ],
+    "votes": 270,
+    "sources": {
+      "cmp-2026-10-30_8825": {
+        "status": "finished",
+        "votes": 108,
+        "votes_digest": "fc4e83b1c11133b48f9cec77faa5c25d9eb1c510cbce6a87608d761fbc537668",
+        "unlocked_early": false
+      },
+      "cmp-2026-10-31_04de": {
+        "status": "finished",
+        "votes": 112,
+        "votes_digest": "0abdb1324bb133386edf282e9841bc1a50edd8681c532feac1ebe3237349ab47",
+        "unlocked_early": false
+      }
+    },
+    "note": "ranking, its counts, H1 and win rates use the pooled votes; votes, self-consistency and median_seconds are this comparison's own"
+  },
+  "sensitivity": {
+    "round1_only": {
+      "votes": 120,
+      "h1_above": [
+        "ai_vision",
+        "ai_vision_strong",
+        "mineru",
+        "pymupdf4llm"
+      ],
+      "h1_k": 9,
+      "h1_lower": {
+        "ai_vision": 1307.1,
+        "ai_vision_strong": 1266.6,
+        "mineru": 1058.8,
+        "pymupdf4llm": 1026.9,
+        "marker": 956.1,
+        "docling": 947.5,
+        "opendataloader": 919.5,
+        "pdfjs": 911.7,
+        "markitdown": 767.4
+      }
+    }
+  }
+}
