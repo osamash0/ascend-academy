@@ -357,6 +357,21 @@ runs and agreed with a corrected twin in five of five. One probe call ran into
 a rate limit and a timeout; under the rule above it would have kept its
 question.
 
+The refusal gate was measured separately at \code{\thesisCommit}, on
+10~November 2026, with expectations committed before the run
+(\code{docs/thesis/experiments/retrieval-rerun/}). In one Space of three
+Lessons and 201~pages we asked 27 hand-written questions that have an answer
+there and 30 that have none: ten far from the subject, ten from computer
+science outside databases, and ten on database topics that the three Lessons
+do not cover. With the settings of production the gate let all 27 through and
+refused all 30. The groups do not overlap, but the margin is narrow. The best
+page for an unanswerable question reaches a similarity of 0.63, the best page
+for the weakest answerable question 0.66, and the threshold is 0.65. A
+threshold of 0.75 would have refused 13 of the 27 answerable questions. We had
+predicted that some of the absent database topics would pass the gate; none
+did. For the answerable questions, the expected page was among the first five
+hits in 25 of 27 cases.
+
 \subsection{What the Numbers Do Not Show}
 \label{sec:c6-threats}
 
@@ -365,20 +380,11 @@ subjects from one university. Sixteen pairs separate a verifier that works
 from one that does not; they do not estimate an error rate in production.
 The answer check was measured once, on one day, with one model at the head of
 its chain, and a model behind an API can change without notice. No measurement
-covers the prose of Explain, Ask, or Luna. For retrieval, one older measurement
-exists: on 50 hand-written questions over six lectures the gate refused none
-of the 27 questions that could be asked inside a course. It was run at
-revision \code{a696be1} in September, before the scope fix of
-\cref{sec:retrieval}, and we do not count it as evidence for the system at
-\code{\thesisCommit}.
-That measurement also has a limit of its own: every one of its questions has
-an answer in the material, so it shows what the gate costs and not what it
-prevents.
-\TODO{Author: decide whether to re-run the retrieval grid at the pin
-(backend/eval/retrieval\_grid.py). It needs read access to the production
-database and about 50 embedding calls, and it is only meaningful with a
-pre-registered set of off-topic questions beside the 50. Without the re-run
-this paragraph stands as it is.}
+covers the prose of Explain, Ask, or Luna. The gate was measured in one Space, with 57 English questions written
+by the developer, ten per group of unanswerable questions; a margin of 0.03
+on this sample does not show how the threshold behaves on other material.
+A question that passes the gate is also not thereby answered correctly: what
+the model then writes was not measured.
 
 \section{Cost as a Question of Trust}
 \label{sec:c6-cost}
@@ -469,7 +475,9 @@ the page, citations must point at retrieved sources, blocks must parse.
 verifier is scored and that contains both kinds of error. On 16 pairs the
 lexical verifier dropped 14 good keys, a similarity score kept 8 wrong ones
 and failed a gate that had been fixed in advance, and the independent check
-made neither error. The negative result decided the design as much as the
+made neither error. The refusal gate, tested in one Space with 57 questions,
+let through all 27 that have an answer and refused all 30 that have none, by
+a narrow margin. The negative result decided the design as much as the
 positive one.
 
 \emph{What happens when verification fails?} The item is dropped: a key that
