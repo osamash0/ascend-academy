@@ -103,24 +103,6 @@ least-tested configuration, since the test suite forces two flags on.}
 
 \TODO{CORRECTION (verified 2026-10-10, docs/thesis/evidence/CLAIMS\_LEDGER.md): (\#6.9, \#6.11) Only two flag mismatches exist (review engine, student uploads); Exam has no frontend flag at all. Whether frontend flags are on in production is a build-time setting not visible in git. One default idles pipeline concept ingestion, but \code{concept\_mastery} is empty for an independent reason: concept cards were never built.}
 
-\subsection{The Citation Gap}
-\label{sec:citation-gap}
-
-\thesisfigure{f16-citation-gap}
-  {Source attribution. The server's validated citations reach students through
-   the v4 surfaces; the classic components still discard them. At
-   \thesisEarlierCommit{}, no screen a student could reach showed a source.}
-  {fig:citation-gap}
-
-\TODO{The sharpest single finding, and a good closing note for the chapter.
-Citations are computed and validated server-side; the component that renders
-them with clickable slide-jump exists and is imported nowhere; the two live
-student surfaces either ignore the field or substitute a label derived from the
-currently visible slide. So groundedness is real at the API boundary and
-invisible at the user boundary. Connect this to RQ3: a user cannot perceive a
-trustworthiness mechanism that is not surfaced, which has a direct bearing on
-any claim about perceived reliability.}
-
 \section{Threats to Validity}
 \label{sec:threats}
 
