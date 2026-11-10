@@ -32,7 +32,7 @@ rectangle SCORE #FFFFFF [
 rectangle NOT #DCDCDC [
 <b>Not measured</b>
 quiz key accuracy · tutor faithfulness · synthesis quality
-the scorecard harness cannot run against the live system (F18)
+the scorecard harness cannot run against the live system
 ]
 
 rectangle META #F2F2F2 [

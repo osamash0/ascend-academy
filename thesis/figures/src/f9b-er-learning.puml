@@ -166,7 +166,7 @@ end note
 luna_sessions .. N2
 
 legend bottom
-  Grey = part-1 table (F9). Ids and FKs are uuid unless typed. Dashed = no
+  Grey = table of part 1 (previous figure). Ids and FKs are uuid unless typed. Dashed = no
   database-enforced foreign key; uuid[] and space_id columns have none either.
   Person columns not linked here also reference auth.users (edges omitted).
 endlegend

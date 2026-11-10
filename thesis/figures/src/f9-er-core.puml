@@ -140,7 +140,7 @@ end note
 legend bottom
   Ids and FKs are uuid unless typed. Dashed = no database-enforced foreign key.
   Every other user / owner / professor column also references auth.users
-  (edges omitted). Part 2 (F9b): learning, Luna, gamification.
+  (edges omitted). Part 2 (next figure): learning, Luna, gamification.
 endlegend
 
 @enduml

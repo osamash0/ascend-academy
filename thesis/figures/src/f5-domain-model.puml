@@ -112,7 +112,7 @@ note bottom of Concept
 end note
 
 legend bottom
-  Analysis-level model: names the domain, not the tables (compare F9).
+  Analysis-level model: names the domain, not the tables (the physical schema is in Appendix B).
   A ReviewCard comes from a Question or from a LunaSession; only the
   latter has an owner.
 endlegend

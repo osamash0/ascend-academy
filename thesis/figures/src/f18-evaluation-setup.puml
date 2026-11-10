@@ -33,7 +33,7 @@ rectangle "**A — Scorecard harness**\nrun_eval.py" as A #DCDCDC {
 rectangle "**B — Retrieval grid**\nretrieval_grid.py" as B #BFBFBF {
   rectangle "50 hand-written questions\nover 6 real lectures;\nevery anchor verified" as B1
   rectangle "k x threshold grid, lecture\nand course regimes, with the\nrefusal gate's false refusals" as B2
-  rectangle "**produced the numbers in F19**" as B3
+  rectangle "**produced the retrieval results**" as B3
   B1 -down-> B2
   B2 -down-> B3
 }
