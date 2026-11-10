@@ -155,9 +155,11 @@ where they matter and are marked as later.
 
 We follow a build-and-evaluate approach. Each of the three main chapters
 describes what was built and ends with an evaluation. The extraction
-benchmark, the persona study, the verifier probe, and the re-run of the
-refusal gate fixed their expectations before the run; the routing study and
-the deck-plan scorecard did not. Statements about the system were checked
+benchmark, the semantic gate of the verifier probe, and the re-run of the
+refusal gate fixed their expectations in a commit before the run. The
+expectations of the persona study were written before its first run, but
+they share a commit with its results. The routing study, the deck-plan
+scorecard, and the answer check had no expectations fixed in advance. Statements about the system were checked
 against the code at the revision named above, unless a section names a later
 one, and against production where the two can differ. Where the repository does
 not record a reason for a decision, we say so and do not supply one.

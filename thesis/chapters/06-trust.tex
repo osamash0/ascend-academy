@@ -306,7 +306,10 @@ was scored on them (\code{backend/eval/data/grounding\_probe.py}). Eight pairs
 are in English, from a lecture on transactions, and eight in German, from a
 lecture on storage management. Both decks are disjoint from the decks on
 which any threshold was fitted. Each pair holds one correct key that
-paraphrases the page and one wrong key that stays on the topic of the page. A
+paraphrases the page and one wrong key that stays on the topic of the page.
+The correct keys were written under a rule that forbids copying three words
+in a row from the page, and the wrong keys are plainly false
+(\code{docs/DECK\_LAB\_2026\_10.md}). A
 verifier that works on wording will fail the first; a verifier that works on
 topic will fail the second. The expected shape was that the lexical score
 drops paraphrases, and that a semantic score repairs this without keeping the
@@ -329,7 +332,8 @@ stem could dominate the embedding and lift wrong keys. The threshold itself,
   \caption{Three verifiers of answer keys on the same 16 pairs: correct keys
     dropped and wrong keys kept. The gate for
     enforcement was at most two good keys dropped and at most one wrong key
-    kept. Sources: \code{parser/synthesis.py:55--80}; PR~\#94 and tag
+    kept. A count of 0 of 16 is compatible with an error rate of up to
+    21\,\% (exact 95\,\% interval). Sources: \code{parser/synthesis.py:55--80}; PR~\#94 and tag
     \code{archive/claude/arc8-semantic-grounding}; PR~\#166.}
   \label{tab:verifiers}
   \begin{tabular}{@{}p{0.33\textwidth}ccp{0.22\textwidth}@{}}
@@ -367,7 +371,12 @@ wrong ones. On the question that started the work, which a careful student
 could answer differently from its key, it disputed the key in five of five
 runs and agreed with a corrected twin in five of five. The run was made on
 30~October 2026 with the reasoning model at the head of the quality chain
-(PR~\#166).
+(PR~\#166). Unlike the semantic gate, the answer check was not held to a
+gate fixed in advance. It was built for that one question and measured in
+the same change, on the probe that already existed (commit
+\code{461afc40}), so its result is in-sample. Before it is called verified,
+it should be scored once on new pairs from other decks against a gate fixed
+first.
 
 These counts are wrong verdicts, not outcomes of the deployed procedure. One
 call of the run returned no verdict, because the provider limited the rate
@@ -388,7 +397,11 @@ there, drafted with AI assistance from the page text and reviewed by the
 author, and 30 that have none: ten far from the subject, ten from computer
 science outside databases, and ten on database topics that the three Lessons
 do not cover. With the settings of production the gate let all 27 through and
-refused all 30. The groups do not overlap, but the margin is narrow. The best
+refused all 30. The 27 answerable questions had already passed the gate in
+September, so this half replicates a known outcome; the new evidence is the
+30 unanswerable ones. Zero errors in 30 is compatible with a rate of wrongly
+accepted questions of up to 12\,\%. The groups do not overlap, but the
+margin is narrow. The best
 page for an unanswerable question reaches a similarity of 0.63, the best page
 for the weakest answerable question 0.66, and the threshold is 0.65. A
 threshold of 0.75 would have refused 13 of the 27 answerable questions. We had
@@ -402,6 +415,12 @@ hits in 25 of 27 cases.
 The probe is small and was written by the developer of the system, in two
 subjects from one university. Sixteen pairs show how a verifier behaves on
 these chosen cases; they do not estimate an error rate in production.
+The wrong keys are on the topic but plainly false, so a keep rate of zero
+shows that such keys are rejected, not that subtler errors are. Because the
+correct keys avoid the page's wording by rule, the lexical result is partly
+a product of the probe. The failure that started the answer check, an
+ambiguous question whose options all appear on the page, is represented by
+one case.
 The answer check was measured once, on one day, with one model at the head of
 its chain, and a model behind an API can change without notice. No measurement
 covers the prose of Explain, Ask, or Luna. The gate was measured in one Space, with 57 English questions written

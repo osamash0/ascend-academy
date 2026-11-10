@@ -1,0 +1,44 @@
+n votes 283
+points {'ai_vision_strong': 1452.2, 'ai_vision': 1375.5, 'pymupdf4llm': 1262.7, 'mineru': 1216.0, 'marker': 1141.4, 'docling': 1127.9, 'opendataloader': 1111.6, 'paddleocr_vl_mlx': 1037.4, 'pdfjs': 1006.7, 'current': 1000.0, 'markitdown': 952.1}
+
+B=1000; one-sided Bonferroni k=10: lower = 0.25th percentile
+method                pts | vote-boot: 95%lo  hi  bonf | page-boot: 95%lo  hi  bonf
+ai_vision_strong     1452 |    1367  1563  1331 |    1351  1585  1325
+ai_vision            1375 |    1292  1473  1251 |    1281  1493  1243
+pymupdf4llm          1263 |    1187  1352  1164 |    1182  1367  1150
+mineru               1216 |    1103  1324  1068 |    1112  1343  1078
+marker               1141 |    1027  1262   958 |    1030  1242   979
+docling              1128 |    1022  1248   983 |     996  1288   947
+opendataloader       1112 |    1053  1185  1030 |    1018  1216   987
+paddleocr_vl_mlx     1037 |     867  1172   770 |     909  1163   857
+pdfjs                1007 |     973  1047   960 |     963  1054   940
+markitdown            952 |     839  1042   795 |     836  1032   740
+
+choices Counter({'both_bad': 118, 'right': 86, 'left': 55, 'same': 24})
+decisive 141 left share 0.39
+seconds median 9.0 share<5s 0.254 share<3s 0.078
+votes per page min/median/max 6 11.0 22
+side bias two-sided p 0.0113
+right 86 median s 10.4 <5s 8
+both_bad 118 median s 6.5 <5s 52
+same 24 median s 15.5 <5s 4
+left 55 median s 9.1 <5s 8
+cmp-2026-10-30_8825 108 6.5 44
+cmp-2026-10-31_04de 112 10.6 13
+cmp-2026-10-31_0f86 50 9.9 13
+cmp-2026-11-01_0010 13 10.8 2
+
+without both_bad (n=165): {'ai_vision_strong': 1997, 'ai_vision': 1887, 'pymupdf4llm': 1749, 'mineru': 1632, 'opendataloader': 1545, 'docling': 1510, 'marker': 1430, 'paddleocr_vl_mlx': 1288, 'pdfjs': 1061, 'current': 1000, 'markitdown': 802}
+seed 1 {'pymupdf4llm': 1146, 'mineru': 1077, 'opendataloader': 1026, 'docling': 961, 'marker': 969}
+seed 2 {'pymupdf4llm': 1166, 'mineru': 1059, 'opendataloader': 1030, 'docling': 977, 'marker': 965}
+seed 3 {'pymupdf4llm': 1166, 'mineru': 1081, 'opendataloader': 1031, 'docling': 979, 'marker': 973}
+current in cmp1: 39 both_bad 31 of which <5s 22 <10s 28 median 3.2
+third 1 both_bad share 0.64 median s 9.899999999999999
+third 2 both_bad share 0.5 median s 8.4
+third 3 both_bad share 0.72 median s 4.2
+first vote at 2026-10-30T20:37:31+00:00
+pymupdf4llm vs current: {'both_bad': 1, 'win': 2}
+ai_vision_strong vs current: {'win': 3}
+ai_vision vs current: {'win': 3, 'both_bad': 1}
+mineru vs current: {'both_bad': 1, 'win': 2}
+opendataloader vs current: {'both_bad': 3, 'win': 1}

@@ -428,6 +428,10 @@ checkpoint on page~10. Dwell and correctness carry random noise.
 
 Eight arms mix these personas. Before the first run we wrote down, for every
 arm, which findings must appear and which must not: 23 expectations in all.
+They were written into the script in the same working session, and the commit
+that holds them also holds the results (\code{a342dea9}), so the order is our
+statement and not a record. Where we were unsure of an outcome (the confusion
+block and the speed bump in arm~A) we wrote down none.
 After seeing the result we added two arms to explain misses; they are marked
 as post hoc and are not counted among the 23. Arm~I draws the mix of arm~H
 again, and arm~J adds a sixth persona, an asker who is confused.
@@ -439,7 +443,8 @@ again, and arm~J adds a sixth persona, an asker who is confused.
   \centering
   \small
   \caption{The persona study, run on 9~November 2026 at \code{2e146f51}: 10
-    arms, 5{,}370 events. \enquote{Met} counts pre-registered expectations.
+    arms, 5{,}370 events. \enquote{Met} counts expectations written before the
+    first run.
     Arms I and J are post hoc. Source:
     \code{docs/thesis/experiments/persona-study/RESULTS.md}.}
   \label{tab:persona}
@@ -464,7 +469,14 @@ again, and arm~J adds a sixth persona, an asker who is confused.
 
 \Cref{tab:persona} gives the result. Of the 23 expectations, 18 were met.
 The total flatters the result: nine of the 18 come from the control arm~G,
-and arms B, C, and H met none of their four expectations. The
+and arms B, C, and H met none of their four expectations. Sorted by kind, the
+picture is this. Of the five expectations that a finding must appear, four
+were met. Of the eighteen that the view must stay silent or empty, fourteen
+were met. An engine that never reported anything would meet sixteen of those
+eighteen and none of the five
+(\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak
+persona-study/\allowbreak mute\_engine.py}), so the silent part of the study
+tests the floor rules and not detection. The
 arms separate: struggling readers produce a hotspot and a speed bump where
 they struggled, skimmers produce a leak and skipped pages, overconfident
 readers produce a calibration gap and nothing else, and the mix of 27 surfaces
@@ -476,10 +488,10 @@ themes are made.
 \subsection{Three Things the Misses Showed}
 \label{sec:c5-findings}
 
-In none of the five misses does the code depart from its design. Each is a
-rule of the design that our expectations had read wrongly. That does not make
-them harmless: each is a limit of what an owner can learn, and the second is
-a limit of the privacy rule itself.
+In none of the five misses does the code depart from its rules. Four misses
+show rules that our expectations had read wrongly. One, in arm~B, shows that
+the rules do not keep the promise we had written down for them. None is
+harmless: each is a limit of what an owner can learn.
 
 \paragraph{The figures speak about this week.}
 In arms A and H all three figures were empty although 12 and 27 members had
@@ -531,7 +543,10 @@ owner gate.
 The study tests whether the aggregation separates known behaviours and
 whether the floor holds. The personas are
 clean, so the arms separate more sharply than real readers would, and there
-is one Lesson, one Space, and one seed per arm. The summarising model was
+is one Lesson, one Space, and one seed per arm. Several outcomes sit next to
+a threshold: the hotspot of arm~B rests on 23\,\% against a rule of
+20\,\%, and with one seed we do not know how often it would appear. The
+summarising model was
 replaced by fixed strings, so the study says nothing about the themes a real
 model would write or about what they might reveal. The study was written by
 the author who wrote the engine, and expectations and code can share a

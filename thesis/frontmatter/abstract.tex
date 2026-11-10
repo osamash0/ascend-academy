@@ -19,12 +19,14 @@ model, and one rule decides which pages need a vision model and sends 87 of
 24~pages, with 283~pairwise votes, transcription by a vision model is rated
 highest (both vision models together cost \$0.21 for the 24~pages). Nine of
 the ten alternatives are rated above the extractor that production runs,
-and five of them pass the corrected test against it. Second, reader
+and five of them pass the corrected test against it, four when pages are
+resampled. Second, reader
 interaction is modelled as one governed log of 17~event types, and detectors
 turn it into nine kinds of finding per page. The owner's view shows a
 finding only for a page that at least five people have read and never names
-a person. A study with scripted readers met 18 of 23~expectations written
-down before the run. Third, generated questions are graded by computation
+a person. In a study with scripted readers, four of five expected findings
+appeared, and the view stayed silent in 14 of 18~cases where it should.
+Third, generated questions are graded by computation
 where an answer can be computed. Quiz questions written at parse time are
 checked by an independent model, which gave no wrong verdict on 16~pinned
 pairs. A semantic similarity gate failed its pre-registered test and was
@@ -61,13 +63,15 @@ In einem Blindvergleich von elf Extraktionsverfahren auf 24~Seiten mit
 höchsten bewertet (beide Vision-Modelle zusammen kosteten 0,21~US-Dollar für
 die 24~Seiten). Neun der zehn Alternativen werden höher bewertet als das in
 Produktion eingesetzte Verfahren, und fünf davon bestehen den korrigierten
-Test gegen dieses. Zweitens wird das Verhalten der Lesenden als ein
+Test gegen dieses, vier, wenn Seiten statt Urteile neu gezogen werden.
+Zweitens wird das Verhalten der Lesenden als ein
 kontrolliertes Ereignisprotokoll mit 17~Ereignistypen modelliert, und
 Detektoren leiten daraus neun Arten von Befunden pro Seite ab. Die Ansicht
 für die Besitzerin oder den Besitzer des Materials zeigt einen Befund nur
 für Seiten, die mindestens fünf Personen gelesen haben, und nennt nie eine
-Person. Eine Studie mit geskripteten Lesenden erfüllte 18 von 23~vorab
-festgehaltenen Erwartungen. Drittens werden generierte Fragen durch
+Person. In einer Studie mit geskripteten Lesenden erschienen vier von fünf
+erwarteten Befunden, und die Ansicht blieb in 14 von 18~Fällen still, in
+denen sie es sollte. Drittens werden generierte Fragen durch
 Berechnung bewertet, wo sich eine Antwort berechnen lässt. Quizfragen, die
 beim Einlesen entstehen, prüft ein unabhängiges zweites Modell, das bei
 16~festgelegten Paaren kein falsches Urteil abgab. Ein Filter auf Basis

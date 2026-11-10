@@ -335,8 +335,11 @@ to catch them. The 52 of 53 is a fit on the calibration set of the rule and
 not an accuracy. Of the 75 figure pages the rule routes to vision, 21 were
 never labelled. The study establishes that the old rule routed no figure
 page to vision on 1{,}593 real pages and that the new rule does so at about
-one vision call per figure page. The new rule had not been deployed at the
-pin.
+one vision call per figure page. The labels contain no page judged readable
+from its text, so the study cannot estimate how many of the 87 vision calls
+are unnecessary. And \enquote{needs the image} is the author's judgement; no
+text model was run on the pages to see whether its explanation fails. The new
+rule had not been deployed at the pin.
 
 \subsection{The Text Extraction Benchmark}
 \label{sec:parser-bench}
@@ -373,7 +376,7 @@ languages, drawn per source by a stated rule plus a seeded random draw (seed
 (3) and table or formula (3). No scanned page is included.
 
 Each duel shows the judge the page image and two methods' outputs, with
-method names hidden and sides randomised, and asks ``Which would you rather
+method names hidden and sides balanced by a seeded schedule, and asks ``Which would you rather
 learn from?'' with the answers left, right, same, or both unusable. Within a
 comparison every scheduled pair meets three times on three page types. From
 the third comparison on, new methods met only the top three and the anchor,
@@ -383,10 +386,11 @@ four when their intervals overlap. Ratings are a Bradley--Terry model fitted
 by minorisation-maximisation, with a weak prior of one virtual drawn game
 per method (protocol, section~7) and a bootstrap of 1{,}000 resamples (seed
 20261103); points are $1000 + 400 \log_{10}$ of the strength ratio to the
-anchor, so 400 points above the anchor means 10:1 odds of being preferred.
-Every vote enters the fit, hidden repeats included. A vote of ``same'' or
-``both unusable'' counts as half a win for each side, so the scale measures
-preference and not usability. The bootstrap resamples single votes with
+anchor, so 400 points above the anchor means a ratio of 10:1 in expected
+score. Every vote enters the fit, hidden repeats included. A vote of ``same''
+or ``both unusable'' counts as half a win for each side, so the scale
+measures preference and not usability. Such draws are 142 of the 283 votes,
+so a ratio on this scale is not the chance of winning a duel. The bootstrap resamples single votes with
 replacement and treats them as independent, although several votes concern
 the same page and the second round was scheduled from the first. Its
 intervals are therefore likely too narrow, and we read H1 as a statement
@@ -402,8 +406,11 @@ threat to validity.
 \paragraph{Procedure.} Four comparisons were judged between 30 October and
 1 November 2026: the five fast methods, the two paid vision models, the three
 heavy local engines on a 60-page cut of the PDFs, and one smaller OCR build.
-They hold 283 votes in all; hidden repeats agreed in 12 of 13 cases, and no
-vote was retracted. All four are pooled on one scale.
+They hold 283 votes in all; hidden repeats agreed in 12 of 13 cases (exact
+95\,\% interval 64 to 100\,\%), and no vote was retracted. Of the 141
+decisive votes, 86 went to the right side ($p = 0.011$); the balanced
+schedule keeps this from favouring a method, but it shows that something
+other than content moved decisions. All four are pooled on one scale.
 
 \thesisfigure{f20-parser-benchmark}
   {Text extraction benchmark: Bradley--Terry ratings of eleven methods from 283
@@ -422,14 +429,22 @@ with corrected lower bounds of 1331 and 1251 for the two vision models, 1164
 for pymupdf4llm, 1068 for MinerU, and 1030 for OpenDataLoader. Marker and
 Docling rank above OpenDataLoader on points but do not pass: with 19 and 22
 duels each, their corrected bounds are 958 and 983. Three qualifications
-belong to the result. OpenDataLoader's pass rests on the second-round duels.
-On the 133 first-round votes alone, the same test passes the two vision
-models (1321 and 1311), pymupdf4llm (1063), and MinerU (1055), and
-OpenDataLoader falls under the anchor at 916. The two vision models' intervals overlap, so their order is
+belong to the result. OpenDataLoader's pass does not hold up. It rests on the
+second-round duels: on the 133 first-round votes alone, the same test passes
+the two vision models (1321 and 1311), pymupdf4llm (1063), and MinerU (1055),
+and OpenDataLoader falls under the anchor at 916. And when the bootstrap
+resamples the 24 pages instead of single votes, which respects that votes on
+one page are not independent, H1 holds for the two vision models,
+pymupdf4llm, and MinerU (bounds 1325, 1243, 1150, and 1078) and not for
+OpenDataLoader (987). This check was added after the result, on 10~November
+(\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak
+parser-benchmark/\allowbreak analysis/}). The two vision models' intervals
+overlap, so their order is
 unsettled. And in the first comparison ``both unusable'' was the most frequent
-answer for the current extraction: 31 of its 39 duels ended that way, which is
-the strongest statement the benchmark makes about the text learners read
-today.
+answer for the current extraction: 31 of its 39 duels ended that way. Most of
+these verdicts were quick (22 of the 31 took under five seconds, median
+3.2\,s) and fell late in one sitting of 108 duels. They record that the
+text looks unusable at a glance, not a reading of both outputs.
 
 \paragraph{Where the methods differ.} Automatic checks over the same 24 pages
 explain part of the ranking. The current extraction carries the running
@@ -462,12 +477,21 @@ is the author of the product; the automatic checks use PyMuPDF's own text
 layer as reference, which favours two of the methods; the 24 pages come from
 one university and hold no scan; duels within a comparison are not
 independent; later comparisons were less blind; and the heavy engines saw a
-60-page cut. None of this was corrected for.
+60-page cut. None of this was corrected for. Two further threats are not in
+the protocol. The benchmark measures which rendered output a reader prefers,
+and methods that emit headings, lists, and tables gain typography in the
+reader that plain text does not. The consumers of the text in the pipeline
+are models (synthesis, quiz, and retrieval), and whether the preference
+carries over to them was not measured; a retrieval run per extractor over
+the golden set would test it. And no second rater judged any subset, so how
+far the result depends on the one judge is unknown.
 
 \paragraph{What follows.} The production parser was not changed on this
 basis at the pin. The benchmark says that the one judge rated the cheapest
 path, PyMuPDF's text layer, second to last, above only MarkItDown; that its
-layout-aware sibling pymupdf4llm is preferred about 4.5:1 over it without a
+layout-aware sibling pymupdf4llm stands 263 points above it, about 4.5:1 in
+expected score (the two met directly in three duels: two wins and one
+\enquote{both unusable}), without a
 fee, for under a second more per page and about 330\,MB more memory in the
 tested configuration; and that transcription by a vision model is
 preferred further still at a price. The decision between the two, and the footer problem that the deck
@@ -485,7 +509,9 @@ quiz step reads, rose from a mean of 0.17 to 0.84; the sections the quiz
 draws on rose from 26 to all 31 eligible sections; and removing boilerplate
 saved 14{,}875 words of model input over the corpus. The metadata pass still sees 24\,\% of pages. The scorecard runs without
 a model and does not say whether the quizzes got better, only that they now
-draw on the whole deck.
+draw on the whole deck. Span and section coverage are what the plan's page
+selection is designed to raise, so the scorecard confirms the implementation
+and is not evidence of better quizzes.
 
 \section{Answer to RQ1}
 \label{sec:c4-answer}
@@ -507,14 +533,16 @@ reader opens on the original PDF at once.
 
 Which extraction methods give learners the most useful text at what cost? On
 24 pages from three courses, judged blind by the author alone, a vision model's
-transcription is preferred to the current text layer at odds of more than
-10:1 and costs under a cent a page; the layout-aware PyMuPDF path is
-preferred at about 4.5:1 without a fee, at under a second more per page,
+transcription is preferred to the current text layer at more than 10:1 in
+expected score on the fitted scale and costs under a cent a page; the
+layout-aware PyMuPDF path is preferred at about 4.5:1 without a fee, at under a second more per page,
 measured with its OCR pass on, which production would switch off; the heavy
 layout engines are preferred less and need gigabytes of memory the production
 machine does not have. The current
 extraction was judged unusable, together with its opponent, in 18 of its 33
-first-round duels; its footer on 23 of 24 pages is one visible reason.
+first-round duels; its footer on 23 of 24 pages is one visible reason. The
+judge chose between rendered outputs; whether synthesis, quiz, and retrieval
+do better on the preferred text was not measured.
 
 What the chapter does not show is stated as plainly. It does not show that
 the text generated for a page is grounded in that page; no evaluation here

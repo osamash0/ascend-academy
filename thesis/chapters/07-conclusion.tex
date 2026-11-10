@@ -40,10 +40,12 @@ model is rated highest (ratings of 1452 and 1376), the layout-aware variant of t
 is third (1263), and the heavy local converters do not beat it. The
 extraction that production runs is the anchor of the scale (1000). Nine of
 the ten alternatives are rated above it, five of them by the corrected
-test, and it leaks footer text on 23 of 24~pages. The two vision models together cost \$0.21 for the
+test and four when pages are resampled, and it leaks footer text on 23 of 24~pages. The two vision models together cost \$0.21 for the
 24~pages. The answer
-has a clear limit: one judge, who built the system, and born-digital pages
-from one university.
+has a clear limit: one judge, who built the system, with no second rater,
+and born-digital pages from one university. The judge chose between rendered
+outputs, and whether the models that read the text do better on the
+preferred one was not measured.
 
 \paragraph{RQ2: from reader events back to the owner.}
 Learner interaction can be modelled as one governed log of 17~event types,
@@ -56,11 +58,16 @@ the page, and in the study it rested on three among thirteen; and a database pol
 lets an owner with the professor role read event rows with user ids
 (\cref{sec:c5-privacy}). In a
 study with scripted readers in eight arms, 18 of 23~expectations that were
-written down before the run were met, nine of them in the control arm. A
+written down before the run were met, nine of them in the control arm: four
+of five that a finding must appear, and fourteen of eighteen that the view
+must stay silent, of which an engine that reports nothing would meet
+sixteen. A
 Space with four members shows nothing. A mix of 27~readers surfaces the
 confusing page and the gap between confidence and correctness, and nothing
-else; this was observed and was not a registered expectation. The five misses were our own
-misreadings of three rules, and each is now a stated limit
+else; this was observed and was not a registered expectation. Four of the
+five misses were our own misreadings of the rules, and one shows a rule that
+does not keep the promise we had written down for it; each is now a stated
+limit
 (\cref{sec:c5-evaluation}). The study tests the machinery, with the
 summarising model replaced by fixed strings. It says nothing about learners
 or about what real themes reveal.
