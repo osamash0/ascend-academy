@@ -62,7 +62,7 @@ benchmark. Four properties of this material shape the design.
   \item[Lecture material is personal data.] Uploaded decks can carry names
     and institutional detail, and students upload private material. The
     pipeline must not send content to a provider the privacy policy does not
-    name, and the same bytes uploaded twice should not be parsed, stored or
+    name, and the same bytes uploaded twice should not be parsed, stored, or
     paid for twice.
 \end{description}
 
@@ -119,7 +119,7 @@ used by an earlier generation, is no longer installed.
 Everything that can reject an upload cheaply happens in the API, before a job
 is queued: authentication and a rate limit of five uploads per minute;
 ownership of the target course; a size-capped read (50\,MB); validation of
-type, signature and page count (at most 300); the SHA-256 hash of the file,
+type, signature, and page count (at most 300); the SHA-256 hash of the file,
 which becomes its identity for the rest of the pipeline; for students, an
 atomic claim on a monthly quota; and queue backpressure, which refuses with
 429 when more than 50 jobs wait. Only then is the file stored and the job
@@ -215,7 +215,7 @@ Nine mechanisms in four layers use this identity to avoid doing the same work
 twice, and eight of them are live (\cref{fig:idempotency} in
 \cref{sec:idempotency-detail}). The hash names the stored object, so
 identical bytes become one object. Each parse is a row with a unique key on
-hash, pipeline version and user, and a finished run is replayed from the
+hash, pipeline version, and user, and a finished run is replayed from the
 database. The worker takes a lock on the hash before it parses. Outputs are
 written with upsert, and a page whose text has not changed is not embedded
 again. Each mechanism covers a gap the others leave. The run-row key prevents two
@@ -254,7 +254,7 @@ calls the providers directly, through two ordered chains over the same eight
 providers: a \emph{bulk} chain, ordered by capacity, for high-volume work such
 as page synthesis, and a \emph{quality} chain, ordered by expected answer
 quality, for fewer and harder calls. A call walks its chain and skips a
-provider that is unavailable. A rejected key, a payment error and a missing
+provider that is unavailable. A rejected key, a payment error, and a missing
 model disable a provider until restart, a rate limit starts a backoff, and
 every other failure moves on without penalty (\cref{fig:provider-chain} in
 \cref{sec:multi-provider}). The chain is shallower than it looks: its eight
@@ -341,12 +341,12 @@ months and no measurement.
 
 \paragraph{Design.} The benchmark was pre-registered: a protocol fixing the
 question, the hypothesis, the page selection, the duel format, the stopping
-rule and the analysis was committed on 30 October 2026 before any vote, and
+rule, and the analysis was committed on 30 October 2026 before any vote, and
 every later change is a dated deviation in the same file (four in total).
 Eleven methods were judged: ten challengers against \emph{current}, the
 production extraction, which anchors the scale at 1000. The challengers were
 the Markdown converters pymupdf4llm and MarkItDown; the layout engines
-Docling~\cite{auer2024docling}, MinerU~\cite{wang2024mineru}, Marker and
+Docling~\cite{auer2024docling}, MinerU~\cite{wang2024mineru}, Marker, and
 OpenDataLoader; the browser engine pdf.js; a PaddleOCR vision-language model
 in a 4-bit build; and two vision-model transcriptions of the page image,
 \code{gpt-4.1-mini} and a stronger model.
@@ -389,9 +389,9 @@ vote was retracted. All four are pooled on one scale.
 \paragraph{Result.} \Cref{fig:parser-bench} shows the pooled fit. The two
 vision transcriptions lead with 1452 and 1376 points, followed by pymupdf4llm
 at 1263, MinerU at 1216, Marker at 1141, Docling at 1128, OpenDataLoader at
-1112, the PaddleOCR build at 1037 and pdf.js at 1007; current sits at its
+1112, the PaddleOCR build at 1037, and pdf.js at 1007; current sits at its
 anchor of 1000 and MarkItDown below it at 952. H1 holds for five methods: both
-vision models, pymupdf4llm, MinerU and OpenDataLoader. It is decided on the
+vision models, pymupdf4llm, MinerU, and OpenDataLoader. It is decided on the
 corrected lower bound, so Marker and Docling, which rank above OpenDataLoader
 on points, do not pass: with 19 and 22 duels each their intervals stay below
 the anchor. Three qualifications belong to the result. OpenDataLoader's pass
@@ -419,7 +419,7 @@ page at about 0.9 to 3\,GB resident, a lower bound because memory they
 allocate on the GPU is not counted, and each needs a model download of
 several hundred megabytes. The vision transcriptions cost \$0.21 for the 24
 pages, at 1.8 to 5.7 seconds per page, and leave the server. On a 4\,GB
-production machine shared with the API, the worker and two Redis instances,
+production machine shared with the API, the worker, and two Redis instances,
 the heavy engines are not an option; the vision models are an option whose
 price is paid per page and per uploader.
 
@@ -458,10 +458,10 @@ draw on the whole deck.
 How can heterogeneous lecture PDFs be transformed reliably into structured,
 grounded content? The answer this chapter gives has four parts. Identity by
 content: a SHA-256 hash names the bytes, one object is stored per hash, one
-run is kept per document, version and uploader, and a finished run is
+run is kept per document, version, and uploader, and a finished run is
 replayed rather than repeated; concurrent duplicates are locked out. Decide
 before generating: a deterministic plan assigns roles and sections, strips
-boilerplate from the model's input and selects the pages the deck-level steps
+boilerplate from the model's input, and selects the pages the deck-level steps
 read, with no model call. Route by the page, not by a
 count: one rule, measured on the page itself, sends empty and figure-carried
 pages to a vision model and everything else to text, which on 1{,}593 real

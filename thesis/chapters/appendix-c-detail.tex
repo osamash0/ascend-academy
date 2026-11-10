@@ -13,7 +13,7 @@ section names the chapter it belongs to.
 \thesisfigure{f7-deployment}
   {Production deployment as run since 2026-10-30: five containers on one
    Hetzner VM behind a host nginx that terminates TLS, with Supabase, Resend,
-   Better Stack and Cloudflare (DNS, R2) as external services. A systemd timer
+   Better Stack, and Cloudflare (DNS, R2) as external services. A systemd timer
    pings Better Stack every five minutes; the nightly dump is age-encrypted
    before upload to R2, and its decryption key is kept off the server.}
   {fig:deployment}
@@ -35,7 +35,7 @@ memory, Ubuntu~24.04) with five containers defined in
 TLS is terminated by nginx on the host, with certificates from Let's Encrypt.
 That host configuration lives on the server, not in the repository; the deploy
 runbook documents it. DNS is held by Cloudflare without proxying. The database,
-authentication and storage are a managed Supabase project in the EU (Ireland)
+authentication, and storage are a managed Supabase project in the EU (Ireland)
 region on the free tier, which provides no point-in-time recovery.
 
 \paragraph{A reproducibility finding.}
@@ -47,7 +47,7 @@ were deleted and the production header now names the Hetzner machine (found,
 then fixed). What still exists only on the server is the host proxy
 configuration and the nightly database dump script, so the deployed system
 still cannot be reconstructed from the repository alone. The gap is narrower
-than it was in August: the deploy, monitoring and backup procedures are written
+than it was in August: the deploy, monitoring, and backup procedures are written
 down as runbooks, and the heartbeat and off-site backup scripts are versioned.
 But the
 system's ground truth is still the server, not the repository; this is why the
@@ -67,7 +67,7 @@ very few real users, which is the scale the platform actually operates at.
 \paragraph{The readiness signal.}
 The API exposes a liveness probe (\code{/health}) and a readiness probe
 (\code{/health/ready}). The readiness probe checks the database, both Redis
-instances and whether a worker is alive when jobs are waiting. One condition
+instances, and whether a worker is alive when jobs are waiting. One condition
 deserves mention: when no database URL is configured, the probe records the
 database as \code{not\_configured} and still reports ready. Routes that use the
 Supabase HTTP client still work without the pool, but the pipeline and the v4
@@ -130,7 +130,7 @@ check and surface only as failing requests.
       judge: non-teaching pages get no AI content. Folded into later
       routing. \\
     v2 routed pipeline & 1 May & Each page classified, then sent to text,
-      OCR or vision; a deck-level ``blueprint''. The default until June. \\
+      OCR, or vision; a deck-level ``blueprint''. The default until June. \\
     v3 staged pipeline & 2--19 May & Seven resumable stages, Docling, an Arq
       job queue, pgvector, a LiteLLM gateway. Never the default; later called
       dormant. \\
@@ -144,7 +144,7 @@ check and surface only as failing requests.
       cost. Live. \\
     page by page & 26--30 Oct & The reader opens at once and pages arrive as
       they are written; a packed PDF copy for the reader. Live. \\
-    one routing rule & 6 Nov & Text, figure or no-text decided in one place
+    one routing rule & 6 Nov & Text, figure, or no-text decided in one place
       from the page itself. Live at the pin. \\
     \bottomrule
   \end{tabular}
@@ -156,7 +156,7 @@ check and surface only as failing requests.
 \thesisfigure{f10-idempotency}
   {Nine idempotency mechanisms in four layers, eight of them live. Thick borders
    mark mechanisms keyed on the bytes alone and shared by every owner; the rest
-   are per owner, run or lecture, so the stack yields at most one parse per
+   are per owner, run, or lecture, so the stack yields at most one parse per
    owner and pipeline version, and two owners of the same bytes each pay for
    one.}
   {fig:idempotency}
@@ -168,11 +168,11 @@ doing the same work twice, grouped in four layers; eight of them are live.
     The classic upload route still reads it, but the live pipeline never writes
     it, so it can no longer hit; it is a legacy layer. \emph{L1}: the hash is the
     stored file's name, written with upsert, so identical bytes become one
-    object. \emph{L2}: owner dedupe. The v4 route returns the Lesson the student
+    object. \emph{L2}: deduplication per owner. The v4 route returns the Lesson the student
     already owns, without a quota charge or a job, and the batch route skips
     bytes the same user has already uploaded.
   \item[Layer 2, the database.] \emph{L3}: each parse is a row in
-    \code{parse\_runs} with a unique key on hash, pipeline version and user;
+    \code{parse\_runs} with a unique key on hash, pipeline version, and user;
     creating it is an upsert that never overwrites an existing row's state.
     \emph{L4}: a run that already completed is replayed from the database
     instead of re-parsed, unless a re-parse is forced.
@@ -180,7 +180,7 @@ doing the same work twice, grouped in four layers; eight of them are live.
     the hash (\code{SET NX}, 20 minutes, longer than the 15-minute job timeout).
   \item[Layer 4, the outputs.] \emph{L6}: a re-parse clears the lecture's content
     but keeps the lecture, so links to it survive. \emph{L7}: the reader copy, the
-    poster image and the parse receipt are written with upsert. \emph{L8}: before
+    poster image, and the parse receipt are written with upsert. \emph{L8}: before
     any paid embedding call, a slide's text hash is checked, and unchanged
     slides are not embedded again.
 \end{description}
@@ -189,8 +189,8 @@ The weak link is chosen deliberately: the lock is best-effort, so if Redis
 fails the worker proceeds without it, preferring availability over strict
 mutual exclusion, and two simultaneous jobs for one owner can then both
 create a lecture. The guarantee also has an edge between owners. Four
-mechanisms (L0, L1, L5 and L8) are keyed on the bytes alone and shared by
-every owner; the rest are per owner, run or lecture. A second user who
+mechanisms (L0, L1, L5, and L8) are keyed on the bytes alone and shared by
+every owner; the rest are per owner, run, or lecture. A second user who
 uploads identical bytes while the first parse runs finds the shared lock
 held, and that run waits until the six-hour sweep fails it; if the uploads do
 not overlap, each user pays for a full parse; and at the end of every parse
@@ -421,7 +421,7 @@ a personal communication; if not, the paragraph stands as it is.}
   \centering
   \small
   \caption{The 26 mechanisms that exist in the code, by what they guard. A
-    \emph{verifier} computes, validates, filters or drops; a \emph{prompt rule}
+    \emph{verifier} computes, validates, filters, or drops; a \emph{prompt rule}
     only instructs the model; a \emph{harness} measures offline. Source:
     \code{docs/thesis/verification-notes/2026-11-09-trust-rq3.md}, section~11.}
   \label{tab:mechanisms}

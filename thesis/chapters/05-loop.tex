@@ -19,7 +19,7 @@
 \label{ch:loop}
 
 This chapter answers RQ2: how learner interaction events can be modelled,
-aggregated and fed back to the owner of the material in a privacy-preserving
+aggregated, and fed back to the owner of the material in a privacy-preserving
 way, and what an owner can learn from them without seeing a single student.
 What readers do on the pages of \cref{ch:content} travels back to the
 person who wrote them.
@@ -46,7 +46,7 @@ it through a single writer. The writer \emph{governs} it: an event of an
 unknown type or with an unknown field is rejected. The event is \emph{stored}
 in one append-only log. When an owner asks, the engine \emph{aggregates} the
 log of the Space's members, and the owner's view \emph{shows} the result as
-one sentence, three figures and a map of pages. The loop closes outside the
+one sentence, three figures, and a map of pages. The loop closes outside the
 software: the owner opens the page a finding points to and decides what to
 change.
 
@@ -59,7 +59,7 @@ people.
 \subsection{One Log, Seventeen Governed Types}
 
 All interaction data lives in one table, \code{learning\_events}: who, when,
-an event type and a JSON payload. The type is restricted twice. In the
+an event type, and a JSON payload. The type is restricted twice. In the
 database a \code{CHECK} constraint lists the 17 allowed types. In the backend
 each type has a Pydantic model in one registry, and every model forbids
 unknown fields (\code{schemas/learning\_events.py}, \code{EVENT\_REGISTRY},
@@ -145,8 +145,8 @@ schema is defined only by plain SQL migrations (139 files at
 partition of the event table, so 78 logical tables. Thirty-six of them form
 the core of the domain. \Cref{fig:er} in \cref{app:figures} shows identity,
 Spaces, content and parsing, and \cref{fig:er-learning} the learner-facing
-tables for practice, Luna sessions, notes and points. The rest are
-catalogues, caches, analytics roll-ups and operational tables.
+tables for practice, Luna sessions, notes, and points. The rest are
+catalogues, caches, analytics roll-ups, and operational tables.
 
 \paragraph{A Space is a course.}
 The current interface speaks of \emph{Spaces}, but no Space table exists. A
@@ -171,7 +171,7 @@ database, and the running one has to be inspected.
 \subsection{From Rows to Page Facts}
 
 The engine is a pure function. Its input is a value with four parts: the
-members of the Space, its Lessons, the events and the current time
+members of the Space, its Lessons, the events, and the current time
 (\code{insights/sources/space.py:67--82}). Its output is the payload the
 owner's screen draws. Nothing in between touches the database, which is what
 makes the study in \cref{sec:c5-evaluation} possible.
@@ -193,12 +193,12 @@ instead of a calm cell. This distinction entered after the pin; at
 \code{\thesisCommit} such a page reported 0, which the screen would have drawn
 as \enquote{everything is fine}. The same rule holds for the whole Space. The
 payload carries no number of readers but one of three words, \code{none},
-\code{few} or \code{enough} (also after the pin; before, it carried the count).
+\code{few}, or \code{enough} (also after the pin; before, it carried the count).
 
 \subsection{Eleven Detectors}
 
 A detector is a rule over the facts of one Lesson that produces a finding: a
-kind, a page and a severity. \Cref{tab:detectors} gives each rule in one line.
+kind, a page, and a severity. \Cref{tab:detectors} gives each rule in one line.
 The detectors were written for the older professor dashboard and are reused.
 The engine for Spaces runs ten of the eleven; the one it skips is the only one
 that speaks about individual students. Nine kinds of finding can reach the
@@ -293,9 +293,9 @@ stored data but a limit on what leaves it. Six mechanisms carry this.
 
 \begin{description}
   \item[No output about a person.] The owner's view has no list of students, no
-    per-student progress and no name. This was decided on 5~November 2026.
+    per-student progress, and no name. This was decided on 5~November 2026.
     An earlier version (PR~\#142) showed individuals under keyed pseudonyms;
-    PR~\#175 removed those routes, the feature flag and the key. The
+    PR~\#175 removed those routes, the feature flag, and the key. The
     repository records the decision and not its reason
     (\code{docs/superpowers/specs/2026-10-26-how-its-landing-design.md}, §8).
     \TODO{Author: give the reason in one sentence. A candidate, not recorded
@@ -409,9 +409,9 @@ replaced by fixed strings, as in the unit tests. Runs are seeded
 (20261109 plus the arm's index) and take seconds.
 
 Five personas were defined. A \emph{steady} reader reads every page for 20 to
-60~seconds, checks in with \enquote{got it} and clears checkpoints. A
+60~seconds, checks in with \enquote{got it}, and clears checkpoints. A
 \emph{struggling} reader dwells three times as long on pages 8 to 12, asks
-there, checks in as \enquote{confused}, misses first tries and turns back from
+there, checks in as \enquote{confused}, misses first tries, and turns back from
 page~13 twice. An \emph{asker} asks on every third page. A \emph{skimmer}
 spends under five seconds per page and stops at page~10. An
 \emph{overconfident} reader says \enquote{got it} everywhere and misses the
@@ -457,7 +457,7 @@ arms separate: struggling readers produce a hotspot and a speed bump where
 they struggled, skimmers produce a leak and skipped pages, overconfident
 readers produce a calibration gap and nothing else, and the mix of 27 surfaces
 two findings on one page and no noise. The control arm is the most important
-row. With four members the payload holds no finding, no theme and no number,
+row. With four members the payload holds no finding, no theme, and no number,
 and the screen is the lower half of \cref{fig:door}. With four askers no
 themes are made.
 
@@ -509,7 +509,7 @@ and the owner gate.
 The study tests whether the aggregation separates known behaviours and
 whether the floor holds. The personas are
 clean, so the arms separate more sharply than real readers would, and there
-is one Lesson, one Space and one seed per arm. 
+is one Lesson, one Space, and one seed per arm. 
 Whether an owner changes a page after seeing a finding, the step that would
 close the loop, was not observed.
 

@@ -33,7 +33,7 @@ human-annotated page layouts to train and test them
 on~\cite{pfitzmann2022doclaynet}, and Nougat transcribes scientific pages
 directly from the image into markup~\cite{blecher2023nougat}. Open-source
 toolkits such as Docling~\cite{auer2024docling} and
-MinerU~\cite{wang2024mineru} package layout analysis, table recognition and
+MinerU~\cite{wang2024mineru} package layout analysis, table recognition, and
 optical character recognition into one converter, and benchmarks such as
 OmniDocBench compare converters across document
 types~\cite{ouyang2025omnidocbench}. A simpler path reads the text layer that
@@ -42,7 +42,7 @@ PyMuPDF~\cite{pymupdf}.
 
 Lecture slides are a hard case for all of these, for a reason that is not
 technical. A slide holds little text, and much of its meaning is in a figure,
-an arrow or the position of two boxes. SlideVQA shows that questions about
+an arrow, or the position of two boxes. SlideVQA shows that questions about
 slide decks often need several slides and their visual
 content~\cite{tanaka2023slidevqa}. Dinh et al.\ compare ways to give a
 language model access to university course material and find that passing
@@ -172,7 +172,7 @@ statements: nothing is said about fewer than five readers.
 \label{sec:positioning}
 
 Intelligent textbooks are the closest tradition. Brusilovsky et al.\ describe
-their return: textbooks that model their content, embed practice and record
+their return: textbooks that model their content, embed practice, and record
 use, now with machine learning for the steps that once required
 authors~\cite{brusilovsky2022return}. A second line augments the reading
 surface of a document without changing the document. Paper Plain adds plain
@@ -213,7 +213,7 @@ did not run either system; the table compares what the papers describe.
       Any lecture PDF: slides, scripts, exercise sheets \\
     Output &
       Several representations of the same content &
-      A textbook with chapters, cases and exercises &
+      A textbook with chapters, cases, and exercises &
       The original page, a text of it, questions, and a search index \\
     Relation to the source &
       Generated from the source, content integrity as a stated goal &
@@ -227,7 +227,7 @@ did not run either system; the table compares what the papers describe.
       Computed answer keys, and an independent check on a different model \\
     Personalisation &
       Yes, of the content itself &
-      Language, style and difficulty chosen by the user &
+      Language, style, and difficulty chosen by the user &
       None of the content; only the schedule of practice \\
     Feedback to the author &
       None described &

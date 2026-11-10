@@ -115,7 +115,7 @@ claim.
 \label{sec:c6-history}
 
 The first grounded tutor (commit \code{8d2eb095}, 2~May 2026) answered
-strictly from the retrieved pages, cited them and refused everything else.
+strictly from the retrieved pages, cited them, and refused everything else.
 On 24~June 2026 the refusal was removed from the tutor of the older lecture
 rooms (commit \code{f39e93dc}). Since then that tutor may add knowledge from
 outside the lecture if it puts it in a block quote and says that it goes
@@ -170,7 +170,7 @@ find.
 \label{sec:injection}
 
 Every prompt in the system carries text that the operator did not write. Any
-signed-in user can create a Space, upload a PDF and publish it, and any
+signed-in user can create a Space, upload a PDF, and publish it, and any
 signed-in user can join a published Space (\cref{sec:stakeholders}). A PDF can
 therefore contain a sentence that is addressed to the model and not to the
 reader. This is indirect prompt
@@ -183,7 +183,7 @@ instructions. The second makes that rule hold on to something. Each prompt
 fences uploaded text with markers, and a PDF that contains the same marker
 could close the fence early. Since PR~\#179 one function rewrites exactly
 those markers inside foreign text into look-alikes that no fence matches
-(\code{ai/untrusted.py}), in the tutors, in Luna, in the reader and in every
+(\code{ai/untrusted.py}), in the tutors, in Luna, in the reader, and in every
 prompt of the parse. The idea is related to
 spotlighting~\cite{hines2024spotlighting}. Before that change, at
 \code{\thesisPreviousCommit}, retrieved text was inserted raw and the reader
@@ -191,7 +191,7 @@ had no such rule.
 
 The file is plain about its limit: it ``does not make injection impossible;
 nothing does''. The damage is bounded only where an output check exists:
-Luna's literal phrase check, the citation range of the ask bar and the block
+Luna's literal phrase check, the citation range of the ask bar, and the block
 validation of the reader. An injected instruction that makes the reader's
 Explain write something false in well-formed blocks would pass. One earlier
 hole widened the audience and is closed: the single-file upload did not check
@@ -226,7 +226,7 @@ happens next.
 
 \begin{description}
   \item[Resolve the key.] The model names the correct option as an index, a
-        letter or the option's text. If none of these matches an option, the
+        letter, or the option's text. If none of these matches an option, the
         question is dropped and logged. Until 16~June 2026 such a question was
         stored with option~A as its key (commit \code{f25dd41c}). The code
         states the reason: a wrong answer key is worse than fewer questions.
@@ -237,10 +237,10 @@ happens next.
   \item[Lexical support.] A score measures how much of the key's wording
         occurs on the cited page; below 0.5 the question is flagged. It is
         not dropped, for the reason measured in \cref{sec:c6-evaluation}.
-  \item[Answer check.] A second model reads the cited page, the question and
+  \item[Answer check.] A second model reads the cited page, the question, and
         the options, without the key, and answers as a careful student would
         (PR~\#166). If it picks another option, finds a second defensible
-        option or finds none, the key is disputed.
+        option, or finds none, the key is disputed.
   \item[Repair or drop.] A disputed question is rewritten once against the
         same page and checked again. A second dispute drops it. A repair may
         not move the question to another page.
@@ -365,7 +365,7 @@ subjects from one university. Sixteen pairs separate a verifier that works
 from one that does not; they do not estimate an error rate in production.
 The answer check was measured once, on one day, with one model at the head of
 its chain, and a model behind an API can change without notice. No measurement
-covers the prose of Explain, Ask or Luna. For retrieval, one older measurement
+covers the prose of Explain, Ask, or Luna. For retrieval, one older measurement
 exists: on 50 hand-written questions over six lectures the gate refused none
 of the 27 questions that could be asked inside a course. It was run at
 revision \code{a696be1} in September, before the scope fix of
@@ -412,7 +412,7 @@ The fixes reached production with PR~\#92.
 
 One measure works after the fact. Every parse writes a receipt: for each page
 the route, the prompt and its version, the provider, the model, the tokens and
-the cost of each call, and the counts of questions proposed, kept, repaired
+the cost of each call, and the counts of questions proposed, kept, repaired,
 and dropped (migration \code{20261012000000}). The receipt does not prevent a
 wrong result. It makes one traceable to the call that produced it.
 
@@ -450,7 +450,7 @@ prompt rules and by one independent model, and only for quiz keys.
 Three things do not exist. There is no entailment check: nothing decides
 whether a page logically supports a key or a sentence, and the lexical module
 says so itself. There is no detector for invented content in the prose of
-Explain, Ask or Luna; current surveys treat this as an open
+Explain, Ask, or Luna; current surveys treat this as an open
 problem~\cite{ji2023hallucination,huang2025hallucination}. And nothing checks
 that the older tutor really puts outside knowledge into a block quote.
 

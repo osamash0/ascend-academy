@@ -24,7 +24,7 @@ deployed, and under which constraints. It answers no research question.
 
 Learnstation started in January 2026 as a platform for lecturers: a
 professor creates a course, uploads slides, and students work through
-lectures, quizzes and a dashboard. Its first idea was to stand between the
+lectures, quizzes, and a dashboard. Its first idea was to stand between the
 learning management system, which stores files, and the AI assistant, which
 knows nothing about the course. Over the year the centre moved from the
 course to the page. In the system that production serves since 29~October
@@ -56,7 +56,7 @@ later chapters.
     of a computable answer.
   \item[Parse once.] A file is processed once per uploader, and the result
     is reused for every reader of that upload.
-  \item[The server decides.] Points, progress and grades are computed on the
+  \item[The server decides.] Points, progress, and grades are computed on the
     server; the browser displays them.
 \end{description}
 
@@ -70,7 +70,7 @@ the same material. A \emph{Lesson} is one uploaded document in a Space. A
 of paper. An \emph{idea} is one thing a page teaches. The \emph{Library}
 holds a person's own uploads, which the code calls materials. \emph{Luna} is
 the assistant; she explains a page, asks about it, and runs short practice
-sessions. The words course, lecture and slide belong to the older interface
+sessions. The words course, lecture, and slide belong to the older interface
 and to the database, where a Space is still stored as a course
 (\cref{sec:data-model}).
 
@@ -131,7 +131,7 @@ correct this paragraph.}
 \label{sec:architecture}
 
 \thesisfigure{f6-components}
-  {Component view of the deployed system. The api and the worker, built from
+  {Component view of the deployed system. The API and the worker, built from
    one Dockerfile, call the LLM providers directly; the v4 app needs the direct
    asyncpg path to Postgres, which the readiness probe does not enforce.}
   {fig:components}
@@ -142,12 +142,12 @@ TypeScript runs in the browser. A FastAPI application~\cite{fastapi} serves the
 HTTP API. A separate worker process, built on the Arq job queue~\cite{arq}, runs
 everything that takes longer than a request should: parsing, LLM synthesis,
 embedding, localisation, and scheduled maintenance. Supabase~\cite{supabase}
-provides the PostgreSQL database, authentication and object storage. Two Redis
+provides the PostgreSQL database, authentication, and object storage. Two Redis
 instances serve as cache and as job broker.
 
 \paragraph{No gateway on the LLM path.}
 The backend calls every LLM provider directly from one module
-(\code{backend/services/ai/orchestrator.py}). Failover, rate limiting and cost
+(\code{backend/services/ai/orchestrator.py}). Failover, rate limiting, and cost
 accounting live in that module, not in a separate service. This was not always
 so. At \code{\thesisEarlierCommit} the production stack still contained a LiteLLM gateway
 container, and the API carried its base URL in its environment, although no code
@@ -168,7 +168,7 @@ second is a direct connection pool (asyncpg) through Supabase's transaction
 pooler. The pool is optional at start-up: if no database URL is configured, the
 application starts without it; if one is configured but unreachable, start-up
 fails fast. In practice the pool is not optional. The ingestion pipeline writes
-its runs, lectures, slides and quiz questions through it, and every service of
+its runs, lectures, slides, and quiz questions through it, and every service of
 the current (v4) application uses it. Older routes still run on the HTTP client;
 the production compose file counts roughly 360 such call sites.
 
@@ -188,7 +188,7 @@ module of the v4 feature folder may import the Supabase client.
 
 \paragraph{Deployment.}
 Production runs on one virtual machine with two virtual CPUs and 4\,GB of
-memory, in five containers: the frontend, the API, the worker and the two
+memory, in five containers: the frontend, the API, the worker, and the two
 Redis instances. Deploys are manual, a heartbeat every five minutes reports
 to an external monitor, and a nightly database dump is encrypted and stored
 off-site. The proxy configuration of the host exists only on the server, so
@@ -199,11 +199,11 @@ the deployed system cannot be rebuilt from the repository alone.
 \label{sec:stack}
 
 Most of the stack was not chosen by deliberation. React, Vite, TypeScript,
-Tailwind and Supabase came with the scaffold of the first commit in January
-(\code{184e5742}), and FastAPI, Redis and nginx followed as the common
+Tailwind, and Supabase came with the scaffold of the first commit in January
+(\code{184e5742}), and FastAPI, Redis, and nginx followed as the common
 companions. We name them as defaults and do not defend them. Seven choices
 do have a recorded reason (\cref{tab:decisions} in \cref{app:detail}),
-among them the job queue, the two Redis instances and the removal of the
+among them the job queue, the two Redis instances, and the removal of the
 gateway. One of them hides a finding that \cref{ch:content} measures: the
 plain text call of PyMuPDF became the production extractor by attrition and
 not by comparison, and the benchmark places it second to last.
