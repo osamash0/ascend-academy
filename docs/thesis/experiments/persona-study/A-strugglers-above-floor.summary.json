@@ -1,0 +1,51 @@
+{
+ "arm": "A-strugglers-above-floor",
+ "members": 12,
+ "reach": "enough",
+ "figures": {
+  "reading": null,
+  "landing": null,
+  "cleared": null
+ },
+ "figure_weeks_with_value": {
+  "reading": 0,
+  "landing": 0,
+  "cleared": 0
+ },
+ "lights": [
+  "act"
+ ],
+ "kinds": [
+  "confusion_hotspot",
+  "speed_bump"
+ ],
+ "findings": [
+  {
+   "kind": "confusion_hotspot",
+   "pages": [
+    10
+   ],
+   "band": null,
+   "severity": 1.0
+  },
+  {
+   "kind": "speed_bump",
+   "pages": [
+    12
+   ],
+   "band": null,
+   "severity": 1.0
+  }
+ ],
+ "themes": [],
+ "model_calls": 1,
+ "checks": {
+  "confusion_hotspot": "ok",
+  "skipped_slide": "ok",
+  "calibration_gap": "ok",
+  "figures_null": "MISS figures_null found, expected absent",
+  "reach_few": "ok"
+ },
+ "why": "six people struggle on pages 8-12: the hard pages must light up",
+ "events": 553
+}

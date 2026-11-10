@@ -1,0 +1,27 @@
+{
+ "arm": "C-five-askers",
+ "members": 10,
+ "reach": "enough",
+ "figures": {
+  "reading": null,
+  "landing": null,
+  "cleared": null
+ },
+ "figure_weeks_with_value": {
+  "reading": 0,
+  "landing": 0,
+  "cleared": 0
+ },
+ "lights": [
+  "calm"
+ ],
+ "kinds": [],
+ "findings": [],
+ "themes": [],
+ "model_calls": 0,
+ "checks": {
+  "themes": "MISS expected themes, not found"
+ },
+ "why": "five askers who read the page: themes may be made",
+ "events": 450
+}

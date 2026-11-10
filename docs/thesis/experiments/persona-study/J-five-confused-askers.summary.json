@@ -1,0 +1,47 @@
+{
+ "arm": "J-five-confused-askers",
+ "members": 10,
+ "reach": "enough",
+ "figures": {
+  "reading": null,
+  "landing": null,
+  "cleared": null
+ },
+ "figure_weeks_with_value": {
+  "reading": 0,
+  "landing": 0,
+  "cleared": 0
+ },
+ "lights": [
+  "act"
+ ],
+ "kinds": [
+  "confusion_hotspot"
+ ],
+ "findings": [
+  {
+   "kind": "confusion_hotspot",
+   "pages": [
+    10
+   ],
+   "band": null,
+   "severity": 1.0
+  }
+ ],
+ "themes": [
+  {
+   "page": 10,
+   "askers": 5,
+   "themes": [
+    "Why a BCNF split can lose a dependency"
+   ]
+  }
+ ],
+ "model_calls": 1,
+ "checks": {
+  "confusion_hotspot": "ok",
+  "themes": "ok"
+ },
+ "why": "five askers who are also confused on page 10: a hotspot with five askers, so themes can be made",
+ "events": 425
+}

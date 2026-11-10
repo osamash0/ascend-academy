@@ -1,0 +1,121 @@
+{
+ "arm": "E-skimmers",
+ "members": 12,
+ "reach": "enough",
+ "figures": {
+  "reading": null,
+  "landing": null,
+  "cleared": null
+ },
+ "figure_weeks_with_value": {
+  "reading": 0,
+  "landing": 0,
+  "cleared": 0
+ },
+ "lights": [
+  "act"
+ ],
+ "kinds": [
+  "leaky_bucket",
+  "skipped_slide"
+ ],
+ "findings": [
+  {
+   "kind": "leaky_bucket",
+   "pages": [
+    10
+   ],
+   "band": null,
+   "severity": 1.0
+  },
+  {
+   "kind": "skipped_slide",
+   "pages": [
+    2
+   ],
+   "band": null,
+   "severity": 0.42
+  },
+  {
+   "kind": "skipped_slide",
+   "pages": [
+    1
+   ],
+   "band": null,
+   "severity": 0.35
+  },
+  {
+   "kind": "skipped_slide",
+   "pages": [
+    3
+   ],
+   "band": null,
+   "severity": 0.35
+  },
+  {
+   "kind": "skipped_slide",
+   "pages": [
+    5
+   ],
+   "band": null,
+   "severity": 0.35
+  },
+  {
+   "kind": "skipped_slide",
+   "pages": [
+    8
+   ],
+   "band": null,
+   "severity": 0.28
+  },
+  {
+   "kind": "skipped_slide",
+   "pages": [
+    9
+   ],
+   "band": null,
+   "severity": 0.28
+  },
+  {
+   "kind": "skipped_slide",
+   "pages": [
+    6
+   ],
+   "band": null,
+   "severity": 0.21
+  },
+  {
+   "kind": "skipped_slide",
+   "pages": [
+    7
+   ],
+   "band": null,
+   "severity": 0.21
+  },
+  {
+   "kind": "skipped_slide",
+   "pages": [
+    10
+   ],
+   "band": null,
+   "severity": 0.21
+  },
+  {
+   "kind": "skipped_slide",
+   "pages": [
+    4
+   ],
+   "band": null,
+   "severity": 0.14
+  }
+ ],
+ "themes": [],
+ "model_calls": 0,
+ "checks": {
+  "confusion_hotspot": "ok",
+  "leaky_bucket": "ok",
+  "skipped_slide": "ok"
+ },
+ "why": "eight skim and stop at page 10: skipped pages and a leak after 10",
+ "events": 240
+}

@@ -1,0 +1,110 @@
+{
+ "spaceId": "space-F-overconfident",
+ "spaceName": "Persona study F-overconfident",
+ "members": 10,
+ "reach": "enough",
+ "floor": 5,
+ "figures": {
+  "reading": {
+   "value": null,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  "landing": {
+   "value": null,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  "cleared": {
+   "value": null,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  }
+ },
+ "lessons": [
+  {
+   "id": "l-persona",
+   "title": "Normalization",
+   "order": 1,
+   "pages": 30,
+   "light": "watch",
+   "help": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ ],
+ "insights": [
+  {
+   "id": "l-persona:calibration_gap:l-persona:10",
+   "kind": "calibration_gap",
+   "attention": "watch",
+   "severity": 0.6,
+   "lessonId": "l-persona",
+   "page": 10,
+   "metrics": {
+    "pct": 60
+   },
+   "grid": {
+    "clickedCleared": null,
+    "clickedMissed": 6,
+    "foggyCleared": 0,
+    "foggyMissed": 0
+   }
+  }
+ ],
+ "questions": [],
+ "themes": []
+}

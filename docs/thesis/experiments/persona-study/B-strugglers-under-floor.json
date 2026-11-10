@@ -1,0 +1,105 @@
+{
+ "spaceId": "space-B-strugglers-under-floor",
+ "spaceName": "Persona study B-strugglers-under-floor",
+ "members": 13,
+ "reach": "enough",
+ "floor": 5,
+ "figures": {
+  "reading": {
+   "value": null,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  "landing": {
+   "value": null,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  "cleared": {
+   "value": null,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  }
+ },
+ "lessons": [
+  {
+   "id": "l-persona",
+   "title": "Normalization",
+   "order": 1,
+   "pages": 30,
+   "light": "act",
+   "help": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.46,
+    0.46,
+    0.46,
+    0.46,
+    0.46,
+    0.0,
+    0.0,
+    0.31,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.31,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ ],
+ "insights": [
+  {
+   "id": "l-persona:confusion_hotspot:l-persona:10",
+   "kind": "confusion_hotspot",
+   "attention": "act",
+   "severity": 0.7416,
+   "lessonId": "l-persona",
+   "page": 10,
+   "metrics": {
+    "foggy": 23
+   },
+   "themes": false
+  }
+ ],
+ "questions": [],
+ "themes": []
+}

@@ -1,0 +1,92 @@
+{
+ "spaceId": "space-D-four-askers",
+ "spaceName": "Persona study D-four-askers",
+ "members": 10,
+ "reach": "enough",
+ "floor": 5,
+ "figures": {
+  "reading": {
+   "value": null,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  "landing": {
+   "value": null,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  "cleared": {
+   "value": null,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  }
+ },
+ "lessons": [
+  {
+   "id": "l-persona",
+   "title": "Normalization",
+   "order": 1,
+   "pages": 30,
+   "light": "calm",
+   "help": [
+    0.0,
+    0.0,
+    0.8,
+    0.0,
+    0.0,
+    0.8,
+    0.0,
+    0.0,
+    0.8,
+    0.8,
+    0.0,
+    0.8,
+    0.0,
+    0.0,
+    0.8,
+    0.0,
+    0.0,
+    0.8,
+    0.0,
+    0.0,
+    0.8,
+    0.0,
+    0.0,
+    0.8,
+    0.0,
+    0.0,
+    0.8,
+    0.0,
+    0.0,
+    0.8
+   ]
+  }
+ ],
+ "insights": [],
+ "questions": [],
+ "themes": []
+}

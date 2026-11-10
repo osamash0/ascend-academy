@@ -1,0 +1,47 @@
+{
+ "arm": "I-everyone-this-week",
+ "members": 27,
+ "reach": "enough",
+ "figures": {
+  "reading": 27,
+  "landing": 63,
+  "cleared": 79
+ },
+ "figure_weeks_with_value": {
+  "reading": 1,
+  "landing": 1,
+  "cleared": 1
+ },
+ "lights": [
+  "act"
+ ],
+ "kinds": [
+  "calibration_gap",
+  "confusion_hotspot"
+ ],
+ "findings": [
+  {
+   "kind": "confusion_hotspot",
+   "pages": [
+    10
+   ],
+   "band": null,
+   "severity": 0.8081
+  },
+  {
+   "kind": "calibration_gap",
+   "pages": [
+    10
+   ],
+   "band": null,
+   "severity": 0.3471
+  }
+ ],
+ "themes": [],
+ "model_calls": 0,
+ "checks": {
+  "figures_null": "ok"
+ },
+ "why": "the same 27, all reading in the last seven days: the weekly figures get a week with five readers",
+ "events": 1053
+}

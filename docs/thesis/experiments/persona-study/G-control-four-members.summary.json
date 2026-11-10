@@ -1,0 +1,35 @@
+{
+ "arm": "G-control-four-members",
+ "members": 4,
+ "reach": "few",
+ "figures": {
+  "reading": null,
+  "landing": null,
+  "cleared": null
+ },
+ "figure_weeks_with_value": {
+  "reading": 0,
+  "landing": 0,
+  "cleared": 0
+ },
+ "lights": [
+  "few"
+ ],
+ "kinds": [],
+ "findings": [],
+ "themes": [],
+ "model_calls": 0,
+ "checks": {
+  "confusion_hotspot": "ok",
+  "confusion_block": "ok",
+  "speed_bump": "ok",
+  "leaky_bucket": "ok",
+  "skipped_slide": "ok",
+  "calibration_gap": "ok",
+  "themes": "ok",
+  "figures_null": "ok",
+  "reach_few": "ok"
+ },
+ "why": "four members in all: under the floor, everything null",
+ "events": 193
+}

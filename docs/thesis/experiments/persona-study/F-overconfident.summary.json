@@ -1,0 +1,38 @@
+{
+ "arm": "F-overconfident",
+ "members": 10,
+ "reach": "enough",
+ "figures": {
+  "reading": null,
+  "landing": null,
+  "cleared": null
+ },
+ "figure_weeks_with_value": {
+  "reading": 0,
+  "landing": 0,
+  "cleared": 0
+ },
+ "lights": [
+  "watch"
+ ],
+ "kinds": [
+  "calibration_gap"
+ ],
+ "findings": [
+  {
+   "kind": "calibration_gap",
+   "pages": [
+    10
+   ],
+   "band": null,
+   "severity": 0.6
+  }
+ ],
+ "themes": [],
+ "model_calls": 0,
+ "checks": {
+  "calibration_gap": "ok"
+ },
+ "why": "six say 'got it' and miss the checkpoint at page 10: a calibration gap",
+ "events": 400
+}

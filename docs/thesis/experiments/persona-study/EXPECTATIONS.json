@@ -1,0 +1,104 @@
+{
+ "pre_registered": {
+  "confusion_hotspot": {
+   "must": [
+    "A-strugglers-above-floor"
+   ],
+   "must_not": [
+    "B-strugglers-under-floor",
+    "G-control-four-members",
+    "E-skimmers"
+   ]
+  },
+  "confusion_block": {
+   "must": [],
+   "must_not": [
+    "G-control-four-members"
+   ]
+  },
+  "speed_bump": {
+   "must": [],
+   "must_not": [
+    "G-control-four-members"
+   ]
+  },
+  "leaky_bucket": {
+   "must": [
+    "E-skimmers"
+   ],
+   "must_not": [
+    "G-control-four-members"
+   ]
+  },
+  "skipped_slide": {
+   "must": [
+    "E-skimmers"
+   ],
+   "must_not": [
+    "A-strugglers-above-floor",
+    "G-control-four-members"
+   ]
+  },
+  "calibration_gap": {
+   "must": [
+    "F-overconfident"
+   ],
+   "must_not": [
+    "A-strugglers-above-floor",
+    "G-control-four-members"
+   ]
+  },
+  "themes": {
+   "must": [
+    "C-five-askers"
+   ],
+   "must_not": [
+    "D-four-askers",
+    "G-control-four-members"
+   ]
+  },
+  "figures_null": {
+   "must": [
+    "G-control-four-members"
+   ],
+   "must_not": [
+    "A-strugglers-above-floor",
+    "H-everyone"
+   ]
+  },
+  "reach_few": {
+   "must": [
+    "G-control-four-members"
+   ],
+   "must_not": [
+    "A-strugglers-above-floor"
+   ]
+  },
+  "quiet_about_B": {
+   "must": [
+    "B-strugglers-under-floor"
+   ],
+   "must_not": []
+  }
+ },
+ "post_hoc": {
+  "figures_null": {
+   "must": [],
+   "must_not": [
+    "I-everyone-this-week"
+   ]
+  },
+  "themes": {
+   "must": [
+    "J-five-confused-askers"
+   ],
+   "must_not": []
+  },
+  "confusion_hotspot": {
+   "must": [
+    "J-five-confused-askers"
+   ],
+   "must_not": []
+  }
+ }
+}

@@ -1,0 +1,47 @@
+{
+ "arm": "H-everyone",
+ "members": 27,
+ "reach": "enough",
+ "figures": {
+  "reading": null,
+  "landing": null,
+  "cleared": null
+ },
+ "figure_weeks_with_value": {
+  "reading": 3,
+  "landing": 3,
+  "cleared": 2
+ },
+ "lights": [
+  "act"
+ ],
+ "kinds": [
+  "calibration_gap",
+  "confusion_hotspot"
+ ],
+ "findings": [
+  {
+   "kind": "confusion_hotspot",
+   "pages": [
+    10
+   ],
+   "band": null,
+   "severity": 0.8222
+  },
+  {
+   "kind": "calibration_gap",
+   "pages": [
+    10
+   ],
+   "band": null,
+   "severity": 0.3471
+  }
+ ],
+ "themes": [],
+ "model_calls": 1,
+ "checks": {
+  "figures_null": "MISS figures_null found, expected absent"
+ },
+ "why": "a realistic mix of 27: what rises to the top",
+ "events": 1058
+}

@@ -1,0 +1,56 @@
+deck,page,raw_chars,footer_free_chars,figure_blocks,figure_area,label,rule_route
+00 DBS Einfuehrung.pdf,14,100,98,9,0.638,image,figure
+00 DBS Einfuehrung.pdf,26,128,124,4,0.654,image,figure
+00 DBS Einfuehrung.pdf,30,147,141,1,0.52,image,figure
+00 DBS Einfuehrung.pdf,38,99,94,7,0.155,image,figure
+00 DBS Einfuehrung.pdf,57,74,71,2,0.94,image,figure
+00 DBS Einfuehrung.pdf,62,101,97,3,0.42,image,figure
+00 DBS Introduction.pdf,13,99,70,9,0.637,image,figure
+00 DBS Introduction.pdf,25,125,122,5,0.701,image,figure
+00 DBS Introduction.pdf,29,145,86,1,0.521,image,figure
+00 DBS Introduction.pdf,37,105,100,7,0.154,image,figure
+00 DBS Introduction.pdf,60,104,45,4,0.674,image,figure
+01 DBS Basics.pdf,5,141,88,1,0.191,image,figure
+01 DBS Basics.pdf,6,88,85,2,0.663,image,figure
+01 DBS Basics.pdf,11,109,105,1,0.047,image,text
+01 DBS Basics.pdf,16,112,108,1,0.497,image,figure
+01 DBS Basics.pdf,21,138,134,1,0.107,image,figure
+01 DBS Basics.pdf,37,138,134,1,0.573,image,figure
+02 DBS Relational Design.pdf,60,141,137,1,0.527,image,figure
+02 DBS Relational Design.pdf,66,96,93,2,0.665,image,figure
+02 DBS Relational Design.pdf,67,96,93,2,0.665,,figure
+02 DBS Relational Design.pdf,68,96,93,3,1.0,image,figure
+03 DBS Normalization.pdf,65,145,141,4,0.606,image,figure
+05 DBS SQL.pdf,93,140,136,2,0.46,image,figure
+05 DBS SQL.pdf,106,140,74,2,0.137,image,figure
+05 DBS SQL.pdf,118,72,68,1,0.328,image,figure
+05__SR_Speicherverwaltung_v02_06.05.2026.pdf,40,146,80,1,0.328,image,figure
+05__SR_Speicherverwaltung_v02_06.05.2026.pdf,48,97,32,1,0.449,image,figure
+06__SR_Dateiverwaltung_v02_13.05.2026.pdf,14,119,53,1,0.462,image,figure
+07 DBS Transactions.pdf,17,95,92,1,0.478,image,figure
+07 DBS Transactions.pdf,46,103,100,1,0.529,image,figure
+07 DBS Transactions.pdf,78,105,100,4,0.176,image,figure
+08 DBS Query Processing.pdf,57,126,123,1,0.474,image,figure
+08__SR_Virtualisierung_v04_21.05.2026.pdf,42,95,39,1,0.551,image,figure
+09 DBS Index Structures.pdf,34,103,102,2,0.057,image,figure
+09 DBS Index Structures.pdf,35,97,96,3,0.516,image,figure
+09 DBS Index Structures.pdf,59,111,71,1,0.112,image,figure
+09 DBS Index Structures.pdf,60,114,84,1,0.112,image,figure
+09 DBS Index Structures.pdf,61,114,84,1,0.112,image,figure
+09 DBS Index Structures.pdf,63,92,63,2,0.114,image,figure
+09 DBS Index Structures.pdf,64,92,69,1,0.11,image,figure
+09 DBS Index Structures.pdf,68,112,32,1,0.131,image,figure
+09 DBS Index Structures.pdf,69,110,32,1,0.131,image,figure
+09 DBS Index Structures.pdf,70,110,32,1,0.13,image,figure
+09 DBS Index Structures.pdf,71,111,33,1,0.131,image,figure
+09 DBS Index Structures.pdf,72,108,33,1,0.13,image,figure
+09 DBS Index Structures.pdf,74,108,33,1,0.131,image,figure
+09 DBS Index Structures.pdf,75,108,33,1,0.131,image,figure
+09 DBS Index Structures.pdf,76,106,33,1,0.131,image,figure
+09 DBS Index Structures.pdf,77,106,33,1,0.13,image,figure
+09 DBS Index Structures.pdf,78,106,33,1,0.13,,figure
+09__SR_Kommunikation_v01_26.05.2026.pdf,10,106,40,5,0.545,image,figure
+09__SR_Kommunikation_v01_26.05.2026.pdf,45,76,49,1,0.368,image,figure
+10__SR_Datentransfer_v02_01.06.2026.pdf,21,137,46,1,0.305,image,figure
+10__SR_Datentransfer_v02_01.06.2026.pdf,69,90,25,1,0.507,image,figure
+14__SR_Internet_v02_16.06.2026.pdf,40,108,45,1,0.407,image,figure

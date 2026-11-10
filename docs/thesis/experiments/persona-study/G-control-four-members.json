@@ -1,0 +1,42 @@
+{
+ "spaceId": "space-G-control-four-members",
+ "spaceName": "Persona study G-control-four-members",
+ "members": 4,
+ "reach": "few",
+ "floor": 5,
+ "figures": {
+  "reading": {
+   "value": null,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  "landing": {
+   "value": null,
+   "history": []
+  },
+  "cleared": {
+   "value": null,
+   "history": []
+  }
+ },
+ "lessons": [
+  {
+   "id": "l-persona",
+   "title": "Normalization",
+   "order": 1,
+   "pages": 30,
+   "light": "few"
+  }
+ ],
+ "insights": [],
+ "questions": [],
+ "themes": []
+}

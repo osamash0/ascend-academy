@@ -1,0 +1,123 @@
+{
+ "spaceId": "space-I-everyone-this-week",
+ "spaceName": "Persona study I-everyone-this-week",
+ "members": 27,
+ "reach": "enough",
+ "floor": 5,
+ "figures": {
+  "reading": {
+   "value": 27,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    27
+   ]
+  },
+  "landing": {
+   "value": 63,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    63
+   ]
+  },
+  "cleared": {
+   "value": 79,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    79
+   ]
+  }
+ },
+ "lessons": [
+  {
+   "id": "l-persona",
+   "title": "Normalization",
+   "order": 1,
+   "pages": 30,
+   "light": "act",
+   "help": [
+    0.0,
+    0.0,
+    0.37,
+    0.0,
+    0.22,
+    0.37,
+    0.0,
+    0.44,
+    0.81,
+    0.81,
+    0.55,
+    1.0,
+    0.0,
+    0.0,
+    0.73,
+    0.0,
+    0.0,
+    0.45,
+    0.0,
+    0.27,
+    0.45,
+    0.0,
+    0.0,
+    0.45,
+    0.09,
+    0.0,
+    0.45,
+    0.0,
+    0.0,
+    0.45
+   ]
+  }
+ ],
+ "insights": [
+  {
+   "id": "l-persona:confusion_hotspot:l-persona:10",
+   "kind": "confusion_hotspot",
+   "attention": "act",
+   "severity": 0.8081,
+   "lessonId": "l-persona",
+   "page": 10,
+   "metrics": {
+    "askers": 6,
+    "foggy": 27
+   },
+   "themes": false
+  },
+  {
+   "id": "l-persona:calibration_gap:l-persona:10",
+   "kind": "calibration_gap",
+   "attention": "watch",
+   "severity": 0.3471,
+   "lessonId": "l-persona",
+   "page": 10,
+   "metrics": {
+    "pct": 46
+   },
+   "grid": {
+    "clickedCleared": 6,
+    "clickedMissed": 5,
+    "foggyCleared": null,
+    "foggyMissed": 8
+   }
+  }
+ ],
+ "questions": [],
+ "themes": []
+}

@@ -1,0 +1,27 @@
+{
+ "arm": "D-four-askers",
+ "members": 10,
+ "reach": "enough",
+ "figures": {
+  "reading": null,
+  "landing": null,
+  "cleared": null
+ },
+ "figure_weeks_with_value": {
+  "reading": 0,
+  "landing": 0,
+  "cleared": 0
+ },
+ "lights": [
+  "calm"
+ ],
+ "kinds": [],
+ "findings": [],
+ "themes": [],
+ "model_calls": 0,
+ "checks": {
+  "themes": "ok"
+ },
+ "why": "four askers: no themes, whatever else is found",
+ "events": 440
+}

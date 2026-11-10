@@ -1,0 +1,39 @@
+{
+ "arm": "B-strugglers-under-floor",
+ "members": 13,
+ "reach": "enough",
+ "figures": {
+  "reading": null,
+  "landing": null,
+  "cleared": null
+ },
+ "figure_weeks_with_value": {
+  "reading": 0,
+  "landing": 0,
+  "cleared": 0
+ },
+ "lights": [
+  "act"
+ ],
+ "kinds": [
+  "confusion_hotspot"
+ ],
+ "findings": [
+  {
+   "kind": "confusion_hotspot",
+   "pages": [
+    10
+   ],
+   "band": null,
+   "severity": 0.7416
+  }
+ ],
+ "themes": [],
+ "model_calls": 0,
+ "checks": {
+  "confusion_hotspot": "MISS confusion_hotspot found, expected absent",
+  "quiet_about_B": "MISS expected quiet_about_B, not found"
+ },
+ "why": "three struggle: nothing may be said about them, the Lesson reads calm",
+ "events": 558
+}

@@ -1,0 +1,214 @@
+{
+ "spaceId": "space-E-skimmers",
+ "spaceName": "Persona study E-skimmers",
+ "members": 12,
+ "reach": "enough",
+ "floor": 5,
+ "figures": {
+  "reading": {
+   "value": null,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  "landing": {
+   "value": null,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  "cleared": {
+   "value": null,
+   "history": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  }
+ },
+ "lessons": [
+  {
+   "id": "l-persona",
+   "title": "Normalization",
+   "order": 1,
+   "pages": 30,
+   "light": "act",
+   "help": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ]
+  }
+ ],
+ "insights": [
+  {
+   "id": "l-persona:leaky_bucket:l-persona:10",
+   "kind": "leaky_bucket",
+   "attention": "act",
+   "severity": 1.0,
+   "lessonId": "l-persona",
+   "page": 10,
+   "metrics": {
+    "pct": 67
+   }
+  },
+  {
+   "id": "l-persona:skipped_slide:l-persona:2",
+   "kind": "skipped_slide",
+   "attention": "watch",
+   "severity": 0.42,
+   "lessonId": "l-persona",
+   "page": 2,
+   "metrics": {
+    "seconds": 2
+   }
+  },
+  {
+   "id": "l-persona:skipped_slide:l-persona:1",
+   "kind": "skipped_slide",
+   "attention": "watch",
+   "severity": 0.35,
+   "lessonId": "l-persona",
+   "page": 1,
+   "metrics": {
+    "seconds": 2
+   }
+  },
+  {
+   "id": "l-persona:skipped_slide:l-persona:3",
+   "kind": "skipped_slide",
+   "attention": "watch",
+   "severity": 0.35,
+   "lessonId": "l-persona",
+   "page": 3,
+   "metrics": {
+    "seconds": 2
+   }
+  },
+  {
+   "id": "l-persona:skipped_slide:l-persona:5",
+   "kind": "skipped_slide",
+   "attention": "watch",
+   "severity": 0.35,
+   "lessonId": "l-persona",
+   "page": 5,
+   "metrics": {
+    "seconds": 2
+   }
+  },
+  {
+   "id": "l-persona:skipped_slide:l-persona:8",
+   "kind": "skipped_slide",
+   "attention": "calm",
+   "severity": 0.28,
+   "lessonId": "l-persona",
+   "page": 8,
+   "metrics": {
+    "seconds": 3
+   }
+  },
+  {
+   "id": "l-persona:skipped_slide:l-persona:9",
+   "kind": "skipped_slide",
+   "attention": "calm",
+   "severity": 0.28,
+   "lessonId": "l-persona",
+   "page": 9,
+   "metrics": {
+    "seconds": 3
+   }
+  },
+  {
+   "id": "l-persona:skipped_slide:l-persona:6",
+   "kind": "skipped_slide",
+   "attention": "calm",
+   "severity": 0.21,
+   "lessonId": "l-persona",
+   "page": 6,
+   "metrics": {
+    "seconds": 4
+   }
+  },
+  {
+   "id": "l-persona:skipped_slide:l-persona:7",
+   "kind": "skipped_slide",
+   "attention": "calm",
+   "severity": 0.21,
+   "lessonId": "l-persona",
+   "page": 7,
+   "metrics": {
+    "seconds": 4
+   }
+  },
+  {
+   "id": "l-persona:skipped_slide:l-persona:10",
+   "kind": "skipped_slide",
+   "attention": "calm",
+   "severity": 0.21,
+   "lessonId": "l-persona",
+   "page": 10,
+   "metrics": {
+    "seconds": 4
+   }
+  },
+  {
+   "id": "l-persona:skipped_slide:l-persona:4",
+   "kind": "skipped_slide",
+   "attention": "calm",
+   "severity": 0.14,
+   "lessonId": "l-persona",
+   "page": 4,
+   "metrics": {
+    "seconds": 4
+   }
+  }
+ ],
+ "questions": [],
+ "themes": []
+}

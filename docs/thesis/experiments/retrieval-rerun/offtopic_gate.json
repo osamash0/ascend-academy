@@ -1,0 +1,621 @@
+{
+ "provenance": {
+  "code_sha": "dfc20df6",
+  "run_at_utc": "2026-11-10T14:28:01Z",
+  "regime": "course_hybrid (retrieve_relevant_slides_course_scoped)",
+  "k": 6,
+  "threshold": 0.65,
+  "embedding_calls": 57,
+  "generation_calls": 0
+ },
+ "summary": {
+  "answerable": {
+   "n": 27,
+   "errors": 0,
+   "refused": 0,
+   "answered": 27,
+   "top_similarity_min": 0.6585,
+   "top_similarity_median": 0.7505,
+   "top_similarity_max": 0.8203
+  },
+  "A": {
+   "n": 10,
+   "errors": 0,
+   "refused": 10,
+   "answered": 0,
+   "top_similarity_min": 0.428,
+   "top_similarity_median": 0.4452,
+   "top_similarity_max": 0.489
+  },
+  "B": {
+   "n": 10,
+   "errors": 0,
+   "refused": 10,
+   "answered": 0,
+   "top_similarity_min": 0.4867,
+   "top_similarity_median": 0.5487,
+   "top_similarity_max": 0.5963
+  },
+  "C": {
+   "n": 10,
+   "errors": 0,
+   "refused": 10,
+   "answered": 0,
+   "top_similarity_min": 0.5529,
+   "top_similarity_median": 0.6069,
+   "top_similarity_max": 0.6336
+  }
+ },
+ "rows": [
+  {
+   "id": "58d20720-s8",
+   "group": "answerable",
+   "question": "When a SQL query is translated into the algebra, what does each operator consume and return?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7969,
+   "top_page": "58d20720#8"
+  },
+  {
+   "id": "58d20720-s16",
+   "group": "answerable",
+   "question": "Which operator keeps a relation's schema unchanged but returns only some of its tuples?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7421,
+   "top_page": "58d20720#16"
+  },
+  {
+   "id": "58d20720-s24",
+   "group": "answerable",
+   "question": "Can you show a worked example of subtracting one relation from another?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.712,
+   "top_page": "58d20720#24"
+  },
+  {
+   "id": "58d20720-s32",
+   "group": "answerable",
+   "question": "Which join variant pairs tuples using an arbitrary boolean predicate instead of equality?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7098,
+   "top_page": "58d20720#32"
+  },
+  {
+   "id": "58d20720-s40",
+   "group": "answerable",
+   "question": "Which operator returns exactly those tuples of the left relation that find no match on the right?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7673,
+   "top_page": "58d20720#40"
+  },
+  {
+   "id": "58d20720-s48",
+   "group": "answerable",
+   "question": "Which aggregate function yields the alphabetically first film title?",
+   "answered": true,
+   "hits": 1,
+   "hits_above_threshold": 1,
+   "top_similarity": 0.7001,
+   "top_page": "58d20720#48"
+  },
+  {
+   "id": "58d20720-s56",
+   "group": "answerable",
+   "question": "Which union variant applies when the two relations do not share a schema?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7628,
+   "top_page": "58d20720#56"
+  },
+  {
+   "id": "58d20720-s64",
+   "group": "answerable",
+   "question": "How is a query combining a length condition and a studio condition written as one algebra expression?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7623,
+   "top_page": "58d20720#64"
+  },
+  {
+   "id": "58d20720-s72",
+   "group": "answerable",
+   "question": "Why is a union cheaper to compute when duplicate tuples are permitted?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7797,
+   "top_page": "58d20720#72"
+  },
+  {
+   "id": "4e69f0bb-s6",
+   "group": "answerable",
+   "question": "How is the basic SELECT-FROM-WHERE form expressed in the grammar used for parsing?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.8203,
+   "top_page": "4e69f0bb#6"
+  },
+  {
+   "id": "4e69f0bb-s12",
+   "group": "answerable",
+   "question": "In the direct translation of a query, which algebra operator does each SQL clause become?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7687,
+   "top_page": "58d20720#8"
+  },
+  {
+   "id": "4e69f0bb-s18",
+   "group": "answerable",
+   "question": "What has to stay unchanged when a query plan is rewritten for efficiency?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7723,
+   "top_page": "4e69f0bb#1"
+  },
+  {
+   "id": "4e69f0bb-s24",
+   "group": "answerable",
+   "question": "Which selection rewriting rule stops being valid once duplicates are allowed?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7505,
+   "top_page": "4e69f0bb#24"
+  },
+  {
+   "id": "4e69f0bb-s30",
+   "group": "answerable",
+   "question": "Which rewriting turns a cross product followed by a filter into a single operator?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7432,
+   "top_page": "4e69f0bb#30"
+  },
+  {
+   "id": "4e69f0bb-s36",
+   "group": "answerable",
+   "question": "How can you inspect the plan a database chose for a query?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7152,
+   "top_page": "4e69f0bb#37"
+  },
+  {
+   "id": "4e69f0bb-s42",
+   "group": "answerable",
+   "question": "What does proving NP-hardness establish about a problem?",
+   "answered": true,
+   "hits": 5,
+   "hits_above_threshold": 5,
+   "top_similarity": 0.7209,
+   "top_page": "4e69f0bb#44"
+  },
+  {
+   "id": "4e69f0bb-s48",
+   "group": "answerable",
+   "question": "In what units can the optimiser express its cost estimates?",
+   "answered": true,
+   "hits": 1,
+   "hits_above_threshold": 1,
+   "top_similarity": 0.6585,
+   "top_page": "4e69f0bb#48"
+  },
+  {
+   "id": "4e69f0bb-s54",
+   "group": "answerable",
+   "question": "Which quantity estimates how many tuples survive an operator relative to its input?",
+   "answered": true,
+   "hits": 4,
+   "hits_above_threshold": 4,
+   "top_similarity": 0.7284,
+   "top_page": "4e69f0bb#54"
+  },
+  {
+   "id": "54357028-s4",
+   "group": "answerable",
+   "question": "What makes a set of attributes usable as a key?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7601,
+   "top_page": "54357028#4"
+  },
+  {
+   "id": "54357028-s8",
+   "group": "answerable",
+   "question": "Which statements can violate a key constraint, and which cannot?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7581,
+   "top_page": "54357028#8"
+  },
+  {
+   "id": "54357028-s12",
+   "group": "answerable",
+   "question": "Can you show a table definition declaring both a composite primary key and a foreign key?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.7667,
+   "top_page": "54357028#12"
+  },
+  {
+   "id": "54357028-s16",
+   "group": "answerable",
+   "question": "Besides rejecting or cascading, what third response to a foreign-key violation is available?",
+   "answered": true,
+   "hits": 6,
+   "hits_above_threshold": 6,
+   "top_similarity": 0.8011,
+   "top_page": "54357028#13"
+  },
+  {
+   "id": "54357028-s20",
+   "group": "answerable",
+   "question": "How can constraint checking be postponed until the end of a transaction, and what is the default?",
+   "answered": true,
+   "hits": 4,
+   "hits_above_threshold": 4,
+   "top_similarity": 0.7772,
+   "top_page": "54357028#20"
+  },
+  {
+   "id": "54357028-s24",
+   "group": "answerable",
+   "question": "Which clause expresses an arbitrary condition on a single column's values?",
+   "answered": true,
+   "hits": 1,
+   "hits_above_threshold": 1,
+   "top_similarity": 0.6619,
+   "top_page": "54357028#24"
+  },
+  {
+   "id": "54357028-s28",
+   "group": "answerable",
+   "question": "Why should a constraint be given an explicit name when it is created?",
+   "answered": true,
+   "hits": 1,
+   "hits_above_threshold": 1,
+   "top_similarity": 0.669,
+   "top_page": "54357028#28"
+  },
+  {
+   "id": "54357028-s32",
+   "group": "answerable",
+   "question": "What is the trade-off between a database-wide boolean condition and an event-driven action?",
+   "answered": true,
+   "hits": 4,
+   "hits_above_threshold": 4,
+   "top_similarity": 0.7048,
+   "top_page": "54357028#32"
+  },
+  {
+   "id": "54357028-s36",
+   "group": "answerable",
+   "question": "How do attribute-based and tuple-based checks differ in when they are evaluated?",
+   "answered": true,
+   "hits": 4,
+   "hits_above_threshold": 4,
+   "top_similarity": 0.687,
+   "top_page": "54357028#36"
+  },
+  {
+   "id": "off-A01",
+   "group": "A",
+   "question": "What is the capital of Australia?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.4354,
+   "top_page": "58d20720#48"
+  },
+  {
+   "id": "off-A02",
+   "group": "A",
+   "question": "How long should I boil an egg?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.4486,
+   "top_page": "54357028#36"
+  },
+  {
+   "id": "off-A03",
+   "group": "A",
+   "question": "Who painted the Mona Lisa?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.428,
+   "top_page": "4e69f0bb#7"
+  },
+  {
+   "id": "off-A04",
+   "group": "A",
+   "question": "What causes the seasons on Earth?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.4432,
+   "top_page": "4e69f0bb#26"
+  },
+  {
+   "id": "off-A05",
+   "group": "A",
+   "question": "How many players are on a football team?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.4728,
+   "top_page": "58d20720#0"
+  },
+  {
+   "id": "off-A06",
+   "group": "A",
+   "question": "What is the boiling point of water at sea level?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.4499,
+   "top_page": "4e69f0bb#59"
+  },
+  {
+   "id": "off-A07",
+   "group": "A",
+   "question": "Who wrote Faust?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.4374,
+   "top_page": "4e69f0bb#26"
+  },
+  {
+   "id": "off-A08",
+   "group": "A",
+   "question": "How does photosynthesis work?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.489,
+   "top_page": "4e69f0bb#3"
+  },
+  {
+   "id": "off-A09",
+   "group": "A",
+   "question": "What is the tallest mountain in Europe?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.4319,
+   "top_page": "58d20720#83"
+  },
+  {
+   "id": "off-A10",
+   "group": "A",
+   "question": "When did the Berlin Wall fall?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.4472,
+   "top_page": "54357028#0"
+  },
+  {
+   "id": "off-B01",
+   "group": "B",
+   "question": "How does the TCP three-way handshake work?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.497,
+   "top_page": "4e69f0bb#9"
+  },
+  {
+   "id": "off-B02",
+   "group": "B",
+   "question": "What is backpropagation in a neural network?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.4867,
+   "top_page": "4e69f0bb#12"
+  },
+  {
+   "id": "off-B03",
+   "group": "B",
+   "question": "What is the worst-case time complexity of quicksort?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.5647,
+   "top_page": "4e69f0bb#41"
+  },
+  {
+   "id": "off-B04",
+   "group": "B",
+   "question": "How does public-key encryption work?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.5075,
+   "top_page": "54357028#5"
+  },
+  {
+   "id": "off-B05",
+   "group": "B",
+   "question": "What is the difference between a process and a thread?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.51,
+   "top_page": "4e69f0bb#4"
+  },
+  {
+   "id": "off-B06",
+   "group": "B",
+   "question": "What is a context-free grammar?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.5963,
+   "top_page": "4e69f0bb#6"
+  },
+  {
+   "id": "off-B07",
+   "group": "B",
+   "question": "How does virtual memory use page tables?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.5672,
+   "top_page": "4e69f0bb#64"
+  },
+  {
+   "id": "off-B08",
+   "group": "B",
+   "question": "What does the halting problem say?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.5878,
+   "top_page": "4e69f0bb#44"
+  },
+  {
+   "id": "off-B09",
+   "group": "B",
+   "question": "How does Dijkstra's algorithm find a shortest path?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.535,
+   "top_page": "4e69f0bb#45"
+  },
+  {
+   "id": "off-B10",
+   "group": "B",
+   "question": "What is the difference between a compiler and an interpreter?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.5623,
+   "top_page": "4e69f0bb#1"
+  },
+  {
+   "id": "off-C01",
+   "group": "C",
+   "question": "What does atomicity mean in the ACID properties?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.6125,
+   "top_page": "54357028#19"
+  },
+  {
+   "id": "off-C02",
+   "group": "C",
+   "question": "When is a schedule conflict-serialisable?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.6113,
+   "top_page": "54357028#19"
+  },
+  {
+   "id": "off-C03",
+   "group": "C",
+   "question": "How does two-phase locking work?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.6255,
+   "top_page": "54357028#19"
+  },
+  {
+   "id": "off-C04",
+   "group": "C",
+   "question": "How can a database system detect a deadlock?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.6205,
+   "top_page": "54357028#19"
+  },
+  {
+   "id": "off-C05",
+   "group": "C",
+   "question": "How is a key inserted into a B+-tree?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.6336,
+   "top_page": "54357028#8"
+  },
+  {
+   "id": "off-C06",
+   "group": "C",
+   "question": "What is Boyce-Codd normal form?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.6026,
+   "top_page": "54357028#4"
+  },
+  {
+   "id": "off-C07",
+   "group": "C",
+   "question": "What does the CAP theorem state?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.5529,
+   "top_page": "54357028#19"
+  },
+  {
+   "id": "off-C08",
+   "group": "C",
+   "question": "How does write-ahead logging support recovery after a crash?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.5749,
+   "top_page": "4e69f0bb#34"
+  },
+  {
+   "id": "off-C09",
+   "group": "C",
+   "question": "What is a phantom read and which isolation level prevents it?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.5733,
+   "top_page": "54357028#19"
+  },
+  {
+   "id": "off-C10",
+   "group": "C",
+   "question": "What is a star schema in a data warehouse?",
+   "answered": false,
+   "hits": 0,
+   "hits_above_threshold": 0,
+   "top_similarity": 0.5558,
+   "top_page": "4e69f0bb#7"
+  }
+ ]
+}
