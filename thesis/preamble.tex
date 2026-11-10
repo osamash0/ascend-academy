@@ -67,6 +67,10 @@
   giveninits=true,
 ]{biblatex}
 \addbibresource{references.bib}
+% Let long URLs in the bibliography break after letters and digits too.
+\setcounter{biburllcpenalty}{7000}
+\setcounter{biburlucpenalty}{8000}
+\setcounter{biburlnumpenalty}{7000}
 
 % --- Cross-references (load hyperref late, cleveref last) ---------------------
 \usepackage[
