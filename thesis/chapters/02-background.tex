@@ -47,8 +47,7 @@ slide decks often need several slides and their visual
 content~\cite{tanaka2023slidevqa}. Dinh et al.\ compare ways to give a
 language model access to university course material and find that passing
 retrieved slides as images works better than passing their extracted
-text~\cite{dinh2025slides}. \Cref{ch:content} arrives at the same result
-from a different side: in a blind comparison, the author, as the only judge,
+text~\cite{dinh2025slides}. \Cref{ch:content} reaches a related result by another route: in a blind comparison, the author, as the only judge,
 preferred the text
 that a vision model wrote from the page image over every text extractor.
 None of the works above compares extractors on lecture slides by what a
@@ -87,7 +86,8 @@ Retrieval-augmented generation answers a question in two steps. It first
 retrieves passages from a corpus and then lets the model write an answer from
 them~\cite{lewis2020rag,gao2023ragsurvey}. Retrieval commonly compares dense
 vectors of question and passage~\cite{karpukhin2020dpr}, often combined with
-keyword search, and an approximate index such as HNSW keeps the comparison
+keyword search, and an approximate index such as HNSW (hierarchical navigable small-world
+graphs) keeps the comparison
 fast~\cite{malkov2020hnsw}. We store the vectors in PostgreSQL with the
 pgvector extension~\cite{pgvector}.
 
@@ -108,10 +108,12 @@ to stay with the page. \Cref{ch:trust} describes each of them and how the
 system moved between them.
 
 \thesisfigure{f3-grounded-vs-ungrounded}
-  {Four groundedness regimes over the same corpus. The course tutor refuses
-   before any model call, Luna's moves are checked against the page, the
-   reader relies on its prompt alone, and the classic lecture tutor, which
-   has no gate, is no longer on the student path.}
+  {Four groundedness regimes over the same material. The course tutor behind
+   the ask bar of a Space refuses before any model call; Luna's page
+   references and highlighted phrases are checked against the page; Explain
+   and Ask in the reading view rely on the prompt alone; and the tutor of the
+   older interface, which has no refusal gate, is no longer reachable by
+   students. \Cref{ch:trust} introduces each of them.}
   {fig:groundedness}
 
 \section{What the Learning Sciences Ask For}
@@ -136,8 +138,8 @@ al.\ place automatically generated questions into textbooks to obtain such
 practice at scale~\cite{vancampenhout2021transforming}, and reviews of
 automatic question generation describe how hard it is to judge the quality
 of the result~\cite{kurdi2020aqg}. Third, the same content in more than one
-form can support understanding when the forms complement each other. Our
-reader, which shows a page as the original and as a text written from it, is
+form can support understanding when the forms complement each other. Our reading view, which shows a page as the original and as texts written
+from it, is
 consistent with this line of
 work~\cite{ainsworth1999functions,ainsworth2006deft}; we do not claim that
 it was derived from it.
@@ -165,9 +167,9 @@ Learning analytics collects traces of what learners do and returns them to
 someone who can act on them.
 \TODO{Author: add one citation for the learning analytics cycle (the outline
 names Clow 2012; it was not verified and is not in references.bib).}
-The person who can act on a confusing page is its author. The traces are
-personal data, however, and in a course of twenty the author knows every
-reader. The General Data Protection Regulation asks for data protection by
+The person who can act on a confusing page is the lecturer who made it. The
+traces are personal data, however, and in a course of twenty the lecturer
+knows every reader. The General Data Protection Regulation asks for data protection by
 design and by default~\cite{gdpr2016}. A classic technical measure is a
 minimum group size: under $k$-anonymity a released record must be
 indistinguishable from at least $k-1$ others~\cite{sweeney2002kanonymity}.
@@ -238,7 +240,7 @@ did not run either system; the table compares what the papers describe.
       Yes, of the content itself &
       Language, style, and difficulty chosen by the user &
       None of the content; only the schedule of practice \\
-    Feedback to the author &
+    Feedback to the owner &
       None described &
       None described &
       Patterns per page from five readers on, no names \\
@@ -253,12 +255,12 @@ did not run either system; the table compares what the papers describe.
 
 The comparison shows where this thesis stands. Both related systems aim at
 the individual learner and personalise the content. As far as
-the publications describe, neither has a path back to the author and neither
-rejects a generated item automatically. Learnstation makes the opposite trade: every
-reader gets the same content, the author gets a view of how it is read, and
-generated questions pass a check before a reader sees them. What Learn Your
+the publications describe, neither has a path back to the owner of the material and neither rejects a
+generated item automatically. Learnstation makes the opposite trade: every
+reader gets the same content, the owner gets a view of how it is read, and
+generated quiz questions are checked before a reader sees them, unless the
+check itself is unavailable. What Learn Your
 Way has and this thesis lacks is evidence from real learners, and
 \cref{ch:conclusion} names its trial as the model for the study that should
 follow. The comparison with commercial tools in the January proposal, which
-contrasted the project with quiz and presentation products, was the authors'
-own reading of public product pages and is not repeated here.
+contrasted the project with quiz and presentation products, was the two developers' own reading of public product pages and is not repeated here.

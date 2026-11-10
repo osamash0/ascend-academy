@@ -12,9 +12,10 @@ This appendix holds eight diagrams that the body refers to.
 \cref{fig:tutor-sequence,fig:citation-gap} to \cref{sec:tutor}.
 
 \thesisfigure{f4-use-case}
-  {Actors and goals as implemented. Student goals are the v4 app; creating
-   and publishing a Space is gated on ownership, not role; professor and
-   admin goals remain in the classic console. The shaded goal is built but
+  {Actors and goals as implemented. Student goals are served by the current
+   interface; whether a user may create and publish a Space depends on
+   ownership, not on the account type; professor and admin goals remain in
+   the older interface. The shaded goal is built but
    switched off in production.}
   {fig:use-case}
 
@@ -24,10 +25,11 @@ This appendix holds eight diagrams that the body refers to.
   {fig:domain-model}
 
 \thesisfigurepage{f9-er-core}
-  {Core physical schema, part 1: identity, Spaces, content and parsing --- 19
+  {Core physical schema, part 1: identity, Spaces, content, and parsing --- 19
    of the 36 core tables, out of 79 tables defined in the migrations
    (distinct \code{CREATE TABLE} names, one of them the default partition of
-   the event table). The dashed line has no database-enforced foreign key.}
+   the event table). The dashed line marks a reference without a database-enforced foreign
+   key.}
   {fig:er}
 
 \thesisfigurepage{f9b-er-learning}
@@ -41,13 +43,12 @@ This appendix holds eight diagrams that the body refers to.
   {Privilege-escalation hardening in two phases: five steps over six
    migrations from January to June 2026, then four steps over five migrations
    from October to November 2026. Steps 1 and 3 each opened a hole that a
-   later step closed, and the arc has no final state.}
+   later step closed, and no step marks the hardening as complete.}
   {fig:security-arc}
 
 \thesisfigure{f14-trust-boundaries}
   {Trust boundaries. A browser holding the anonymous key meets three
-   database-side boundaries --- table row-level security, function execute
-   grants and storage policies; most backend routes bypass row-level security
+   database-side boundaries --- table row-level security, function execute grants, and storage policies; most backend routes bypass row-level security
    and check ownership in application code.}
   {fig:trust-boundaries}
 
@@ -57,7 +58,7 @@ This appendix holds eight diagrams that the body refers to.
   {fig:tutor-sequence}
 
 \thesisfigure{f16-citation-gap}
-  {Source attribution. The server's validated citations reach learners through
-   the current interface; the older rooms still discard them. At
+  {Source attribution. The server's validated citations reach learners only through the
+   ask bar of the current interface; the older interface still discards them. At
    \thesisEarlierCommit{}, no screen a student could reach showed a source.}
   {fig:citation-gap}

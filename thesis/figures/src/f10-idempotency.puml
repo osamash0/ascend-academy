@@ -21,7 +21,7 @@
 @startuml f10-idempotency
 !include _style.iuml
 
-title Layered idempotency: eight live mechanisms in four layers
+title Layered idempotency: eight active mechanisms in four layers
 
 skinparam rectangle {
   BackgroundColor #FFFFFF
@@ -42,27 +42,27 @@ hide stereotype
 rectangle "Re-submission of identical PDF bytes" as REQ #DCDCDC
 
 package "Layer 1 -- Request, before any job" {
-  rectangle "**L0  Parse-cache replay**\npdf_parse_cache by pdf_hash,\nclassic route only; nothing\nwritten today passes: no hit" as L0 <<legacy>>
-  rectangle "**L1  Content addressing**\nsha256(bytes) is the name:\npdf-uploads/<sha256>.pdf,\nupsert, one object per input" as L1 <<content>>
-  rectangle "**L2  Owner dedupe**\nv4: owner's Lesson returned,\nno quota, no job; batch:\nknown bytes skipped" as L2
+  rectangle "**M0  Parse-cache replay**\npdf_parse_cache by pdf_hash,\nclassic route only; nothing\nwritten today passes: no hit" as L0 <<legacy>>
+  rectangle "**M1  Content addressing**\nsha256(bytes) is the name:\npdf-uploads/<sha256>.pdf,\nupsert, one object per input" as L1 <<content>>
+  rectangle "**M2  Uploader dedupe**\nv4: uploader's Lesson returned,\nno quota, no job; batch:\nknown bytes skipped" as L2
 }
 
 package "Layer 2 -- Database" {
-  rectangle "**L3  One run per owner**\nparse_runs UNIQUE (pdf_hash, pipeline_version,\nuser_id); a COALESCE upsert never clobbers" as L3
-  rectangle "**L4  Completed-run replay**\ncompleted ==> replay from DB:\nno re-parse, no second lecture" as L4
+  rectangle "**M3  One run per uploader**\nparse_runs UNIQUE (pdf_hash, pipeline_version,\nuser_id); a COALESCE upsert never clobbers" as L3
+  rectangle "**M4  Completed-run replay**\ncompleted ==> replay from DB:\nno re-parse, no second lecture" as L4
 }
 
 package "Layer 3 -- Redis" {
-  rectangle "**L5  In-flight lock**\nSET joblock:parse:<sha256> NX EX 1200\nTTL 1200 s > job_timeout 900 s" as L5 <<content>>
+  rectangle "**M5  In-flight lock**\nSET joblock:parse:<sha256> NX EX 1200\nTTL 1200 s > job_timeout 900 s" as L5 <<content>>
 }
 
 package "Layer 4 -- Outputs of a re-parse" {
-  rectangle "**L6  Lecture reuse**\nre-parse clears content,\nkeeps lecture_id: links to\nthe lecture survive" as L6
-  rectangle "**L7  Upserted outputs**\nreader copy, poster (upsert),\nparse receipt ON CONFLICT\n(run_id)" as L7
-  rectangle "**L8  Embedding dedupe**\nsha256(embedding text)\nchecked before any paid\nAPI call" as L8 <<content>>
+  rectangle "**M6  Lecture reuse**\nre-parse clears content,\nkeeps lecture_id: links to\nthe lecture survive" as L6
+  rectangle "**M7  Upserted outputs**\nreader copy, poster (upsert),\nparse receipt ON CONFLICT\n(run_id)" as L7
+  rectangle "**M8  Embedding dedupe**\nsha256(embedding text)\nchecked before any paid\nAPI call" as L8 <<content>>
 }
 
-rectangle "At most one parse per owner and pipeline version (unless forced)" as OK #BFBFBF
+rectangle "At most one parse per uploader and pipeline version (unless forced)" as OK #BFBFBF
 
 L0 -[hidden]right- L1
 L1 -[hidden]right- L2
@@ -79,12 +79,12 @@ L7 -down-> OK
 note right of L5
   Best effort: on a Redis error the job
   runs unlocked, so duplicates both parse.
-  Hash-keyed: a second owner mid-parse
+  Hash-keyed: a second uploader mid-parse
   stays 'queued' until the 6 h sweep.
 end note
 
 legend bottom
-  Thick border: keyed on the bytes alone, so shared by every owner. Thin: per owner, run or lecture.
+  Thick border: keyed on the bytes alone, so shared by every uploader. Thin: per uploader, run, or lecture.
   Dashed and grey: L0 (also keyed on the bytes) is still read on the classic route but cannot hit.
 endlegend
 

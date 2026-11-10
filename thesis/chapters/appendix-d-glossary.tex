@@ -1,0 +1,113 @@
+% ---------------------------------------------------------------------------
+% Appendix D, terms. Added 2026-11-10 from review pass (e), part C: every term
+% of the system and of the evaluations that the chapters use, with the
+% section that introduces it. Definitions follow the conventions of
+% sec:stakeholders. The author must read, revise and own every sentence
+% before submission.
+% ---------------------------------------------------------------------------
+\chapter{Terms}
+\label{app:glossary}
+
+The terms of the system and of the evaluations, in alphabetical order, with
+the section that introduces each.
+
+\begin{description}
+  \item[answer check] A second model answers a generated quiz question from
+    its cited page without seeing the key; a different answer disputes the
+    key (\cref{sec:c6-lifecycle}).
+  \item[Ask] The reading view's action that answers a learner's question
+    about the open page (\cref{sec:stakeholders}).
+  \item[ask bar] The question field on a Space's home screen; it answers from
+    all Lessons of the Space through retrieval (\cref{sec:retrieval}).
+  \item[arm] One scripted Space in the study with scripted readers, with a
+    fixed mix of personas (\cref{sec:c5-method}).
+  \item[author, the] The writer of this thesis.
+  \item[Bradley--Terry model] A model of pairwise comparisons in which each
+    method has a strength and its expected score against another is its share
+    of the two strengths (\cref{sec:parser-bench}).
+  \item[checkpoint] A question that a model writes for the pages of one idea
+    while a learner reads; not the deck quiz.
+  \item[comparison] In the benchmark, one batch of duels among a fixed set of
+    methods; there were four (\cref{sec:parser-bench}).
+  \item[corrected lower bound] The lower end of a method's bootstrap
+    interval, Bonferroni-corrected for testing ten methods at once. A method
+    passes H1 if it lies above 1000.
+  \item[current extraction] The production extraction, PyMuPDF's plain-text
+    call; the anchor of the benchmark at 1000 points.
+  \item[deck plan] A deterministic outline of a deck made without a model
+    call: page roles, sections, and boilerplate (\cref{sec:c4-deck-plan}).
+  \item[deployed] Running in production; compare \emph{in the code}.
+  \item[detector] A rule over the events of one Lesson that produces
+    findings (\cref{sec:c5-aggregation}).
+  \item[duel] One blind comparison of two methods' outputs for one page,
+    answered left, right, same, or both unusable.
+  \item[Explain] The reading view's action that has a model explain the open
+    page (\cref{sec:stakeholders}).
+  \item[figure block] A region of a page that PyMuPDF reports as an image or
+    a drawing.
+  \item[figure-carried page] A page with fewer than 150 footer-free
+    characters whose figures cover at least 5\,\% of it; the routing rule
+    sends it to a vision model (\cref{sec:routing}).
+  \item[finding] A detector's statement about one page: its kind, the page,
+    and a severity.
+  \item[floor] The rule that nothing is said about a page that fewer than
+    five readers have viewed (\cref{sec:c5-aggregation}).
+  \item[generating model] The model that wrote a quiz question. The answer
+    check runs on a different one.
+  \item[H1] The benchmark's hypothesis that at least one method is rated
+    above the current extraction, tested on the corrected lower bounds.
+  \item[idea] One thing the material teaches, usually a run of consecutive
+    pages that a model groups.
+  \item[in the code] Reachable at the pin, whether or not deployed.
+  \item[lecturer] The person who wrote the material, as distinct from the
+    owner who uploads it.
+  \item[Lesson] One uploaded document in a Space.
+  \item[Library] A person's own uploads.
+  \item[Luna] The assistant of study sessions.
+  \item[older interface] The first interface of the system, with screens per
+    course, lecture, and professor; still in the code, no longer reached by
+    learners (\cref{sec:vision}).
+  \item[owner] The person who made a Space and uploads its material, and who
+    receives the owner's view.
+  \item[owner's view] The screen that shows an owner how the material of a
+    Space is read (\cref{sec:c5-door}).
+  \item[page] One page of a Lesson's document, a slide or a sheet.
+  \item[parse receipt] The record a parse writes: for each page its route,
+    the prompt and its version, the provider, the model, the tokens, and the
+    cost, and the counts of quiz questions kept, repaired, and dropped.
+  \item[pin, the] Revision \code{\thesisCommit} of 6~November 2026, the code
+    this thesis describes (\cref{sec:scope}).
+  \item[pipeline v1 to v5] The numbered versions of the parsing code
+    (\cref{tab:lineage}); unrelated to the v4 interface.
+  \item[points] A rating on the benchmark's scale: 1000 plus 400 times the
+    decimal logarithm of a method's strength relative to the current
+    extraction, so that 400 points are a ratio of 10:1 in expected score.
+  \item[probe] The 16 hand-written pairs of a correct and a wrong answer key
+    used to measure verifiers (\cref{sec:c6-method}).
+  \item[reach] The word (none, few, or enough) that the owner's view gives
+    instead of a count of readers.
+  \item[reader] A person who reads. The readers of a page are the members
+    other than the owner who viewed it.
+  \item[reading view] The screen in which a Lesson is read, with three views
+    of each page: the original, an explanation, and the plain text.
+  \item[refusal gate] The ask bar's rule that refuses before any model call
+    when no retrieved page reaches a similarity of 0.65
+    (\cref{sec:anti-hallucination}).
+  \item[rehearsal] A short mixed test that a model writes from a Space's
+    pages; computable tasks in it are graded by code
+    (\cref{sec:c6-grading}).
+  \item[routing] The decision, page by page, between text extraction and a
+    vision model (\cref{sec:routing}).
+  \item[Space] A place where a group reads the same material; stored as a
+    course.
+  \item[Space engine] The aggregation that turns a Space's events into the
+    owner's view (\cref{sec:c5-aggregation}).
+  \item[sweep] A job that runs every ten minutes, closes stuck parse runs,
+    and fails runs that have been queued for six hours.
+  \item[uploader] The user whose upload started a parse; a file is parsed at
+    most once per uploader and pipeline version (\cref{sec:idempotency}).
+  \item[verifier] A step that computes, validates, filters, or drops
+    generated content.
+  \item[vision model] A model that reads the rendered image of a page
+    instead of its text.
+\end{description}

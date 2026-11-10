@@ -6,37 +6,40 @@
 
 Lecture material travels as PDF. People can read such a file, but software
 cannot address what is on its pages, so the file cannot answer a question,
-check understanding, or tell its author where readers struggle. This thesis
+check understanding, or tell the lecturer where readers struggle. This thesis
 describes Learnstation, a web application in production that turns an
 uploaded PDF into addressable content while the original page stays the
-reference: a reader opens the file at once, an assistant explains pages,
-asks about them, and runs practice, and the owner of the material sees how it
-is read.
+reference. A reader opens the file at once; an assistant explains pages,
+asks about them, and runs practice; and a view shows the owner of the
+material how it is read.
 
 We answer three questions. First, the transformation: a first pass uses no
 model, and one rule decides which pages need a vision model and sends 87 of
 1{,}593 pages there. In a blind benchmark of eleven extraction methods on
-24~pages, with 283~pairwise votes, transcription by a vision model is rated
-highest (both vision models together cost \$0.21 for the 24~pages). Nine of
-the ten alternatives are rated above the extractor that production runs,
-and five of them pass the corrected test against it, four when pages are
-resampled. Second, reader
-interaction is modelled as one governed log of 17~event types, and detectors
+24~pages, with 283~pairwise votes, transcription by one of two vision models is rated highest (together they
+cost \$0.21 for the 24~pages). Nine of the ten alternatives score above the
+extractor that production runs; five of them stay above it at the lower end
+of a bootstrap interval corrected for testing ten methods at once, and four
+still do when pages rather than votes are resampled. Second, reader
+interaction is recorded in one log whose 17~event types are fixed by a
+schema, and detectors
 turn it into nine kinds of finding per page. The owner's view shows a
 finding only for a page that at least five people have read and never names
 a person. In a study with scripted readers, four of five expected findings
-appeared, and the view stayed silent in 14 of 18~cases where it should.
-Third, generated questions are graded by computation
-where an answer can be computed. Quiz questions written at parse time are
-checked by an independent model, which gave no wrong verdict on 16~pinned
-pairs. A semantic similarity gate failed its pre-registered test and was
-withdrawn.
+appeared, and the view stayed silent in 14 of the 18~cases in which it should have.
+Third, where the answer to a generated question can be computed, a
+learner's answer is graded against the computed result and not against the
+key the model wrote. Quiz questions written while a PDF is processed pass
+an answer check on a second model, which gave no wrong verdict on a fixed
+probe of 16~pairs of a correct and a wrong answer key. A third verifier,
+which compared answer keys with the page by semantic similarity, failed its
+pre-registered test and was not adopted.
 
-Four limits change how these results read. The author was the only judge of
-the benchmark. The owner's view was merged after the described revision,
-and its limit of five counts the readers of a page, not
-the people behind a finding. When the independent check is unavailable, a
-question is kept. No study with learners was run: the evaluations test the
+Five limits change how these results should be read. The author was the
+only judge of the benchmark. The owner's view was added to the code only
+after the revision this thesis describes. Its threshold of five counts the
+readers of a page, not the people behind a finding. When the answer check is
+unavailable, a question is kept. No study with learners was run: the evaluations test the
 machinery on curated material from one university and say nothing about
 learning outcomes.
 
@@ -46,45 +49,46 @@ learning outcomes.
 \section*{Zusammenfassung}
 
 Vorlesungsmaterial wird als PDF weitergegeben. Menschen können eine solche
-Datei lesen, Software kann den Inhalt ihrer Seiten jedoch nicht ansprechen:
-Die Datei beantwortet keine Frage, prüft kein Verständnis und zeigt ihrer
-Autorin oder ihrem Autor nicht, wo Lesende Schwierigkeiten haben. Diese
+Datei lesen, Software kann auf den Inhalt ihrer Seiten jedoch nicht gezielt zugreifen:
+Die Datei beantwortet keine Frage, prüft kein Verständnis und zeigt den Lehrenden nicht, wo Lesende Schwierigkeiten haben. Diese
 Arbeit beschreibt Learnstation, eine produktiv betriebene Webanwendung, die
 ein hochgeladenes PDF in adressierbare Inhalte überführt, während die
-Originalseite die Referenz bleibt: Die Datei ist sofort lesbar, eine
-Assistentin erklärt Seiten, stellt Fragen dazu und leitet Übungen an, und
-wer das Material bereitstellt, sieht, wie es gelesen wird.
+Originalseite die Referenz bleibt: Die Datei ist sofort lesbar; eine Assistentin erklärt Seiten,
+stellt Fragen dazu und leitet Übungen an; und eine Ansicht zeigt der
+Besitzerin oder dem Besitzer des Materials, wie es gelesen wird.
 
 Wir beantworten drei Fragen. Erstens die Umwandlung: Der erste Durchlauf
 kommt ohne Sprachmodell aus, und eine einzige Regel entscheidet, welche
 Seiten ein Vision-Modell benötigen, und leitet 87 von 1593~Seiten dorthin.
 In einem Blindvergleich von elf Extraktionsverfahren auf 24~Seiten mit
-283~paarweisen Urteilen wird die Transkription durch ein Vision-Modell am
-höchsten bewertet (beide Vision-Modelle zusammen kosteten 0,21~US-Dollar für
-die 24~Seiten). Neun der zehn Alternativen werden höher bewertet als das in
-Produktion eingesetzte Verfahren, und fünf davon bestehen den korrigierten
-Test gegen dieses, vier, wenn Seiten statt Urteile neu gezogen werden.
-Zweitens wird das Verhalten der Lesenden als ein
-kontrolliertes Ereignisprotokoll mit 17~Ereignistypen modelliert, und
+283~paarweisen Urteilen wird die Transkription durch eines von zwei Vision-Modellen am höchsten
+bewertet (zusammen kosteten sie 0,21~US-Dollar für die 24~Seiten). Neun der
+zehn Alternativen erzielen mehr Punkte als das in Produktion eingesetzte
+Verfahren; fünf davon liegen auch an der unteren Grenze eines
+Bootstrap-Intervalls darüber, das für den Test von zehn Verfahren korrigiert
+ist, und vier noch dann, wenn Seiten statt Urteile neu gezogen werden.
+Zweitens wird das Verhalten der Lesenden in einem Protokoll erfasst, dessen
+17~Ereignistypen durch ein Schema festgelegt sind, und
 Detektoren leiten daraus neun Arten von Befunden pro Seite ab. Die Ansicht
 für die Besitzerin oder den Besitzer des Materials zeigt einen Befund nur
 für Seiten, die mindestens fünf Personen gelesen haben, und nennt nie eine
-Person. In einer Studie mit geskripteten Lesenden erschienen vier von fünf
-erwarteten Befunden, und die Ansicht blieb in 14 von 18~Fällen still, in
-denen sie es sollte. Drittens werden generierte Fragen durch
-Berechnung bewertet, wo sich eine Antwort berechnen lässt. Quizfragen, die
-beim Einlesen entstehen, prüft ein unabhängiges zweites Modell, das bei
-16~festgelegten Paaren kein falsches Urteil abgab. Ein Filter auf Basis
-semantischer Ähnlichkeit bestand seinen präregistrierten Test nicht und
-wurde zurückgezogen.
+Person. In einer Studie mit simulierten, per Skript gesteuerten Lesenden erschienen
+vier von fünf erwarteten Befunden, und die Ansicht blieb in 14 der 18~Fälle
+still, in denen sie still bleiben sollte. Drittens wird die Antwort auf eine generierte Frage, wo sie sich berechnen
+lässt, gegen das berechnete Ergebnis bewertet und nicht gegen den Schlüssel
+des Modells. Quizfragen, die beim Einlesen entstehen, durchlaufen eine
+Antwortprüfung durch ein zweites Modell, die an einer festen Probe aus
+16~Paaren je eines richtigen und eines falschen Lösungsschlüssels kein
+falsches Urteil abgab. Ein drittes Prüfverfahren, das Lösungsschlüssel über
+semantische Ähnlichkeit mit der Seite verglich, bestand seinen
+präregistrierten Test nicht und wurde nicht übernommen.
 
-Vier Einschränkungen bestimmen, wie diese Ergebnisse zu lesen sind. Der
+Fünf Einschränkungen bestimmen, wie diese Ergebnisse zu lesen sind. Der
 Autor war der einzige Urteilende des Vergleichs. Die Ansicht für die
-Besitzerin oder den Besitzer wurde nach dem beschriebenen Stand
-zusammengeführt, und ihre Grenze von fünf
-zählt die Lesenden einer Seite, nicht die Personen hinter einem Befund. Ist
-die unabhängige Prüfung nicht verfügbar, bleibt eine Frage erhalten. Eine
-Studie mit Lernenden wurde nicht durchgeführt: Die Evaluationen prüfen die
-Mechanik an ausgewähltem Material einer Universität und sagen nichts über
+Besitzerin oder den Besitzer kam erst nach dem Code-Stand hinzu, den diese
+Arbeit beschreibt. Ihre Grenze von fünf zählt die Lesenden einer Seite,
+nicht die Personen hinter einem Befund. Ist die Antwortprüfung nicht
+verfügbar, bleibt eine Frage erhalten. Eine
+Studie mit Lernenden wurde nicht durchgeführt: Die Evaluationen prüfen die technischen Abläufe an ausgewähltem Material einer Universität und sagen nichts über
 Lernerfolg aus.
 \end{otherlanguage}

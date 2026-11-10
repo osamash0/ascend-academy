@@ -17,28 +17,29 @@ Most university teaching still travels as a PDF. A lecturer writes slides,
 exports them, and uploads the file to a learning management system. Students
 download it and read it alone. From that moment the material is silent in
 both directions. The file cannot answer a question, cannot check whether a
-page was understood, and cannot tell its author that half of the readers
+page was understood, and cannot tell the lecturer that half of the readers
 stopped at page twelve.
 
-Large language models have made it cheap to add an assistant to such a file.
+Large language models (LLMs) have made it cheap to add an assistant to such a file.
 This helps the individual reader, but the answer is not tied to the page it
-came from, the work is repeated by every student, and the author learns
-nothing from it. The research on intelligent textbooks has described the
+came from, the work is repeated by every student, and the lecturer learns nothing from it. The research on intelligent textbooks has described the
 alternative for decades: reading material that carries its own structure,
 practice, and record of use~\cite{brusilovsky2022return}. What is new is that
 a language model can derive much of that structure from an ordinary PDF.
 
-This thesis describes Learnstation, a web application that we built to make
-that step for lecture material. A lecturer or a student uploads a PDF and
+This thesis describes Learnstation, a web application that the author built with a fellow student to take that
+step for lecture material. A lecturer or a student uploads a PDF and
 reads it at once. While they read, the system turns each page into objects
 that software can address: a text of the page, a vector for search, and, for
 selected pages, questions about it (\cref{fig:transformation}). An assistant
 called Luna works on these objects, next to the page they come from. What
 readers do on the pages is recorded. A view for the owner of the material
 returns it as patterns about pages, with no names and only for pages that at
-least five people have read. This view was merged two days after the
-revision that the thesis describes, and \cref{ch:loop} shows that a finding
-in it can still rest on fewer than five people, in the extreme on one.
+least five people have read. Because this threshold counts the readers of a page
+and not the people behind a pattern, \cref{ch:loop} shows that a pattern can
+still rest on fewer than five people, in the extreme on one. The view was
+added to the code two days after the revision this thesis describes
+(\cref{sec:scope}).
 
 \thesisfigure{f1-transformation}
   {The transformation this thesis addresses. One PDF is kept as the reading
@@ -49,8 +50,8 @@ in it can still rest on fewer than five people, in the extreme on one.
 \section{Problem Statement}
 \label{sec:problem}
 
-We started from five problems that the author and the co-developer observed
-as students; they are not the result of a survey. \Cref{tab:problems} lists
+The work started from five problems that the author and the co-developer
+(\cref{sec:scope}) had observed as students; they are not the result of a survey. \Cref{tab:problems} lists
 them with the mechanism that addresses each one.
 
 \begin{table}[htbp]
@@ -62,7 +63,7 @@ them with the mechanism that addresses each one.
     \toprule
     \textbf{Problem} & \textbf{Mechanism} & \textbf{Examined in} \\
     \midrule
-    The author gets no feedback on the material. &
+    The lecturer gets no feedback on the material. &
       An event log, ten detectors that speak about pages, and an owner's view
       without names. &
       \cref{ch:loop} \\
@@ -70,7 +71,7 @@ them with the mechanism that addresses each one.
       Reading position, notes, answers, and sessions with Luna are stored per
       page. &
       described, not evaluated \\
-    Progress is not captured, for the student or for the author. &
+    Progress is not captured, for the student or for the lecturer. &
       The same log feeds the student's own history and the owner's
       aggregated view. &
       owner's side: \cref{ch:loop} \\
@@ -95,7 +96,7 @@ check fails.
 
 The thesis has three aims: to transform static lecture material into
 structured content while the original page stays the reference, to feed what
-learners do back to the author without naming any learner, and to generate
+learners do back to the owner of the material without naming any learner, and to generate
 shared content once and not once per reader.
 
 We make four contributions.
@@ -105,15 +106,14 @@ We make four contributions.
     uploader
     (\cref{ch:content}).
   \item A blind benchmark of eleven text extraction methods on 24~lecture
-    pages, judged in 283~pairwise votes under a protocol that was fixed
-    before the first vote and extended four times (\cref{ch:content}).
+    pages, judged in 283~pairwise votes under a protocol frozen before the first vote and later extended by four
+    recorded deviations (\cref{ch:content}).
   \item A feedback loop from reader to owner whose view makes no statement
     about a person and none about a page that fewer than five people have
     read; where this rule is weaker than it sounds is stated in
     \cref{sec:c5-privacy,sec:c5-findings}.
-  \item Verification of generated questions by computation and by an
-    independent check, with one verifier that failed its test and was
-    withdrawn (\cref{ch:trust}).
+  \item Verification of generated questions by computation and by an independent answer check, with one verifier that
+    failed its test and was not adopted (\cref{ch:trust}).
 \end{enumerate}
 
 \section{Scope and Delimitation}
@@ -146,19 +146,27 @@ is required, is question 4 for the supervisor on 2026-11-11. Replace this
 paragraph's last two sentences with the agreed wording.}
 
 The thesis describes the code at revision \code{\thesisCommit} of
-6~November 2026. Three things that were merged after that date are named
+6~November 2026, called \emph{the pin} below. \emph{In the code} means
+reachable at the pin; \emph{deployed} means running in production. Three things that were merged after that date are named
 where they matter and are marked as later.
 
 \section{Method}
 \label{sec:method-note}
 
 We follow a build-and-evaluate approach. Each of the three main chapters
-describes what was built and ends with an evaluation. The extraction
-benchmark, the semantic gate of the verifier probe, and the re-run of the
-refusal gate fixed their expectations in a commit before the run. The
-expectations of the persona study were written before its first run, but
-they share a commit with its results. The routing study, the deck-plan
-scorecard, and the answer check had no expectations fixed in advance. Statements about the system were checked
+describes what was built and ends with an evaluation. Three evaluations had their expected outcomes
+committed to the repository before they were run: the extraction benchmark
+(\cref{sec:parser-bench}), the test of a similarity verifier on a fixed
+probe of 16 question pairs, and the repeated measurement of the tutor's
+refusal threshold (both \cref{sec:c6-evaluation}). The expectations of the
+study with scripted readers (\cref{sec:c5-evaluation}) were written before
+its first run but committed together with its results. The routing study,
+the deck-plan scorecard (\cref{sec:c4-evaluation}), and the measurement of
+the answer check (\cref{sec:c6-evaluation}) had no expectations fixed in
+advance. In this thesis \emph{we} is the voice of the text; what the author
+did alone, such as judging, labelling, and writing expectations, is
+attributed to \emph{the author}, and where both developers acted, the text
+says so. Statements about the system were checked
 against the code at the revision named above, unless a section names a later
 one, and against production where the two can differ. Where the repository does
 not record a reason for a decision, we say so and do not supply one.
@@ -214,3 +222,4 @@ and is described, not measured.
 \Cref{ch:background,ch:system} give the background and the system as a
 whole, \cref{ch:content,ch:loop,ch:trust} answer the three questions in
 order, and \cref{ch:conclusion} discusses the work and its limitations.
+\Cref{app:glossary} lists the terms of the system and of the evaluations.

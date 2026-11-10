@@ -11,11 +11,10 @@ section names the chapter it belongs to.
 \label{sec:deployment}
 
 \thesisfigure{f7-deployment}
-  {Production deployment as run since 2026-10-30: five containers on one
+  {Production deployment as run since 30~October 2026: five containers on one
    Hetzner VM behind a host nginx that terminates TLS, with Supabase, Resend,
    Better Stack, and Cloudflare (DNS, R2) as external services. A systemd timer
-   pings Better Stack every five minutes; the nightly dump is age-encrypted
-   before upload to R2, and its decryption key is kept off the server.}
+   pings Better Stack every five minutes; the nightly dump is encrypted with the age tool before upload to R2, and its decryption key is kept off the server.}
   {fig:deployment}
 
 Production runs on one virtual machine (Hetzner CX23: two virtual CPUs, 4\,GB of
@@ -45,10 +44,11 @@ server'', a staging file that referred to Redis hosts it did not define, and one
 for Oracle Cloud. None named the host actually used. The staging and Oracle files
 were deleted and the production header now names the Hetzner machine (found,
 then fixed). What still exists only on the server is the host proxy
-configuration and the nightly database dump script, so the deployed system
+configuration and the script that writes the nightly dump, so the deployed system
 still cannot be reconstructed from the repository alone. The gap is narrower
 than it was in August: the deploy, monitoring, and backup procedures are written
-down as runbooks, and the heartbeat and off-site backup scripts are versioned.
+down as runbooks, and the heartbeat and the scripts that encrypt and upload the dump are
+versioned.
 But the
 system's ground truth is still the server, not the repository; this is why the
 project's own rules say to inspect the running images rather than trust
@@ -70,8 +70,7 @@ The API exposes a liveness probe (\code{/health}) and a readiness probe
 instances, and whether a worker is alive when jobs are waiting. One condition
 deserves mention: when no database URL is configured, the probe records the
 database as \code{not\_configured} and still reports ready. Routes that use the
-Supabase HTTP client still work without the pool, but the pipeline and the v4
-routes do not, so this is not a usable mode; at \code{\thesisPreviousCommit} the
+Supabase HTTP client still work without the pool, but the pipeline and the routes of the current interface do not, so this is not a usable mode; at \code{\thesisPreviousCommit} the
 code comment still called it a supported ``REST-only'' mode, and it now says
 plainly that every upload fails while the check reports ready. In
 production the URL is set and the pool is initialised at start-up, so this is a
@@ -117,7 +116,9 @@ check and surface only as failing requests.
 \begin{table}[H]
   \centering
   \small
-  \caption{The pipeline lineage at a glance (dates are 2026). Sources: the
+  \caption{The pipeline lineage at a glance (dates are 2026; v1 to v5 are
+    the numbered pipeline versions, unrelated to the v4 interface of
+    \cref{sec:vision}). Sources: the
     commits named in the text and the development timeline in the
     repository.}
   \label{tab:lineage}
@@ -133,20 +134,21 @@ check and surface only as failing requests.
     v2 routed pipeline & 1 May & Each page classified, then sent to text,
       OCR, or vision; a deck-level ``blueprint''. The default until June. \\
     v3 staged pipeline & 2--19 May & Five resumable stages (eight in the design), Docling, an Arq
-      job queue, pgvector, a LiteLLM gateway. Never the default; later called
-      dormant. \\
-    v4 orchestrator & 19 May & One AI stage for every external extractor.
+      job queue, pgvector, a LiteLLM gateway. Never the default; later described in the code as dormant. \\
+    v4 orchestrator & 19 May & A single model stage shared by all external
+      extractors.
       Measured on 17 June: 142 of 143 pages of one deck routed to text. \\
     v5 unified & 17 Jun & One server-side orchestrator: v2 routing, v3 run
-      table, v4 prompts, vision-capable, the server writes the result. The
+      table, the prompts of v4, vision-capable, the server writes the result. The
       only reachable path since 10 July. \\
     deck plan first & 10--13 Oct & Plan the deck (roles, sections,
       boilerplate) with no model call, then generate; parse receipts with
-      cost. Live. \\
-    page by page & 26--30 Oct & The reader opens at once and pages arrive as
-      they are written; a packed PDF copy for the reader. Live. \\
+      cost. In use. \\
+    page by page & 26--30 Oct & The reading view opens at once and pages arrive as they are
+      written; a re-saved PDF copy for the reading view. In use. \\
     one routing rule & 6 Nov & Text, figure, or no-text decided in one place
-      from the page itself. Live at the pin. \\
+      from the page itself. In the code at the pin; deployed since November
+      2026. \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -155,48 +157,50 @@ check and surface only as failing requests.
 \label{sec:idempotency-detail}
 
 \thesisfigure{f10-idempotency}
-  {Nine idempotency mechanisms in four layers, eight of them live. Thick borders
-   mark mechanisms keyed on the bytes alone and shared by every owner; the rest
-   are per owner, run, or lecture, so the stack yields at most one parse per
-   owner and pipeline version, and two owners of the same bytes each pay for
-   one.}
+  {Nine idempotency mechanisms in four layers, eight of them active in the
+   code. Thick borders mark mechanisms keyed on the bytes alone and shared by
+   every uploader; the rest are per uploader, run, or lecture, so the stack
+   yields at most one parse per uploader and pipeline version, and two
+   uploaders of the same bytes each pay for one.}
   {fig:idempotency}
 
 \Cref{fig:idempotency} shows the nine mechanisms that use this identity to avoid
-doing the same work twice, grouped in four layers; eight of them are live.
+doing the same work twice, grouped in four layers; eight of them are active in the code.
 \begin{description}
-  \item[Layer 1, the request.] \emph{L0}: a database parse cache keyed by hash.
-    The classic upload route still reads it, but the live pipeline never writes
-    it, so it can no longer hit; it is a legacy layer. \emph{L1}: the hash is the
+  \item[Layer 1, the request.] \emph{M0}: a database parse cache keyed by hash.
+    The older upload route still reads it, but the live pipeline never writes
+    it, so it can no longer hit; it is a legacy layer. \emph{M1}: the hash is the
     stored file's name, written with upsert, so identical bytes become one
-    object. \emph{L2}: deduplication per owner. The v4 route returns the Lesson the student
+    object. \emph{M2}: deduplication per uploader. The route of the current interface returns the
+    Lesson the student
     already owns, without a quota charge or a job, and the batch route skips
     bytes the same user has already uploaded.
-  \item[Layer 2, the database.] \emph{L3}: each parse is a row in
+  \item[Layer 2, the database.] \emph{M3}: each parse is a row in
     \code{parse\_runs} with a unique key on hash, pipeline version, and user;
     creating it is an upsert that never overwrites an existing row's state.
-    \emph{L4}: a run that already completed is replayed from the database
+    \emph{M4}: a run that already completed is replayed from the database
     instead of re-parsed, unless a re-parse is forced.
-  \item[Layer 3, Redis.] \emph{L5}: before parsing, the worker takes a lock on
+  \item[Layer 3, Redis.] \emph{M5}: before parsing, the worker takes a lock on
     the hash (\code{SET NX}, 20 minutes, longer than the 15-minute job timeout).
-  \item[Layer 4, the outputs.] \emph{L6}: a re-parse clears the lecture's content
-    but keeps the lecture, so links to it survive. \emph{L7}: the reader copy, the
-    poster image, and the parse receipt are written with upsert. \emph{L8}: before
+  \item[Layer 4, the outputs.] \emph{M6}: a re-parse clears the lecture's content
+    but keeps the lecture, so links to it survive. \emph{M7}: the reader copy, the
+    poster image, and the parse receipt are written with upsert. \emph{M8}: before
     any paid embedding call, a slide's text hash is checked, and unchanged
     slides are not embedded again.
 \end{description}
 
 The weak link is chosen deliberately: the lock is best-effort, so if Redis
 fails the worker proceeds without it, preferring availability over strict
-mutual exclusion, and two simultaneous jobs for one owner can then both
-create a lecture. The guarantee also has an edge between owners. Four
-mechanisms (L0, L1, L5, and L8) are keyed on the bytes alone and shared by
-every owner; the rest are per owner, run, or lecture. A second user who
+mutual exclusion, and two simultaneous jobs for one uploader can then both create a lecture. The
+guarantee also has a gap between uploaders. Four
+mechanisms (M0, M1, M5, and M8) are keyed on the bytes alone and shared by
+every uploader; the rest are per uploader, run, or lecture. A second user who
 uploads identical bytes while the first parse runs finds the shared lock
-held, and that run waits until the six-hour sweep fails it; if the uploads do
+held, and the second user's job stays queued until the sweep, which runs
+every ten minutes, fails runs that have been queued for six hours; if the uploads do
 not overlap, each user pays for a full parse; and at the end of every parse
-the embeddings are re-attached by hash, so they point at whichever owner's
-lecture finished last. The thesis presents the second-owner case as a known
+the embeddings are re-attached by hash, so they point at whichever uploader's lecture finished last. The thesis presents the case of
+the second uploader as a known
 limitation of the design.
 
 \section{Failure Handling (Chapter 4)}
@@ -239,8 +243,7 @@ The provider changed many times in ten months: a local model (February
 (May), a LiteLLM gateway (May), an OpenAI-compatible provider with the stated
 plan ``OpenAI now, a self-hosted university model later'' (June, because the
 free vision tiers hit their rate limits almost immediately), the gateway
-removed (August), the two in-process chains revived after eight of their nine
-legs were found dead (September), and an OpenAI-only option with spending caps
+removed (August), the two in-process chains revived after eight of their nine entries were found dead (September), and an OpenAI-only option with spending caps
 for the October launch. The gateway's removal is the one step with a lesson:
 it had been introduced with a pipeline generation that never became the
 default, so it ended with no live callers while still costing 1\,GB of memory
@@ -268,8 +271,9 @@ quality. Both hold the same eight providers in different orders and end with
 OpenAI as a last resort. A call walks its chain and skips any provider that is
 unavailable.
 
-A failed call is classified four ways. A rejected key (HTTP 401), a payment
-error (402) and a ``model not found'' error (404) disable the provider for the
+A failed call is classified in three ways, with one exception. A rejected key
+(HTTP 401), a payment error (402), and a ``model not found'' error (404)
+disable the provider for the
 rest of the process. A 403 deliberately does not, because one provider answers a
 moderation-flagged prompt with 403. A rate-limit error (429) starts a backoff of 90~seconds that doubles
 with each repeat, up to ten minutes. Every other error carries no penalty: the
@@ -278,7 +282,7 @@ and partly by matching text in the exception message.
 
 The chain looks deeper than it is. The eight entries use six credentials
 (two Groq models share one key, two Google models another), so one revoked
-key takes out two legs; and the call wrapper's eight rate-limit attempts run
+key takes out two entries; and the call wrapper's eight rate-limit attempts run
 under a 25-second timeout that fits at most four. Two failure classes are
 found-then-fixed cases: at \code{\thesisEarlierCommit} a provider whose
 credit had run out was retried on every call (Cerebras, then at the head of
@@ -301,11 +305,11 @@ as much a data-protection boundary as a reliability choice. Switching it on
 is not a configuration flip: the other keys must be removed, every slide must
 be embedded again (the two embedding models' vectors are not comparable), and
 the privacy pages must change. The failure classes change meaning with it: a
-rate limit becomes a soft gate that never leaves the service without a
+rate limit only delays calls and never leaves the service without a
 provider, while a rejected key or a payment error disables the only provider
 until restart, and with it every AI feature. One quality mechanism depends on
 the providers being different: generated quiz questions are checked by a
-second model that was not their author (Groq's reasoning model in the default
+second model that did not write them (Groq's reasoning model in the default
 mode), and in OpenAI-only mode that independence holds only if the checking
 model differs from the writing one. The trust chapter takes this up.
 \TODO{Note which OpenAI models production sets (\code{OPENAI\_MODEL},
@@ -322,18 +326,16 @@ OpenAI (by default \$10) that also binds embeddings; every call is written to
 a cost ledger. In the default mode the ledger prices only OpenAI calls and
 records every free-tier call at zero. Two limits are weaker than they look:
 the per-user cap fails open if Redis is unavailable, and a pre-parse headroom
-check never fires while OpenAI is configured, because it has no daily request
-limit and so counts as unlimited.
+check never fires while OpenAI is configured, because the registry gives OpenAI no daily request limit and so counts it
+as unlimited.
 
 \section{A Hosted Parser, Tried Once (Chapter 4)}
 \label{sec:c4-llamaparse}
 
 On 31 October 2026 a hosted parsing service (LlamaParse) was run on one deck
-to see whether buying the extraction step would remove the problem. It did
-not. Its output mis-numbered pages until a page separator was configured, its
+to see whether buying the extraction step would give better text than the current extraction. It did not. Its output mis-numbered pages until a page separator was configured, its
 Python package had been out of maintenance since 1~May 2026, it would have added a
-dependency the production image does not carry, and it sends every uploaded
-page to a third party the privacy policy does not name. The trial is recorded
+dependency the production image does not carry, and it would send every uploaded page to a third party the privacy policy does not name. The trial is recorded
 in the repository (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak llamaparse-trial-2026-10-31.md})
 and the service was not adopted. It is reported here because it is a decision
 with a reason, not because it is a result.
@@ -369,20 +371,21 @@ uses.
 The database boundary was not designed once. It was repaired in nine steps
 over eleven migrations, each of which documents its own problem in its
 header (\cref{fig:security-arc} in \cref{app:figures}). We summarise the
-classes of fault and not the individual requests.
+classes of fault and not the individual migrations.
 
-The first phase, January to June 2026, concerns who may hold a role. Roles
+The first class, from January to June 2026, concerns who may hold a role. Roles
 moved to their own table, with a policy that let a user insert their own
 row; that policy was removed in May (\code{20260502000003}). Roles were then
 set only at sign-up, and the sign-up was opened to any e-mail domain
-(\code{20260601000000}, \code{20260615000800}). This opened a read across
-courses, which a further migration closed by scoping a professor's reads to
-their own enrolled students (\code{20260621000000}). The two commits carry
-the same date, so the history shows no window of exposure. Twice in this
+(\code{20260601000000}, \code{20260615000800}). Opening sign-up to any domain let a professor read across courses; a
+further migration closed this by scoping a professor's reads to their own
+enrolled students (\code{20260621000000}). The migration that opened the read
+and the one that closed it were committed on the same day, so the history
+shows no window of exposure. Twice in this
 phase a step opened a hole that a later step closed.
 
-The second class concerns functions that run with the rights of their
-owner. In July five functions of this kind were closed; one of them took a user id from its caller,
+The second class concerns functions that run with the rights of the role
+that defined them. In July five functions of this kind were closed; one of them took a user id from its caller,
 checked nothing, and was executable by everyone through a default grant. It
 was reproduced on a local database, closed, and is guarded by 13~tests
 (\code{20260721000001}). The repair was incomplete, because the hosting
@@ -402,11 +405,11 @@ state, and we do not claim one.
 \section{The Change of 24 June (Chapter 6)}
 \label{sec:c6-history-detail}
 
-Why the refusal was removed is not recorded. The commit was written by the
-co-developer and has no message body, and the pull request that carried it
-does not mention it. It follows by one minute a commit titled ``debugging AI
+No commit message, pull request, or test records why the refusal was
+removed. The commit was written by the co-developer and has no message body,
+and the pull request that carried it does not mention the change. It follows by one minute a commit titled ``debugging AI
 Tutor'', which repaired the chat request after the API paths had been
-versioned two days before. The only stated motive is a comment in the diff:
+versioned two days before. The only trace of a motive is a comment in the diff:
 the tutor should not refuse outright ``if the question is conceptual'', and
 every question now goes to the model ``so it can provide supplementary
 knowledge''. No test or measurement came with the change. The test that had
@@ -425,15 +428,16 @@ a personal communication; if not, the paragraph stands as it is.}
   \small
   \caption{The 26 mechanisms that exist in the code, by what they guard. A
     \emph{verifier} computes, validates, filters, or drops; a \emph{prompt rule}
-    only instructs the model; a \emph{harness} measures offline. Source:
+    only instructs the model; a \emph{harness} measures offline; an
+    \emph{input-side} mechanism changes text before a model sees it; a
+    \emph{limit} bounds cost or calls. Source:
     \code{docs/thesis/verification-notes/2026-11-09-trust-rq3.md}, section~11.}
   \label{tab:mechanisms}
   \begin{tabular}{@{}p{0.19\textwidth}cp{0.50\textwidth}p{0.17\textwidth}@{}}
     \toprule
     Guards & $n$ & Mechanisms & Kind \\
     \midrule
-    Answer keys & 6 & key resolution; structural gates; lexical score (flags
-      only); answer check; repair pinned to its page; shape of options &
+    Answer keys & 6 & key resolution; structural gates; lexical score (marks only); answer check; repair pinned to its page; shape of options &
       verifiers \\
     Grading & 2 & computed answers for three kinds of task; refusal of trivial
       tasks & verifiers \\
@@ -443,7 +447,7 @@ a personal communication; if not, the paragraph stands as it is.}
     Citations & 4 & citation filter of each tutor; refusal gate; labelled
       outside knowledge; anchor check of the golden set &
       2 verifiers, 1 prompt rule, 1 harness \\
-    Foreign text & 3 & marker rewriting; sanitising of the learner's message;
+    Untrusted text & 3 & rewriting of fence delimiters; sanitising of the learner's message;
       single-pass slot filling & input side \\
     Cost and providers & 5 & monthly cap; daily ceiling; switching off dead
       providers; chaos tests; parse receipts & limits and tests \\

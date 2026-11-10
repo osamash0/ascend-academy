@@ -18,19 +18,20 @@
 
 This chapter answers RQ3: how the quality of learning content written by a
 language model can be verified and measured, and what happens when
-verification fails. \Cref{ch:content} produced pages and \cref{ch:loop}
-returned what readers do on them. Between the two, a model writes three kinds
+verification fails. \Cref{ch:content} turned uploads into pages, and \cref{ch:loop} fed back to
+the owner what readers do on them. Along the way a model writes three kinds
 of text that a learner may take for true: an answer to a question, a quiz
-question with its key, and a verdict on the learner's own answer.
+question with its key, and the task behind a graded exercise.
 
 One rule runs through the chapter. Where an answer can be computed, the
-system computes it and does not ask the model. Where it cannot, a second look
-that is independent of the author decides. Where neither is possible, the
-system says so, and the original page stays one key away. Whatever fails a
-check is dropped, not shown.
+system computes it and does not ask the model. Where it cannot, a second model that did not write the content decides.
+Where neither is possible, nothing checks the content, and the original page,
+which a learner sees first, remains the reference. Most checks drop what
+fails them; the few that only mark an item are named where they occur.
 
 The limit comes first. No check in the system decides whether a sentence of
-generated prose is true. Every verifier below tests something narrower: that a
+generated prose is true. Every verifier below, that is, every step that computes, validates, filters,
+or drops, tests something narrower: that a
 page exists, that a phrase is on it, that a cited source was retrieved, that a
 second model reaches the same key. \Cref{sec:c6-missing} lists what is
 missing.
@@ -38,21 +39,20 @@ missing.
 \section{The Page Stays the Reference}
 \label{sec:c6-page}
 
-The oldest trust decision in the project is not a verifier. Since
-24~February 2026 the original slide has been shown beside the generated text
-(commit \code{4c23d254}). The repository records no reason for it. In the
-current reader the uploaded page is the first of three faces of a Lesson, and
+The oldest trust decision in the project is not a verifier. From 24~February 2026 the original slide was shown beside the generated text
+(commit \code{4c23d254}). The repository records no reason for it. In the reading view the uploaded page is the first of the three views of a
+Lesson, and
 the generated explanation and the plain text are one key away
 (\code{LessonFacesScreen.tsx:152--163}). A learner who doubts a generated
 sentence therefore always has the source in the same place. This costs
 nothing at run time and it is the fallback for every mechanism that follows.
 
-\section{Answers Grounded in the Lecture}
+\section{Answers Grounded in the Space}
 \label{sec:tutor}
 
 A learner can ask in three places: the ask bar on the home screen, which
 answers from a whole Space; a study session with the assistant, Luna; and
-Explain and Ask on a single page of the reader. \Cref{fig:groundedness} in
+Explain and Ask on a single page of the reading view. \Cref{fig:groundedness} in
 \cref{sec:rag} places them on a scale of how strongly the answer is tied to
 the material. This section describes the strongest of them in detail and then
 contrasts the other two.
@@ -67,17 +67,16 @@ keeps the best six (\code{ai/retrieval.py}). The scope is applied in the SQL
 query, as a restriction to the Space's live Lessons, and not as a filter
 afterwards (migration \code{20261014000000}).
 
-This scope was wrong for a long time. Until the fix of 11~October 2026 (on
-the main branch with PR~\#96 on 24~October; its date in production is not
-recorded) the scoped search
-joined embeddings on a column that is empty for most rows, because embeddings
-are keyed by content hash. The ask bar and the global search could not see
-those pages. The fix, commit \code{b66a97c6}, counts 40 of 68 embedding rows
-in one Space without the column and adds a database test that fails on the
-old join. How large the blind part was in other Spaces is not recorded; the
+This scope was wrong for a long time. Until 11~October 2026 the scoped search joined the embeddings on a column
+that is empty for most rows, because embeddings are keyed by content hash;
+the fix reached the main branch with PR~\#96 on 24~October, and when it
+reached production is not recorded. Pages whose embeddings lacked that column
+were invisible to the ask bar and to the global search; the fix, commit
+\code{b66a97c6}, records 40 such rows out of 68 in one Space and adds a
+database test that fails on the old join. How large the blind part was in other Spaces is not recorded; the
 retrieval measurement of September, taken in another Space, found the right
 page among its six hits for 26 of the 27 questions it could run there
-(96\,\%) under the old join. We report it because it shows the order of trust: a
+(96\,\%) under the old join. We report the defect because every later check depends on retrieval: a
 refusal gate and a citation check are worth nothing when retrieval does not
 see the material.
 
@@ -93,8 +92,9 @@ question.
         joined their own Space received a server error.
   \item \emph{Scoped retrieval,} as above.
   \item \emph{Input sanitising.} The learner's message is trimmed, cut at
-        2,000 characters, and the markers the prompt itself uses are made
-        harmless (\code{tutor.py:71--90}). The ask bar's own route refuses
+        2,000 characters, and the delimiters with which the prompt fences uploaded text
+        (\cref{sec:injection}) are rewritten so that the message cannot
+        imitate them (\code{tutor.py:71--90}). The ask bar's own route refuses
         a question of more than 600 characters before that.
   \item \emph{Refusal gate.} If no retrieved page reaches similarity 0.65, a
         fixed ``not covered'' reply is returned before any model is called
@@ -107,7 +107,7 @@ question.
 
 What the five points do not do matters as much. None of them checks that the
 content of the answer is supported by the cited page. None requires that an
-answer cites anything. The invalid marker is removed from the citation list
+answer cites anything. The invalid \texttt{[Source N]} tag is removed from the citation list
 but stays in the text of the reply. The citation check compares against the
 retrieved list and not against what fitted into the 10,000-character context,
 so a source that was cut off still passes. In the terms of the attribution
@@ -120,22 +120,22 @@ claim.
 
 The first grounded tutor (commit \code{8d2eb095}, 2~May 2026) answered
 strictly from the retrieved pages, cited them, and refused everything else.
-On 24~June 2026 the refusal was removed from the tutor of the older lecture
-rooms (commit \code{f39e93dc}). Since then that tutor may add knowledge from
-outside the lecture if it puts it in a block quote and says that it goes
+On 24~June 2026 the refusal was removed from the tutor of the older interface (commit
+\code{f39e93dc}). Since then that tutor may add knowledge from outside the
+material if it puts it in a block quote and says that it goes
 beyond the slides (\code{ai/prompts.py:506--540}). This is a prompt rule; no
 code checks that the model keeps it.
 
 Why the refusal was removed is not recorded, and we do not supply a reason;
 \cref{sec:c6-history-detail} gives what the repository shows.
 
-Two tutors therefore exist at \code{\thesisCommit}. The tutor of the older
-rooms has no gate and allows labelled outside knowledge. The course tutor
+Two tutors therefore exist at \code{\thesisCommit}. The tutor of the older interface has no refusal gate and allows labelled
+outside knowledge. The course tutor
 behind the ask bar, which is the one learners reach in the current interface,
-kept the gate and answers only from the Space. The system moved back to the
-strict side with the interface, not by a recorded decision.
+kept the gate and answers only from the Space. The system returned to strict answering when learners moved to the current
+interface, not by a recorded decision.
 
-\subsection{Luna and the Reader: Checks on Structure}
+\subsection{Luna and the Reading View: Checks on Structure}
 \label{sec:c6-structure}
 
 The other two surfaces do not use this retrieval and do not cite. Luna works
@@ -146,11 +146,11 @@ Both surfaces check the shape of what the model writes.
 Luna names pages and lights up phrases on them. A move to a page that does not
 exist is dropped, and a phrase survives only if it occurs literally on that
 page (\code{luna/validate.py}; 12 unit tests). A check question must have
-exactly one correct option. The file states the rule in its first line:
+exactly one correct option. The file states the rule for Luna's structured output in its first line:
 nothing the model writes reaches a learner unchecked, and what fails is
 dropped, never shown broken.
 
-Explain in the reader sees the text of one page and the titles of up to four
+Explain in the reading view sees the text of one page and the titles of up to four
 neighbouring pages (\code{v4\_reader\_service.py:728}); Ask sees the same
 page and up to four earlier turns of the conversation. Their output
 must parse into a fixed set of blocks, and a block that does not is dropped
@@ -169,7 +169,7 @@ nothing to check. That was the state at \code{\thesisEarlierCommit}
 component that rendered them was imported only by its own test, and the
 screens in use either ignored the field or showed the page that happened to be
 open. In the current interface the ask bar shows each citation as a link to
-its page. The reader's Explain and Ask still show none; their only source is
+its page. The reading view's Explain and Ask still show none; their only source is
 the open page itself. A trust mechanism that is not surfaced cannot be
 perceived, which limits what any later study of perceived reliability could
 find.
@@ -187,21 +187,21 @@ document is the members of its Space.
 
 The defence has two layers, and neither is a guarantee. The first is a rule in
 every prompt that the page text and the learner's words are data and never
-instructions. The second makes that rule hold on to something. Each prompt
+instructions. The second gives that rule a boundary that uploaded text cannot forge. Each prompt
 fences uploaded text with markers, and a PDF that contains the same marker
 could close the fence early. Since PR~\#179 one function rewrites exactly
-those markers inside foreign text into look-alikes that no fence matches
-(\code{ai/untrusted.py}), in the tutors, in Luna, in the reader, and in every
+those markers inside untrusted text into look-alikes that no fence matches
+(\code{ai/untrusted.py}), in the tutors, in Luna, in the reading view, and in every
 prompt of the parse. The idea is related to
 spotlighting~\cite{hines2024spotlighting}. Before that change, at
-\code{\thesisPreviousCommit}, retrieved text was inserted raw and the reader
-had no such rule.
+\code{\thesisPreviousCommit}, retrieved text was inserted raw and the reading view's prompts lacked even
+the rule of the first layer.
 
 The file is plain about its limit: it ``does not make injection impossible;
 nothing does''. The damage is bounded only where an output check exists:
-Luna's literal phrase check, the citation range of the ask bar, and the block
-validation of the reader. An injected instruction that makes the reader's
-Explain write something false in well-formed blocks would pass. One earlier
+Luna's literal phrase check, the citation check of the ask bar, and the block
+validation of the reading view. An injected instruction that makes the reading
+view's Explain write something false in well-formed blocks would pass. One earlier
 hole widened the audience and is closed: the single-file upload did not check
 who owned the course it was given (fixed in \code{722167b0}, with 10 tests).
 
@@ -217,9 +217,8 @@ here.
 \label{sec:c6-lifecycle}
 
 \thesisfigure{f24-question-lifecycle}
-  {The life of one quiz question during a parse. Three stages can drop it, one
-   only flags it, and a disputed key gets one repair on the same page before
-   it is dropped.}
+  {The life of one quiz question during a parse. Three stages can drop it, one only marks it, and a disputed key gets one
+   repair on the same page; a second dispute drops the question.}
   {fig:question-lifecycle}
 
 During a parse the model writes five to eight multiple-choice questions for
@@ -242,10 +241,12 @@ happens next.
         cited page is missing, out of range, or empty, or if no key can be
         resolved (\code{parser/quiz\_grounding.py:127}). A number in the
         key that is not on the page, or a distractor that the page supports
-        better than the key, only flags the question while enforcement is
-        off (\code{parser/synthesis.py:55--63}).
+        better than the key, only marks the question, because the switch that would
+        make these checks drop it is off (\code{parser/synthesis.py:55--63}).
+        A marked question is still shown to learners; the mark is stored with
+        it and counted in the parse receipt.
   \item[Lexical support.] A score measures how much of the key's wording
-        occurs on the cited page; below 0.5 the question is flagged. It is
+        occurs on the cited page; below 0.5 the question is marked. It is
         not dropped, for the reason measured in \cref{sec:c6-evaluation}.
   \item[Answer check.] A second model reads the cited page, the question, and
         the options, without the key, and answers as a careful student would
@@ -256,28 +257,31 @@ happens next.
         not move the question to another page.
 \end{description}
 
-Two properties of the answer check are design decisions. First, the checker is
-not the author. The question is written by the small model at the head of the
+Two properties of the answer check are design decisions. First, the model that checks a question is not the model that wrote it. The question is written by the small model at the head of the
 bulk chain; the check runs on the quality chain, led by a larger reasoning
 model (\cref{sec:provider-strategy}). At the pin the heads of both chains are models of the
 same provider (\code{orchestrator.py:389}, \code{:393}), so the
-independence is one of model, not of vendor. The reason
-is recorded with a measurement: when the author's own model family checked the
-question that started this work, it agreed with the wrong key twice. That a
+independence is one of model, not of vendor. The reason for using a different model is recorded with a measurement: when a
+model of the generating model's own family checked the question that started
+this work, an ambiguous question whose options all appear on its page, it
+agreed with the wrong key twice. That a
 model tends to favour text like its own is also reported in the
-literature~\cite{panickssery2024selfpreference}. Second, the two failure
-directions are treated differently. If the check itself fails or its reply
+literature~\cite{panickssery2024selfpreference}. Second, an outage and a dispute are treated differently. If the check itself fails or its reply
 cannot be read, the question is kept, so that a provider outage never empties
-a quiz. If the check disputes the key, the question is dropped. The outcome of
+a quiz. If the check disputes the key, the question is rewritten once and dropped only
+if the rewrite is disputed too. The outcome of
 every stage is counted in the parse receipt of the Lesson.
 
 \subsection{Grading by Computation}
 \label{sec:c6-grading}
 
-The rehearsal and the checkpoints of the reader have five kinds of question.
+The rehearsal, a short mixed test that a model writes from a Space's pages,
+and the reading view's checkpoints, which a model writes for the pages of one
+idea and which are not the deck quiz of \cref{sec:c6-lifecycle}, use five
+kinds of question.
 Three of them are about functional dependencies in the database course the
 corpus comes from: which dependencies hold on a given table, the closure of a
-set of attributes, and which dependencies violate BCNF. For these the model
+set of attributes, and which dependencies violate Boyce--Codd normal form (BCNF). For these the model
 writes the task but not the verdict. The answer is computed from the
 question's own data, on the client and again on the server
 (\code{rehearsal/grade.ts}, \code{v4\_rehearsal\_service.py:43--105}), and a
@@ -317,10 +321,12 @@ wrong keys.
 
 For the semantic score the procedure was fixed in writing before any embedding
 was requested: the scoring rule; that the threshold is fitted only on a
-separate calibration set; that the probe is scored once; the gate (at most two
+separate calibration set of key pairs from other decks; that the probe is
+scored once; the acceptance criterion (at most two
 calibration errors, at most two good keys dropped, at most one wrong key kept);
 what follows from a pass and from a fail; and a named risk, that the question
-stem could dominate the embedding and lift wrong keys. The threshold itself,
+text without its options (the stem) could dominate the embedding and raise
+wrong keys above the threshold. The threshold itself,
 0.774, was not registered in advance. It is the fitted value.
 
 \subsection{Results}
@@ -330,9 +336,9 @@ stem could dominate the embedding and lift wrong keys. The threshold itself,
   \centering
   \small
   \caption{Three verifiers of answer keys on the same 16 pairs: correct keys
-    dropped and wrong keys kept. The gate for
-    enforcement was at most two good keys dropped and at most one wrong key
-    kept. A count of 0 of 16 is compatible with an error rate of up to
+    dropped and wrong keys kept. The acceptance criterion for enforcement was at most two good keys dropped
+    and at most one wrong key kept. For the answer check, counts are over the
+    calls that returned a verdict; one call did not. A count of 0 of 16 is compatible with an error rate of up to
     21\,\% (exact 95\,\% interval). Sources: \code{parser/synthesis.py:55--80}; PR~\#94 and tag
     \code{archive/claude/arc8-semantic-grounding}; PR~\#166.}
   \label{tab:verifiers}
@@ -340,21 +346,22 @@ stem could dominate the embedding and lift wrong keys. The threshold itself,
     \toprule
     Verifier & Good dropped & Wrong kept & Consequence \\
     \midrule
-    Lexical overlap, threshold 0.5 & 14 of 16 & 0 of 16 & flags only \\
-    Embedding similarity, fitted threshold 0.774 & 4 of 16 & 8 of 16 &
-      gate failed; not merged \\
-    Independent answer check & 0 of 16 & 0 of 16 & enforced \\
+    Lexical score, threshold 0.5 & 14 of 16 & 0 of 16 & marks only \\
+    Similarity score, fitted threshold 0.774 & 4 of 16 & 8 of 16 &
+      criterion failed; not merged \\
+    Answer check & 0 of 16 & 0 of 16 & enforced \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \Cref{tab:verifiers} gives the result. The lexical score never keeps a wrong
 key, but it drops 14 of 16 correct paraphrases, among them all eight German
-ones. Enforced, it would delete most good questions in a German lecture. It
-was therefore set to flag and not to drop, and the constant carries a comment
+ones. Enforced, it would delete most good questions in a German Lesson. It
+was therefore set to mark and not to drop, and the constant carries a comment
 that forbids enforcing it without a new measurement.
 
-The semantic score failed its gate, and it failed in the registered direction.
+The similarity score failed its acceptance criterion, and it failed in the
+direction named in advance as its risk.
 It dropped 4 good keys and kept 8 of 16 wrong ones, six of them German,
 against a limit of one. On the calibration set it made ten errors against a
 limit of two. On the probe, similarities fell into a narrow band between
@@ -369,16 +376,16 @@ result. It is the reason the next attempt did not use similarity at all.
 The answer check dropped none of the 16 good keys and kept none of the 16
 wrong ones. On the question that started the work, which a careful student
 could answer differently from its key, it disputed the key in five of five
-runs and agreed with a corrected twin in five of five. The run was made on
+runs and accepted a corrected version of the same question in five of five. The run was made on
 30~October 2026 with the reasoning model at the head of the quality chain
-(PR~\#166). Unlike the semantic gate, the answer check was not held to a
-gate fixed in advance. It was built for that one question and measured in
+(PR~\#166). Unlike the similarity score, the answer check was not held to an acceptance
+criterion fixed in advance. It was built for that one question and measured in
 the same change, on the probe that already existed (commit
-\code{461afc40}), so its result is in-sample. Before it is called verified,
-it should be scored once on new pairs from other decks against a gate fixed
-first.
+\code{461afc40}), so its result is in-sample. Before the check itself is called validated, it should be scored once on new
+pairs from other decks against an acceptance criterion fixed first.
 
-These counts are wrong verdicts, not outcomes of the deployed procedure. One
+The answer check's counts are wrong verdicts among the calls that returned
+one, not what the deployed procedure would have done. One
 call of the run returned no verdict, because the provider limited the rate
 and the fallback timed out. The script counts such a call as an error and
 neither as a drop nor as a keep
@@ -400,14 +407,14 @@ do not cover. With the settings of production the gate let all 27 through and
 refused all 30. The 27 answerable questions had already passed the gate in
 September, so this half replicates a known outcome; the new evidence is the
 30 unanswerable ones. Zero errors in 30 is compatible with a rate of wrongly
-accepted questions of up to 12\,\%. The groups do not overlap, but the
-margin is narrow. The best
-page for an unanswerable question reaches a similarity of 0.63, the best page
-for the weakest answerable question 0.66, and the threshold is 0.65. A
+accepted questions of up to 12\,\%. The similarities of the answerable and the unanswerable questions do not
+overlap, but the gap is narrow: no unanswerable question reaches more than
+0.634, the weakest answerable question reaches 0.659, and the threshold of
+0.65 lies between them. A
 threshold of 0.75 would have refused 13 of the 27 answerable questions. We had
 predicted that some of the absent database topics would pass the gate; none
-did. For the answerable questions, the expected page was among the first five
-hits in 25 of 27 cases.
+did. For the answerable questions, the expected page was among the first five hits in 25 of 27 cases (the
+closest setting the grid measured to the six hits the ask bar keeps).
 
 \subsection{What the Numbers Do Not Show}
 \label{sec:c6-threats}
@@ -423,7 +430,8 @@ ambiguous question whose options all appear on the page, is represented by
 one case.
 The answer check was measured once, on one day, with one model at the head of
 its chain, and a model behind an API can change without notice. No measurement
-covers the prose of Explain, Ask, or Luna. The gate was measured in one Space, with 57 English questions written
+covers the prose of Explain, Ask, or Luna. The refusal gate was measured in
+one Space, with 57 English questions written
 by the developer with AI assistance, ten per group of unanswerable questions.
 Their wording may suit retrieval better than a student's would, and a margin
 of 0.025 on this sample does not show how the threshold behaves on other
@@ -434,10 +442,11 @@ the model then writes was not measured.
 \section{Cost as a Question of Trust}
 \label{sec:c6-cost}
 
-A learner trusts the content. An operator also has to trust that the system
+A learner trusts the content. The person who runs the system also has to
+trust that the system
 does not spend without limit and does not keep calling a provider that can no
-longer answer. \Cref{sec:multi-provider} described the chain of providers and
-\cref{sec:openai-only} the caps. Here the question is whether those limits
+longer answer. \Cref{app:detail} describes the chain of providers (\cref{sec:multi-provider})
+and the caps (\cref{sec:cost-controls}). Here the question is whether those limits
 hold when providers fail. It belongs to RQ3 because the answer check is
 itself a model call: what happens when verification fails depends on what
 happens when a provider fails.
@@ -473,37 +482,36 @@ wrong result. It makes one traceable to the call that produced it.
 \section{Where Nobody Checks}
 \label{sec:c6-missing}
 
-\subsection{No Human Gate}
+\subsection{No Human Approval}
 \label{sec:review}
 
-No person has to approve generated content before learners see it. In the
-older rooms a professor can review a batch of uploads, but a lecture has no
+No person has to approve generated content before learners see it. In the older interface a professor can review a batch of uploads, but a lecture has no
 draft state: its content is visible as soon as the parse ends, and ``done
 reviewing'' is stored only in the professor's browser
-(\code{BatchReviewPage.tsx}). A slide that was corrected by hand stays
-flagged. In the current interface the owner of a Space adds Lessons with no
+(\code{BatchReviewPage.tsx}). A slide that was corrected by hand keeps its review mark. In the current interface the owner of a Space adds Lessons with no
 review screen at all, and the members of a published Space see a new Lesson
 the moment its parse creates it. Publishing controls who can find and join a
 Space, not what its members see.
 
-This is a consequence of a decision made for another reason. The reader was
-built so that a page can be read seconds after the upload (\cref{sec:pipeline}).
-A real gate would need a draft state on the Lesson and would delay exactly
+This is a consequence of a decision made for another reason. The reading view was built so that a page can be read seconds after the
+upload (\cref{sec:pipeline}).
+A real approval step would need a draft state on the Lesson and would delay exactly
 that. The automatic checks of this chapter are therefore the only line
-between the model and the learner, which is why a check that fails drops its
-item and never passes it through for a human to catch.
+between the model and the learner, which is why an item that fails a check is dropped rather than passed on for
+a human to catch.
 
 \subsection{The Mechanisms in One Table}
 \label{sec:c6-inventory}
 
 \Cref{tab:mechanisms} in \cref{sec:c6-inventory-table} groups the
-26~mechanisms that exist in the code by what they guard. The distribution is the finding. Most verifiers guard
-structure and answer keys, where a check can be exact. Meaning is guarded by
-prompt rules and by one independent model, and only for quiz keys.
+26~mechanisms that exist in the code by what they guard. Most verifiers guard
+structure and answer keys, where a check can be exact. Meaning is guarded by prompt rules on every surface and, for quiz keys only,
+by the answer check.
 
-Three things do not exist. There is no entailment check: nothing decides
-whether a page logically supports a key or a sentence, and the lexical module
-says so itself. There is no detector for invented content in the prose of
+Three things do not exist. There is no entailment check: nothing tests directly whether a page logically
+supports a key or a sentence. The answer check tests a key only indirectly,
+by whether a second model reaches it, and the lexical module says itself
+that it is no such test. There is no detector for invented content in the prose of
 Explain, Ask, or Luna; current surveys treat this as an open
 problem~\cite{ji2023hallucination,huang2025hallucination}. And nothing checks
 that the older tutor really puts outside knowledge into a block quote.
@@ -517,23 +525,22 @@ The prose of explanations and answers is neither verified nor measured.
 \emph{How can the quality of content written by a language model be verified?}
 In this system, in three ways of falling strength. By computation, where the
 content has a formal answer: three kinds of task are graded by code and the
-model's key is never used. By an independent second reading, for the quiz
-questions written at parse time: a different model answers each question
+model's key is never used. By the answer check, for the quiz questions written during parsing: a different model answers each question
 from its cited page without the key, and if that check is unavailable the
 question is kept. By structure everywhere else: pages must exist, phrases
 must be on the page, citations must point at retrieved sources, blocks must
 parse. This weakest kind also covers the multiple-choice and ordering
-questions of the reader and the rehearsal, which are graded against the
+questions of the reading view and the rehearsal, which are graded against the
 model's key.
 
 \emph{How can it be measured?} With a small probe that is written before the
 verifier is scored and that contains both kinds of error. On 16 pairs the
-lexical verifier dropped 14 good keys, a similarity score kept 8 wrong ones
-and failed a gate that had been fixed in advance, and the independent check
-made neither error in the calls that returned a verdict. The refusal gate, tested in one Space with 57 questions,
+lexical score dropped 14 good keys, the similarity score kept 8 wrong ones
+and failed an acceptance criterion that had been fixed in advance, and the
+answer check made neither error in the calls that returned a verdict. The refusal gate, tested in one Space with 57 questions,
 let through all 27 that have an answer and refused all 30 that have none, by
-a narrow margin. The negative result decided the design as much as the
-positive one.
+a narrow margin. The failure of the similarity score shaped the design as much as the success
+of the answer check.
 
 \emph{What happens when verification fails?} The item is dropped: a key that
 cannot be resolved, a question whose key is disputed twice, a move to a page

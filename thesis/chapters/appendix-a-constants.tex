@@ -54,7 +54,7 @@ the variable names are in \code{docs/thesis/evidence/CONSTANTS.md}.}
   Page routing: no-text threshold        & 25 chars        & \code{page\_blocks.py:201} \\
   Page routing: figure-page text cap     & 150 chars       & \code{page\_blocks.py:202} \\
   Page routing: minimum figure share     & 0.05 of page    & \code{page\_blocks.py:203} \\
-  Vision model (default)                 & Gemini leg     & \code{config.py:74} (selector); model \code{gemini-flash-latest}, \code{orchestrator.py:331} \\
+  Vision model (default)                 & Gemini         & \code{config.py:74} (selector); model \code{gemini-flash-latest}, \code{orchestrator.py:331} \\
   Synthesis batch size                   & 8 slides        & \code{orchestrator.py:158} \\
   Synthesis batch context overlap        & 1 slide (retired v2 path only) & \code{orchestrator.py:162} \\
   Deck quiz questions asked for (cap)    & 5--8 (12)       & \code{ai/prompts.py:422}, \code{synthesis.py:52} \\
@@ -65,16 +65,16 @@ the variable names are in \code{docs/thesis/evidence/CONSTANTS.md}.}
   LLM rate-limit retry attempts          & 8               & \code{llm\_client.py:36} \\
   LLM retry backoff                      & 4--60\,s, exp.  & \code{llm\_client.py:37} \\
   Monthly per-user LLM cap               & \$2.00          & \code{config.py:194} \\
-  OpenAI daily fleet ceiling             & \$10.00         & \code{config.py:187} \\
+  Daily ceiling on paid calls, all users             & \$10.00         & \code{config.py:187} \\
   % --- Grounded tutor ---
   Embedding model                        & \code{gemini-\allowbreak embedding-001} & \code{embeddings.py:21,25} \\
   Embedding dimensions                   & 768             & \code{embeddings.py:29} \\
-  Retrieval top-$k$ (lecture / course)   & 5 / 6           & \code{retrieval.py:30,32} \\
+  Retrieval top-$k$ (one Lesson / one Space)   & 5 / 6           & \code{retrieval.py:30,32} \\
   Similarity threshold                   & 0.65            & \code{retrieval.py:31} \\
-  Anchor-slide synthetic similarity      & 0.0             & \code{retrieval.py:180} \\
-  RRF constant                           & 60              & \code{retrieval.py:254} \\
+  Similarity assigned to the open page      & 0.0             & \code{retrieval.py:180} \\
+  Reciprocal rank fusion (RRF) constant                           & 60              & \code{retrieval.py:254} \\
   Query-embedding cache TTL              & 600\,s          & \code{retrieval.py:41} \\
-  Context cap (total / per slide)        & 10\,000 / 2\,400 chars & \code{tutor.py:42--43} \\
+  Context cap (total / per page)        & 10\,000 / 2\,400 chars & \code{tutor.py:42--43} \\
   History window                         & 5 turns $\times$ 1\,000 chars & \code{tutor.py:44--45} \\
   User message cap                       & 2\,000 chars    & \code{ai\_content.py:54} \\
   % --- Spaced repetition (SM-2) ---

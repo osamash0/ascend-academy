@@ -42,12 +42,12 @@ readers. It tests the machinery, not learners.
    events are aggregated, and no name leaves the last stage.}
   {fig:loop}
 
-\Cref{fig:loop} shows the path of one interaction. The reader \emph{records}
-it through a single writer. The writer \emph{governs} it: an event of an
+\Cref{fig:loop} shows the path of one interaction. The reading view \emph{records} it through one function,
+\code{record\_event}, which \emph{governs} it: an event of an
 unknown type or with an unknown field is rejected. The event is \emph{stored}
 in one append-only log. When an owner asks, the engine \emph{aggregates} the
 log of the Space's members, and the owner's view \emph{shows} the result as
-one sentence, three figures, and a map of pages. The loop closes outside the
+one sentence, three numbers, and a map of pages. The loop closes outside the
 software: the owner opens the page a finding points to and decides what to
 change.
 
@@ -70,26 +70,25 @@ All backend writes go through one function, \code{record\_event}, in the
 file \code{event\_repo.py} (lines 64--91). It validates the payload and
 inserts the row inside a savepoint. If the row is rejected, the failure is
 logged and the event is dropped; the learner's request, for example turning a
-page, still succeeds. We chose to lose an event rather than fail a reader.
+page, still succeeds. The design loses an event rather than fail a reader.
 
-\Cref{tab:events} lists the types. The current reader writes eight of the
+\Cref{tab:events} lists the types. The reading view writes eight of the
 seventeen; the others belong to the older interface or to backend jobs. The
 engine reads six.
 
 \begin{table}[htbp]
   \centering
   \small
-  \caption{The 17 governed event types. \enquote{Reader} marks the types the
-    current reader writes, \enquote{engine} the types the aggregation reads.
+  \caption{The 17 governed event types. \enquote{View} marks the types the reading view writes, \enquote{engine} the types the aggregation reads.
     Sources: \code{schemas/learning\_events.py:76--282};
     \code{insights/sources/space.py:39--46}.}
   \label{tab:events}
   \begin{tabular}{@{}lccp{0.47\textwidth}@{}}
     \toprule
-    Event type & Reader & Engine & What it records \\
+    Event type & View & Engine & What it records \\
     \midrule
     \code{slide\_view} & yes & yes & a page was open for at least two seconds; page and duration \\
-    \code{slide\_back\_navigation} & yes & yes & the reader turned back; from and to \\
+    \code{slide\_back\_navigation} & yes & yes & a member turned back; from and to \\
     \code{confidence\_rating} & yes & yes & a check-in on an idea: \enquote{got it} or \enquote{confused} \\
     \code{ai\_tutor\_query} & yes & yes & Explain was opened or a question asked; the question, at most 400 characters, never the reply \\
     \code{checkpoint\_attempt} & yes & yes & an answer to a checkpoint, graded by the server \\
@@ -127,12 +126,11 @@ be made.
 
 Events carry the real user id. They are not pseudonymised. An early plan
 foresaw pseudonyms, and an unused helper for them, \code{pseudonymize.ts}, is still in the
-frontend code. The protection that shipped is a different one: who may read the log, and what leaves the aggregation. Both are
+frontend code. The protection that was built is a different one: who may read the log, and what leaves the aggregation. Both are
 the subject of \cref{sec:c5-privacy}.
 
 A member can insert events for themselves directly, through the database
-interface the browser holds. Three guards keep one member from bending the
-owner's picture: a trigger rejects a client timestamp that is more than
+interface the browser holds. Three guards keep one member from distorting what the owner sees: a trigger rejects a client timestamp that is more than
 300~seconds away from the server's clock, the engine reads at most 5{,}000
 events per member, and it reads only the payload keys it needs (PRs~\#142
 and \#175).
@@ -155,8 +153,8 @@ catalogues, caches, analytics roll-ups, and operational tables.
 \paragraph{A Space is a course.}
 The current interface speaks of \emph{Spaces}, but no Space table exists. A
 Space is a row in \code{courses}, and membership is a row in
-\code{course\_enrollments}. A student's personal Space is not a row at all: it
-is the set of that student's private lectures without a course. The cost of this choice is that
+\code{course\_enrollments}. A student's own uploads (the Library of \cref{sec:stakeholders}) are not a
+Space row at all: they are lecture rows without a course. The cost of this choice is that
 the vocabulary of the schema (professor, course) no longer matches that of
 the product.
 
@@ -191,13 +189,13 @@ checkpoint right or wrong at the first try.
 \subsection{The Floor}
 
 One constant governs what may be said. It is \code{MIN\_READERS = 5}, set in
-\code{insights/\allowbreak space\_engine.py:25}. A page that fewer than five members have
-read says nothing. \enquote{Nothing} is not zero: the share of readers who
+\code{insights/\allowbreak space\_engine.py:25}. A page that fewer than five members other than the owner have viewed says
+nothing; these members are the page's \emph{readers}. \enquote{Nothing} is not zero: the share of readers who
 needed help on such a page is \code{null}, and the screen draws a faint outline
-instead of a calm cell. This distinction entered after the pin; at
+instead of a dim cell, which would read as \enquote{few needed help}. This distinction entered after the pin; at
 \code{\thesisCommit} such a page reported 0, which the screen would have drawn
 as \enquote{everything is fine}. The same rule holds for the whole Space. The
-payload carries no number of readers but one of three words, \code{none},
+payload carries no number of readers but one of three words, its \emph{reach}: \code{none},
 \code{few}, or \code{enough} (also after the pin; before, it carried the count).
 
 \subsection{Eleven Detectors}
@@ -205,7 +203,7 @@ payload carries no number of readers but one of three words, \code{none},
 A detector is a rule over the facts of one Lesson that produces a finding: a
 kind, a page, and a severity. \Cref{tab:detectors} gives each rule in one line.
 The detectors were written for the older professor dashboard and are reused.
-The engine for Spaces runs ten of the eleven; the one it skips is the only one
+The Space engine runs ten of the eleven; the one it skips is the only one
 that speaks about individual students. Nine kinds of finding can reach the
 owner's screen. In the Space engine a share of ratings, tries, or checkpoint
 pairs is used only once five of the page's readers have contributed to it
@@ -217,12 +215,11 @@ people a finding is about, and only since PR~\#181.
   \centering
   \small
   \caption{The eleven detectors. Thresholds are the constants in
-    \code{insights/detectors.py}; \enquote{Spaces} names what the engine for
-    the owner's view adds (\code{insights/landing\_map.py}).}
+    \code{insights/detectors.py}; \enquote{Owner's view} names what the Space engine adds (\code{insights/landing\_map.py}).}
   \label{tab:detectors}
   \begin{tabular}{@{}lp{0.44\textwidth}p{0.24\textwidth}@{}}
     \toprule
-    Finding & Fires when & Spaces \\
+    Finding & Fires when & Owner's view \\
     \midrule
     confusion hotspot & at least 3 ratings on a page, 20\,\% or more \enquote{confused} & shown from 5 raters \\
     overpacked & 5 views, 30\,\% confused, dwell 1.5 times the Lesson's median, plus questions or a wide spread of dwell & shown from 5 raters \\
@@ -239,10 +236,10 @@ people a finding is about, and only since PR~\#181.
   \end{tabular}
 \end{table}
 
-\subsection{Three Figures and the Themes}
+\subsection{Three Numbers and the Themes}
 
-Beside the findings the engine computes three figures, each for the last
-eight weeks (\code{insights/figures.py}): how many members read, what share of
+Beside the findings the engine computes three numbers, one value per week
+for the last eight weeks (\code{insights/figures.py}): how many members read, what share of
 pages is \emph{landing}, and what share of checkpoints was cleared at the
 first try. A page lands when fewer than 20\,\% of its readers needed help
 (\code{LANDS\_BELOW = 0.2}). A week has a value only if five members read in
@@ -268,17 +265,16 @@ not the owner is sent back to the Space. On the server,
   \centering
   \includegraphics[width=\textwidth]{f21-door-above-floor}\\[6pt]
   \includegraphics[width=\textwidth]{f22-door-below-floor}
-  \caption{The owner's view, drawn by the real screen from two payloads of the
-    persona study (\cref{sec:c5-evaluation}); the navigation bar is cropped.
-    Top: 27~members who all read in the last week. Bottom: the control arm with
-    four members. The same sentence would appear for four real readers.}
+  \caption{The owner's view, drawn by the real screen from two payloads of the study with scripted readers (\cref{sec:c5-evaluation}); the navigation bar is cropped.
+    Top: arm~I, 27~members who all read in the last week. Bottom: arm~G, the
+    control, with four members. The same sentence would appear for four real readers.}
   \label{fig:door}
 \end{figure}
 
 \Cref{fig:door} shows the screen above and below the floor. From top to bottom
 it holds four things. The assistant says one sentence that names the Lesson to
-look at, with one button that opens the page. Three figures follow, each with
-its eight weeks as bars; a week without a value is left empty and is not drawn
+look at, with one button that opens the page. Three numbers follow, each the value of the current week with its eight
+weeks as bars; a week without a value is left empty and is not drawn
 as zero. Then comes the map: one cell per page, brighter where more readers
 needed help, a faint outline where fewer than five have read. A page with a
 finding is labelled and opens that page, and the finding stands below as one
@@ -325,7 +321,8 @@ stored data but a limit on what leaves it. Six mechanisms carry this.
     cascade), then the files; tables without a foreign key are swept
     explicitly (PR~\#90).
   \item[Row-level security as the second fence.] The owner's view reads the
-    log with the backend's service connection and checks ownership in code. The
+    log with the backend's service connection and checks ownership in code;
+    that check is the first fence. The
     database policies of \cref{sec:authorisation} are what stands between a
     browser and the table itself. At \code{\thesisCommit} the 139 migration
     files contain 253 \code{CREATE POLICY} statements. This counts statements
@@ -333,16 +330,17 @@ stored data but a limit on what leaves it. Six mechanisms carry this.
     migrations drop and replace earlier ones.
 \end{description}
 
-What a member is told matches what is built. The sentence shown when joining a
+What a member is told matches what is built, with the limit of
+\cref{sec:c5-findings}. The sentence shown when joining a
 Space and the privacy page both say that owners see patterns across at least
 five people and never names (\code{v4Spaces.json:491}, \code{legal.json:35}).
 
-One gap remains and is stated plainly. An owner who holds the professor role
+A second gap, besides the one in \cref{sec:c5-findings}, concerns raw rows.
+An owner who holds the professor role
 can still read the \code{learning\_events} rows of their enrolled students
 directly from the database, with user ids and without names, because a policy
 written for the older dashboard allows it (stated in PR~\#175);
-the policy excludes the questions asked in the current reader, and nothing
-else. No screen uses this path. Closing it is a migration, not a redesign, and
+the only rows it withholds are the questions asked in the reading view. No screen uses this path. Closing it is a migration, not a redesign, and
 it is listed as future work (\cref{sec:future-work}).
 
 \section{The Second Fence: Authorisation}
@@ -352,7 +350,7 @@ The owner's view is safe by what it computes. Whether the data under it is
 safe depends on who can reach the tables at all, and by which path.
 \Cref{fig:trust-boundaries} in \cref{app:figures} shows the two paths.
 
-A browser holds the public key of the database service and can address the
+A browser holds the anonymous key of the database service and can address the
 database directly. On that path it meets three boundaries inside the
 database: row-level security~\cite{postgresql-rls}, which is enabled on all
 79~tables, the right to execute a function, and the policies of the file
@@ -374,7 +372,8 @@ switch to the anonymous or the signed-in role, and assert which rows and
 functions that role can reach (\code{backend/tests/db/}). The tests that
 drive API routes run either on an in-memory fake of the database or on the
 administrator's connection. No test exercises row-level security through an
-API route. The two fences are each tested; the place where they meet is not.
+API route. The ownership checks in code and the database policies are each tested; the
+place where they meet is not.
 
 \paragraph{A fault at that meeting point.}
 At \code{\thesisPreviousCommit} the rule ``ownership, not role'' had a
@@ -397,7 +396,7 @@ The owner's view is only as private as the database beneath it, which is why
 the history of that boundary belongs to the answer to RQ2. The database
 boundary was not designed once. It was repaired in nine steps
 over eleven migrations, and the faults fall into three classes: who may hold
-a role; functions that run with the rights of their owner and could be
+a role; functions that run with the rights of the role that defined them and could be
 executed by anyone; and drift between repository and production, where the
 bucket for lecture PDFs was private in the repository and could be listed
 publicly in production until October. \Cref{sec:hardening} gives the
@@ -415,8 +414,8 @@ what it should, and does it stay silent when it should? Because the engine is
 a pure function, the study needs no server. A script
 (\code{backend/eval/persona\_study.py} at revision \code{a342dea9}, where
 the engine is identical to \code{2e146f51}) builds one Space with one Lesson
-of 30~pages, lets scripted readers write five of the eight event types the
-reader writes, straight into the engine's input and not through
+of 30~pages, lets scripted readers write five of the eight event types the reading view
+writes, straight into the engine's input and not through
 \code{record\_event}, and calls the function behind the owner's route. The summarising model is
 replaced by fixed strings, as in the unit tests. Runs are seeded
 (20261109 plus the arm's index) and take seconds.
@@ -430,13 +429,11 @@ spends under five seconds per page and stops at page~10. An
 \emph{overconfident} reader says \enquote{got it} everywhere and misses the
 checkpoint on page~10. Dwell and correctness carry random noise.
 
-Eight arms mix these personas. Before the first run we wrote down, for every
-arm, which findings must appear and which must not: 23 expectations in all.
+Eight arms mix these personas. Before the first run the author wrote down, for every arm, which findings must appear and which must not: 23 expectations in all.
 They were written into the script in the same working session, and the commit
-that holds them also holds the results (\code{a342dea9}), so the order is our
-statement and not a record. Where we were unsure of an outcome (the confusion
-block and the speed bump in arm~A) we wrote down none.
-After seeing the result we added two arms to explain misses; they are marked
+that holds them also holds the results (\code{a342dea9}), so the order is the author's statement and not a record. Where the author was
+unsure of an outcome (the confusion block and the speed bump in arm~A), none
+was written down. After seeing the result the author added two arms to explain misses; they are marked
 as post hoc and are not counted among the 23. Arm~I draws the mix of arm~H
 again, and arm~J adds a sixth persona, an asker who is confused.
 
@@ -446,7 +443,7 @@ again, and arm~J adds a sixth persona, an asker who is confused.
 \begin{table}[htbp]
   \centering
   \small
-  \caption{The persona study, run in November 2026 at \code{2e146f51}: 10
+  \caption{The study with scripted readers, run in November 2026 at \code{2e146f51}: 10
     arms, 5{,}370 events. \enquote{Met} counts expectations written before the
     first run.
     Arms I and J are post hoc. Source:
@@ -456,16 +453,16 @@ again, and arm~J adds a sixth persona, an asker who is confused.
     \toprule
     Arm & Members & What the owner's view contained & Met \\
     \midrule
-    A & 6 struggling, 6 steady & hotspot on page 10, speed bump on page 12; figures empty & 4 of 5 \\
+    A & 6 struggling, 6 steady & hotspot on page 10, speed bump on page 12; numbers empty & 4 of 5 \\
     B & 3 struggling, 10 steady & hotspot on page 10 & 0 of 2 \\
     C & 5 askers, 5 steady & nothing; no themes & 0 of 1 \\
     D & 4 askers, 6 steady & nothing; no themes & 1 of 1 \\
-    E & 8 skimmers, 4 steady & leak after page 10, pages 1 to 10 skipped & 3 of 3 \\
+    E & 8 skimmers, 4 steady & leaky bucket after page 10, pages 1 to 10 skipped & 3 of 3 \\
     F & 6 overconfident, 4 steady & calibration gap on page 10 & 1 of 1 \\
     G & 4 members (control) & nothing: reach \code{few}, all values \code{null} & 9 of 9 \\
-    H & 27, all five personas & hotspot and calibration gap on page 10; figures empty & 0 of 1 \\
+    H & 27, all five personas & hotspot and calibration gap on page 10; numbers empty & 0 of 1 \\
     \midrule
-    I & the mix of H again, one week & as H; figures 27, 63\,\%, 79\,\% & post hoc \\
+    I & the mix of H again, one week & as H; numbers 27, 63\,\%, 79\,\% & post hoc \\
     J & 5 confused askers, 5 steady & hotspot on page 10 with themes from 5 askers & post hoc \\
     \bottomrule
   \end{tabular}
@@ -492,18 +489,19 @@ themes are made.
 \subsection{Three Things the Misses Showed}
 \label{sec:c5-findings}
 
-In none of the five misses does the code depart from its rules. Four misses
-show rules that our expectations had read wrongly. One, in arm~B, shows that
-the rules do not keep the promise we had written down for them. None is
-harmless: each is a limit of what an owner can learn.
+In none of the five misses does the code depart from its rules. They fall
+into three groups, one per paragraph below. In arms A, C, and H the author's
+expectations had misread the rules; arm~B's two misses show that the rules do
+not keep the promise made to members, that patterns rest on at least five
+people (\cref{sec:c5-privacy}). None is harmless: each is a limit of what an owner can learn.
 
-\paragraph{The figures speak about this week.}
-In arms A and H all three figures were empty although 12 and 27 members had
-read. The view shows the figure of the current week. The scripted readers
+\paragraph{The numbers speak about this week.}
+In arms A and H all three numbers were empty although 12 and 27 members had
+read. The view shows the value of the current week. The scripted readers
 read on one day each, spread over eight weeks. In arm~A no week reached five
 readers; in arm~H at most three of the eight weeks did, and the last one did
 not. Arm~I places the same 27 readers in one week and
-the figures appear. In a small Space with a few readers per week the figures
+the numbers appear. In a small Space with a few readers per week the numbers
 stay blank even when the map is full.
 
 \paragraph{The floor counts readers, not the people a finding is about.}
@@ -529,7 +527,7 @@ the stricter rule is required for the term \enquote{privacy-preserving}.}
 \paragraph{Themes explain a hotspot and nothing else.}
 In arm~C five members asked about the same pages and no themes appeared,
 because themes are made only for hotspot pages. Five people who ask about a
-page that is not a hotspot are heard by no one.
+page that is not a hotspot reach no one.
 
 \subsection{What Is Tested Without the Study}
 
@@ -562,7 +560,9 @@ close the loop, was not observed.
 \label{sec:c5-answer}
 
 Learner interaction can be modelled as one governed event log with a small
-set of types, written through one function that never fails the reader. It
+set of types; the backend writes it through one function that never fails a
+reader's request, and rows that members insert directly still meet the
+database's type constraint. It
 can be aggregated by a pure function over a bounded window that turns events
 into facts per page. It can be fed back by
 limiting the output and not the storage: no statement about a person, none
@@ -582,7 +582,7 @@ The view can tell an owner, without showing a single student, which page
 confuses readers, where readers leave, which pages are skipped, where
 readers turn back, and where readers feel sure and are wrong; whether owners
 read it that way was not observed. An owner cannot learn
-anything about a group under five, sees no weekly figures in a quiet week, and
+anything about a group under five, sees no weekly numbers in a quiet week, and
 hears questions only where a page is already a hotspot. The floor protects
 readers of a page; it does not yet protect the few people a finding may be
 about.
