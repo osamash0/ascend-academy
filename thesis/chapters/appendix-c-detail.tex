@@ -355,10 +355,12 @@ contract that nothing checks. Badges are awarded by name, and the award
 function returns \code{NULL} for a name it does not know. Three badge names
 used by the review feature were never added to the catalogue, so awarding
 them silently does nothing. A foreign key would not have caught this,
-because nothing is inserted. The cost ledger of model calls and the event
-log are deliberately left without foreign keys, the first to survive the
-deletion of the runs it records, the second for the reasons given in
-\cref{sec:c5-events}.
+because nothing is inserted. Two tables deliberately leave references without
+foreign keys: the cost ledger of model calls, to survive the deletion of the
+runs it records, and the event log, whose references to Lesson and page live
+in the payload for the reasons given in \cref{sec:c5-events}. The event log
+does keep a foreign key to its user, which is what the deletion cascade
+uses.
 
 \section{Hardening as a Sequence (Chapter 5)}
 \label{sec:hardening}

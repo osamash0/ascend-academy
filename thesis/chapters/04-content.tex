@@ -344,7 +344,12 @@ months and no measurement.
 \paragraph{Design.} The benchmark was pre-registered: a protocol fixing the
 question, the hypothesis, the page selection, the duel format, the stopping
 rule, and the analysis was committed on 30 October 2026 before any vote, and
-every later change is a dated deviation in the same file (four in total).
+every later change is a dated deviation in the same file. There are four,
+each committed before the runs and votes it governs: a fix to how line breaks
+are displayed, made before any vote; the two vision models and a second
+comparison; the heavy local engines and a third comparison; and the PaddleOCR
+build and a fourth. The benchmark thus grew from five methods to eleven after
+the first result was known, which the pooled analysis below has to carry.
 Eleven methods were judged: ten challengers against \emph{current}, the
 production extraction, which anchors the scale at 1000. The challengers were
 the Markdown converters pymupdf4llm and MarkItDown; the layout engines
@@ -369,6 +374,14 @@ four when their intervals overlap. Ratings are a Bradley--Terry model fitted
 by minorisation-maximisation, with a bootstrap of 1{,}000 resamples (seed
 20261103); points are $1000 + 400 \log_{10}$ of the strength ratio to the
 anchor, so 400 points above the anchor means 10:1 odds of being preferred.
+Every vote enters the fit, hidden repeats included. A vote of ``same'' or
+``both unusable'' counts as half a win for each side, so the scale measures
+preference and not usability. The bootstrap resamples single votes with
+replacement and treats them as independent, although several votes concern
+the same page and the second round was scheduled from the first. Its
+intervals are therefore likely too narrow, and we read H1 as a statement
+about this judge on these pages (\code{backend/\allowbreak eval/\allowbreak
+parser\_bench/\allowbreak ranking.py}).
 The hypothesis H1, that at least one method is rated above current, is tested
 on each challenger's Bonferroni-corrected lower bound over $k$ challengers,
 not on rank. The judge was the author, which the protocol names as the first
@@ -392,13 +405,15 @@ vote was retracted. All four are pooled on one scale.
 vision transcriptions lead with 1452 and 1376 points, followed by pymupdf4llm
 at 1263, MinerU at 1216, Marker at 1141, Docling at 1128, OpenDataLoader at
 1112, the PaddleOCR build at 1037, and pdf.js at 1007; current sits at its
-anchor of 1000 and MarkItDown below it at 952. H1 holds for five methods: both
-vision models, pymupdf4llm, MinerU, and OpenDataLoader. It is decided on the
-corrected lower bound, so Marker and Docling, which rank above OpenDataLoader
-on points, do not pass: with 19 and 22 duels each their intervals stay below
-the anchor. Three qualifications belong to the result. OpenDataLoader's pass
-rests on the second-round duels; on the first round alone it falls under the
-anchor. The two vision models' intervals overlap, so their order is
+anchor of 1000 and MarkItDown below it at 952. H1 holds for five methods,
+with corrected lower bounds of 1331 and 1251 for the two vision models, 1164
+for pymupdf4llm, 1068 for MinerU, and 1030 for OpenDataLoader. Marker and
+Docling rank above OpenDataLoader on points but do not pass: with 19 and 22
+duels each, their corrected bounds are 958 and 983. Three qualifications
+belong to the result. OpenDataLoader's pass rests on the second-round duels.
+On the 133 first-round votes alone, the same test passes the two vision
+models (1321 and 1311), pymupdf4llm (1063), and MinerU (1055), and
+OpenDataLoader falls under the anchor at 916. The two vision models' intervals overlap, so their order is
 unsettled. And in the first comparison ``both unusable'' was the most frequent
 answer for the current extraction: 31 of its 39 duels ended that way, which is
 the strongest statement the benchmark makes about the text learners read

@@ -134,8 +134,10 @@ strict side with the interface, not by a recorded decision.
 \subsection{Luna and the Reader: Checks on Structure}
 \label{sec:c6-structure}
 
-The other two surfaces do not retrieve and do not cite. They check the shape
-of what the model writes.
+The other two surfaces do not use this retrieval and do not cite. Luna works
+on the open page and the page before and after it, and can look up related
+pages of the Space by full-text search. Explain and Ask get no search at all.
+Both surfaces check the shape of what the model writes.
 
 Luna names pages and lights up phrases on them. A move to a page that does not
 exist is dropped, and a phrase survives only if it occurs literally on that
@@ -144,7 +146,8 @@ exactly one correct option. The file states the rule in its first line:
 nothing the model writes reaches a learner unchecked, and what fails is
 dropped, never shown broken.
 
-Explain and Ask in the reader see one page and its neighbours. Their output
+Explain and Ask in the reader see the text of one page and the titles of up
+to four neighbouring pages (\code{v4\_reader\_service.py:728}). Their output
 must parse into a fixed set of blocks, and a block that does not is dropped
 (\code{v4\_reader\_service.py}, \code{validate\_answer}). Beyond that they rely
 on prompt rules: use only facts the page states, say when something is not
@@ -353,9 +356,20 @@ result. It is the reason the next attempt did not use similarity at all.
 The answer check dropped none of the 16 good keys and kept none of the 16
 wrong ones. On the question that started the work, which a careful student
 could answer differently from its key, it disputed the key in five of five
-runs and agreed with a corrected twin in five of five. One probe call ran into
-a rate limit and a timeout; under the rule above it would have kept its
-question.
+runs and agreed with a corrected twin in five of five. The run was made on
+30~October 2026 with the reasoning model at the head of the quality chain
+(PR~\#166).
+
+These counts are wrong verdicts, not outcomes of the deployed procedure. One
+call of the run returned no verdict, because the provider limited the rate
+and the fallback timed out. The script counts such a call as an error and
+neither as a drop nor as a keep
+(\code{backend/\allowbreak eval/\allowbreak quiz\_answer\_check.py:101--103}),
+and the record of the run does not say which pair it was or whether the call
+was repeated. Under the rule above, the deployed check would have kept that
+question whichever key it carried. \Cref{tab:verifiers} therefore describes
+the check when it answers; the procedure as deployed is weaker by its rule
+for outages.
 
 The refusal gate was measured separately at \code{\thesisCommit}, on
 10~November 2026, with expectations committed before the run
@@ -376,8 +390,8 @@ hits in 25 of 27 cases.
 \label{sec:c6-threats}
 
 The probe is small and was written by the developer of the system, in two
-subjects from one university. Sixteen pairs separate a verifier that works
-from one that does not; they do not estimate an error rate in production.
+subjects from one university. Sixteen pairs show how a verifier behaves on
+these chosen cases; they do not estimate an error rate in production.
 The answer check was measured once, on one day, with one model at the head of
 its chain, and a model behind an API can change without notice. No measurement
 covers the prose of Explain, Ask, or Luna. The gate was measured in one Space, with 57 English questions written
@@ -479,7 +493,7 @@ model's key.
 verifier is scored and that contains both kinds of error. On 16 pairs the
 lexical verifier dropped 14 good keys, a similarity score kept 8 wrong ones
 and failed a gate that had been fixed in advance, and the independent check
-made neither error. The refusal gate, tested in one Space with 57 questions,
+made neither error in the calls that returned a verdict. The refusal gate, tested in one Space with 57 questions,
 let through all 27 that have an answer and refused all 30 that have none, by
 a narrow margin. The negative result decided the design as much as the
 positive one.
