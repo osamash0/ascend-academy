@@ -141,9 +141,13 @@ reports the result as a fault that was found later.
 Review, exams, badges, and analytics were built for learners who had not
 arrived: of twelve flags, four are switched on
 (\cref{sec:built-vs-deployed}). Feature toggles are known to accumulate as
-debt~\cite{rahman2016toggles,hodgson2017toggles}. The move to a
-reading-first interface in October was a correction of this, and it came
-late.
+debt~\cite{rahman2016toggles,hodgson2017toggles}. Here the debt showed:
+earlier in the year the flag of the interface and the flag of the backend
+could disagree, so that a menu entry led to a route that answered ``not
+found''. Two such mismatches existed, and one exam screen had no interface
+flag at all. Since the end of October the build derives each interface flag
+from its backend flag. The move to a reading-first interface in October was
+a correction of the same kind, and it came late.
 
 \subsection{Documentation and Reality}
 \label{sec:reality-vs-documented}
