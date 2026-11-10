@@ -28,7 +28,7 @@ memory, Ubuntu~24.04) with five containers defined in
   \item \code{worker}: the Arq worker, also limited to 512\,MB, running up to four
     jobs at once;
   \item \code{redis}: the cache, 256\,MB with least-recently-used eviction;
-  \item \code{redis-queue}: the job broker, 128\,MB with eviction disabled and
+  \item \code{redis-queue}: the job broker, 128\,MB (in a container of 160\,MB) with eviction disabled and
     append-only persistence, because a queue that silently drops jobs is worse
     than one that refuses new ones.
 \end{itemize}
@@ -90,19 +90,20 @@ check and surface only as failing requests.
     \textbf{Decision} & \textbf{Recorded reason} & \textbf{Source} \\
     \midrule
     A background job queue (Arq) & Parsing takes longer than a request may. &
-      \code{6ce7b5f1}, 19~May \\
+      \code{6ce7b5f1}, 19~May; \code{CHANGELOG.md} \\
     Two Redis instances & A cache may evict; a queue must not lose a job. &
       \code{43a86927}, 16~July \\
     PyMuPDF for text and rendering & A second renderer was dropped for a
       memory leak; the plain text call stayed as the only live extractor. &
-      \code{227267e7}, \code{b1c7a428} \\
+      \code{227267e7}, \code{b1c7a428}; \code{CHANGELOG.md} \\
     No LLM gateway & The gateway had no live callers, used 1\,GB of a 4\,GB
       host, and its health check could block start-up. &
-      \code{68a091e0}, 25~Aug \\
+      \code{68a091e0}, 25~Aug (main: PR~\#51, 28~Aug) \\
     HNSW instead of IVFFlat & Recorded in the migration that replaces the
       index. & \code{20260719000002} \\
     Small WebP posters for page previews & Full PDFs as backdrops exceeded
-      the storage egress quota; posters cut egress by 97.6\,\%. &
+      the storage egress quota; posters are 97.6\,\% smaller than the PDFs
+      they replace. &
       PR~\#12, 17~Aug \\
     One embedding size (768) & Two embedding models fill the same column. &
       \code{ai/embeddings.py} \\
@@ -131,7 +132,7 @@ check and surface only as failing requests.
       routing. \\
     v2 routed pipeline & 1 May & Each page classified, then sent to text,
       OCR, or vision; a deck-level ``blueprint''. The default until June. \\
-    v3 staged pipeline & 2--19 May & Seven resumable stages, Docling, an Arq
+    v3 staged pipeline & 2--19 May & Five resumable stages (eight in the design), Docling, an Arq
       job queue, pgvector, a LiteLLM gateway. Never the default; later called
       dormant. \\
     v4 orchestrator & 19 May & One AI stage for every external extractor.
@@ -277,7 +278,7 @@ and partly by matching text in the exception message.
 
 The chain looks deeper than it is. The eight entries use six credentials
 (two Groq models share one key, two Google models another), so one revoked
-key takes out two legs; and the call wrapper's eight rate-limit retries run
+key takes out two legs; and the call wrapper's eight rate-limit attempts run
 under a 25-second timeout that fits at most four. Two failure classes are
 found-then-fixed cases: at \code{\thesisEarlierCommit} a provider whose
 credit had run out was retried on every call (Cerebras, then at the head of
@@ -330,7 +331,7 @@ limit and so counts as unlimited.
 On 31 October 2026 a hosted parsing service (LlamaParse) was run on one deck
 to see whether buying the extraction step would remove the problem. It did
 not. Its output mis-numbered pages until a page separator was configured, its
-Python package was deprecated during the trial, it would have added a
+Python package had been out of maintenance since 1~May 2026, it would have added a
 dependency the production image does not carry, and it sends every uploaded
 page to a third party the privacy policy does not name. The trial is recorded
 in the repository (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak llamaparse-trial-2026-10-31.md})
@@ -381,7 +382,7 @@ the same date, so the history shows no window of exposure. Twice in this
 phase a step opened a hole that a later step closed.
 
 The second class concerns functions that run with the rights of their
-owner. In July a function of this kind took a user id from its caller,
+owner. In July five functions of this kind were closed; one of them took a user id from its caller,
 checked nothing, and was executable by everyone through a default grant. It
 was reproduced on a local database, closed, and is guarded by 13~tests
 (\code{20260721000001}). The repair was incomplete, because the hosting

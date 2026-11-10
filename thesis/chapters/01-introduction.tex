@@ -38,7 +38,7 @@ readers do on the pages is recorded. A view for the owner of the material
 returns it as patterns about pages, with no names and only for pages that at
 least five people have read. This view was merged two days after the
 revision that the thesis describes, and \cref{ch:loop} shows that a finding
-in it can still rest on three people.
+in it can still rest on fewer than five people, in the extreme on one.
 
 \thesisfigure{f1-transformation}
   {The transformation this thesis addresses. One PDF is kept as the reading
@@ -135,9 +135,9 @@ the shared code base. The repository was created by the co-developer on
 28~August 2026. Their work includes the first content filter in three layers
 (commit \code{bfbe6c09}), the integration of the Groq provider
 (\code{76aa4b42}), the first anonymised analytics for lecturers
-(\code{3abfaa54}, \code{52ead4b5}), an early orchestrator for several
-providers (\code{8aa255e2}, \code{86270c2c}), and about 30~security fixes in
-July 2026. This thesis covers the parts that came after or replaced them: the
+(\code{3abfaa54}, \code{52ead4b5}), the wiring of external extractors into
+the fourth parser pipeline (\code{8aa255e2}), and about a dozen security
+fixes in July 2026. This thesis covers the parts that came after or replaced them: the
 page-by-page pipeline and its benchmark, the event engine and the owner's
 view, the verification of generated questions, and the interface in which
 students read. Where a chapter describes something the co-developer wrote, it

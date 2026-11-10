@@ -40,7 +40,7 @@ was ruled out. The author's reason is that the first interface assumed a
 university, with professors and courses, and the second should work for any
 material and any group. The older rooms still exist in the code and are no
 longer where learners are sent. The backend changed as often:
-\cref{sec:c4-lineage} lists about eight generations of the parsing pipeline
+\cref{sec:c4-lineage} lists nine generations of the parsing pipeline
 in ten months.
 
 Five principles hold across the current system and are referred to in the
@@ -107,23 +107,29 @@ original page and a text written from it), ask Luna to explain a page, ask a
 question about a page or about a whole Space and get an answer with links to
 pages, answer checkpoint questions while reading, run a practice session
 with Luna whose cards are scheduled by a variant of SM-2, take notes, and
-see a history of earned points. An owner can publish a Space and, since two
-days after the pinned revision, see how it is read (\cref{ch:loop}).
+see a history of earned points. An owner can publish a Space. The view of
+how it is read was merged two days after the pinned revision and is not yet
+deployed (\cref{ch:loop}).
 
 Several things are built and not reachable in the current interface: the
 review engine of the older interface, an exam mode, generated study guides,
-a global search page, and a third view of a page that rebuilds its layout.
+and a global search page.
 We describe them only where a chapter needs them, and we do not count them
-as delivered. Earlier in the year the flag of the interface and the flag of
+as delivered. A third view of a page, which rebuilds its layout as text, did
+not exist at the described revision; its backend was merged afterwards and
+is switched off (\cref{sec:future-work}). Earlier in the year the flag of the interface and the flag of
 the backend could disagree, so that a menu entry led to a route that
-answered ``not found''. Two such mismatches existed. Since the end of
+answered ``not found''. Two such mismatches existed, and one exam screen
+had no interface flag at all. Since the end of
 October the build derives each interface flag from its backend flag.
 
 The thesis describes revision \code{\thesisCommit}. At the time of
 writing (10~November 2026) production runs an earlier revision,
 \code{c57721f2}, built on 6~November 2026, which lacks the last routing change of \cref{ch:content}
 and the owner's view of \cref{ch:loop}. Production runs with all model
-providers enabled; six have keys (probed on 9~November 2026).
+providers enabled. On 9~November 2026 its containers held keys for six
+providers, one of which (Cerebras) is in neither chain at the described
+revision.
 \TODO{Author: re-check the deployed revision on the day of submission and
 correct this paragraph.}
 
@@ -152,8 +158,10 @@ accounting live in that module, not in a separate service. This was not always
 so. At \code{\thesisEarlierCommit} the production stack still contained a LiteLLM gateway
 container, and the API carried its base URL in its environment, although no code
 path sent traffic through it. The container was removed from the production
-compose file on 28 August 2026, and the remaining configuration and legacy code
-on 18 September 2026. The project's own documentation lagged behind: the backend
+compose file in August 2026 (commit \code{68a091e0} of 25~August, on the
+main branch with PR~\#51 on 28~August), and the remaining configuration and
+legacy code in commit \code{7830d49a} (18~September, on the main branch with
+PR~\#74 on 10~October). The project's own documentation lagged behind: the backend
 README still describes the gateway as the routing layer. Of all the
 documentation drift discussed in \cref{sec:reality-vs-documented}, this case is
 the most consequential, because it changes what design is being defended: not
@@ -199,15 +207,15 @@ the deployed system cannot be rebuilt from the repository alone.
 \label{sec:stack}
 
 Most of the stack was not chosen by deliberation. React, Vite, TypeScript,
-Tailwind, and Supabase came with the scaffold of the first commit in January
-(\code{184e5742}), and FastAPI, Redis, and nginx followed as the common
-companions. We name them as defaults and do not defend them. Seven choices
+Tailwind, Supabase, and a FastAPI stub came with the scaffold of the first
+commit in January (\code{184e5742}), and Redis and nginx followed as the
+common companions. We name them as defaults and do not defend them. Seven choices
 do have a recorded reason (\cref{tab:decisions} in \cref{app:detail}),
 among them the job queue, the two Redis instances, and the removal of the
 gateway. One of them hides a finding that \cref{ch:content} measures: the
 plain text call of PyMuPDF became the production extractor by attrition and
-not by comparison, and the benchmark rates five of the ten alternatives
-above it.
+not by comparison, and the benchmark rates nine of the ten alternatives
+above it, five of them by the corrected test.
 
 \section{Constraints}
 \label{sec:constraints}

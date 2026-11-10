@@ -27,7 +27,7 @@ skinparam rectangle {
 }
 
 rectangle "**A — Reader: Explain / Ask**\n//one page, in the reader//" as A #F2F2F2 {
-  rectangle "Text of the current page (at most 3 500 chars)\n+ titles of neighbouring pages\n**no retrieval**: nothing to cite" as A1 #DCDCDC
+  rectangle "Text of the current page (at most 3 500 chars)\n+ neighbouring titles (Explain) or earlier turns (Ask)\n**no retrieval**: nothing to cite" as A1 #DCDCDC
   rectangle "Prompt: stated facts only; page text\nis data, fence defused; say if missing" as A2
   rectangle "Checked UI blocks,\ncached per content revision" as A3
   A1 --> A2

@@ -35,8 +35,8 @@
   \draw[arr] (lex) -- (chk);
   \draw[arr] ([yshift=5pt]chk.east) -- node[lab, above=0pt] {agrees} ([yshift=5pt]sto.west);
   \node[note, above=4pt of key] {index, letter or text must match an option};
-  \node[note, above=4pt of str] {page exists; numbers on page; no better distractor};
-  \node[note, above=4pt of lex] {below 0.5: flagged, not dropped};
+  \node[note, above=4pt of str] {page exists and is not empty; a key resolves};
+  \node[note, above=4pt of lex] {low support, stray number, better distractor: flagged};
   \node[note, above=4pt of chk] {a second model answers without the key};
   \node[note, above=4pt of sto] {counts written to the parse receipt};
   \node[stage, below=22pt of chk, minimum height=24pt] (rep) {Repair once};

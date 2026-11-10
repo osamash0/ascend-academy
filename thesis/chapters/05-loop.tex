@@ -27,7 +27,8 @@ person who wrote them.
 Two revisions matter in this chapter. The event log and the aggregation
 engine are described at \code{\thesisCommit}. The screen that shows the
 result to an owner was merged two days later (PR~\#181, 8~November 2026)
-with two small changes to the engine, and the evaluation in
+with five small changes to what the engine sends
+(\cref{sec:c5-findings}), and the evaluation in
 \cref{sec:c5-evaluation} ran on that later state, revision \code{2e146f51}.
 One limit shapes the whole chapter: since August 2026 the deployed system
 has had almost no readers. The evidence is therefore a study with scripted
@@ -66,7 +67,7 @@ unknown fields (\code{schemas/learning\_events.py}, \code{EVENT\_REGISTRY},
 \code{extra="forbid"}). An event that fails either check is not stored.
 
 All backend writes go through one function, \code{record\_event}, in the
-file \code{event\_repo.py} (lines 64--96). It validates the payload and
+file \code{event\_repo.py} (lines 64--91). It validates the payload and
 inserts the row inside a savepoint. If the row is rejected, the failure is
 logged and the event is dropped; the learner's request, for example turning a
 page, still succeeds. We chose to lose an event rather than fail a reader.
@@ -81,7 +82,7 @@ engine reads six.
   \caption{The 17 governed event types. \enquote{Reader} marks the types the
     current reader writes, \enquote{engine} the types the aggregation reads.
     Sources: \code{schemas/learning\_events.py:76--282};
-    \code{insights/sources/space.py:35--42}.}
+    \code{insights/sources/space.py:39--46}.}
   \label{tab:events}
   \begin{tabular}{@{}lccp{0.47\textwidth}@{}}
     \toprule
@@ -94,7 +95,7 @@ engine reads six.
     \code{checkpoint\_attempt} & yes & yes & an answer to a checkpoint, graded by the server \\
     \code{quiz\_attempt} & yes & yes & a first answer to a quiz question \\
     \code{quiz\_retry\_attempt} & yes & no & a later answer to the same question \\
-    \code{lecture\_complete} & yes & no & the last page was reached \\
+    \code{lecture\_complete} & yes & no & every page was read \\
     \midrule
     \multicolumn{4}{@{}p{0.95\textwidth}@{}}{\code{lecture\_start},
       \code{micro\_quiz\_attempt}, \code{login}, \code{search\_performed},
@@ -108,7 +109,7 @@ engine reads six.
 Two decisions about content are visible in the table. The answer the AI gives
 to a question is never stored, only the question, cut to 400 characters. And
 nothing from a private study session with the assistant becomes an event at
-all (\code{insights/sources/space.py:34}).
+all (\code{insights/sources/space.py:38}).
 
 \subsection{Storage}
 
@@ -133,7 +134,8 @@ A member can insert events for themselves directly, through the database
 interface the browser holds. Three guards keep one member from bending the
 owner's picture: a trigger rejects a client timestamp that is more than
 300~seconds away from the server's clock, the engine reads at most 5{,}000
-events per member, and it reads only the payload keys it needs (PR~\#175).
+events per member, and it reads only the payload keys it needs (PRs~\#142
+and \#175).
 
 \section{The Schema Around the Log}
 \label{sec:data-model}
@@ -159,8 +161,8 @@ the product.
 \paragraph{Schema drift.}
 Migrations are not the only source of truth for the deployed database. The
 production database has a vector column on \code{slides} that no migration
-defines; in August 2026 it was empty in all 5{,}445 rows. Two further tables
-exist only in production, and production's migration history records two of
+defines; in August 2026 it was empty in all 5{,}445 rows. Three further tables
+exist only in production (probed in October 2026), and production's migration history records two of
 the migrations. The project therefore applies migrations by hand and checks
 the outcome against the system catalogue. The repository describes the intended
 database, and the running one has to be inspected.
@@ -170,9 +172,10 @@ database, and the running one has to be inspected.
 
 \subsection{From Rows to Page Facts}
 
-The engine is a pure function. Its input is a value with four parts: the
-members of the Space, its Lessons, the events, and the current time
-(\code{insights/sources/space.py:67--82}). Its output is the payload the
+The engine is a pure function. Its input is one value that holds, among
+other things, the members of the Space, its Lessons, the events, and the
+current time
+(\code{insights/\allowbreak sources/\allowbreak space.py:67--82}). Its output is the payload the
 owner's screen draws. Nothing in between touches the database, which is what
 makes the study in \cref{sec:c5-evaluation} possible.
 
@@ -202,8 +205,11 @@ kind, a page, and a severity. \Cref{tab:detectors} gives each rule in one line.
 The detectors were written for the older professor dashboard and are reused.
 The engine for Spaces runs ten of the eleven; the one it skips is the only one
 that speaks about individual students. Nine kinds of finding can reach the
-owner's screen. For three detectors the Space engine tightens the rule, so that
-a finding is carried by five people and not by two or three.
+owner's screen. In the Space engine a share of ratings, tries, or checkpoint
+pairs is used only once five of the page's readers have contributed to it
+(\code{insights/\allowbreak space\_engine.py:38--46}), so a detector's own
+minimum of three ratings never binds there. Only the speed bump counts the
+people a finding is about, and only since PR~\#181.
 
 \begin{table}[htbp]
   \centering
@@ -216,15 +222,15 @@ a finding is carried by five people and not by two or three.
     \toprule
     Finding & Fires when & Spaces \\
     \midrule
-    confusion hotspot & at least 3 ratings on a page, 20\,\% or more \enquote{confused} & shown \\
-    overpacked & 5 views, 30\,\% confused, dwell 1.5 times the Lesson's median, plus questions or a wide spread of dwell & shown \\
-    confusion block & two or more neighbouring pages, each 25\,\% confused & shown \\
+    confusion hotspot & at least 3 ratings on a page, 20\,\% or more \enquote{confused} & shown from 5 raters \\
+    overpacked & 5 views, 30\,\% confused, dwell 1.5 times the Lesson's median, plus questions or a wide spread of dwell & shown from 5 raters \\
+    confusion block & two or more neighbouring pages, each 25\,\% confused & shown from 5 raters \\
     leaky bucket & the worst page-to-page loss of readers is 20\,\% or more & shown \\
     skipped page & 5 views, median dwell under 5 seconds & shown \\
-    speed bump & readers return from the next page; long dwell, little confusion & shown from 5 people who turned back \\
+    speed bump & readers return from the next page; long dwell, little confusion & shown from 5 people who turned back (since PR~\#181; at the pin from 2) \\
     calibration gap & 35\,\% or more of those who said \enquote{got it} miss the linked checkpoint & shown from 5 such people \\
     quiz misalignment & pass rate under 50\,\% without any sign of confusion & shown from 5 raters \\
-    healthy & confusion of 25\,\% or more, yet 75\,\% pass: readers worked through it & shown \\
+    healthy & confusion of 25\,\% or more, yet 75\,\% pass: readers worked through it & shown from 5 raters \\
     silent misleader & 60\,\% \enquote{got it}, yet under 50\,\% pass, too few linked pairs & computed, not sent \\
     silent strugglers & individual students with low progress and no questions & not run \\
     \bottomrule
@@ -308,7 +314,7 @@ stored data but a limit on what leaves it. Six mechanisms carry this.
     by a word. \Cref{sec:c5-findings} shows where this rule is weaker than it
     sounds.
   \item[The owner is not in the data.] The owner's own events are removed
-    before anything is counted (\code{sources/space.py:108--113}).
+    before anything is counted (\code{sources/space.py:107--112}).
   \item[Visibility among members is opt-in.] Whether other members of a Space
     see a member's name is a profile setting that is off by default (PR~\#146).
   \item[Export and erasure.] A user can download their data and delete their
@@ -348,9 +354,10 @@ A browser holds the public key of the database service and can address the
 database directly. On that path it meets three boundaries inside the
 database: row-level security~\cite{postgresql-rls}, which is enabled on all
 79~tables, the right to execute a function, and the policies of the file
-storage. The backend takes the other path. Its two connections bypass
-row-level security (\code{core/database.py:4--8, 150--190}), so on every
-backend route the check is a line of Python that compares the caller with
+storage. The backend takes the other path. Its service-role client and
+its SQL pool bypass row-level security (\code{core/database.py:5--6,
+150--190}), so on most backend routes, and on every route of the loop, the
+check is a line of Python that compares the caller with
 the owner of the Space or with its members. Two properties of the policies
 matter for the loop. Rows that a creator owns are guarded by ownership and
 no longer by the professor role (migration \code{20260713000000}). And
@@ -402,9 +409,11 @@ With no real Space above the floor, we asked a narrower question that can be
 answered: given readers who behave in known ways, does the owner's view say
 what it should, and does it stay silent when it should? Because the engine is
 a pure function, the study needs no server. A script
-(\code{backend/eval/persona\_study.py}) builds one Space with one Lesson of
-30~pages, lets scripted readers write the same event types the reader writes,
-and calls the function behind the owner's route. The summarising model is
+(\code{backend/eval/persona\_study.py} at revision \code{a342dea9}, where
+the engine is identical to \code{2e146f51}) builds one Space with one Lesson
+of 30~pages, lets scripted readers write five of the eight event types the
+reader writes, straight into the engine's input and not through
+\code{record\_event}, and calls the function behind the owner's route. The summarising model is
 replaced by fixed strings, as in the unit tests. Runs are seeded
 (20261109 plus the arm's index) and take seconds.
 
@@ -415,12 +424,13 @@ there, checks in as \enquote{confused}, misses first tries, and turns back from
 page~13 twice. An \emph{asker} asks on every third page. A \emph{skimmer}
 spends under five seconds per page and stops at page~10. An
 \emph{overconfident} reader says \enquote{got it} everywhere and misses the
-checkpoints on pages 8 to 12. Dwell and correctness carry random noise.
+checkpoint on page~10. Dwell and correctness carry random noise.
 
 Eight arms mix these personas. Before the first run we wrote down, for every
 arm, which findings must appear and which must not: 23 expectations in all.
 After seeing the result we added two arms to explain misses; they are marked
-as post hoc and are not counted among the 23.
+as post hoc and are not counted among the 23. Arm~I draws the mix of arm~H
+again, and arm~J adds a sixth persona, an asker who is confused.
 
 \subsection{Results}
 \label{sec:c5-results}
@@ -446,7 +456,7 @@ as post hoc and are not counted among the 23.
     G & 4 members (control) & nothing: reach \code{few}, all values \code{null} & 9 of 9 \\
     H & 27, all five personas & hotspot and calibration gap on page 10; figures empty & 0 of 1 \\
     \midrule
-    I & the 27 of H, one week & as H; figures 27, 63\,\%, 79\,\% & post hoc \\
+    I & the mix of H again, one week & as H; figures 27, 63\,\%, 79\,\% & post hoc \\
     J & 5 confused askers, 5 steady & hotspot on page 10 with themes from 5 askers & post hoc \\
     \bottomrule
   \end{tabular}
@@ -482,14 +492,19 @@ stay blank even when the map is full.
 
 \paragraph{The floor counts readers, not the people a finding is about.}
 In arm~B three of thirteen members were confused on page~10, and the view
-reported a hotspot. The page had thirteen readers, so it was above the floor,
-and the hotspot rule needs 20\,\% confused among at least three raters: three
-of thirteen are 23\,\%. The view names nobody and sends no count of three, so
+reported a hotspot. The page had thirteen readers, so it was above the floor.
+In the Space engine a share is used only once five of the page's readers have
+rated it; the hotspot rule then fires at 20\,\% confused, so one confused
+reader among five raters is enough. Three of thirteen are 23\,\%. The view
+names nobody and sends no count of three, so
 the promise \enquote{patterns across at least five people} holds by its
 letter. It does not hold in the stronger sense that a pattern is carried by
-five people. An owner who knows the group may guess who the three are. For
-three other detectors the engine already applies the stricter rule
-(\cref{tab:detectors}); for the hotspot it does not. The code is frozen at the
+five people. An owner who knows the group may guess who the three are. Only
+the speed bump counts the people a finding is about, and only since PR~\#181,
+which made five changes to what the engine sends: a missing share is sent as
+null and not as 0; no count under five is sent for a grid cell, for the
+askers of a hotspot, or for a speed bump; and a word replaces the reader
+count. The code is frozen at the
 pin, so we report this as a limit and name the stricter rule, five subjects per
 finding, as the change to make.
 \TODO{After the meeting of 11 November: add the supervisor's view on whether
@@ -503,11 +518,13 @@ page that is not a hotspot are heard by no one.
 \subsection{What Is Tested Without the Study}
 
 The floor and the rules above are also fixed by tests that run without
-readers: 141 unit tests of the engine, 26 of them written as plain sentences
+readers. At \code{2e146f51} these are 141 unit tests of the engine, 26 of
+them written as plain sentences
 such as \enquote{a page four people reached says nothing even if all four were
 foggy} (\code{tests/unit/test\_landing\_stories.py}), and 62 database tests
-that replay every migration into an empty Postgres and check the read path
-and the owner gate.
+that replay every migration into an empty Postgres and check the event
+schema, the partitions, row-level security, erasure, the read path, and the
+owner gate.
 
 \subsection{Limits}
 

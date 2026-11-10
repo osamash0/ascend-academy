@@ -47,16 +47,16 @@ the variable names are in \code{docs/thesis/evidence/CONSTANTS.md}.}
   Proxy idle timeout                     & 120\,s          & \code{nginx.conf:52} \\
   Worker heartbeat interval / TTL        & 30\,s / 90\,s   & \code{arq\_worker.py:47}, \code{worker\_heartbeat.py:24} \\
   Stalled-run reconciler cutoff          & 25\,min         & \code{arq\_worker.py:57} \\
-  Reconciler sweep interval              & 10\,min         & \code{arq\_worker.py:72} \\
+  Reconciler sweep interval              & 10\,min         & \code{arq\_worker.py:336} \\
   Parse job lock TTL                     & 1200\,s         & \code{unified\_orchestrator.py:68} \\
   Review-card job lock TTL               & 300\,s          & \code{card\_factory.py:39} \\
   % --- Ingestion: routing and synthesis ---
   Page routing: no-text threshold        & 25 chars        & \code{page\_blocks.py:201} \\
   Page routing: figure-page text cap     & 150 chars       & \code{page\_blocks.py:202} \\
   Page routing: minimum figure share     & 0.05 of page    & \code{page\_blocks.py:203} \\
-  Vision model (default)                 & \code{gemini-2.0-flash} & \code{config.py:74} \\
+  Vision model (default)                 & Gemini leg     & \code{config.py:74} (selector); model \code{gemini-flash-latest}, \code{orchestrator.py:331} \\
   Synthesis batch size                   & 8 slides        & \code{orchestrator.py:158} \\
-  Synthesis batch context overlap        & 1 slide         & \code{orchestrator.py:162} \\
+  Synthesis batch context overlap        & 1 slide (retired v2 path only) & \code{orchestrator.py:162} \\
   Deck quiz questions asked for (cap)    & 5--8 (12)       & \code{ai/prompts.py:422}, \code{synthesis.py:52} \\
   Options per question                   & 4 (3 distractors) & \code{quiz\_validator.py:98} \\
   % --- LLM provider strategy ---
