@@ -55,7 +55,10 @@ shows a finding only for a page that at least five people have read and never
 names a person. It was merged two days after the pinned revision. Two limits remain. A hotspot needs one confused reader among five who rated
 the page, and in the study it rested on three among thirteen; and a database policy of the older dashboard still
 lets an owner with the professor role read event rows with user ids
-(\cref{sec:c5-privacy}). In a
+(\cref{sec:c5-privacy}). Measured by the criterion of
+\cref{sec:analytics-privacy}, that no statement is about fewer than five
+people, the view protects the readers of a page and not yet the few people
+a finding may be about. In a
 study with scripted readers in eight arms, 18 of 23~expectations that were
 written down before the run were met, nine of them in the control arm: four
 of five that a finding must appear, and fourteen of eighteen that the view
@@ -93,13 +96,31 @@ not require; Explain, Ask, and Luna rely on rules in the prompt and on the
 original page next to the text.
 
 \paragraph{The three aims.}
-Of the aims in \cref{sec:aims}, the first is met by design: the original
-page stays the default view. The second is met in the owner's view, within
+Of the aims in \cref{sec:aims}, the first is met in its second half by
+design, since the original page stays the default view; its first half is
+RQ1, answered above with its limits. The second is met in the owner's view, within
 the limits named under RQ2. The third is met for the readers of a Space, who
 share its owner's parse, and not for two uploaders of the same file.
 
 \section{Discussion}
 \label{sec:discussion}
+
+We first set each answer against the work that \cref{ch:background}
+introduced, and then report six observations from the project.
+
+\paragraph{The answers and the literature.}
+On RQ1, the benchmark agrees with Dinh et al.\ that the page image carries
+more than the text layer~\cite{dinh2025slides}. The agreement is on a
+different task, a reader's preference between renderings and not the
+accuracy of answers, and it rests on one judge. On RQ2, the floor borrows
+the minimum group size of $k$-anonymity~\cite{sweeney2002kanonymity} and
+applies it to pages. It guarantees five readers behind a page and not five
+people behind a finding, so within that frame it protects less than its
+number suggests. On RQ3, the answer check runs on a different model because
+model judges favour their own
+output~\cite{panickssery2024selfpreference}. On the probe this choice held,
+but the probe compares verifiers and does not test the bias itself: it does
+not show that the writing model would have judged worse.
 
 Six observations cut across the three answers. They come from ten months of
 building the system and are lessons of one project, not general results.
@@ -153,7 +174,10 @@ a correction of the same kind, and it came late.
 
 The sixth observation is that the documents of the project and the running
 system drifted apart, in both directions, and that the drift was found only
-by reading code and probing production. The cases that this thesis verified
+by reading code and probing production. No research question asks for this
+observation. It is reported because the three answers rest on statements
+about the system, and each of them had to be checked against the code and
+not against the documents. The cases that this thesis verified
 are of four kinds. Documentation described a design that no longer ran: the
 backend's own description still presented a gateway in front of the model
 providers after the gateway had been removed (\cref{sec:architecture}).
@@ -212,7 +236,9 @@ the thesis as a whole.
     no record, so the split of ideas is less sharp than the split of code.
 \end{enumerate}
 
-Two of the four questions of the January proposal remain unanswered: how
+Of the four questions of the January proposal, the one on aggregating
+interaction events became RQ2 and the one on data profiling metrics was not
+pursued (\cref{sec:research-questions}). Two remain unanswered: how
 students perceive motivation in a gamified platform, and whether
 interactive content improves learning efficiency compared to static
 slides. Both need participants. We state them as open and do not let a

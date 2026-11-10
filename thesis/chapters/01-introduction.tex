@@ -65,7 +65,7 @@ them with the mechanism that addresses each one.
     The author gets no feedback on the material. &
       An event log, ten detectors that speak about pages, and an owner's view
       without names. &
-      RQ2, \cref{ch:loop} \\
+      \cref{ch:loop} \\
     A learning session leaves no trace. &
       Reading position, notes, answers, and sessions with Luna are stored per
       page. &
@@ -73,11 +73,11 @@ them with the mechanism that addresses each one.
     Progress is not captured, for the student or for the author. &
       The same log feeds the student's own history and the owner's
       aggregated view. &
-      owner's side: RQ2, \cref{ch:loop} \\
+      owner's side: \cref{ch:loop} \\
     The cost of processing a file is paid again and again. &
       A file is parsed at most once per uploader and feeds one shared search
       index. &
-      RQ1, \cref{ch:content} \\
+      described in \cref{ch:content}, not measured \\
     Static material gives no reason to come back. &
       Practice questions, spaced review, and a ledger of experience points. &
       not evaluated \\
@@ -178,9 +178,16 @@ is question 5 for the supervisor. Align this paragraph with it.}
 \section{Research Questions}
 \label{sec:research-questions}
 
-The thesis began as a project proposal in January 2026. Two of its four
-questions need participants and remain open (\cref{sec:limitations}); its
-question about interaction events survives as RQ2.
+The thesis began as a project proposal in January 2026, \enquote{Discovering
+Impact: characterizing learning interaction data in educational contexts},
+which asked four questions. Its question on how heterogeneous interaction
+events can be aggregated became RQ2. Two questions, on how students perceive
+motivation and on whether interactive content improves learning efficiency,
+need participants and remain open (\cref{sec:limitations}). Its question on
+which data profiling metrics suit interaction data is not pursued as a
+question of its own. RQ1 and RQ3 were not in the proposal.
+\TODO{Author: say why the profiling question was dropped, and when and why
+RQ1 and RQ3 were added. The repository records neither reason.}
 
 \begin{description}
   \item[RQ1] How can heterogeneous lecture PDFs be reliably transformed into
@@ -192,6 +199,17 @@ question about interaction events survives as RQ2.
   \item[RQ3] How can the quality of LLM-generated learning content be
     verified and measured, and what happens when verification fails?
 \end{description}
+
+Each question has one line through the thesis. RQ1 belongs to the first aim
+and to the first two contributions; its evidence is the routing study, the
+blind benchmark, and the deck-plan scorecard in \cref{ch:content}. RQ2
+takes up the first and third problem of \cref{tab:problems}, the second aim,
+and the third contribution; its evidence is the study with scripted readers
+in \cref{ch:loop}. RQ3 takes up the sixth problem and the fourth
+contribution; its evidence is the verifier probe and the refusal gate in
+\cref{ch:trust}. The third aim, to generate shared content once, has no
+question of its own: it is a property of the design in \cref{ch:content}
+and is described, not measured.
 
 \Cref{ch:background,ch:system} give the background and the system as a
 whole, \cref{ch:content,ch:loop,ch:trust} answer the three questions in

@@ -51,6 +51,9 @@ text~\cite{dinh2025slides}. \Cref{ch:content} arrives at the same result
 from a different side: in a blind comparison, the author, as the only judge,
 preferred the text
 that a vision model wrote from the page image over every text extractor.
+None of the works above compares extractors on lecture slides by what a
+learner would rather read, or at the cost a small server can bear;
+\cref{ch:content} does both, with one judge.
 
 \section{Language Models and Their Failure Modes}
 \label{sec:llms}
@@ -115,7 +118,9 @@ system moved between them.
 \label{sec:learning-science}
 
 Three results from the learning sciences explain why the system does more
-than display a page. First, retrieving something from memory strengthens it
+than display a page. They motivate the practice features described in
+\cref{ch:system}, which this thesis does not evaluate, and they explain why
+the assistant is kept close to the page (\cref{ch:trust}). First, retrieving something from memory strengthens it
 more than reading it again~\cite{roediger2006testing}, and practice spread
 over time beats the same practice in one block~\cite{cepeda2006distributed}.
 A review of ten study techniques rates these two as the most
@@ -168,7 +173,9 @@ minimum group size: under $k$-anonymity a released record must be
 indistinguishable from at least $k-1$ others~\cite{sweeney2002kanonymity}.
 \Cref{ch:loop} applies the idea not to released records but to released
 statements: nothing is said about a page that fewer than five people have
-read.
+read. We call a view privacy-preserving in this thesis if no statement it
+releases is about fewer than five people; \cref{ch:loop} measures the
+owner's view against this criterion.
 
 \section{Related Systems}
 \label{sec:positioning}

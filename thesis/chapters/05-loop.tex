@@ -142,6 +142,8 @@ and \#175).
 
 The event log is one table among many, and the loop reads several of the
 others: who owns a Space, who is a member, which pages a Lesson has. The
+section serves RQ2 in this respect only: these tables decide whose events
+the view aggregates and who may see the result. The
 schema is defined only by plain SQL migrations (139 files at
 \code{\thesisCommit}). They create 79 tables, one of which is the default
 partition of the event table, so 78 logical tables. Thirty-six of them form
@@ -391,7 +393,9 @@ an id. The second change is the stronger one, because it holds even when a
 check is missing again.
 
 \paragraph{A boundary repaired in steps.}
-The database boundary was not designed once. It was repaired in nine steps
+The owner's view is only as private as the database beneath it, which is why
+the history of that boundary belongs to the answer to RQ2. The database
+boundary was not designed once. It was repaired in nine steps
 over eleven migrations, and the faults fall into three classes: who may hold
 a role; functions that run with the rights of their owner and could be
 executed by anyone; and drift between repository and production, where the
@@ -560,18 +564,24 @@ close the loop, was not observed.
 Learner interaction can be modelled as one governed event log with a small
 set of types, written through one function that never fails the reader. It
 can be aggregated by a pure function over a bounded window that turns events
-into facts per page. It can be fed back in a privacy-preserving way by
+into facts per page. It can be fed back by
 limiting the output and not the storage: no statement about a person, none
 about a page that fewer than five people have read, and an owner who is
 absent from their own numbers. The protection is that of the owner's view
 and has two stated limits: a finding can rest on fewer than five people
 (\cref{sec:c5-findings}), and a database policy of the older dashboard still
 lets an owner with the professor role read event rows with user ids
-(\cref{sec:c5-privacy}).
+(\cref{sec:c5-privacy}). \Cref{sec:analytics-privacy} called a view
+privacy-preserving if no statement it releases is about fewer than five
+people. By that criterion the owner's view is not yet privacy-preserving:
+the floor counts the readers of a page, and one confused rater among five
+can carry a hotspot. It is privacy-preserving in the weaker sense that it
+names no one and says nothing about a page with fewer than five readers.
 
-Without seeing a single student, an owner can learn which page confuses
-readers, where readers leave, which pages are skipped, where readers turn
-back, and where readers feel sure and are wrong. An owner cannot learn
+The view can tell an owner, without showing a single student, which page
+confuses readers, where readers leave, which pages are skipped, where
+readers turn back, and where readers feel sure and are wrong; whether owners
+read it that way was not observed. An owner cannot learn
 anything about a group under five, sees no weekly figures in a quiet week, and
 hears questions only where a page is already a hotspot. The floor protects
 readers of a page; it does not yet protect the few people a finding may be

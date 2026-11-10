@@ -438,7 +438,9 @@ A learner trusts the content. An operator also has to trust that the system
 does not spend without limit and does not keep calling a provider that can no
 longer answer. \Cref{sec:multi-provider} described the chain of providers and
 \cref{sec:openai-only} the caps. Here the question is whether those limits
-hold when providers fail.
+hold when providers fail. It belongs to RQ3 because the answer check is
+itself a model call: what happens when verification fails depends on what
+happens when a provider fails.
 
 In October 2026 we planned a set of property tests, the Provider Chaos Lab:
 scripted providers that fail in chosen ways, a frozen clock, and five
@@ -508,6 +510,9 @@ that the older tutor really puts outside knowledge into a block quote.
 
 \section{Answer to RQ3}
 \label{sec:c6-answer}
+
+The measurements in this chapter cover answer keys and the refusal gate.
+The prose of explanations and answers is neither verified nor measured.
 
 \emph{How can the quality of content written by a language model be verified?}
 In this system, in three ways of falling strength. By computation, where the

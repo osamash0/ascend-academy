@@ -38,7 +38,9 @@ corpus this thesis works with, that means 25 lecture decks with 1{,}593 pages
 from two courses in two languages: eleven database decks (ten in English and
 one German introduction) and fourteen German systems decks,
 plus a software-engineering deck and two exercise sheets used in the
-benchmark. Four properties of this material shape the design.
+benchmark. Heterogeneous here means the mix of page types within
+born-digital decks; scanned documents are outside the corpus. Four
+properties of this material shape the design.
 
 \begin{description}
   \item[Pages are heterogeneous.] A deck mixes title and agenda pages, dense
@@ -518,7 +520,10 @@ and is not evidence of better quizzes.
 \label{sec:c4-answer}
 
 How can heterogeneous lecture PDFs be transformed reliably into structured,
-grounded content? The answer this chapter gives has four parts. Identity by
+grounded content? The answer this chapter gives has four parts. Of these,
+the routing study evaluates the third, the scorecard confirms that the
+second is implemented, and the first and fourth are described, not
+measured. Identity by
 content: a SHA-256 hash names the bytes, one object is stored per hash, one
 run is kept per document, version, and uploader, and a finished run is
 replayed rather than repeated; concurrent duplicates are locked out while the
@@ -544,6 +549,16 @@ extraction was judged unusable, together with its opponent, in 18 of its 33
 first-round duels; its footer on 23 of 24 pages is one visible reason. The
 judge chose between rendered outputs; whether synthesis, quiz, and retrieval
 do better on the preferred text was not measured.
+
+The yardstick of \cref{sec:c4-requirements} had four marks. How a figure page is handled is answered by the routing
+rule and its study. How soon a learner reads is answered by design, since
+the reader opens on the original page at once; the time until the generated
+text of a page arrives was not measured. What a deck costs was not measured
+per deck: the benchmark prices the vision transcription per page, and the
+cost ledger of production was not evaluated. What leaves the server is the
+page text, to the providers of the chain, and the image of each page that is
+routed to a vision model; the mode that would restrict this to one paid
+provider was not switched on at the pin (\cref{sec:provider-strategy}).
 
 What the chapter does not show is stated as plainly. It does not show that
 the text generated for a page is grounded in that page; no evaluation here
