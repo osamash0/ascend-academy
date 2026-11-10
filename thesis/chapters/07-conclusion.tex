@@ -21,33 +21,34 @@ what the work showed beyond them, states its limitations, and looks ahead.
 
 \paragraph{RQ1: from PDF to structured, grounded content.}
 The transformation is designed for reliability by a first pass that uses no
-model; its reliability end to end was not measured, nor was whether the
-generated text of a page is grounded in that page. One rule, measured on the
+model. One rule, measured on the
 page without its footer, sends 87 of the 1{,}593 pages of the corpus to a
 vision model. In the blind benchmark, under a protocol
 fixed before the first vote and extended to the vision models after the
-first comparison, the author as the only judge rated transcription by a
-vision model highest (1452 and 1376 points) and pymupdf4llm third (1263).
+first comparison, transcription by a
+vision model was rated highest (1452 and 1376 points) and pymupdf4llm third (1263).
 Nine of the ten alternatives score above the production extraction; five stay
 above it at the corrected lower bound, and four when pages rather than votes
 are resampled. 
 The limits are one judge without a second rater, born-digital pages from one
 university, later comparisons that were less blind, and a preference between
 rendered outputs that was not tested on the models that consume the text.
+Reliability end to end and the grounding of the generated page text were not
+measured.
 
 \paragraph{RQ2: from reader events back to the owner.}
 Interaction is modelled as one governed log of 17~event types, which the
 Space engine turns into nine kinds of finding per page. The owner's view
 names no one and says nothing about a page that fewer than five people have
-read. By the criterion of \cref{sec:analytics-privacy}, that no statement is
-about fewer than five people, it is not yet privacy-preserving: a hotspot can
-rest on one confused rater among five, and a policy of the older dashboard
-still lets an owner with the professor role read event rows with user ids
-(\cref{sec:c5-privacy}). In the study with scripted readers, four of the five
+read. In the study with scripted readers, four of the five
 expectations that a finding appears were met, and fourteen of the eighteen
 that the view stays silent, where an engine that reports nothing would meet
-sixteen; the two misses of arm~B show that the rules do not keep the promise
-made to members (\cref{sec:c5-evaluation}). The study tests the machinery and says nothing about learners.
+sixteen (\cref{sec:c5-evaluation}). By the criterion of
+\cref{sec:analytics-privacy}, that no statement is about fewer than five
+people, the view is not yet privacy-preserving: a hotspot can rest on one
+confused rater among five, and a policy of the older dashboard still lets an
+owner with the professor role read event rows with user ids
+(\cref{sec:c5-privacy}).
 
 \paragraph{RQ3: verifying generated content.}
 Generated content is verified by computation where an answer can be
@@ -76,7 +77,7 @@ We first set each answer against the work of \cref{ch:background}.
 On RQ1, the benchmark agrees with Dinh et al.\ that the page image carries
 more than the text layer~\cite{dinh2025slides}. The agreement is on a
 different task, a reader's preference between renderings and not the
-accuracy of answers, and it rests on one judge. On RQ2, the floor borrows
+accuracy of answers. On RQ2, the floor borrows
 the minimum group size of $k$-anonymity~\cite{sweeney2002kanonymity} and
 applies it to pages. It guarantees five readers behind a page, not five people behind a finding. On RQ3, the answer check runs on a different model because
 model judges favour their own

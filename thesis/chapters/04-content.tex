@@ -214,8 +214,7 @@ most one parse per uploader and pipeline version, unless a re-parse is
 forced. Without Redis, two simultaneous jobs of one uploader can both parse
 (\cref{sec:idempotency-detail}).
 
-This is the precise content of the project's ``parse once'' principle, and it
-is narrower than the phrase suggests. The bytes are stored once and the
+This is the precise content of the project's ``parse once'' principle. The bytes are stored once and the
 retrieval index is keyed by hash, so the embeddings of a document are shared by
 everyone who uploads it. The parsed lecture is not: two students who upload the
 same deck each get, and each pay for, one parse. Sharing a parse across
@@ -227,8 +226,7 @@ The lock is best-effort by decision: if Redis fails, the worker proceeds
 without it. The guarantee also has a gap between uploaders: if a second user uploads
 identical bytes while the first user's parse runs, the second user's job
 finds the shared lock held and stays queued until the sweep marks it as
-failed after six hours. We report
-this as a known limitation.
+failed after six hours.
 
 \paragraph{Failures.}
 A failed job finalises the pages it has written and marks its run as failed,
@@ -251,8 +249,7 @@ Three pieces of evidence bear on RQ1. The routing study asks whether pages
 reach the right model. The extraction benchmark asks which method produces
 the text a learner would rather learn from, and at what cost. The deck-plan
 scorecard asks what the plan changed. A one-deck trial of a hosted parsing service, which was not adopted, is
-recorded in \cref{sec:c4-llamaparse}. What was
-not evaluated is stated at the end of the chapter.
+recorded in \cref{sec:c4-llamaparse}.
 
 \subsection{The Routing Study}
 \label{sec:c4-routing-study}
@@ -455,7 +452,7 @@ the golden set would test it. And no second rater judged any subset, so how
 far the result depends on the one judge is unknown.
 
 \paragraph{What follows.} The production parser was not changed on this
-basis at the pin. The benchmark records three preferences of the one judge. The current
+basis at the pin. The benchmark records three preferences. The current
 extraction came second to last, above only MarkItDown. pymupdf4llm, the
 Markdown converter built on PyMuPDF, stands 263 points above it, about 4.5:1
 in expected score, without a fee, for under a second more per page and about
@@ -475,9 +472,8 @@ pages for metadata and quiz generation against the planned one. The plan's
 quiz step reads, rose from a mean of 0.17 to 0.84; the sections the quiz
 draws on rose from 26 to all 31 eligible sections; and removing boilerplate
 saved 14{,}875 words of model input over the corpus. The metadata pass still sees 24\,\% of pages. The scorecard runs without
-a model and does not say whether the quizzes got better, only that they now
-draw on the whole deck. Span and section coverage are what the plan's page
-selection is designed to raise, so the scorecard confirms the implementation
+a model. Span and section coverage are what the plan's page
+selection is designed to raise, so it confirms the implementation
 and is not evidence of better quizzes.
 
 \section{Answer to RQ1}
@@ -502,8 +498,7 @@ all on pages without teaching text. Write as you go: the
 worker, not the browser, writes every page the moment it exists, and the
 reading view opens on the original PDF at once.
 
-Which extraction methods give learners the most useful text at what cost? On 24 pages from five PDFs of three courses, judged blind by the author
-alone, the transcription of the stronger vision model is preferred to the
+Which extraction methods give learners the most useful text at what cost? On 24 pages from five PDFs of three courses, judged blind, the transcription of the stronger vision model is preferred to the
 current extraction at more than 10:1 in expected score on the fitted scale,
 that of the smaller at about 9:1, and both cost under a cent a page;
 pymupdf4llm is preferred at about 4.5:1 without a fee, at under a second more per page,
@@ -523,13 +518,8 @@ page text, to the providers of the chain, and the image of each page that is
 routed to a vision model; the mode that would restrict this to one paid
 provider was not switched on at the pin (\cref{sec:provider-strategy}).
 
-What the chapter does not show is stated as plainly. It does not show that
-the text generated for a page is grounded in that page; no evaluation here
-measures it, and \cref{ch:trust} does not check page text. It does not show that
-the new routing rule improves what learners read; that needs a re-parse with
-the rule in production and a measure of the result. It does not show that any extraction method improves learning;
-the judge was one person, the author, on 24 pages. It does not show that
-exercise sheets parse worse than decks, a belief the author held and the
-benchmark was not designed to test. These limits are taken up in the final
-chapter, together with the open production decision between pymupdf4llm and
-vision.
+Three things were not measured: whether the text generated for a page is
+grounded in that page, whether the new routing rule improves what learners
+read, and whether any extraction method improves learning. The final chapter
+takes up these limits and the open production decision between pymupdf4llm
+and vision.

@@ -30,9 +30,8 @@ result to an owner was merged two days later (PR~\#181, 8~November 2026)
 with five small changes to what the engine sends
 (\cref{sec:c5-findings}), and the evaluation in
 \cref{sec:c5-evaluation} ran on that later state, revision \code{2e146f51}.
-One limit shapes the whole chapter: since August 2026 the deployed system
-has had almost no readers. The evidence is therefore a study with scripted
-readers. It tests the machinery, not learners.
+Since August 2026 the deployed system has had almost no readers, so the
+evidence is a study with scripted readers.
 
 \section{The Loop as Built}
 \label{sec:c5-loop}
@@ -180,8 +179,7 @@ that speaks about individual students. Nine kinds of finding can reach the
 owner's screen. In the Space engine a share of ratings, tries, or checkpoint
 pairs is used only once five of the page's readers have contributed to it
 (\code{insights/\allowbreak space\_engine.py:38--46}), so a detector's own
-minimum of three ratings never binds there. Only the speed bump counts the
-people a finding is about, and only since PR~\#181.
+minimum of three ratings never binds there.
 
 \begin{table}[htbp]
   \centering
@@ -384,7 +382,7 @@ again, and arm~J adds a sixth persona, an asker who is confused.
 \end{table}
 
 \Cref{tab:persona} gives the result. Of the 23 expectations, 18 were met.
-The total flatters the result: nine of the 18 come from the control arm~G,
+Nine of the 18 come from the control arm~G,
 and arms B, C, and H met none of their four expectations. Sorted by kind, the
 picture is this. Of the five expectations that a finding must appear, four
 were met. Of the eighteen that the view must stay silent or empty, fourteen
@@ -408,7 +406,7 @@ In none of the five misses does the code depart from its rules. They fall
 into three groups, one per paragraph below. In arms A, C, and H the author's
 expectations had misread the rules; arm~B's two misses show that the rules do
 not keep the promise made to members, that patterns rest on at least five
-people (\cref{sec:c5-privacy}). None is harmless: each is a limit of what an owner can learn.
+people (\cref{sec:c5-privacy}). Each is a limit of what an owner can learn.
 
 \paragraph{The numbers speak about this week.}
 In arms A and H all three numbers were empty although 12 and 27 members had
@@ -496,7 +494,5 @@ confuses readers, where readers leave, which pages are skipped, where
 readers turn back, and where readers feel sure and are wrong; whether owners
 read it that way was not observed. An owner cannot learn
 anything about a group under five, sees no weekly numbers in a quiet week, and
-hears questions only where a page is already a hotspot. The floor protects
-readers of a page; it does not yet protect the few people a finding may be
-about. Two things are designed and not delivered: retention has never run, and a
+hears questions only where a page is already a hotspot. Two things are designed and not delivered: retention has never run, and a
 member cannot yet send a question to the owner.

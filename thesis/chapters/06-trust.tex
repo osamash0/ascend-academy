@@ -29,7 +29,7 @@ Where neither is possible, nothing checks the content, and the original page,
 which a learner sees first, remains the reference. Most checks drop what
 fails them; the few that only mark an item are named where they occur.
 
-The limit comes first. No check in the system decides whether a sentence of
+No check in the system decides whether a sentence of
 generated prose is true. Every verifier below, that is, every step that computes, validates, filters,
 or drops, tests something narrower: that a
 page exists, that a phrase is on it, that a cited source was retrieved, that a
@@ -76,7 +76,7 @@ were invisible to the ask bar and to the global search; the fix, commit
 database test that fails on the old join. How large the blind part was in other Spaces is not recorded; the
 retrieval measurement of September, taken in another Space, found the right
 page among its six hits for 26 of the 27 questions it could run there
-(96\,\%) under the old join. We report the defect because every later check depends on retrieval: a
+(96\,\%) under the old join. Every later check depends on retrieval: a
 refusal gate and a citation check are worth nothing when retrieval does not
 see the material.
 
@@ -105,7 +105,7 @@ question.
         citations (\code{tutor.py:272--299}).
 \end{enumerate}
 
-What the five points do not do matters as much. None of them checks that the
+The five points leave four gaps. None of them checks that the
 content of the answer is supported by the cited page. None requires that an
 answer cites anything. The invalid \texttt{[Source N]} tag is removed from the citation list
 but stays in the text of the reply. The citation check compares against the
@@ -126,7 +126,7 @@ material if it puts it in a block quote and says that it goes
 beyond the slides (\code{ai/prompts.py:506--540}). This is a prompt rule; no
 code checks that the model keeps it.
 
-Why the refusal was removed is not recorded, and we do not supply a reason;
+Why the refusal was removed is not recorded;
 \cref{sec:c6-history-detail} gives what the repository shows.
 
 Two tutors therefore exist at \code{\thesisCommit}. The tutor of the older interface has no refusal gate and allows labelled
@@ -185,7 +185,7 @@ reader. This is indirect prompt
 injection~\cite{greshake2023indirect,owasp2025llm}. The audience of such a
 document is the members of its Space.
 
-The defence has two layers, and neither is a guarantee. The first is a rule in
+The defence has two layers. The first is a rule in
 every prompt that the page text and the learner's words are data and never
 instructions. The second gives that rule a boundary that uploaded text cannot forge. Each prompt
 fences uploaded text with markers, and a PDF that contains the same marker
@@ -197,8 +197,7 @@ spotlighting~\cite{hines2024spotlighting}. Before that change, at
 \code{\thesisPreviousCommit}, retrieved text was inserted raw and the reading view's prompts lacked even
 the rule of the first layer.
 
-The file is plain about its limit: it ``does not make injection impossible;
-nothing does''. The damage is bounded only where an output check exists:
+Rewriting the markers does not make injection impossible. The damage is bounded only where an output check exists:
 Luna's literal phrase check, the citation check of the ask bar, and the block
 validation of the reading view. An injected instruction that makes the reading
 view's Explain write something false in well-formed blocks would pass. One earlier
@@ -370,8 +369,8 @@ because the stem dominates the embedding and a wrong key on the same topic
 scores like a right one. The consequence had been fixed in advance: the
 wiring into the parse was reverted, and tuning the threshold against the same
 probe was ruled out. The experiment was closed without merging (PR~\#94); its
-code and record exist only under an archive tag. We report it as a negative
-result. It is the reason the next attempt did not use similarity at all.
+code and record exist only under an archive tag. This negative result is
+the reason the next attempt did not use similarity at all.
 
 The answer check dropped none of the 16 good keys and kept none of the 16
 wrong ones. On the question that started the work, which a careful student
@@ -384,17 +383,12 @@ the same change, on the probe that already existed (commit
 \code{461afc40}), so its result is in-sample. Before the check itself is called validated, it should be scored once on new
 pairs from other decks against an acceptance criterion fixed first.
 
-The answer check's counts are wrong verdicts among the calls that returned
-one, not what the deployed procedure would have done. One
-call of the run returned no verdict, because the provider limited the rate
-and the fallback timed out. The script counts such a call as an error and
-neither as a drop nor as a keep
+One call of the run returned no verdict, because the provider limited the
+rate and the fallback timed out. The script counts such a call as an error
 (\code{backend/\allowbreak eval/\allowbreak quiz\_answer\_check.py:101--103}),
-and the record of the run does not say which pair it was or whether the call
-was repeated. Under the rule above, the deployed check would have kept that
-question whichever key it carried. \Cref{tab:verifiers} therefore describes
-the check when it answers; the procedure as deployed is weaker by its rule
-for outages.
+and the record of the run does not say which pair it was. The deployed check
+would have kept that question whichever key it carried, so
+\cref{tab:verifiers} describes the check when it answers.
 
 The refusal gate was measured separately at \code{\thesisCommit},
 in November 2026, with expectations committed before the run
@@ -514,4 +508,3 @@ material is refused before any model is called. When the verifier itself is
 unavailable the system keeps the content, by decision, so that an outage does
 not remove it. And where no verifier exists, for the meaning of generated
 prose, the original page remains the first thing a learner sees.
-\Cref{ch:conclusion} returns to these limits.
