@@ -31,12 +31,14 @@ a language model can derive much of that structure from an ordinary PDF.
 This thesis describes Learnstation, a web application that we built to make
 that step for lecture material. A lecturer or a student uploads a PDF and
 reads it at once. While they read, the system turns each page into objects
-that software can address: a text of the page, the ideas on it, questions
-about it, and a vector for search (\cref{fig:transformation}). An assistant
-called Luna works on these objects and always points back to the page. What
-readers do on the pages is recorded and returned to the owner of the material
-as patterns, never about a person, and only for pages that at least five
-people have read.
+that software can address: a text of the page, a vector for search, and, for
+selected pages, questions about it (\cref{fig:transformation}). An assistant
+called Luna works on these objects, next to the page they come from. What
+readers do on the pages is recorded. A view for the owner of the material
+returns it as patterns about pages, with no names and only for pages that at
+least five people have read. This view was merged two days after the
+revision that the thesis describes, and \cref{ch:loop} shows that a finding
+in it can still rest on three people.
 
 \thesisfigure{f1-transformation}
   {The transformation this thesis addresses. One PDF is kept as the reading
@@ -61,18 +63,20 @@ them with the mechanism that addresses each one.
     \textbf{Problem} & \textbf{Mechanism} & \textbf{Examined in} \\
     \midrule
     The author gets no feedback on the material. &
-      An event log, eleven detectors, and an owner's view without names. &
+      An event log, ten detectors that speak about pages, and an owner's view
+      without names. &
       RQ2, \cref{ch:loop} \\
     A learning session leaves no trace. &
       Reading position, notes, answers, and sessions with Luna are stored per
       page. &
-      RQ2, \cref{ch:loop} \\
+      described, not evaluated \\
     Progress is not captured, for the student or for the author. &
       The same log feeds the student's own history and the owner's
       aggregated view. &
-      RQ2, \cref{ch:loop} \\
+      owner's side: RQ2, \cref{ch:loop} \\
     The cost of processing a file is paid again and again. &
-      A file is parsed once per uploader and feeds one shared search index. &
+      A file is parsed at most once per uploader and feeds one shared search
+      index. &
       RQ1, \cref{ch:content} \\
     Static material gives no reason to come back. &
       Practice questions, spaced review, and a ledger of experience points. &
@@ -91,16 +95,18 @@ check fails.
 
 The thesis has three aims: to transform static lecture material into
 structured content while the original page stays the reference, to feed what
-learners do back to the author without exposing any learner, and to generate
+learners do back to the author without naming any learner, and to generate
 shared content once and not once per reader.
 
 We make four contributions.
 \begin{enumerate}
   \item A deterministic first pass over a PDF that decides without a model
-    call which pages need a vision model, with parsing once per uploader
+    call which pages need a vision model, with parsing at most once per
+    uploader
     (\cref{ch:content}).
-  \item A pre-registered blind benchmark of eleven text extraction methods on
-    24~lecture pages, judged in 283~pairwise votes (\cref{ch:content}).
+  \item A blind benchmark of eleven text extraction methods on 24~lecture
+    pages, judged in 283~pairwise votes under a protocol that was fixed
+    before the first vote and extended four times (\cref{ch:content}).
   \item A feedback loop from reader to owner whose view makes no statement
     about a person and none about a page that fewer than five people have
     read; where this rule is weaker than it sounds is stated in
@@ -114,9 +120,13 @@ We make four contributions.
 \label{sec:scope}
 
 This is an engineering thesis. It describes a system that runs in production
-and evaluates its parts with curated data. On 30~October 2026 the production
-database held 103~accounts that are not test accounts, and two of them had
-been active in the previous seven days. No user study was run, and no claim
+and evaluates its parts with curated data. On 10~November 2026 the
+production database held 216~accounts. Of these, 161 use test,
+demonstration, or invented addresses. The other 55 are on real mail or
+university domains and include the developers' own; two of the 55 had been
+active in the previous seven days, one of them a developer
+(\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak
+accounts-2026-11-10.md}). No user study was run, and no claim
 in this thesis is about what students learn.
 
 Learnstation was built by two students, and each of them submits a thesis on
@@ -144,10 +154,12 @@ where they matter and are marked as later.
 \label{sec:method-note}
 
 We follow a build-and-evaluate approach. Each of the three main chapters
-describes what was built and ends with an evaluation whose expectations were
-written down before the run where that was possible. Every factual statement
-about the system was checked against the code at the revision named above,
-and against production where the two can differ. Where the repository does
+describes what was built and ends with an evaluation. The extraction
+benchmark, the persona study, the verifier probe, and the re-run of the
+refusal gate fixed their expectations before the run; the routing study and
+the deck-plan scorecard did not. Statements about the system were checked
+against the code at the revision named above, unless a section names a later
+one, and against production where the two can differ. Where the repository does
 not record a reason for a decision, we say so and do not supply one.
 
 Most of the code was written with AI coding agents under the author's

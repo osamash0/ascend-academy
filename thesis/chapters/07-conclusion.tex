@@ -25,15 +25,22 @@ its reliability end to end was not measured. The pipeline hashes every page, pla
 each page by one rule: a page with fewer than 25~characters of text outside
 its footer, or with a figure of at least 5\,\% of its area and fewer than
 150~characters, goes to a vision model. On our corpus this sends 87 of
-1{,}593~pages to vision. A file is parsed once per uploader, as long as the lock that excludes
-concurrent duplicates is available. Which
-extraction gives the most useful text was measured in a pre-registered blind
-benchmark: eleven methods, 24~pages from five PDFs in two languages, and
-283~pairwise votes by the author as the only judge. Transcription by a vision
+1{,}593~pages to vision. A file is parsed at most once per uploader and
+pipeline version unless a re-parse is forced; a second uploader of the same
+bytes during a running parse waits until a sweep fails the run after six
+hours (\cref{sec:idempotency}). Whether the generated text of a page is
+grounded in that page was not measured: \cref{ch:trust} lists which
+generated items are checked, and the page text is not among them. Which
+extraction gives the most useful text was measured in a blind benchmark
+under a protocol fixed before the first vote: eleven methods, 24~pages from
+five PDFs in two languages, and 283~pairwise votes by the author as the only
+judge. The vision models entered by a dated deviation after the first
+comparison, and the later comparisons were less blind. Transcription by a vision
 model is rated highest (ratings of 1452 and 1376), the layout-aware variant of the library that production already uses
 is third (1263), and the heavy local converters do not beat it. The
-extraction that production runs is second to last (1000) and leaks footer
-text on 23 of 24~pages. The two vision models together cost \$0.21 for the
+extraction that production runs is the anchor of the scale (1000). Five of
+the ten alternatives are rated above it, and it leaks footer text on 23 of
+24~pages. The two vision models together cost \$0.21 for the
 24~pages. The answer
 has a clear limit: one judge, who built the system, and born-digital pages
 from one university.
@@ -43,36 +50,47 @@ Learner interaction can be modelled as one governed log of 17~event types,
 eight of which the reader writes. Ten of eleven detectors run over a window
 of 56~days and turn it into nine kinds of finding per page. The owner's view
 shows a finding only for a page that at least five people have read and never
-names a person. Two limits remain. A hotspot can rest on three confused
+names a person. It was merged two days after the pinned revision and is not
+yet deployed. Two limits remain. A hotspot can rest on three confused
 readers among thirteen, and a database policy of the older dashboard still
 lets an owner with the professor role read event rows with user ids
 (\cref{sec:c5-privacy}). In a
 study with scripted readers in eight arms, 18 of 23~expectations that were
-written down before the run were met. A Space with four members shows
-nothing; a mix of 27~readers surfaces the confusing page and the gap between
-confidence and correctness, and nothing else. The five misses were our own
+written down before the run were met, nine of them in the control arm. A
+Space with four members shows nothing. A mix of 27~readers surfaces the
+confusing page and the gap between confidence and correctness, and nothing
+else; this was observed and was not a registered expectation. The five misses were our own
 misreadings of three rules, and each is now a stated limit
 (\cref{sec:c5-evaluation}). The study tests the machinery, with the
 summarising model replaced by fixed strings. It says nothing about learners
 or about what real themes reveal.
 
 \paragraph{RQ3: verifying generated content.}
-Generated content can be verified in three ways, and they are not equally
-good. Where an answer can be computed, the system computes it and does not
-ask a model. For the quiz questions written at parse time, an independent
-check on a different model reads the question against the page: on
-16~pinned pairs it disputed none of 16~correct keys and accepted none of
-16~hallucinated ones, while the lexical rule it replaced had rejected 14 of
-the 16~correct keys. A third verifier,
-a semantic similarity gate, failed its pre-registered test with 8 of
-16~false keeps at a threshold that had been fitted to the calibration data,
-and it was withdrawn and not tuned. When the check disputes a key, the
-question is dropped. When the check itself is unavailable, the question is
-kept, so an outage lets unchecked questions through; one call of the probe
-run ended that way. Multiple-choice and ordering questions in the reader and
-the rehearsal are checked for shape only and graded against the model's key.
-What is not verified at all is the prose of explanations and answers, where the system relies on
-retrieval, citations to pages, and the original page next to the text.
+Generated content is verified in three ways, and they are not equally good:
+by computation, by an independent check, and by structure. Where an answer
+can be computed, the system computes it and does not ask a model. For the
+quiz questions written at parse time, an independent check on a different
+model reads the question against the page. On 16~pinned pairs it disputed no
+correct key and accepted no wrong key, which had been written by hand, among
+the calls that returned a verdict; one call returned none. The lexical rule
+it replaced had rejected 14 of the 16~correct keys. A third verifier of
+answer keys, a semantic similarity gate, failed its pre-registered test with
+8 of 16~false keeps at a threshold that had been fitted to the calibration
+data, and it was withdrawn and not tuned. When the check disputes a key, the
+question is rewritten once against the same page; a second dispute drops it.
+When the check itself is unavailable, the question is kept, so an outage
+lets unchecked questions through. Multiple-choice and ordering questions in
+the reader and the rehearsal are checked for shape only and graded against
+the model's key. What is not verified at all is the prose of explanations
+and answers. The ask bar relies on retrieval and on citations that it does
+not require; Explain, Ask, and Luna rely on rules in the prompt and on the
+original page next to the text.
+
+\paragraph{The three aims.}
+Of the aims in \cref{sec:aims}, the first is met by design: the original
+page stays the default view. The second is met in the owner's view, within
+the limits named under RQ2. The third is met for the readers of a Space, who
+share its owner's parse, and not for two uploaders of the same file.
 
 \section{Discussion}
 \label{sec:discussion}
@@ -82,9 +100,9 @@ building the system and are lessons of one project, not general results.
 
 \paragraph{One live path.}
 On 22~May 2026 four parsing pipelines existed in the code at once. Each had
-been started to fix the previous one, and none had been removed. Most of the
-dead tables in \cref{sec:data-model} and several faults in \cref{ch:content}
-trace back to that state. In our experience the pipeline became dependable
+been started to fix the previous one, and none had been removed. Two of the
+three tables that no live code writes (\cref{sec:schema-notes}) and several
+faults in \cref{ch:content} trace back to that state. In our experience the pipeline became dependable
 only when a single path was left and the others were deleted; this was not
 measured.
 
@@ -99,8 +117,8 @@ believing, and it applies to our own verifier as well: the semantic gate of
 \paragraph{Cost shaped the architecture.}
 Free and low-cost model quotas explain the ordered provider chains, the
 spending caps, parsing once, and the deterministic first pass. Two faults
-that the provider chaos tests found were faults of cost and not of
-correctness, and they are pinned by five invariants in 21~tests. For a
+found while planning the provider chaos tests were faults of cost and not of
+correctness; five invariants in 21~tests now pin them. For a
 system that a student can afford to run, cost is a design requirement of
 the same rank as latency.
 
@@ -161,12 +179,16 @@ the thesis as a whole.
     system than with the PDF.
   \item \emph{The author is the judge.} The benchmark votes, the labels of
     the routing study, and the 16~pairs of the verification probe were made
-    by the person who built the system. The votes were blind; the selection
-    of pages and pairs was not independent.
+    by the person who built the system. Within each comparison the votes
+    were blind to the names of the methods. Later comparisons were less
+    blind: by then the judge had seen earlier outputs with their names, and
+    the output of a vision model can be recognised by its style. The
+    selection of pages and pairs was not independent.
   \item \emph{One university, small samples.} All material comes from a few
     courses at one university, born-digital, in two languages. Twenty-four
-    pages and sixteen pairs can separate a method that works from one that
-    does not. They do not estimate rates in other material.
+    pages and sixteen pairs can show that a method fails badly on these
+    pages. They do not estimate rates in other material, and the intervals
+    of the benchmark are likely too narrow.
   \item \emph{No competing system was run.} The comparison in
     \cref{tab:related} rests on publications.
   \item \emph{The author audited the author's system.} The findings on
@@ -198,10 +220,16 @@ questionnaire~\cite{brooke1996sus,laugwitz2008ueq} for the perception
 question. The event log of \cref{ch:loop} would supply time on page and
 revisits without further instrumentation.
 
-Four engineering steps follow from the findings. Production should switch
-to the extraction that the benchmark ranks first among the cheap methods,
-and use vision where its cost is accepted. The floor of five should apply
-to the people a finding is about, and retention should run. The parse of a
+Four engineering steps follow from the findings. Before production
+switches its extraction, the layout-aware variant should be judged against
+the current one again with its OCR pass off, since production would not run
+that pass. If it still leads, it should replace the current call, and the
+running footer should be stripped from the stored text, as the deck plan
+already strips it from the model's input. Vision remains the option where
+its cost per page and per uploader is accepted. The floor of five should
+apply to the people a finding is about, the policy that still lets an owner
+with the professor role read event rows should be dropped, and retention
+should run. The parse of a
 file should be shared across uploaders, which the content hash already
 permits and the ownership model does not yet. And the loop needs its return
 channel: a member's question that reaches the owner, and an owner's answer
@@ -210,10 +238,11 @@ that proposes a change to a page for the owner to approve, which would
 close the loop on the material itself. No such proposal should be applied
 without the owner, for the reasons of \cref{ch:trust}.
 
-Three changes were merged after the pinned revision and are the nearest
-part of this outlook: the owner's view in the current interface (PR~\#181),
-and a third view of a page that rebuilds its layout as text (PRs~\#182 and
-\#183, switched off).
+Three changes were merged after the pinned revision. The owner's view in
+the current interface (PR~\#181), on which the answer to RQ2 rests, is
+merged and not yet deployed. A third view of a page that rebuilds its
+layout as text (PRs~\#182 and \#183) is switched off and is the nearest
+part of this outlook.
 
 Two wider directions are ideas of the author and not results: teaching
 material that is versioned and shared as source code is, and models that a
@@ -224,11 +253,13 @@ institution.
 \label{sec:reflection}
 
 The thesis set out to make a lecture PDF answer back. In the system as
-built, a page can be read at once, explained, asked about, and practised,
-and its author can see where readers struggle without seeing who they are.
+merged, a page can be read at once, explained, asked about, and practised,
+and its author can see where readers struggle without being shown who they
+are.
 The measurements say that the text under these features should come from a
-better extractor than the one in production, that the loop works on
-scripted readers, and that one of three verifiers had to be withdrawn. The
+better extractor than the one in production, that the loop separates
+scripted behaviours with five misses that are now stated limits, and that
+one of three verifiers had to be withdrawn. The
 most useful habit the project produced is visible in each of those
 sentences: to write down what is expected, to measure, and to report the
 result when it is not the hoped-for one.

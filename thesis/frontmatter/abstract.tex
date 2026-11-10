@@ -14,22 +14,25 @@ asks about them, and runs practice, and the owner of the material sees how it
 is read.
 
 We answer three questions. First, the transformation is designed for
-reliability by a first pass that uses no model: one rule decides which pages
-need a vision model and sends 87 of 1{,}593 pages there. In a pre-registered
-blind benchmark of eleven extraction methods on 24~pages, with 283~pairwise
-votes by the author as the only judge, transcription by a vision model is
-rated highest (both vision models together cost \$0.21 for the 24~pages),
-and the extractor that production runs is second to last. Second, reader
+reliability, which was not measured end to end: a first pass uses no model,
+and one rule decides which pages need a vision model and sends 87 of
+1{,}593 pages there. In a blind benchmark of eleven extraction methods on
+24~pages, under a protocol fixed before the first vote and extended four
+times, with 283~pairwise votes by the author as the only judge,
+transcription by a vision model is rated highest (both vision models
+together cost \$0.21 for the 24~pages), and five of the ten alternatives
+are rated above the extractor that production runs. Second, reader
 interaction is modelled as one governed log of 17~event types. Detectors turn
 it into nine kinds of finding per page. The owner's view, which was merged
 after the described revision and is not yet deployed, shows a finding only
 for a page that at least five people have read and never names a person. This
 limit holds in that view and not for the stored events, and a finding can
 rest on fewer than five people. A study with scripted readers met 18 of
-23~expectations written down before the run. Third, generated questions are
+23~expectations written down before the run, nine of them in its control
+arm. Third, generated questions are
 graded by computation where an answer can be computed. Quiz questions written
 at parse time are checked by an independent model, which on 16~pinned pairs
-disputed no correct key and accepted no wrong one; when that check is
+gave no wrong verdict; one call returned none, and when the check is
 unavailable, the question is kept. Other questions are checked for structure
 only. A semantic similarity gate failed its pre-registered test and was
 withdrawn.
@@ -56,14 +59,16 @@ Assistentin erklärt Seiten, stellt Fragen dazu und leitet Übungen an, und
 wer das Material bereitstellt, sieht, wie es gelesen wird.
 
 Wir beantworten drei Fragen. Erstens ist die Umwandlung auf
-Zuverlässigkeit ausgelegt, indem der erste Durchlauf ohne Sprachmodell
-auskommt: Eine einzige Regel entscheidet, welche Seiten ein Vision-Modell
-benötigen, und leitet 87 von 1593~Seiten dorthin. In einem präregistrierten
-Blindvergleich von elf Extraktionsverfahren auf 24~Seiten, mit
-283~paarweisen Urteilen des Autors als einzigem Urteilenden, wird die
-Transkription durch ein Vision-Modell am höchsten bewertet (beide
-Vision-Modelle zusammen kosteten 0,21~US-Dollar für die 24~Seiten); das in
-Produktion eingesetzte Verfahren liegt auf dem vorletzten Platz. Zweitens
+Zuverlässigkeit ausgelegt, die nicht durchgängig gemessen wurde: Der erste
+Durchlauf kommt ohne Sprachmodell aus, und eine einzige Regel entscheidet,
+welche Seiten ein Vision-Modell benötigen, und leitet 87 von 1593~Seiten
+dorthin. In einem Blindvergleich von elf Extraktionsverfahren auf 24~Seiten,
+nach einem vor dem ersten Urteil festgelegten und viermal erweiterten
+Protokoll, mit 283~paarweisen Urteilen des Autors als einzigem Urteilenden,
+wird die Transkription durch ein Vision-Modell am höchsten bewertet (beide
+Vision-Modelle zusammen kosteten 0,21~US-Dollar für die 24~Seiten); fünf der
+zehn Alternativen werden besser bewertet als das in Produktion eingesetzte
+Verfahren. Zweitens
 wird das Verhalten der Lesenden als ein kontrolliertes Ereignisprotokoll mit
 17~Ereignistypen modelliert. Detektoren leiten daraus neun Arten von
 Befunden pro Seite ab. Die Ansicht für die Besitzerin oder den Besitzer des
@@ -72,12 +77,13 @@ nicht in Produktion läuft, zeigt einen Befund nur für Seiten, die mindestens
 fünf Personen gelesen haben, und nennt nie eine Person. Diese Grenze gilt
 für die Ansicht und nicht für die gespeicherten Ereignisse, und ein Befund
 kann auf weniger als fünf Personen beruhen. Eine Studie mit geskripteten
-Lesenden erfüllte 18 von 23~vorab festgehaltenen Erwartungen. Drittens
+Lesenden erfüllte 18 von 23~vorab festgehaltenen Erwartungen, neun davon im
+Kontrollarm. Drittens
 werden generierte Fragen durch Berechnung bewertet, wo sich eine Antwort
 berechnen lässt. Quizfragen, die beim Einlesen entstehen, prüft ein
-unabhängiges zweites Modell, das bei 16~festgelegten Paaren keinen richtigen
-Lösungsschlüssel beanstandete und keinen falschen annahm; ist diese Prüfung
-nicht verfügbar, bleibt die Frage erhalten. Andere Fragen werden nur auf
+unabhängiges zweites Modell, das bei 16~festgelegten Paaren kein falsches
+Urteil abgab; ein Aufruf lieferte keines, und ist die Prüfung nicht
+verfügbar, bleibt die Frage erhalten. Andere Fragen werden nur auf
 ihre Struktur geprüft. Ein Filter auf Basis semantischer Ähnlichkeit bestand
 seinen präregistrierten Test nicht und wurde zurückgezogen.
 
