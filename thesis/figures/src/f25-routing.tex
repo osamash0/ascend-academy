@@ -1,0 +1,114 @@
+% F25 -- Routing: which of 1,593 pages go to a vision model.
+% Chapter 4 (Content), routing study. Scatter (pgfplots), built from
+% data/f25-routing.csv, which holds numbers only (signals, no slide text).
+% Claim supported: the old rule (fewer than 25 raw characters) sent 12 pages to
+% vision, all near-empty, and none of the 421 pages with a figure; the rule at
+% the pin (page_blocks.route_page: under 25 footer-free characters, or under 150
+% with figures covering at least 5 %) sends 87 (12 no text + 75 figure). Six
+% pages are numbered as cases; 6 is the one labelled figure page the rule misses.
+% Sources: backend/services/parser/page_blocks.py:201-219 at dfc20df6;
+% backend/eval/routing_check.py; docs/thesis/experiments/routing-labels-2026-11-05.csv.
+% Axes: x is ln(characters + 20), so pages without text can be drawn; y is the
+% square root of the figure share, so the many small figures stay apart. Pages
+% without any figure sit in a strip under the axis, spread by a seeded jitter.
+% Built by the figures Makefile with pdflatex at print width; include at scale 1.
+\documentclass[border=2pt]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage{tgheros}
+\renewcommand*\familydefault{\sfdefault}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\pgfplotsset{compat=1.18}
+
+\pgfplotstableread[col sep=semicolon, comment chars={\#}]{data/f25-routing.csv}\routes
+
+% the strip under the axis for pages without a figure (y < 0, not transformed)
+\newcommand{\stripy}{(-0.14 + 0.10*\thisrow{jitter})}
+
+\begin{document}
+\footnotesize
+\begin{tikzpicture}
+\begin{axis}[
+  name=main,
+  scale only axis, width=300pt, height=180pt,
+  x coord trafo/.code={\pgfmathparse{ln(#1+20)}},
+  x coord inv trafo/.code={\pgfmathparse{exp(#1)-20}},
+  y coord trafo/.code={\pgfmathparse{ifthenelse(#1<0, #1, sqrt(abs(#1)))}},
+  y coord inv trafo/.code={\pgfmathparse{ifthenelse(#1<0, #1, #1^2)}},
+  xmin=-7, xmax=3000, ymin=-0.16, ymax=1,
+  axis x line*=bottom, axis y line*=left,
+  xtick={0,25,150,500,1000,3000}, xticklabels={0,25,150,500,1000,3000},
+  ytick={-0.09,0,0.05,0.25,0.5,1}, yticklabels={no figure,0\,\%,5\,\%,25\,\%,50\,\%,100\,\%},
+  xtick style={black!60}, ytick style={black!60},
+  x axis line style={black!60}, y axis line style={black!60},
+  xticklabel style={font=\footnotesize}, yticklabel style={font=\footnotesize},
+  xlabel={text characters on the page, footers left out},
+  ylabel={share of the page covered by figures},
+  xlabel style={font=\footnotesize}, ylabel style={font=\footnotesize},
+  clip=false,
+  unbounded coords=discard,
+  legend style={
+    at={(0.5,-0.2)}, anchor=north, draw=none, fill=none,
+    legend columns=3, font=\footnotesize,
+    /tikz/every even column/.append style={column sep=10pt},
+  },
+  legend cell align=left,
+]
+  % the rule at the pin: the vision region, shaded and outlined
+  \fill[black!7] (axis cs:-7,-0.16) rectangle (axis cs:25,1);
+  \fill[black!7] (axis cs:25,0.05) rectangle (axis cs:150,1);
+  \draw[black, line width=0.6pt]
+    (axis cs:-7,1) -- (axis cs:150,1) -- (axis cs:150,0.05) -- (axis cs:25,0.05)
+    -- (axis cs:25,-0.16);
+  \node[anchor=north west, font=\footnotesize\bfseries] at (axis cs:-7,0.98) {vision};
+  \node[anchor=north, font=\footnotesize\bfseries, text=black!55] at (axis cs:1000,0.98) {text};
+
+  % the strip's upper edge
+  \draw[black!25, line width=0.3pt] (axis cs:-7,-0.03) -- (axis cs:3000,-0.03);
+
+  % pages read as text: grey, light, under everything else
+  \addplot[only marks, mark=*, mark size=0.8pt, color=black!38,
+    mark options={draw opacity=0, fill opacity=0.5}, forget plot]
+    table[x=text_chars,
+          y expr={\thisrow{figure_share} > 0 ? \thisrow{figure_share} : \stripy},
+          restrict expr to domain={\thisrow{vision}}{0:0}]{\routes};
+  % pages sent to vision: black
+  \addplot[only marks, mark=*, mark size=1.15pt,
+    mark options={fill=black, draw=white, line width=0.2pt}, forget plot]
+    table[x=text_chars,
+          y expr={\thisrow{figure_share} > 0 ? \thisrow{figure_share} : \stripy},
+          restrict expr to domain={\thisrow{vision}}{1:1}]{\routes};
+  % the old rule's twelve pages: a ring
+  \addplot[only marks, mark=o, mark size=2.6pt, mark options={draw=black, line width=0.5pt}, forget plot]
+    table[x=text_chars,
+          y expr={\thisrow{figure_share} > 0 ? \thisrow{figure_share} : \stripy},
+          restrict expr to domain={\thisrow{old_vision}}{1:1}]{\routes};
+
+  % the six numbered cases, drawn a little larger in their own colour;
+  % the sign of example*(2*vision-1) separates vision cases (+) from text cases (-)
+  \pgfplotsset{case label/.style={nodes near coords, point meta=explicit symbolic,
+    every node near coord/.append style={font=\footnotesize\bfseries, anchor=west,
+      xshift=1.5pt, inner sep=1pt, fill=white, fill opacity=0.85, text opacity=1}}}
+  \addplot[only marks, mark=*, mark size=1.7pt,
+    mark options={fill=black, draw=white, line width=0.4pt}, case label, forget plot]
+    table[x=text_chars, y expr={\thisrow{figure_share} > 0 ? \thisrow{figure_share} : \stripy},
+          meta=example,
+          restrict expr to domain={\thisrow{example}*(2*\thisrow{vision}-1)}{1:6}]{\routes};
+  \addplot[only marks, mark=*, mark size=1.7pt,
+    mark options={fill=black!38, draw=black, line width=0.5pt}, case label, forget plot]
+    table[x=text_chars, y expr={\thisrow{figure_share} > 0 ? \thisrow{figure_share} : \stripy},
+          meta=example,
+          restrict expr to domain={\thisrow{example}*(2*\thisrow{vision}-1)}{-6:-1}]{\routes};
+
+  % legend
+  \addlegendimage{only marks, mark=*, mark size=1.15pt, mark options={fill=black}}
+  \addlegendentry{sent to vision (87)}
+  \addlegendimage{only marks, mark=*, mark size=0.9pt, color=black!38}
+  \addlegendentry{read as text (1{,}506)}
+  \addlegendimage{only marks, mark=o, mark size=2.6pt, mark options={line width=0.5pt}}
+  \addlegendentry{vision under the old rule (12)}
+\end{axis}
+\node[anchor=south, font=\small\bfseries] at ([yshift=8pt]main.north -| current bounding box.center)
+  {Routing: 1{,}593 pages of 25 lecture decks};
+\end{tikzpicture}
+\end{document}

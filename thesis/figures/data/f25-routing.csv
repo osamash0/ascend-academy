@@ -1,0 +1,1602 @@
+# F25 data: routing signals for all 1,593 pages of the 25 Deck Lab decks.
+# text_chars, figure_share and route come from backend/services/parser/page_blocks.py
+# (extract_blocks, figure_share, route_page) at the pin dfc20df6, run on the decks in ~/Downloads
+# on 2026-11-10: 12 no_text + 75 figure = 87 vision pages, as backend/eval/routing_check.py expects.
+# raw_chars is the raw PyMuPDF text count of the 2026-11-05 routing study (the old rule's measure);
+# old_vision = raw_chars < 25 (the rule before 6 November): 12 pages.
+# jitter (seeded 20261110) only spreads the pages without any figure in the strip under the axis.
+# vision = 1 when route is not text. example = the six pages numbered in the figure (0 = none). Numbers only: no slide text.
+deck;page;raw_chars;text_chars;figure_share;route;vision;old_vision;jitter;example
+00 DBS Einfuehrung;1;47;47;0;text;0;0;0.299;0
+00 DBS Einfuehrung;2;78;73;0;text;0;0;0.174;0
+00 DBS Einfuehrung;3;677;652;0.2394;text;0;0;0.839;0
+00 DBS Einfuehrung;4;532;509;0.1298;text;0;0;0.724;0
+00 DBS Einfuehrung;5;127;123;0;text;0;0;0.727;0
+00 DBS Einfuehrung;6;140;135;0;text;0;0;0.373;0
+00 DBS Einfuehrung;7;342;210;0;text;0;0;0.180;0
+00 DBS Einfuehrung;8;309;296;0;text;0;0;0.327;0
+00 DBS Einfuehrung;9;78;73;0;text;0;0;0.229;0
+00 DBS Einfuehrung;10;358;343;0.2357;text;0;0;0.328;0
+00 DBS Einfuehrung;11;430;411;0;text;0;0;0.545;0
+00 DBS Einfuehrung;12;225;214;0.0234;text;0;0;0.533;0
+00 DBS Einfuehrung;13;142;135;0;text;0;0;0.947;0
+00 DBS Einfuehrung;14;100;98;0.6383;figure;1;0;0.352;0
+00 DBS Einfuehrung;15;128;124;0;text;0;0;0.593;0
+00 DBS Einfuehrung;16;199;193;0.5825;text;0;0;0.730;0
+00 DBS Einfuehrung;17;560;545;0;text;0;0;0.813;0
+00 DBS Einfuehrung;18;498;471;0;text;0;0;0.223;0
+00 DBS Einfuehrung;19;78;73;0;text;0;0;0.565;0
+00 DBS Einfuehrung;20;723;705;0.0709;text;0;0;0.497;0
+00 DBS Einfuehrung;21;1277;1251;0.0316;text;0;0;0.206;0
+00 DBS Einfuehrung;22;1275;1251;0.0319;text;0;0;0.950;0
+00 DBS Einfuehrung;23;440;429;0.3054;text;0;0;0.206;0
+00 DBS Einfuehrung;24;237;227;0;text;0;0;0.742;0
+00 DBS Einfuehrung;25;599;577;0;text;0;0;0.066;0
+00 DBS Einfuehrung;26;128;124;0.6537;figure;1;0;0.996;0
+00 DBS Einfuehrung;27;487;469;0;text;0;0;0.934;0
+00 DBS Einfuehrung;28;181;173;0.3322;text;0;0;0.051;0
+00 DBS Einfuehrung;29;549;532;0;text;0;0;0.185;0
+00 DBS Einfuehrung;30;147;141;0.5203;figure;1;0;0.753;0
+00 DBS Einfuehrung;31;580;560;0;text;0;0;0.941;0
+00 DBS Einfuehrung;32;625;608;0;text;0;0;0.653;0
+00 DBS Einfuehrung;33;157;151;0;text;0;0;0.476;0
+00 DBS Einfuehrung;34;157;151;0;text;0;0;0.901;0
+00 DBS Einfuehrung;35;145;140;0;text;0;0;0.088;0
+00 DBS Einfuehrung;36;338;331;0.3469;text;0;0;0.546;0
+00 DBS Einfuehrung;37;87;83;0;text;0;0;0.468;0
+00 DBS Einfuehrung;38;99;94;0.1548;figure;1;0;0.084;0
+00 DBS Einfuehrung;39;121;115;0;text;0;0;0.777;0
+00 DBS Einfuehrung;40;78;73;0;text;0;0;0.803;0
+00 DBS Einfuehrung;41;174;168;0;text;0;0;0.030;0
+00 DBS Einfuehrung;42;354;344;0.0412;text;0;0;0.272;0
+00 DBS Einfuehrung;43;333;318;0;text;0;0;0.145;0
+00 DBS Einfuehrung;44;356;336;0;text;0;0;0.219;0
+00 DBS Einfuehrung;45;482;472;0.1506;text;0;0;0.806;0
+00 DBS Einfuehrung;46;669;650;0;text;0;0;0.304;0
+00 DBS Einfuehrung;47;280;274;0;text;0;0;0.071;0
+00 DBS Einfuehrung;48;314;312;0.0136;text;0;0;0.049;0
+00 DBS Einfuehrung;49;307;304;0.0136;text;0;0;0.892;0
+00 DBS Einfuehrung;50;211;207;0.0628;text;0;0;0.593;0
+00 DBS Einfuehrung;51;349;337;0;text;0;0;0.830;0
+00 DBS Einfuehrung;52;457;443;0;text;0;0;0.314;0
+00 DBS Einfuehrung;53;78;73;0;text;0;0;0.878;0
+00 DBS Einfuehrung;54;394;382;0.2832;text;0;0;0.197;0
+00 DBS Einfuehrung;55;740;717;0.0283;text;0;0;0.249;0
+00 DBS Einfuehrung;56;438;415;0.0811;text;0;0;0.634;0
+00 DBS Einfuehrung;57;74;71;0.9401;figure;1;0;0.385;2
+00 DBS Einfuehrung;58;447;419;0;text;0;0;0.171;0
+00 DBS Einfuehrung;59;489;475;0.0579;text;0;0;0.694;0
+00 DBS Einfuehrung;60;201;174;0.3194;text;0;0;0.192;0
+00 DBS Einfuehrung;61;606;601;0.1862;text;0;0;0.015;0
+00 DBS Einfuehrung;62;101;97;0.4203;figure;1;0;0.277;0
+00 DBS Einfuehrung;63;330;325;0;text;0;0;0.798;0
+00 DBS Einfuehrung;64;428;408;0;text;0;0;0.322;0
+00 DBS Einfuehrung;65;644;630;0;text;0;0;0.185;0
+00 DBS Einfuehrung;66;614;598;0;text;0;0;0.528;0
+00 DBS Einfuehrung;67;492;485;0;text;0;0;0.641;0
+00 DBS Einfuehrung;68;0;0;0;no_text;1;1;0.058;1
+00 DBS Introduction;1;49;48;0;text;0;0;0.010;0
+00 DBS Introduction;2;75;70;0;text;0;0;0.675;0
+00 DBS Introduction;3;695;675;0.1467;text;0;0;0.968;0
+00 DBS Introduction;4;508;504;0;text;0;0;0.085;0
+00 DBS Introduction;5;125;124;0;text;0;0;0.063;0
+00 DBS Introduction;6;138;137;0;text;0;0;0.823;0
+00 DBS Introduction;7;337;167;0;text;0;0;0.019;0
+00 DBS Introduction;8;274;269;0;text;0;0;0.957;0
+00 DBS Introduction;9;75;70;0;text;0;0;0.523;0
+00 DBS Introduction;10;339;324;0.1616;text;0;0;0.155;0
+00 DBS Introduction;11;399;384;0;text;0;0;0.566;0
+00 DBS Introduction;12;218;207;0.0233;text;0;0;0.406;0
+00 DBS Introduction;13;99;70;0.6368;figure;1;0;0.034;0
+00 DBS Introduction;14;129;70;0;text;0;0;0.878;0
+00 DBS Introduction;15;200;140;0.582;figure;1;0;0.559;0
+00 DBS Introduction;16;536;521;0;text;0;0;0.233;0
+00 DBS Introduction;17;472;445;0;text;0;0;0.228;0
+00 DBS Introduction;18;75;70;0;text;0;0;0.718;0
+00 DBS Introduction;19;674;658;0.0612;text;0;0;0.817;0
+00 DBS Introduction;20;1171;1127;0.0315;text;0;0;0.446;0
+00 DBS Introduction;21;1224;1154;0;text;0;0;0.032;0
+00 DBS Introduction;22;430;421;0.3049;text;0;0;0.555;0
+00 DBS Introduction;23;215;179;0.6221;text;0;0;0.790;0
+00 DBS Introduction;24;581;563;0;text;0;0;0.753;0
+00 DBS Introduction;25;125;122;0.7015;figure;1;0;0.222;0
+00 DBS Introduction;26;432;416;0;text;0;0;0.243;0
+00 DBS Introduction;27;177;102;0;text;0;0;0.322;0
+00 DBS Introduction;28;540;470;0;text;0;0;0.079;0
+00 DBS Introduction;29;145;86;0.5207;figure;1;0;0.597;0
+00 DBS Introduction;30;554;538;0;text;0;0;0.685;0
+00 DBS Introduction;31;607;593;0;text;0;0;0.424;0
+00 DBS Introduction;32;152;91;0.6793;figure;1;0;0.583;3
+00 DBS Introduction;33;153;147;0.3133;figure;1;0;0.811;0
+00 DBS Introduction;34;140;135;0;text;0;0;0.783;0
+00 DBS Introduction;35;341;334;0.3461;text;0;0;0.957;0
+00 DBS Introduction;36;92;88;0;text;0;0;0.682;0
+00 DBS Introduction;37;105;100;0.1541;figure;1;0;0.922;0
+00 DBS Introduction;38;124;118;0;text;0;0;0.741;0
+00 DBS Introduction;39;75;70;0;text;0;0;0.608;0
+00 DBS Introduction;40;164;158;0;text;0;0;0.533;0
+00 DBS Introduction;41;342;334;0.041;text;0;0;0.570;0
+00 DBS Introduction;42;327;312;0;text;0;0;0.232;0
+00 DBS Introduction;43;342;215;0;text;0;0;0.432;0
+00 DBS Introduction;44;439;432;0.1502;text;0;0;0.881;0
+00 DBS Introduction;45;614;543;0;text;0;0;0.187;0
+00 DBS Introduction;46;262;205;0;text;0;0;0.500;0
+00 DBS Introduction;47;294;176;0;text;0;0;0.234;0
+00 DBS Introduction;48;283;164;0;text;0;0;0.535;0
+00 DBS Introduction;49;205;147;0.0524;figure;1;0;0.075;0
+00 DBS Introduction;50;318;307;0;text;0;0;0.316;0
+00 DBS Introduction;51;407;394;0;text;0;0;0.688;0
+00 DBS Introduction;52;75;70;0;text;0;0;0.586;0
+00 DBS Introduction;53;448;436;0.1362;text;0;0;0.943;0
+00 DBS Introduction;54;795;784;0.0291;text;0;0;0.655;0
+00 DBS Introduction;55;517;447;0.1655;text;0;0;0.779;0
+00 DBS Introduction;56;466;438;0;text;0;0;0.253;0
+00 DBS Introduction;57;498;485;0.0586;text;0;0;0.525;0
+00 DBS Introduction;58;195;189;0.3184;text;0;0;0.233;0
+00 DBS Introduction;59;604;599;0.1853;text;0;0;0.812;0
+00 DBS Introduction;60;104;45;0.6743;figure;1;0;0.713;0
+00 DBS Introduction;61;330;327;0;text;0;0;0.222;0
+00 DBS Introduction;62;554;460;0;text;0;0;0.031;0
+00 DBS Introduction;63;610;597;0;text;0;0;0.312;0
+00 DBS Introduction;64;565;550;0;text;0;0;0.761;0
+00 DBS Introduction;65;647;635;0;text;0;0;0.692;0
+00 DBS Introduction;66;0;0;0;no_text;1;1;0.126;0
+00__SR_Organisatorisches_v06_11.04.2025;1;262;196;0.0619;text;0;0;0.668;0
+00__SR_Organisatorisches_v06_11.04.2025;2;495;422;0;text;0;0;0.346;0
+00__SR_Organisatorisches_v06_11.04.2025;3;623;548;0;text;0;0;0.239;0
+00__SR_Organisatorisches_v06_11.04.2025;4;488;406;0;text;0;0;0.387;0
+00__SR_Organisatorisches_v06_11.04.2025;5;324;250;0.2233;text;0;0;0.511;0
+00__SR_Organisatorisches_v06_11.04.2025;6;330;259;0.1738;text;0;0;0.485;0
+00__SR_Organisatorisches_v06_11.04.2025;7;501;430;0;text;0;0;0.744;0
+00__SR_Organisatorisches_v06_11.04.2025;8;588;509;0.0408;text;0;0;0.393;0
+00__SR_Organisatorisches_v06_11.04.2025;9;455;364;0.0506;text;0;0;0.502;0
+00__SR_Organisatorisches_v06_11.04.2025;10;237;169;0;text;0;0;0.878;0
+00__SR_Organisatorisches_v06_11.04.2025;11;593;519;0;text;0;0;0.458;0
+00__SR_Organisatorisches_v06_11.04.2025;12;478;406;0;text;0;0;0.071;0
+00__SR_Organisatorisches_v06_11.04.2025;13;887;803;0;text;0;0;0.001;0
+00__SR_Organisatorisches_v06_11.04.2025;14;426;351;0;text;0;0;0.771;0
+00__SR_Organisatorisches_v06_11.04.2025;15;859;779;0;text;0;0;0.746;0
+00__SR_Organisatorisches_v06_11.04.2025;16;517;432;0;text;0;0;0.777;0
+00__SR_Organisatorisches_v06_11.04.2025;17;311;243;0.0357;text;0;0;0.761;0
+00__SR_Organisatorisches_v06_11.04.2025;18;349;280;0;text;0;0;0.371;0
+00__SR_Organisatorisches_v06_11.04.2025;19;323;254;0;text;0;0;0.733;0
+00__SR_Organisatorisches_v06_11.04.2025;20;573;494;0;text;0;0;0.850;0
+00__SR_Organisatorisches_v06_11.04.2025;21;430;347;0.2954;text;0;0;0.743;0
+00__SR_Organisatorisches_v06_11.04.2025;22;637;554;0.2354;text;0;0;0.807;0
+00__SR_Organisatorisches_v06_11.04.2025;23;590;510;0.1842;text;0;0;0.807;0
+00__SR_Organisatorisches_v06_11.04.2025;24;391;314;0.2041;text;0;0;0.138;0
+00__SR_Organisatorisches_v06_11.04.2025;25;1015;923;0;text;0;0;0.612;0
+00__SR_Organisatorisches_v06_11.04.2025;26;189;122;0.0434;text;0;0;0.439;0
+01 DBS Basics;1;43;43;0;text;0;0;0.196;0
+01 DBS Basics;2;93;87;0;text;0;0;0.417;0
+01 DBS Basics;3;470;409;0.2932;text;0;0;0.540;0
+01 DBS Basics;4;237;179;0.152;text;0;0;0.109;0
+01 DBS Basics;5;141;88;0.1915;figure;1;0;0.130;0
+01 DBS Basics;6;88;85;0.6628;figure;1;0;0.858;0
+01 DBS Basics;7;161;156;0.3306;text;0;0;0.436;0
+01 DBS Basics;8;533;518;0;text;0;0;0.671;0
+01 DBS Basics;9;863;842;0;text;0;0;0.754;0
+01 DBS Basics;10;877;834;0.0611;text;0;0;0.160;0
+01 DBS Basics;11;109;105;0.0473;text;0;0;0.938;6
+01 DBS Basics;12;597;531;0;text;0;0;0.240;0
+01 DBS Basics;13;544;479;0;text;0;0;0.605;0
+01 DBS Basics;14;398;333;0;text;0;0;0.193;0
+01 DBS Basics;15;300;288;0;text;0;0;0.956;0
+01 DBS Basics;16;112;108;0.4971;figure;1;0;0.392;0
+01 DBS Basics;17;536;481;0;text;0;0;0.838;0
+01 DBS Basics;18;285;274;0;text;0;0;0.952;0
+01 DBS Basics;19;93;87;0;text;0;0;0.120;0
+01 DBS Basics;20;461;444;0;text;0;0;0.898;0
+01 DBS Basics;21;138;134;0.1069;figure;1;0;0.748;0
+01 DBS Basics;22;229;197;0.5072;text;0;0;0.833;0
+01 DBS Basics;23;864;813;0;text;0;0;0.116;0
+01 DBS Basics;24;396;362;0;text;0;0;0.487;0
+01 DBS Basics;25;326;293;0;text;0;0;0.817;0
+01 DBS Basics;26;493;480;0;text;0;0;0.725;0
+01 DBS Basics;27;574;562;0;text;0;0;0.281;0
+01 DBS Basics;28;609;595;0;text;0;0;0.844;0
+01 DBS Basics;29;526;511;0;text;0;0;0.197;0
+01 DBS Basics;30;424;389;0.1733;text;0;0;0.160;0
+01 DBS Basics;31;93;87;0;text;0;0;0.855;0
+01 DBS Basics;32;635;616;0;text;0;0;0.527;0
+01 DBS Basics;33;484;465;0;text;0;0;0.090;0
+01 DBS Basics;34;418;400;0;text;0;0;0.461;0
+01 DBS Basics;35;220;213;0.298;text;0;0;0.725;0
+01 DBS Basics;36;724;657;0.1025;text;0;0;0.993;0
+01 DBS Basics;37;138;134;0.5731;figure;1;0;0.030;0
+01 DBS Basics;38;519;503;0.2557;text;0;0;0.738;0
+01 DBS Basics;39;93;87;0;text;0;0;0.535;0
+01 DBS Basics;40;593;527;0;text;0;0;0.966;0
+01 DBS Basics;41;441;374;0.0057;text;0;0;0.321;0
+01 DBS Basics;42;518;507;0;text;0;0;0.590;0
+01 DBS Basics;43;719;707;0;text;0;0;0.937;0
+01 DBS Basics;44;203;146;0;text;0;0;0.189;0
+01 DBS Basics;45;93;87;0;text;0;0;0.755;0
+01 DBS Basics;46;429;415;0;text;0;0;0.641;0
+01 DBS Basics;47;627;611;0;text;0;0;0.638;0
+01 DBS Basics;48;634;620;0;text;0;0;0.707;0
+01 DBS Basics;49;845;832;0;text;0;0;0.572;0
+01 DBS Basics;50;93;87;0;text;0;0;0.631;0
+01 DBS Basics;51;616;605;0;text;0;0;0.426;0
+01 DBS Basics;52;278;276;0.5384;text;0;0;0.181;0
+01 DBS Basics;53;507;493;0;text;0;0;0.533;0
+01 DBS Basics;54;0;0;0;no_text;1;1;0.768;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;1;279;213;0.0418;text;0;0;0.564;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;2;418;346;0;text;0;0;0.173;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;3;201;137;0;text;0;0;0.344;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;4;531;461;0;text;0;0;0.173;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;5;498;419;0.2801;text;0;0;0.911;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;6;393;319;0.3113;text;0;0;0.056;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;7;402;329;0.2047;text;0;0;0.996;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;8;777;690;0.0458;text;0;0;0.558;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;9;462;378;0;text;0;0;0.523;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;10;433;357;0;text;0;0;0.373;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;11;519;438;0.0172;text;0;0;0.556;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;12;758;692;0;text;0;0;0.108;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;13;542;468;0.0267;text;0;0;0.804;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;14;285;200;0;text;0;0;0.247;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;15;473;396;0;text;0;0;0.924;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;16;450;378;0;text;0;0;0.282;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;17;757;680;0;text;0;0;0.353;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;18;576;482;0;text;0;0;0.493;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;19;281;203;0;text;0;0;0.009;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;20;569;480;0;text;0;0;0.131;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;21;534;455;0;text;0;0;0.664;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;22;346;267;0;text;0;0;0.911;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;23;524;449;0;text;0;0;0.391;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;24;586;509;0;text;0;0;0.570;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;25;404;330;0;text;0;0;0.547;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;26;659;579;0;text;0;0;0.801;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;27;547;469;0;text;0;0;0.940;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;28;549;482;0;text;0;0;0.299;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;29;390;318;0;text;0;0;0.172;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;30;411;339;0;text;0;0;0.905;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;31;331;260;0;text;0;0;0.338;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;32;548;472;0;text;0;0;0.448;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;33;559;477;0;text;0;0;0.270;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;34;472;392;0.0264;text;0;0;0.749;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;35;333;258;0.03;text;0;0;0.695;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;36;481;394;0;text;0;0;0.386;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;37;580;485;0;text;0;0;0.808;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;38;932;830;0;text;0;0;0.915;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;39;675;593;0;text;0;0;0.488;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;40;477;403;0;text;0;0;0.865;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;41;700;624;0;text;0;0;0.013;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;42;191;125;0;text;0;0;0.821;0
+01__SR_Rechnernetze_Organisation_v03_16.04.2025;43;189;122;0.0434;text;0;0;0.002;0
+02 DBS Relational Design;1;54;54;0;text;0;0;0.568;0
+02 DBS Relational Design;2;110;106;0;text;0;0;0.090;0
+02 DBS Relational Design;3;554;544;0.2436;text;0;0;0.491;0
+02 DBS Relational Design;4;430;417;0.2436;text;0;0;0.178;0
+02 DBS Relational Design;5;545;533;0.2436;text;0;0;0.155;0
+02 DBS Relational Design;6;340;270;0.0222;text;0;0;0.915;0
+02 DBS Relational Design;7;556;532;0;text;0;0;0.408;0
+02 DBS Relational Design;8;720;698;0;text;0;0;0.586;0
+02 DBS Relational Design;9;740;718;0;text;0;0;0.102;0
+02 DBS Relational Design;10;423;407;0;text;0;0;0.601;0
+02 DBS Relational Design;11;784;758;0;text;0;0;0.958;0
+02 DBS Relational Design;12;777;753;0.0306;text;0;0;0.356;0
+02 DBS Relational Design;13;935;914;0.0872;text;0;0;0.949;0
+02 DBS Relational Design;14;705;685;0;text;0;0;0.340;0
+02 DBS Relational Design;15;709;686;0;text;0;0;0.509;0
+02 DBS Relational Design;16;821;804;0;text;0;0;0.874;0
+02 DBS Relational Design;17;774;755;0;text;0;0;0.273;0
+02 DBS Relational Design;18;604;583;0;text;0;0;0.330;0
+02 DBS Relational Design;19;556;532;0.0444;text;0;0;0.435;0
+02 DBS Relational Design;20;110;106;0;text;0;0;0.095;0
+02 DBS Relational Design;21;544;520;0;text;0;0;0.021;0
+02 DBS Relational Design;22;240;81;0.4681;figure;1;0;0.896;0
+02 DBS Relational Design;23;879;841;0;text;0;0;0.798;0
+02 DBS Relational Design;24;182;178;0.376;text;0;0;0.494;0
+02 DBS Relational Design;25;565;538;0;text;0;0;0.215;0
+02 DBS Relational Design;26;568;542;0;text;0;0;0.750;0
+02 DBS Relational Design;27;216;206;0;text;0;0;0.652;0
+02 DBS Relational Design;28;171;159;0.1213;text;0;0;0.035;0
+02 DBS Relational Design;29;417;404;0.1117;text;0;0;0.109;0
+02 DBS Relational Design;30;472;464;0;text;0;0;0.588;0
+02 DBS Relational Design;31;859;807;0;text;0;0;0.321;0
+02 DBS Relational Design;32;529;469;0.0365;text;0;0;0.435;0
+02 DBS Relational Design;33;735;583;0;text;0;0;0.945;0
+02 DBS Relational Design;34;671;635;0.0214;text;0;0;0.595;0
+02 DBS Relational Design;35;637;601;0;text;0;0;0.349;0
+02 DBS Relational Design;36;334;325;0.1523;text;0;0;0.334;0
+02 DBS Relational Design;37;642;685;0;text;0;0;0.498;0
+02 DBS Relational Design;38;242;209;0;text;0;0;0.849;0
+02 DBS Relational Design;39;489;478;0;text;0;0;0.146;0
+02 DBS Relational Design;40;387;376;0;text;0;0;0.566;0
+02 DBS Relational Design;41;184;175;0.0558;text;0;0;0.767;0
+02 DBS Relational Design;42;696;623;0;text;0;0;0.740;0
+02 DBS Relational Design;43;227;220;0.1641;text;0;0;0.312;0
+02 DBS Relational Design;44;334;325;0.3037;text;0;0;0.354;0
+02 DBS Relational Design;45;754;744;0.2028;text;0;0;0.530;0
+02 DBS Relational Design;46;177;170;0.5279;text;0;0;0.165;0
+02 DBS Relational Design;47;523;507;0;text;0;0;0.097;0
+02 DBS Relational Design;48;741;724;0;text;0;0;0.898;0
+02 DBS Relational Design;49;439;421;0.1346;text;0;0;0.603;0
+02 DBS Relational Design;50;375;355;0;text;0;0;0.140;0
+02 DBS Relational Design;51;670;650;0;text;0;0;0.911;0
+02 DBS Relational Design;52;403;397;0.2724;text;0;0;0.536;0
+02 DBS Relational Design;53;696;689;0;text;0;0;0.896;0
+02 DBS Relational Design;54;664;648;0.1255;text;0;0;0.486;0
+02 DBS Relational Design;55;372;362;0.1903;text;0;0;0.241;0
+02 DBS Relational Design;56;592;578;0.2436;text;0;0;0.595;0
+02 DBS Relational Design;57;304;118;0;text;0;0;0.895;0
+02 DBS Relational Design;58;110;106;0;text;0;0;0.464;0
+02 DBS Relational Design;59;330;324;0.2524;text;0;0;0.059;0
+02 DBS Relational Design;60;141;137;0.5269;figure;1;0;0.825;0
+02 DBS Relational Design;61;157;153;0.4891;text;0;0;0.433;0
+02 DBS Relational Design;62;450;435;0.1371;text;0;0;0.370;0
+02 DBS Relational Design;63;624;611;0;text;0;0;0.838;0
+02 DBS Relational Design;64;627;575;0.0977;text;0;0;0.152;0
+02 DBS Relational Design;65;786;770;0.0479;text;0;0;0.962;0
+02 DBS Relational Design;66;96;93;0.6646;figure;1;0;0.643;0
+02 DBS Relational Design;67;96;93;0.6646;figure;1;0;0.263;0
+02 DBS Relational Design;68;96;93;1.0;figure;1;0;0.214;0
+02 DBS Relational Design;69;831;816;0;text;0;0;0.564;0
+02 DBS Relational Design;70;186;175;0;text;0;0;0.629;0
+02 DBS Relational Design;71;609;593;0;text;0;0;0.235;0
+02 DBS Relational Design;72;1052;1037;0;text;0;0;0.435;0
+02 DBS Relational Design;73;771;757;0;text;0;0;0.478;0
+02 DBS Relational Design;74;902;868;0.016;text;0;0;0.597;0
+02 DBS Relational Design;75;412;405;0;text;0;0;0.219;0
+02 DBS Relational Design;76;729;717;0;text;0;0;0.135;0
+02 DBS Relational Design;77;605;593;0;text;0;0;0.360;0
+02 DBS Relational Design;78;474;474;0;text;0;0;0.754;0
+02 DBS Relational Design;79;612;598;0;text;0;0;0.716;0
+02 DBS Relational Design;80;573;575;0;text;0;0;0.755;0
+02 DBS Relational Design;81;660;663;0;text;0;0;0.040;0
+02 DBS Relational Design;82;764;741;0;text;0;0;0.124;0
+02 DBS Relational Design;83;588;522;0.1888;text;0;0;0.059;0
+02 DBS Relational Design;84;443;460;0.1947;text;0;0;0.776;0
+02 DBS Relational Design;85;719;709;0;text;0;0;0.067;0
+02 DBS Relational Design;86;110;106;0;text;0;0;0.331;0
+02 DBS Relational Design;87;544;520;0;text;0;0;0.635;0
+02 DBS Relational Design;88;701;681;0;text;0;0;0.950;0
+02 DBS Relational Design;89;396;366;0.3603;text;0;0;0.204;0
+02 DBS Relational Design;90;389;312;0.0082;text;0;0;0.161;0
+02 DBS Relational Design;91;506;421;0.0082;text;0;0;0.973;0
+02 DBS Relational Design;92;496;483;0;text;0;0;0.881;0
+02 DBS Relational Design;93;483;466;0;text;0;0;0.079;0
+02 DBS Relational Design;94;756;643;0;text;0;0;0.017;0
+02 DBS Relational Design;95;510;497;0;text;0;0;0.397;0
+02 DBS Relational Design;96;317;310;0;text;0;0;0.828;0
+02 DBS Relational Design;97;453;430;0;text;0;0;0.439;0
+02 DBS Relational Design;98;496;440;0.0028;text;0;0;0.705;0
+02 DBS Relational Design;99;562;418;0.011;text;0;0;0.733;0
+02 DBS Relational Design;100;464;451;0.0088;text;0;0;0.471;0
+02 DBS Relational Design;101;349;207;0.0735;text;0;0;0.071;0
+02 DBS Relational Design;102;668;365;0.0082;text;0;0;0.547;0
+02 DBS Relational Design;103;542;528;0;text;0;0;0.328;0
+02 DBS Relational Design;104;499;424;0;text;0;0;0.447;0
+02 DBS Relational Design;105;634;621;0;text;0;0;0.528;0
+02 DBS Relational Design;106;274;261;0;text;0;0;0.086;0
+02 DBS Relational Design;107;379;341;0.4092;text;0;0;0.207;0
+02 DBS Relational Design;108;526;510;0;text;0;0;0.154;0
+02 DBS Relational Design;109;604;588;0;text;0;0;0.891;0
+02 DBS Relational Design;110;705;690;0;text;0;0;0.651;0
+02 DBS Relational Design;111;684;666;0;text;0;0;0.382;0
+02 DBS Relational Design;112;628;610;0;text;0;0;0.497;0
+02 DBS Relational Design;113;545;528;0;text;0;0;0.588;0
+02 DBS Relational Design;114;711;694;0;text;0;0;0.878;0
+02 DBS Relational Design;115;750;730;0;text;0;0;0.348;0
+02 DBS Relational Design;116;741;723;0;text;0;0;0.188;0
+02 DBS Relational Design;117;618;599;0;text;0;0;0.366;0
+02 DBS Relational Design;118;752;729;0;text;0;0;0.917;0
+02 DBS Relational Design;119;553;502;0.0111;text;0;0;0.710;0
+02 DBS Relational Design;120;0;0;0;no_text;1;1;0.642;0
+03 DBS Normalization;1;50;50;0;text;0;0;0.530;0
+03 DBS Normalization;2;327;314;0.0081;text;0;0;0.444;0
+03 DBS Normalization;3;99;95;0;text;0;0;0.749;0
+03 DBS Normalization;4;197;165;0.1314;text;0;0;0.781;0
+03 DBS Normalization;5;531;517;0;text;0;0;0.530;0
+03 DBS Normalization;6;733;678;0;text;0;0;0.121;0
+03 DBS Normalization;7;837;825;0;text;0;0;0.705;0
+03 DBS Normalization;8;453;484;0;text;0;0;0.081;0
+03 DBS Normalization;9;498;445;0;text;0;0;0.507;0
+03 DBS Normalization;10;349;301;0;text;0;0;0.373;0
+03 DBS Normalization;11;477;449;0;text;0;0;0.086;0
+03 DBS Normalization;12;415;399;0;text;0;0;0.688;0
+03 DBS Normalization;13;862;642;0.18;text;0;0;0.600;0
+03 DBS Normalization;14;421;417;0;text;0;0;0.777;0
+03 DBS Normalization;15;300;229;0.0068;text;0;0;0.076;0
+03 DBS Normalization;16;691;677;0;text;0;0;0.657;0
+03 DBS Normalization;17;742;651;0;text;0;0;0.067;0
+03 DBS Normalization;18;627;367;0.0476;text;0;0;0.197;0
+03 DBS Normalization;19;691;699;0;text;0;0;0.996;0
+03 DBS Normalization;20;575;566;0.102;text;0;0;0.963;0
+03 DBS Normalization;21;666;658;0;text;0;0;0.298;0
+03 DBS Normalization;22;683;648;0;text;0;0;0.878;0
+03 DBS Normalization;23;521;456;0.2179;text;0;0;0.586;0
+03 DBS Normalization;24;712;736;0.0932;text;0;0;0.885;0
+03 DBS Normalization;25;666;576;0.0932;text;0;0;0.908;0
+03 DBS Normalization;26;702;662;0;text;0;0;0.299;0
+03 DBS Normalization;27;630;619;0.2305;text;0;0;0.303;0
+03 DBS Normalization;28;958;887;0.2305;text;0;0;0.605;0
+03 DBS Normalization;29;599;558;0.2524;text;0;0;0.128;0
+03 DBS Normalization;30;99;95;0;text;0;0;0.071;0
+03 DBS Normalization;31;609;601;0;text;0;0;0.283;0
+03 DBS Normalization;32;526;559;0;text;0;0;0.491;0
+03 DBS Normalization;33;590;647;0;text;0;0;0.401;0
+03 DBS Normalization;34;658;623;0;text;0;0;0.971;0
+03 DBS Normalization;35;324;317;0;text;0;0;0.865;0
+03 DBS Normalization;36;411;406;0;text;0;0;0.947;0
+03 DBS Normalization;37;446;444;0;text;0;0;0.704;0
+03 DBS Normalization;38;857;854;0;text;0;0;0.141;0
+03 DBS Normalization;39;565;541;0;text;0;0;0.294;0
+03 DBS Normalization;40;99;95;0;text;0;0;0.220;0
+03 DBS Normalization;41;532;522;0.2305;text;0;0;0.058;0
+03 DBS Normalization;42;642;650;0;text;0;0;0.922;0
+03 DBS Normalization;43;750;763;0;text;0;0;0.987;0
+03 DBS Normalization;44;290;281;0.2963;text;0;0;0.580;0
+03 DBS Normalization;45;366;289;0.2783;text;0;0;0.826;0
+03 DBS Normalization;46;744;735;0;text;0;0;0.017;0
+03 DBS Normalization;47;845;851;0;text;0;0;0.006;0
+03 DBS Normalization;48;393;388;0.1369;text;0;0;0.061;0
+03 DBS Normalization;49;453;442;0;text;0;0;0.608;0
+03 DBS Normalization;50;307;302;0;text;0;0;0.538;0
+03 DBS Normalization;51;591;598;0;text;0;0;0.594;0
+03 DBS Normalization;52;287;285;0;text;0;0;0.737;0
+03 DBS Normalization;53;1136;848;0.0686;text;0;0;0.849;0
+03 DBS Normalization;54;671;676;0;text;0;0;0.935;0
+03 DBS Normalization;55;593;587;0;text;0;0;0.101;0
+03 DBS Normalization;56;505;506;0;text;0;0;0.285;0
+03 DBS Normalization;57;611;603;0;text;0;0;0.667;0
+03 DBS Normalization;58;612;573;0.1654;text;0;0;0.492;0
+03 DBS Normalization;59;506;461;0.1654;text;0;0;0.789;0
+03 DBS Normalization;60;193;175;0.0479;text;0;0;0.585;0
+03 DBS Normalization;61;242;233;0.1853;text;0;0;0.452;0
+03 DBS Normalization;62;643;674;0;text;0;0;0.674;0
+03 DBS Normalization;63;662;629;0.0263;text;0;0;0.335;0
+03 DBS Normalization;64;471;451;0.0263;text;0;0;0.742;0
+03 DBS Normalization;65;145;141;0.6055;figure;1;0;0.599;0
+03 DBS Normalization;66;99;95;0;text;0;0;0.563;0
+03 DBS Normalization;67;512;492;0;text;0;0;0.924;0
+03 DBS Normalization;68;652;644;0;text;0;0;0.265;0
+03 DBS Normalization;69;587;302;0;text;0;0;0.446;0
+03 DBS Normalization;70;660;654;0;text;0;0;0.254;0
+03 DBS Normalization;71;572;519;0;text;0;0;0.406;0
+03 DBS Normalization;72;437;430;0;text;0;0;0.653;0
+03 DBS Normalization;73;912;950;0;text;0;0;0.590;0
+03 DBS Normalization;74;721;667;0;text;0;0;0.309;0
+03 DBS Normalization;75;865;845;0;text;0;0;0.400;0
+03 DBS Normalization;76;633;592;0;text;0;0;0.825;0
+03 DBS Normalization;77;326;358;0.2415;text;0;0;0.720;0
+03 DBS Normalization;78;577;529;0;text;0;0;0.620;0
+03 DBS Normalization;79;99;95;0;text;0;0;0.165;0
+03 DBS Normalization;80;326;313;0;text;0;0;0.201;0
+03 DBS Normalization;81;340;269;0.2539;text;0;0;0.982;0
+03 DBS Normalization;82;0;0;0;no_text;1;1;0.634;0
+03__SR_Prozesse_v07_27.04.2025;1;255;189;0.0418;text;0;0;0.354;0
+03__SR_Prozesse_v07_27.04.2025;2;202;138;0;text;0;0;0.981;0
+03__SR_Prozesse_v07_27.04.2025;3;353;283;0;text;0;0;0.410;0
+03__SR_Prozesse_v07_27.04.2025;4;798;704;0.0127;text;0;0;0.744;0
+03__SR_Prozesse_v07_27.04.2025;5;429;353;0.4137;text;0;0;0.748;0
+03__SR_Prozesse_v07_27.04.2025;6;257;180;0;text;0;0;0.993;0
+03__SR_Prozesse_v07_27.04.2025;7;424;355;0;text;0;0;0.814;0
+03__SR_Prozesse_v07_27.04.2025;8;568;494;0;text;0;0;0.204;0
+03__SR_Prozesse_v07_27.04.2025;9;215;141;0;text;0;0;0.765;0
+03__SR_Prozesse_v07_27.04.2025;10;256;179;0;text;0;0;0.158;0
+03__SR_Prozesse_v07_27.04.2025;11;490;401;0;text;0;0;0.139;0
+03__SR_Prozesse_v07_27.04.2025;12;516;423;0;text;0;0;0.392;0
+03__SR_Prozesse_v07_27.04.2025;13;664;589;0;text;0;0;0.146;0
+03__SR_Prozesse_v07_27.04.2025;14;730;655;0;text;0;0;0.111;0
+03__SR_Prozesse_v07_27.04.2025;15;852;776;0;text;0;0;0.874;0
+03__SR_Prozesse_v07_27.04.2025;16;680;600;0;text;0;0;0.439;0
+03__SR_Prozesse_v07_27.04.2025;17;562;476;0;text;0;0;0.025;0
+03__SR_Prozesse_v07_27.04.2025;18;1017;923;0;text;0;0;0.611;0
+03__SR_Prozesse_v07_27.04.2025;19;643;555;0;text;0;0;0.318;0
+03__SR_Prozesse_v07_27.04.2025;20;910;812;0.0154;text;0;0;0.153;0
+03__SR_Prozesse_v07_27.04.2025;21;660;587;0;text;0;0;0.721;0
+03__SR_Prozesse_v07_27.04.2025;22;548;451;0;text;0;0;0.177;0
+03__SR_Prozesse_v07_27.04.2025;23;461;379;0;text;0;0;0.295;0
+03__SR_Prozesse_v07_27.04.2025;24;617;542;0;text;0;0;0.194;0
+03__SR_Prozesse_v07_27.04.2025;25;650;545;0;text;0;0;0.529;0
+03__SR_Prozesse_v07_27.04.2025;26;964;868;0;text;0;0;0.323;0
+03__SR_Prozesse_v07_27.04.2025;27;726;655;0;text;0;0;0.197;0
+03__SR_Prozesse_v07_27.04.2025;28;634;564;0;text;0;0;0.233;0
+03__SR_Prozesse_v07_27.04.2025;29;291;218;0;text;0;0;0.739;0
+03__SR_Prozesse_v07_27.04.2025;30;433;344;0;text;0;0;0.824;0
+03__SR_Prozesse_v07_27.04.2025;31;758;674;0;text;0;0;0.086;0
+03__SR_Prozesse_v07_27.04.2025;32;171;104;0;text;0;0;0.873;0
+03__SR_Prozesse_v07_27.04.2025;33;326;248;0;text;0;0;0.125;0
+03__SR_Prozesse_v07_27.04.2025;34;359;288;0;text;0;0;0.011;0
+03__SR_Prozesse_v07_27.04.2025;35;283;216;0;text;0;0;0.341;0
+03__SR_Prozesse_v07_27.04.2025;36;603;531;0;text;0;0;0.669;0
+03__SR_Prozesse_v07_27.04.2025;37;747;673;0;text;0;0;0.115;0
+03__SR_Prozesse_v07_27.04.2025;38;498;424;0.0076;text;0;0;0.851;0
+03__SR_Prozesse_v07_27.04.2025;39;204;126;0;text;0;0;0.600;0
+03__SR_Prozesse_v07_27.04.2025;40;425;357;0;text;0;0;0.726;0
+03__SR_Prozesse_v07_27.04.2025;41;584;508;0;text;0;0;0.269;0
+03__SR_Prozesse_v07_27.04.2025;42;201;124;0;text;0;0;0.200;0
+03__SR_Prozesse_v07_27.04.2025;43;796;705;0;text;0;0;0.089;0
+03__SR_Prozesse_v07_27.04.2025;44;637;547;0;text;0;0;0.571;0
+03__SR_Prozesse_v07_27.04.2025;45;500;432;0;text;0;0;0.324;0
+03__SR_Prozesse_v07_27.04.2025;46;721;647;0;text;0;0;0.241;0
+03__SR_Prozesse_v07_27.04.2025;47;316;240;0.3315;text;0;0;0.392;0
+03__SR_Prozesse_v07_27.04.2025;48;557;484;0;text;0;0;0.919;0
+03__SR_Prozesse_v07_27.04.2025;49;629;553;0;text;0;0;0.776;0
+03__SR_Prozesse_v07_27.04.2025;50;603;523;0;text;0;0;0.946;0
+03__SR_Prozesse_v07_27.04.2025;51;676;601;0.012;text;0;0;0.867;0
+03__SR_Prozesse_v07_27.04.2025;52;541;467;0.0117;text;0;0;0.532;0
+03__SR_Prozesse_v07_27.04.2025;53;651;566;0;text;0;0;0.856;0
+03__SR_Prozesse_v07_27.04.2025;54;615;540;0;text;0;0;0.202;0
+03__SR_Prozesse_v07_27.04.2025;55;772;682;0;text;0;0;0.009;0
+03__SR_Prozesse_v07_27.04.2025;56;652;575;0;text;0;0;0.467;0
+03__SR_Prozesse_v07_27.04.2025;57;556;484;0;text;0;0;0.116;0
+03__SR_Prozesse_v07_27.04.2025;58;726;639;0.0256;text;0;0;0.386;0
+03__SR_Prozesse_v07_27.04.2025;59;638;555;0;text;0;0;0.005;0
+03__SR_Prozesse_v07_27.04.2025;60;393;323;0;text;0;0;0.889;0
+03__SR_Prozesse_v07_27.04.2025;61;352;283;0;text;0;0;0.793;0
+03__SR_Prozesse_v07_27.04.2025;62;426;361;0;text;0;0;0.853;0
+03__SR_Prozesse_v07_27.04.2025;63;639;566;0;text;0;0;0.417;0
+03__SR_Prozesse_v07_27.04.2025;64;727;656;0;text;0;0;0.509;0
+03__SR_Prozesse_v07_27.04.2025;65;548;478;0;text;0;0;0.690;0
+03__SR_Prozesse_v07_27.04.2025;66;431;348;0;text;0;0;0.230;0
+03__SR_Prozesse_v07_27.04.2025;67;467;384;0;text;0;0;0.626;0
+03__SR_Prozesse_v07_27.04.2025;68;513;431;0;text;0;0;0.157;0
+03__SR_Prozesse_v07_27.04.2025;69;525;440;0;text;0;0;0.120;0
+03__SR_Prozesse_v07_27.04.2025;70;524;441;0;text;0;0;0.528;0
+03__SR_Prozesse_v07_27.04.2025;71;538;452;0;text;0;0;0.566;0
+03__SR_Prozesse_v07_27.04.2025;72;797;712;0.1507;text;0;0;0.125;0
+03__SR_Prozesse_v07_27.04.2025;73;445;373;0;text;0;0;0.103;0
+03__SR_Prozesse_v07_27.04.2025;74;474;402;0;text;0;0;0.568;0
+03__SR_Prozesse_v07_27.04.2025;75;831;740;0;text;0;0;0.442;0
+03__SR_Prozesse_v07_27.04.2025;76;1224;1130;0;text;0;0;0.452;0
+03__SR_Prozesse_v07_27.04.2025;77;420;283;0;text;0;0;0.925;0
+03__SR_Prozesse_v07_27.04.2025;78;656;561;0;text;0;0;0.105;0
+03__SR_Prozesse_v07_27.04.2025;79;515;320;0;text;0;0;0.782;0
+03__SR_Prozesse_v07_27.04.2025;80;903;814;0;text;0;0;0.416;0
+03__SR_Prozesse_v07_27.04.2025;81;537;402;0;text;0;0;0.927;0
+03__SR_Prozesse_v07_27.04.2025;82;564;408;0;text;0;0;0.134;0
+03__SR_Prozesse_v07_27.04.2025;83;530;458;0;text;0;0;0.735;0
+03__SR_Prozesse_v07_27.04.2025;84;480;407;0;text;0;0;0.921;0
+03__SR_Prozesse_v07_27.04.2025;85;199;133;0;text;0;0;0.933;0
+04 DBS Relational Algebra;1;55;55;0;text;0;0;0.380;0
+04 DBS Relational Algebra;2;140;134;0;text;0;0;0.271;0
+04 DBS Relational Algebra;3;415;403;0;text;0;0;0.667;0
+04 DBS Relational Algebra;4;622;608;0;text;0;0;0.273;0
+04 DBS Relational Algebra;5;676;660;0;text;0;0;0.129;0
+04 DBS Relational Algebra;6;541;504;0;text;0;0;0.393;0
+04 DBS Relational Algebra;7;557;545;0;text;0;0;0.613;0
+04 DBS Relational Algebra;8;400;381;0;text;0;0;0.061;0
+04 DBS Relational Algebra;9;590;476;0;text;0;0;0.838;0
+04 DBS Relational Algebra;10;635;641;0;text;0;0;0.664;0
+04 DBS Relational Algebra;11;415;401;0.1148;text;0;0;0.051;0
+04 DBS Relational Algebra;12;140;134;0;text;0;0;0.434;0
+04 DBS Relational Algebra;13;544;475;0;text;0;0;0.360;0
+04 DBS Relational Algebra;14;519;522;0;text;0;0;0.091;0
+04 DBS Relational Algebra;15;407;397;0;text;0;0;0.119;0
+04 DBS Relational Algebra;16;1008;950;0;text;0;0;0.875;0
+04 DBS Relational Algebra;17;711;713;0;text;0;0;0.701;0
+04 DBS Relational Algebra;18;411;403;0;text;0;0;0.875;0
+04 DBS Relational Algebra;19;391;384;0;text;0;0;0.413;0
+04 DBS Relational Algebra;20;664;672;0;text;0;0;0.218;0
+04 DBS Relational Algebra;21;422;413;0;text;0;0;0.381;0
+04 DBS Relational Algebra;22;587;581;0;text;0;0;0.939;0
+04 DBS Relational Algebra;23;532;519;0;text;0;0;0.881;0
+04 DBS Relational Algebra;24;687;677;0;text;0;0;0.966;0
+04 DBS Relational Algebra;25;442;428;0;text;0;0;0.319;0
+04 DBS Relational Algebra;26;570;565;0;text;0;0;0.011;0
+04 DBS Relational Algebra;27;444;433;0;text;0;0;0.040;0
+04 DBS Relational Algebra;28;520;488;0.0639;text;0;0;0.003;0
+04 DBS Relational Algebra;29;255;177;0;text;0;0;0.655;0
+04 DBS Relational Algebra;30;140;134;0;text;0;0;0.623;0
+04 DBS Relational Algebra;31;498;479;0;text;0;0;0.242;0
+04 DBS Relational Algebra;32;695;682;0;text;0;0;0.361;0
+04 DBS Relational Algebra;33;760;770;0;text;0;0;0.237;0
+04 DBS Relational Algebra;34;308;297;0;text;0;0;0.821;0
+04 DBS Relational Algebra;35;463;468;0;text;0;0;0.252;0
+04 DBS Relational Algebra;36;537;538;0;text;0;0;0.842;0
+04 DBS Relational Algebra;37;328;307;0;text;0;0;0.930;0
+04 DBS Relational Algebra;38;240;164;0;text;0;0;0.742;0
+04 DBS Relational Algebra;39;553;493;0;text;0;0;0.230;0
+04 DBS Relational Algebra;40;442;422;0;text;0;0;0.302;0
+04 DBS Relational Algebra;41;540;470;0;text;0;0;0.236;0
+04 DBS Relational Algebra;42;690;641;0;text;0;0;0.293;0
+04 DBS Relational Algebra;43;462;478;0;text;0;0;0.115;0
+04 DBS Relational Algebra;44;498;479;0;text;0;0;0.878;0
+04 DBS Relational Algebra;45;591;577;0;text;0;0;0.199;0
+04 DBS Relational Algebra;46;849;792;0;text;0;0;0.392;0
+04 DBS Relational Algebra;47;498;479;0;text;0;0;0.844;0
+04 DBS Relational Algebra;48;717;702;0;text;0;0;0.799;0
+04 DBS Relational Algebra;49;615;598;0;text;0;0;0.606;0
+04 DBS Relational Algebra;50;526;491;0;text;0;0;0.299;0
+04 DBS Relational Algebra;51;748;751;0.0093;text;0;0;0.048;0
+04 DBS Relational Algebra;52;623;621;0;text;0;0;0.731;0
+04 DBS Relational Algebra;53;739;715;0;text;0;0;0.837;0
+04 DBS Relational Algebra;54;573;570;0;text;0;0;0.691;0
+04 DBS Relational Algebra;55;739;685;0;text;0;0;0.653;0
+04 DBS Relational Algebra;56;498;479;0;text;0;0;0.275;0
+04 DBS Relational Algebra;57;620;568;0;text;0;0;0.963;0
+04 DBS Relational Algebra;58;607;608;0;text;0;0;0.334;0
+04 DBS Relational Algebra;59;163;149;0.2099;figure;1;0;0.684;0
+04 DBS Relational Algebra;60;752;761;0;text;0;0;0.511;0
+04 DBS Relational Algebra;61;498;479;0;text;0;0;0.135;0
+04 DBS Relational Algebra;62;140;134;0;text;0;0;0.510;0
+04 DBS Relational Algebra;63;537;532;0;text;0;0;0.679;0
+04 DBS Relational Algebra;64;672;680;0;text;0;0;0.627;0
+04 DBS Relational Algebra;65;733;729;0;text;0;0;0.262;0
+04 DBS Relational Algebra;66;699;698;0;text;0;0;0.149;0
+04 DBS Relational Algebra;67;710;710;0;text;0;0;0.208;0
+04 DBS Relational Algebra;68;734;743;0;text;0;0;0.066;0
+04 DBS Relational Algebra;69;688;701;0;text;0;0;0.479;0
+04 DBS Relational Algebra;70;409;390;0;text;0;0;0.045;0
+04 DBS Relational Algebra;71;140;134;0;text;0;0;0.332;0
+04 DBS Relational Algebra;72;374;295;0;text;0;0;0.520;0
+04 DBS Relational Algebra;73;565;547;0;text;0;0;0.587;0
+04 DBS Relational Algebra;74;324;296;0;text;0;0;0.800;0
+04 DBS Relational Algebra;75;318;293;0;text;0;0;0.510;0
+04 DBS Relational Algebra;76;496;466;0;text;0;0;0.161;0
+04 DBS Relational Algebra;77;399;376;0;text;0;0;0.927;0
+04 DBS Relational Algebra;78;349;331;0;text;0;0;0.423;0
+04 DBS Relational Algebra;79;385;365;0;text;0;0;0.626;0
+04 DBS Relational Algebra;80;140;134;0;text;0;0;0.595;0
+04 DBS Relational Algebra;81;662;647;0;text;0;0;0.046;0
+04 DBS Relational Algebra;82;555;463;0.1306;text;0;0;0.136;0
+04 DBS Relational Algebra;83;1165;734;0.0033;text;0;0;0.058;0
+04 DBS Relational Algebra;84;792;562;0;text;0;0;0.325;0
+04 DBS Relational Algebra;85;629;586;0;text;0;0;0.401;0
+04 DBS Relational Algebra;86;140;134;0;text;0;0;0.345;0
+04 DBS Relational Algebra;87;0;0;0;no_text;1;1;0.634;0
+04__SR_Betriebsmittel_v05_26.04.2026;1;260;194;0.0418;text;0;0;0.760;0
+04__SR_Betriebsmittel_v05_26.04.2026;2;120;56;0;text;0;0;0.205;0
+04__SR_Betriebsmittel_v05_26.04.2026;3;781;699;0;text;0;0;0.585;0
+04__SR_Betriebsmittel_v05_26.04.2026;4;402;337;0;text;0;0;0.369;0
+04__SR_Betriebsmittel_v05_26.04.2026;5;573;503;0;text;0;0;0.500;0
+04__SR_Betriebsmittel_v05_26.04.2026;6;611;539;0;text;0;0;0.736;0
+04__SR_Betriebsmittel_v05_26.04.2026;7;676;601;0;text;0;0;0.030;0
+04__SR_Betriebsmittel_v05_26.04.2026;8;205;128;0;text;0;0;0.292;0
+04__SR_Betriebsmittel_v05_26.04.2026;9;425;357;0.0764;text;0;0;0.011;0
+04__SR_Betriebsmittel_v05_26.04.2026;10;416;364;0.027;text;0;0;0.930;0
+04__SR_Betriebsmittel_v05_26.04.2026;11;361;290;0;text;0;0;0.626;0
+04__SR_Betriebsmittel_v05_26.04.2026;12;301;233;0;text;0;0;0.988;0
+04__SR_Betriebsmittel_v05_26.04.2026;13;489;402;0;text;0;0;0.338;0
+04__SR_Betriebsmittel_v05_26.04.2026;14;815;746;0;text;0;0;0.354;0
+04__SR_Betriebsmittel_v05_26.04.2026;15;286;218;0.027;text;0;0;0.415;0
+04__SR_Betriebsmittel_v05_26.04.2026;16;274;207;0.027;text;0;0;0.486;0
+04__SR_Betriebsmittel_v05_26.04.2026;17;629;556;0;text;0;0;0.855;0
+04__SR_Betriebsmittel_v05_26.04.2026;18;761;685;0;text;0;0;0.781;0
+04__SR_Betriebsmittel_v05_26.04.2026;19;647;569;0;text;0;0;0.544;0
+04__SR_Betriebsmittel_v05_26.04.2026;20;832;755;0;text;0;0;0.793;0
+04__SR_Betriebsmittel_v05_26.04.2026;21;510;436;0;text;0;0;0.387;0
+04__SR_Betriebsmittel_v05_26.04.2026;22;645;563;0;text;0;0;0.126;0
+04__SR_Betriebsmittel_v05_26.04.2026;23;739;668;0;text;0;0;0.981;0
+04__SR_Betriebsmittel_v05_26.04.2026;24;813;761;0;text;0;0;0.365;0
+04__SR_Betriebsmittel_v05_26.04.2026;25;650;589;0;text;0;0;0.291;0
+04__SR_Betriebsmittel_v05_26.04.2026;26;614;559;0;text;0;0;0.303;0
+04__SR_Betriebsmittel_v05_26.04.2026;27;412;351;0;text;0;0;0.734;0
+04__SR_Betriebsmittel_v05_26.04.2026;28;408;333;0.0093;text;0;0;0.969;0
+04__SR_Betriebsmittel_v05_26.04.2026;29;443;363;0.0093;text;0;0;0.496;0
+04__SR_Betriebsmittel_v05_26.04.2026;30;484;425;0;text;0;0;0.496;0
+04__SR_Betriebsmittel_v05_26.04.2026;31;565;507;0;text;0;0;0.482;0
+04__SR_Betriebsmittel_v05_26.04.2026;32;253;183;0;text;0;0;0.836;0
+04__SR_Betriebsmittel_v05_26.04.2026;33;340;266;0;text;0;0;0.970;0
+04__SR_Betriebsmittel_v05_26.04.2026;34;852;772;0;text;0;0;0.255;0
+04__SR_Betriebsmittel_v05_26.04.2026;35;200;130;0;text;0;0;0.839;0
+05 DBS SQL;1;40;40;0;text;0;0;0.536;0
+05 DBS SQL;2;177;168;0;text;0;0;0.469;0
+05 DBS SQL;3;745;457;0.0681;text;0;0;0.679;0
+05 DBS SQL;4;740;723;0;text;0;0;0.897;0
+05 DBS SQL;5;667;603;0;text;0;0;0.817;0
+05 DBS SQL;6;963;896;0;text;0;0;0.930;0
+05 DBS SQL;7;550;536;0;text;0;0;0.186;0
+05 DBS SQL;8;177;168;0;text;0;0;0.953;0
+05 DBS SQL;9;264;256;0;text;0;0;0.846;0
+05 DBS SQL;10;661;551;0;text;0;0;0.937;0
+05 DBS SQL;11;367;356;0;text;0;0;0.003;0
+05 DBS SQL;12;537;523;0;text;0;0;0.776;0
+05 DBS SQL;13;556;549;0;text;0;0;0.814;0
+05 DBS SQL;14;495;483;0;text;0;0;0.574;0
+05 DBS SQL;15;594;586;0;text;0;0;0.378;0
+05 DBS SQL;16;593;540;0;text;0;0;0.309;0
+05 DBS SQL;17;544;531;0;text;0;0;0.904;0
+05 DBS SQL;18;530;521;0;text;0;0;0.715;0
+05 DBS SQL;19;558;543;0;text;0;0;0.873;0
+05 DBS SQL;20;386;372;0;text;0;0;0.505;0
+05 DBS SQL;21;594;582;0;text;0;0;0.993;0
+05 DBS SQL;22;601;558;0;text;0;0;0.818;0
+05 DBS SQL;23;477;466;0;text;0;0;0.772;0
+05 DBS SQL;24;659;615;0;text;0;0;0.618;0
+05 DBS SQL;25;800;790;0;text;0;0;0.341;0
+05 DBS SQL;26;177;168;0;text;0;0;0.671;0
+05 DBS SQL;27;540;520;0;text;0;0;0.387;0
+05 DBS SQL;28;299;296;0;text;0;0;0.796;0
+05 DBS SQL;29;738;692;0;text;0;0;1.000;0
+05 DBS SQL;30;511;509;0;text;0;0;0.582;0
+05 DBS SQL;31;733;685;0;text;0;0;0.410;0
+05 DBS SQL;32;919;901;0;text;0;0;0.273;0
+05 DBS SQL;33;227;223;0;text;0;0;0.191;0
+05 DBS SQL;34;974;920;0;text;0;0;0.097;0
+05 DBS SQL;35;1130;1079;0;text;0;0;0.674;0
+05 DBS SQL;36;781;725;0;text;0;0;0.395;0
+05 DBS SQL;37;777;723;0;text;0;0;0.798;0
+05 DBS SQL;38;487;476;0;text;0;0;0.450;0
+05 DBS SQL;39;647;636;0;text;0;0;0.465;0
+05 DBS SQL;40;778;767;0;text;0;0;0.839;0
+05 DBS SQL;41;589;583;0;text;0;0;0.526;0
+05 DBS SQL;42;177;168;0;text;0;0;0.033;0
+05 DBS SQL;43;597;576;0;text;0;0;0.542;0
+05 DBS SQL;44;645;628;0;text;0;0;0.379;0
+05 DBS SQL;45;496;482;0;text;0;0;0.623;0
+05 DBS SQL;46;637;624;0;text;0;0;0.584;0
+05 DBS SQL;47;582;567;0;text;0;0;0.470;0
+05 DBS SQL;48;354;344;0;text;0;0;0.030;0
+05 DBS SQL;49;232;205;0;text;0;0;0.979;0
+05 DBS SQL;50;177;168;0;text;0;0;0.878;0
+05 DBS SQL;51;605;584;0;text;0;0;0.033;0
+05 DBS SQL;52;657;649;0;text;0;0;0.242;0
+05 DBS SQL;53;684;431;0;text;0;0;0.436;0
+05 DBS SQL;54;777;715;0;text;0;0;0.044;0
+05 DBS SQL;55;617;605;0;text;0;0;0.720;0
+05 DBS SQL;56;350;301;0;text;0;0;0.460;0
+05 DBS SQL;57;498;486;0;text;0;0;0.170;0
+05 DBS SQL;58;617;610;0.0127;text;0;0;0.764;0
+05 DBS SQL;59;438;430;0;text;0;0;0.913;0
+05 DBS SQL;60;392;341;0.0152;text;0;0;0.953;0
+05 DBS SQL;61;793;776;0;text;0;0;0.951;0
+05 DBS SQL;62;763;735;0;text;0;0;0.659;0
+05 DBS SQL;63;604;593;0.0754;text;0;0;0.467;0
+05 DBS SQL;64;450;436;0;text;0;0;0.441;0
+05 DBS SQL;65;177;168;0;text;0;0;0.752;0
+05 DBS SQL;66;94;63;0;text;0;0;0.400;0
+05 DBS SQL;67;812;818;0;text;0;0;0.102;0
+05 DBS SQL;68;849;838;0;text;0;0;0.670;0
+05 DBS SQL;69;473;469;0;text;0;0;0.555;0
+05 DBS SQL;70;556;546;0.0372;text;0;0;0.046;0
+05 DBS SQL;71;676;639;0;text;0;0;0.648;0
+05 DBS SQL;72;495;482;0;text;0;0;0.863;0
+05 DBS SQL;73;545;491;0.099;text;0;0;0.154;0
+05 DBS SQL;74;351;351;0;text;0;0;0.186;0
+05 DBS SQL;75;708;652;0;text;0;0;0.270;0
+05 DBS SQL;76;785;722;0;text;0;0;0.740;0
+05 DBS SQL;77;324;318;0;text;0;0;0.462;0
+05 DBS SQL;78;556;524;0;text;0;0;0.852;0
+05 DBS SQL;79;345;338;0;text;0;0;0.778;0
+05 DBS SQL;80;683;631;0;text;0;0;0.631;0
+05 DBS SQL;81;467;414;0;text;0;0;0.683;0
+05 DBS SQL;82;460;452;0;text;0;0;0.816;0
+05 DBS SQL;83;391;383;0;text;0;0;0.871;0
+05 DBS SQL;84;568;508;0;text;0;0;0.219;0
+05 DBS SQL;85;553;500;0;text;0;0;0.017;0
+05 DBS SQL;86;171;167;0;text;0;0;0.751;0
+05 DBS SQL;87;786;777;0;text;0;0;0.420;0
+05 DBS SQL;88;552;538;0.3855;text;0;0;0.244;5
+05 DBS SQL;89;447;436;0.3855;text;0;0;0.716;0
+05 DBS SQL;90;614;600;0;text;0;0;0.121;0
+05 DBS SQL;91;612;553;0;text;0;0;0.076;0
+05 DBS SQL;92;428;352;0;text;0;0;0.776;0
+05 DBS SQL;93;140;136;0.4604;figure;1;0;0.303;0
+05 DBS SQL;94;476;462;0;text;0;0;0.955;0
+05 DBS SQL;95;177;168;0;text;0;0;0.566;0
+05 DBS SQL;96;401;341;0;text;0;0;0.256;0
+05 DBS SQL;97;702;695;0;text;0;0;0.802;0
+05 DBS SQL;98;455;402;0.099;text;0;0;0.225;0
+05 DBS SQL;99;927;910;0;text;0;0;0.497;0
+05 DBS SQL;100;549;532;0;text;0;0;0.669;0
+05 DBS SQL;101;592;582;0.099;text;0;0;0.402;0
+05 DBS SQL;102;466;458;0.099;text;0;0;0.856;0
+05 DBS SQL;103;177;168;0;text;0;0;0.537;0
+05 DBS SQL;104;426;171;0.1134;text;0;0;0.960;0
+05 DBS SQL;105;717;651;0.1066;text;0;0;0.166;0
+05 DBS SQL;106;140;74;0.1373;figure;1;0;0.342;0
+05 DBS SQL;107;534;490;0;text;0;0;0.263;0
+05 DBS SQL;108;308;301;0;text;0;0;0.424;0
+05 DBS SQL;109;411;371;0;text;0;0;0.813;0
+05 DBS SQL;110;813;803;0.0472;text;0;0;0.965;0
+05 DBS SQL;111;526;511;0;text;0;0;0.451;0
+05 DBS SQL;112;747;731;0.1542;text;0;0;0.554;0
+05 DBS SQL;113;827;811;0;text;0;0;0.555;0
+05 DBS SQL;114;685;668;0;text;0;0;0.488;0
+05 DBS SQL;115;864;852;0;text;0;0;0.441;0
+05 DBS SQL;116;177;168;0;text;0;0;0.688;0
+05 DBS SQL;117;579;566;0;text;0;0;0.374;0
+05 DBS SQL;118;72;68;0.3279;figure;1;0;0.581;0
+05 DBS SQL;119;590;526;0;text;0;0;0.067;0
+05 DBS SQL;120;315;284;0.0194;text;0;0;0.408;0
+05 DBS SQL;121;389;379;0;text;0;0;0.873;0
+05 DBS SQL;122;578;572;0.0989;text;0;0;0.502;0
+05 DBS SQL;123;566;559;0.0989;text;0;0;0.632;0
+05 DBS SQL;124;506;499;0;text;0;0;0.079;0
+05 DBS SQL;125;640;625;0;text;0;0;0.368;0
+05 DBS SQL;126;801;785;0.0989;text;0;0;0.447;0
+05 DBS SQL;127;556;548;0.0989;text;0;0;0.219;0
+05 DBS SQL;128;539;529;0.0989;text;0;0;0.897;0
+05 DBS SQL;129;588;579;0.0989;text;0;0;0.986;0
+05 DBS SQL;130;637;623;0;text;0;0;0.060;0
+05 DBS SQL;131;703;687;0;text;0;0;0.630;0
+05 DBS SQL;132;329;319;0;text;0;0;0.125;0
+05 DBS SQL;133;831;804;0.0191;text;0;0;0.972;0
+05 DBS SQL;134;786;729;0.0191;text;0;0;0.752;0
+05 DBS SQL;135;11;11;0;no_text;1;1;0.700;0
+05 DBS SQL;136;0;0;0;no_text;1;1;0.008;0
+05__SR_Speicherverwaltung_v02_06.05.2026;1;265;199;0.0418;text;0;0;0.574;0
+05__SR_Speicherverwaltung_v02_06.05.2026;2;152;87;0;text;0;0;0.336;0
+05__SR_Speicherverwaltung_v02_06.05.2026;3;374;305;0;text;0;0;0.653;0
+05__SR_Speicherverwaltung_v02_06.05.2026;4;479;390;0;text;0;0;0.738;0
+05__SR_Speicherverwaltung_v02_06.05.2026;5;396;319;0;text;0;0;0.983;0
+05__SR_Speicherverwaltung_v02_06.05.2026;6;716;618;0;text;0;0;0.666;0
+05__SR_Speicherverwaltung_v02_06.05.2026;7;550;468;0;text;0;0;0.865;0
+05__SR_Speicherverwaltung_v02_06.05.2026;8;171;90;0;text;0;0;0.549;0
+05__SR_Speicherverwaltung_v02_06.05.2026;9;437;359;0;text;0;0;0.841;0
+05__SR_Speicherverwaltung_v02_06.05.2026;10;166;85;0;text;0;0;0.538;0
+05__SR_Speicherverwaltung_v02_06.05.2026;11;208;120;0;text;0;0;0.606;0
+05__SR_Speicherverwaltung_v02_06.05.2026;12;596;509;0;text;0;0;0.992;0
+05__SR_Speicherverwaltung_v02_06.05.2026;13;213;132;0;text;0;0;0.541;0
+05__SR_Speicherverwaltung_v02_06.05.2026;14;199;117;0;text;0;0;0.324;0
+05__SR_Speicherverwaltung_v02_06.05.2026;15;272;204;0;text;0;0;0.535;0
+05__SR_Speicherverwaltung_v02_06.05.2026;16;720;624;0.0186;text;0;0;0.019;0
+05__SR_Speicherverwaltung_v02_06.05.2026;17;561;490;0;text;0;0;0.547;0
+05__SR_Speicherverwaltung_v02_06.05.2026;18;403;318;0;text;0;0;0.816;0
+05__SR_Speicherverwaltung_v02_06.05.2026;19;471;396;0.1515;text;0;0;0.294;0
+05__SR_Speicherverwaltung_v02_06.05.2026;20;298;232;0;text;0;0;0.247;0
+05__SR_Speicherverwaltung_v02_06.05.2026;21;437;359;0.2894;text;0;0;0.328;0
+05__SR_Speicherverwaltung_v02_06.05.2026;22;321;247;0.4283;text;0;0;0.687;0
+05__SR_Speicherverwaltung_v02_06.05.2026;23;821;723;0;text;0;0;0.429;0
+05__SR_Speicherverwaltung_v02_06.05.2026;24;525;436;0;text;0;0;0.658;0
+05__SR_Speicherverwaltung_v02_06.05.2026;25;198;133;0.3394;figure;1;0;0.684;0
+05__SR_Speicherverwaltung_v02_06.05.2026;26;376;305;0;text;0;0;0.144;0
+05__SR_Speicherverwaltung_v02_06.05.2026;27;227;159;0.2324;text;0;0;0.725;0
+05__SR_Speicherverwaltung_v02_06.05.2026;28;408;338;0;text;0;0;0.520;0
+05__SR_Speicherverwaltung_v02_06.05.2026;29;326;250;0;text;0;0;0.671;0
+05__SR_Speicherverwaltung_v02_06.05.2026;30;336;265;0.441;text;0;0;0.027;0
+05__SR_Speicherverwaltung_v02_06.05.2026;31;376;304;0.3852;text;0;0;0.946;0
+05__SR_Speicherverwaltung_v02_06.05.2026;32;526;455;0;text;0;0;0.945;0
+05__SR_Speicherverwaltung_v02_06.05.2026;33;498;402;0;text;0;0;0.159;0
+05__SR_Speicherverwaltung_v02_06.05.2026;34;357;284;0;text;0;0;0.140;0
+05__SR_Speicherverwaltung_v02_06.05.2026;35;581;499;0;text;0;0;0.661;0
+05__SR_Speicherverwaltung_v02_06.05.2026;36;650;564;0.2676;text;0;0;0.189;0
+05__SR_Speicherverwaltung_v02_06.05.2026;37;211;144;0;text;0;0;0.705;0
+05__SR_Speicherverwaltung_v02_06.05.2026;38;208;141;0.2859;figure;1;0;0.478;0
+05__SR_Speicherverwaltung_v02_06.05.2026;39;361;291;0;text;0;0;0.363;0
+05__SR_Speicherverwaltung_v02_06.05.2026;40;146;80;0.3285;figure;1;0;0.345;0
+05__SR_Speicherverwaltung_v02_06.05.2026;41;386;320;0;text;0;0;0.741;0
+05__SR_Speicherverwaltung_v02_06.05.2026;42;291;221;0.1555;text;0;0;0.734;0
+05__SR_Speicherverwaltung_v02_06.05.2026;43;311;244;0.2187;text;0;0;0.157;0
+05__SR_Speicherverwaltung_v02_06.05.2026;44;645;574;0;text;0;0;0.722;0
+05__SR_Speicherverwaltung_v02_06.05.2026;45;420;346;0;text;0;0;0.748;0
+05__SR_Speicherverwaltung_v02_06.05.2026;46;766;677;0;text;0;0;0.447;0
+05__SR_Speicherverwaltung_v02_06.05.2026;47;753;665;0;text;0;0;0.819;0
+05__SR_Speicherverwaltung_v02_06.05.2026;48;97;32;0.449;figure;1;0;0.543;0
+05__SR_Speicherverwaltung_v02_06.05.2026;49;384;307;0;text;0;0;0.556;0
+05__SR_Speicherverwaltung_v02_06.05.2026;50;492;423;0;text;0;0;0.263;0
+05__SR_Speicherverwaltung_v02_06.05.2026;51;309;238;0.2346;text;0;0;0.388;0
+05__SR_Speicherverwaltung_v02_06.05.2026;52;309;240;0;text;0;0;0.133;0
+06 DBS Integrity;1;46;46;0;text;0;0;0.553;0
+06 DBS Integrity;2;786;774;0;text;0;0;0.432;0
+06 DBS Integrity;3;530;523;0;text;0;0;0.867;0
+06 DBS Integrity;4;48;44;0;text;0;0;0.862;0
+06 DBS Integrity;5;683;690;0.0933;text;0;0;0.201;0
+06 DBS Integrity;6;542;501;0.0933;text;0;0;0.632;0
+06 DBS Integrity;7;416;410;0.099;text;0;0;0.549;0
+06 DBS Integrity;8;676;619;0.099;text;0;0;0.186;0
+06 DBS Integrity;9;662;625;0.138;text;0;0;0.948;0
+06 DBS Integrity;10;448;466;0.195;text;0;0;0.941;0
+06 DBS Integrity;11;932;921;0.099;text;0;0;0.958;0
+06 DBS Integrity;12;501;501;0.099;text;0;0;0.774;0
+06 DBS Integrity;13;533;505;0;text;0;0;0.052;0
+06 DBS Integrity;14;529;465;0.099;text;0;0;0.662;0
+06 DBS Integrity;15;650;638;0.099;text;0;0;0.221;0
+06 DBS Integrity;16;751;739;0.099;text;0;0;0.439;0
+06 DBS Integrity;17;763;752;0.099;text;0;0;0.127;0
+06 DBS Integrity;18;456;445;0;text;0;0;0.077;0
+06 DBS Integrity;19;754;690;0;text;0;0;0.899;0
+06 DBS Integrity;20;668;659;0.0777;text;0;0;0.692;0
+06 DBS Integrity;21;681;669;0;text;0;0;0.707;0
+06 DBS Integrity;22;48;44;0;text;0;0;0.560;0
+06 DBS Integrity;23;386;373;0;text;0;0;0.020;0
+06 DBS Integrity;24;545;537;0;text;0;0;0.281;0
+06 DBS Integrity;25;553;487;0;text;0;0;0.001;0
+06 DBS Integrity;26;498;492;0;text;0;0;0.784;0
+06 DBS Integrity;27;644;631;0;text;0;0;0.635;0
+06 DBS Integrity;28;758;749;0;text;0;0;0.342;0
+06 DBS Integrity;29;493;485;0;text;0;0;0.206;0
+06 DBS Integrity;30;646;634;0;text;0;0;0.794;0
+06 DBS Integrity;31;48;44;0;text;0;0;0.405;0
+06 DBS Integrity;32;584;574;0;text;0;0;0.661;0
+06 DBS Integrity;33;379;371;0;text;0;0;0.026;0
+06 DBS Integrity;34;612;597;0;text;0;0;0.580;0
+06 DBS Integrity;35;581;545;0.099;text;0;0;0.508;0
+06 DBS Integrity;36;524;464;0.099;text;0;0;0.726;0
+06 DBS Integrity;37;511;492;0;text;0;0;0.187;0
+06 DBS Integrity;38;48;44;0;text;0;0;0.189;0
+06 DBS Integrity;39;572;508;0;text;0;0;0.063;0
+06 DBS Integrity;40;572;563;0;text;0;0;0.799;0
+06 DBS Integrity;41;446;410;0.0395;text;0;0;0.746;0
+06 DBS Integrity;42;517;482;0.092;text;0;0;0.169;0
+06 DBS Integrity;43;725;551;0.1683;text;0;0;0.716;0
+06 DBS Integrity;44;243;233;0;text;0;0;0.070;0
+06 DBS Integrity;45;0;0;0;no_text;1;1;0.252;0
+06__SR_Dateiverwaltung_v02_13.05.2026;1;262;196;0.0418;text;0;0;0.790;0
+06__SR_Dateiverwaltung_v02_13.05.2026;2;152;87;0;text;0;0;0.051;0
+06__SR_Dateiverwaltung_v02_13.05.2026;3;393;328;0;text;0;0;0.810;0
+06__SR_Dateiverwaltung_v02_13.05.2026;4;539;463;0;text;0;0;0.588;0
+06__SR_Dateiverwaltung_v02_13.05.2026;5;654;579;0;text;0;0;0.935;0
+06__SR_Dateiverwaltung_v02_13.05.2026;6;485;406;0.2895;text;0;0;0.021;0
+06__SR_Dateiverwaltung_v02_13.05.2026;7;638;546;0;text;0;0;0.128;0
+06__SR_Dateiverwaltung_v02_13.05.2026;8;638;543;0;text;0;0;0.998;0
+06__SR_Dateiverwaltung_v02_13.05.2026;9;662;592;0;text;0;0;0.675;0
+06__SR_Dateiverwaltung_v02_13.05.2026;10;806;723;0;text;0;0;0.541;0
+06__SR_Dateiverwaltung_v02_13.05.2026;11;639;564;0;text;0;0;0.623;0
+06__SR_Dateiverwaltung_v02_13.05.2026;12;720;645;0;text;0;0;0.659;0
+06__SR_Dateiverwaltung_v02_13.05.2026;13;848;769;0;text;0;0;0.938;0
+06__SR_Dateiverwaltung_v02_13.05.2026;14;119;53;0.4622;figure;1;0;0.117;0
+06__SR_Dateiverwaltung_v02_13.05.2026;15;838;762;0;text;0;0;0.490;0
+06__SR_Dateiverwaltung_v02_13.05.2026;16;593;518;0;text;0;0;0.614;0
+06__SR_Dateiverwaltung_v02_13.05.2026;17;574;498;0;text;0;0;0.976;0
+06__SR_Dateiverwaltung_v02_13.05.2026;18;575;504;0;text;0;0;0.674;0
+06__SR_Dateiverwaltung_v02_13.05.2026;19;307;232;0;text;0;0;0.650;0
+06__SR_Dateiverwaltung_v02_13.05.2026;20;628;551;0;text;0;0;0.328;0
+06__SR_Dateiverwaltung_v02_13.05.2026;21;727;649;0;text;0;0;0.894;0
+06__SR_Dateiverwaltung_v02_13.05.2026;22;593;502;0;text;0;0;0.045;0
+06__SR_Dateiverwaltung_v02_13.05.2026;23;539;458;0;text;0;0;0.288;0
+06__SR_Dateiverwaltung_v02_13.05.2026;24;903;812;0;text;0;0;0.631;0
+06__SR_Dateiverwaltung_v02_13.05.2026;25;353;286;0;text;0;0;0.539;0
+06__SR_Dateiverwaltung_v02_13.05.2026;26;454;380;0.1922;text;0;0;0.561;0
+06__SR_Dateiverwaltung_v02_13.05.2026;27;385;307;0;text;0;0;0.093;0
+06__SR_Dateiverwaltung_v02_13.05.2026;28;576;500;0;text;0;0;0.309;0
+06__SR_Dateiverwaltung_v02_13.05.2026;29;483;386;0;text;0;0;0.380;0
+06__SR_Dateiverwaltung_v02_13.05.2026;30;509;434;0;text;0;0;0.961;0
+06__SR_Dateiverwaltung_v02_13.05.2026;31;854;779;0;text;0;0;0.466;0
+06__SR_Dateiverwaltung_v02_13.05.2026;32;435;362;0;text;0;0;0.442;0
+06__SR_Dateiverwaltung_v02_13.05.2026;33;424;345;0;text;0;0;0.666;0
+06__SR_Dateiverwaltung_v02_13.05.2026;34;364;278;0;text;0;0;0.157;0
+06__SR_Dateiverwaltung_v02_13.05.2026;35;441;366;0;text;0;0;0.092;0
+06__SR_Dateiverwaltung_v02_13.05.2026;36;717;638;0;text;0;0;0.445;0
+06__SR_Dateiverwaltung_v02_13.05.2026;37;463;368;0;text;0;0;0.645;0
+06__SR_Dateiverwaltung_v02_13.05.2026;38;622;544;0;text;0;0;0.640;0
+06__SR_Dateiverwaltung_v02_13.05.2026;39;433;347;0.251;text;0;0;0.312;0
+06__SR_Dateiverwaltung_v02_13.05.2026;40;1089;1005;0;text;0;0;0.945;0
+06__SR_Dateiverwaltung_v02_13.05.2026;41;1268;1184;0;text;0;0;0.832;0
+06__SR_Dateiverwaltung_v02_13.05.2026;42;763;685;0;text;0;0;0.431;0
+06__SR_Dateiverwaltung_v02_13.05.2026;43;404;337;0;text;0;0;0.597;0
+07 DBS Transactions;1;49;49;0;text;0;0;0.726;0
+07 DBS Transactions;2;498;488;0;text;0;0;0.118;0
+07 DBS Transactions;3;315;242;0;text;0;0;0.622;0
+07 DBS Transactions;4;318;306;0.0415;text;0;0;0.821;0
+07 DBS Transactions;5;463;454;0.0168;text;0;0;0.991;0
+07 DBS Transactions;6;105;100;0;text;0;0;0.773;0
+07 DBS Transactions;7;240;238;0;text;0;0;0.369;0
+07 DBS Transactions;8;456;444;0.0327;text;0;0;0.862;0
+07 DBS Transactions;9;889;602;0.1669;text;0;0;0.125;0
+07 DBS Transactions;10;648;608;0.0837;text;0;0;0.985;0
+07 DBS Transactions;11;778;741;0.0258;text;0;0;0.838;0
+07 DBS Transactions;12;329;291;0.0258;text;0;0;0.472;0
+07 DBS Transactions;13;646;644;0.1065;text;0;0;0.975;0
+07 DBS Transactions;14;425;419;0.2123;text;0;0;0.429;0
+07 DBS Transactions;15;453;397;0.0206;text;0;0;0.100;0
+07 DBS Transactions;16;727;733;0;text;0;0;0.436;0
+07 DBS Transactions;17;95;92;0.4782;figure;1;0;0.431;0
+07 DBS Transactions;18;825;809;0;text;0;0;0.521;0
+07 DBS Transactions;19;456;444;0.0957;text;0;0;0.908;0
+07 DBS Transactions;20;584;569;0;text;0;0;0.410;0
+07 DBS Transactions;21;513;497;0;text;0;0;0.441;0
+07 DBS Transactions;22;510;487;0.0204;text;0;0;0.842;0
+07 DBS Transactions;23;690;666;0.0239;text;0;0;0.679;0
+07 DBS Transactions;24;502;490;0.0239;text;0;0;0.306;0
+07 DBS Transactions;25;709;702;0;text;0;0;0.315;0
+07 DBS Transactions;26;976;1004;0;text;0;0;0.292;0
+07 DBS Transactions;27;783;710;0;text;0;0;0.775;0
+07 DBS Transactions;28;980;943;0;text;0;0;0.106;0
+07 DBS Transactions;29;820;807;0;text;0;0;0.156;0
+07 DBS Transactions;30;665;627;0;text;0;0;0.219;0
+07 DBS Transactions;31;105;100;0;text;0;0;0.300;0
+07 DBS Transactions;32;785;727;0.0206;text;0;0;0.801;0
+07 DBS Transactions;33;802;802;0;text;0;0;0.375;0
+07 DBS Transactions;34;592;410;0;text;0;0;0.086;0
+07 DBS Transactions;35;518;448;0;text;0;0;0.427;0
+07 DBS Transactions;36;401;190;0;text;0;0;0.891;0
+07 DBS Transactions;37;326;201;0.04;text;0;0;0.857;0
+07 DBS Transactions;38;871;579;0;text;0;0;0.324;0
+07 DBS Transactions;39;909;614;0;text;0;0;0.299;0
+07 DBS Transactions;40;905;608;0;text;0;0;0.522;0
+07 DBS Transactions;41;520;209;0;text;0;0;0.257;0
+07 DBS Transactions;42;823;469;0;text;0;0;0.569;0
+07 DBS Transactions;43;97;92;0;text;0;0;0.488;0
+07 DBS Transactions;44;596;608;0;text;0;0;0.196;0
+07 DBS Transactions;45;656;605;0;text;0;0;0.821;0
+07 DBS Transactions;46;103;100;0.5287;figure;1;0;0.850;0
+07 DBS Transactions;47;685;715;0;text;0;0;0.200;0
+07 DBS Transactions;48;472;433;0;text;0;0;0.425;0
+07 DBS Transactions;49;627;607;0.1873;text;0;0;0.005;0
+07 DBS Transactions;50;661;646;0;text;0;0;0.638;0
+07 DBS Transactions;51;866;796;0;text;0;0;0.394;0
+07 DBS Transactions;52;572;511;0;text;0;0;0.772;0
+07 DBS Transactions;53;284;213;0;text;0;0;0.932;0
+07 DBS Transactions;54;277;217;0;text;0;0;0.611;0
+07 DBS Transactions;55;285;208;0;text;0;0;0.572;0
+07 DBS Transactions;56;681;686;0;text;0;0;0.339;0
+07 DBS Transactions;57;814;810;0;text;0;0;0.288;0
+07 DBS Transactions;58;105;100;0;text;0;0;0.462;0
+07 DBS Transactions;59;661;612;0.0027;text;0;0;0.642;0
+07 DBS Transactions;60;663;588;0.0027;text;0;0;0.156;0
+07 DBS Transactions;61;979;949;0;text;0;0;0.736;0
+07 DBS Transactions;62;795;801;0;text;0;0;0.120;0
+07 DBS Transactions;63;414;450;0;text;0;0;0.320;0
+07 DBS Transactions;64;359;307;0;text;0;0;0.284;0
+07 DBS Transactions;65;408;354;0;text;0;0;0.154;0
+07 DBS Transactions;66;458;541;0;text;0;0;0.251;0
+07 DBS Transactions;67;489;448;0;text;0;0;0.990;0
+07 DBS Transactions;68;710;550;0;text;0;0;0.569;0
+07 DBS Transactions;69;550;538;0;text;0;0;0.128;0
+07 DBS Transactions;70;912;919;0;text;0;0;0.212;0
+07 DBS Transactions;71;532;497;0.0706;text;0;0;0.980;0
+07 DBS Transactions;72;971;976;0;text;0;0;0.264;0
+07 DBS Transactions;73;105;100;0;text;0;0;0.262;0
+07 DBS Transactions;74;803;770;0;text;0;0;0.223;0
+07 DBS Transactions;75;579;562;0;text;0;0;0.656;0
+07 DBS Transactions;76;416;369;0;text;0;0;0.395;0
+07 DBS Transactions;77;835;835;0.0069;text;0;0;0.716;0
+07 DBS Transactions;78;105;100;0.1763;figure;1;0;0.684;0
+07 DBS Transactions;79;0;0;0;no_text;1;1;0.955;0
+07__SR_EA_v04_19.05.2026;1;272;206;0.0418;text;0;0;0.165;0
+07__SR_EA_v04_19.05.2026;2;152;87;0;text;0;0;0.349;0
+07__SR_EA_v04_19.05.2026;3;162;97;0;text;0;0;0.588;0
+07__SR_EA_v04_19.05.2026;4;369;291;0;text;0;0;0.805;0
+07__SR_EA_v04_19.05.2026;5;293;223;0;text;0;0;0.823;0
+07__SR_EA_v04_19.05.2026;6;561;487;0;text;0;0;0.107;0
+07__SR_EA_v04_19.05.2026;7;698;624;0;text;0;0;0.847;0
+07__SR_EA_v04_19.05.2026;8;674;607;0;text;0;0;0.535;0
+07__SR_EA_v04_19.05.2026;9;377;312;0;text;0;0;0.021;0
+07__SR_EA_v04_19.05.2026;10;451;375;0;text;0;0;0.946;0
+07__SR_EA_v04_19.05.2026;11;520;442;0;text;0;0;0.881;0
+07__SR_EA_v04_19.05.2026;12;718;638;0;text;0;0;0.512;0
+07__SR_EA_v04_19.05.2026;13;654;576;0;text;0;0;0.706;0
+07__SR_EA_v04_19.05.2026;14;652;572;0;text;0;0;0.632;0
+07__SR_EA_v04_19.05.2026;15;628;544;0;text;0;0;0.034;0
+07__SR_EA_v04_19.05.2026;16;365;288;0;text;0;0;0.646;0
+07__SR_EA_v04_19.05.2026;17;573;495;0;text;0;0;0.577;0
+07__SR_EA_v04_19.05.2026;18;842;766;0;text;0;0;0.867;0
+07__SR_EA_v04_19.05.2026;19;414;334;0;text;0;0;0.635;0
+07__SR_EA_v04_19.05.2026;20;455;357;0;text;0;0;0.686;0
+07__SR_EA_v04_19.05.2026;21;807;712;0;text;0;0;0.247;0
+07__SR_EA_v04_19.05.2026;22;759;668;0;text;0;0;0.521;0
+07__SR_EA_v04_19.05.2026;23;605;515;0;text;0;0;0.708;0
+07__SR_EA_v04_19.05.2026;24;753;668;0;text;0;0;0.190;0
+07__SR_EA_v04_19.05.2026;25;159;90;0.328;figure;1;0;0.510;0
+07__SR_EA_v04_19.05.2026;26;663;598;0.0338;text;0;0;0.490;0
+07__SR_EA_v04_19.05.2026;27;763;700;0;text;0;0;0.845;0
+07__SR_EA_v04_19.05.2026;28;164;97;0;text;0;0;0.871;0
+07__SR_EA_v04_19.05.2026;29;1073;1011;0;text;0;0;0.329;0
+07__SR_EA_v04_19.05.2026;30;2621;2772;0;text;0;0;0.984;0
+07__SR_EA_v04_19.05.2026;31;989;928;0;text;0;0;0.939;0
+07__SR_EA_v04_19.05.2026;32;789;714;0;text;0;0;0.471;0
+07__SR_EA_v04_19.05.2026;33;663;617;0;text;0;0;0.324;0
+07__SR_EA_v04_19.05.2026;34;447;361;0;text;0;0;0.676;0
+07__SR_EA_v04_19.05.2026;35;754;638;0;text;0;0;0.786;0
+07__SR_EA_v04_19.05.2026;36;947;853;0.0114;text;0;0;0.739;0
+07__SR_EA_v04_19.05.2026;37;173;106;0;text;0;0;0.802;0
+08 DBS Query Processing;1;53;53;0;text;0;0;0.495;0
+08 DBS Query Processing;2;430;419;0;text;0;0;0.775;0
+08 DBS Query Processing;3;898;321;0;text;0;0;0.473;0
+08 DBS Query Processing;4;346;318;0.3127;text;0;0;0.983;0
+08 DBS Query Processing;5;91;88;0;text;0;0;0.772;0
+08 DBS Query Processing;6;448;202;0.0257;text;0;0;0.294;0
+08 DBS Query Processing;7;789;711;0;text;0;0;0.886;0
+08 DBS Query Processing;8;380;262;0;text;0;0;0.098;0
+08 DBS Query Processing;9;560;544;0;text;0;0;0.004;0
+08 DBS Query Processing;10;91;88;0;text;0;0;0.245;0
+08 DBS Query Processing;11;492;383;0.0205;text;0;0;0.890;0
+08 DBS Query Processing;12;410;205;0.2046;text;0;0;0.953;0
+08 DBS Query Processing;13;492;383;0.0205;text;0;0;0.987;0
+08 DBS Query Processing;14;570;558;0.088;text;0;0;0.577;0
+08 DBS Query Processing;15;471;461;0.088;text;0;0;0.194;0
+08 DBS Query Processing;16;731;715;0;text;0;0;0.667;0
+08 DBS Query Processing;17;512;505;0;text;0;0;0.381;0
+08 DBS Query Processing;18;508;399;0.0205;text;0;0;0.775;0
+08 DBS Query Processing;19;531;520;0.1178;text;0;0;0.708;0
+08 DBS Query Processing;20;283;222;0;text;0;0;0.652;0
+08 DBS Query Processing;21;323;199;0;text;0;0;0.038;0
+08 DBS Query Processing;22;311;186;0;text;0;0;0.902;0
+08 DBS Query Processing;23;311;305;0;text;0;0;0.158;0
+08 DBS Query Processing;24;529;463;0;text;0;0;0.320;0
+08 DBS Query Processing;25;474;544;0;text;0;0;0.811;0
+08 DBS Query Processing;26;562;550;0.1151;text;0;0;0.639;0
+08 DBS Query Processing;27;377;372;0;text;0;0;0.115;0
+08 DBS Query Processing;28;431;353;0.0107;text;0;0;0.820;0
+08 DBS Query Processing;29;310;186;0;text;0;0;0.186;0
+08 DBS Query Processing;30;358;281;0.0107;text;0;0;0.175;0
+08 DBS Query Processing;31;369;297;0.0107;text;0;0;0.523;0
+08 DBS Query Processing;32;379;266;0.0108;text;0;0;0.211;0
+08 DBS Query Processing;33;463;195;0;text;0;0;0.375;0
+08 DBS Query Processing;34;349;275;0.0107;text;0;0;0.540;0
+08 DBS Query Processing;35;423;308;0.1608;text;0;0;0.978;0
+08 DBS Query Processing;36;210;181;0.48;text;0;0;0.677;0
+08 DBS Query Processing;37;309;149;0.2552;figure;1;0;0.252;0
+08 DBS Query Processing;38;336;316;0.2552;text;0;0;0.263;0
+08 DBS Query Processing;39;511;402;0.0205;text;0;0;0.954;0
+08 DBS Query Processing;40;687;613;0;text;0;0;0.984;0
+08 DBS Query Processing;41;502;486;0;text;0;0;0.766;0
+08 DBS Query Processing;42;696;687;0;text;0;0;0.003;0
+08 DBS Query Processing;43;345;341;0.4766;text;0;0;0.310;0
+08 DBS Query Processing;44;373;180;0;text;0;0;0.387;0
+08 DBS Query Processing;45;756;746;0.0728;text;0;0;0.250;0
+08 DBS Query Processing;46;660;649;0;text;0;0;0.555;0
+08 DBS Query Processing;47;696;687;0;text;0;0;0.799;0
+08 DBS Query Processing;48;398;387;0;text;0;0;0.708;0
+08 DBS Query Processing;49;319;251;0;text;0;0;0.474;0
+08 DBS Query Processing;50;608;530;0.1859;text;0;0;0.130;0
+08 DBS Query Processing;51;779;756;0;text;0;0;0.185;0
+08 DBS Query Processing;52;463;400;0.317;text;0;0;0.626;0
+08 DBS Query Processing;53;647;635;0;text;0;0;0.371;0
+08 DBS Query Processing;54;684;669;0.0926;text;0;0;0.727;0
+08 DBS Query Processing;55;597;580;0.0926;text;0;0;0.659;0
+08 DBS Query Processing;56;150;148;0.1373;figure;1;0;0.068;0
+08 DBS Query Processing;57;126;123;0.4744;figure;1;0;0.468;0
+08 DBS Query Processing;58;590;432;0;text;0;0;0.333;0
+08 DBS Query Processing;59;408;381;0;text;0;0;0.488;0
+08 DBS Query Processing;60;494;360;0;text;0;0;0.464;0
+08 DBS Query Processing;61;819;774;0;text;0;0;0.247;0
+08 DBS Query Processing;62;657;633;0;text;0;0;0.733;0
+08 DBS Query Processing;63;661;646;0;text;0;0;0.128;0
+08 DBS Query Processing;64;91;88;0;text;0;0;0.061;0
+08 DBS Query Processing;65;638;531;0.0205;text;0;0;0.749;0
+08 DBS Query Processing;66;379;350;0.2657;text;0;0;0.040;0
+08 DBS Query Processing;67;889;825;0;text;0;0;0.271;0
+08 DBS Query Processing;68;583;483;0.1623;text;0;0;0.518;0
+08 DBS Query Processing;69;0;0;0;no_text;1;1;0.994;0
+08__SR_Virtualisierung_v04_21.05.2026;1;262;196;0.0418;text;0;0;0.520;0
+08__SR_Virtualisierung_v04_21.05.2026;2;153;88;0;text;0;0;0.308;0
+08__SR_Virtualisierung_v04_21.05.2026;3;483;416;0;text;0;0;0.979;0
+08__SR_Virtualisierung_v04_21.05.2026;4;182;118;0;text;0;0;0.714;0
+08__SR_Virtualisierung_v04_21.05.2026;5;329;257;0;text;0;0;0.320;0
+08__SR_Virtualisierung_v04_21.05.2026;6;427;348;0;text;0;0;0.765;0
+08__SR_Virtualisierung_v04_21.05.2026;7;368;297;0;text;0;0;0.139;0
+08__SR_Virtualisierung_v04_21.05.2026;8;434;365;0;text;0;0;0.283;0
+08__SR_Virtualisierung_v04_21.05.2026;9;361;292;0;text;0;0;0.892;0
+08__SR_Virtualisierung_v04_21.05.2026;10;108;43;0;text;0;0;0.020;0
+08__SR_Virtualisierung_v04_21.05.2026;11;218;147;0;text;0;0;0.027;0
+08__SR_Virtualisierung_v04_21.05.2026;12;184;118;0;text;0;0;0.396;0
+08__SR_Virtualisierung_v04_21.05.2026;13;319;244;0.1298;text;0;0;0.352;0
+08__SR_Virtualisierung_v04_21.05.2026;14;449;380;0;text;0;0;0.099;0
+08__SR_Virtualisierung_v04_21.05.2026;15;512;433;0;text;0;0;0.516;0
+08__SR_Virtualisierung_v04_21.05.2026;16;376;300;0;text;0;0;0.196;0
+08__SR_Virtualisierung_v04_21.05.2026;17;244;177;0;text;0;0;0.785;0
+08__SR_Virtualisierung_v04_21.05.2026;18;518;435;0;text;0;0;0.554;0
+08__SR_Virtualisierung_v04_21.05.2026;19;451;383;0;text;0;0;0.994;0
+08__SR_Virtualisierung_v04_21.05.2026;20;164;96;0.2754;figure;1;0;0.909;0
+08__SR_Virtualisierung_v04_21.05.2026;21;193;124;0.2329;figure;1;0;0.345;0
+08__SR_Virtualisierung_v04_21.05.2026;22;180;111;0.275;figure;1;0;0.860;0
+08__SR_Virtualisierung_v04_21.05.2026;23;217;147;0.2329;figure;1;0;0.861;0
+08__SR_Virtualisierung_v04_21.05.2026;24;253;182;0.2462;text;0;0;0.947;0
+08__SR_Virtualisierung_v04_21.05.2026;25;280;210;0.4427;text;0;0;0.514;0
+08__SR_Virtualisierung_v04_21.05.2026;26;422;352;0.2532;text;0;0;0.367;0
+08__SR_Virtualisierung_v04_21.05.2026;27;358;284;0;text;0;0;0.927;0
+08__SR_Virtualisierung_v04_21.05.2026;28;418;406;0;text;0;0;0.163;0
+08__SR_Virtualisierung_v04_21.05.2026;29;579;493;0.0253;text;0;0;0.015;0
+08__SR_Virtualisierung_v04_21.05.2026;30;425;355;0;text;0;0;0.350;0
+08__SR_Virtualisierung_v04_21.05.2026;31;962;883;0;text;0;0;0.329;0
+08__SR_Virtualisierung_v04_21.05.2026;32;431;359;0;text;0;0;0.124;0
+08__SR_Virtualisierung_v04_21.05.2026;33;281;214;0;text;0;0;0.364;0
+08__SR_Virtualisierung_v04_21.05.2026;34;584;513;0;text;0;0;0.753;0
+08__SR_Virtualisierung_v04_21.05.2026;35;394;325;0;text;0;0;0.333;0
+08__SR_Virtualisierung_v04_21.05.2026;36;521;449;0;text;0;0;0.625;0
+08__SR_Virtualisierung_v04_21.05.2026;37;172;103;0.3201;figure;1;0;0.174;0
+08__SR_Virtualisierung_v04_21.05.2026;38;201;131;0.2836;figure;1;0;0.084;0
+08__SR_Virtualisierung_v04_21.05.2026;39;198;128;0.2953;figure;1;0;0.973;0
+08__SR_Virtualisierung_v04_21.05.2026;40;261;193;0;text;0;0;0.403;0
+08__SR_Virtualisierung_v04_21.05.2026;41;507;428;0.125;text;0;0;0.963;0
+08__SR_Virtualisierung_v04_21.05.2026;42;95;39;0.5511;figure;1;0;0.210;0
+09 DBS Index Structures;1;53;53;0;text;0;0;0.429;0
+09 DBS Index Structures;2;656;652;0.0593;text;0;0;0.746;0
+09 DBS Index Structures;3;130;126;0;text;0;0;0.921;0
+09 DBS Index Structures;4;478;370;0.0063;text;0;0;0.363;0
+09 DBS Index Structures;5;613;494;0;text;0;0;0.239;0
+09 DBS Index Structures;6;636;584;0;text;0;0;0.579;0
+09 DBS Index Structures;7;614;562;0;text;0;0;0.633;0
+09 DBS Index Structures;8;449;402;0;text;0;0;0.842;0
+09 DBS Index Structures;9;544;490;0;text;0;0;0.981;0
+09 DBS Index Structures;10;703;578;0;text;0;0;0.351;0
+09 DBS Index Structures;11;588;516;0;text;0;0;0.813;0
+09 DBS Index Structures;12;739;664;0.0122;text;0;0;0.618;0
+09 DBS Index Structures;13;618;585;0;text;0;0;0.794;0
+09 DBS Index Structures;14;678;648;0;text;0;0;0.431;0
+09 DBS Index Structures;15;699;671;0;text;0;0;0.841;0
+09 DBS Index Structures;16;897;882;0;text;0;0;0.724;0
+09 DBS Index Structures;17;664;606;0;text;0;0;0.109;0
+09 DBS Index Structures;18;687;583;0;text;0;0;0.593;0
+09 DBS Index Structures;19;634;578;0;text;0;0;0.457;0
+09 DBS Index Structures;20;130;126;0;text;0;0;0.924;0
+09 DBS Index Structures;21;688;675;0;text;0;0;0.440;0
+09 DBS Index Structures;22;536;506;0;text;0;0;0.732;0
+09 DBS Index Structures;23;568;560;0;text;0;0;0.984;0
+09 DBS Index Structures;24;701;692;0.0573;text;0;0;0.741;0
+09 DBS Index Structures;25;509;391;0;text;0;0;0.854;0
+09 DBS Index Structures;26;591;526;0;text;0;0;0.111;0
+09 DBS Index Structures;27;661;635;0.005;text;0;0;0.968;0
+09 DBS Index Structures;28;288;266;0.2804;text;0;0;0.996;0
+09 DBS Index Structures;29;702;690;0;text;0;0;0.541;0
+09 DBS Index Structures;30;532;367;0;text;0;0;0.391;0
+09 DBS Index Structures;31;587;573;0;text;0;0;0.628;0
+09 DBS Index Structures;32;188;179;0;text;0;0;0.295;0
+09 DBS Index Structures;33;388;381;0.2635;text;0;0;0.739;0
+09 DBS Index Structures;34;103;102;0.0572;figure;1;0;0.547;0
+09 DBS Index Structures;35;97;96;0.5156;figure;1;0;0.821;0
+09 DBS Index Structures;36;429;427;0.1937;text;0;0;0.679;0
+09 DBS Index Structures;37;701;632;0.1015;text;0;0;0.768;0
+09 DBS Index Structures;38;732;731;0.1015;text;0;0;0.557;0
+09 DBS Index Structures;39;367;367;0;text;0;0;0.608;0
+09 DBS Index Structures;40;535;542;0;text;0;0;0.751;0
+09 DBS Index Structures;41;518;509;0;text;0;0;0.215;0
+09 DBS Index Structures;42;310;296;0;text;0;0;0.135;0
+09 DBS Index Structures;43;260;247;0;text;0;0;0.968;0
+09 DBS Index Structures;44;327;326;0;text;0;0;0.231;0
+09 DBS Index Structures;45;467;462;0;text;0;0;0.279;0
+09 DBS Index Structures;46;188;179;0;text;0;0;0.624;0
+09 DBS Index Structures;47;389;322;0.0083;text;0;0;0.139;0
+09 DBS Index Structures;48;460;301;0.1682;text;0;0;0.759;0
+09 DBS Index Structures;49;563;415;0.1487;text;0;0;0.841;0
+09 DBS Index Structures;50;544;519;0.1404;text;0;0;0.498;0
+09 DBS Index Structures;51;187;158;0;text;0;0;0.335;0
+09 DBS Index Structures;52;190;160;0;text;0;0;0.845;0
+09 DBS Index Structures;53;254;225;0;text;0;0;0.040;0
+09 DBS Index Structures;54;286;254;0;text;0;0;0.503;0
+09 DBS Index Structures;55;702;707;0;text;0;0;0.227;0
+09 DBS Index Structures;56;121;91;0;text;0;0;0.456;0
+09 DBS Index Structures;57;188;179;0;text;0;0;0.811;0
+09 DBS Index Structures;58;428;293;0.0196;text;0;0;0.239;0
+09 DBS Index Structures;59;111;71;0.1122;figure;1;0;0.769;0
+09 DBS Index Structures;60;114;84;0.1122;figure;1;0;0.834;0
+09 DBS Index Structures;61;114;84;0.1122;figure;1;0;0.949;0
+09 DBS Index Structures;62;180;158;0.1122;text;0;0;0.255;0
+09 DBS Index Structures;63;92;63;0.1144;figure;1;0;0.958;0
+09 DBS Index Structures;64;92;69;0.1095;figure;1;0;0.570;0
+09 DBS Index Structures;65;482;474;0;text;0;0;0.475;0
+09 DBS Index Structures;66;153;50;0.4205;figure;1;0;0.206;0
+09 DBS Index Structures;67;693;606;0.0036;text;0;0;0.615;0
+09 DBS Index Structures;68;112;32;0.1305;figure;1;0;0.242;0
+09 DBS Index Structures;69;110;32;0.1305;figure;1;0;0.519;0
+09 DBS Index Structures;70;110;32;0.1301;figure;1;0;0.520;0
+09 DBS Index Structures;71;111;33;0.1305;figure;1;0;0.520;0
+09 DBS Index Structures;72;108;33;0.13;figure;1;0;0.843;0
+09 DBS Index Structures;73;255;222;0.1305;text;0;0;0.555;0
+09 DBS Index Structures;74;108;33;0.1305;figure;1;0;0.836;0
+09 DBS Index Structures;75;108;33;0.1305;figure;1;0;0.322;0
+09 DBS Index Structures;76;106;33;0.1305;figure;1;0;0.738;0
+09 DBS Index Structures;77;106;33;0.1305;figure;1;0;0.848;0
+09 DBS Index Structures;78;106;33;0.1305;figure;1;0;0.706;0
+09 DBS Index Structures;79;553;542;0;text;0;0;0.132;0
+09 DBS Index Structures;80;405;400;0.1632;text;0;0;0.918;0
+09 DBS Index Structures;81;188;179;0;text;0;0;0.831;0
+09 DBS Index Structures;82;948;938;0;text;0;0;0.484;0
+09 DBS Index Structures;83;805;743;0.1121;text;0;0;0.400;0
+09 DBS Index Structures;84;269;262;0;text;0;0;0.116;0
+09 DBS Index Structures;85;188;183;0;text;0;0;0.212;0
+09 DBS Index Structures;86;173;168;0;text;0;0;0.034;0
+09 DBS Index Structures;87;176;171;0;text;0;0;0.643;0
+09 DBS Index Structures;88;213;207;0;text;0;0;0.661;0
+09 DBS Index Structures;89;244;237;0.0856;text;0;0;0.297;0
+09 DBS Index Structures;90;244;236;0.0856;text;0;0;0.698;0
+09 DBS Index Structures;91;182;176;0;text;0;0;0.915;0
+09 DBS Index Structures;92;185;179;0;text;0;0;0.746;0
+09 DBS Index Structures;93;458;422;0;text;0;0;0.820;0
+09 DBS Index Structures;94;449;443;0;text;0;0;0.409;0
+09 DBS Index Structures;95;188;179;0;text;0;0;0.801;0
+09 DBS Index Structures;96;282;271;0;text;0;0;0.385;0
+09 DBS Index Structures;97;661;647;0.0786;text;0;0;0.464;0
+09 DBS Index Structures;98;655;648;0;text;0;0;0.789;0
+09 DBS Index Structures;99;407;349;0;text;0;0;0.591;0
+09 DBS Index Structures;100;97;98;0;text;0;0;0.397;0
+09 DBS Index Structures;101;433;434;0.0762;text;0;0;0.015;0
+09 DBS Index Structures;102;322;320;0.3167;text;0;0;0.099;0
+09 DBS Index Structures;103;130;126;0;text;0;0;0.556;0
+09 DBS Index Structures;104;598;521;0;text;0;0;0.963;0
+09 DBS Index Structures;105;773;696;0.0214;text;0;0;0.815;0
+09 DBS Index Structures;106;620;476;0.0214;text;0;0;0.963;0
+09 DBS Index Structures;107;545;526;0;text;0;0;0.718;0
+09 DBS Index Structures;108;274;260;0;text;0;0;0.869;0
+09 DBS Index Structures;109;497;473;0;text;0;0;0.037;0
+09 DBS Index Structures;110;304;288;0;text;0;0;0.116;0
+09 DBS Index Structures;111;580;553;0;text;0;0;0.505;0
+09 DBS Index Structures;112;572;551;0;text;0;0;0.717;0
+09 DBS Index Structures;113;443;421;0;text;0;0;0.000;0
+09 DBS Index Structures;114;667;654;0.0429;text;0;0;0.192;0
+09 DBS Index Structures;115;496;483;0;text;0;0;0.693;0
+09 DBS Index Structures;116;329;156;0.0513;text;0;0;0.989;0
+09 DBS Index Structures;117;669;664;0;text;0;0;0.082;0
+09 DBS Index Structures;118;358;354;0;text;0;0;0.854;0
+09 DBS Index Structures;119;1080;1005;0;text;0;0;0.335;0
+09 DBS Index Structures;120;293;272;0;text;0;0;0.873;0
+09 DBS Index Structures;121;863;847;0;text;0;0;0.416;0
+09 DBS Index Structures;122;240;147;0;text;0;0;0.641;0
+09 DBS Index Structures;123;289;198;0;text;0;0;0.360;0
+09 DBS Index Structures;124;277;158;0;text;0;0;0.037;0
+09 DBS Index Structures;125;608;586;0;text;0;0;0.725;0
+09 DBS Index Structures;126;807;791;0;text;0;0;0.261;0
+09 DBS Index Structures;127;176;168;0.1506;text;0;0;0.176;0
+09 DBS Index Structures;128;223;215;0.2826;text;0;0;0.183;0
+09 DBS Index Structures;129;0;0;0;no_text;1;1;0.017;0
+09__SR_Kommunikation_v01_26.05.2026;1;260;194;0.0418;text;0;0;0.014;0
+09__SR_Kommunikation_v01_26.05.2026;2;170;101;0;text;0;0;0.196;0
+09__SR_Kommunikation_v01_26.05.2026;3;223;159;0;text;0;0;0.204;0
+09__SR_Kommunikation_v01_26.05.2026;4;382;314;0;text;0;0;0.461;0
+09__SR_Kommunikation_v01_26.05.2026;5;376;289;0;text;0;0;0.294;0
+09__SR_Kommunikation_v01_26.05.2026;6;306;230;0.137;text;0;0;0.593;0
+09__SR_Kommunikation_v01_26.05.2026;7;352;273;0;text;0;0;0.194;0
+09__SR_Kommunikation_v01_26.05.2026;8;313;244;0;text;0;0;0.133;0
+09__SR_Kommunikation_v01_26.05.2026;9;572;495;0;text;0;0;0.917;0
+09__SR_Kommunikation_v01_26.05.2026;10;106;40;0.5452;figure;1;0;0.872;0
+09__SR_Kommunikation_v01_26.05.2026;11;664;578;0;text;0;0;0.050;0
+09__SR_Kommunikation_v01_26.05.2026;12;203;136;0.5854;figure;1;0;0.137;4
+09__SR_Kommunikation_v01_26.05.2026;13;277;200;0.2881;text;0;0;0.191;0
+09__SR_Kommunikation_v01_26.05.2026;14;679;610;0;text;0;0;0.789;0
+09__SR_Kommunikation_v01_26.05.2026;15;636;553;0;text;0;0;0.004;0
+09__SR_Kommunikation_v01_26.05.2026;16;328;258;0.2202;text;0;0;0.357;0
+09__SR_Kommunikation_v01_26.05.2026;17;676;602;0;text;0;0;0.684;0
+09__SR_Kommunikation_v01_26.05.2026;18;785;709;0;text;0;0;0.872;0
+09__SR_Kommunikation_v01_26.05.2026;19;656;578;0;text;0;0;0.214;0
+09__SR_Kommunikation_v01_26.05.2026;20;367;298;0;text;0;0;0.282;0
+09__SR_Kommunikation_v01_26.05.2026;21;548;478;0;text;0;0;0.087;0
+09__SR_Kommunikation_v01_26.05.2026;22;466;390;0.3338;text;0;0;0.479;0
+09__SR_Kommunikation_v01_26.05.2026;23;698;627;0;text;0;0;0.468;0
+09__SR_Kommunikation_v01_26.05.2026;24;586;499;0;text;0;0;0.917;0
+09__SR_Kommunikation_v01_26.05.2026;25;130;63;0;text;0;0;0.752;0
+09__SR_Kommunikation_v01_26.05.2026;26;186;116;0;text;0;0;0.235;0
+09__SR_Kommunikation_v01_26.05.2026;27;219;135;0;text;0;0;0.996;0
+09__SR_Kommunikation_v01_26.05.2026;28;581;500;0;text;0;0;0.842;0
+09__SR_Kommunikation_v01_26.05.2026;29;422;335;0;text;0;0;0.701;0
+09__SR_Kommunikation_v01_26.05.2026;30;449;379;0;text;0;0;0.984;0
+09__SR_Kommunikation_v01_26.05.2026;31;810;705;0;text;0;0;0.439;0
+09__SR_Kommunikation_v01_26.05.2026;32;341;270;0;text;0;0;0.470;0
+09__SR_Kommunikation_v01_26.05.2026;33;767;688;0;text;0;0;0.509;0
+09__SR_Kommunikation_v01_26.05.2026;34;436;363;0;text;0;0;0.280;0
+09__SR_Kommunikation_v01_26.05.2026;35;412;342;0;text;0;0;0.461;0
+09__SR_Kommunikation_v01_26.05.2026;36;432;358;0;text;0;0;0.994;0
+09__SR_Kommunikation_v01_26.05.2026;37;607;531;0;text;0;0;0.407;0
+09__SR_Kommunikation_v01_26.05.2026;38;596;516;0;text;0;0;0.191;0
+09__SR_Kommunikation_v01_26.05.2026;39;482;408;0;text;0;0;0.057;0
+09__SR_Kommunikation_v01_26.05.2026;40;621;547;0;text;0;0;0.228;0
+09__SR_Kommunikation_v01_26.05.2026;41;764;692;0;text;0;0;0.564;0
+09__SR_Kommunikation_v01_26.05.2026;42;730;654;0;text;0;0;0.870;0
+09__SR_Kommunikation_v01_26.05.2026;43;607;558;0;text;0;0;0.143;0
+09__SR_Kommunikation_v01_26.05.2026;44;429;336;0;text;0;0;0.022;0
+09__SR_Kommunikation_v01_26.05.2026;45;76;49;0.3681;figure;1;0;0.133;0
+10__SR_Datentransfer_v02_01.06.2026;1;279;213;0.0418;text;0;0;0.020;0
+10__SR_Datentransfer_v02_01.06.2026;2;170;101;0;text;0;0;0.837;0
+10__SR_Datentransfer_v02_01.06.2026;3;457;389;0;text;0;0;0.417;0
+10__SR_Datentransfer_v02_01.06.2026;4;178;114;0;text;0;0;0.950;0
+10__SR_Datentransfer_v02_01.06.2026;5;690;616;0;text;0;0;0.531;0
+10__SR_Datentransfer_v02_01.06.2026;6;449;383;0;text;0;0;0.466;0
+10__SR_Datentransfer_v02_01.06.2026;7;805;728;0.1331;text;0;0;0.390;0
+10__SR_Datentransfer_v02_01.06.2026;8;633;553;0.0799;text;0;0;0.642;0
+10__SR_Datentransfer_v02_01.06.2026;9;1014;934;0;text;0;0;0.478;0
+10__SR_Datentransfer_v02_01.06.2026;10;698;624;0;text;0;0;0.612;0
+10__SR_Datentransfer_v02_01.06.2026;11;302;229;0;text;0;0;0.152;0
+10__SR_Datentransfer_v02_01.06.2026;12;668;585;0.1763;text;0;0;0.568;0
+10__SR_Datentransfer_v02_01.06.2026;13;394;320;0;text;0;0;0.726;0
+10__SR_Datentransfer_v02_01.06.2026;14;394;325;0;text;0;0;0.202;0
+10__SR_Datentransfer_v02_01.06.2026;15;639;561;0;text;0;0;0.231;0
+10__SR_Datentransfer_v02_01.06.2026;16;679;604;0;text;0;0;0.463;0
+10__SR_Datentransfer_v02_01.06.2026;17;430;353;0;text;0;0;0.219;0
+10__SR_Datentransfer_v02_01.06.2026;18;573;493;0;text;0;0;0.287;0
+10__SR_Datentransfer_v02_01.06.2026;19;668;586;0;text;0;0;0.015;0
+10__SR_Datentransfer_v02_01.06.2026;20;747;678;0.043;text;0;0;0.504;0
+10__SR_Datentransfer_v02_01.06.2026;21;137;46;0.3048;figure;1;0;0.554;0
+10__SR_Datentransfer_v02_01.06.2026;22;881;729;0.1652;text;0;0;0.539;0
+10__SR_Datentransfer_v02_01.06.2026;23;723;650;0;text;0;0;0.408;0
+10__SR_Datentransfer_v02_01.06.2026;24;961;862;0.0437;text;0;0;0.323;0
+10__SR_Datentransfer_v02_01.06.2026;25;1017;945;0.0276;text;0;0;0.008;0
+10__SR_Datentransfer_v02_01.06.2026;26;921;845;0;text;0;0;0.628;0
+10__SR_Datentransfer_v02_01.06.2026;27;620;539;0.1042;text;0;0;0.156;0
+10__SR_Datentransfer_v02_01.06.2026;28;982;906;0;text;0;0;0.095;0
+10__SR_Datentransfer_v02_01.06.2026;29;310;204;0.3202;text;0;0;0.065;0
+10__SR_Datentransfer_v02_01.06.2026;30;520;451;0;text;0;0;0.269;0
+10__SR_Datentransfer_v02_01.06.2026;31;1047;928;0;text;0;0;0.243;0
+10__SR_Datentransfer_v02_01.06.2026;32;579;505;0;text;0;0;0.803;0
+10__SR_Datentransfer_v02_01.06.2026;33;270;193;0;text;0;0;0.909;0
+10__SR_Datentransfer_v02_01.06.2026;34;569;473;0;text;0;0;0.651;0
+10__SR_Datentransfer_v02_01.06.2026;35;972;892;0;text;0;0;0.278;0
+10__SR_Datentransfer_v02_01.06.2026;36;598;522;0;text;0;0;0.999;0
+10__SR_Datentransfer_v02_01.06.2026;37;761;686;0.003;text;0;0;0.164;0
+10__SR_Datentransfer_v02_01.06.2026;38;589;516;0;text;0;0;0.146;0
+10__SR_Datentransfer_v02_01.06.2026;39;554;467;0;text;0;0;0.112;0
+10__SR_Datentransfer_v02_01.06.2026;40;735;660;0;text;0;0;0.551;0
+10__SR_Datentransfer_v02_01.06.2026;41;552;475;0;text;0;0;0.308;0
+10__SR_Datentransfer_v02_01.06.2026;42;625;535;0;text;0;0;0.463;0
+10__SR_Datentransfer_v02_01.06.2026;43;464;389;0;text;0;0;0.227;0
+10__SR_Datentransfer_v02_01.06.2026;44;603;535;0;text;0;0;0.917;0
+10__SR_Datentransfer_v02_01.06.2026;45;506;384;0;text;0;0;0.424;0
+10__SR_Datentransfer_v02_01.06.2026;46;589;515;0;text;0;0;0.049;0
+10__SR_Datentransfer_v02_01.06.2026;47;537;460;0;text;0;0;0.257;0
+10__SR_Datentransfer_v02_01.06.2026;48;543;412;0;text;0;0;0.968;0
+10__SR_Datentransfer_v02_01.06.2026;49;604;455;0;text;0;0;0.420;0
+10__SR_Datentransfer_v02_01.06.2026;50;401;276;0;text;0;0;0.077;0
+10__SR_Datentransfer_v02_01.06.2026;51;521;441;0;text;0;0;0.806;0
+10__SR_Datentransfer_v02_01.06.2026;52;530;423;0;text;0;0;0.455;0
+10__SR_Datentransfer_v02_01.06.2026;53;694;563;0;text;0;0;0.390;0
+10__SR_Datentransfer_v02_01.06.2026;54;626;545;0;text;0;0;0.049;0
+10__SR_Datentransfer_v02_01.06.2026;55;625;497;0;text;0;0;0.674;0
+10__SR_Datentransfer_v02_01.06.2026;56;291;219;0;text;0;0;0.105;0
+10__SR_Datentransfer_v02_01.06.2026;57;601;531;0;text;0;0;0.036;0
+10__SR_Datentransfer_v02_01.06.2026;58;690;611;0;text;0;0;0.345;0
+10__SR_Datentransfer_v02_01.06.2026;59;596;521;0;text;0;0;0.397;0
+10__SR_Datentransfer_v02_01.06.2026;60;505;427;0;text;0;0;0.704;0
+10__SR_Datentransfer_v02_01.06.2026;61;462;384;0;text;0;0;0.203;0
+10__SR_Datentransfer_v02_01.06.2026;62;629;556;0;text;0;0;0.819;0
+10__SR_Datentransfer_v02_01.06.2026;63;263;193;0;text;0;0;0.226;0
+10__SR_Datentransfer_v02_01.06.2026;64;743;668;0;text;0;0;0.604;0
+10__SR_Datentransfer_v02_01.06.2026;65;445;377;0;text;0;0;0.857;0
+10__SR_Datentransfer_v02_01.06.2026;66;748;670;0;text;0;0;0.834;0
+10__SR_Datentransfer_v02_01.06.2026;67;880;792;0.0995;text;0;0;0.865;0
+10__SR_Datentransfer_v02_01.06.2026;68;540;478;0;text;0;0;0.295;0
+10__SR_Datentransfer_v02_01.06.2026;69;90;25;0.5072;figure;1;0;0.732;0
+10__SR_Datentransfer_v02_01.06.2026;70;497;423;0;text;0;0;0.799;0
+10__SR_Datentransfer_v02_01.06.2026;71;699;619;0;text;0;0;0.642;0
+10__SR_Datentransfer_v02_01.06.2026;72;459;387;0;text;0;0;0.827;0
+10__SR_Datentransfer_v02_01.06.2026;73;632;558;0;text;0;0;0.740;0
+10__SR_Datentransfer_v02_01.06.2026;74;725;646;0;text;0;0;0.828;0
+10__SR_Datentransfer_v02_01.06.2026;75;778;699;0.053;text;0;0;0.429;0
+10__SR_Datentransfer_v02_01.06.2026;76;1062;979;0;text;0;0;0.497;0
+10__SR_Datentransfer_v02_01.06.2026;77;1077;993;0;text;0;0;0.183;0
+10__SR_Datentransfer_v02_01.06.2026;78;563;481;0.0034;text;0;0;0.703;0
+10__SR_Datentransfer_v02_01.06.2026;79;229;163;0;text;0;0;0.014;0
+11__SR_Linklayer_v01_01.06.2026;1;271;205;0.0418;text;0;0;0.610;0
+11__SR_Linklayer_v01_01.06.2026;2;172;103;0;text;0;0;0.709;0
+11__SR_Linklayer_v01_01.06.2026;3;119;54;0;text;0;0;0.310;0
+11__SR_Linklayer_v01_01.06.2026;4;595;517;0;text;0;0;0.196;0
+11__SR_Linklayer_v01_01.06.2026;5;531;466;0;text;0;0;0.883;0
+11__SR_Linklayer_v01_01.06.2026;6;399;326;0;text;0;0;0.053;0
+11__SR_Linklayer_v01_01.06.2026;7;515;448;0;text;0;0;0.055;0
+11__SR_Linklayer_v01_01.06.2026;8;842;763;0;text;0;0;0.459;0
+11__SR_Linklayer_v01_01.06.2026;9;402;320;0;text;0;0;0.542;0
+11__SR_Linklayer_v01_01.06.2026;10;362;290;0;text;0;0;0.139;0
+11__SR_Linklayer_v01_01.06.2026;11;932;855;0;text;0;0;0.714;0
+11__SR_Linklayer_v01_01.06.2026;12;592;519;0;text;0;0;0.863;0
+11__SR_Linklayer_v01_01.06.2026;13;664;591;0;text;0;0;0.205;0
+11__SR_Linklayer_v01_01.06.2026;14;974;898;0;text;0;0;0.139;0
+11__SR_Linklayer_v01_01.06.2026;15;661;604;0;text;0;0;0.976;0
+11__SR_Linklayer_v01_01.06.2026;16;456;382;0.0228;text;0;0;0.210;0
+11__SR_Linklayer_v01_01.06.2026;17;596;523;0;text;0;0;0.862;0
+11__SR_Linklayer_v01_01.06.2026;18;643;570;0;text;0;0;0.482;0
+11__SR_Linklayer_v01_01.06.2026;19;781;699;0;text;0;0;0.777;0
+11__SR_Linklayer_v01_01.06.2026;20;473;395;0;text;0;0;0.150;0
+11__SR_Linklayer_v01_01.06.2026;21;650;575;0;text;0;0;0.561;0
+11__SR_Linklayer_v01_01.06.2026;22;645;564;0;text;0;0;0.670;0
+11__SR_Linklayer_v01_01.06.2026;23;765;681;0;text;0;0;0.664;0
+11__SR_Linklayer_v01_01.06.2026;24;487;399;0;text;0;0;0.232;0
+11__SR_Linklayer_v01_01.06.2026;25;629;555;0;text;0;0;0.715;0
+11__SR_Linklayer_v01_01.06.2026;26;130;63;0;text;0;0;0.166;0
+12__SR_LANS_v03_12.06.2026;1;264;198;0.0418;text;0;0;0.183;0
+12__SR_LANS_v03_12.06.2026;2;170;101;0;text;0;0;0.774;0
+12__SR_LANS_v03_12.06.2026;3;242;172;0;text;0;0;0.986;0
+12__SR_LANS_v03_12.06.2026;4;526;454;0;text;0;0;0.269;0
+12__SR_LANS_v03_12.06.2026;5;457;386;0;text;0;0;0.412;0
+12__SR_LANS_v03_12.06.2026;6;420;343;0;text;0;0;0.395;0
+12__SR_LANS_v03_12.06.2026;7;424;346;0;text;0;0;0.420;0
+12__SR_LANS_v03_12.06.2026;8;108;43;0;text;0;0;0.154;0
+12__SR_LANS_v03_12.06.2026;9;130;63;0;text;0;0;0.771;0
+12__SR_LANS_v03_12.06.2026;10;181;114;0;text;0;0;0.237;0
+12__SR_LANS_v03_12.06.2026;11;656;583;0;text;0;0;0.492;0
+12__SR_LANS_v03_12.06.2026;12;1055;953;0;text;0;0;0.624;0
+12__SR_LANS_v03_12.06.2026;13;243;169;0;text;0;0;0.997;0
+12__SR_LANS_v03_12.06.2026;14;233;163;0;text;0;0;0.548;0
+12__SR_LANS_v03_12.06.2026;15;242;173;0;text;0;0;0.928;0
+12__SR_LANS_v03_12.06.2026;16;199;126;0;text;0;0;0.441;0
+12__SR_LANS_v03_12.06.2026;17;644;570;0;text;0;0;0.855;0
+12__SR_LANS_v03_12.06.2026;18;595;519;0;text;0;0;0.313;0
+12__SR_LANS_v03_12.06.2026;19;183;113;0;text;0;0;0.722;0
+12__SR_LANS_v03_12.06.2026;20;190;120;0;text;0;0;0.284;0
+12__SR_LANS_v03_12.06.2026;21;201;131;0;text;0;0;0.420;0
+12__SR_LANS_v03_12.06.2026;22;758;683;0;text;0;0;0.055;0
+12__SR_LANS_v03_12.06.2026;23;482;416;0;text;0;0;0.046;0
+12__SR_LANS_v03_12.06.2026;24;609;537;0;text;0;0;0.533;0
+12__SR_LANS_v03_12.06.2026;25;887;806;0;text;0;0;0.947;0
+12__SR_LANS_v03_12.06.2026;26;415;343;0.1799;text;0;0;0.232;0
+12__SR_LANS_v03_12.06.2026;27;712;631;0.0143;text;0;0;0.161;0
+12__SR_LANS_v03_12.06.2026;28;1265;1173;0;text;0;0;0.458;0
+12__SR_LANS_v03_12.06.2026;29;91;26;0;text;0;0;0.607;0
+12__SR_LANS_v03_12.06.2026;30;237;161;0;text;0;0;0.662;0
+12__SR_LANS_v03_12.06.2026;31;258;181;0;text;0;0;0.170;0
+12__SR_LANS_v03_12.06.2026;32;326;245;0;text;0;0;0.004;0
+12__SR_LANS_v03_12.06.2026;33;628;551;0;text;0;0;0.927;0
+12__SR_LANS_v03_12.06.2026;34;705;632;0;text;0;0;0.280;0
+12__SR_LANS_v03_12.06.2026;35;626;550;0;text;0;0;0.180;0
+12__SR_LANS_v03_12.06.2026;36;677;605;0;text;0;0;0.363;0
+12__SR_LANS_v03_12.06.2026;37;585;510;0.0267;text;0;0;0.117;0
+12__SR_LANS_v03_12.06.2026;38;616;541;0;text;0;0;0.342;0
+12__SR_LANS_v03_12.06.2026;39;408;335;0;text;0;0;0.224;0
+12__SR_LANS_v03_12.06.2026;40;676;603;0;text;0;0;0.010;0
+12__SR_LANS_v03_12.06.2026;41;729;653;0;text;0;0;0.710;0
+12__SR_LANS_v03_12.06.2026;42;239;168;0;text;0;0;0.696;0
+12__SR_LANS_v03_12.06.2026;43;222;152;0;text;0;0;0.980;0
+12__SR_LANS_v03_12.06.2026;44;569;494;0;text;0;0;0.343;0
+12__SR_LANS_v03_12.06.2026;45;424;352;0;text;0;0;0.162;0
+12__SR_LANS_v03_12.06.2026;46;398;316;0.0243;text;0;0;0.306;0
+12__SR_LANS_v03_12.06.2026;47;389;307;0.0243;text;0;0;0.038;0
+12__SR_LANS_v03_12.06.2026;48;390;310;0.0243;text;0;0;0.130;0
+12__SR_LANS_v03_12.06.2026;49;379;288;0.0581;text;0;0;0.460;0
+12__SR_LANS_v03_12.06.2026;50;457;384;0;text;0;0;0.665;0
+12__SR_LANS_v03_12.06.2026;51;379;288;0.02;text;0;0;0.413;0
+12__SR_LANS_v03_12.06.2026;52;404;329;0;text;0;0;0.009;0
+12__SR_LANS_v03_12.06.2026;53;383;310;0;text;0;0;0.573;0
+12__SR_LANS_v03_12.06.2026;54;158;87;0.0816;figure;1;0;0.327;0
+12__SR_LANS_v03_12.06.2026;55;634;558;0;text;0;0;0.094;0
+12__SR_LANS_v03_12.06.2026;56;477;406;0;text;0;0;0.342;0
+12__SR_LANS_v03_12.06.2026;57;797;717;0;text;0;0;0.339;0
+12__SR_LANS_v03_12.06.2026;58;310;241;0;text;0;0;0.899;0
+12__SR_LANS_v03_12.06.2026;59;914;831;0;text;0;0;0.668;0
+12__SR_LANS_v03_12.06.2026;60;449;361;0.0875;text;0;0;0.271;0
+12__SR_LANS_v03_12.06.2026;61;666;590;0;text;0;0;0.436;0
+12__SR_LANS_v03_12.06.2026;62;744;674;0;text;0;0;0.418;0
+12__SR_LANS_v03_12.06.2026;63;570;498;0;text;0;0;0.123;0
+12__SR_LANS_v03_12.06.2026;64;253;181;0;text;0;0;0.641;0
+13__SR_Netze_v02_16.06.2026;1;265;198;0.0418;text;0;0;0.840;0
+13__SR_Netze_v02_16.06.2026;2;170;101;0;text;0;0;0.294;0
+13__SR_Netze_v02_16.06.2026;3;185;119;0;text;0;0;0.266;0
+13__SR_Netze_v02_16.06.2026;4;196;130;0;text;0;0;0.263;0
+13__SR_Netze_v02_16.06.2026;5;315;247;0;text;0;0;0.042;0
+13__SR_Netze_v02_16.06.2026;6;182;113;0;text;0;0;0.708;0
+13__SR_Netze_v02_16.06.2026;7;384;316;0;text;0;0;0.621;0
+13__SR_Netze_v02_16.06.2026;8;171;105;0;text;0;0;0.894;0
+13__SR_Netze_v02_16.06.2026;9;413;336;0;text;0;0;0.610;0
+13__SR_Netze_v02_16.06.2026;10;817;716;0;text;0;0;0.844;0
+13__SR_Netze_v02_16.06.2026;11;606;529;0;text;0;0;0.598;0
+13__SR_Netze_v02_16.06.2026;12;368;294;0;text;0;0;0.578;0
+13__SR_Netze_v02_16.06.2026;13;1002;922;0;text;0;0;0.703;0
+13__SR_Netze_v02_16.06.2026;14;1435;1345;0;text;0;0;0.974;0
+13__SR_Netze_v02_16.06.2026;15;544;459;0;text;0;0;0.969;0
+13__SR_Netze_v02_16.06.2026;16;441;366;0;text;0;0;0.534;0
+13__SR_Netze_v02_16.06.2026;17;491;412;0.0132;text;0;0;0.310;0
+13__SR_Netze_v02_16.06.2026;18;362;294;0;text;0;0;0.585;0
+13__SR_Netze_v02_16.06.2026;19;1231;1156;0;text;0;0;0.301;0
+13__SR_Netze_v02_16.06.2026;20;1177;1095;0;text;0;0;0.666;0
+13__SR_Netze_v02_16.06.2026;21;927;854;0;text;0;0;0.032;0
+13__SR_Netze_v02_16.06.2026;22;540;469;0;text;0;0;0.175;0
+13__SR_Netze_v02_16.06.2026;23;792;709;0;text;0;0;0.291;0
+13__SR_Netze_v02_16.06.2026;24;151;79;0;text;0;0;0.453;0
+13__SR_Netze_v02_16.06.2026;25;782;701;0;text;0;0;0.832;0
+13__SR_Netze_v02_16.06.2026;26;174;99;0;text;0;0;0.635;0
+13__SR_Netze_v02_16.06.2026;27;531;457;0;text;0;0;0.115;0
+13__SR_Netze_v02_16.06.2026;28;767;688;0;text;0;0;0.717;0
+13__SR_Netze_v02_16.06.2026;29;307;223;0;text;0;0;0.438;0
+13__SR_Netze_v02_16.06.2026;30;309;220;0;text;0;0;0.514;0
+13__SR_Netze_v02_16.06.2026;31;716;623;0;text;0;0;0.702;0
+13__SR_Netze_v02_16.06.2026;32;401;324;0.0102;text;0;0;0.383;0
+13__SR_Netze_v02_16.06.2026;33;654;576;0;text;0;0;0.764;0
+13__SR_Netze_v02_16.06.2026;34;184;178;0.2242;text;0;0;0.181;0
+13__SR_Netze_v02_16.06.2026;35;196;128;0;text;0;0;0.784;0
+14__SR_Internet_v02_16.06.2026;1;256;191;0.0418;text;0;0;0.422;0
+14__SR_Internet_v02_16.06.2026;2;170;101;0;text;0;0;0.976;0
+14__SR_Internet_v02_16.06.2026;3;249;185;0;text;0;0;0.022;0
+14__SR_Internet_v02_16.06.2026;4;336;268;0;text;0;0;0.280;0
+14__SR_Internet_v02_16.06.2026;5;518;446;0;text;0;0;0.259;0
+14__SR_Internet_v02_16.06.2026;6;218;152;0.336;text;0;0;0.118;0
+14__SR_Internet_v02_16.06.2026;7;552;479;0;text;0;0;0.592;0
+14__SR_Internet_v02_16.06.2026;8;760;688;0.0112;text;0;0;0.817;0
+14__SR_Internet_v02_16.06.2026;9;186;114;0;text;0;0;0.798;0
+14__SR_Internet_v02_16.06.2026;10;1270;1189;0.0287;text;0;0;0.366;0
+14__SR_Internet_v02_16.06.2026;11;788;708;0;text;0;0;0.885;0
+14__SR_Internet_v02_16.06.2026;12;772;703;0;text;0;0;0.929;0
+14__SR_Internet_v02_16.06.2026;13;500;432;0;text;0;0;0.044;0
+14__SR_Internet_v02_16.06.2026;14;888;814;0;text;0;0;0.268;0
+14__SR_Internet_v02_16.06.2026;15;172;99;0;text;0;0;0.428;0
+14__SR_Internet_v02_16.06.2026;16;1025;946;0;text;0;0;0.636;0
+14__SR_Internet_v02_16.06.2026;17;237;165;0;text;0;0;0.177;0
+14__SR_Internet_v02_16.06.2026;18;246;224;0;text;0;0;0.788;0
+14__SR_Internet_v02_16.06.2026;19;479;402;0;text;0;0;0.257;0
+14__SR_Internet_v02_16.06.2026;20;875;794;0;text;0;0;0.359;0
+14__SR_Internet_v02_16.06.2026;21;739;663;0;text;0;0;0.283;0
+14__SR_Internet_v02_16.06.2026;22;431;351;0;text;0;0;0.457;0
+14__SR_Internet_v02_16.06.2026;23;463;395;0;text;0;0;0.658;0
+14__SR_Internet_v02_16.06.2026;24;675;601;0;text;0;0;0.498;0
+14__SR_Internet_v02_16.06.2026;25;664;590;0;text;0;0;0.936;0
+14__SR_Internet_v02_16.06.2026;26;758;686;0;text;0;0;0.470;0
+14__SR_Internet_v02_16.06.2026;27;871;792;0;text;0;0;0.119;0
+14__SR_Internet_v02_16.06.2026;28;440;324;0;text;0;0;0.711;0
+14__SR_Internet_v02_16.06.2026;29;1253;1167;0;text;0;0;0.347;0
+14__SR_Internet_v02_16.06.2026;30;1067;988;0;text;0;0;0.399;0
+14__SR_Internet_v02_16.06.2026;31;985;906;0;text;0;0;0.043;0
+14__SR_Internet_v02_16.06.2026;32;505;435;0;text;0;0;0.020;0
+14__SR_Internet_v02_16.06.2026;33;670;562;0;text;0;0;0.854;0
+14__SR_Internet_v02_16.06.2026;34;750;664;0;text;0;0;0.242;0
+14__SR_Internet_v02_16.06.2026;35;906;830;0;text;0;0;0.609;0
+14__SR_Internet_v02_16.06.2026;36;943;869;0;text;0;0;0.319;0
+14__SR_Internet_v02_16.06.2026;37;792;716;0;text;0;0;0.150;0
+14__SR_Internet_v02_16.06.2026;38;1092;1021;0;text;0;0;0.550;0
+14__SR_Internet_v02_16.06.2026;39;714;638;0;text;0;0;0.189;0
+14__SR_Internet_v02_16.06.2026;40;108;45;0.4074;figure;1;0;0.117;0
+14__SR_Internet_v02_16.06.2026;41;503;427;0;text;0;0;0.283;0
+14__SR_Internet_v02_16.06.2026;42;850;774;0;text;0;0;0.232;0
+14__SR_Internet_v02_16.06.2026;43;1324;1242;0;text;0;0;0.129;0
+14__SR_Internet_v02_16.06.2026;44;1319;1245;0;text;0;0;0.704;0
+14__SR_Internet_v02_16.06.2026;45;833;759;0;text;0;0;0.796;0
+14__SR_Internet_v02_16.06.2026;46;318;251;0;text;0;0;0.994;0
