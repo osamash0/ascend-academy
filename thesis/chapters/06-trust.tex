@@ -72,9 +72,12 @@ afterwards (migration \code{20261014000000}).
 
 This scope was wrong for a long time. Until 11~October 2026 the scoped search
 joined embeddings on a column that is empty for most rows, because embeddings
-are keyed by content hash. The ask bar and the global search were blind to
-most pages. The fix is commit \code{b66a97c6}, with a database test that
-fails on the old join. We report it because it shows the order of trust: a
+are keyed by content hash. The ask bar and the global search could not see
+those pages. The fix, commit \code{b66a97c6}, counts 40 of 68 embedding rows
+in one Space without the column and adds a database test that fails on the
+old join. How large the blind part was in other Spaces is not recorded; the
+retrieval measurement of September, taken in another Space, found the right
+page for 96\,\% of its questions under the old join. We report it because it shows the order of trust: a
 refusal gate and a citation check are worth nothing when retrieval does not
 see the material.
 
@@ -119,12 +122,22 @@ On 24~June 2026 the refusal was removed from the tutor of the older lecture
 rooms (commit \code{f39e93dc}). Since then that tutor may add knowledge from
 outside the lecture if it puts it in a block quote and says that it goes
 beyond the slides (\code{ai/prompts.py:506--540}). This is a prompt rule; no
-code checks that the model keeps it. The commit message gives no reason. The
-only trace is a comment in the diff, that the tutor should not refuse outright
-``if the question is conceptual''.
-\TODO{Author: the reason for relaxing strict grounding on 24 June is not
-recorded beyond that one code comment. If you or your co-developer remember
-it, state it here in one sentence; otherwise keep the text as it is.}
+code checks that the model keeps it.
+
+Why the refusal was removed is not recorded. The commit was written by the
+co-developer and has no message body, and the pull request that carried it
+does not mention it. It follows by one minute a commit titled ``debugging AI
+Tutor'', which repaired the chat request after the API paths had been
+versioned two days before. The only stated motive is a comment in the diff:
+the tutor should not refuse outright ``if the question is conceptual'', and
+every question now goes to the model ``so it can provide supplementary
+knowledge''. No test or measurement came with the change. The test that had
+expected the refusal was adjusted four days later (commit \code{8f986043}).
+We therefore report the change and its circumstances, and we do not supply a
+reason.
+\TODO{Author: ask the co-developer why the refusal was removed on 24 June
+(f39e93dc). If there is an answer, add one sentence here and attribute it as
+a personal communication; if not, the paragraph stands as it is.}
 
 Two tutors therefore exist at \code{\thesisCommit}. The tutor of the older
 rooms has no gate and allows labelled outside knowledge. The course tutor
@@ -378,9 +391,14 @@ of the 27 questions that could be asked inside a course. It was run at
 revision \code{a696be1} in September, before the scope fix of
 \cref{sec:retrieval}, and we do not count it as evidence for the system at
 \code{\thesisCommit}.
-\TODO{Author: either re-run the retrieval grid at the pin
-(backend/eval/retrieval\_grid.py, results in thesis/results/) and replace the
-last two sentences with the new numbers, or keep them as they are.}
+That measurement also has a limit of its own: every one of its questions has
+an answer in the material, so it shows what the gate costs and not what it
+prevents.
+\TODO{Author: decide whether to re-run the retrieval grid at the pin
+(backend/eval/retrieval\_grid.py). It needs read access to the production
+database and about 50 embedding calls, and it is only meaningful with a
+pre-registered set of off-topic questions beside the 50. Without the re-run
+this paragraph stands as it is.}
 
 \section{Cost as a Question of Trust}
 \label{sec:c6-cost}

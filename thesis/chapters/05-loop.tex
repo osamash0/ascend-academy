@@ -6,9 +6,11 @@
 % on branch claude/thesis-brief-verification-6573e8. Every number carries a
 % source there. The engine is described at the pin \thesisCommit; the owner's
 % view and the persona study are at 2e146f51, three days after the pin, and
-% the text says so wherever it matters. The drafted sections on authorisation
-% and hardening stay in 05-implementation.tex until chapter 6 is re-cut; the
-% drafted data-model section is in chapters/superseded/04-design.tex.txt.
+% the text says so wherever it matters. Added 2026-11-10: sec:data-model (the
+% author's drafted text from the former design chapter, shortened; the two ER
+% diagrams moved to appendix B) and sec:authorisation with sec:hardening
+% (written from the evidence briefs of the former implementation chapter,
+% now in chapters/superseded/05-implementation.tex.txt).
 % The author must read, revise and own every sentence before submission.
 % ---------------------------------------------------------------------------
 \chapter{Closing the Loop}
@@ -134,6 +136,58 @@ interface the browser holds. Three guards keep one member from bending the
 owner's picture: a trigger rejects a client timestamp that is more than
 300~seconds away from the server's clock, the engine reads at most 5{,}000
 events per member, and it reads only the payload keys it needs (PR~\#175).
+
+\section{The Schema Around the Log}
+\label{sec:data-model}
+
+The event log is one table among many, and the loop reads several of the
+others: who owns a Space, who is a member, which pages a Lesson has. The
+schema is defined only by plain SQL migrations (139 files at
+\code{\thesisCommit}). They create 79 tables, one of which is the default
+partition of the event table, so 78 logical tables. Thirty-six of them form
+the core of the domain. \Cref{fig:er} in \cref{app:figures} shows identity,
+Spaces, content and parsing, and \cref{fig:er-learning} the learner-facing
+tables for practice, Luna sessions, notes and points. The rest are
+catalogues, caches, analytics roll-ups and operational tables.
+
+\paragraph{A Space is a course.}
+The current interface speaks of \emph{Spaces}, but no Space table exists. A
+Space is a row in \code{courses}, and membership is a row in
+\code{course\_enrollments}. A student's personal Space is not a row at all: it
+is the set of that student's private lectures without a course. Renaming at
+the interface while keeping the schema stable was a deliberate choice; the
+cost is that the schema's vocabulary (professor, course) no longer matches
+the product's.
+
+\paragraph{Vectors.}
+Page embeddings are stored with the pgvector extension~\cite{pgvector} as
+768-dimensional vectors with an HNSW index on cosine distance. Two embedding
+models can fill that column, depending on the provider mode. Their vectors
+are not comparable, so switching models requires re-embedding every page.
+
+\paragraph{Tables without a writer, keys without a check.}
+Several tables have a schema and no live writer: a table of text chunks with
+its own vector index, the per-page parse records, and the concept-mastery
+table, whose writer returns early for every card. They are the remains of
+designs that were built ahead of their consumers. The opposite fault is a
+contract that nothing checks. Badges are awarded by name, and the award
+function returns \code{NULL} for a name it does not know. Three badge names
+used by the review feature were never added to the catalogue, so awarding
+them silently does nothing. A foreign key would not have caught this,
+because nothing is inserted. The cost ledger of model calls and the event
+log are deliberately left without foreign keys, the first to survive the
+deletion of the runs it records, the second for the reasons given in
+\cref{sec:c5-events}.
+
+\paragraph{Schema drift.}
+Migrations are not the only source of truth for the deployed database. The
+production database has a vector column on \code{slides} that no migration
+defines; in August 2026 it was empty in all 5{,}445 rows. Two further tables
+exist only in production, and production's migration history records two of
+the migrations. The project therefore applies migrations by hand and checks
+the outcome against the system catalogue. This is a finding about process
+and not about the schema: the repository describes the intended database,
+and the running one has to be inspected.
 
 \section{Aggregation}
 \label{sec:c5-aggregation}
@@ -309,6 +363,95 @@ written for the older dashboard allows it (stated in PR~\#175);
 the policy excludes the questions asked in the current reader, and nothing
 else. No screen uses this path. Closing it is a migration, not a redesign, and
 it is listed as future work.
+
+\section{The Second Fence: Authorisation}
+\label{sec:authorisation}
+
+The owner's view is safe by what it computes. Whether the data under it is
+safe depends on who can reach the tables at all, and by which path.
+\Cref{fig:trust-boundaries} shows the two paths.
+
+\thesisfigure{f14-trust-boundaries}
+  {Trust boundaries. A browser holding the anonymous key meets three
+   database-side boundaries --- table row-level security, function execute
+   grants and storage policies; most backend routes bypass row-level security
+   and check ownership in application code.}
+  {fig:trust-boundaries}
+
+A browser holds the public key of the database service and can address the
+database directly. On that path it meets three boundaries inside the
+database: row-level security~\cite{postgresql-rls}, which is enabled on all
+79~tables, the right to execute a function, and the policies of the file
+storage. The backend takes the other path. Its two connections bypass
+row-level security (\code{core/database.py:4--8, 150--190}), so on every
+backend route the check is a line of Python that compares the caller with
+the owner of the Space or with its members. Two properties of the policies
+matter for the loop. Rows that a creator owns are guarded by ownership and
+no longer by the professor role (migration \code{20260713000000}). And
+permissive policies combine by OR: what a caller sees is the union of all
+policies that apply, so one generous policy written for an old screen
+widens every later one (\code{20260719020000}). The gap named at the end of
+\cref{sec:c5-privacy} is of this kind.
+
+\paragraph{What is tested, and what is not.}
+About 24~test files replay every migration into a throwaway PostgreSQL,
+switch to the anonymous or the signed-in role, and assert which rows and
+functions that role can reach (\code{backend/tests/db/}). The tests that
+drive API routes run either on an in-memory fake of the database or on the
+administrator's connection. No test exercises row-level security through an
+API route. The two fences are each tested; the place where they meet is not.
+
+\paragraph{A fault at that meeting point.}
+At \code{\thesisPreviousCommit} the rule ``ownership, not role'' had a
+consequence that nobody intended. A student who owned a Space could call
+the analytics routes of the older interface for the Lessons in it. Those
+routes checked ownership and not the account type, and one of them returned
+members' user ids and the questions they had asked the tutor, word for
+word. The older interface showed these pages to professors only; the
+backend did not enforce that. Two changes closed it before the pinned
+revision. PR~\#176 puts every such route behind a check of the professor
+account type, covered by one test over eleven routes
+(\code{tests/integration/test\_analytics\_professor\_gate.py}). PR~\#175
+changed what the data contains: no route returns a row per student, and a
+question appears only once five different people asked it, and never with
+an id. The second change is the stronger one, because it holds even when a
+check is missing again.
+
+\subsection{Hardening as a Sequence}
+\label{sec:hardening}
+
+The database boundary was not designed once. It was repaired in nine steps
+over eleven migrations, each of which documents its own problem in its
+header (\cref{fig:security-arc} in \cref{app:figures}). We summarise the
+classes of fault and not the individual requests.
+
+The first phase, January to June 2026, concerns who may hold a role. Roles
+moved to their own table, with a policy that let a user insert their own
+row; that policy was removed in May (\code{20260502000003}). Roles were then
+set only at sign-up, and the sign-up was opened to any e-mail domain
+(\code{20260601000000}, \code{20260615000800}). This opened a read across
+courses, which a further migration closed by scoping a professor's reads to
+their own enrolled students (\code{20260621000000}). The two commits carry
+the same date, so the history shows no window of exposure. Twice in this
+phase a step opened a hole that a later step closed.
+
+The second class concerns functions that run with the rights of their
+owner. In July a function of this kind took a user id from its caller,
+checked nothing, and was executable by everyone through a default grant. It
+was reproduced on a local database, closed, and is guarded by 13~tests
+(\code{20260721000001}). The repair was incomplete, because the hosting
+service grants execution to the anonymous role directly: a probe of
+production on 11~October 2026 found 42 such functions that an anonymous
+caller could execute (\code{20261011000000}).
+
+The third class is drift between repository and production. The storage
+bucket for lecture PDFs had been made private in the repository in May.
+That migration never ran in production, so until October every lecture PDF
+could be listed publicly (\code{20261024010000}, \code{20261024020000}). No
+line of code was wrong; the deployed database was not the one the
+repository described. A last step in November protects the integrity of
+profiles and points (\code{20261101015412}). The sequence has no final
+state, and we do not claim one.
 
 \section{Evaluation}
 \label{sec:c5-evaluation}

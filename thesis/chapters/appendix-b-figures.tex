@@ -1,0 +1,42 @@
+% Appendix B, assembled 2026-11-10. Diagrams that the body refers to and
+% that are too large for it: F4, F5 (chapter 3), F9, F9b, F15 (chapter 5).
+\chapter{Supplementary Diagrams}
+\label{app:figures}
+
+This appendix holds five diagrams that the body refers to.
+\Cref{fig:use-case,fig:domain-model} belong to \cref{sec:stakeholders},
+\cref{fig:er,fig:er-learning} to \cref{sec:data-model}, and
+\cref{fig:security-arc} to \cref{sec:hardening}.
+
+\thesisfigure{f4-use-case}
+  {Actors and goals as implemented. Student goals are the v4 app; creating
+   and publishing a Space is gated on ownership, not role; professor and
+   admin goals remain in the classic console. The shaded goal is built but
+   switched off in production.}
+  {fig:use-case}
+
+\thesisfigure{f5-domain-model}
+  {Conceptual domain model. Analysis-level vocabulary, deliberately distinct
+   from the physical database schema.}
+  {fig:domain-model}
+
+\thesisfigurepage{f9-er-core}
+  {Core physical schema, part 1: identity, Spaces, content and parsing --- 19
+   of the 36 core tables, out of 79 tables defined in the migrations
+   (distinct \code{CREATE TABLE} names, one of them the default partition of
+   the event table). The dashed line has no database-enforced foreign key.}
+  {fig:er}
+
+\thesisfigurepage{f9b-er-learning}
+  {Core physical schema, part 2: the 17 learner-facing tables (practice, Luna
+   sessions, notes, gamification), attached to grey stubs of part-1 tables.
+   Dashed lines have no database-enforced foreign key; two are polymorphic
+   \code{space\_id} text links.}
+  {fig:er-learning}
+
+\thesisfigure{f15-security-arc}
+  {Privilege-escalation hardening in two phases: five steps over six
+   migrations from January to June 2026, then four steps over five migrations
+   from October to November 2026. Steps 1 and 3 each opened a hole that a
+   later step closed, and the arc has no final state.}
+  {fig:security-arc}

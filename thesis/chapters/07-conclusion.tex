@@ -1,50 +1,228 @@
-\chapter{Conclusion and Outlook}
+% ---------------------------------------------------------------------------
+% OPTION A, CHAPTER 7. Written 2026-11-10 with AI assistance (Claude) from
+% the answer sections of chapters 4 to 6, docs/thesis/OUTLINE_BRIEF.md
+% (chapter 7), docs/timeline/development-timeline.md §6--7 and the leftover
+% briefs of the former evaluation chapter (now in
+% chapters/superseded/06-evaluation.tex.txt). Every number repeats one from
+% chapters 4 to 6. The ledger of "twelve documented claims that do not hold"
+% (docs/thesis/ARCHITECTURE_PRIMER.md §6) was NOT re-verified at the pin;
+% sec:reality-vs-documented therefore uses only cases that this thesis
+% verifies elsewhere and states no count.
+% The author must read, revise and own every sentence before submission.
+% ---------------------------------------------------------------------------
+\chapter{Discussion and Conclusion}
 \label{ch:conclusion}
 
-\section{Summary}
+This chapter collects the answers to the three research questions, discusses
+what the work showed beyond them, states its limitations, and looks ahead.
+
+\section{Answers to the Research Questions}
 \label{sec:summary}
 
-\TODO{Answer RQ1 directly in a short paragraph, then summarise the contributions:
-an asynchronous, content-addressed ingestion pipeline with layered idempotency;
-a retrieval-grounded tutor with four distinct groundedness mechanisms; and a
-systematic audit method that separates implemented from delivered behaviour.}
+\paragraph{RQ1: from PDF to structured, grounded content.}
+A lecture PDF can be transformed reliably when the first pass uses no model.
+The pipeline hashes every page, plans the deck, and decides the route of
+each page by one rule: a page with fewer than 25~characters of text outside
+its footer, or with a figure of at least 5\,\% of its area and fewer than
+150~characters, goes to a vision model. On our corpus this sends 87 of
+1{,}593~pages to vision. A file is parsed once per uploader. Which
+extraction gives the most useful text was measured in a pre-registered blind
+benchmark: eleven methods, 24~pages from five PDFs in two languages, and
+283~pairwise votes. Transcription by a vision model wins (ratings of 1452 and
+1376), the layout-aware variant of the library that production already uses
+is third (1263), and the heavy local converters do not beat it. The
+extraction that production runs is second to last (1000) and leaks footer
+text on 23 of 24~pages. The winner cost \$0.21 for the 24~pages. The answer
+has a clear limit: one judge, who built the system, and born-digital pages
+from one university.
 
-\section{Contributions}
-\label{sec:contributions}
+\paragraph{RQ2: from reader events back to the owner.}
+Learner interaction can be modelled as one governed log of 17~event types,
+eight of which the reader writes. Eleven detectors over a window of 56~days
+turn it into findings per page, and the owner sees them only as patterns
+across at least five readers, never as a statement about a person. In a
+study with scripted readers in eight arms, 18 of 23~expectations that were
+written down before the run were met. A Space with four members shows
+nothing; a mix of 27~readers surfaces the confusing page and the gap between
+confidence and correctness, and nothing else. The five misses were our own
+misreadings of three rules, and each rule is now a stated limit: the weekly
+figures need five readers in that week, the floor counts the readers of a
+page and not the people a finding is about, and themes of questions exist
+only for pages that are already hotspots. The study tests the machinery. It
+says nothing about learners.
 
-\TODO{State them as claims a reader can check, not as activities. "Implemented a
-pipeline" is an activity. "Demonstrated that six independent idempotency
-mechanisms across four layers make repeated ingestion of identical input free,
-including under concurrent workers" is a claim.}
+\paragraph{RQ3: verifying generated content.}
+Generated content can be verified in three ways, and they are not equally
+good. Where an answer can be computed, the system computes it and does not
+ask a model. Where it cannot, an independent check on a different model
+reads the question against the page: on 16~pinned pairs it rejected none of
+16~correct keys and kept none of 16~hallucinated ones, while the lexical
+rule it replaced had rejected 14 of the 16~correct keys. A third verifier,
+a semantic similarity gate, failed its pre-registered test with 8 of
+16~false keeps at a threshold that had been fitted to the calibration data,
+and it was withdrawn and not tuned. When verification fails, the system
+drops the item; it does not show an unverified one. What is not verified at
+all is the prose of explanations and answers, where the system relies on
+retrieval, citations to pages, and the original page next to the text.
+
+\section{Discussion}
+\label{sec:discussion}
+
+Six observations cut across the three answers. They come from ten months of
+building the system and are lessons of one project, not general results.
+
+\paragraph{One live path.}
+On 22~May 2026 four parsing pipelines existed in the code at once. Each had
+been started to fix the previous one, and none had been removed. Most of the
+dead tables in \cref{sec:data-model} and several faults in \cref{ch:content}
+trace back to that state. The pipeline became reliable when a single path
+was left and the others were deleted.
+
+\paragraph{The simple method was never measured.}
+The text extractor in production was never chosen. It was what remained
+when other tools were removed for memory, cost or complexity. The benchmark
+of \cref{ch:content} is the first comparison it ever faced, and it lost.
+This is the strongest argument in the thesis for measuring before
+believing, and it applies to our own verifier as well: the semantic gate of
+\cref{ch:trust} looked right and failed.
+
+\paragraph{Cost shaped the architecture.}
+Free and low-cost model quotas explain the ordered provider chains, the
+spending caps, parsing once, and the deterministic first pass. Two faults
+that the provider chaos tests found were faults of cost and not of
+correctness, and they are pinned by five invariants in 21~tests. For a
+system that a student can afford to run, cost is a design requirement of
+the same rank as latency.
+
+\paragraph{Agent-written code needs written-down expectations.}
+With most commits written by coding agents, the practices that kept the
+system honest were those that fix an expectation before the work: a failing
+test first, a threshold registered before a run, a ledger of claims checked
+against the code, and a pinned revision. Where we skipped them, the thesis
+reports the result as a fault that was found later.
+
+\paragraph{The system was built ahead of its users.}
+Review, exams, badges and analytics were built for learners who had not
+arrived. \Cref{sec:built-vs-deployed} shows the cost: twelve flags, four
+switched on. Feature toggles are known to accumulate as
+debt~\cite{rahman2016toggles,hodgson2017toggles}. The move to a
+reading-first interface in October was a correction of this, and it came
+late.
+
+\subsection{Documentation and Reality}
+\label{sec:reality-vs-documented}
+
+The sixth observation is that the documents of the project and the running
+system drifted apart, in both directions, and that the drift was found only
+by reading code and probing production. The cases that this thesis verified
+are of four kinds. Documentation described a design that no longer ran: the
+backend's own description still presented a gateway in front of the model
+providers after the gateway had been removed (\cref{sec:architecture}).
+Comments described behaviour the code did not have: a comment in the proxy
+configuration says that a path prefix is stripped, and the rule below it
+passes the path on unchanged (\code{nginx.conf:24}); a comment called a
+start-up mode supported in which every upload fails, until it was corrected
+(\cref{sec:architecture}). Configuration named a place that was not used:
+the header of the production file named a university server while the
+system ran elsewhere (\cref{sec:deployment}). And the database in
+production was not the one in the repository: a column existed that no
+migration defines, two tables existed only there, and the migration history
+recorded two of the migrations (\cref{sec:data-model}).
+
+Such drift is well documented for larger
+teams~\cite{lethbridge2003documentation,aghajani2019docissues,desilva2012erosion}.
+In a project of one or two people it has a specific cause: the same person
+writes the code, the comment and the document, at different times, and no
+second reader compares them. Two measures helped in the last two months.
+The first is to treat the running system as the source of truth and to
+write the probe into the runbook. The second is to delete instead of
+archive: every case above involved something that was kept after it had
+stopped being true. An earlier internal audit listed twelve such cases; we
+did not re-verify that list at the pinned revision and therefore do not
+repeat its count.
 
 \section{Limitations}
 \label{sec:limitations}
 
-\TODO{Consolidate from \cref{sec:threats} and be concrete. The ones that matter:
-no learning-outcome study; prompt-level injection defences are mitigations
-rather than guarantees; the human review step cannot gate publication; and
-several implemented features are undeployed, so their behaviour at real usage is
-unobserved.}
+The limitations of each evaluation are stated in its chapter. Seven hold for
+the thesis as a whole.
 
-\section{Future Work}
+\begin{enumerate}
+  \item \emph{No learners.} No study with participants was run. Nothing in
+    this thesis shows that anyone learns more, or more willingly, with the
+    system than with the PDF.
+  \item \emph{The author is the judge.} The benchmark votes, the labels of
+    the routing study and the 16~pairs of the verification probe were made
+    by the person who built the system. The votes were blind; the selection
+    of pages and pairs was not independent.
+  \item \emph{One university, small samples.} All material comes from a few
+    courses at one university, born-digital, in two languages. Twenty-four
+    pages and sixteen pairs can separate a method that works from one that
+    does not. They do not estimate rates in other material.
+  \item \emph{No competing system was run.} The comparison in
+    \cref{tab:related} rests on publications.
+  \item \emph{The author audited the author's system.} The findings on
+    drift and on security were made by reading our own code. A second
+    reader would find other things, and probably more.
+  \item \emph{One machine.} Nothing is known about the behaviour of the
+    system under load.
+  \item \emph{Two theses, one code base.} The split in \cref{sec:scope} is
+    drawn by commits. Design discussions between the two developers left
+    no record, so the split of ideas is less sharp than the split of code.
+\end{enumerate}
+
+Two of the four questions of the January proposal remain unanswered: how
+students perceive motivation in a gamified platform, and whether
+interactive content improves learning efficiency compared to static
+slides. Both need participants. We state them as open and do not let a
+quality metric stand in for them.
+
+\section{Outlook}
 \label{sec:future-work}
 
-\TODO{Prefer items this thesis has already shown to be necessary over generic
-wishes. Strong candidates, each traceable to a finding:
-(1) surface citations in the student interface, closing the gap in
-\cref{sec:citation-gap};
-(2) introduce a draft/published state so review becomes a real gate
-(\cref{sec:review});
-(3) decouple the provider chain into genuinely independent failure domains and
-classify authentication and payment failures (\cref{sec:provider-strategy});
-(4) run the empirical study designed in \cref{sec:unanswered};
-(5) generate architecture documentation from code so the drift measured in
-\cref{sec:reality-vs-documented} cannot recur.}
+The first step that should follow is the missing study. Its model is the
+trial of Learn Your Way~\cite{learnlm2025textbook}: two groups, the same
+material, one with the plain PDF and one with the reader, a test directly
+after and one some days later. Our design would give both groups the same
+practice questions, so that the trial isolates the reading surface, and it
+would add a standard usability
+questionnaire~\cite{brooke1996sus,laugwitz2008ueq} for the perception
+question. The event log of \cref{ch:loop} would supply time on page and
+revisits without further instrumentation.
 
-\section{Reflection}
+Four engineering steps follow from the findings. Production should switch
+to the extraction that the benchmark ranks first among the cheap methods,
+and use vision where its cost is accepted. The floor of five should apply
+to the people a finding is about, and retention should run. The parse of a
+file should be shared across uploaders, which the content hash already
+permits and the ownership model does not yet. And the loop needs its return
+channel: a member's question that reaches the owner, and an owner's answer
+that reaches every reader of the page. One step further is an assistant
+that proposes a change to a page for the owner to approve, which would
+close the loop on the material itself. No such proposal should be applied
+without the owner, for the reasons of \cref{ch:trust}.
+
+Three changes were merged after the pinned revision and are the nearest
+part of this outlook: the owner's view in the current interface (PR~\#181),
+and a third view of a page that rebuilds its layout as text (PRs~\#182 and
+\#183, switched off).
+
+Two wider directions are ideas of the author and not results. Teaching
+material could be versioned and shared as source code is, with a Space as
+the unit that others copy and improve. And a university could run the
+models itself, which would remove the dependency on external providers
+that \cref{ch:content} spends much of its design on, and would keep
+learner questions inside the institution.
+
+\section{Closing}
 \label{sec:reflection}
 
-\TODO{Optional, and only if your institute welcomes it --- some do, some regard
-it as padding. If included, the honest reflection worth writing is what the
-audit taught about the gap between what a developer believes a system does and
-what it does, and why documentation is not evidence.}
+The thesis set out to make a lecture PDF answer back. In the system as
+built, a page can be read at once, explained, asked about and practised,
+and its author can see where readers struggle without seeing who they are.
+The measurements say that the text under these features should come from a
+better extractor than the one in production, that the loop works on
+scripted readers, and that one of three verifiers had to be withdrawn. The
+most useful habit the project produced is visible in each of those
+sentences: to write down what is expected, to measure, and to report the
+result when it is not the hoped-for one.
