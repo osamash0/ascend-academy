@@ -275,17 +275,18 @@ are in English, from a lecture on transactions, and eight in German, from a
 lecture on storage management. Both decks are disjoint from the decks on which we fitted any threshold. Each pair holds one correct key that
 paraphrases the page and one wrong key that stays on the topic of the page.
 The author wrote the correct keys under a rule that forbids copying three words in a row from the page, and the wrong keys are plainly false
-(\code{docs/DECK\_LAB\_2026\_10.md}). The three distractors of every
-question are off the subject, such as plate tectonics in a question about
-transactions. The probe took them over from the calibration set of the
-lexical score, where they keep the check for ambiguous options from masking
-the raw score (\code{grounding\_probe.py}, rule~5). For the answer check
-they make the task easier, because a model that answers without the key finds
-only one option on the subject of the page. A
+(\code{docs/DECK\_LAB\_2026\_10.md}). A
 verifier that works on wording will fail the first, and a verifier that works on
 topic will fail the second. The expected shape was that the lexical score
 drops paraphrases, and that a semantic score repairs this without keeping the
 wrong keys.
+
+As in the calibration set of the lexical score, the three distractors of
+every question are off the subject, such as plate tectonics in a question
+about transactions, so that the check for ambiguous options cannot mask the
+raw score (\code{grounding\_probe.py}, rule~5). For the answer check they
+make the task easier, because a model that answers without the key finds only
+one option on the subject of the page.
 
 For the semantic score we fixed the procedure in writing before the first
 embedding request. It fixed the scoring rule, a threshold fitted only on a

@@ -295,11 +295,12 @@ directly from the database, with user ids and without names, because a policy of
 The only rows it withholds are the questions asked in the reading view. The
 policy is not limited to the owner's own Space: it admits every event of a
 user who is enrolled in any course the professor owns (production, read on
-11~November 2026). \enquote{Without names} also holds only until a second
-call. A function that every signed-in account may execute,
-\code{get\_user\_profile}, returns the display name, picture, and institution
-that a user has entered for any user id, whatever that user's visibility
-setting (production, 11~November 2026). No screen uses this path. Closing it is a migration, not a redesign, and \cref{sec:future-work} lists it as future work.
+11~November 2026). No screen uses this path. Closing it is a migration, not
+a redesign, and \cref{sec:future-work} lists it as future work.
+\enquote{Without names} also holds only until a second call. A function that
+every signed-in account may execute, \code{get\_user\_profile}, returns the
+display name, picture, and institution that a user has entered for any user
+id, whatever that user's visibility setting (production, 11~November 2026).
 
 Whether the data under the view is safe depends on who can reach the tables
 at all, and \cref{sec:authorisation} describes the policies and their tests. One
@@ -311,8 +312,8 @@ interface, until PRs~\#175 and~\#176 closed it.
 \paragraph{Whom the floor protects against.}
 The floor guards members against an owner who reads the view as built. An
 owner who sets out to identify a member has three ways around it, and the
-database policies at the pin and in production (read on 11~November 2026)
-permit each of them. We tried none of them. The first is padding. The floor
+system at the pin and in production (read on 11~November 2026) allows each
+of them. We tried none of them. The first is padding. The floor
 counts accounts, not people: in production every new account receives the
 student role, a student may enrol in any course, published or not, and a member may write
 their own events directly. An owner with four further accounts can lift a
