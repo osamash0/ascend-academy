@@ -26,44 +26,87 @@ eleven extraction methods, and the deck-plan scorecard. Where the developers hav
 \code{\thesisEarlierCommit} (August 2026) or \code{\thesisPreviousCommit}
 (2 November 2026). \Cref{sec:built-vs-deployed} states once what the deployed server runs.
 
-\section{What the Input Looks Like}
+\section{The Input and What It Demands}
 \label{sec:c4-requirements}
 
-The input is whatever a lecturer or a student drops into the upload area. In the
-corpus this thesis works with, that means 25 lecture decks with 1{,}593 pages
-from two courses in two languages: eleven database decks (ten in English and
-one German introduction) and fourteen German systems decks,
-plus a software-engineering deck and two exercise sheets that the benchmark uses. Heterogeneous here means the mix of page types within
-born-digital decks, and scanned documents are outside the corpus. The
-material has four properties that shape the design.
+The input is a lecture PDF: the slides a lecturer exports and shares, which
+this thesis calls a \emph{deck}. A deck is one PDF of slides, usually for one
+lecture session. Inside the system it becomes a Lesson, and each of its pages
+a page.
+
+The pipeline was first developed on the decks of one course at the University
+of Marburg, Database Systems: eleven decks, ten in English and one German
+introduction. To see how it handles material it was not developed on, the
+author later added fourteen German decks of a second Marburg course, on
+systems software and computer networks. Together they form the corpus of this
+chapter: 25 decks with 1{,}593 pages. The benchmark adds one
+software-engineering deck and two exercise sheets. All are born-digital, and
+scanned documents are outside the corpus. \emph{Heterogeneous} here means the
+mix of page types within such decks. Pages from both courses were used to
+calibrate the routing rule, so the second course is not an independent test
+of it (\cref{sec:c4-routing-study}).
+
+The input makes three demands on the design.
 
 \begin{description}
-  \item[Pages are heterogeneous.] A deck mixes title and agenda pages, dense
-    text, bullet lists, tables with formulas, and diagrams whose text layer
-    holds only a caption and a page number. 421 of the 1{,}593 pages contain
-    at least one figure block (a region that PyMuPDF reports as an image or a
-    drawing), and 12 have fewer than 25~characters (eleven
-    empty closing photo pages and a summary page with 11~characters). The
-    systems decks carry a footer and a page number on every page, and the
-    database decks carry a course name. A method
-    that reads only the text layer reads the footer with the same confidence
-    as the content.
-  \item[Decks are long and users are impatient.] An 82-page deck took about
-    twelve minutes (703\,s) from upload to a complete reader in a measurement
-    of October 2026, and roughly the last three and a half minutes of that passed after the worker had written the last page. A learner who has just
-    dropped a file will not wait twelve minutes for the first page.
-  \item[Model calls cost money and fail.] Generation runs on hosted language
-    models. The project began on free tiers whose rate limits bulk parsing reaches within minutes and which change without notice. Its paid
-    provider charges per token. Both make the number of model calls per deck
-    a design variable, not an afterthought.
-  \item[Lecture material is personal data.] Uploaded decks can carry names
-    and institutional detail, and students upload private material. The
-    pipeline must not send content to a provider the privacy policy does not
-    name, and the system should not parse, store, or pay for the same bytes twice.
+  \item[Pages are heterogeneous.] A deck mixes dense text, bullet lists with
+    formulas, diagrams drawn with lines, and pictures
+    (\cref{fig:page-types}). 421 of the 1{,}593 pages contain at least one
+    embedded image, and 12 have fewer than 25~characters: eleven empty
+    closing photo pages and a summary page with 11~characters. The systems
+    decks carry a footer and a page number on every page, and the database
+    decks carry a course name. A method that reads only the text layer reads
+    the footer with the same confidence as the content. It reads a drawn
+    diagram as a handful of loose labels.
+  \item[A reader should not wait.] The reader should start on a deck at once,
+    as with any PDF, while the system prepares everything else in the
+    background. Preparing a deck takes minutes. In one measured run of
+    October 2026, an 82-page deck took about twelve minutes (703\,s) from
+    upload to a complete reader, and the last three and a half minutes passed
+    after the worker had written the last page
+    (\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak reader-timing.md}).
+    The pipeline therefore runs behind the reader, not in front of it.
+  \item[Model calls cost money and fail.] The project began on the free tiers
+    of hosted models. Their rate limits stopped bulk parsing within minutes
+    and changed without notice, so the developers could not test the parser
+    at their own pace. We considered running a model locally but chose a paid
+    API. Setting up and operating a local model would have cost time the
+    project did not have, and its cost would have been harder to compare. On
+    a small budget with a provider that charges per token, every call has a
+    price. That makes the number of model calls per deck a design variable.
+    It also makes the central comparison of this chapter possible: whether a
+    page is best read by a text extractor, by a vision model, or by both.
 \end{description}
 
-These four properties are the yardstick for the rest of the chapter. We judge the pipeline by how it handles a page with a figure, how soon a learner reads,
-what a deck costs, and what leaves the server.
+\begin{figure}[htbp]
+  \centering
+  \begin{tabular}{@{}p{0.48\textwidth}@{\hspace{0.04\textwidth}}p{0.48\textwidth}@{}}
+    \includegraphics[width=0.48\textwidth]{f26-page-types-a} &
+    \includegraphics[width=0.48\textwidth]{f26-page-types-b} \\
+    \small (a) Dense text: 1{,}345 characters, read as text. &
+    \small (b) Bullets and formulas: 641 characters, read as text. \\[6pt]
+    \includegraphics[width=0.48\textwidth]{f26-page-types-c} &
+    \includegraphics[width=0.48\textwidth]{f26-page-types-d} \\
+    \small (c) A diagram drawn with lines: 63 characters of labels, read as
+    text. &
+    \small (d) A plot with a running footer: 97 characters, 32 without the
+    footer; the image covers 45\,\% of the page, so it goes to vision. \\
+  \end{tabular}
+  \caption{Four pages of the corpus, drawn from their real layout: each line
+    of text is a bar, bullets are dots, lines with formula symbols are
+    hatched, a footer is dashed, and an embedded image is a crossed box. The
+    content of the slides is not shown. The routing rule does not count a
+    drawing as a figure, so page~(c) is read as text, while an image page with
+    this little text goes to vision. Script:
+    \code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak page-types/}.}
+  \label{fig:page-types}
+\end{figure}
+
+These three demands are the yardstick for the rest of the chapter: how the
+pipeline handles a page whose meaning lies in a figure, how soon a reader can
+read, and what a deck costs. \Cref{sec:c4-evaluation} measures the first and
+prices the vision transcription per page. \Cref{sec:c4-answer} states what
+remains unmeasured.
 
 \section{Ten Months of Pipelines}
 \label{sec:c4-lineage}
@@ -460,8 +503,7 @@ machine does not have. The author judged the current extraction unusable, togeth
 judge chose between rendered outputs. Whether synthesis, quiz, and retrieval
 do better on the preferred text, we did not measure.
 
-The yardstick of \cref{sec:c4-requirements} had four marks. The routing rule and its study answer how the pipeline handles a page with a figure. The design answers how soon a learner reads, because the reading view opens on the original page at once; we did not measure the time until the generated text of a page arrives. We did not measure what a deck costs: the benchmark prices the vision transcription per page, and we did not evaluate the cost ledger of production. What leaves the server is the
-page text, to the providers of the chain, two of which the privacy policy does not name as AI providers, and the image of each page that the rule routes to a vision model. The mode that would restrict this to one paid provider was off at the pin (\cref{sec:provider-strategy}).
+The yardstick of \cref{sec:c4-requirements} had three marks. The routing rule and its study answer how the pipeline handles a page with a figure. The design answers how soon a learner reads, because the reading view opens on the original page at once; we did not measure the time until the generated text of a page arrives. We did not measure what a deck costs: the benchmark prices the vision transcription per page, and we did not evaluate the cost ledger of production.
 
 We did not measure three things: whether the text generated for a page is
 grounded in that page, whether the new routing rule improves what learners
