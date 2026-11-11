@@ -83,13 +83,15 @@ became dependable only when one path remained, which we did not measure.
 
 \paragraph{Nobody chose the simple method.}
 The text extractor in production is what remained when the developers removed other tools for memory, cost, or complexity. The benchmark of \cref{ch:content}
-was the first comparison it faced, and the author rated nine of the ten alternatives above it on points, five of them also at the corrected lower bound. The similarity score of \cref{ch:trust} also looked right and
-failed.
+was the first comparison it faced, and the author rated nine of the ten alternatives above it on points, five of them also at the corrected lower bound. Measuring a method before
+relying on it applies to the verifiers as well: the similarity score of
+\cref{ch:trust} looked right and failed.
 
 \paragraph{Cost shaped the architecture.}
 Free and low-cost quotas explain the ordered provider chains, the spending
 caps, parsing once, and the deterministic first pass. Two faults found while
-planning the provider chaos tests were faults of cost, which five invariants now guard in 11~property tests.
+planning the provider chaos tests were faults of cost, which five invariants now guard in 11~property tests. For a system that a
+student can afford to run, cost is a design requirement from the start.
 
 \paragraph{Agent-written code needs written-down expectations.}
 With about 77\,\% of the commits written by coding agents, the practices that kept the code
@@ -115,7 +117,8 @@ prefix it keeps (\code{nginx.conf:24}), and configuration that named a server
 the system did not run on (\cref{sec:deployment}). The production
 database also differs from the repository: it has a column that no migration
 defines, a migration history of only two entries, and an event table without
-the declared partitions, and it had a storage bucket that anyone could list
+the declared partitions. Until October it also had a storage bucket from which
+anyone could download every lecture PDF
 (\cref{sec:data-model,sec:hardening}). The literature documents such drift for larger teams~\cite{lethbridge2003documentation,aghajani2019docissues,desilva2012erosion}.
 In a project of one or two people, no second reader compares code, comment,
 and document. What helped was to treat the running system as the source of truth and to
@@ -162,7 +165,7 @@ practice questions, so that the trial isolates the reading surface, and a
 usability questionnaire~\cite{brooke1996sus,laugwitz2008ueq}, and the
 event log of \cref{ch:loop} would supply time on page and revisits.
 
-The findings suggest engineering steps. First, a new comparison should judge pymupdf4llm against the current extraction with its OCR pass off. If pymupdf4llm still leads, it should replace the current call, and the parser should strip the running footer from the stored text. Second, the floor of five should
+The findings suggest engineering steps. First, a new comparison should judge pymu\-pdf4llm against the current extraction with its OCR pass off. If pymupdf4llm still leads, it should replace the current call, and the parser should strip the running footer from the stored text. Second, the floor of five should
 apply to the people a finding is about, and the project should drop the policy that lets an owner with the professor role read event rows, close the database paths that \cref{tab:deployed} lists, and switch on the retention job, which first needs the partitions that production lacks. Third, uploaders of the same file should share its parse, which the content hash already permits and the
 ownership model does not yet. Fourth, the loop needs its return channel: a
 member's question that reaches the owner, and an owner's answer that reaches

@@ -44,7 +44,9 @@ This appendix holds nine diagrams that the body refers to.
   {Core physical schema, part 2: the 17 learner-facing tables (practice, Luna
    sessions, notes, gamification), attached to grey stubs of part-1 tables.
    Dashed lines have no database-enforced foreign key, and two are polymorphic
-   \code{space\_id} text links.}
+   \code{space\_id} text links. \code{learning\_events} is marked partitioned
+   as the migrations declare it; production has no partitions
+   (\cref{tab:deployed}).}
   {fig:er-learning}
 
 \thesisfigure{f15-security-arc}

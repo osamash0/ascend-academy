@@ -267,14 +267,15 @@ bulk parsing. The code also contains an \emph{OpenAI-only} mode with one paid
 provider. In that mode the API and the worker refuse to start when the key of
 another provider is present, so that a misconfigured deployment cannot send
 student data to a provider that the privacy policy does not name. The
-default mode already does so. The privacy page (\code{legal.json}, section~4)
+default mode sends content to such providers. The privacy page (\code{legal.json}, section~4)
 names OpenAI, Groq, Google, and OpenRouter as AI providers, while the two
 chains also call Cloudflare, which the page names only for e-mail forwarding
 and backups, and Mistral, which it does not name
-(\code{orchestrator.py:389}, \code{:393}). The cost ledger shows that two of these
-providers did receive calls: Cloudflare 100 on 26~August 2026, and Cerebras 26
-between 2~August and 10~October 2026. The page at the pin names neither of them
-as an AI provider. It records no call to Mistral. The OpenAI-only mode
+(\code{orchestrator.py:389}, \code{:393}). The cost ledger records calls to two
+providers that the page at the pin does not name as AI providers: 100 to
+Cloudflare on 26~August 2026, and 26 to Cerebras between 2~August and
+10~October 2026, while Cerebras was still in the chains. The ledger records no
+call to Mistral. The OpenAI-only mode
 is the author's target and was not switched on at the pin: a probe in
 November 2026 found six providers keyed in production
 (\cref{sec:openai-only}). Spending is bounded by a monthly cap per user (by
@@ -311,8 +312,13 @@ most of its traffic on one provider. A read-only query of the cost ledger
 from 30~September to 29~October 2026. OpenAI made 3{,}053 of them (90\,\%),
 mostly embeddings (2{,}660) and bulk generation (249). Gemini made 228, mostly
 embeddings (208), and Groq made 95, led by Luna sessions (29) and the reader's
-Explain requests (28). The embeddings then moved to Gemini: in the 30 days
-before 11~November, Gemini made 876 embedding calls and OpenAI none. The
+Explain requests (28). All 2{,}660 OpenAI embedding calls fall on one day,
+11~October 2026, the day the code records the OpenAI embedding model as
+confirmed live (\code{embeddings.py:24}). At the pin the default mode embeds
+with Gemini (\code{embeddings.py:21--25}), and from 24~October to 10~November
+only Gemini embedded (876 calls). What ran the October calls we did not
+identify. Whether the stored vectors now mix the two models, which are not
+comparable (\cref{sec:schema-notes}), we did not check. The
 repository does not record why OpenAI-only
 became the target. The author's account is that the free tiers were not
 reliable enough for bulk parsing and the OpenAI key was the one that worked.
@@ -342,7 +348,7 @@ and partly by matching text in the exception message.
 The chain looks deeper than it is. The eight entries use six credentials
 (two Groq models share one key, two Google models another), so one revoked
 key takes out two entries. The call wrapper's eight rate-limit attempts run
-under a 25-second timeout that fits at most four. Two failure classes are
+under a 25-second timeout (the code default) that fits at most four. Two failure classes are
 found-then-fixed cases: at \code{\thesisEarlierCommit} a provider whose
 credit had run out was retried on every call (Cerebras, then at the head of
 both chains, later failed exactly so. Payment errors became permanent in
@@ -371,12 +377,12 @@ the providers being different: generated quiz questions are checked by a
 second model that did not write them (Groq's reasoning model in the default
 mode), and in OpenAI-only mode that independence holds only if the checking
 model differs from the writing one. The trust chapter takes this up.
-A read of the production environment on 11~November 2026 found
+A read of the API container on 11~November 2026 found
 \code{OPENAI\_MODEL}, \code{OPENAI\_BULK\_MODEL}, and \code{OPENAI\_VISION\_MODEL}
-unset. All three therefore fall back to the code default \code{gpt-4o-mini}
+empty. All three therefore fall back to the code default \code{gpt-4o-mini}
 (\code{orchestrator.py:105--107}), and the cost ledger shows every OpenAI call
 of the preceding 30 days on that model, the five vision calls included. The
-launch setting in \code{.env.example} (\code{gpt-4.1-mini}) was never applied.
+launch setting in \code{.env.example} (\code{gpt-4.1-mini}) was not in effect.
 \code{LLM\_TIMEOUT\_SECONDS} is set to 90 seconds, against a code default of
 25 (\cref{tab:constants}).
 
@@ -398,7 +404,7 @@ as unlimited.
 On 31 October 2026 a hosted parsing service (LlamaParse) was run on one deck
 to see whether buying the extraction step would give better text than the current extraction. It did not. Its output mis-numbered pages until a page separator was configured, its
 Python package had been out of maintenance since 1~May 2026, it would have added a
-dependency the production image does not carry, and it would send every uploaded page to one more third party. The privacy page already names LlamaParse as a processor for uploads that select it. The trial is recorded
+dependency the production image does not carry, and it would send every uploaded page to LlamaParse, which the privacy page names only for uploads that select that engine. The trial is recorded
 in the repository (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak llamaparse-trial-2026-10-31.md})
 and the service was not adopted. It is reported here because it is a decision
 with a reason, not because it is a result.
@@ -474,7 +480,7 @@ POLICY} statements. This counts statements in the migrations, not the
 policies in force in a database, because later migrations drop and replace
 earlier ones.
 
-The owner's view is safe by what it computes. Whether the data under it is
+The owner's view limits what it computes. Whether the data under it is
 safe depends on who can reach the tables at all, and by which path.
 \Cref{fig:trust-boundaries} in \cref{app:figures} shows the two paths.
 
@@ -534,12 +540,13 @@ professor role, which in production only an administrator grants.
   \centering\small
   \caption{Declared, tested, and deployed: database-side rules that bear on
     \cref{ch:loop,ch:trust}. The middle column is what the migrations at the
-    pin declare and the database tests that replay them check, the right
+    pin declare (database tests exist only for the partitioning and the
+    anonymous SECURITY DEFINER exposure), the right
     column what the read-only probe of production found on 11~November 2026.}
   \label{tab:deployed}
   \begin{tabular}{@{}p{0.27\textwidth}p{0.3\textwidth}p{0.35\textwidth}@{}}
     \toprule
-    Rule & Declared and tested & Deployed (11~November 2026) \\
+    Rule & Declared (migrations at the pin) & Deployed (11~November 2026) \\
     \midrule
     Event table partitioned by month &
       declared; the tests check the partitions &
@@ -576,8 +583,8 @@ boundary was not designed once. It was repaired in nine steps
 over eleven migrations. The faults concern who may hold a role, functions
 that run with the rights of the role that defined them and could be executed
 by anyone, and drift between repository and production, where the
-bucket for lecture PDFs was private in the repository and could be listed
-publicly in production until October. \Cref{sec:hardening} gives the
+bucket for lecture PDFs was private in the repository, while in production
+anyone could list it and download every lecture PDF until October. \Cref{sec:hardening} gives the
 sequence.
 
 \section{Hardening as a Sequence (Chapter 5)}
@@ -593,8 +600,8 @@ moved to their own table, with a policy that let a user insert their own
 row. That policy was removed in May (\code{20260502000003}). Roles were then
 set only at sign-up, and the sign-up was opened to any e-mail domain
 (\code{20260601000000}, \code{20260615000800}). Opening sign-up to any domain let a professor read across courses. A
-further migration closed this by scoping a professor's reads to their own
-enrolled students (\code{20260621000000}). The migration that opened the read
+further migration narrowed this to their own enrolled students, though not to
+their own courses (\cref{tab:deployed}) (\code{20260621000000}). The migration that opened the read
 and the one that closed it were committed on the same day, so the history
 shows no window of exposure. Twice in this
 phase a step opened a hole that a later step closed.
@@ -613,8 +620,10 @@ its caller (\cref{tab:deployed}).
 
 The third class is drift between repository and production. The storage
 bucket for lecture PDFs had been made private in the repository in May.
-That migration never ran in production, so until October every lecture PDF
-could be listed publicly (\code{20261024010000}, \code{20261024020000}). No
+That migration never ran in production, so until 24~October 2026 anyone,
+signed in or not, could list the bucket with the anonymous key and download
+every lecture PDF, private student uploads included (\code{20261024010000},
+\code{20261024020000}). We did not establish whether anyone did. No
 line of code was wrong. The deployed database was not the one the
 repository described. A last step in November protects the integrity of
 profiles and points (\code{20261101015412}). The sequence has no final

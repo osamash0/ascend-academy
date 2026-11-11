@@ -6,9 +6,11 @@ read from source and not from project documentation. Where documentation
 states a different default, the documentation is out of date; see
 \cref{sec:reality-vs-documented}. Twelve values, marked~$\dagger$, can be
 overridden by environment variables, and production does not have to run
-them. The deployed values were not read, with one exception: production
+them. The deployed values were not read, with two exceptions: production
 allows a student 30 uploads per month (the operator's configuration, 30
-October 2026), where the code default is five. Per-row evidence and the
+October 2026), where the code default is five, and a read of the API
+container on 11~November 2026 found the LLM call timeout at 90\,s
+(\cref{sec:openai-only}). Per-row evidence and the
 names of the variables are in \code{docs/thesis/evidence/CONSTANTS.md}.
 
 \begin{longtable}{@{}p{5.6cm}p{3.1cm}p{5.0cm}@{}}
@@ -59,7 +61,7 @@ names of the variables are in \code{docs/thesis/evidence/CONSTANTS.md}.
   Options per question                   & 4 (3 distractors) & \code{quiz\_validator.py:98} \\
   % --- LLM provider strategy ---
   Provider registry entries              & 9               & \code{orchestrator.py:239} \\
-  LLM call timeout                       & 25\,s$^\dagger$ & \code{llm\_client.py:72} \\
+  LLM call timeout                       & 25\,s$^\dagger$ (production: 90\,s) & \code{llm\_client.py:72} \\
   LLM rate-limit retry attempts          & 8               & \code{llm\_client.py:36} \\
   LLM retry backoff                      & 4--60\,s, exp.  & \code{llm\_client.py:37} \\
   Monthly per-user LLM cap               & \$2.00$^\dagger$ & \code{config.py:194} \\

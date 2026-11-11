@@ -163,9 +163,10 @@ needed help on such a page is \code{null}, and the screen draws a faint outline
 instead of a dim cell, which would read as \enquote{few needed help}. This distinction entered after the pin. At
 \code{\thesisCommit} such a page reported 0, which the screen would have drawn
 as \enquote{everything is fine}. The same rule holds for the whole Space.
-Below five readers the payload carries no count of them but one of three
-words, its \emph{reach}: \code{none}, \code{few}, or \code{enough} (also after
-the pin, before which it carried the count). From five on, counts do appear: the
+Instead of a count of the Space's readers, the payload carries one of three
+words, its \emph{reach}: \code{none}, \code{few} (fewer than five), or
+\code{enough} (also after the pin, before which it carried the count). Counts
+appear only from five readers on: the
 weekly number of members who read and, for a page with a finding, the
 number of people who opened Explain or asked (\cref{fig:door}).
 
@@ -284,8 +285,8 @@ stored data but a limit on what leaves it. The following mechanisms implement th
     \cref{sec:authorisation} stand between a browser and the table itself.
 \end{description}
 
-What the system tells a member matches what it does, with the limit of
-\cref{sec:c5-findings}. The sentence that a member sees when joining a Space and the privacy page both say that owners see patterns across at least
+What the system tells a member matches what it does, with the limits of
+\cref{sec:c5-findings} and of the next two paragraphs. The sentence that a member sees when joining a Space and the privacy page both say that owners see patterns across at least
 five people and never names (\code{v4Spaces.json:491}, \code{legal.json:35}).
 
 A second gap, besides the one in \cref{sec:c5-findings}, concerns raw rows.
@@ -324,9 +325,10 @@ page learns that member's part, once the page is above the floor. The third
 is homogeneity. A share of 100\,\% says that every reader of the page needed
 help. A minimum group size does not protect a value that the whole group
 shares, which is the weakness that $\ell$-diversity
-addresses~\cite{machanavajjhala2007ldiversity}. Differential privacy bounds
-what one person can change in a released statistic by adding calibrated
-noise~\cite{dwork2006dp}, and the view adds none. For RQ2 this means that the
+addresses~\cite{machanavajjhala2007ldiversity}. Differential privacy adds noise calibrated so that any one person's data
+changes the distribution of a released statistic only by a bounded
+factor~\cite{dwork2006dp}, and its guarantee composes over repeated releases.
+The view adds no noise. For RQ2 this means that the
 floor of five protects against accidental exposure in a small group, and not
 against an owner who wants to find out about one member.
 
@@ -396,7 +398,7 @@ again, and arm~J adds a sixth persona, a confused asker.
 Nine of the 18 come from the control arm~G,
 and arms B, C, and H met none of their four expectations. Sorted by what the
 view had to do, the picture is this. Eight expectations asked the view to show
-something: a finding, themes, the weekly numbers, or the word for a page with
+something: a finding, themes, the weekly numbers, or the word for a Space with
 enough readers. The engine met five of them. Fifteen asked the view to
 withhold something, and the engine met thirteen. Both misses of this kind are
 the hotspot on page~10 of arm~B. An engine that never reports a finding or a

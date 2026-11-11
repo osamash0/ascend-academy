@@ -98,7 +98,7 @@ signature, and page count (at most 300). The SHA-256 hash of the file becomes
 its identity for the rest of the pipeline. For students the API makes an
 atomic claim on a monthly quota, and queue backpressure refuses with 429 once
 50 jobs wait. Only then does the API store the file and enqueue the job.
-Outside development it never falls back to parsing inside the
+Outside development the API never falls back to parsing inside the
 request. Two qualifications apply: the backpressure check fails open when it cannot read the queue depth, and the route that the current interface uses applies the quota but no queue ceiling, so admission control is a property of each route
 and not of the pipeline.
 
