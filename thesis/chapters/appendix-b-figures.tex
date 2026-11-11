@@ -15,14 +15,14 @@ This appendix holds nine diagrams that the body refers to.
 \thesisfigurepage{f8-pipeline}
   {The ingestion pipeline. Two entry routes admit a PDF synchronously and
    converge on one content-addressed object and one Arq job, which writes each
-   page as soon as it is synthesised; pentagons mark where the reader gains
+   page as soon as it is synthesised. Pentagons mark where the reader gains
    something --- the original PDF at once, then each persisted page.}
   {fig:pipeline}
 
 \thesisfigure{f4-use-case}
   {Actors and goals as implemented. Student goals are served by the current
-   interface; whether a user may create and publish a Space depends on
-   ownership, not on the account type; professor and admin goals remain in
+   interface. Whether a user may create and publish a Space depends on
+   ownership, not on the account type, and professor and admin goals remain in
    the older interface. The shaded goal is built but
    switched off in production.}
   {fig:use-case}
@@ -43,7 +43,7 @@ This appendix holds nine diagrams that the body refers to.
 \thesisfigurepage{f9b-er-learning}
   {Core physical schema, part 2: the 17 learner-facing tables (practice, Luna
    sessions, notes, gamification), attached to grey stubs of part-1 tables.
-   Dashed lines have no database-enforced foreign key; two are polymorphic
+   Dashed lines have no database-enforced foreign key, and two are polymorphic
    \code{space\_id} text links.}
   {fig:er-learning}
 
@@ -56,7 +56,7 @@ This appendix holds nine diagrams that the body refers to.
 
 \thesisfigure{f14-trust-boundaries}
   {Trust boundaries. A browser holding the anonymous key meets three
-   database-side boundaries --- table row-level security, function execute grants, and storage policies; most backend routes bypass row-level security
+   database-side boundaries --- table row-level security, function execute grants, and storage policies. Most backend routes bypass row-level security
    and check ownership in application code.}
   {fig:trust-boundaries}
 
@@ -67,6 +67,6 @@ This appendix holds nine diagrams that the body refers to.
 
 \thesisfigure{f16-citation-gap}
   {Source attribution. The server's validated citations reach learners only through the
-   ask bar of the current interface; the older interface still discards them. At
+   ask bar of the current interface, while the older interface still discards them. At
    \thesisEarlierCommit{}, no screen a student could reach showed a source.}
   {fig:citation-gap}
