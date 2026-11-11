@@ -218,7 +218,12 @@ changed on 25 decks.
 
 One function decides how the pipeline reads each page. It measures the PDF page
 itself, so the decision does not depend on which parser supplied the text. It counts the page's own text, leaving out
-running footers, and the share of the page that embedded images cover. A page with fewer
+running footers, and the share of the page that embedded images cover. For
+the rule, a running footer is a text block that starts in the bottom tenth of
+the page in smaller type than the page's body text
+(\code{page\_blocks.py:22--23,185}). A deck without footers loses nothing,
+and both counts are equal. A small source line at the foot of a slide is left
+out like a footer. A page with fewer
 than 25 characters of text has nothing to read but the picture (a scan, a photo)
 and goes to a vision model. A page with fewer than 150 characters whose embedded images
 cover at least 5\,\% of it depends on its image and also goes to vision,
