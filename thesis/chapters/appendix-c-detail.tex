@@ -265,7 +265,12 @@ The design comes from free tiers, whose limits are reached within minutes of
 bulk parsing. The code also contains an \emph{OpenAI-only} mode with one paid
 provider. In that mode the API and the worker refuse to start when the key of
 another provider is present, so that a misconfigured deployment cannot send
-student data to a provider that the privacy policy does not name. This mode
+student data to a provider that the privacy policy does not name. The
+default mode already does so. The privacy page (\code{legal.json}, section~4)
+names OpenAI, Groq, Google, and OpenRouter as AI providers, while the two
+chains also call Cloudflare, which the page names only for e-mail forwarding
+and backups, and Mistral, which it does not name
+(\code{orchestrator.py:389}, \code{:393}). The OpenAI-only mode
 is the author's target and was not switched on at the pin: a probe in
 November 2026 found six providers keyed in production
 (\cref{sec:openai-only}). Spending is bounded by a monthly cap per user (by
@@ -383,7 +388,7 @@ as unlimited.
 On 31 October 2026 a hosted parsing service (LlamaParse) was run on one deck
 to see whether buying the extraction step would give better text than the current extraction. It did not. Its output mis-numbered pages until a page separator was configured, its
 Python package had been out of maintenance since 1~May 2026, it would have added a
-dependency the production image does not carry, and it would send every uploaded page to a third party the privacy policy does not name. The trial is recorded
+dependency the production image does not carry, and it would send every uploaded page to one more third party. The privacy page already names LlamaParse as a processor for uploads that select it. The trial is recorded
 in the repository (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak llamaparse-trial-2026-10-31.md})
 and the service was not adopted. It is reported here because it is a decision
 with a reason, not because it is a result.
@@ -459,8 +464,8 @@ safe depends on who can reach the tables at all, and by which path.
 
 A browser holds the anonymous key of the database service and can address the
 database directly. On that path it meets three boundaries inside the
-database: row-level security~\cite{postgresql-rls}, which is enabled on all
-79~tables, the right to execute a function, and the policies of the file
+database: row-level security~\cite{postgresql-rls}, which the migrations
+enable on every table, the right to execute a function, and the policies of the file
 storage. The backend takes the other path. Its service-role client and
 its SQL pool bypass row-level security (\code{core/database.py:5--6,
 150--190}), so on most backend routes, and on every route of the loop, the

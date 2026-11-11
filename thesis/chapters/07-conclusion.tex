@@ -32,11 +32,15 @@ rendered outputs that we did not test on the models that consume the text. We me
 
 \paragraph{RQ2: from reader events back to the owner.}
 We model interaction as one governed log of 17~event types, which the
-Space engine turns into nine kinds of finding per page. The owner's view
+Space engine turns into findings per page, of which nine kinds can reach
+the owner. The owner's view
 names no one and says nothing about a page that fewer than five people have
-read. In the study with scripted readers, the engine met four of the five expectations that a finding appears, and fourteen of the eighteen that the view stays silent, where an engine that reports nothing would meet
-sixteen; the two misses of arm~B show that the rules do not keep the promise
-made to members (\cref{sec:c5-evaluation}). By the criterion of
+read. In the study with scripted readers, the view showed what it should in
+five of eight expected cases and withheld what it should in thirteen of
+fifteen. An engine that reports no finding would withhold correctly in all
+fifteen, so the second count tests the floor rules and not detection. The two
+misses of arm~B show that the rules do not keep the promise made to members
+(\cref{sec:c5-evaluation}). By the criterion of
 \cref{sec:analytics-privacy}, that no statement is about fewer than five
 people, the view is not yet privacy-preserving: a hotspot can rest on one
 confused rater among five, and a policy of the older dashboard still lets an
@@ -45,7 +49,7 @@ owner with the professor role read event rows with user ids
 
 \paragraph{RQ3: verifying generated content.}
 The system verifies generated content by computation where it can compute an answer, by the answer check for the quiz questions that a model writes during parsing, and by structure elsewhere. On 16~fixed pairs the answer check gave no wrong
-verdict among the calls that returned one, and one call did not; we measured it in-sample and without an acceptance criterion fixed in advance. The
+verdict among the calls that returned one, and one call did not. We measured it in-sample, without an acceptance criterion fixed in advance, and with distractors that are off the subject of the page. The
 lexical score would have dropped 14 of the 16 correct keys, and the
 similarity score failed its pre-registered test with 8 of 16 wrong keys kept, and we did not adopt it. When the check is unavailable, the system keeps the question. Nothing verifies the prose of explanations and answers: the ask bar relies on retrieval
 and on citations it does not require, and Explain, Ask, and Luna on rules in
@@ -79,7 +83,7 @@ became dependable only when one path remained, which we did not measure.
 
 \paragraph{Nobody chose the simple method.}
 The text extractor in production is what remained when the developers removed other tools for memory, cost, or complexity. The benchmark of \cref{ch:content}
-was the first comparison it faced, and the author rated nine of the ten alternatives above it. Measuring a method before relying on it applies to the
+was the first comparison it faced, and the author rated nine of the ten alternatives above it on points, five of them also at the corrected lower bound. Measuring a method before relying on it applies to the
 verifiers as well: the similarity score of \cref{ch:trust} looked right and
 failed.
 

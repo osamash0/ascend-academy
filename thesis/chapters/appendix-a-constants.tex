@@ -1,21 +1,19 @@
 \chapter{Verified System Constants}
 \label{app:constants}
 
-Every value below was read from source at revision \thesisCommit{} rather than
-from project documentation. Where documentation states a different value, the
-documented figure is wrong; see \cref{sec:reality-vs-documented}.
-
-
-\TODO{These are code defaults at \thesisCommit{}. Twelve of them (upload size,
-batch size, student uploads per month, worker concurrency, queue depth,
-synthesis batch size and overlap, LLM call timeout, the two cost caps, the
-vision and embedding models) can be overridden by environment variables in
-production, and the deployed values were not read. Say so in one sentence here,
-or verify the production values and note any that differ. Per-row evidence and
-the variable names are in \code{docs/thesis/evidence/CONSTANTS.md}.}
+Every value below is a default in the code at revision \thesisCommit{},
+read from source and not from project documentation. Where documentation
+states a different default, the documentation is out of date; see
+\cref{sec:reality-vs-documented}. Twelve values, marked~$\dagger$, can be
+overridden by environment variables, and production does not have to run
+them. The deployed values were not read, with one exception: production
+allows a student 30 uploads per month (the operator's configuration, 30
+October 2026), where the code default is five. Per-row evidence and the
+names of the variables are in \code{docs/thesis/evidence/CONSTANTS.md}.
 
 \begin{longtable}{@{}p{5.6cm}p{3.1cm}p{5.0cm}@{}}
-  \caption{System constants verified against source.}
+  \caption{System constants: defaults in the code at the pin. $\dagger$~can
+    be overridden by an environment variable.}
   \label{tab:constants} \\
   \toprule
   \textbf{Constant} & \textbf{Value} & \textbf{Location} \\
@@ -32,13 +30,13 @@ the variable names are in \code{docs/thesis/evidence/CONSTANTS.md}.}
   \endlastfoot
 
   % --- Ingestion: admission control ---
-  Maximum upload size                    & 50\,MB          & \code{config.py:90} \\
+  Maximum upload size                    & 50\,MB$^\dagger$ & \code{config.py:90} \\
   nginx request-body limit               & 55\,MB          & \code{nginx.conf:66} \\
   Maximum pages per document             & 300             & \code{upload\_service.py:13} \\
-  Maximum files per batch                & 30              & \code{config.py:92} \\
-  Student uploads per month              & 5               & \code{config.py:134} \\
-  Worker concurrency                     & 4               & \code{config.py:96} \\
-  Queue depth limit                      & 50              & \code{config.py:101} \\
+  Maximum files per batch                & 30$^\dagger$    & \code{config.py:92} \\
+  Student uploads per month              & 5$^\dagger$ (production: 30) & \code{config.py:134} \\
+  Worker concurrency                     & 4$^\dagger$     & \code{config.py:96} \\
+  Queue depth limit                      & 50$^\dagger$    & \code{config.py:101} \\
   % --- Ingestion: asynchronous processing ---
   Job timeout                            & 900\,s          & \code{arq\_worker.py:362} \\
   Job retry limit (\code{max\_tries})    & 5               & \code{arq\_worker.py:371} \\
@@ -54,20 +52,20 @@ the variable names are in \code{docs/thesis/evidence/CONSTANTS.md}.}
   Page routing: no-text threshold        & 25 chars        & \code{page\_blocks.py:201} \\
   Page routing: figure-page text cap     & 150 chars       & \code{page\_blocks.py:202} \\
   Page routing: minimum figure share     & 0.05 of page    & \code{page\_blocks.py:203} \\
-  Vision model (default)                 & Gemini         & \code{config.py:74} (selector); model \code{gemini-flash-latest}, \code{orchestrator.py:331} \\
-  Synthesis batch size                   & 8 slides        & \code{orchestrator.py:158} \\
-  Synthesis batch context overlap        & 1 slide (retired v2 path only) & \code{orchestrator.py:162} \\
+  Vision model (default)                 & Gemini$^\dagger$ & \code{config.py:74} (selector); model \code{gemini-flash-latest}, \code{orchestrator.py:331} \\
+  Synthesis batch size                   & 8 slides$^\dagger$ & \code{orchestrator.py:158} \\
+  Synthesis batch context overlap        & 1 slide$^\dagger$ (retired v2 path only) & \code{orchestrator.py:162} \\
   Deck quiz questions asked for (cap)    & 5--8 (12)       & \code{ai/prompts.py:422}, \code{synthesis.py:52} \\
   Options per question                   & 4 (3 distractors) & \code{quiz\_validator.py:98} \\
   % --- LLM provider strategy ---
   Provider registry entries              & 9               & \code{orchestrator.py:239} \\
-  LLM call timeout                       & 25\,s           & \code{llm\_client.py:72} \\
+  LLM call timeout                       & 25\,s$^\dagger$ & \code{llm\_client.py:72} \\
   LLM rate-limit retry attempts          & 8               & \code{llm\_client.py:36} \\
   LLM retry backoff                      & 4--60\,s, exp.  & \code{llm\_client.py:37} \\
-  Monthly per-user LLM cap               & \$2.00          & \code{config.py:194} \\
-  Daily ceiling on paid calls, all users             & \$10.00         & \code{config.py:187} \\
+  Monthly per-user LLM cap               & \$2.00$^\dagger$ & \code{config.py:194} \\
+  Daily ceiling on paid calls, all users             & \$10.00$^\dagger$ & \code{config.py:187} \\
   % --- Grounded tutor ---
-  Embedding model                        & \code{gemini-\allowbreak embedding-001} & \code{embeddings.py:21,25} \\
+  Embedding model                        & \code{gemini-\allowbreak embedding-001}$^\dagger$ & \code{embeddings.py:21,25} \\
   Embedding dimensions                   & 768             & \code{embeddings.py:29} \\
   Retrieval top-$k$ (one Lesson / one Space)   & 5 / 6           & \code{retrieval.py:30,32} \\
   Similarity threshold                   & 0.65            & \code{retrieval.py:31} \\

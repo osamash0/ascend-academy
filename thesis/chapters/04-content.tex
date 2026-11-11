@@ -203,8 +203,11 @@ a sweep resolves runs that are stuck, and the user can retry. The worker never r
 Every generated artefact depends on a hosted language model. The backend
 calls the providers directly, through an ordered \emph{bulk} chain for
 high-volume work and a \emph{quality} chain for fewer and harder calls.
-A cap limits spending per user and per day, and an OpenAI-only mode, which was off at the pin, would keep content with the one provider that the
-privacy policy names (\cref{sec:provider-strategy}).
+A cap limits spending per user and per day. The privacy policy names
+OpenAI, Groq, Google, and OpenRouter as the AI providers that receive
+content. The default chains also call Cloudflare and Mistral, which it does
+not name for this purpose. An OpenAI-only mode, which was off at the pin,
+would keep content with OpenAI alone (\cref{sec:provider-strategy}).
 
 \section{Evaluation}
 \label{sec:c4-evaluation}
@@ -293,9 +296,11 @@ in a 4-bit build; and two vision-model transcriptions of the page image,
 \TODO{Add bibliography entries for pymupdf4llm, MarkItDown, Marker,
 OpenDataLoader, pdf.js and PaddleOCR-VL (software citations with version and
 access date; C20), and cite them here.}
-The test set is 24 born-digital pages from five PDFs of four sources in two
-languages, drawn per source by a stated rule plus a seeded random draw (seed
-20261030), and the author assigned them by hand to five page types: lists (8), diagram (5), dense text
+The test set is 24 born-digital pages from five PDFs of three courses in two
+languages: one deck from each course and two exercise sheets of the
+software-engineering course. The protocol treats the sheets as a fourth
+source and draws the pages per source by a stated rule plus a seeded random
+draw (seed 20261030), and the author assigned them by hand to five page types: lists (8), diagram (5), dense text
 (5), layout (3), and table or formula (3). The set includes no scanned page.
 
 Each duel shows the judge the page image and two methods' outputs, with
@@ -450,7 +455,7 @@ judge chose between rendered outputs; whether synthesis, quiz, and retrieval
 do better on the preferred text, we did not measure.
 
 The yardstick of \cref{sec:c4-requirements} had four marks. The routing rule and its study answer how the pipeline handles a page with a figure. The design answers how soon a learner reads, because the reading view opens on the original page at once; we did not measure the time until the generated text of a page arrives. We did not measure what a deck costs: the benchmark prices the vision transcription per page, and we did not evaluate the cost ledger of production. What leaves the server is the
-page text, to the providers of the chain, and the image of each page that the rule routes to a vision model; the mode that would restrict this to one paid provider was off at the pin (\cref{sec:provider-strategy}).
+page text, to the providers of the chain, two of which the privacy policy does not name as AI providers, and the image of each page that the rule routes to a vision model; the mode that would restrict this to one paid provider was off at the pin (\cref{sec:provider-strategy}).
 
 We did not measure three things: whether the text generated for a page is
 grounded in that page, whether the new routing rule improves what learners

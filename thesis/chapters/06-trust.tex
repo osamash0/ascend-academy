@@ -267,7 +267,13 @@ are in English, from a lecture on transactions, and eight in German, from a
 lecture on storage management. Both decks are disjoint from the decks on which we fitted any threshold. Each pair holds one correct key that
 paraphrases the page and one wrong key that stays on the topic of the page.
 The author wrote the correct keys under a rule that forbids copying three words in a row from the page, and the wrong keys are plainly false
-(\code{docs/DECK\_LAB\_2026\_10.md}). A
+(\code{docs/DECK\_LAB\_2026\_10.md}). The three distractors of every
+question are off the subject, such as plate tectonics in a question about
+transactions. The probe took them over from the calibration set of the
+lexical score, where they keep the check for ambiguous options from masking
+the raw score (\code{grounding\_probe.py}, rule~5). For the answer check
+they make the task easier, because a model that answers without the key finds
+only one option on the subject of the page. A
 verifier that works on wording will fail the first; a verifier that works on
 topic will fail the second. The expected shape was that the lexical score
 drops paraphrases, and that a semantic score repairs this without keeping the
@@ -288,9 +294,11 @@ wrong keys above the threshold. The threshold itself,
   \small
   \caption{Three verifiers of answer keys on the same 16 pairs: correct keys
     dropped and wrong keys kept. The acceptance criterion for enforcement was at most two good keys dropped
-    and at most one wrong key kept. For the answer check, counts are over the
-    calls that returned a verdict; one call did not. A count of 0 of 16 is compatible with an error rate of up to
-    21\,\% (exact 95\,\% interval). Sources: \code{parser/synthesis.py:55--80}; PR~\#94 and tag
+    and at most one wrong key kept. $^{a}$For the answer check, counts are
+    over the 31 of 32 calls that returned a verdict, so one of the two cells
+    is 0 of 15 and the other 0 of 16; the record of the run does not say
+    which. A count of 0 of 16 is compatible with an error rate of up to
+    21\,\%, and 0 of 15 with up to 22\,\% (exact 95\,\% intervals). Sources: \code{parser/synthesis.py:55--80}; PR~\#94 and tag
     \code{archive/claude/arc8-semantic-grounding}; PR~\#166.}
   \label{tab:verifiers}
   \begin{tabular}{@{}p{0.33\textwidth}ccp{0.22\textwidth}@{}}
@@ -300,7 +308,7 @@ wrong keys above the threshold. The threshold itself,
     Lexical score, threshold 0.5 & 14 of 16 & 0 of 16 & marks only \\
     Similarity score, fitted threshold 0.774 & 4 of 16 & 8 of 16 &
       criterion failed; not merged \\
-    Answer check & 0 of 16 & 0 of 16 & enforced \\
+    Answer check & 0$^{a}$ & 0$^{a}$ & enforced \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -320,8 +328,9 @@ scores like a right one. The procedure had fixed the consequence in advance: we 
 code and record exist only under an archive tag. This negative result is
 the reason the next attempt did not use similarity at all.
 
-The answer check dropped none of the 16 good keys and kept none of the 16
-wrong ones. On the question that started the work, which a careful student
+The answer check disputed no correct key and accepted no wrong one in the
+calls that returned a verdict, with the easy distractors described in
+\cref{sec:c6-method}. On the question that started the work, which a careful student
 could answer differently from its key, it disputed the key in five of five
 runs and accepted a corrected version of the same question in five of five. The run took place on 30~October 2026 with the reasoning model at the head of the quality chain
 (PR~\#166). Unlike the similarity score, the answer check faced no acceptance criterion fixed in advance. We built it for that one question and measured it in the same change, on the probe that already existed (commit
@@ -330,7 +339,11 @@ runs and accepted a corrected version of the same question in five of five. The 
 One call of the run returned no verdict, because the provider limited the
 rate and the fallback timed out. The script counts such a call as an error
 (\code{backend/\allowbreak eval/\allowbreak quiz\_answer\_check.py:101--103}),
-and the record of the run does not say which pair it was. The deployed check
+and the record of the run does not say which pair it was.
+\TODO{check: which pair, and which of its two keys, returned no verdict in
+the run of PR~\#166 (the run log, if kept). Then write 0 of 15 in the right
+cell of \cref{tab:verifiers} and drop its footnote.}
+The deployed check
 would have kept that question whichever key it carried, so
 \cref{tab:verifiers} describes the check when it answers.
 
@@ -359,8 +372,10 @@ closest setting the grid measured to the six hits the ask bar keeps).
 The probe is small, and the developer of the system wrote it, in two
 subjects from one university. Sixteen pairs show how a verifier behaves on
 these chosen cases; they do not estimate an error rate in production.
-The wrong keys are on the topic but plainly false, so a keep rate of zero
-shows that the check rejects such keys, not that it rejects subtler errors. Because the
+The wrong keys are on the topic but plainly false, and every distractor is
+off the subject, so a keep rate of zero shows that the check rejects such keys
+when no other option is plausible. It does not show that the check rejects
+subtler errors or chooses well between plausible distractors. Because the
 correct keys avoid the page's wording by rule, the lexical result is partly
 a product of the probe. The failure that started the answer check, an
 ambiguous question whose options all appear on the page, appears in one case.
@@ -424,7 +439,8 @@ questions of the reading view and the rehearsal, which the system grades against
 \emph{How can a system measure it?} With a small probe that its author writes before any verifier scores it and that contains both kinds of error. On 16 pairs the
 lexical score dropped 14 good keys, the similarity score kept 8 wrong ones
 and failed an acceptance criterion that we had fixed in advance, and the
-answer check made neither error in the calls that returned a verdict. The refusal gate, which we tested in one Space with 57 questions,
+answer check made neither error in the calls that returned a verdict, on
+a probe whose distractors are off the subject. The refusal gate, which we tested in one Space with 57 questions,
 let through all 27 that have an answer and refused all 30 that have none, by
 a narrow margin. The failure of the similarity score shaped the design as much as the success
 of the answer check.

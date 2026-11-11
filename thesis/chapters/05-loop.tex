@@ -37,7 +37,7 @@ evidence is a study with scripted readers.
   {fig:loop}
 
 \Cref{fig:loop} shows the path of one interaction. The reading view \emph{records} it through one function,
-\code{record\_event}, which \emph{governs} it: the function rejects an event of an unknown type or with an unknown field. One append-only log \emph{stores} the event. When an owner asks, the engine \emph{aggregates} the
+\code{record\_event}, which \emph{governs} it: the function rejects an event of an unknown type or with an unknown field. One log, to which the backend only appends, \emph{stores} the event. When an owner asks, the engine \emph{aggregates} the
 log of the Space's members, and the owner's view \emph{shows} the result as
 one sentence, three numbers, and a map of pages. The loop closes outside the
 software: the owner opens the page a finding points to and decides what to
@@ -54,7 +54,9 @@ an event type, and a JSON payload. Two checks restrict the type. In the
 database a \code{CHECK} constraint lists the 17 allowed types. In the backend
 each type has a Pydantic model in one registry, and every model forbids
 unknown fields (\code{schemas/learning\_events.py}, \code{EVENT\_REGISTRY},
-\code{extra="forbid"}). The system does not store an event that fails either check.
+\code{extra="forbid"}). The backend does not store an event that fails
+either check. A row that a member inserts directly through the database
+interface meets only the first (\cref{sec:c5-events-storage}).
 
 All backend writes go through one function, \code{record\_event}, in the
 file \code{event\_repo.py} (lines 64--91). It validates the payload and
@@ -99,6 +101,7 @@ nothing from a private study session with the assistant becomes an event at
 all (\code{insights/sources/space.py:38}).
 
 \subsection{Storage}
+\label{sec:c5-events-storage}
 
 Postgres partitions the table by month on the event's timestamp, with a default
 partition for rows outside any month, and it has four indexes: by user, by
@@ -117,10 +120,13 @@ frontend code. The protection that exists limits who may read the log and
 what leaves the aggregation (\cref{sec:c5-privacy}).
 
 A member can insert events for themselves directly, through the database
-interface the browser holds. Three guards keep one member from distorting what the owner sees: a trigger rejects a client timestamp that is more than
+interface the browser holds, and a database policy also lets a member delete
+their own rows (migration \code{20260731010000}). Such a row passes the
+type constraint but not the Pydantic models, so its payload may hold fields
+that the backend would refuse. Three guards keep one member from distorting what the owner sees: a trigger rejects a client timestamp that is more than
 300~seconds away from the server's clock, the engine reads at most 5{,}000
 events per member, and it reads only the payload keys it needs (PRs~\#142
-and \#175). The event log is one table among 78; \cref{sec:data-model} describes the
+and \#175). The event log is one of 78 tables; \cref{sec:data-model} describes the
 schema around it and where production differs from the repository.
 
 \section{Aggregation}
@@ -150,9 +156,12 @@ nothing; these members are the page's \emph{readers}. \enquote{Nothing} is not z
 needed help on such a page is \code{null}, and the screen draws a faint outline
 instead of a dim cell, which would read as \enquote{few needed help}. This distinction entered after the pin; at
 \code{\thesisCommit} such a page reported 0, which the screen would have drawn
-as \enquote{everything is fine}. The same rule holds for the whole Space. The
-payload carries no number of readers but one of three words, its \emph{reach}: \code{none},
-\code{few}, or \code{enough} (also after the pin; before, it carried the count).
+as \enquote{everything is fine}. The same rule holds for the whole Space.
+Below five readers the payload carries no count of them but one of three
+words, its \emph{reach}: \code{none}, \code{few}, or \code{enough} (also after
+the pin; before, it carried the count). From five on, counts do appear: the
+weekly number of members who read and, for a page with a finding, the
+number of people who opened Explain or asked (\cref{fig:door}).
 
 \subsection{Eleven Detectors}
 
@@ -350,12 +359,20 @@ again, and arm~J adds a sixth persona, a confused asker.
 
 \Cref{tab:persona} gives the result. The engine met 18 of the 23 expectations.
 Nine of the 18 come from the control arm~G,
-and arms B, C, and H met none of their four expectations. Sorted by kind, the
-picture is this. The engine met four of the five expectations that a finding must appear and fourteen of the eighteen that the view must stay silent or empty. An engine that never reported anything would meet sixteen of those
-eighteen and none of the five
-(\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak
-persona-study/\allowbreak mute\_engine.py}), so the silent part of the study
-tests the floor rules and not detection. The
+and arms B, C, and H met none of their four expectations. Sorted by what the
+view had to do, the picture is this. Eight expectations asked the view to show
+something: a finding, themes, the weekly numbers, or the word for a page with
+enough readers. The engine met five of them. Fifteen asked the view to
+withhold something, and the engine met thirteen. Both misses of this kind are
+the hotspot on page~10 of arm~B. An engine that never reports a finding or a
+theme, with the reach word and the weekly numbers as the real engine sent
+them, would withhold correctly in all fifteen cases and show what it should
+in one of the eight. We recomputed these counts from the summary files of the
+study (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak
+persona-study/}). Its script \code{mute\_engine.py} counts the three
+expectations that the weekly numbers and the reach word must appear as
+silence, and so reports four of five and fourteen of eighteen. Either way, the
+silent part of the study tests the floor rules and not detection. The
 arms separate: struggling readers produce a hotspot and a speed bump where
 they struggled, skimmers produce a leak and skipped pages, overconfident
 readers produce a calibration gap and nothing else, and the mix of 27 surfaces
