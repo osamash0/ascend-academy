@@ -395,7 +395,10 @@ page at about 0.9 to 3\,GB resident, a lower bound because the measurement does 
 0.5 to 1.7\,GB. pymupdf4llm, with its OCR pass on, takes 0.56 to
 0.93 seconds per page at about 390\,MB. The two vision transcriptions
 together cost \$0.21 for the 24 pages at list prices (\$0.04 for \code{gpt-4.1-mini} and \$0.17 for \code{gpt-6.1-sol}), at 1.8 to 5.7 seconds
-per page, and leave the server. On a 4\,GB
+per page, and leave the server. Production's OpenAI vision calls use neither
+model. They run on the code default \code{gpt-4o-mini}, because the model
+variables were never set (\cref{sec:openai-only}). The benchmark therefore
+describes the vision path with \code{gpt-4.1-mini} set, not the path as deployed. On a 4\,GB
 production machine shared with the API, the worker, and two Redis instances,
 the heavy engines are not an option. The vision models are an option that costs a fee per page and per uploader.
 

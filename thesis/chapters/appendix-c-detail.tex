@@ -271,7 +271,10 @@ default mode already does so. The privacy page (\code{legal.json}, section~4)
 names OpenAI, Groq, Google, and OpenRouter as AI providers, while the two
 chains also call Cloudflare, which the page names only for e-mail forwarding
 and backups, and Mistral, which it does not name
-(\code{orchestrator.py:389}, \code{:393}). The OpenAI-only mode
+(\code{orchestrator.py:389}, \code{:393}). The cost ledger shows that two of these
+providers did receive calls: Cloudflare 100 on 26~August 2026, and Cerebras 26
+between 2~August and 10~October 2026. The page at the pin names neither of them
+as an AI provider. It records no call to Mistral. The OpenAI-only mode
 is the author's target and was not switched on at the pin: a probe in
 November 2026 found six providers keyed in production
 (\cref{sec:openai-only}). Spending is bounded by a monthly cap per user (by
@@ -303,14 +306,16 @@ it had been introduced with a pipeline generation that never became the
 default, so it ended with no live callers while still costing 1\,GB of memory
 on a 4\,GB machine and blocking start-up when unhealthy. A gateway pays off
 with many callers and many providers. This system ended with one caller and
-most of its traffic on one provider. A query of the cost ledger on 29 October
-2026 showed OpenAI carrying most calls over the preceding 30 days, Groq
-answering the reader's Explain requests and Luna sessions, and Gemini
-producing the embeddings. The repository does not record why OpenAI-only
+most of its traffic on one provider. A read-only query of the cost ledger
+(\code{llm\_calls}) on 11~November 2026 counted 3{,}388 calls in the 30 days
+from 30~September to 29~October 2026. OpenAI made 3{,}053 of them (90\,\%),
+mostly embeddings (2{,}660) and bulk generation (249). Gemini made 228, mostly
+embeddings (208), and Groq made 95, led by Luna sessions (29) and the reader's
+Explain requests (28). The embeddings then moved to Gemini: in the 30 days
+before 11~November, Gemini made 876 embedding calls and OpenAI none. The
+repository does not record why OpenAI-only
 became the target. The author's account is that the free tiers were not
 reliable enough for bulk parsing and the OpenAI key was the one that worked.
-\TODO{Re-run the cost-ledger query (calls per provider and feature, last 30
-days) and cite the exact numbers instead of this summary.}
 
 \subsection{The Multi-Provider Mechanism}
 \label{sec:multi-provider}
@@ -366,10 +371,14 @@ the providers being different: generated quiz questions are checked by a
 second model that did not write them (Groq's reasoning model in the default
 mode), and in OpenAI-only mode that independence holds only if the checking
 model differs from the writing one. The trust chapter takes this up.
-\TODO{Note which OpenAI models production sets (\code{OPENAI\_MODEL},
-\code{OPENAI\_BULK\_MODEL}, \code{OPENAI\_VISION\_MODEL}); the variable
-\code{LLM\_TIMEOUT\_SECONDS} is set in production (probe of November 2026), its
-value was not read.}
+A read of the production environment on 11~November 2026 found
+\code{OPENAI\_MODEL}, \code{OPENAI\_BULK\_MODEL}, and \code{OPENAI\_VISION\_MODEL}
+unset. All three therefore fall back to the code default \code{gpt-4o-mini}
+(\code{orchestrator.py:105--107}), and the cost ledger shows every OpenAI call
+of the preceding 30 days on that model, the five vision calls included. The
+launch setting in \code{.env.example} (\code{gpt-4.1-mini}) was never applied.
+\code{LLM\_TIMEOUT\_SECONDS} is set to 90 seconds, against a code default of
+25 (\cref{tab:constants}).
 
 \subsection{Cost Controls}
 \label{sec:cost-controls}
