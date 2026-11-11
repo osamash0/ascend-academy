@@ -288,14 +288,13 @@ each committed before the runs and votes it governs: a fix to how the viewer dis
 comparison; the heavy local engines and a third comparison; and the PaddleOCR
 build and a fourth. The benchmark thus grew from five methods to eleven after the author knew the first result, which the pooled analysis below has to carry. The author judged eleven methods: ten challengers against \emph{current}, the
 production extraction, which anchors the scale at 1000. The challengers were
-the Markdown converters pymupdf4llm and MarkItDown; the layout engines
-Docling~\cite{auer2024docling}, MinerU~\cite{wang2024mineru}, Marker, and
-OpenDataLoader; the browser engine pdf.js; a PaddleOCR vision-language model
-in a 4-bit build; and two vision-model transcriptions of the page image,
+the Markdown converters pymupdf4llm~\cite{pymupdf4llm} and
+MarkItDown~\cite{markitdown}; the layout engines
+Docling~\cite{auer2024docling}, MinerU~\cite{wang2024mineru},
+Marker~\cite{marker}, and OpenDataLoader~\cite{opendataloader}; the browser
+engine pdf.js~\cite{pdfjs}; a PaddleOCR vision-language
+model~\cite{paddleocr} in a 4-bit build; and two vision-model transcriptions of the page image,
 \code{gpt-4.1-mini} and \code{gpt-6.1-sol}, a larger model that we chose for its capability per dollar (protocol, deviation~2).
-\TODO{Add bibliography entries for pymupdf4llm, MarkItDown, Marker,
-OpenDataLoader, pdf.js and PaddleOCR-VL (software citations with version and
-access date; C20), and cite them here.}
 The test set is 24 born-digital pages from five PDFs of three courses in two
 languages: one deck from each course and two exercise sheets of the
 software-engineering course. The protocol treats the sheets as a fourth

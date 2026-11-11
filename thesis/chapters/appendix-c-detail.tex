@@ -242,10 +242,11 @@ worker's \code{max\_tries = 5} reads like five retries with backoff, and its
 comment said so until November, but in the installed Arq~\cite{arq} an
 ordinary exception finishes a job on its first try, so a failed parse is
 never retried automatically. Embedding failures raise rather than return a
-zero vector, which would corrupt similarity search silently.
-\TODO{The production image pins \code{arq>=0.26,<0.27}, while development runs
-0.28.0; the retry semantics above were read in 0.28.0. Check them in 0.26, or
-state the version explicitly.}
+zero vector, which would corrupt similarity search silently. We read the
+retry semantics in the source of Arq~0.28.0, the version of the development
+environment (\code{requirements.txt}). The production image pins
+\code{arq>=0.26,<0.27} (\code{requirements-docker.txt}), and we did not check
+whether version~0.26 behaves the same.
 
 \section{The Provider Strategy (Chapter 4)}
 \label{sec:provider-strategy}

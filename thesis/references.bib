@@ -15,7 +15,7 @@
   title        = {{PyMuPDF}: {Python} bindings for the {MuPDF} library},
   author       = {{Artifex Software}},
   year         = {2026},
-  note         = {Version 1.24.0; used as the live text-extraction engine},
+  note         = {Version 1.24.0},
   url          = {https://pymupdf.readthedocs.io/},
   urldate      = {2026-11},
 }
@@ -24,7 +24,6 @@
   title        = {{pgvector}: open-source vector similarity search for {Postgres}},
   author       = {Kane, Andrew},
   year         = {2026},
-  note         = {HNSW index, cosine distance},
   url          = {https://github.com/pgvector/pgvector},
   urldate      = {2026-11},
 }
@@ -33,7 +32,7 @@
   title        = {{arq}: fast job queues and {RPC} in {Python} with {asyncio} and {Redis}},
   author       = {Colvin, Samuel},
   year         = {2026},
-  note         = {Version 0.28.0; retry semantics verified against installed source},
+  note         = {Version 0.28.0},
   url          = {https://arq-docs.helpmanual.io/},
   urldate      = {2026-11},
 }
@@ -50,7 +49,6 @@
   title        = {{Supabase}: the open-source {Firebase} alternative},
   author       = {{Supabase Inc.}},
   year         = {2026},
-  note         = {Postgres, Auth, Storage, PostgREST},
   url          = {https://supabase.com/docs},
   urldate      = {2026-11},
 }
@@ -59,8 +57,6 @@
   title        = {{PostgreSQL} Documentation: Row Security Policies},
   author       = {{PostgreSQL Global Development Group}},
   year         = {2026},
-  note         = {Permissive policies combine with a logical OR --- the union
-                  semantics discussed in Section~\ref{sec:authorisation}},
   url          = {https://www.postgresql.org/docs/current/ddl-rowsecurity.html},
   urldate      = {2026-11},
 }
@@ -68,7 +64,7 @@
 @misc{plantuml,
   title        = {{PlantUML}},
   year         = {2026},
-  note         = {Version 1.2026.7; used to generate every figure in this thesis},
+  note         = {Version 1.2026.7},
   url          = {https://plantuml.com/},
   urldate      = {2026-11},
 }
@@ -161,9 +157,6 @@
   doi           = {10.48550/arXiv.2408.09869},
   url           = {https://arxiv.org/abs/2408.09869},
   urldate       = {2026-11},
-  note          = {Crossref also lists a 2026 ACM DocEng talk/abstract
-                   ``Docling: Converting Complex Documents into AI-Ready
-                   Structured Representations'', doi:10.1145/3820755.3830337},
 }
 
 @misc{wang2024mineru,
@@ -598,7 +591,7 @@
   doi       = {10.1007/978-3-031-72312-4_18},
   url       = {https://doi.org/10.1007/978-3-031-72312-4_18},
   urldate   = {2026-11},
-  note      = {Questions generated from university lecture slides; arXiv:2407.20578},
+  note      = {arXiv:2407.20578},
 }
 
 % --- secondary ---
@@ -652,7 +645,7 @@
   howpublished = {Section 3.2 of the Master's thesis ``Optimization of learning''; published on the web 1998},
   url          = {https://super-memory.com/english/ol/sm2.htm},
   urldate      = {2026-11},
-  note         = {Primary description of SM-2. Archived copy:
+  note         = {Archived copy:
                   \url{http://web.archive.org/web/20230922203233/https://super-memory.com/english/ol/sm2.htm}},
 }
 
@@ -704,7 +697,6 @@
   doi       = {10.1145/3534678.3539081},
   url       = {https://doi.org/10.1145/3534678.3539081},
   urldate   = {2026-11},
-  note      = {Research basis of FSRS (Free Spaced Repetition Scheduler)},
 }
 
 @article{roediger2006testing,
@@ -1017,7 +1009,6 @@
   doi       = {10.1109/TPAMI.2018.2889473},
   url       = {https://doi.org/10.1109/TPAMI.2018.2889473},
   urldate   = {2026-11},
-  note      = {Published online 2018 (hence the DOI); issue year 2020},
 }
 
 
@@ -1034,9 +1025,6 @@
   doi       = {10.1201/9781498710411-35},
   url       = {https://doi.org/10.1201/9781498710411-35},
   urldate   = {2026-11},
-  note      = {Pagination differs between the 1996 print (commonly cited as
-               pp.~189--194) and the CRC Press e-book record behind the DOI
-               (pp.~207--212); take pages from the copy you actually read},
 }
 
 @inproceedings{laugwitz2008ueq,
@@ -1263,4 +1251,62 @@
   pages     = {134--138},
   year      = {2012},
   doi       = {10.1145/2330601.2330636},
+}
+
+% Software of the extraction benchmark (Chapter 4). Versions as pinned in the
+% benchmark protocol (docs/thesis/experiments/parser-benchmark/PROTOCOL.md);
+% repositories checked on 2026-11-11.
+@misc{pymupdf4llm,
+  title        = {{PyMuPDF4LLM}},
+  author       = {{Artifex Software}},
+  year         = {2026},
+  note         = {Version 1.28.2},
+  url          = {https://github.com/pymupdf/pymupdf4llm},
+  urldate      = {2026-11},
+}
+
+@misc{markitdown,
+  title        = {{MarkItDown}: {Python} tool for converting files and office documents to {Markdown}},
+  author       = {{Microsoft}},
+  year         = {2026},
+  note         = {Version 0.1.6},
+  url          = {https://github.com/microsoft/markitdown},
+  urldate      = {2026-11},
+}
+
+@misc{marker,
+  title        = {{Marker}: convert {PDF} to {Markdown} and {JSON}},
+  author       = {{Datalab}},
+  year         = {2026},
+  note         = {Package marker-pdf, version 2.1.0},
+  url          = {https://github.com/datalab-to/marker},
+  urldate      = {2026-11},
+}
+
+@misc{opendataloader,
+  title        = {{OpenDataLoader PDF}},
+  author       = {{OpenDataLoader Project}},
+  year         = {2026},
+  note         = {Package opendataloader-pdf, version 2.4.1},
+  url          = {https://github.com/opendataloader-project/opendataloader-pdf},
+  urldate      = {2026-11},
+}
+
+@misc{pdfjs,
+  title        = {{PDF.js}},
+  author       = {{Mozilla}},
+  year         = {2026},
+  note         = {Package pdfjs-dist, version 5.4.296},
+  url          = {https://github.com/mozilla/pdf.js},
+  urldate      = {2026-11},
+}
+
+@misc{paddleocr,
+  title        = {{PaddleOCR}},
+  author       = {{PaddlePaddle}},
+  year         = {2026},
+  note         = {Model PaddleOCR-VL-1.6; the benchmark used a 4-bit community
+                  conversion, mlx-community/PaddleOCR-VL-1.6-4bit},
+  url          = {https://github.com/PaddlePaddle/PaddleOCR},
+  urldate      = {2026-11},
 }
