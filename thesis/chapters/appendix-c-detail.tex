@@ -122,11 +122,14 @@ image. On the deck that had exposed this blindness, pipeline v5 routed 88 of
 143 pages to vision. The staged pipeline v3, with
 Docling~\cite{auer2024docling} and a model gateway, never became the default:
 the configuration default stayed at version~2 until 28 June and then jumped to
-version~5 ``to match the live deployment''. No quality reason for dropping
-Docling is recorded. The author's reconstruction is that pipeline v5 reused the
-PyMuPDF~\cite{pymupdf} engine of pipeline v2, so Docling had no caller, never entered the
-production image, and left the requirements in October after eight security
-advisories. The benchmark in \cref{sec:parser-bench} later rated Docling above the
+version~5 ``to match the live deployment''. The commit that created the
+requirements of the production image left Docling out because it brought in
+several heavy dependencies and added more than 30 minutes to the build, and
+told the image to run version~2 (\code{backend/\allowbreak requirements-docker.txt},
+\code{6ce7b5f1}). Pipeline v5 was then built on the tested
+PyMuPDF~\cite{pymupdf} engine of version~2 (\code{4f19bd1e}), so Docling had
+no caller. It left the remaining requirements in October after eight security
+advisories. No quality reason for dropping it is recorded. The benchmark in \cref{sec:parser-bench} later rated Docling above the
 current extraction, but not by a margin that survives the correction for
 testing ten methods at once. And the
 25-character vision threshold, introduced with the per-page synthesis of pipeline v5

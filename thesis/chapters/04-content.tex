@@ -120,7 +120,8 @@ nine generations, several of which existed side by side in the code
 for a while. \Cref{tab:lineage} in \cref{app:detail} lists them. The table gives the recorded reason for each step where the repository holds one. Where it does not, the reason is the author's reconstruction, and the table marks it as such.
 \Cref{sec:lineage-table} gives the three steps that carry the design
 lessons of this chapter: pipeline v5 made the server the only writer of parse
-results, the staged pipeline v3 with Docling never became the default, and a
+results, the staged pipeline v3 never became the default because Docling, its
+extractor, was too heavy for the production image, and a
 25-character threshold, introduced with pipeline v5 in June, decided until
 November which pages a vision model saw.
 
@@ -133,6 +134,26 @@ One pipeline is in use: pipeline v5, which the code calls ``unified'' and keeps 
 and its pages.
 \Cref{fig:pipeline} in \cref{app:figures} shows the path from an upload to a
 readable page.
+
+\paragraph{What reliable means here.} RQ1 asks for a reliable
+transformation. We mean three properties of the design: every accepted upload
+ends either as a readable Lesson or as a visible failure, the same work is
+not done twice for one uploader, and an upload the system would reject is
+refused before it costs anything. The subsections below describe the
+mechanisms behind each property. Tests at the pin check them one by one, for
+example the stuck-run sweep (\code{test\_parse\_runs\_stalled\_sweep.py}),
+the lock against parsing the same file twice at once
+(\code{test\_job\_locks.py}), and a full run against a real database that
+replays a second run without a second lecture
+(\code{test\_unified\_pipeline\_e2e.py}). In production, 113 parses ran on
+pipeline v5 between June and November 2026, the developers' own uploads
+included: 99 completed, 14 failed, and none was left unfinished. Thirteen of
+the failures fell in July: seven translations that exceeded the 90-second
+model timeout, four writes to a database column that production did not yet
+have, and two files missing from storage. The 21 parses since September all
+completed (\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak parse-runs.md}).
+These counts show that failures surfaced as failures. They are too few, and
+the load too light, to measure reliability under real use.
 
 \subsection{Synchronous Admission Control}
 \label{sec:admission}
@@ -508,6 +529,11 @@ judge chose between rendered outputs. Whether synthesis, quiz, and retrieval
 do better on the preferred text, we did not measure.
 
 The yardstick of \cref{sec:c4-requirements} had three marks. The routing rule and its study answer how the pipeline handles a page with a figure. The design answers how soon a learner reads, because the reading view opens on the original page at once; we did not measure the time until the generated text of a page arrives. We did not measure what a deck costs: the benchmark prices the vision transcription per page, and we did not evaluate the cost ledger of production.
+
+The reliability of \cref{sec:pipeline} rests on its design, on tests of
+each mechanism, and on 113 production parses under light load. We ran no load
+test, and fault injection covers only the provider layer
+(\cref{sec:c6-cost}), not the database, the storage, or the worker.
 
 We did not measure three things: whether the text generated for a page is
 grounded in that page, whether the new routing rule improves what learners
