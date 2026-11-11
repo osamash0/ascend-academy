@@ -524,13 +524,13 @@ professor role, which in production only an administrator grants.
 \begin{table}[htbp]
   \centering\small
   \caption{Declared, tested, and deployed: database-side rules that bear on
-    \cref{ch:loop,ch:trust}. \enquote{Repository} is the migrations at the
-    pin, \enquote{tested} the database tests that replay them, and
-    \enquote{production} the read-only probe of 11~November 2026.}
+    \cref{ch:loop,ch:trust}. The middle column is what the migrations at the
+    pin declare and the database tests that replay them check, the right
+    column what the read-only probe of production found on 11~November 2026.}
   \label{tab:deployed}
   \begin{tabular}{@{}p{0.27\textwidth}p{0.3\textwidth}p{0.35\textwidth}@{}}
     \toprule
-    Rule & Declared in the migrations, tested on a database built from them & Deployed: production, 11~November 2026 \\
+    Rule & Declared and tested & Deployed (11~November 2026) \\
     \midrule
     Event table partitioned by month &
       declared; the tests check the partitions &
