@@ -160,12 +160,17 @@ the load too light, to measure reliability under real use.
 
 Everything that can reject an upload cheaply happens in the API, before it
 queues a job. The API checks authentication and a rate limit of five uploads
-per minute (ten on the route that the current interface uses), then the
-ownership of the target course. It reads at most 50\,MB and validates type,
+per minute (ten on the route that the current interface uses), then that the
+uploader owns the target Space. It reads at most 50\,MB and validates type,
 signature, and page count (at most 300). The SHA-256 hash of the file becomes
 its identity for the rest of the pipeline. For students the API makes an
-atomic claim on a monthly quota, and queue backpressure refuses with 429 once
-50 jobs wait. Only then does the API store the file and enqueue the job.
+atomic claim on a monthly quota, which caps what one student's uploads can
+cost. The limit is a setting, five by default and thirty in production,
+chosen rather than derived. Queue backpressure refuses with 429 once 50 jobs
+wait, so that a burst of uploads meets an honest refusal instead of an
+open-ended wait for the one worker, which runs at most four jobs at a
+time. The ceiling is a setting, not a
+measured capacity. Only then does the API store the file and enqueue the job.
 Outside development the API never falls back to parsing inside the
 request. Two qualifications apply: the backpressure check fails open when it cannot read the queue depth, and the route that the current interface uses applies the quota but no queue ceiling, so admission control is a property of each route
 and not of the pipeline.
