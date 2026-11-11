@@ -24,7 +24,7 @@ question with its key, and the task behind a graded exercise.
 
 One rule runs through the chapter. Where the system can compute an answer, it computes it and does not ask the model. Where it cannot, a second model that did not write the content decides.
 Where neither is possible, nothing checks the content, and the original page,
-which a learner sees first, remains the reference. The checks drop what fails them, except three that only mark an item; we name these where they occur.
+which a learner sees first, remains the reference. The checks drop what fails them, except three that only mark an item, which we name where they occur.
 
 No check in the system decides whether a sentence of
 generated prose is true. Every verifier below, that is, every step that computes, validates, filters,
@@ -47,9 +47,9 @@ nothing at run time and it is the fallback for every mechanism that follows.
 \section{Answers Grounded in the Space}
 \label{sec:tutor}
 
-A learner can ask in three places: the ask bar on the home screen, which
-answers from a whole Space; a study session with the assistant, Luna; and
-Explain and Ask on a single page of the reading view. \Cref{fig:groundedness} in
+A learner can ask in the ask bar on the home screen, which answers from a
+whole Space, in a study session with the assistant, Luna, and through Explain
+and Ask on a single page of the reading view. \Cref{fig:groundedness} in
 \cref{sec:rag} places them on a scale of how strongly the answer is tied to
 the material. This section describes the strongest of them in detail and then
 contrasts the other two.
@@ -64,11 +64,11 @@ keeps the best six (\code{ai/retrieval.py}). The SQL query applies the scope, as
 afterwards (migration \code{20261014000000}).
 
 This scope was wrong for a long time. Until 11~October 2026 the scoped search joined the embeddings on a column
-that is empty for most rows, because the content hash is the key of the embeddings;
-the fix reached the main branch with PR~\#96 on 24~October, and no record says when it reached production. Pages whose embeddings lacked that column
-were invisible to the ask bar and to the global search; the fix, commit
+that is empty for most rows, because the content hash is the key of the embeddings.
+The fix reached the main branch with PR~\#96 on 24~October, and no record says when it reached production. Pages whose embeddings lacked that column
+were invisible to the ask bar and to the global search. The fix, commit
 \code{b66a97c6}, records 40 such rows out of 68 in one Space and adds a
-database test that fails on the old join. No record says how large the blind part was in other Spaces; the
+database test that fails on the old join. No record says how large the blind part was in other Spaces. The
 retrieval measurement of September, taken in another Space, found the right
 page among its six hits for 26 of the 27 questions it could run there
 (96\,\%) under the old join. Every later check depends on retrieval: a
@@ -109,8 +109,8 @@ strictly from the retrieved pages, cited them, and refused everything else.
 On 24~June 2026 a commit removed the refusal from the tutor of the older interface (commit
 \code{f39e93dc}). Since then that tutor may add knowledge from outside the
 material if it puts it in a block quote and says that it goes
-beyond the slides (\code{ai/prompts.py:506--540}). This is a prompt rule; no
-code checks that the model keeps it. The repository does not record why the commit removed the refusal;
+beyond the slides (\code{ai/prompts.py:506--540}). This is a prompt rule, and no
+code checks that the model keeps it. The repository does not record why the commit removed the refusal, and
 \cref{sec:c6-history-detail} gives what the repository shows.
 
 Two tutors therefore exist at \code{\thesisCommit}. The tutor of the older interface has no refusal gate and allows labelled
@@ -128,12 +128,12 @@ pages of the Space by full-text search. Explain and Ask get no search at all.
 Both surfaces check the shape of what the model writes.
 
 Luna names pages and lights up phrases on them. The validator drops a move to a page that does not exist, and a phrase survives only if it occurs literally on that
-page (\code{luna/validate.py}; 12 unit tests). A check question must have
+page (\code{luna/validate.py}, 12 unit tests). A check question must have
 exactly one correct option. The file states the rule for Luna's structured output in its first line:
 nothing the model writes reaches a learner unchecked, and the validator drops what fails and never shows it broken.
 
 Explain in the reading view sees the text of one page and the titles of up to four
-neighbouring pages (\code{v4\_reader\_service.py:728}); Ask sees the same
+neighbouring pages (\code{v4\_reader\_service.py:728}), and Ask sees the same
 page and up to four earlier turns of the conversation. Their output
 must parse into a fixed set of blocks, and the service drops a block that does not
 (\code{v4\_reader\_service.py}, \code{validate\_answer}). Beyond that they rely
@@ -148,7 +148,7 @@ A citation that the server validates and no screen shows gives the learner nothi
 (\cref{fig:citation-gap} in \cref{app:figures}): the server computed and filtered citations, only its own test imported the one component that rendered them, and the
 screens in use either ignored the field or showed the page that happened to be
 open. In the current interface the ask bar shows each citation as a link to
-its page. The reading view's Explain and Ask still show none; their only source is
+its page. The reading view's Explain and Ask still show none. Their only source is
 the open page itself. A learner cannot perceive a trust mechanism that no screen shows, which limits what any later study of perceived reliability could
 find.
 
@@ -201,7 +201,7 @@ here.
 
 \thesisfigure{f24-question-lifecycle}
   {The life of one quiz question during a parse. Three stages can drop it, one only marks it, and a disputed key gets one
-   repair on the same page; a second dispute drops the question.}
+   repair on the same page, and a second dispute drops the question.}
   {fig:question-lifecycle}
 
 During a parse the model writes five to eight multiple-choice questions for
@@ -222,9 +222,9 @@ happens next.
         key that is not on the page, or a distractor that the page supports
         better than the key, only marks the question, because the switch that would
         make these checks drop it is off (\code{parser/synthesis.py:55--63}).
-        Learners still see a marked question; the pipeline stores the mark with it and counts it in the parse receipt.
+        Learners still see a marked question, and the pipeline stores the mark with it and counts it in the parse receipt.
   \item[Lexical support.] A score measures how much of the key's wording
-        occurs on the cited page; below 0.5 the pipeline marks the question. It does not drop it, for the reason that \cref{sec:c6-evaluation} measures.
+        occurs on the cited page. Below 0.5 the pipeline marks the question. It does not drop it, for the reason that \cref{sec:c6-evaluation} measures.
   \item[Answer check.] A second model reads the cited page, the question, and
         the options, without the key, and answers as a careful student would
         (PR~\#166). If it picks another option, finds a second defensible
@@ -233,7 +233,7 @@ happens next.
         not move the question to another page.
 \end{description}
 
-Two properties of the answer check are design decisions. First, the model that checks a question is not the model that wrote it. The small model at the head of the bulk chain writes the question; the check runs on the quality chain, led by a larger reasoning
+Two properties of the answer check are design decisions. First, the model that checks a question is not the model that wrote it. The small model at the head of the bulk chain writes the question, and the check runs on the quality chain, led by a larger reasoning
 model (\cref{sec:provider-strategy}). At the pin the heads of both chains are models of the
 same provider (\code{orchestrator.py:389}, \code{:393}), so the
 independence is one of model, not of vendor. The pull request records the reason for a different model with a measurement: when a
@@ -282,17 +282,20 @@ lexical score, where they keep the check for ambiguous options from masking
 the raw score (\code{grounding\_probe.py}, rule~5). For the answer check
 they make the task easier, because a model that answers without the key finds
 only one option on the subject of the page. A
-verifier that works on wording will fail the first; a verifier that works on
+verifier that works on wording will fail the first, and a verifier that works on
 topic will fail the second. The expected shape was that the lexical score
 drops paraphrases, and that a semantic score repairs this without keeping the
 wrong keys.
 
-For the semantic score we fixed the procedure in writing before the first embedding request: the scoring rule; that we fit the threshold only on a separate calibration set of key pairs from other decks; that we score the probe once; the acceptance criterion (at most two
-calibration errors, at most two good keys dropped, at most one wrong key kept);
-what follows from a pass and from a fail; and a named risk, that the question
-text without its options (the stem) could dominate the embedding and raise
-wrong keys above the threshold. The threshold itself,
-0.774, is the fitted value; we did not register it in advance.
+For the semantic score we fixed the procedure in writing before the first
+embedding request. It fixed the scoring rule, a threshold fitted only on a
+separate calibration set of key pairs from other decks, and a single scoring
+of the probe. It fixed the acceptance criterion (at most two calibration
+errors, at most two good keys dropped, at most one wrong key kept) and what
+follows from a pass and from a fail. And it named a risk: the question text
+without its options (the stem) could dominate the embedding and raise wrong
+keys above the threshold. The threshold itself, 0.774, is the fitted value,
+which we did not register in advance.
 
 \subsection{Results}
 \label{sec:c6-results}
@@ -332,7 +335,7 @@ against a limit of one. On the calibration set it made ten errors against a
 limit of two. On the probe, similarities fell into a narrow band between
 0.70 and 0.91,
 because the stem dominates the embedding and a wrong key on the same topic
-scores like a right one. The procedure had fixed the consequence in advance: we reverted the wiring into the parse and ruled out tuning the threshold against the same probe. We closed the experiment without a merge (PR~\#94); its
+scores like a right one. The procedure had fixed the consequence in advance: we reverted the wiring into the parse and ruled out tuning the threshold against the same probe. We closed the experiment without a merge (PR~\#94), and its
 code and record exist only under an archive tag. This negative result is
 the reason the next attempt did not use similarity at all.
 
@@ -363,14 +366,14 @@ there, which the author drafted with AI assistance from the page text and review
 science outside databases, and ten on database topics that the three Lessons
 do not cover. With the settings of production the gate let all 27 through and
 refused all 30. The 27 answerable questions had already passed the gate in
-September, so this half replicates a known outcome; the new evidence is the
+September, so this half replicates a known outcome. The new evidence is the
 30 unanswerable ones. Zero errors in 30 is compatible with a rate of wrongly
 accepted questions of up to 12\,\%. The similarities of the answerable and the unanswerable questions do not
 overlap, but the gap is narrow: no unanswerable question reaches more than
 0.634, the weakest answerable question reaches 0.659, and the threshold of
 0.65 lies between them. A
 threshold of 0.75 would have refused 13 of the 27 answerable questions. We had
-predicted that some of the absent database topics would pass the gate; none
+predicted that some of the absent database topics would pass the gate, but none
 did. For the answerable questions, the expected page was among the first five hits in 25 of 27 cases (the
 closest setting the grid measured to the six hits the ask bar keeps).
 
@@ -379,7 +382,7 @@ closest setting the grid measured to the six hits the ask bar keeps).
 
 The probe is small, and the developer of the system wrote it, in two
 subjects from one university. Sixteen pairs show how a verifier behaves on
-these chosen cases; they do not estimate an error rate in production.
+these chosen cases and do not estimate an error rate in production.
 The wrong keys are on the topic but plainly false, and every distractor is
 off the subject, so a keep rate of zero shows that the check rejects such keys
 when no other option is plausible. It does not show that the check rejects
@@ -422,11 +425,11 @@ between the model and the learner, which is why the system drops an item that fa
 \Cref{tab:mechanisms} in \cref{sec:c6-inventory-table} groups the
 26~mechanisms that exist in the code by what they guard. The verifiers guard mainly structure and answer keys, where a check can be exact. Prompt rules guard meaning on every surface, and the answer check guards it for quiz keys only.
 
-Three things do not exist. There is no entailment check: nothing tests directly whether a page logically
+There is no entailment check: nothing tests directly whether a page logically
 supports a key or a sentence. The answer check tests a key only indirectly,
 by whether a second model reaches it, and the lexical module says itself
 that it is no such test. There is no detector for invented content in the prose of
-Explain, Ask, or Luna; current surveys treat this as an open
+Explain, Ask, or Luna, and current surveys treat this as an open
 problem~\cite{ji2023hallucination,huang2025hallucination}. And nothing checks
 that the older tutor really puts outside knowledge into a block quote.
 
