@@ -218,21 +218,27 @@ changed on 25 decks.
 
 One function decides how the pipeline reads each page. It measures the PDF page
 itself, so the decision does not depend on which parser supplied the text. It counts the page's own text, leaving out
-running footers, and the share of the page that figures cover. A page with fewer
+running footers, and the share of the page that embedded images cover. A page with fewer
 than 25 characters of text has nothing to read but the picture (a scan, a photo)
-and goes to a vision model. A page with fewer than 150 characters whose figures
-cover at least 5\,\% of it depends on its figure and also goes to vision,
+and goes to a vision model. A page with fewer than 150 characters whose embedded images
+cover at least 5\,\% of it depends on its image and also goes to vision,
 keeping its own text as content while the vision model supplies title and
 summary. Every other page is text. The pipeline synthesises text pages in batches of eight with one model call per batch and falls back to one call per page. It renders vision pages as images at twice the base resolution. If a vision call fails for a page without text, the pipeline keeps the raw text and flags the page for review. The parse receipt stores the reason for each page's route.
+
+The rule counts embedded images only. A diagram drawn with lines and boxes
+does not count as a figure, so such a page goes to
+vision only if it has fewer than 25~characters (\cref{fig:page-types}c).
+Otherwise the text model reads its labels without the drawing. How many pages
+of the corpus this affects we did not measure.
 
 This rule replaced a single character threshold (found, then fixed). Until
 November a page went to vision only if it had fewer than 25 characters of raw
 extracted text, and four places in the code made the decision with three different measures. The study in \cref{sec:c4-routing-study} showed what that meant: the
 old rule sent 12 of 1{,}593 pages to vision, almost all empty closing pages,
-while none of the 421 pages containing a figure reached a vision model. A page
+while none of the 421 pages containing an embedded image reached a vision model. A page
 number and a footer were enough to push a diagram over the threshold. The new
 rule sends 87 pages of the same corpus to vision: the 12 pages without text
-and 75 of the 421 pages with a figure, at one vision call each. An offline check (\code{backend/eval/routing\_check.py})
+and 75 of the 421 pages with an image, at one vision call each. An offline check (\code{backend/eval/routing\_check.py})
 fails if a change moves that count outside 75 to 100.
 
 A generator-aware classifier and a second, richer router also exist in the
