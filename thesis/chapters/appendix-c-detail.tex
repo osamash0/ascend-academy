@@ -421,7 +421,13 @@ Migrations are not the only source of truth for the deployed database. The
 production database has a vector column on \code{slides} that no migration
 defines; in August 2026 it was empty in all 5{,}445 rows. Three further tables
 exist only in production (probed in October 2026), and production's migration history records two of
-the migrations. The project therefore applies migrations by hand and checks
+the migrations. A read-only probe on 11~November 2026 found two more
+differences that bear on \cref{ch:loop}. The event table, which the
+migrations partition by month, is a plain table in production. And the
+sign-up function of the repository (migration \code{20260615000800}) grants
+a role requested at sign-up, student or professor, while both sign-up
+functions in production insert the student role only, so that only an
+administrator can make an account a professor. The project therefore applies migrations by hand and checks
 the outcome against the system catalogue. The repository describes the intended
 database, and the running one has to be inspected.
 
@@ -503,6 +509,53 @@ question appears only once five different people asked it, and never with
 an id. The second change is the stronger one, because it holds even when a
 check is missing again.
 
+\paragraph{What production permits.}
+A read-only probe of the production catalogue on 11~November 2026 read the
+policies and function definitions that \cref{tab:deployed} lists. These are
+readings of what a policy permits; we tested no exploit. The anonymous role
+was the subject of the audit of October (\cref{sec:hardening}); the probe
+also covered the signed-in role, \code{authenticated}, which every account
+holds.
+
+\begin{table}[htbp]
+  \centering\small
+  \caption{Declared, tested, and deployed: database-side rules that bear on
+    \cref{ch:loop,ch:trust}. \enquote{Repository} is the migrations at the
+    pin, \enquote{tested} the database tests that replay them, and
+    \enquote{production} the read-only probe of 11~November 2026.}
+  \label{tab:deployed}
+  \begin{tabular}{@{}p{0.27\textwidth}p{0.3\textwidth}p{0.35\textwidth}@{}}
+    \toprule
+    Rule & Repository and tests & Production, 11~November 2026 \\
+    \midrule
+    Event table partitioned by month &
+      declared; the tests check the partitions &
+      plain table, no partitions \\
+    Role at sign-up &
+      student or professor, as requested &
+      student only; professor set by an administrator \\
+    Professor reads members' events &
+      policy present &
+      present; covers a member's events in every Space \\
+    Lecture rows: course ownership &
+      not checked by the insert policy; checked in the API &
+      not checked by the insert policy \\
+    Self-enrolment &
+      a student may enrol in any course &
+      as in the repository; publication not checked \\
+    Lecture posters (page~1 image) &
+      readable by every signed-in account &
+      as in the repository, private uploads included, given the path \\
+    \code{get\_user\_profile} &
+      executable by every signed-in account &
+      as in the repository; returns name, picture, and institution for any id \\
+    \code{SECURITY DEFINER} functions &
+      anonymous execution revoked (October) &
+      49 executable by \code{authenticated}; whether each checks its caller was not audited \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 \paragraph{A boundary repaired in steps.}
 The owner's view is only as private as the database beneath it, which is why
 the history of that boundary belongs to the answer to RQ2. The database
@@ -540,7 +593,10 @@ was reproduced on a local database, closed, and is guarded by 13~tests
 (\code{20260721000001}). The repair was incomplete, because the hosting
 service grants execution to the anonymous role directly: a probe of
 production on 11~October 2026 found 42 such functions that an anonymous
-caller could execute (\code{20261011000000}).
+caller could execute (\code{20261011000000}). That probe and its migration
+covered the anonymous role only. On 11~November 2026, 49 such functions were
+executable by the signed-in role, and we did not audit whether each checks
+its caller (\cref{tab:deployed}).
 
 The third class is drift between repository and production. The storage
 bucket for lecture PDFs had been made private in the repository in May.

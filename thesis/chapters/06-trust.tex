@@ -178,7 +178,15 @@ the rule of the first layer.
 Rewriting the markers does not make injection impossible. An output check bounds the damage only in three places:
 Luna's literal phrase check, the citation check of the ask bar, and the block
 validation of the reading view. An injected instruction that makes the reading
-view's Explain write something false in well-formed blocks would pass. One earlier hole widened the audience, and the developers closed it: the single-file upload did not check who owned the target course (fixed in \code{722167b0}, with 10 tests).
+view's Explain write something false in well-formed blocks would pass. One earlier hole widened the audience: the single-file upload did not
+check who owned the target course. The developers closed it on the API path
+(\code{722167b0}, with 10 tests). On the database path it is open. The
+policy that lets an account create a lecture row checks only that the row
+names its creator as owner, not that the creator owns the course it names
+(migration \code{20260713000000}; production, read on 11~November 2026). The
+policy therefore permits a signed-in user who writes to the database directly
+to add a lecture row to another owner's Space, whose members can then read
+it. We did not test whether text in such a row reaches a model prompt.
 
 \section{Questions That Carry a Key}
 \label{sec:assessment}

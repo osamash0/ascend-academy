@@ -76,7 +76,9 @@ and to the database, which still stores a Space as a course
 In the code a Space knows two roles: the \emph{owner}, who created it, and
 the \emph{member}, who joined it
 (\code{backend/services/v4\_spaces\_service.py:139--142}). Any signed-in
-user can create a Space and can join a published one. Creating a Space
+user can create a Space and can join a published one; the database policy
+also lets a student account enrol in one that is not published
+(\cref{tab:deployed}). Creating a Space
 needs no particular account type, and only its owner can publish it, so a student can own and publish a Space. A third role, an editor, appears in design documents and does not exist in the code. The account types of the older interface (student, professor,
 admin) still exist and still guard the older interface; \cref{sec:authorisation} shows one place
 where the two permission schemes, account type and Space ownership,

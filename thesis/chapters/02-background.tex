@@ -143,16 +143,20 @@ context~\cite{deterding2011gamification,hamari2014gamification,sailer2020gamific
 \label{sec:analytics-privacy}
 
 Learning analytics collects traces of what learners do and returns them to
-someone who can act on them.
-\TODO{Author: add one citation for the learning analytics cycle (the outline
-names Clow 2012; it was not verified and is not in references.bib).}
+someone who can act on them, and Clow describes this as a cycle that is only
+complete when the action reaches the learners again~\cite{clow2012cycle}.
 The person who can act on a confusing page is the lecturer who made it. The
 traces are personal data, however, and in a course of twenty the lecturer
 knows every reader. The General Data Protection Regulation asks for data protection by
 design and by default~\cite{gdpr2016}. A classic technical measure is a
 minimum group size: under $k$-anonymity a released record must be
 indistinguishable from at least $k-1$ others~\cite{sweeney2002kanonymity}.
-\Cref{ch:loop} applies the idea not to released records but to released statements: the view says nothing about a page that fewer than five people have
+A minimum group size has known limits. It does not protect a value that
+every member of the group shares, which $\ell$-diversity
+addresses~\cite{machanavajjhala2007ldiversity}, and it says nothing about
+what two releases reveal together. Differential privacy bounds the latter by
+adding calibrated noise to every released statistic~\cite{dwork2006dp}.
+\Cref{ch:loop} applies the idea of a minimum group size not to released records but to released statements: the view says nothing about a page that fewer than five people have
 read. We call a view privacy-preserving in this thesis if no statement it
 releases is about fewer than five people; \cref{ch:loop} measures the
 owner's view against this criterion.
