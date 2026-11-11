@@ -240,11 +240,27 @@ pages with at least one figure block and 25 to 150 raw characters, answering
 for each whether a text model could explain the page from its text alone. The author labelled 53, all as needing the image, and left two unlabelled. The rule in the code at the pin (vision for a page with fewer than 25
 footer-free characters, or with fewer than 150 footer-free characters and
 figures covering at least 5\,\% of it) sends 87 pages of the corpus to
-vision: the 12 pages without text and 75 figure-carried pages. It
+vision: the 12 pages without text and 75 figure-carried pages
+(\cref{fig:routing}). It
 catches 52 of the 53 labelled pages and both unlabelled ones; the one miss is
 a page whose figure covers less than 5\,\% of it. The alternative of routing
 every page under 150 characters would have cost 149 vision calls instead of
 87 and caught all 53 labelled pages, one more than the rule in the code.
+
+\thesisfigure{f25-routing}
+  {Routing at the pin on all 1{,}593 pages of the 25 Deck Lab decks. Each dot
+   is a page, placed by its text without footers and by the share of the page
+   its figures cover; pages without a figure lie in the strip under the axis.
+   The outlined region is the rule: under 25 characters, or under 150 with
+   figures covering at least 5\,\%. Ringed pages are the 12 that the old
+   25-character rule sent to vision. Numbered pages: (1)~an empty closing
+   page; (2)~a diagram with a page number and footer, read as text before;
+   (3)~a page with 152 raw characters but 91 without its footer; (4)~the same
+   case in a systems deck; (5)~a figure page with enough text to stay text;
+   (6)~the one labelled figure page the rule misses, its figure covering
+   4.7\,\% of the page. The x axis is logarithmic in characters plus 20, the
+   y axis a square root.}
+  {fig:routing}
 
 \paragraph{What this does and does not show.} The author made the labels on a sample chosen to be the hard case and then shaped the rule to catch them. The 52 of 53 is a fit on the calibration set of the rule and
 not an accuracy. Of the 75 figure-carried pages the rule routes to vision, 21 lie outside the
