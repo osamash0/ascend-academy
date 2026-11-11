@@ -516,7 +516,10 @@ policies and function definitions that \cref{tab:deployed} lists. These are
 readings of what a policy permits, and we tested no exploit. The anonymous role
 was the subject of the audit of October (\cref{sec:hardening}), and the probe
 also covered the signed-in role, \code{authenticated}, which every account
-holds.
+holds. Three attackers matter for these rules. The first is any signed-in
+account, which every sign-up creates. The second is the owner of a Space, who
+can also create further accounts. The third is an owner who also holds the
+professor role, which in production only an administrator grants.
 
 \begin{table}[htbp]
   \centering\small
@@ -527,7 +530,7 @@ holds.
   \label{tab:deployed}
   \begin{tabular}{@{}p{0.27\textwidth}p{0.3\textwidth}p{0.35\textwidth}@{}}
     \toprule
-    Rule & Repository and tests & Production, 11~November 2026 \\
+    Rule & Declared in the migrations, tested on a database built from them & Deployed: production, 11~November 2026 \\
     \midrule
     Event table partitioned by month &
       declared; the tests check the partitions &
