@@ -54,24 +54,27 @@ The input makes three demands on the design.
     (\cref{fig:page-types}). 421 of the 1{,}593 pages contain at least one
     embedded image, and 12 have fewer than 25~characters: eleven empty
     closing photo pages and a summary page with 11~characters. The systems
-    decks carry a footer and a page number on every page, and the database
+    decks carry a footer and a page number on almost every page, and the database
     decks carry a course name. A method that reads only the text layer reads
     the footer with the same confidence as the content. It reads a drawn
     diagram as a handful of loose labels.
   \item[A reader should not wait.] The reader should start on a deck at once,
     as with any PDF, while the system prepares everything else in the
-    background. Preparing a deck takes minutes. In one measured run of
+    background. Preparing a deck can take minutes. In one measured run of
     October 2026, an 82-page deck took about twelve minutes (703\,s) from
     upload to a complete reader, and the last three and a half minutes passed
     after the worker had written the last page
     (\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak reader-timing.md}).
     The pipeline therefore runs behind the reader, not in front of it.
-  \item[Model calls cost money and fail.] The project began on the free tiers
-    of hosted models. Their rate limits stopped bulk parsing within minutes
-    and changed without notice, so we could not test the parser at our own
-    pace. We considered running a model locally but chose a paid
-    API. Setting up and operating a local model would have cost time the
-    project did not have, and its cost would have been harder to compare. On
+  \item[Model calls cost money and fail.] The first AI features ran on a
+    local model, which the project replaced after a few weeks with the free
+    tiers of hosted models. Their rate limits stopped bulk parsing within
+    minutes, so we could not test the parser at our own pace
+    (\cref{sec:provider-history}). A self-hosted model on a university GPU
+    server was planned but not set up. Setting it up and operating it would
+    have cost time and required experience we did not have, and we did not
+    expect it to make the work easier. Its cost would also have been harder
+    to compare, so we chose a paid API instead. On
     a small budget with a provider that charges per token, every call has a
     price. That makes the number of model calls per deck a design variable.
     It also makes the central comparison of this chapter possible: whether a
@@ -89,13 +92,14 @@ The input makes three demands on the design.
     \includegraphics[width=0.48\textwidth]{f26-page-types-d} \\
     \small (c) A diagram drawn with lines: 63 characters of labels, read as
     text. &
-    \small (d) A plot with a running footer: 97 characters, 32 without the
+    \small (d) A plot with a running footer: 32 characters, 97 with the
     footer; the image covers 45\,\% of the page, so it goes to vision. \\
   \end{tabular}
   \caption{Four pages of the corpus, drawn from their real layout: each line
     of text is a bar, bullets are dots, lines with formula symbols are
     hatched, a footer is dashed, and an embedded image is a crossed box. The
-    content of the slides is not shown. The routing rule does not count a
+    content of the slides is not shown, and character counts leave footers
+    out. The routing rule does not count a
     drawing as a figure, so page~(c) is read as text, while an image page with
     this little text goes to vision. Script:
     \code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak page-types/}.}
