@@ -31,7 +31,7 @@ course to the page. In the system that production has served since 29~October
 (\code{docs/\allowbreak superpowers/\allowbreak specs/\allowbreak 2026-10-26-library-and-spaces-design.md}).
 
 We therefore built the interface twice. We wrote the second interface, which the repository calls v4 (a label unrelated to the numbered pipeline versions of \cref{sec:c4-lineage}), as a new part of the frontend beside the first one and not as a refactoring of it (\code{docs/design-v4/UI-SESSION-BRIEF.md},
-PR~\#55). The repository records how we did this and not why we ruled out refactoring. The author's recollection, which nobody recorded at the time, is that the first interface assumed a university, with professors and courses, while the second had to work for any material and any group. We call the screens of the first interface, one per course, lecture, and professor, the \emph{older interface} below; they still exist in the code but no longer
+PR~\#55). The repository records how we did this and not why we ruled out refactoring. The author's recollection, which nobody recorded at the time, is that the first interface assumed a university, with professors and courses, while the second had to work for any material and any group. We call the screens of the first interface, one per course, lecture, and professor, the \emph{older interface} below. They still exist in the code but no longer
 receive learners. The backend changed more often:
 \cref{sec:c4-lineage} lists nine generations of the parsing pipeline
 in ten months.
@@ -45,7 +45,7 @@ Five principles hold across the current system.
   \item[Deterministic first, AI second.] Code decides what code can decide: page hashes, the plan of a deck, the route of a page, the grading
     of a computable answer.
   \item[Parse once.] The system processes a file once per uploader and reuses the result for every reader of that upload.
-  \item[The server decides.] The server computes points, progress, and grades; the browser displays them.
+  \item[The server decides.] The server computes points, progress, and grades, and the browser displays them.
 \end{description}
 
 \section{Vocabulary and Roles}
@@ -59,15 +59,15 @@ of paper. An \emph{idea} is one thing the material teaches, usually a run of
 consecutive pages that a model groups when a Lesson is first read. The
 \emph{Library} holds a person's own uploads, which the code calls materials.
 The \emph{reading view} is the screen in which a person reads a Lesson. It shows
-each page in three views: the original page, which opens first; an
-explanation that a model writes from it; and its plain text. A
+each page in three views: the original page, which opens first, an
+explanation that a model writes from it, and its plain text. A
 \emph{reader} is a person who reads. On a single page the reading view
 offers \emph{Explain}, which explains the page, and \emph{Ask}, which
-answers a learner's question about it; the \emph{ask bar} on a Space's home
+answers a learner's question about it. The \emph{ask bar} on a Space's home
 screen answers from all its Lessons. \emph{Luna} is the assistant of study
-sessions; she works through pages with the learner and runs short practice.
-The \emph{owner} is the person who made a Space and uploads its material;
-where this thesis means the person who wrote the material, it says
+sessions. She works through pages with the learner and runs short practice.
+The \emph{owner} is the person who made a Space and uploads its material.
+Where this thesis means the person who wrote the material, it says
 \emph{lecturer}, and \emph{the author} always means the writer of this
 thesis. The words course, lecture, and slide belong to the older interface
 and to the database, which still stores a Space as a course
@@ -76,11 +76,11 @@ and to the database, which still stores a Space as a course
 In the code a Space knows two roles: the \emph{owner}, who created it, and
 the \emph{member}, who joined it
 (\code{backend/services/v4\_spaces\_service.py:139--142}). Any signed-in
-user can create a Space and can join a published one; the database policy
+user can create a Space and can join a published one. The database policy
 also lets a student account enrol in one that is not published
 (\cref{tab:deployed}). Creating a Space
 needs no particular account type, and only its owner can publish it, so a student can own and publish a Space. A third role, an editor, appears in design documents and does not exist in the code. The account types of the older interface (student, professor,
-admin) still exist and still guard the older interface; \cref{sec:authorisation} shows one place
+admin) still exist and still guard the older interface. \Cref{sec:authorisation} shows one place
 where the two permission schemes, account type and Space ownership,
 conflicted. \Cref{fig:use-case} in
 \cref{app:figures} shows actors and goals as implemented, and
@@ -95,24 +95,25 @@ what a learner can reach. Twelve backend flags, all off by default, guard the fe
 and uploads by students.
 
 \thesisfigure{f17-flag-reality}
-  {Built versus delivered. Twelve backend flags, all off by default;
-   production switches on four. Since the end of October the build sets each frontend flag from its backend flag, which removed the screens that, at the earlier revision \thesisEarlierCommit{} (August 2026), the interface showed while their backend was off.}
+  {Built versus delivered. Twelve backend flags are all off by default, and
+   production switches on four. Since the end of October the build sets each frontend flag from its backend flag. This removed screens that the interface showed at the earlier revision \thesisEarlierCommit{} (August 2026) while their backend was off.}
   {fig:flag-reality}
 
-With these four flags a learner can upload a PDF, read it in the three views of the reading view, let Explain explain a page, ask a
+With these four flags a learner can upload a PDF, read it in the three views
+of the reading view, and let Explain explain a page. The learner can ask a
 question about a page or about a whole Space and get an answer with links to
-pages, answer checkpoint questions, which a model writes for the pages of one
-idea while the learner reads, run a practice session
-with Luna, whose cards a variant of SM-2 schedules, take notes, and
-see a history of earned points. An owner can publish a Space. The view of how people read it entered the main branch two days after the pinned revision
+pages. A model writes checkpoint questions for the pages of one idea while
+the learner reads, and the learner answers them. The learner can also run a
+practice session with Luna, whose cards a variant of SM-2 schedules, take
+notes, and see a history of earned points. An owner can publish a Space. The view of how people read it entered the main branch two days after the pinned revision
 (\cref{ch:loop}).
 
 The review engine of the older interface, an exam mode, generated study
 guides, and a global search page exist in the code, and a learner cannot reach them in the current interface. We do not count them as delivered.
 
 The thesis describes revision \code{\thesisCommit}. Since November 2026
-production runs the main branch at \code{2e146f51}, which is the described
-revision and three later merges: a change to the home screen (PR~\#170),
+production runs the main branch at \code{2e146f51}. That is the described
+revision plus three later merges: a change to the home screen (PR~\#170),
 the owner's view of \cref{ch:loop} (PR~\#181), and the backend of a fourth view of a page, which a flag keeps off (PR~\#182, \cref{sec:future-work}).
 
 \section{Architecture}
@@ -120,7 +121,7 @@ the owner's view of \cref{ch:loop} (PR~\#181), and the backend of a fourth view 
 
 \thesisfigure{f6-components}
   {Component view of the deployed system. The API and the worker, built from
-   one Dockerfile, call the LLM providers directly; the current interface depends on the direct asyncpg pool to
+   one Dockerfile, call the LLM providers directly. The current interface depends on the direct asyncpg pool to
    PostgreSQL, a dependency that the readiness check (\cref{sec:deployment})
    does not test.}
   {fig:components}
@@ -138,7 +139,7 @@ instances serve as cache and as job broker.
 The backend calls every LLM provider directly from one module
 (\code{backend/\allowbreak services/\allowbreak ai/\allowbreak orchestrator.py}), where failover, rate limiting, and cost
 accounting live. At \code{\thesisEarlierCommit} the production stack still
-contained a LiteLLM gateway that no code path used; the developers removed it in August and September 2026 (\cref{tab:decisions}), and the backend README still describes it. The design that we defend here is therefore two ordered provider
+contained a LiteLLM gateway that no code path used. The developers removed it in August and September 2026 (\cref{tab:decisions}), and the backend README still describes it. The design that we defend here is therefore two ordered provider
 chains inside the application (\cref{sec:provider-strategy}), not a gateway
 in front of many providers.
 
@@ -185,7 +186,7 @@ five of them also at the corrected lower bound.
 \section{Constraints}
 \label{sec:constraints}
 
-Four constraints shaped the design more than any requirement. The system
+Constraints shaped the design more than any requirement did. The system
 runs on one virtual machine with two virtual CPUs and 4\,GB of memory.
 Model calls run on free or low-cost quotas, which is why every chain of
 providers in \cref{ch:content} has a fallback and a spending cap. The
