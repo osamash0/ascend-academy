@@ -36,7 +36,7 @@ people have read.
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.78\textwidth]{f1-transformation}%
-  \caption{The transformation this thesis addresses. The system keeps one PDF as the reading surface and turns it into independently addressable learning objects; every capability students use in production builds on one of them.}%
+  \caption{The transformation this thesis addresses. The system keeps one PDF as the reading surface and turns it into independently addressable learning objects. Every capability students use in production builds on one of them.}%
   \label{fig:transformation}%
 \end{figure}
 
@@ -106,18 +106,18 @@ We make four contributions.
 
 This is an engineering thesis. It describes a system that runs in production
 and evaluates its parts with curated data. In November 2026 the production database held 55 accounts on real mail or
-university domains among 216, the developers' own included; two had been
+university domains among 216, the developers' own included. Two had been
 active in the previous seven days, one of them a developer
 (\code{docs/\allowbreak thesis/\allowbreak evidence/}). We ran no user study, and no claim
 in this thesis is about what students learn.
 
 Two students built Learnstation, and each of them submits a thesis on the shared code base. The co-developer created the repository on
-23~January 2026; of its commits, 101 on all branches are theirs, the last on
+23~January 2026, and 101 of its commits on all branches are theirs, the last on
 28~August 2026. Their work includes the first content filter in three layers
 (commit \code{bfbe6c09}), the integration of the Groq provider
-(\code{76aa4b42}), the first anonymised analytics for lecturers
-(\code{3abfaa54}, \code{52ead4b5}), the wiring of external extractors into
-the fourth parser pipeline (\code{8aa255e2}), and about a dozen security
+(\code{76aa4b42}), and the first anonymised analytics for lecturers
+(\code{3abfaa54}, \code{52ead4b5}). They also wired external extractors into
+the fourth parser pipeline (\code{8aa255e2}) and made about a dozen security
 fixes in July 2026. This thesis covers the parts that came after or replaced them: the
 page-by-page pipeline and its benchmark, the event engine and the owner's
 view, the verification of generated questions, and the interface in which
@@ -129,20 +129,20 @@ paragraph's last two sentences with the agreed wording.}
 
 The thesis describes the code at revision \code{\thesisCommit} of
 6~November 2026, called \emph{the pin} below. \emph{In the code} means
-reachable at the pin; \emph{deployed} means running in production. We name three changes that the project merged after that date where they matter, and we mark them as later.
+reachable at the pin, and \emph{deployed} means running in production. We name three changes that the project merged after that date where they matter, and we mark them as later.
 
 \section{Method}
 \label{sec:method-note}
 
 We follow a build-and-evaluate approach. Each of the three main chapters
 describes what we built and ends with an evaluation. The extraction benchmark, the similarity verifier, and the re-run of the
-refusal gate had their expectations committed before the run; we wrote those of the study with scripted readers first but committed them with its results; the routing study, the deck-plan scorecard, and the answer check had
-none. \emph{We} is the voice of the text; we attribute what the author did alone, such as judging and labelling, to \emph{the author}. We checked statements about the system against the code at the revision named above, unless a section names a later
+refusal gate had their expectations committed before the run. For the study with scripted readers we wrote them first but committed them with the results. The routing study, the deck-plan scorecard, and the answer check had
+none. \emph{We} is the voice of the text. What the author did alone, such as judging and labelling, we attribute to \emph{the author}. We checked statements about the system against the code at the revision named above, unless a section names a later
 one, and against production where the two can differ. Where the repository does
 not record a reason for a decision, we say so and do not supply one.
 
 AI coding agents wrote most of the code under the author's direction. The project's development timeline counts 1{,}229 of
-1{,}599~non-merge commits up to 4~November 2026, about 77\,\%, as the work of an agent; for 111 of them the timeline infers this from the committing account. The author drafted the text of this thesis with the help of a language model and then revised it.
+1{,}599~non-merge commits up to 4~November 2026, about 77\,\%, as the work of an agent. For 111 of them the timeline infers this from the committing account. The author drafted the text of this thesis with the help of a language model and then revised it.
 We consider this part of the method and not a footnote to it, because we adopted practices in the later chapters, such as writing the test first, pre-registering thresholds, and pinning a revision, to keep agent-written code honest.
 \TODO{Author: the wording the faculty requires for the declaration of AI use
 is question 5 for the supervisor. Align this paragraph with it.}
@@ -168,10 +168,11 @@ RQ1 and RQ3 were added. The repository records neither reason.}
     verified and measured, and what happens when verification fails?
 \end{description}
 
-RQ1 runs from the first aim to the routing study, the benchmark, and the scorecard of \cref{ch:content};
-RQ2 from the first and third problem and the second aim to the study with
-scripted readers in \cref{ch:loop}; RQ3 from the sixth problem to the probe
-and the refusal gate of \cref{ch:trust}. The third aim has no question of its
-own; it is a property of the design, which we describe and do not measure.
+RQ1 leads from the first aim to the routing study, the benchmark, and the scorecard of \cref{ch:content}.
+RQ2 leads from the first and third problems and the second aim to the study
+with scripted readers in \cref{ch:loop}, and RQ3 from the sixth problem to
+the probe and the refusal gate of \cref{ch:trust}. The third aim has no
+question of its own. It is a property of the design, which we describe and do
+not measure.
 \Cref{ch:background,ch:system} give the background and the system, and
 \cref{app:glossary} lists the terms.
