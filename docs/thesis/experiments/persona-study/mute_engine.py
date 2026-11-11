@@ -2,13 +2,18 @@
 reports a finding or a theme (review pass (c), M8). Reach and figures stay as
 the real engine sent them. Same rule as check() in backend/eval/persona_study.py
 at a342dea9. Run: python3 mute_engine.py
+
+Expectations are grouped by what the view had to do. "show": a finding, themes,
+the weekly numbers or the reach word for enough readers must appear.
+"withhold": one of them must not appear. The three kinds in ABSENCE name an
+empty state, so their "must" is a withhold and their "must_not" is a show.
 """
 import json, pathlib
 
 here = pathlib.Path(__file__).resolve().parent
 rules = json.loads((here / "EXPECTATIONS.json").read_text())["pre_registered"]
 HARD = set(range(8, 13))
-SILENCE = {"figures_null", "reach_few", "quiet_about_B"}
+ABSENCE = {"figures_null", "reach_few", "quiet_about_B"}
 
 
 def present(s, mute):
@@ -25,16 +30,17 @@ def present(s, mute):
 
 
 for mute in (False, True):
-    met = {"detection": [0, 0], "silence": [0, 0]}
+    met = {"show": [0, 0], "withhold": [0, 0]}
     for path in sorted(here.glob("*.summary.json")):
         s = json.loads(path.read_text())
         p = present(s, mute)
         for kind, rule in rules.items():
             if s["arm"] in rule["must"]:
-                group = "silence" if kind in SILENCE else "detection"
+                group = "withhold" if kind in ABSENCE else "show"
                 ok = kind in p
             elif s["arm"] in rule["must_not"]:
-                group, ok = "silence", kind not in p
+                group = "show" if kind in ABSENCE else "withhold"
+                ok = kind not in p
             else:
                 continue
             met[group][0] += ok
