@@ -1,93 +1,67 @@
 % Drafted 2026-11-10 with AI assistance (Claude) from chapter 7. Every number
 % is taken from chapters 4 to 7. The author must read, revise and own every
 % sentence before submission.
+% Shortened 2026-11-11 (AI-assisted revision) to about 230 words per language;
+% persona-study numbers regrouped as in sec:c5-results.
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
 
-Lecture material travels as PDF. People can read such a file, but software
-cannot address what is on its pages, so the file cannot answer a question,
-check understanding, or tell the lecturer where readers struggle. This thesis
-describes Learnstation, a web application in production that turns an
-uploaded PDF into addressable content while the original page stays the
-reference. A reader opens the file at once; an assistant explains pages,
-asks about them, and runs practice; and a view shows the owner of the
-material how people read it.
+Lecture material travels as PDF. Software cannot address what is on its
+pages, so the file cannot answer a question, check understanding, or show
+the lecturer where readers struggle. Learnstation, the
+web application in production that this thesis describes, turns an uploaded
+PDF into addressable content while the original page stays the reference.
 
-We answer three questions. First, the transformation: a first pass uses no
-model, and one rule decides which pages need a vision model and sends 87 of
-1{,}593 pages there. In a blind benchmark of eleven extraction methods on
-24~pages, with 283~pairwise votes, the author rates transcription by one of two vision models highest (together they
-cost \$0.21 for the 24~pages). Nine of the ten alternatives score above the
-extractor that production runs; five of them stay above it at the lower end
-of a bootstrap interval corrected for testing ten methods at once, and four
-still do when we resample pages rather than votes. Second, the system records reader interaction in one log whose 17~event types a schema fixes, and detectors
-turn it into findings per page, of which nine kinds can reach the owner. The owner's view shows a
-finding only for a page that at least five people have read and never names
-a person. In a study with scripted readers, the view showed what it should in 5 of
-8~expected cases and stayed silent where it should in 13 of 15; an engine
-that never reports a finding would stay silent in all 15.
-Third, where the system can compute the answer to a generated question, it grades a learner's answer against the computed result and not against the key the model wrote. Quiz questions that a model writes while the system processes a PDF pass
-an answer check on a second model, which gave no wrong verdict among the
-calls that returned one on a fixed probe of 16~pairs of a correct and a
-wrong answer key, whose distractors are off the subject. A third verifier,
-which compared answer keys with the page by semantic similarity, failed its
-pre-registered test, and we did not adopt it.
+For the transformation (RQ1), a first pass without a model routes 87 of
+1{,}593 pages to a vision model. In a blind
+benchmark of eleven extraction methods on 24~pages with 283~pairwise votes,
+the author rated transcription by a vision model highest. Five of the ten
+alternatives stay above the production extractor at a lower bound corrected
+for ten comparisons, and four when pages rather than votes are resampled.
+For the feedback loop (RQ2), one governed log of 17~event types feeds an
+owner's view that names no one and stays silent on pages that fewer than
+five people have read. With scripted readers, the view
+showed what it should in 5 of 8~expected cases and stayed silent where it
+should in 13 of 15. For verification (RQ3), code grades computable answers, and
+a second model checks generated quiz questions.
+In the calls that returned a verdict, that check made no error on a probe of
+16~pairs with off-topic distractors. A similarity verifier failed its
+pre-registered test.
 
-Five limits apply. The author was the
-only judge of the benchmark. The owner's view entered the code only after the revision this thesis describes. Its threshold of five counts the
-readers of a page, not the people behind a finding. When the answer check is
-unavailable, the system keeps the question. We ran no study with learners: the evaluations test the
-machinery on curated material from one university and say nothing about
-learning outcomes.
+The author was the only judge of the benchmark. The floor of five counts
+accounts, not the people behind a finding, and the owner's view entered the
+code after the revision described. No study with learners was run.
 
 \clearpage
 
 \begin{otherlanguage}{ngerman}
 \section*{Zusammenfassung}
 
-Vorlesungsmaterial wird als PDF weitergegeben. Menschen können eine solche
-Datei lesen, Software kann auf den Inhalt ihrer Seiten jedoch nicht gezielt zugreifen:
-Die Datei beantwortet keine Frage, prüft kein Verständnis und zeigt den Lehrenden nicht, wo Lesende Schwierigkeiten haben. Diese
-Arbeit beschreibt Learnstation, eine produktiv betriebene Webanwendung, die
-ein hochgeladenes PDF in adressierbare Inhalte überführt, während die
-Originalseite die Referenz bleibt: Die Datei ist sofort lesbar; eine Assistentin erklärt Seiten,
-stellt Fragen dazu und leitet Übungen an; und eine Ansicht zeigt der
-Besitzerin oder dem Besitzer des Materials, wie es gelesen wird.
+Vorlesungsmaterial wird als PDF weitergegeben. Software kann auf den Inhalt
+seiner Seiten nicht gezielt zugreifen: Die Datei beantwortet keine Frage, prüft kein Verständnis und
+zeigt den Lehrenden nicht, wo Lesende Schwierigkeiten haben. Learnstation, die
+produktiv betriebene Webanwendung dieser Arbeit, überführt ein hochgeladenes
+PDF in adressierbare Inhalte, während die Originalseite die Referenz bleibt.
 
-Wir beantworten drei Fragen. Erstens die Umwandlung: Der erste Durchlauf
-kommt ohne Sprachmodell aus, und eine einzige Regel entscheidet, welche
-Seiten ein Vision-Modell benötigen, und leitet 87 von 1593~Seiten dorthin.
-In einem Blindvergleich von elf Extraktionsverfahren auf 24~Seiten mit
-283~paarweisen Urteilen wird die Transkription durch eines von zwei Vision-Modellen am höchsten
-bewertet (zusammen kosteten sie 0,21~US-Dollar für die 24~Seiten). Neun der
-zehn Alternativen erzielen mehr Punkte als das in Produktion eingesetzte
-Verfahren; fünf davon liegen auch an der unteren Grenze eines
-Bootstrap-Intervalls darüber, das für den Test von zehn Verfahren korrigiert
-ist, und vier noch dann, wenn Seiten statt Urteile neu gezogen werden.
-Zweitens wird das Verhalten der Lesenden in einem Protokoll erfasst, dessen
-17~Ereignistypen durch ein Schema festgelegt sind, und
-Detektoren leiten daraus neun Arten von Befunden pro Seite ab. Die Ansicht
-für die Besitzerin oder den Besitzer des Materials zeigt einen Befund nur
-für Seiten, die mindestens fünf Personen gelesen haben, und nennt nie eine
-Person. In einer Studie mit simulierten, per Skript gesteuerten Lesenden zeigte die
+Für die Umwandlung (RQ1) leitet ein erster Durchlauf ohne Sprachmodell 87
+von 1593~Seiten an ein Vision-Modell. In einem Blindvergleich von elf Extraktionsverfahren auf 24~Seiten
+mit 283~paarweisen Urteilen bewertete der Autor die Transkription durch ein
+Vision-Modell am höchsten. Fünf der zehn Alternativen liegen auch an einer
+für zehn Vergleiche korrigierten unteren Grenze über dem Verfahren der
+Produktion, vier noch dann, wenn Seiten statt Urteile neu gezogen werden.
+Für die Rückmeldung (RQ2) speist ein Protokoll mit 17~festgelegten
+Ereignistypen eine Ansicht für die Besitzenden des Materials, die niemanden
+nennt und zu Seiten schweigt, die weniger als fünf Personen gelesen haben. Mit per Skript gesteuerten Lesenden zeigte die
 Ansicht in 5 von 8~erwarteten Fällen, was sie zeigen sollte, und blieb in 13
-von 15 Fällen still, in denen sie still bleiben sollte; eine Auswertung, die
-nie einen Befund meldet, bliebe in allen 15 still. Drittens wird die Antwort auf eine generierte Frage, wo sie sich berechnen
-lässt, gegen das berechnete Ergebnis bewertet und nicht gegen den Schlüssel
-des Modells. Quizfragen, die beim Einlesen entstehen, durchlaufen eine
-Antwortprüfung durch ein zweites Modell, die an einer festen Probe aus
-16~Paaren je eines richtigen und eines falschen Lösungsschlüssels mit
-themenfremden Distraktoren in den beantworteten Aufrufen kein falsches Urteil
-abgab. Ein drittes Prüfverfahren, das Lösungsschlüssel über
-semantische Ähnlichkeit mit der Seite verglich, bestand seinen
-präregistrierten Test nicht und wurde nicht übernommen.
+von 15 Fällen still, wo sie still bleiben sollte. Für die Prüfung (RQ3)
+bewertet Code berechenbare Antworten, und ein zweites Modell prüft
+generierte Quizfragen. In den Aufrufen mit Urteil machte diese
+Prüfung an einer Probe aus 16~Paaren mit themenfremden Distraktoren keinen
+Fehler. Ein Ähnlichkeitsverfahren bestand seinen präregistrierten Test
+nicht.
 
-Es gelten fünf Einschränkungen. Der
-Autor war der einzige Urteilende des Vergleichs. Die Ansicht für die
-Besitzerin oder den Besitzer kam erst nach dem Code-Stand hinzu, den diese
-Arbeit beschreibt. Ihre Grenze von fünf zählt die Lesenden einer Seite,
-nicht die Personen hinter einem Befund. Ist die Antwortprüfung nicht
-verfügbar, bleibt eine Frage erhalten. Eine
-Studie mit Lernenden wurde nicht durchgeführt: Die Evaluationen prüfen die technischen Abläufe an ausgewähltem Material einer Universität und sagen nichts über
-Lernerfolg aus.
+Der Autor war der einzige Urteilende des Vergleichs. Die Grenze von fünf
+zählt Konten, nicht die Personen hinter einem Befund, und die Ansicht kam
+erst nach dem beschriebenen Code-Stand hinzu. Eine Studie mit Lernenden
+wurde nicht durchgeführt.
 \end{otherlanguage}
