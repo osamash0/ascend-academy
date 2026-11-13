@@ -82,7 +82,7 @@ in \cref{ch:content} trace back to that state. In our experience the pipeline
 became dependable only when one path remained, which we did not measure.
 
 \paragraph{Nobody chose the simple method.}
-The text extractor in production is what remained when the developers removed other tools for memory, cost, or complexity. The benchmark of \cref{ch:content}
+The text extractor in production is what remained when we removed other tools for memory, cost, or complexity. The benchmark of \cref{ch:content}
 was the first comparison it faced, and the author rated nine of the ten alternatives above it on points, five of them also at the corrected lower bound. Measuring a method before
 relying on it applies to the verifiers as well: the similarity score of
 \cref{ch:trust} looked right and failed.
@@ -100,7 +100,7 @@ failing test first, a threshold registered before a run, documented claims
 checked against the code, and a pinned revision. We found several of the faults reported here later, where we had skipped these practices.
 
 \paragraph{The system ran ahead of its users.}
-The developers built review, exams, badges, and analytics for learners who had not arrived: production switches on four of twelve flags (\cref{sec:built-vs-deployed}). Feature toggles accumulate as debt~\cite{rahman2016toggles,hodgson2017toggles}, and here the debt showed as
+We built review, exams, badges, and analytics for learners who had not arrived: production switches on four of twelve flags (\cref{sec:built-vs-deployed}). Feature toggles accumulate as debt~\cite{rahman2016toggles,hodgson2017toggles}, and here the debt showed as
 menu entries that led to routes answering ``not found'' until, in October,
 the build derived each interface flag from its backend flag. The move to a
 reading-first interface in October was a late correction of the same habit.
@@ -111,7 +111,7 @@ reading-first interface in October was a late correction of the same habit.
 The documents of the project and the running system drifted apart, and we
 found the drift only by reading code and probing production. This matters
 because the three answers rest on statements about the system. The verified
-cases include a description of a gateway that the developers had removed
+cases include a description of a gateway that we had removed
 (\cref{sec:architecture}), a comment saying that the proxy strips a path
 prefix it keeps (\code{nginx.conf:24}), and configuration that named a server
 the system did not run on (\cref{sec:deployment}). The production

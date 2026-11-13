@@ -31,7 +31,7 @@ course to the page. In the system that production has served since 29~October
 (\code{docs/\allowbreak superpowers/\allowbreak specs/\allowbreak 2026-10-26-library-and-spaces-design.md}).
 
 We therefore built the interface twice. We wrote the second interface, which the repository calls v4 (a label unrelated to the numbered pipeline versions of \cref{sec:c4-lineage}), as a new part of the frontend beside the first one and not as a refactoring of it (\code{docs/design-v4/UI-SESSION-BRIEF.md},
-PR~\#55). The repository records how we did this and not why we ruled out refactoring. The author's recollection, which nobody recorded at the time, is that the first interface assumed a university, with professors and courses, while the second had to work for any material and any group. We call the screens of the first interface, one per course, lecture, and professor, the \emph{older interface} below. They still exist in the code but no longer
+PR~\#55). We recorded how we did this and not why we ruled out refactoring. As we recall, the first interface assumed a university, with professors and courses, while the second had to work for any material and any group. We call the screens of the first interface, one per course, lecture, and professor, the \emph{older interface} below. They still exist in the code but no longer
 receive learners. The backend changed more often:
 \cref{sec:c4-lineage} lists nine generations of the parsing pipeline
 in ten months.
@@ -139,7 +139,7 @@ instances serve as cache and as job broker.
 The backend calls every LLM provider directly from one module
 (\code{backend/\allowbreak services/\allowbreak ai/\allowbreak orchestrator.py}), where failover, rate limiting, and cost
 accounting live. At \code{\thesisEarlierCommit} the production stack still
-contained a LiteLLM gateway that no code path used. The developers removed it in August and September 2026 (\cref{tab:decisions}), and the backend README still describes it. The design that we defend here is therefore two ordered provider
+contained a LiteLLM gateway that no code path used. We removed it in August and September 2026 (\cref{tab:decisions}), and the backend README still describes it. The design that we defend here is therefore two ordered provider
 chains inside the application (\cref{sec:provider-strategy}), not a gateway
 in front of many providers.
 

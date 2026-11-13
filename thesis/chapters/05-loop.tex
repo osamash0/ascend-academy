@@ -185,13 +185,13 @@ number of people who opened Explain or asked (\cref{fig:door}).
 
 A detector is a rule over the facts of one Lesson that produces a finding: a
 kind, a page, and a severity. \Cref{tab:detectors} gives each rule in one line.
-The developers wrote the detectors for the older professor dashboard, and the Space engine reuses them.
+We wrote the detectors for the older professor dashboard, and the Space engine reuses them.
 The Space engine runs ten of the eleven. The one it skips is the only one
 that speaks about individual students. Nine kinds of finding can reach the
 owner's screen. The Space engine uses a share of ratings, tries, or checkpoint pairs only once five of the page's readers have contributed to it
 (\code{insights/\allowbreak space\_engine.py:38--46}), so a detector's own
-minimum of three ratings never binds there. The
-repository records no source for the detectors' thresholds, which date from
+minimum of three ratings never binds there. We
+recorded no source for the detectors' thresholds, which date from
 June 2026 (commit \code{0b2aa58e}), nor for the floor of five, set in
 October 2026 (commit \code{01951949}), and no calibration against real
 readers. Both were chosen before the study of \cref{sec:c5-evaluation}, so

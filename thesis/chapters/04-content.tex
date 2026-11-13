@@ -22,7 +22,7 @@ methods give learners the most useful text at what cost. It describes the
 pipeline at revision \code{\thesisCommit} (6 November 2026), the ten months of
 pipelines that led to it, the provider layer underneath, and three pieces of
 evidence: a routing study on 1{,}593 pages, a pre-registered blind benchmark of
-eleven extraction methods, and the deck-plan scorecard. Where the developers have fixed a finding from an earlier state of the code, we report it as \emph{found, then fixed} and name the earlier state as
+eleven extraction methods, and the deck-plan scorecard. Where we have fixed a finding from an earlier state of the code, we report it as \emph{found, then fixed} and name the earlier state as
 \code{\thesisEarlierCommit} (August 2026) or \code{\thesisPreviousCommit}
 (2 November 2026). \Cref{sec:built-vs-deployed} states once what the deployed server runs.
 
@@ -146,7 +146,7 @@ the lock against parsing the same file twice at once
 (\code{test\_job\_locks.py}), and a full run against a real database that
 replays a second run without a second lecture
 (\code{test\_unified\_pipeline\_e2e.py}). In production, 115 parses ran on
-pipeline v5 between June and November 2026, the developers' own uploads
+pipeline v5 between June and November 2026, our own uploads
 included: 99 completed, 16 failed, and none was left unfinished. Thirteen of
 the failures fell in July: seven translations that exceeded the 90-second
 model timeout, four writes to a database column that production did not yet
@@ -277,7 +277,7 @@ and 75 of the 421 pages with an image, at one vision call each. An offline check
 fails if a change moves that count outside 75 to 100.
 
 A generator-aware classifier and a second, richer router also exist in the
-repository's history. The developers deleted the first in September 2026, and the second
+repository's history. We deleted the first in September 2026, and the second
 has no caller in the code, so the one rule above is the whole routing design.
 
 \subsection{Parse Once: Idempotency}

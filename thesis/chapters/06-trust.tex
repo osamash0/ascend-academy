@@ -179,7 +179,7 @@ Rewriting the markers does not make injection impossible. An output check bounds
 Luna's literal phrase check, the citation check of the ask bar, and the block
 validation of the reading view. An injected instruction that makes the reading
 view's Explain write something false in well-formed blocks would pass. One earlier hole widened the audience: the single-file upload did not
-check who owned the target course. The developers closed it on the API path
+check who owned the target course. We closed it on the API path
 (\code{722167b0}, with 10 tests). On the database path it is open. The
 policy that lets an account create a lecture row checks only that the row
 names its creator as owner, not that the creator owns the course it names
@@ -327,7 +327,7 @@ which we did not register in advance.
 
 \Cref{tab:verifiers} gives the result. The lexical score never keeps a wrong
 key, but it drops 14 of 16 correct paraphrases, among them all eight German
-ones. Enforced, it would have deleted all eight correct German keys of the probe. The developers therefore set it to mark and not to drop, and the constant carries a comment
+ones. Enforced, it would have deleted all eight correct German keys of the probe. We therefore set it to mark and not to drop, and the constant carries a comment
 that forbids enforcing it without a new measurement.
 
 The similarity score failed its acceptance criterion, and it failed in the direction that the procedure had named as its risk.
