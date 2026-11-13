@@ -18,7 +18,7 @@
 \chapter{Closing the Loop}
 \label{ch:loop}
 
-This chapter answers RQ2: how a system can model learner interaction events, aggregate them, and feed them back to the owner of the material in a privacy-preserving way, and what an owner can learn from them without seeing a single student.
+This chapter answers RQ2: how a system can model learner interaction events, aggregate them, and feed them back to the owner of the material without showing any individual learner, and what such a view can tell an owner about their material.
 What readers do on the pages of \cref{ch:content} travels back to the
 person who wrote them.
 
@@ -472,8 +472,6 @@ That change also made the engine send a missing share as null and not as 0,
 send no count under five for a grid cell, for the askers of a hotspot, or for
 a speed bump, and replace the reader count with a word. We froze the code at the pin, so we report this as a limit and name the stricter rule, five subjects per
 finding, as the change to make.
-\TODO{After the meeting of 11 November: add the supervisor's view on whether
-the stricter rule is required for the term \enquote{privacy-preserving}.}
 
 \paragraph{Themes explain a hotspot and nothing else.}
 In arm~C five members asked about the same pages and no themes appeared,
@@ -509,18 +507,20 @@ A system can model learner interaction as one governed event log with a small se
 reader's request, and rows that members insert directly still meet the
 database's type constraint. A pure function over a bounded window can aggregate it and turn events into facts per page. The system can feed it back by limiting the output and not the storage: no statement about a person, none
 about a page that fewer than five people have read, and an owner who is
-absent from their own numbers. The protection is that of the owner's view. A database policy of the older
-dashboard still lets an owner with the professor role read event rows with
-user ids (\cref{sec:c5-privacy}). \Cref{sec:analytics-privacy} called a view
-privacy-preserving if no statement it releases is about fewer than five
-people. By that criterion the owner's view is not yet privacy-preserving:
-the floor counts the readers of a page, and one confused rater among five
-can carry a hotspot. It is privacy-preserving in the weaker sense that it
-names no one and says nothing about a page with fewer than five readers, and
-only against an owner who does not pad the Space with accounts or compare
-views over time (\cref{sec:c5-privacy}).
+absent from their own numbers. The view therefore shows no individual
+learner: no name, no list, and no count of one to four people. The protection
+is that of the owner's view. A database policy of the older dashboard still
+lets an owner with the professor role read event rows with user ids
+(\cref{sec:c5-privacy}). Against the stricter standard of
+\cref{sec:analytics-privacy}, that no statement is about fewer than five
+people, the view falls short in one known case: the floor counts the readers
+of a page, and one confused rater among five can carry a hotspot. Counting
+five people behind each finding would close this gap
+(\cref{sec:c5-findings}). The protection also holds only against an owner
+who does not pad the Space with accounts or compare views over time
+(\cref{sec:c5-privacy}).
 
-The view can tell an owner, without showing a single student, which page
+The view can tell an owner, without showing any individual learner, which page
 confuses readers, where readers leave, which pages readers skip, where
 readers turn back, and where readers feel sure and are wrong. We did not observe whether owners read it that way. An owner cannot learn
 anything about a group under five, sees no weekly numbers in a quiet week, and

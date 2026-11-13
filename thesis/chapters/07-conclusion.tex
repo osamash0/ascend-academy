@@ -18,7 +18,7 @@ This chapter collects the answers to the research questions, discusses what the 
 \section{Answers to the Research Questions}
 \label{sec:summary}
 
-\paragraph{RQ1: from PDF to structured, grounded content.}
+\paragraph{RQ1: from PDF to readable pages.}
 We design the transformation for reliability with a first pass that uses no model. One rule, measured on the
 page without its footer, sends 87 of the 1{,}593 pages of the corpus to a
 vision model. In the blind benchmark, under a protocol
@@ -40,14 +40,14 @@ five of eight expected cases and withheld what it should in thirteen of
 fifteen. An engine that reports no finding would withhold correctly in all
 fifteen, so the second count tests the floor rules and not detection. The two
 misses of arm~B show that the rules do not keep the promise made to members
-(\cref{sec:c5-evaluation}). By the criterion of
-\cref{sec:analytics-privacy}, that no statement is about fewer than five
-people, the view is not yet privacy-preserving: a hotspot can rest on one
-confused rater among five, the floor counts accounts that an owner can add, and a policy of the older dashboard still lets an
+(\cref{sec:c5-evaluation}). It shows no individual
+learner. Against the stricter standard of \cref{sec:analytics-privacy}, that
+no statement is about fewer than five people, it falls short: a hotspot can
+rest on one confused rater among five, the floor counts accounts that an owner can add, and a policy of the older dashboard still lets an
 owner with the professor role read event rows with user ids
 (\cref{sec:c5-privacy}).
 
-\paragraph{RQ3: verifying generated content.}
+\paragraph{RQ3: checking generated content.}
 The system verifies generated content by computation where it can compute an answer, by the answer check for the quiz questions that a model writes during parsing, and by structure elsewhere. On 16~fixed pairs the answer check gave no wrong
 verdict among the calls that returned one, and one call did not. We measured it in-sample, without an acceptance criterion fixed in advance, and with distractors that are off the subject of the page. The
 lexical score would have dropped 14 of the 16 correct keys, and the
