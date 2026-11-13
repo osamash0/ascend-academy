@@ -145,13 +145,14 @@ example the stuck-run sweep (\code{test\_parse\_runs\_stalled\_sweep.py}),
 the lock against parsing the same file twice at once
 (\code{test\_job\_locks.py}), and a full run against a real database that
 replays a second run without a second lecture
-(\code{test\_unified\_pipeline\_e2e.py}). In production, 113 parses ran on
+(\code{test\_unified\_pipeline\_e2e.py}). In production, 115 parses ran on
 pipeline v5 between June and November 2026, the developers' own uploads
-included: 99 completed, 14 failed, and none was left unfinished. Thirteen of
+included: 99 completed, 16 failed, and none was left unfinished. Thirteen of
 the failures fell in July: seven translations that exceeded the 90-second
 model timeout, four writes to a database column that production did not yet
-have, and two files missing from storage. The 21 parses since September all
-completed (\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak parse-runs.md}).
+have, and two files missing from storage. Of the 23 parses since September,
+21 completed and two exceeded the job timeout (\cref{sec:async};
+\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak parse-runs.md}).
 These counts show that failures surfaced as failures. They are too few, and
 the load too light, to measure reliability under real use.
 
@@ -178,22 +179,31 @@ and not of the pipeline.
 \subsection{Asynchronous Processing, Page by Page}
 \label{sec:async}
 
-Parsing a document takes minutes: on an 82-page deck the full run took about
-twelve minutes in a measurement of October 2026. That is longer than an HTTP request should live, so the API hands the work to a durable queue and returns.
-The Redis instance that holds the queue keeps jobs across restarts, and the worker takes them, with a job
-timeout of 900~seconds.
+Parsing a deck takes minutes (\cref{sec:c4-requirements}), longer than an
+HTTP request should live, so the API hands the work to a durable queue and
+returns. The Redis instance that holds the queue keeps jobs across restarts,
+and the worker takes them, with a job timeout of 900~seconds. A job that runs
+longer is cancelled, and its run ends as failed with a message to the user
+(\code{arq\_worker.py:51--56,362}). In November 2026 this happened to two
+decks of 78 and 104 pages, while decks of 82 to 136 pages had finished in
+October, so the page count alone does not predict it. Where the limit lies we
+did not measure.
 
 Inside one job, the pipeline runs a fixed sequence. It extracts the text of
 every page, builds a deterministic plan of the deck (\cref{sec:c4-deck-plan}),
 generates lecture-level metadata, and creates the lecture row. It then
 synthesises the slides in chunks, writes optional page summaries, generates
 the deck quiz, finalises and writes a parse receipt, localises, and waits for
-the embeddings. The pipeline creates the lecture row \emph{before} slide synthesis and inserts every slide as soon as it is ready. This is what makes early reading possible: the current interface polls the run every three seconds and opens the
-reading view as soon as the first pages exist,
-long before the parse ends. The original PDF is available to the reader at once: the server delivers a re-saved copy of the file (the reader copy) in 16\,kB ranges, so a learner reads the
-lecturer's own pages while the generated ones arrive. An older upload route
-still streams progress as server-sent events over a Redis publish/subscribe
-channel, while the current interface deliberately polls.
+the embeddings. The pipeline creates the lecture row \emph{before} slide synthesis and inserts every slide as soon as it is ready. This is what makes early reading possible. On the uploader's device the
+reader opens the file itself at once, without the network, so a learner reads
+the lecturer's own pages while the generated ones arrive. The current
+interface polls the run every three seconds and opens the full reader as soon
+as the first pages exist, long before the parse ends
+(\code{useEarlyReading.ts}, \code{useRunReading.ts}). For later visits and
+other devices the worker stores a copy of the file rewritten so that its first
+page arrives sooner, and the browser fetches it in 16\,kB ranges. An older
+upload route still streams progress as server-sent events over a Redis
+publish/subscribe channel, while the current interface polls.
 
 The worker itself writes all content. The browser never writes parse
 output, which was not true of earlier generations. Making the server the
@@ -579,7 +589,7 @@ do better on the preferred text, we did not measure.
 The yardstick of \cref{sec:c4-requirements} had three marks. The routing rule and its study answer how the pipeline handles a page with a figure. The design answers how soon a learner reads, because the reading view opens on the original page at once; we did not measure the time until the generated text of a page arrives. We did not measure what a deck costs: the benchmark prices the vision transcription per page, and we did not evaluate the cost ledger of production.
 
 The reliability of \cref{sec:pipeline} rests on its design, on tests of
-each mechanism, and on 113 production parses under light load. We ran no load
+each mechanism, and on 115 production parses under light load. We ran no load
 test, and fault injection covers only the provider layer
 (\cref{sec:c6-cost}), not the database, the storage, or the worker.
 

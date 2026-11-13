@@ -12,14 +12,18 @@ an id.
 
 **Result.**
 
+The counts below include a second read later in November, after two more
+runs (see "Job timeout"). The uploader and file counts are from the first
+read (113 runs).
+
 | | runs |
 |---|---|
-| pipeline v5 runs, June to November 2026 | 113 |
+| pipeline v5 runs, June to November 2026 | 115 |
 | completed | 99 |
-| failed | 14 |
+| failed | 16 |
 | any other status (running, queued, stuck) | 0 |
-| distinct uploaders (developers included) | 23 |
-| distinct files (by hash) | 65 |
+| distinct uploaders (developers included), first read | 23 |
+| distinct files (by hash), first read | 65 |
 
 | month | runs | failed |
 |---|---|---|
@@ -28,9 +32,9 @@ an id.
 | August | 22 | 1 |
 | September | 1 | 0 |
 | October | 19 | 0 |
-| November | 1 | 0 |
+| November | 3 | 2 |
 
-Causes of the 14 failures, from the start of the stored error message:
+Causes of the 16 failures, from the start of the stored error message:
 
 | month | cause | runs |
 |---|---|---|
@@ -38,6 +42,23 @@ Causes of the 14 failures, from the start of the stored error message:
 | July | write to column `source_language`, which production did not yet have | 4 |
 | July | PDF not found in storage | 2 |
 | August | generic "PDF parsing failed" | 1 |
+| November | job timeout ("Processing timed out before it could finish …") | 2 |
+
+**Job timeout.** Cited by section 4.3.2. The worker cancels a job after
+900 s (`arq_worker.py:362`) and the run ends as failed with a message to the
+user. `parse_runs.page_count` is filled since October 2026; for those runs:
+
+| pages | status | runs | median s | longest s |
+|---|---|---|---|---|
+| up to 50 | completed | 12 | 170 | 526 |
+| 51–100 | completed | 6 | 392 | 704 |
+| 51–100 | failed (timeout, 78 pages) | 1 | 901 | 901 |
+| 101–150 | completed (largest 136 pages) | 2 | 846 | 904 |
+| 101–150 | failed (timeout, 104 pages) | 1 | 900 | 900 |
+
+Decks of 82, 120 and 136 pages completed in October, while decks of 78 and
+104 pages timed out in November, so the page count alone does not predict
+the limit. Where the limit lies was not measured.
 
 Median duration of a completed run: 114 s. Seven completed runs took more than
 an hour; these counts do not explain them.

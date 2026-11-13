@@ -38,9 +38,19 @@ A job that exceeds the timeout is cancelled by Arq. The pipeline's own
 exception handler then marks the run as failed, so it is a visible failure,
 not a hanging one (`backend/workers/arq_worker.py:51–56, 212–224, 362`). If
 the worker process dies outright, a sweep marks runs stuck for 25 minutes as
-failed. We did not measure how long a 300-page deck takes. The code comment
-"up to 15 minutes for a 200-page deck" is an estimate, not a measurement.
-(Open: the thesis may state this as a limit.)
+failed.
+
+It happened in production in November 2026: decks of 78 and 104 pages failed
+at 900 s with "Processing timed out …", while decks of 82 to 136 pages had
+completed in October. So it is not the page count alone; [Inferred] the
+speed of the model provider and the share of vision pages likely matter too.
+We did not measure where the limit lies or how long a 300-page deck takes.
+The code comment "up to 15 minutes for a 200-page deck" is an estimate.
+The two timed-out uploads were physics lecture PDFs uploaded by a student
+from outside the project, so they also show the pipeline meeting a subject
+outside the two computer-science courses of the corpus.
+The thesis states this as a limit (4.3.2;
+`docs/thesis/evidence/parse-runs.md`, "Job timeout").
 
 **Why does the current interface poll instead of using the event stream?**
 It polls every 3 s (`src/features/spaces/data/useRunReading.ts:6`). No
