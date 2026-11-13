@@ -58,7 +58,7 @@ unknown fields (\code{schemas/learning\_events.py}, \code{EVENT\_REGISTRY},
 either check. A row that a member inserts directly through the database
 interface meets only the first (\cref{sec:c5-events-storage}).
 
-All backend writes go through one function, \code{record\_event}, in the
+All writes of the reading view go through one function, \code{record\_event}, in the
 file \code{event\_repo.py} (lines 64--91). It validates the payload and
 inserts the row inside a savepoint. If the database rejects the row, the function logs the failure and drops the event, and the learner's request, for example turning a
 page, still succeeds. The design loses an event rather than fail a reader.
@@ -107,17 +107,19 @@ The migrations declare the table partitioned by month on the event's
 timestamp, with a default partition for rows outside any month, and give it
 four indexes: by user, by lecture, by type and time, and a GIN index on the
 payload (migration \code{20260721010000}). Production differs. A read-only
-probe of its system catalogue on 11~November 2026 found
-\code{learning\_events} to be a plain table without partitions. References
+probe of its system catalogue in November 2026 found
+\code{learning\_events} to be a plain table without partitions
+(\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak event-table.md}). References
 to the Lesson and the page live inside the payload and have no foreign key.
 This trades enforced integrity for a cheap insert. The declared design also
 meant partitions that an operator can drop as a whole, but production has
 none to drop.
 
-A daily roll-up table and a retention job exist in the code. The job is a dry
-run unless two environment settings are present, and they never were. It
-also works by dropping old partitions, which the production table does not
-have. \emph{Retention has never run}, so we cannot claim that the system
+A daily roll-up table and a retention script exist in the code. No scheduler
+runs the script: it is neither a job of the worker nor a service of the
+deployment. Production also has no roll-up table, which the script would
+fill before it deletes anything, and the script works by dropping old partitions, which the
+production table does not have. \emph{Retention has never run}, so we cannot claim that the system
 deletes old events.
 
 Events carry the real user id without a pseudonym. An unused helper

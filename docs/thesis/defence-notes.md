@@ -173,3 +173,46 @@ self-hosted model on a university GPU server was planned but not set up:
 setting it up and running it would have cost time and needed experience we
 did not have, and its cost would have been harder to compare. Thesis 4.1 and
 `\cref{sec:provider-history}`.
+
+## Chapter 5: Closing the Loop
+
+### 5.2 The Event Model
+
+**Do all event writes go through `record_event`?**
+All writes of the reading view do: views, turning back and completion
+(`v4_reading_service.py:120–139`), quiz answers (`v4_practice_service.py:178–182`),
+questions, check-ins and checkpoints (`v4_telemetry.py:46`). Three older
+writers outside the reading view do not:
+- search uses `insert_event` (`search.py:64`), which validates but has no
+  savepoint;
+- exams and review insert directly (`exams.py:124, 325`, `review.py:228`),
+  after building the same Pydantic model, so their data is still checked,
+  but a failed write would fail that request.
+
+Exam mode and the review engine are behind flags that are off in production.
+The thesis scopes the claim to the reading view for this reason.
+
+**Why drop an event instead of failing?**
+Analytics must never break reading. The insert runs in a savepoint, so a
+refused row rolls back alone and the reader's page turn still succeeds
+(`event_repo.py:64–91`).
+
+**Why no foreign key from an event to its Lesson and page?**
+The references sit in the JSON payload. That keeps the insert cheap and
+simple, and the price is that the database cannot check the Lesson exists.
+
+**Can a member forge events?**
+Yes, about themselves, by inserting directly through the database interface
+(the type constraint applies, the Pydantic models do not). Three guards
+limit the effect on the owner's view:
+- a trigger rejects a timestamp more than 300 s from the server's clock
+  (`20261105010000`, lines 33–34);
+- the engine reads at most 5,000 events per member (`space.py:29`);
+- the engine reads only the payload keys it needs, and ignores pages beyond
+  2,000.
+
+**Does production match the repository?**
+No. The table has no partitions, and there is no roll-up table, so
+retention has never run (`docs/thesis/evidence/event-table.md`).
+Production also has 90 public tables against the repository's 78 logical
+ones (Appendix C).
