@@ -174,9 +174,17 @@ every reader of the page.
 The nearest step is a fourth view of a page that rebuilds its layout as text. Its backend (PR~\#182) is on the main branch and off, and its part in the
 reading view (PR~\#183) is not.
 
-Two wider directions are ideas of the author, not results: teaching material
-versioned and shared like source code, and models that a university runs
-itself, keeping learner questions inside the institution.
+Two wider directions are our ideas, not results. The first would close the
+loop of \cref{ch:loop} inside the software. An assistant, the platform's own
+or one the owner already uses, would read the owner's view, propose changes
+to the pages a finding points to, and apply them only after the owner
+approves, keeping each change as a new version of the material, versioned
+and shared like source code. Such an assistant must see no more than the
+owner sees: the page facts behind the floor, never the event log. The route
+that lets a lecturer regenerate the generated text of one page with a short
+instruction (\code{ai\_content.py:328--337}) is a first piece of it. The
+second direction is models that a university runs itself, keeping learner
+questions inside the institution.
 
 \section{Closing}
 \label{sec:reflection}

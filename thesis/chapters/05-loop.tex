@@ -22,27 +22,46 @@ This chapter answers RQ2: how a system can model learner interaction events, agg
 What readers do on the pages of \cref{ch:content} travels back to the
 person who wrote them.
 
-We describe the event log and the aggregation engine at \code{\thesisCommit}. The screen that shows the result to an owner entered the main branch two days later (PR~\#181, 8~November 2026)
+We describe the event log and the aggregation engine at \code{\thesisCommit}. The screen that shows the result to an owner entered the main branch two days later (PR~\#181, November 2026)
 with five small changes to what the engine sends
 (\cref{sec:c5-findings}), and the evaluation in
 \cref{sec:c5-evaluation} ran on that later state, revision \code{2e146f51}.
-Since August 2026 the deployed system has had almost no readers, so the
-evidence is a study with scripted readers.
+The deployed system has almost no readers. In the 56~days before our count
+in November 2026, members read in four Spaces, the busiest had six readers,
+and one page reached five, our own accounts possibly among them
+(\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak readers.md}).
+The evidence is therefore a study with scripted readers.
 
 \section{The Loop as Built}
 \label{sec:c5-loop}
+
+The loop starts with a PDF. Its owner uploads it to a Space, and learners
+read it. While they read, the system records what they do, turns it into
+facts about pages, and shows the owner where the material lands and where
+readers reach for help. The owner then decides whether to change a page or
+to keep it, and a changed PDF goes back to the learners, so that the cycle
+starts again. This is the cycle of learning analytics that Clow describes,
+which closes only when an action reaches the learners
+again~\cite{clow2012cycle}.
+
+The system builds the first part: it records, aggregates, and shows. The
+decision belongs to the owner and lies outside the software. Returning a
+changed page works today only as a new upload: the owner uploads the revised
+PDF as a new Lesson, the system has no versions of a Lesson, and the events
+of the old Lesson do not carry over to the new one. Versioned material, and
+an assistant that proposes changes for the owner to approve, are future work
+(\cref{sec:future-work}).
 
 \thesisfigure{f23-loop}
   {The feedback loop in five stages. The engine applies the floor of five readers when it aggregates events, and no name leaves the last stage.}
   {fig:loop}
 
-\Cref{fig:loop} shows the path of one interaction. The reading view \emph{records} it through one function,
+\Cref{fig:loop} shows the part that the system builds, as the path of one interaction. The reading view \emph{records} it through one function,
 \code{record\_event}, which \emph{governs} it: the function rejects an event of an unknown type or with an unknown field. One log, to which the backend only appends, \emph{stores} the event. When an owner asks, the engine \emph{aggregates} the
 log of the Space's members, and the owner's view \emph{shows} the result as
-one sentence, three numbers, and a map of pages. The loop closes outside the
-software: the owner opens the page a finding points to and decides what to
-change. At every stage after storage the system speaks about pages and never about
-people.
+one sentence, three numbers, and a map of pages. At every stage after
+storage this loop speaks about pages and never about people. Two older paths
+outside it do not, and \cref{sec:c5-privacy} names them.
 
 \section{The Event Model}
 \label{sec:c5-events}
@@ -365,7 +384,7 @@ against an owner who wants to find out about one member.
 \subsection{Method: A Study with Scripted Readers}
 \label{sec:c5-method}
 
-With no real Space above the floor, we asked a narrower question that the code can answer: given readers who behave in known ways, does the owner's view say
+With almost no real reading (the opening of this chapter gives the counts), we asked a narrower question that the code can answer: given readers who behave in known ways, does the owner's view say
 what it should, and does it stay silent when it should? Because the engine is
 a pure function, the study needs no server. A script
 (\code{backend/eval/persona\_study.py} at revision \code{a342dea9}, where
