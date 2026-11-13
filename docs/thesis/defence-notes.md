@@ -338,3 +338,23 @@ progress, the visit, the streak and the events in one transaction, through
 `record_event`. The older reader still writes events straight from the
 browser (`studentService.ts:131–139`), which is the source of the
 direct-insert path in 5.2.
+
+### 5.5 Privacy by Design (details cut from the text)
+
+**Was there a fault before the pin?**
+Yes. A student who owned a Space could read members' user ids and their tutor
+questions, word for word, through the analytics routes of the older
+interface. PRs #175 and #176 closed it before the pin.
+
+**What exactly does the professor policy expose?**
+The `learning_events` rows, with user ids and without names, of every user
+enrolled in any course the professor owns, not only the Space in question.
+It withholds only the questions asked in the reading view. No screen uses
+it. PR #184 narrows it to the professor's own Lessons. It is prepared, not
+applied.
+
+**Is the floor k-anonymity?**
+No. It is a minimum-count threshold on released statistics, of the kind
+statistical disclosure control applies to the cells of published tables.
+k-anonymity is a property of released records. The floor is enforced only in
+the engine's code; no database rule enforces it.

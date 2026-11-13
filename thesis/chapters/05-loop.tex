@@ -324,84 +324,66 @@ PR~\#176 its routes require the professor role.
 \label{sec:c5-privacy}
 
 The General Data Protection Regulation asks for data protection by design and
-by default~\cite{gdpr2016}. The system's answer is not anonymisation of the
-stored data but a limit on what leaves it. The following mechanisms implement this limit.
+by default~\cite{gdpr2016}. The system does not anonymise the stored events;
+it limits what leaves them.
 
 \begin{description}
-  \item[No output about a person.] The owner's view has no list of students, no
-    per-student progress, and no name. The decision dates from 5~November 2026.
-    An earlier version (PR~\#142) showed individuals under keyed pseudonyms, and
-    PR~\#175 removed those routes, the feature flag, and the key. The
-    repository records the decision and not its reason
-    (\code{docs/superpowers/specs/2026-10-26-how-its-landing-design.md}, §8).
-    \TODO{Author: give the reason in one sentence. A candidate, not recorded
-    anywhere: a pseudonym in a group of ten is easy to resolve for anyone who
-    knows the group.}
-  \item[A minimum group size.] Every statement is about at least five readers
-    of a page, in the spirit of the minimum group size that
-    $k$-anonymity~\cite{sweeney2002kanonymity} requires of released records.
-    Below it the value is \code{null}, and a word replaces the size of the group. \Cref{sec:c5-findings} shows where this rule is weaker than it
-    sounds.
-  \item[The owner is not in the data.] The engine removes the owner's own events before it counts anything (\code{sources/space.py:107--112}).
-  \item[Visibility among members is opt-in.] Whether other members of a Space
-    see a member's name is a profile setting that is off by default (PR~\#146).
-    One database function ignores it (below).
+  \item[No output about a person.] The owner's view has no list of members,
+    no per-person progress, and no name. An earlier version (PR~\#142) showed
+    individuals under keyed pseudonyms; PR~\#175 removed them in November
+    2026, and we did not record why.
+  \item[A minimum count per page.] The view says something about a page only
+    if at least five members have read it, and uses a share only once five of
+    those readers contributed to it. Below that the value is \code{null}, and
+    a word replaces the size of the group. The rule borrows the minimum group
+    size of $k$-anonymity~\cite{sweeney2002kanonymity}, but it is a threshold
+    on released statistics, not a property of released records, and only the
+    engine's code enforces it. \Cref{sec:c5-findings} shows where it is
+    weaker than it sounds.
+  \item[The owner is not in the data.] The engine removes the owner's own
+    events before it counts anything (\code{sources/space.py:107--112}).
+  \item[Names among members are opt-in.] Whether other members of a Space see
+    a member's name is a profile setting that is off by default (PR~\#146).
   \item[Export and erasure.] A user can download their data and delete their
-    account. Deletion is an ordered job that survives a crash and takes the
+    account; deletion is an ordered job that survives a crash and takes the
     events with the account (PR~\#90).
-  \item[Row-level security as the second fence.] The owner's view reads the
-    log with the backend's service connection and checks ownership in code,
-    which is the first fence. The database policies of
-    \cref{sec:authorisation} stand between a browser and the table itself.
 \end{description}
 
-What the system tells a member matches what it does, with the limits of
-\cref{sec:c5-findings} and of the next two paragraphs. The sentence that a member sees when joining a Space and the privacy page both say that owners see patterns across at least
-five people and never names (\code{v4Spaces.json:491}, \code{legal.json:35}).
+The sentence that a member sees when joining a Space and the privacy page
+both promise patterns across at least five people and never names
+(\code{v4Spaces.json:491}, \code{legal.json:35}). The view keeps this
+promise within the limits below and those of \cref{sec:c5-findings}.
 
-A second gap, besides the one in \cref{sec:c5-findings}, concerns raw rows.
-An owner who holds the professor role
-can still read the \code{learning\_events} rows of their enrolled students
-directly from the database, with user ids and without names, because a policy of the older dashboard allows it (PR~\#175 states this).
-The only rows it withholds are the questions asked in the reading view. The
-policy is not limited to the owner's own Space: it admits every event of a
-user who is enrolled in any course the professor owns (production, read on
-11~November 2026). No screen uses this path. Closing it is a migration, not
-a redesign, and \cref{sec:future-work} lists it as future work.
-\enquote{Without names} also holds only until a second call. A function that
-every signed-in account may execute, \code{get\_user\_profile}, returns the
-display name, picture, and institution that a user has entered for any user
-id, whatever that user's visibility setting (production, 11~November 2026).
-
-Whether the data under the view is safe depends on who can reach the tables
-at all, and \cref{sec:authorisation} describes the policies and their tests. One
-fault lay where the policies and the checks in code meet: before the pin, a
-student who owned a Space could read members' user ids and their questions
-to the tutor, word for word, through the analytics routes of the older
-interface, until PRs~\#175 and~\#176 closed it.
+\paragraph{Two paths around the view.}
+The view reads the log through the backend and checks ownership in code, and
+the database policies of \cref{sec:authorisation} guard the tables
+themselves. Two older paths bypass the view. A policy of the older dashboard
+lets an account with the professor role read the event rows, with user ids,
+of every member of any course it owns; no screen uses it. And a function that
+every signed-in account may call, \code{get\_user\_profile}, returns the
+name, picture, and institution that a user has entered for any user id,
+whatever that user's visibility setting. Both held in production in November
+2026. Migrations that limit the policy to the professor's own Lessons and
+make the function honour the setting are prepared (PRs~\#184 and~\#185) and
+not yet applied.
 
 \paragraph{Whom the floor protects against.}
-The floor guards members against an owner who reads the view as built. An
-owner who sets out to identify a member has three ways around it, and the
-system at the pin and in production (read on 11~November 2026) allows each
-of them. We tried none of them. The first is padding. The floor
-counts accounts, not people: in production every new account receives the
-student role, a student may enrol in any course, published or not, and a member may write
-their own events directly. An owner with four further accounts can lift a
-page with one real reader above the floor. The second is differencing. The
-engine recomputes the view over a moving window of 56~days whenever its
-five-minute cache for the Space has expired (\code{LANDING\_TTL = 300}),
-so an owner who compares the view before and after one known member read a
-page learns that member's part, once the page is above the floor. The third
-is homogeneity. A share of 100\,\% says that every reader of the page reached
-for help. A minimum group size does not protect a value that the whole group
-shares, which is the weakness that $\ell$-diversity
-addresses~\cite{machanavajjhala2007ldiversity}. Differential privacy adds noise calibrated so that any one person's data
-changes the distribution of a released statistic only by a bounded
-factor~\cite{dwork2006dp}, and its guarantee composes over repeated releases.
-The view adds no noise. For RQ2 this means that the
-floor of five protects against accidental exposure in a small group, and not
-against an owner who wants to find out about one member.
+The floor guards members against an owner who reads the view as built, not
+against one who sets out to identify a member. The system allows each of
+three ways around it; we tried none. \emph{Padding:} the floor counts
+accounts, and in production any new account may enrol in any course and
+write its own events, so four extra accounts lift a page with one real reader
+above the floor. \emph{Differencing:} the engine recomputes the view over a
+moving window of 56~days whenever its five-minute cache has expired
+(\code{LANDING\_TTL = 300}), so comparing the view before and after one known
+member read a page reveals that member's part. \emph{Homogeneity:} a share
+of 100\,\% says that every reader reached for help, a value that a minimum
+group size does not protect and that $\ell$-diversity
+addresses~\cite{machanavajjhala2007ldiversity}. Differential privacy would
+bound what any one person changes in a released statistic, also over
+repeated releases~\cite{dwork2006dp}; the view adds no noise. The floor
+therefore protects against accidental exposure in a small group, not against
+an owner who wants to find out about one member.
 
 \section{Evaluation}
 \label{sec:c5-evaluation}
