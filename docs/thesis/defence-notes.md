@@ -5,9 +5,16 @@ These are checked facts that the thesis text does not need, so they live
 here instead of in the chapters. Code paths refer to the pin `dfc20df6`
 (`git show dfc20df6:<path>`). No slide text and no names of lecturers.
 
-Rule for the thesis text: an edit goes into a chapter only if it fixes
-something false or unsupported, or strengthens a part of an RQ's answer.
-Everything else that we verified goes here.
+Rules for the thesis text:
+- An edit goes into a chapter only if it fixes something false or
+  unsupported, or strengthens a part of an RQ's answer. Everything else that
+  we verified goes here.
+- **Page budget.** The StPO BSc Informatik (25.01.2023) says "Der Umfang der
+  Bachelorarbeit beträgt i.d.R. 25–60 Seiten". The body (chapters 1–7) was
+  exactly 60 pages in November 2026. The target is about 50: every addition
+  to a chapter names what it replaces or cuts.
+- The main text names production only as evidence for an RQ answer, or where
+  production differs in a way that changes a claim.
 
 ## Chapter 4: Turning a PDF into Pages
 
