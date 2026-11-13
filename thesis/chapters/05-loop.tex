@@ -152,17 +152,26 @@ makes the study in \cref{sec:c5-evaluation} possible.
 The input has bounds. Members are the enrolled users without the owner. Events
 are the six types of \cref{tab:events} from the last 56~days, at most 200{,}000
 in all. From them the engine builds, for every page, a small set of facts: who
-read it (a view with positive duration), who needed help (opened Explain or
-asked), who rated it and how, who turned back to it, and who answered its
-checkpoint right or wrong at the first try.
+read it (a view with positive duration), who opened Explain, who asked, who
+rated it and how, who turned back to it, and who answered its checkpoint
+right or wrong at the first try. From these it forms one signal per page: a
+reader \emph{reached for help} if they opened Explain, asked, checked in as
+confused, which the reading view offers once per idea and records on its
+first page, or turned back to the page
+(\code{insights/\allowbreak space\_facts.py:72--75}). The signal is a proxy,
+not a measured need: a reader may open Explain out of interest or turn back
+to revise. Because any one of the four counts, it errs towards flagging a
+page rather than missing one, and no study with real readers has checked it.
+The map, the share that is \code{null} below the floor, and the landing
+number all use it.
 
 \subsection{The Floor}
 
 One constant governs what the view may say. It is \code{MIN\_READERS = 5}, set in
 \code{insights/\allowbreak space\_engine.py:25}. A page that fewer than five members other than the owner have viewed says
 nothing. These members are the page's \emph{readers}. \enquote{Nothing} is not zero: the share of readers who
-needed help on such a page is \code{null}, and the screen draws a faint outline
-instead of a dim cell, which would read as \enquote{few needed help}. This distinction entered after the pin. At
+reached for help on such a page is \code{null}, and the screen draws a faint outline
+instead of a dim cell, which would read as \enquote{few reached for help}. This distinction entered after the pin. At
 \code{\thesisCommit} such a page reported 0, which the screen would have drawn
 as \enquote{everything is fine}. The same rule holds for the whole Space.
 Instead of a count of the Space's readers, the payload carries one of three
@@ -181,7 +190,12 @@ The Space engine runs ten of the eleven. The one it skips is the only one
 that speaks about individual students. Nine kinds of finding can reach the
 owner's screen. The Space engine uses a share of ratings, tries, or checkpoint pairs only once five of the page's readers have contributed to it
 (\code{insights/\allowbreak space\_engine.py:38--46}), so a detector's own
-minimum of three ratings never binds there.
+minimum of three ratings never binds there. The
+repository records no source for the detectors' thresholds, which date from
+June 2026 (commit \code{0b2aa58e}), nor for the floor of five, set in
+October 2026 (commit \code{01951949}), and no calibration against real
+readers. Both were chosen before the study of \cref{sec:c5-evaluation}, so
+the study did not tune them.
 
 \begin{table}[htbp]
   \centering
@@ -210,16 +224,26 @@ minimum of three ratings never binds there.
 
 \subsection{Three Numbers and the Themes}
 
-Beside the findings the engine computes three numbers, one value per week
-for the last eight weeks (\code{insights/figures.py}): how many members read, what share of
-pages is \emph{landing}, and what share of checkpoints members cleared at the first try. A page lands when fewer than 20\,\% of its readers needed help
-(\code{LANDS\_BELOW = 0.2}). A week has a value only if five members read in
-that week.
+Beside the findings the engine computes three numbers, one value for each
+of the last eight weeks, where a week is the seven days counted back from the
+moment the owner opens the view (\code{insights/figures.py}). The first is
+how many members read anything. The second is the share of \emph{landing}
+pages among the pages that at least five members read in that week; a page
+lands when fewer than 20\,\% of its readers reached for help
+(\code{LANDS\_BELOW = 0.2}). The third averages, over the members who tried
+a checkpoint, each member's share of right first tries, so a member who
+answered one question counts as much as one who answered ten. A number has
+a value in a week only if at least five members read, or tried, in it.
 
 One step uses a language model. For a hotspot page on which at least five
-members who read the page also asked a question, the model summarises the questions into at most three themes of at most twelve words each, for at most five pages. The engine caches the result for 30~days (\code{insights/themes.py}). The owner
-sees the themes and the number of askers, never a question in a member's own
-words.
+members who read the page also asked a question, the model summarises the questions into at most three themes of at most twelve words each, for at most five pages. The engine caches the result for 30~days (\code{insights/themes.py}). The model
+sees each asker's latest three questions, at most 60 per page and each cut to
+300 characters, and the call goes to an external provider
+(\code{insights/\allowbreak themes.py:32--36,76,169}). This is the one step at
+which members' own words leave the server. The owner sees the themes and the
+number of askers, never a question in a member's own words: a filter drops a
+theme that repeats a question and any theme with a word that only one asker
+used (\code{themes.py:89--144}).
 
 \section{What the Owner Sees}
 \label{sec:c5-door}
@@ -242,7 +266,7 @@ The owner reaches the view from the Space's page, through one link that only the
 it holds four things. The assistant says one sentence that names the Lesson to
 look at, with one button that opens the page. Three numbers follow, each the value of the current week with its eight
 weeks as bars. The screen leaves a week without a value empty and does not draw it as zero. Then comes the map: one cell per page, brighter where more readers
-needed help, a faint outline where fewer than five have read. A cell with a finding carries a label and opens that page, and the finding stands below as one
+reached for help, a faint outline where fewer than five have read. A cell with a finding carries a label and opens that page, and the finding stands below as one
 sentence. The last line tells the owner that the view never counts their own reading.
 
 Below the floor the screen shows one sentence and nothing else. It does not say

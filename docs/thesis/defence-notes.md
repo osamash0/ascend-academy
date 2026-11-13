@@ -216,3 +216,48 @@ No. The table has no partitions, and there is no roll-up table, so
 retention has never run (`docs/thesis/evidence/event-table.md`).
 Production also has 90 public tables against the repository's 78 logical
 ones (Appendix C).
+
+### 5.3 Aggregation
+
+**Does opening Explain or asking mean a reader needed help?**
+Not necessarily, which is why the thesis says *reached for help* and calls it
+a proxy. The code counts any one of four signals (`space_facts.py:72–75`):
+- Explain opened: also curiosity;
+- asked: also going further;
+- "Still foggy" check-in: the most direct signal, a self-report;
+- turned back: also revising.
+
+Because any one counts, the signal errs towards flagging a page. The design
+spec calls it a "per-page help index" (`2026-10-26-how-its-landing-design.md`,
+B4) and records no validation.
+
+**What about "unsure"?**
+The code also counts an "unsure" rating, but the reading view offers only
+"Clicked" (`got_it`) and "Still foggy" (`confused`), and the endpoint refuses
+anything else (`v4_reader.py:340`; spec A8: "`unsure` unused"). The check-in
+is optional, offered once per idea, and recorded on the idea's first page.
+
+**Where do the thresholds come from (20 % hotspot, floor of five, …)?**
+- No recorded source. The detector thresholds came in a work-in-progress
+  commit in June 2026 (`0b2aa58e`), for the older professor dashboard.
+- The floor of five came in October 2026 (`01951949`).
+- Neither was calibrated on real readers, and both predate the study, so the
+  study did not tune them.
+- Honest answer: chosen, not derived. A minimum cell count of this size is
+  common in statistical disclosure control (the threshold rule), but we did
+  not derive five from it. Do not claim otherwise unless a verified source is
+  added.
+
+**Do duplicated events distort the numbers?**
+Mostly not. Every page fact is a set of members, so counts are of distinct
+people. Dwell is the exception: durations are summed per sitting, and a sum
+above 30 minutes is dropped. The log has no idempotency key, and lost or
+duplicated events were not measured.
+
+**Do members' questions leave the server?**
+Yes, in one step: the themes. Each asker's latest 3 questions, at most 60
+per page and each cut to 300 characters, go to an external model (it prefers
+OpenAI; `themes.py:32–36, 76, 169`). A filter then drops any theme that
+repeats a question (four or more words in a row) and any theme with a word
+only one asker used (`themes.py:89–144`). Whether a paraphrase can still
+point to someone was not tested.
