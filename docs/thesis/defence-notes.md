@@ -279,3 +279,55 @@ how many, and no numbers or map.
 A member already knows the Space exists, so they are told it is not theirs.
 A stranger learns nothing, not even that the Space exists
 (`authorization.py:47–62`).
+
+### 5.3 Signals and detectors (added after the walkthrough)
+
+**Which signals does the engine read, and why these?**
+Three kinds:
+- what readers do: views with dwell, turning back, opening Explain, asking;
+- what they say: the check-in, "Clicked" (`got_it`) or "Still foggy"
+  (`confused`), optional, once per idea;
+- what they get right: first tries at checkpoints and quizzes, graded on the
+  server.
+
+Each is a proxy. No finding fires on a request for help alone; only the
+map's brightness and the landing number count it by itself.
+
+**Why does the calibration gap matter?**
+A confident check-in followed by a missed checkpoint is an overconfident
+judgement. Dunlosky & Rawson (2012), *Learning and Instruction* 22(4),
+271–280, general discussion 4.1, found that overconfidence made students
+stop studying too early and retain less. We did not measure retention.
+
+**Help seeking.**
+Aleven et al. (2003, *Review of Educational Research* 73(3)) review on-demand
+help: help use is linked to learning, but learners often use it badly. This
+is not cited until the author has confirmed the passage.
+
+**The leaky bucket with rising counts (6-6-6-5-2-6-6)?**
+No leak. The engine counts the readers still in the Lesson, meaning everyone
+who read the page or any later one (`space_engine.py:106–124`). Only people
+who never come back make a drop. Only the single worst drop of 20 % or more
+per Lesson is reported, with at least 3 people before it.
+
+**Skipped page and title pages.**
+A skipped page (median dwell under 5 s, 5 views, under 20 % confused) is
+shown to the owner as "A page that's being passed over". The engine does not
+know page roles, so a title page can be a false alarm. Connecting the deck
+plan's roles is future work.
+
+**Overpacked.**
+All of these must hold:
+- at least 5 views;
+- at least 30 % confused;
+- median dwell at least 1.5 times the Lesson's median;
+- and either at least 0.3 questions per viewer, or a dwell spread with a
+  coefficient of variation of at least 0.8 (`detectors.py:35–39, 42–56`).
+
+**Why does the v4 reader send one call per page left?**
+At first the v4 reader recorded nothing, so v4 readers looked absent. Since
+commit `99904eea` (October 2026), one server call per page left writes the
+progress, the visit, the streak and the events in one transaction, through
+`record_event`. The older reader still writes events straight from the
+browser (`studentService.ts:131–139`), which is the source of the
+direct-insert path in 5.2.

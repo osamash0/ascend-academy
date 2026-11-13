@@ -99,7 +99,7 @@ engine reads six.
     \midrule
     \code{slide\_view} & yes & yes & a page was open for at least two seconds; page and duration \\
     \code{slide\_back\_navigation} & yes & yes & a member turned back; from and to \\
-    \code{confidence\_rating} & yes & yes & a check-in on an idea: \enquote{got it} or \enquote{confused} \\
+    \code{confidence\_rating} & yes & yes & a check-in on an idea: \enquote{got it} (the button reads \emph{Clicked}) or \enquote{confused} (\emph{Still foggy}) \\
     \code{ai\_tutor\_query} & yes & yes & Explain was opened or a question asked; the question, at most 400 characters, never the reply \\
     \code{checkpoint\_attempt} & yes & yes & an answer to a checkpoint, graded by the server \\
     \code{quiz\_attempt} & yes & yes & a first answer to a quiz question \\
@@ -177,12 +177,21 @@ right or wrong at the first try. From these it forms one signal per page: a
 reader \emph{reached for help} if they opened Explain, asked, checked in as
 confused, which the reading view offers once per idea and records on its
 first page, or turned back to the page
-(\code{insights/\allowbreak space\_facts.py:72--75}). The signal is a proxy,
-not a measured need: a reader may open Explain out of interest or turn back
-to revise. Because any one of the four counts, it errs towards flagging a
-page rather than missing one, and no study with real readers has checked it.
-The map, the share that is \code{null} below the floor, and the landing
-number all use it.
+(\code{insights/\allowbreak space\_facts.py:72--75}). The signal is a proxy, not a measured need. A request for help, by
+opening Explain, which explains the page, or by asking the assistant a
+question, shows that a page was hard for some readers, but not that every
+reader who asked needed help: some ask out of interest, and some who
+struggle never ask. A reader may also turn back to revise. Because any one
+of the four counts, the signal errs towards flagging a page rather than
+missing one, and no study with real readers has checked it. The map, the
+share that is \code{null} below the floor, and the landing number all use
+it; no finding rests on a request for help alone.
+
+The engine thus reads three kinds of signal: what readers do (views,
+turning back, opening Explain, asking), what they say (the check-in), and
+what they get right (checkpoints and quizzes). Each is a proxy. The findings
+that combine kinds, such as a confident check-in followed by a missed
+checkpoint, are the ones that no single signal could give.
 
 \subsection{The Floor}
 
@@ -229,7 +238,7 @@ the study did not tune them.
     confusion hotspot & at least 3 ratings on a page, 20\,\% or more \enquote{confused} & shown from 5 raters \\
     overpacked & 5 views, 30\,\% confused, dwell 1.5 times the Lesson's median, plus questions or a wide spread of dwell & shown from 5 raters \\
     confusion block & two or more neighbouring pages, each 25\,\% confused & shown from 5 raters \\
-    leaky bucket & the worst page-to-page loss of readers is 20\,\% or more & shown \\
+    leaky bucket & the worst page-to-page loss of readers still in the Lesson (who read the page or any later one) is 20\,\% or more & shown \\
     skipped page & 5 views, median dwell under 5 seconds & shown \\
     speed bump & readers return from the next page; long dwell, little confusion & shown from 5 people who turned back (since PR~\#181; at the pin from 2) \\
     calibration gap & 35\,\% or more of those who said \enquote{got it} miss the linked checkpoint & shown from 5 such people \\
@@ -240,6 +249,21 @@ the study did not tune them.
     \bottomrule
   \end{tabular}
 \end{table}
+
+Dwell time is ambiguous: a long stay may mean a hard page or a reader who
+stepped away, a short one a page that was skipped, already known, or only a
+title. The rule for an overpacked page therefore also requires confusion,
+while the rule for a skipped page reads dwell alone. The engine does not know
+a page's role, so a title or section page that readers pass quickly is
+reported as skipped. The deck plan of \cref{sec:c4-deck-plan} already assigns
+these roles, and connecting the two is future work.
+
+A reader who checks in with \enquote{got it} and then misses the checkpoint
+has judged their own understanding too optimistically. Dunlosky and Rawson
+found that the accuracy of such judgements matters for learning:
+overconfidence led students to stop studying too early and to retain
+less~\cite{dunlosky2012overconfidence}. This is why the engine reports a
+calibration gap. We did not measure retention.
 
 \subsection{Three Numbers and the Themes}
 
@@ -365,11 +389,12 @@ counts accounts, not people: in production every new account receives the
 student role, a student may enrol in any course, published or not, and a member may write
 their own events directly. An owner with four further accounts can lift a
 page with one real reader above the floor. The second is differencing. The
-engine recomputes the view on every request over a moving window of 56~days,
+engine recomputes the view over a moving window of 56~days whenever its
+five-minute cache for the Space has expired (\code{LANDING\_TTL = 300}),
 so an owner who compares the view before and after one known member read a
 page learns that member's part, once the page is above the floor. The third
-is homogeneity. A share of 100\,\% says that every reader of the page needed
-help. A minimum group size does not protect a value that the whole group
+is homogeneity. A share of 100\,\% says that every reader of the page reached
+for help. A minimum group size does not protect a value that the whole group
 shares, which is the weakness that $\ell$-diversity
 addresses~\cite{machanavajjhala2007ldiversity}. Differential privacy adds noise calibrated so that any one person's data
 changes the distribution of a released statistic only by a bounded
