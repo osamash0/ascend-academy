@@ -202,21 +202,30 @@ only writer was one of the reasons for the rebuild of pipeline v5.
 \subsection{Planning the Deck Without a Model}
 \label{sec:c4-deck-plan}
 
-Before any model call, a deterministic step plans the deck. It finds
-boilerplate (lines that recur on at least 60\,\% of pages, such as footers and
-course names), assigns each page one of eight roles (title, agenda, section,
-content, exercise, summary, references, empty) from German and English
-patterns, groups pages into sections, and selects which pages the metadata and
-quiz steps read. The model then sees text with the boilerplate removed, while
-the stored slide keeps the original. Because this step makes no model call, we can test it exhaustively, including with property-based tests.
+Before any model call, a deterministic step plans the deck
+(\code{deck\_plan.py}). It finds boilerplate: lines that recur on at least
+60\,\% of pages wherever they sit, such as a course name in the header or a
+slide number at the foot. The threshold was chosen, not derived. The step
+assigns each page one of eight roles: the first page is the title, a page
+with almost no text is empty, a short numbered page such as ``3.~Scheduling''
+starts a section, a page whose first line is a heading word such as
+``Inhalt'', ``\"Ubung'', ``Summary'' or ``Literatur'' is an agenda, exercise,
+summary or references page, and every other page is content. It then groups
+pages into sections and selects which pages the metadata and quiz steps read.
+The model sees text without the boilerplate, while the stored slide keeps the
+original. A line of real content that recurs as often is hidden from the
+model too. Because this step makes no model call, we can test it thoroughly,
+including with property-based tests.
 
-The step entered the code in October 2026 for two reasons that the pull request records. First, quality: the deck-level metadata and quiz passes had read the
-first pages of a deck only (the metadata pass reached about page 15 of a
-deck, and it now reaches page 21 to 127 depending on the deck, with a median of
-50). A filtering step had also renumbered the
-pages so that every quiz question pointed at the first slide. Second, cost:
-every model call that sees fewer boilerplate tokens is cheaper. \Cref{sec:c4-deck-lab} reports what the plan
-changed on 25 decks.
+The step entered the code in October 2026 with PR~\#84, which records what
+it fixed and what it saved. The deck-level metadata and quiz passes had read
+only the first pages of a deck: the metadata pass read pages 1 to 15, and it
+now reaches page 21 to 127 depending on the deck, with a median of 50. A
+filtering step had also numbered the pages it kept 1 to 10 instead of using
+their real page numbers, so a quiz question could point at the wrong page.
+The saving is smaller: without the boilerplate, the model reads about nine
+fewer words per page. \Cref{sec:c4-deck-lab} reports what the plan changed,
+offline on 25 decks and in production, and checks the threshold.
 
 \subsection{Routing: Text versus Vision}
 \label{sec:routing}
@@ -228,7 +237,13 @@ the rule, a running footer is a text block that starts in the bottom tenth of
 the page in smaller type than the page's body text
 (\code{page\_blocks.py:22--23,185}). A deck without footers loses nothing,
 and both counts are equal. A small source line at the foot of a slide is left
-out like a footer. A page with fewer
+out like a footer. This footer is not the boilerplate of
+\cref{sec:c4-deck-plan}. Routing judges each page alone, by where a text block
+sits and how small its type is, and leaves a footer out of the character count
+and out of the optional page summaries (\code{studio\_summary.py:48--51}). The
+deck plan compares the pages of a deck, by how often a line recurs wherever it
+sits, and removes it from the text the model reads. Neither changes the page
+text the learner sees. A page with fewer
 than 25 characters of text has nothing to read but the picture (a scan, a photo)
 and goes to a vision model. A page with fewer than 150 characters whose embedded images
 cover at least 5\,\% of it depends on its image and also goes to vision,
@@ -518,11 +533,28 @@ saved 14{,}875 words of model input over the corpus. The metadata pass still see
 a model. Span and section coverage are what the plan's page selection aims to raise, so it confirms the implementation
 and is not evidence of better quizzes.
 
+Production shows the same shift. Before PR~\#84, all 524 deck-quiz questions
+in production sat on the first eleven pages of their deck, 32 of them on the
+first page. Since then they reach page 121
+(\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak deck-quiz-anchors.md}).
+This counts where the questions are attached, not whether they are good.
+
+We checked the 60\,\% threshold of the boilerplate afterwards
+(\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak deck-plan-threshold/}).
+Moving it to 50\,\% or 70\,\% changes the boilerplate of three or four of the
+25 decks, all but one of them database decks. On the systems decks every
+boilerplate line recurs on at least 90\,\% of pages. The lines just below the
+threshold include topic headings that recur on many slides, and those above
+70\,\% are mostly lines a slide template repeats, such as the course name, the
+lecturer's name and the slide number. The threshold changes what the model
+reads and which pages it picks, never the page text the learner sees.
+
 \section{Answer to RQ1}
 \label{sec:c4-answer}
 
 How can a system transform heterogeneous lecture PDFs reliably into structured, grounded content? The answer this chapter gives has four parts. Of these,
-the routing study evaluates the third, the scorecard confirms the implementation of the second, and we describe the first and fourth without a measurement. Identity by
+the routing study evaluates the third, the scorecard confirms the implementation of the second and production shows
+that the deck quiz now reaches beyond the first pages, and we describe the first and fourth without a measurement. Identity by
 content: a SHA-256 hash names the bytes, the system stores one object per hash, keeps one run per document, version, and uploader, and replays a finished run rather than repeating it. A lock keeps concurrent duplicates out while Redis, which holds the lock, is
 reachable. Decide
 before generating: a deterministic plan assigns roles and sections, strips

@@ -1,0 +1,25 @@
+decks: 25 (11 DBS, 14 SR), pages: 1593
+
+lines by share of pages (all decks):
+   20-30  %:   37
+   30-40  %:   10
+   40-50  %:    8
+   50-60  %:    4
+   60-70  %:    5
+   70-80  %:   23
+   80-90  %:   23
+   90-100 %:   31
+
+threshold  boilerplate lines  decks whose boilerplate differs from 60 % (DBS, SR)
+   30 %      104               10 (8, 2)
+   40 %       94                8 (6, 2)
+   50 %       86                3 (2, 1)
+   60 %       82                0 (0, 0)
+   70 %       77                4 (4, 0)
+   80 %       54                9 (9, 0)
+   90 %       31               11 (11, 0)
+  100 %       25               14 (11, 3)
+
+boilerplate lines at 60 %, by course: total, and how many recur on >= 90 % of pages
+  DBS: 54 lines, 3 of them on >= 90 %
+  SR: 28 lines, 28 of them on >= 90 %
