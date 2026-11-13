@@ -261,3 +261,21 @@ OpenAI; `themes.py:32–36, 76, 169`). A filter then drops any theme that
 repeats a question (four or more words in a row) and any theme with a word
 only one asker used (`themes.py:89–144`). Whether a paraphrase can still
 point to someone was not tested.
+
+### 5.4 What the Owner Sees
+
+**Can a member send a question to the owner?**
+Not yet. The owner's screen already has a questions row
+(`LandingScreen.tsx`, `QuestionsRow`), but it stays empty because the server
+always sends `questions: []` (`v4_landing_service.py:132`). This is the code
+behind 5.7's "a member cannot yet send a question to the owner".
+
+**What does an owner learn below the floor?**
+Whether anyone has read: Luna says either "Nobody has been reading yet…" or
+"A few people have been reading…" (the `reach` word, `none` or `few`). Never
+how many, and no numbers or map.
+
+**Why 403 for members and 404 for everyone else?**
+A member already knows the Space exists, so they are told it is not theirs.
+A stranger learns nothing, not even that the Space exists
+(`authorization.py:47–62`).
