@@ -67,12 +67,31 @@ the \emph{member}, who joined it
 user can create a Space and can join a published one. The database policy
 also lets a student account enrol in one that is not published
 (\cref{tab:deployed}). Creating a Space
-needs no particular account type, and only its owner can publish it, so a student can own and publish a Space. A third role, an editor, appears in design documents and does not exist in the code. The account types of the older interface (student, professor,
+needs no particular account type, and only its owner can publish it, so a student can own and publish a Space. The account types of the older interface (student, professor,
 admin) still exist and still guard the older interface. \Cref{sec:authorisation} shows one place
 where the two permission schemes, account type and Space ownership,
 conflicted. \Cref{fig:use-case} in
 \cref{app:figures} shows actors and goals as implemented, and
 \cref{fig:domain-model} the vocabulary as a domain model.
+
+\paragraph{From an upload to a Lesson.}
+In the current interface a learner's upload lands in their Library, a private
+Space of their own, and opens at once. A shared Space gets its Lessons from
+its owner, at the pin through the course manager of the older interface
+(\code{SpaceManageScreen.tsx:127}); members join a published Space and read
+them.
+
+\paragraph{Four kinds of question.}
+Learners meet questions in four places, all written by a model. The
+\emph{deck quiz}, five to eight multiple-choice questions per Lesson, is
+written during the parse, each tied to a page, and learners practise it under
+Practice. A \emph{checkpoint} is written for the pages of one idea when a
+learner reaches its end. A \emph{rehearsal} is a short mixed test from a
+Space's Lessons, and in a study session Luna writes three to six practice
+questions. The server grades the first three
+(\code{v4\_practice\_service.py}, \code{v4\_rehearsal\_service.py}), and
+\cref{ch:trust} checks them. The check-in is not a question but the learner's
+own, optional judgement.
 
 \section{What Is Built and What Is Switched On}
 \label{sec:built-vs-deployed}
@@ -150,11 +169,9 @@ Supabase session token as a bearer token. A test enforces this boundary: no
 module of the v4 feature folder may import the Supabase client.
 
 \paragraph{Deployment.}
-Production runs on one virtual machine with two virtual CPUs and 4\,GB of
-memory, in five containers: the frontend, the API, the worker, and the two
-Redis instances. Deploys are manual, a heartbeat every five minutes reports
-to an external monitor, and a nightly job encrypts a database dump and stores it off-site. The proxy configuration of the host exists only on the server, so nobody can rebuild the deployed system from the repository alone.
-\Cref{sec:deployment} gives the detail.
+Production runs these components on one virtual machine in five containers;
+\cref{sec:deployment} describes deployment, monitoring, and backups, and one
+gap: the host's proxy configuration exists only on the server.
 
 \section{Technology Choices}
 \label{sec:stack}
@@ -189,6 +206,5 @@ recovery. And the team was two students, then one.
 One more condition is not a constraint and still shapes every evaluation in
 this thesis: the system has almost no users. The evaluations therefore work
 on material and not on people. The material is 25~lecture decks with
-1{,}593~pages from two courses of one university, in English and German,
-plus one further deck and two exercise sheets for the benchmark
+1{,}593~pages from two courses of one university, in English and German
 (\cref{sec:c4-requirements}).
