@@ -173,9 +173,15 @@ to an external monitor, and a nightly job encrypts a database dump and stores it
 \label{sec:stack}
 
 We did not choose most of the stack by deliberation. React, Vite, TypeScript,
-Tailwind, Supabase, and a FastAPI stub came with the scaffold of the first
-commit in January (\code{184e5742}), and Redis and nginx followed as the
-common companions. We name them as defaults and do not defend them. Seven choices
+Tailwind, Supabase, and a FastAPI stub came with the scaffold of the
+co-developer's first commit in January (\code{184e5742}), and Redis and nginx followed as the
+common companions. We name them as defaults and do not defend them.
+\SUGGEST{choose A or B. (A) We, the author and the co-developer, discussed
+the later architecture decisions of \cref{tab:decisions} together, among
+them the job queue, the two Redis instances, and the removal of the gateway,
+and the author implemented them. (B) The author made and implemented the
+later architecture decisions of \cref{tab:decisions}, among them the job
+queue, the two Redis instances, and the removal of the gateway.} Seven choices
 do have a recorded reason (\cref{tab:decisions} in \cref{app:detail}),
 among them the job queue, the two Redis instances, and the removal of the
 gateway. The production extractor is a case apart: the plain-text call of PyMuPDF
