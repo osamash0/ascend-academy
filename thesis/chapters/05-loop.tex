@@ -529,26 +529,40 @@ seeing a finding, the step that closes the loop.
 \section{Answer to RQ2}
 \label{sec:c5-answer}
 
-A system can model learner interaction as one governed event log with a small set of types. The backend writes it through one function that never fails a
-reader's request, and rows that members insert directly still meet the
-database's type constraint. A pure function over a bounded window can aggregate it and turn events into facts per page. The system can feed it back by limiting the output and not the storage: no statement about a person, none
-about a page that fewer than five people have read, and an owner who is
-absent from their own numbers. The view therefore shows no individual
-learner: no name, no list, and no count of one to four people. The protection
-is that of the owner's view. A database policy of the older dashboard still
-lets an owner with the professor role read event rows with user ids
-(\cref{sec:c5-privacy}). Against the stricter standard of
-\cref{sec:analytics-privacy}, that no statement is about fewer than five
-people, the view falls short in one known case: the floor counts the readers
-of a page, and one confused rater among five can carry a hotspot. Counting
-five people behind each finding would close this gap
-(\cref{sec:c5-findings}). The protection also holds only against an owner
-who does not pad the Space with accounts or compare views over time
-(\cref{sec:c5-privacy}).
+We answer RQ2 along the loop of \cref{sec:c5-loop}.
 
-The view can tell an owner, without showing any individual learner, which page
-confuses readers, where readers leave, which pages readers skip, where
-readers turn back, and where readers feel sure and are wrong. We did not observe whether owners read it that way. An owner cannot learn
-anything about a group under five, sees no weekly numbers in a quiet week, and
-hears questions only where a page is already a hotspot. The design includes two things that the system does not deliver: retention has never run, and a
+\paragraph{Model.} One governed event log with seventeen types models
+learner interaction. The reading view writes it through one function that
+checks every event and never fails a reader's request, and rows that members
+insert directly still meet the database's type constraint.
+
+\paragraph{Aggregate.} A pure function over the last 56~days turns a
+Space's events into facts per page, from three kinds of signal: what readers
+do, what they say, and what they get right. A floor of five readers decides
+what may be said: below it a value is \code{null}, not zero, and a word
+replaces the size of the group.
+
+\paragraph{Feed back.} The owner's view limits the output, not the storage:
+no statement about a person, none about a page that fewer than five people
+have read, and the owner absent from their own numbers. It therefore shows
+no individual learner: no name, no list, and no count of one to four people.
+Against the stricter standard of \cref{sec:analytics-privacy} it falls short
+in one known case, because the floor counts the readers of a page and one
+confused rater among five can carry a hotspot; five people behind each
+finding would close this gap (\cref{sec:c5-findings}). The floor protects
+against accidental exposure, not against an owner who pads the Space with
+accounts or compares views over time, and two older paths around the view
+stay open until the prepared fixes are applied (\cref{sec:c5-privacy}).
+
+\paragraph{What the view can tell.} Without showing any individual learner,
+the view tells an owner which page confuses readers, where readers leave,
+which pages they skip, where they turn back, and where they feel sure and
+are wrong. In the study with scripted readers it did so for each of these
+behaviours and stayed silent below the floor; whether real owners read it
+that way, we did not observe. It says nothing about a group under five,
+shows no weekly numbers in a quiet week, and reports themes only where a page
+is already a hotspot.
+
+\paragraph{Decide and return.} This step belongs to the owner. A changed page
+returns to learners only as a new upload, retention has never run, and a
 member cannot yet send a question to the owner.
