@@ -144,8 +144,8 @@ find.
 \section{Uploaded Text Is Not an Instruction}
 \label{sec:injection}
 
-Every prompt in the system carries text that the operator did not write. A
-PDF can contain a sentence that addresses the model and not the learner,
+Almost every prompt in the system carries text that the operator did not
+write. A PDF can contain a sentence that addresses the model and not the learner,
 which is indirect prompt injection~\cite{greshake2023indirect,owasp2025llm}.
 Three attackers matter. The \emph{owner} of a Space controls every page its
 members read and so every prompt built from them, and any signed-in user can
@@ -153,7 +153,7 @@ own a Space (\cref{sec:stakeholders}). A \emph{member} controls their own
 questions, which reach their own answer and the model that writes the owner's
 themes, where a filter drops every theme with a word that only one asker used
 (\cref{sec:c5-aggregation}). \emph{Any signed-in account} can write to the
-database directly, where row-level security is the only check
+database directly, where the database's own rules are the only check
 (\cref{sec:authorisation}). They threaten what members read and how they are
 graded, what members ask, and the cost of the system, which the cost caps
 bound (\cref{sec:cost-controls}). Against an owner who uploads a false page no
@@ -163,19 +163,23 @@ material.
 
 The defence has two layers, and neither is a boundary in the strict sense,
 because the model, not a parser, decides what it treats as an instruction.
-The first is a rule in every prompt that the page text and the learner's
-words are data and never instructions. The second keeps intact the fence that
-this rule points at. Each prompt fences uploaded text with markers, and a PDF
-that contains the same marker could close the fence early. Since PR~\#179 one
+The first is a rule in the prompt that the page text and the learner's words
+are data and never instructions. The second keeps intact the fence that this
+rule points at. A prompt fences uploaded text with markers, and a PDF that
+contains the same marker could close the fence early. Since PR~\#179 one
 function rewrites exactly those markers inside untrusted text into look-alikes
-that no fence matches (\code{ai/untrusted.py}), in the tutors, in Luna, in the
-reading view, and in every prompt of the parse. A page can then no longer
-reproduce a marker, but it can still address the model in plain words, which
-is why spotlighting lowers the success of injection without removing
-it~\cite{hines2024spotlighting}.
+that no fence matches (\code{ai/untrusted.py}). The change applied it wherever
+uploaded or learner text enters a prompt of the tutors, Luna, the reading
+view, or the parse (commit \code{ca1a6a08}). The prompt that translates a
+Lesson into the other language has neither layer and places the text in JSON
+(\code{localization\_service.py:148--158}). The rewriting stops a page from
+reproducing a marker, not from addressing the model in plain words.
+Spotlighting, the related idea, lowers the success of such attacks without
+removing them~\cite{hines2024spotlighting}.
 
-The file says so itself: rewriting the markers does not make injection
-impossible. An output check bounds the damage only in three places: Luna's
+The function's own description says that it ``does not make injection
+impossible; nothing does'' (\code{ai/untrusted.py}). Against an injected page,
+an output check bounds the damage in only three places: Luna's
 literal phrase check, the citation check of the ask bar, and the block
 validation of the reading view. An injected instruction that makes Explain
 write something false in well-formed blocks would pass. Explain and Ask may
