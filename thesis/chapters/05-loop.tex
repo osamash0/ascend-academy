@@ -329,9 +329,14 @@ it limits what leaves them.
 
 \begin{description}
   \item[No output about a person.] The owner's view has no list of members,
-    no per-person progress, and no name. An earlier version (PR~\#142) showed
-    individuals under keyed pseudonyms; PR~\#175 removed them in November
-    2026, and we did not record why.
+    no per-person progress, and no name. An earlier version showed individuals
+    under pseudonyms (PR~\#142); the older dashboard's pseudonym was an
+    unsalted hash of the user id, the same in every course. Pseudonymised
+    data remain personal data~\cite[Recital~26]{gdpr2016}, and in November
+    2026 we decided that the view shows no person at all, the simplest and
+    safest way we saw to protect members' data by design. PR~\#175 removed
+    the pseudonyms together with the switch that kept them off, because code
+    that one setting turns on is one mistake away from showing individuals.
   \item[A minimum count per page.] The view says something about a page only
     if at least five members have read it, and uses a share only once five of
     those readers contributed to it. Below that the value is \code{null}, and
@@ -391,30 +396,30 @@ an owner who wants to find out about one member.
 \subsection{Method: A Study with Scripted Readers}
 \label{sec:c5-method}
 
-With almost no real reading (the opening of this chapter gives the counts), we asked a narrower question that the code can answer: given readers who behave in known ways, does the owner's view say
-what it should, and does it stay silent when it should? Because the engine is
-a pure function, the study needs no server. A script
-(\code{backend/eval/persona\_study.py} at revision \code{a342dea9}, where
-the engine is identical to \code{2e146f51}) builds one Space with one Lesson
-of 30~pages, lets scripted readers write five of the eight event types the reading view
-writes, straight into the engine's input and not through
-\code{record\_event}, and calls the function behind the owner's route. Fixed strings replace the summarising model, as in the unit tests. Each run has a seed
-(20261109 plus the arm's index) and take seconds.
+With almost no real reading (the opening of this chapter gives the counts),
+we asked a narrower question that the code can answer: given readers who
+behave in known ways, does the owner's view say what it should, and stay
+silent when it should? Because the engine is a pure function, the study needs
+no server. A script (\code{backend/eval/persona\_study.py} at
+\code{a342dea9}, whose engine is identical to \code{2e146f51}) builds one
+Space with one Lesson of 30~pages, writes the events of scripted readers
+straight into the engine's input, and calls the function behind the owner's
+route. Fixed strings replace the summarising model, and each arm runs with a
+fixed seed in seconds.
 
-We defined five personas. A \emph{steady} reader reads every page for 20 to
-60~seconds, checks in with \enquote{got it}, and clears checkpoints. A
-\emph{struggling} reader dwells three times as long on pages 8 to 12, asks
-there, checks in as \enquote{confused}, misses first tries, and turns back from
-page~13 twice. An \emph{asker} asks on every third page. A \emph{skimmer}
-spends under five seconds per page and stops at page~10. An
-\emph{overconfident} reader says \enquote{got it} everywhere and misses the
-checkpoint on page~10. Dwell and correctness carry random noise.
-
-The study has eight arms, each a different mix of these personas. Before the first run the author wrote down, for every arm, which findings must appear and which must not: 23 expectations in all.
-The author wrote them into the script in the same working session, and the commit
-that holds them also holds the results (\code{a342dea9}), so the order is the author's statement and not a record. Where the author was
-unsure of an outcome (the confusion block and the speed bump in arm~A), the author wrote none down. After seeing the result the author added two arms to explain misses. \Cref{tab:persona} marks them as post hoc, and they do not count among the 23. Arm~I draws the mix of arm~H
-again, and arm~J adds a sixth persona, a confused asker.
+Five personas behave in known ways. A \emph{steady} reader reads every page
+for 20 to 60~seconds, checks in with \enquote{got it}, and clears
+checkpoints. A \emph{struggling} reader dwells three times as long on pages 8
+to 12, asks there, checks in as \enquote{confused}, misses first tries, and
+turns back from page~13. An \emph{asker} asks on every third page, a
+\emph{skimmer} spends under five seconds per page and stops at page~10, and
+an \emph{overconfident} reader says \enquote{got it} everywhere and misses
+the checkpoint on page~10. Eight arms mix these personas. Before the first
+run we wrote down, for every arm, which findings must appear and which must
+not: 23 expectations. They went into the script in the same session as the
+results (\code{a342dea9}), so their order rests on our word, not on a
+record. Two further arms, added after the result to explain misses, are
+marked post hoc and do not count.
 
 \subsection{Results}
 \label{sec:c5-results}
@@ -447,84 +452,79 @@ again, and arm~J adds a sixth persona, a confused asker.
   \end{tabular}
 \end{table}
 
-\Cref{tab:persona} gives the result. The engine met 18 of the 23 expectations.
-Nine of the 18 come from the control arm~G,
-and arms B, C, and H met none of their four expectations. Sorted by what the
-view had to do, the picture is this. Eight expectations asked the view to show
-something: a finding, themes, the weekly numbers, or the word for a Space with
-enough readers. The engine met five of them. Fifteen asked the view to
-withhold something, and the engine met thirteen. Both misses of this kind are
-the hotspot on page~10 of arm~B. An engine that never reports a finding or a
-theme, with the reach word and the weekly numbers as the real engine sent
-them, would withhold correctly in all fifteen cases and show what it should
-in one of the eight. The script \code{mute\_engine.py} computes these counts
-from the summary files of the study (\code{docs/\allowbreak thesis/\allowbreak
-experiments/\allowbreak persona-study/}). The
-silent part of the study tests the floor rules and not detection. The
-arms separate: struggling readers produce a hotspot and a speed bump where
-they struggled, skimmers produce a leak and skipped pages, overconfident
-readers produce a calibration gap and nothing else, and the mix of 27 surfaces
-two findings on one page and no noise. The control arm is the most important
-row. With four members the payload holds no finding, no theme, and no number,
-and the screen is the lower half of \cref{fig:door}. Four askers yield no themes.
+\Cref{tab:persona} gives the result: the engine met 18 of the 23
+expectations, nine of them in the control arm~G. Eight expectations asked the
+view to show something (a finding, themes, the weekly numbers, or the word
+for enough readers), and the engine met five; fifteen asked it to withhold
+something, and it met thirteen. An engine that never reports a finding or a
+theme would withhold correctly in all fifteen cases and show what it should
+in one of the eight (\code{mute\_engine.py},
+\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak persona-study/}),
+so the withholding half tests the floor rules, not detection. Struggling
+readers produced a hotspot and a speed bump (arm~A), skimmers a leak and
+skipped pages (arm~E), and overconfident readers a calibration gap and
+nothing else (arm~F). In the control arm, with four members, the payload held
+no finding, no theme, and no number, and the screen is the lower half of
+\cref{fig:door}.
 
 \subsection{Three Things the Misses Showed}
 \label{sec:c5-findings}
 
-In none of the five misses does the code depart from its rules. They fall
-into three groups, one per paragraph below. In arms A, C, and H the author's
-expectations had misread the rules. Arm~B's two misses show that the rules do
-not keep the promise made to members, that patterns rest on at least five
-people (\cref{sec:c5-privacy}). Each limits what an owner can learn.
+None of the five misses departs from the code's rules. In arms A, C, and H
+our expectations had misread the rules; arm~B's two misses show that the
+rules do not keep the promise made to members, that patterns rest on at
+least five people (\cref{sec:c5-privacy}).
 
 \paragraph{The numbers speak about this week.}
 In arms A and H all three numbers were empty although 12 and 27 members had
-read. The view shows the value of the current week. The scripted readers
-read on one day each, spread over eight weeks. In arm~A no week reached five
-readers, and in arm~H at most three of the eight weeks did, and the last one did
-not. Arm~I places the same 27 readers in one week and
-the numbers appear. A Space with fewer than five readers per week shows no numbers even when the map is full.
+read. The view shows the current week, and the scripted readers read on
+single days spread over eight weeks, so in neither arm did the current week
+reach five readers. Arm~I places the same 27 readers in one week, and the
+numbers appear. A Space with fewer than five readers per week shows no
+numbers even when the map is full.
 
 \paragraph{The floor counts readers, not the people a finding is about.}
 In arm~B three of thirteen members were confused on page~10, and the view
-reported a hotspot. The page had thirteen readers, so it was above the floor.
-The Space engine uses a share only once five of the page's readers have rated it. The hotspot rule then fires at 20\,\% confused, so one confused
-reader among five raters is enough. Three of thirteen are 23\,\%. The view
-names nobody and sends no count of three, so
-the promise \enquote{patterns across at least five people} holds by its
-letter. It does not hold in the stronger sense that five people stand behind a pattern. An owner who knows the group may guess who the three are. Only
-the speed bump counts the people a finding is about, and only since PR~\#181.
-That change also made the engine send a missing share as null and not as 0,
-send no count under five for a grid cell, for the askers of a hotspot, or for
-a speed bump, and replace the reader count with a word. We froze the code at the pin, so we report this as a limit and name the stricter rule, five subjects per
-finding, as the change to make.
+reported a hotspot. The page had thirteen readers, at least five of whom
+rated it, so it was above the floor, and three of thirteen are 23\,\%,
+above the hotspot rule of 20\,\%. The view names nobody and sends no count of
+three, so the promise holds by its letter, but not in the stronger sense
+that five people stand behind a pattern: an owner who knows the group may
+guess who the three are. Only the speed bump counts the people a finding is
+about (since PR~\#181). We froze the code at the pin, so we report this as a
+limit and name the stricter rule, five people behind each finding, as the
+change to make.
 
 \paragraph{Themes explain a hotspot and nothing else.}
 In arm~C five members asked about the same pages and no themes appeared,
-because the engine makes themes only for hotspot pages. Five people who ask about a
-page that is not a hotspot reach no one.
+because the engine makes themes only for hotspot pages. Five people who ask
+about a page that is not a hotspot reach no one.
 
 \subsection{What the Tests Cover Without the Study}
 
-Tests that run without readers also fix the floor and the rules above. At \code{2e146f51} these are 141 unit tests of the engine, 26 of
-them written as plain sentences
-such as \enquote{a page four people reached says nothing even if all four were
-foggy} (\code{tests/unit/test\_landing\_stories.py}), and 62 database tests
-that replay every migration into an empty Postgres and check the event
-schema, the partitions, row-level security, erasure, the read path, and the
-owner gate. They test the database that the migrations describe. Production
-differs from it, for example in the partitions (\cref{sec:c5-events-storage}).
+Tests without readers fix the same rules: at \code{2e146f51}, 141 unit tests
+of the engine, 26 of them written as plain sentences such as \enquote{a page
+four people reached says nothing even if all four were foggy}
+(\code{tests/unit/test\_landing\_stories.py}), and 62 database tests that
+replay every migration into an empty Postgres and check the event schema,
+row-level security, erasure, the read path, and the owner gate. They test
+the database that the migrations describe, not production
+(\cref{sec:c5-events-storage}).
 
 \subsection{Limits}
 
 The study tests whether the aggregation separates known behaviours and
-whether the floor holds. The personas are
-clean, so the arms separate more sharply than real readers would, and there
-is one Lesson, one Space, and one seed per arm. At least one outcome sits next to a threshold: the hotspot of arm~B rests on 23\,\% against a rule of
-20\,\%, and with one seed we do not know how often it would appear. Fixed strings replaced the summarising model, so the study says nothing about the themes a real
-model would write or about what they might reveal. The author who wrote the engine also wrote the study, and expectations and code can share a
-misreading.
-We did not observe whether an owner changes a page after seeing a finding, the step that would close the loop.
+whether the floor holds. The personas sit far from the thresholds: a skimmer
+always stays under the rule of five seconds, and a struggling reader is
+always confused on the hard pages. The study therefore shows that the engine
+implements the rules of \cref{tab:detectors}, not that the rules describe
+real reading. There is one Lesson, one Space, and one seed per arm, and the
+hotspot of arm~B rests on 23\,\% against a rule of 20\,\%, so we do not know
+how often it would appear. Fixed strings replaced the model that writes
+themes, so the study says nothing about what real themes might reveal. We
+wrote both the engine and the study, so expectations and code can share a
+misreading. And we did not observe whether an owner changes a page after
+seeing a finding, the step that closes the loop.
 
 \section{Answer to RQ2}
 \label{sec:c5-answer}
