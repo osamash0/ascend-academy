@@ -16,9 +16,9 @@
 
 This chapter describes the system as a whole, so that the three chapters
 that follow can each go deep into one part. It covers what the system is
-for, the words it uses, what a reader can do in it today, how we built and deployed it, and under which constraints. It answers no research question.
+for, the words it uses, what a learner can do in it today, how we built and deployed it, and under which constraints. It answers no research question.
 
-\section{From a Course Platform to a Reader}
+\section{From a Course Platform to a Reading View}
 \label{sec:vision}
 
 Learnstation started in January 2026 as a platform for lecturers: a
@@ -27,7 +27,7 @@ lectures, quizzes, and a dashboard. Its first idea was to stand between the
 learning management system, which stores files, and the AI assistant, which
 knows nothing about the course. Over the year the centre moved from the
 course to the page. In the system that production has served since 29~October
-2026, anyone can upload a PDF and read it at once, and the system adds everything else to the pages while the reader reads them
+2026, anyone can upload a PDF and read it at once, and the system adds everything else to the pages while the learner reads them
 (\code{docs/\allowbreak superpowers/\allowbreak specs/\allowbreak 2026-10-26-library-and-spaces-design.md}).
 
 We therefore built the interface twice. We wrote the second interface, which the repository calls v4 (a label unrelated to the numbered pipeline versions of \cref{sec:c4-lineage}), as a new part of the frontend beside the first one and not as a refactoring of it (\code{docs/design-v4/UI-SESSION-BRIEF.md},
@@ -38,13 +38,13 @@ in ten months.
 
 Five principles hold across the current system.
 \begin{description}
-  \item[Read first.] A reader can open an uploaded file before any AI step has finished. No feature may delay the reader.
+  \item[Read first.] A learner can open an uploaded file before any AI step has finished. No feature may delay the learner.
   \item[The original page is the reference.] The page as the author made it
     is the default view. Generated text is one switch away and never
     replaces it.
   \item[Deterministic first, AI second.] Code decides what code can decide: page hashes, the plan of a deck, the route of a page, the grading
     of a computable answer.
-  \item[Parse once.] The system processes a file once per uploader and reuses the result for every reader of that upload.
+  \item[Parse once.] The system processes a file once per uploader and reuses the result for every learner who reads it.
   \item[The server decides.] The server computes points, progress, and grades, and the browser displays them.
 \end{description}
 
@@ -61,7 +61,9 @@ consecutive pages that a model groups when a Lesson is first read. The
 The \emph{reading view} is the screen in which a person reads a Lesson. It shows
 each page in three views: the original page, which opens first, an
 explanation that a model writes from it, and its plain text. A
-\emph{reader} is a person who reads. On a single page the reading view
+\emph{learner} is a person who learns with the material, and the learners who
+have read a given page are its \emph{readers}, which \cref{ch:loop}
+counts. On a single page the reading view
 offers \emph{Explain}, which explains the page, and \emph{Ask}, which
 answers a learner's question about it. The \emph{ask bar} on a Space's home
 screen answers from all its Lessons. \emph{Luna} is the assistant of study

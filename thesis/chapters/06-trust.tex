@@ -19,7 +19,7 @@
 This chapter answers RQ3: how a system can check learning content that a
 language model writes before learners see it, and what happens when a check
 fails. \Cref{ch:content} turned uploads into pages, and \cref{ch:loop} fed back to
-the owner what readers do on them. Along the way a model writes three kinds
+the owner what learners do on them. Along the way a model writes three kinds
 of text that a learner may take for true: an answer to a question, a quiz
 question with its key, and the task behind a graded exercise.
 
@@ -160,7 +160,7 @@ Every prompt in the system carries text that the operator did not write. Any
 signed-in user can create a Space, upload a PDF, and publish it, and any
 signed-in user can join a published Space (\cref{sec:stakeholders}). A PDF can
 therefore contain a sentence that addresses the model and not to the
-reader. This is indirect prompt
+learner. This is indirect prompt
 injection~\cite{greshake2023indirect,owasp2025llm}. The audience of such a
 document is the members of its Space.
 
@@ -416,7 +416,7 @@ review screen at all, and the members of a published Space see a new Lesson
 the moment its parse creates it. Publishing controls who can find and join a
 Space, not what its members see.
 
-This is a consequence of a decision with another purpose. We built the reading view so that a reader can open a page seconds after the upload (\cref{sec:pipeline}).
+This is a consequence of a decision with another purpose. We built the reading view so that a learner can open a page seconds after the upload (\cref{sec:pipeline}).
 A real approval step would need a draft state on the Lesson and would delay exactly
 that. The automatic checks of this chapter are therefore the only line
 between the model and the learner, which is why the system drops an item that fails a check and does not pass it on for a human to catch.

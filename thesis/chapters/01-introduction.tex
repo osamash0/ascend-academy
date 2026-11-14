@@ -16,11 +16,11 @@
 Most university teaching still travels as a PDF. A lecturer writes slides,
 exports them, and uploads the file to a learning management system. Students
 download it and read it alone. From that moment the material is silent in
-both directions. The file cannot answer a question, cannot check whether a reader understood a page, and cannot tell the lecturer that half of the readers
+both directions. The file cannot answer a question, cannot check whether a learner understood a page, and cannot tell the lecturer that half of the learners
 stopped at page twelve.
 
 Large language models (LLMs) have made it cheap to add an assistant to such a file.
-This helps the individual reader, but nothing ties the answer to the page it came from, every student repeats the work, and the lecturer learns nothing from it. The research on intelligent textbooks has described the
+This helps the individual learner, but nothing ties the answer to the page it came from, every student repeats the work, and the lecturer learns nothing from it. The research on intelligent textbooks has described the
 alternative for decades: reading material that carries its own structure,
 practice, and record of use~\cite{brusilovsky2022return}. What is new is that
 a language model can derive much of that structure from an ordinary PDF.
@@ -30,7 +30,7 @@ step for lecture material. A lecturer or a student uploads a PDF and
 reads it at once. While they read, the system turns each page into objects
 that software can address: a text of the page, a vector for search, and, for
 selected pages, questions about it (\cref{fig:transformation}). An assistant
-called Luna works on these objects, next to the page they come from. The system returns what readers do on the pages to the owner of the material as patterns about pages, with no names and only for pages that at least five
+called Luna works on these objects, next to the page they come from. The system returns what learners do on the pages to the owner of the material as patterns about pages, with no names and only for pages that at least five
 people have read.
 
 \begin{figure}[htbp]
@@ -86,7 +86,7 @@ what it does when a check fails.
 The thesis has three aims: to transform static lecture material into
 structured content while the original page stays the reference, to feed what
 learners do back to the owner of the material without naming any learner, and to generate
-shared content once and not once per reader.
+shared content once and not once per learner.
 
 We make four contributions.
 \begin{enumerate}
@@ -95,7 +95,7 @@ We make four contributions.
   \item A blind benchmark of eleven text extraction methods on 24~lecture
     pages in 283~pairwise votes, under a protocol frozen before the first
     vote and extended by four recorded deviations (\cref{ch:content}).
-  \item A feedback loop from reader to owner whose view names no person and
+  \item A feedback loop from learner to owner whose view names no person and
     says nothing about a page that fewer than five people have read
     (\cref{ch:loop}).
   \item Verification of generated questions by computation and by an independent answer check, with one verifier that failed its test and that we did not adopt (\cref{ch:trust}).
@@ -140,8 +140,7 @@ reachable at the pin, and \emph{deployed} means running in production. We name t
 
 We follow a build-and-evaluate approach. Each of the three main chapters
 describes what we built and ends with an evaluation. The extraction benchmark, the similarity verifier, and the re-run of the
-refusal gate had their expectations committed before the run. For the study with scripted readers we wrote them first but committed them with the results. The routing study, the deck-plan scorecard, and the answer check had
-none. \emph{We} is the voice of the text. What the author did alone, such as judging and labelling, we attribute to \emph{the author}. We checked statements about the system against the code at the revision named above, unless a section names a later
+refusal gate had their expectations committed before the run. For the study with scripted readers we wrote them first but committed them with the results. Three evaluations had no expectations fixed before they ran: the routing study, the deck-plan scorecard, and the answer check. Their results are therefore descriptive, and we say so where we report them. What the author did alone, such as judging and labelling, we attribute to \emph{the author}. We checked statements about the system against the code at the revision named above, unless a section names a later
 one, and against production where the two can differ. Where the repository does
 not record a reason for a decision, we say so and do not supply one.
 
@@ -152,12 +151,18 @@ We consider this part of the method and not a footnote to it, because we adopted
 \section{Research Questions}
 \label{sec:research-questions}
 
-The thesis began as a project proposal in January 2026, \enquote{Discovering
-Impact: characterizing learning interaction data in educational contexts},
-with four questions. Its question on aggregating interaction events became
-RQ2, two need participants and remain open (\cref{sec:limitations}), and we do not pursue its question on data profiling metrics. RQ1 and RQ3 are new.
-\TODO{Author: say why the profiling question was dropped, and when and why
-RQ1 and RQ3 were added. The repository records neither reason.}
+The thesis grew out of a project proposal of January 2026,
+\enquote{Discovering Impact: characterizing learning interaction data in
+educational contexts}. Its question on how to aggregate interaction events
+became RQ2. Its other questions needed interaction data from real learners.
+We sent the system to students, but almost no interaction data arrived,
+possibly because it was the time before their exams (\cref{ch:loop} gives
+the counts). Two questions that need studies with participants therefore
+remain open (\cref{sec:limitations}), and we do not pursue the question on
+data-profiling metrics, because there is almost no data to profile. While we
+built the system, two needs came first: lecture PDFs had to become pages
+that learners can read, and the content that a model writes had to be
+checked before learners see it. These became RQ1 and RQ3.
 
 \begin{description}
   \item[RQ1] How can heterogeneous lecture PDFs be transformed into
