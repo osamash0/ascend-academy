@@ -37,8 +37,8 @@ missing.
 \section{The Page Stays the Reference}
 \label{sec:c6-page}
 
-The oldest trust decision in the project is not a verifier. From 24~February 2026 the interface showed the original slide beside the generated text
-(commit \code{4c23d254}). The repository records no reason for it. In the reading view the uploaded page is the first of the three views of a
+The oldest trust decision in the project is not a verifier. From February 2026 the interface showed the original slide beside the generated text
+(commit \code{4c23d254}). We showed the original so that we could test the generated text against its source and judge it, and it stayed as the learner's reference. In the reading view the uploaded page is the first of the three views of a
 Lesson, and
 the generated explanation and the plain text are one key away
 (\code{LessonFacesScreen.tsx:152--163}). A learner who doubts a generated
@@ -64,7 +64,7 @@ most 12 hits) run inside the Space, and reciprocal rank fusion with constant 60
 keeps the best six (\code{ai/retrieval.py}). The SQL query applies the scope, as a restriction to the Space's live Lessons, and not as a filter
 afterwards (migration \code{20261014000000}).
 
-This scope was wrong for a long time. Until 11~October 2026 the scoped search joined the embeddings on a column
+This scope was wrong for a long time. Until October 2026 the scoped search joined the embeddings on a column
 that is empty for most rows, because the content hash is the key of the embeddings.
 The fix reached the main branch with PR~\#96 on 24~October, and no record says when it reached production. Pages whose embeddings lacked that column
 were invisible to the ask bar and to the global search. The fix, commit
@@ -105,20 +105,15 @@ claim.
 \subsection{Strict First, Relaxed Later, Strict Again}
 \label{sec:c6-history}
 
-The first grounded tutor (commit \code{8d2eb095}, 2~May 2026) answered
-strictly from the retrieved pages, cited them, and refused everything else.
-On 24~June 2026 a commit removed the refusal from the tutor of the older interface (commit
-\code{f39e93dc}). Since then that tutor may add knowledge from outside the
-material if it puts it in a block quote and says that it goes
-beyond the slides (\code{ai/prompts.py:506--540}). This is a prompt rule, and no
-code checks that the model keeps it. The repository does not record why the commit removed the refusal, and
-\cref{sec:c6-history-detail} gives what the repository shows.
-
-Two tutors therefore exist at \code{\thesisCommit}. The tutor of the older interface has no refusal gate and allows labelled
-outside knowledge. The course tutor
-behind the ask bar, which is the one learners reach in the current interface,
-kept the gate and answers only from the Space. The system returned to strict answering when learners moved to the current
-interface, not by a recorded decision.
+The first grounded tutor (commit \code{8d2eb095}, May 2026) refused
+everything outside the retrieved pages. In June 2026 a commit removed the
+refusal from the tutor of the older interface (\code{f39e93dc}), for a reason
+the repository does not record. Since then that tutor may add outside
+knowledge in a labelled block quote, a prompt rule that no code checks
+(\code{ai/prompts.py:506--540}; \cref{sec:c6-history-detail}). The ask bar,
+which learners reach in the current interface, kept the gate and answers only
+from the Space, so the system returned to strict answering with the interface
+and not by a recorded decision.
 
 \subsection{Luna and the Reading View: Checks on Structure}
 \label{sec:c6-structure}
@@ -184,7 +179,7 @@ check who owned the target course. We closed it on the API path
 (\code{722167b0}, with 10 tests). On the database path it is open. The
 policy that lets an account create a lecture row checks only that the row
 names its creator as owner, not that the creator owns the course it names
-(migration \code{20260713000000}; production, read on 11~November 2026). The
+(migration \code{20260713000000}; production, read in November 2026). The
 policy therefore permits a signed-in user who writes to the database directly
 to add a lecture row to another owner's Space, whose members can then read
 it. We did not test whether text in such a row reaches a model prompt.
@@ -217,7 +212,7 @@ happens next.
 
 \begin{description}
   \item[Resolve the key.] The model names the correct option as an index, a
-        letter, or the option's text. If none of these matches an option, the code drops the question and logs it. Until 16~June 2026 the code stored such a question with option~A as its key (commit \code{f25dd41c}). The code
+        letter, or the option's text. If none of these matches an option, the code drops the question and logs it. Until June 2026 the code stored such a question with option~A as its key (commit \code{f25dd41c}). The code
         states the reason: a wrong answer key is worse than fewer questions.
   \item[Structural gates.] The gates (\code{parser/quiz\_grounding.py:127}) involve no model. They drop a question if its cited page is missing, out of range, or empty, or if its key does not resolve. A number in the
         key that is not on the page, or a distractor that the page supports
@@ -253,13 +248,23 @@ kinds of question.
 Three of them are about functional dependencies in the database course the
 corpus comes from: which dependencies hold on a given table, the closure of a
 set of attributes, and which dependencies violate Boyce--Codd normal form (BCNF). For these the model
-writes the task but not the verdict. The client computes the answer from the question's own data, and the server computes it again
-(\code{rehearsal/grade.ts}, \code{v4\_rehearsal\_service.py:43--105}), and the server refuses a task whose computed answer is trivial or empty before a learner sees it (PR~\#75). The file says it in one sentence: the model does not get
-the last word on the answers.
+writes the task but not the verdict. The browser computes the answer from the
+question's own data (\code{rehearsal/grade.ts}). For a checkpoint the server
+computes it again and records its own verdict, not the browser's
+(\code{v4\_rehearsal\_service.py:43--105}, \code{v4\_reader.py:326}); a
+finished rehearsal it stores as the browser reports it
+(\code{v4\_rehearsal\_service.py:508}). Before a learner sees a task, the
+server refuses one whose computed answer is trivial or empty (PR~\#75). The
+model does not get the last word on the answers.
 
 The other two kinds have no computable answer. The code checks a multiple-choice question for shape (exactly one option marked correct) and an ordering question for distinct items, and then grades both against the model's key. Computation
 covers exactly the questions that have a formal answer. It is the strongest
-verifier in the system and the narrowest.
+verifier in the system and the narrowest. Every question, the deck quiz in
+practice included, reaches the browser together with its answer, because the
+browser grades first (\code{v4\_practice\_service.py:91}). Grading on the
+server therefore protects a recorded verdict, and with it the owner's view
+of \cref{ch:loop}, against a forged answer; it does not hide the answer from
+a learner who reads the network traffic.
 
 \section{Measuring the Verifiers}
 \label{sec:c6-evaluation}
@@ -271,7 +276,7 @@ every verifier of answer keys on the same fixed probe.
 \subsection{Method}
 \label{sec:c6-method}
 
-The probe is 16 pairs, which the author wrote by hand on 11~October 2026 before any verifier scored them (\code{backend/eval/data/grounding\_probe.py}). Eight pairs
+The probe is 16 pairs, which the author wrote by hand in October 2026 before any verifier scored them (\code{backend/eval/data/grounding\_probe.py}). Eight pairs
 are in English, from a lecture on transactions, and eight in German, from a
 lecture on storage management. Both decks are disjoint from the decks on which we fitted any threshold. Each pair holds one correct key that
 paraphrases the page and one wrong key that stays on the topic of the page.
@@ -345,7 +350,7 @@ The answer check disputed no correct key and accepted no wrong one in the
 calls that returned a verdict, with the easy distractors described in
 \cref{sec:c6-method}. On the question that started the work, which a careful student
 could answer differently from its key, it disputed the key in five of five
-runs and accepted a corrected version of the same question in five of five. The run took place on 30~October 2026 with the reasoning model at the head of the quality chain
+runs and accepted a corrected version of the same question in five of five. The run took place in October 2026 with the reasoning model at the head of the quality chain
 (PR~\#166). Unlike the similarity score, the answer check faced no acceptance criterion fixed in advance. We built it for that one question and measured it in the same change, on the probe that already existed (commit
 \code{461afc40}), so its result is in-sample. Before anyone calls the check validated, a new run should score it once on new pairs from other decks against an acceptance criterion fixed first.
 
@@ -353,9 +358,6 @@ One call of the run returned no verdict, because the provider limited the
 rate and the fallback timed out. The script counts such a call as an error
 (\code{backend/\allowbreak eval/\allowbreak quiz\_answer\_check.py:101--103}),
 and the record of the run does not say which pair it was.
-\TODO{check: which pair, and which of its two keys, returned no verdict in
-the run of PR~\#166 (the run log, if kept). Then write 0 of 15 in the right
-cell of \cref{tab:verifiers} and drop its footnote.}
 The deployed check
 would have kept that question whichever key it carried, so
 \cref{tab:verifiers} describes the check when it answers.
@@ -382,7 +384,7 @@ closest setting the grid measured to the six hits the ask bar keeps).
 \subsection{What the Numbers Do Not Show}
 \label{sec:c6-threats}
 
-The probe is small, and the developer of the system wrote it, in two
+The probe is small, and the author, who built the system, wrote it, in two
 subjects from one university. Sixteen pairs show how a verifier behaves on
 these chosen cases and do not estimate an error rate in production.
 The wrong keys are on the topic but plainly false, and every distractor is
@@ -394,7 +396,7 @@ a product of the probe. The failure that started the answer check, an
 ambiguous question whose options all appear on the page, appears in one case.
 We measured the answer check once, on one day, with one model at the head of
 its chain, and a model behind an API can change without notice. No measurement
-covers the prose of Explain, Ask, or Luna. We measured the refusal gate in one Space, with 57 English questions that the developer wrote with AI assistance, ten per group of unanswerable questions.
+covers the prose of Explain, Ask, or Luna. We measured the refusal gate in one Space, with 57 English questions that the author drafted with AI assistance, ten per group of unanswerable questions.
 Their wording may suit retrieval better than a student's would, and a margin
 of 0.025 on this sample does not show how the threshold behaves on other
 material.
