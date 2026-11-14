@@ -64,17 +64,13 @@ most 12 hits) run inside the Space, and reciprocal rank fusion with constant 60
 keeps the best six (\code{ai/retrieval.py}). The SQL query applies the scope, as a restriction to the Space's live Lessons, and not as a filter
 afterwards (migration \code{20261014000000}).
 
-This scope was wrong for a long time. Until October 2026 the scoped search joined the embeddings on a column
-that is empty for most rows, because the content hash is the key of the embeddings.
-The fix reached the main branch with PR~\#96 on 24~October, and no record says when it reached production. Pages whose embeddings lacked that column
-were invisible to the ask bar and to the global search. The fix, commit
-\code{b66a97c6}, records 40 such rows out of 68 in one Space and adds a
-database test that fails on the old join. No record says how large the blind part was in other Spaces. The
-retrieval measurement of September, taken in another Space, found the right
-page among its six hits for 26 of the 27 questions it could run there
-(96\,\%) under the old join. Every later check depends on retrieval: a
-refusal gate and a citation check are worth nothing when retrieval does not
-see the material.
+This scope was wrong until October 2026. The scoped search joined the
+embeddings on a column that is empty for most rows, so the ask bar could not
+see those pages: 40 of 68 in one Space (commit \code{b66a97c6}, PR~\#96, with
+a database test that fails on the old join). No record says how large the
+blind part was in other Spaces, or when the fix reached production. Every
+later check depends on retrieval: a refusal gate and a citation check are
+worth nothing when retrieval does not see the material.
 
 \subsection{Five Points of Control}
 \label{sec:anti-hallucination}
@@ -83,10 +79,9 @@ see the material.
 
 \begin{enumerate}
   \item \emph{Scope.} The Space must be one the caller belongs to or owns
-        (\code{v4\_spaces\_service.py}). Until PR~\#173 an owner who had not
-        joined their own Space received a server error.
+        (\code{v4\_spaces\_service.py}).
   \item \emph{Scoped retrieval,} as above.
-  \item \emph{Input sanitising.} The code trims the learner's message, cuts it at 2,000 characters, and rewrites the delimiters with which the prompt fences uploaded text (\cref{sec:injection}) so that the message cannot imitate them (\code{tutor.py:71--90}). The ask bar's own route refuses
+  \item \emph{Input sanitising.} The code trims the learner's message, cuts it at 2,000 characters, rewrites the delimiters with which the prompt fences uploaded text (\cref{sec:injection}) and the angle brackets so that the message cannot reproduce them literally, and marks phrases such as ``ignore previous instructions'' as quoted (\code{tutor.py:71--90}). The ask bar's own route refuses
         a question of more than 600 characters before that.
   \item \emph{Refusal gate.} If no retrieved page reaches similarity 0.65, the gate returns a fixed ``not covered'' reply before any model call
         (\code{tutor.py:302--347}). The gate is a pure function of the
@@ -125,12 +120,10 @@ Both surfaces check the shape of what the model writes.
 
 Luna names pages and lights up phrases on them. The validator drops a move to a page that does not exist, and a phrase survives only if it occurs literally on that
 page (\code{luna/validate.py}, 12 unit tests). A check question must have
-exactly one correct option. The file states the rule for Luna's structured output in its first line:
-nothing the model writes reaches a learner unchecked, and the validator drops what fails and never shows it broken.
+exactly one correct option.
 
-Explain in the reading view sees the text of one page and the titles of up to four
-neighbouring pages (\code{v4\_reader\_service.py:728}), and Ask sees the same
-page and up to four earlier turns of the conversation. Their output
+Explain and Ask in the reading view see the open page and little else
+(\code{v4\_reader\_service.py:728}). Their output
 must parse into a fixed set of blocks, and the service drops a block that does not
 (\code{v4\_reader\_service.py}, \code{validate\_answer}). Beyond that they rely
 on prompt rules: use only facts the page states, say when the page does not give something, and label an invented example as hypothetical. These rules are
@@ -140,49 +133,68 @@ this is the weakest of the three surfaces.
 \subsection{Whether the Learner Sees the Source}
 \label{sec:citation-gap}
 
-A citation that the server validates and no screen shows gives the learner nothing to check. That was the state at \code{\thesisEarlierCommit}
-(\cref{fig:citation-gap} in \cref{app:figures}): the server computed and filtered citations, only its own test imported the one component that rendered them, and the
-screens in use either ignored the field or showed the page that happened to be
-open. In the current interface the ask bar shows each citation as a link to
-its page. The reading view's Explain and Ask still show none. Their only source is
-the open page itself. A learner cannot perceive a trust mechanism that no screen shows, which limits what any later study of perceived reliability could
+A citation that the server validates and no screen shows gives the learner
+nothing to check. At \code{\thesisEarlierCommit} no screen in use showed the
+citations that the server computed (\cref{fig:citation-gap} in
+\cref{app:figures}). In the current interface the ask bar shows each citation
+as a link to its page. The reading view's Explain and Ask show none, and their
+only source is the open page itself. A learner cannot perceive a trust mechanism that no screen shows, which limits what any later study of perceived reliability could
 find.
 
 \section{Uploaded Text Is Not an Instruction}
 \label{sec:injection}
 
-Every prompt in the system carries text that the operator did not write. Any
-signed-in user can create a Space, upload a PDF, and publish it, and any
-signed-in user can join a published Space (\cref{sec:stakeholders}). A PDF can
-therefore contain a sentence that addresses the model and not to the
-learner. This is indirect prompt
-injection~\cite{greshake2023indirect,owasp2025llm}. The audience of such a
-document is the members of its Space.
+Every prompt in the system carries text that the operator did not write. A
+PDF can contain a sentence that addresses the model and not the learner,
+which is indirect prompt injection~\cite{greshake2023indirect,owasp2025llm}.
+Three attackers matter. The \emph{owner} of a Space controls every page its
+members read and so every prompt built from them, and any signed-in user can
+own a Space (\cref{sec:stakeholders}). A \emph{member} controls their own
+questions, which reach their own answer and the model that writes the owner's
+themes, where a filter drops every theme with a word that only one asker used
+(\cref{sec:c5-aggregation}). \emph{Any signed-in account} can write to the
+database directly, where row-level security is the only check
+(\cref{sec:authorisation}). They threaten what members read and how they are
+graded, what members ask, and the cost of the system, which the cost caps
+bound (\cref{sec:cost-controls}). Against an owner who uploads a false page no
+check helps, because every check takes the page as its reference: the checks
+defend against the model's errors, not against the person who supplies the
+material.
 
-The defence has two layers. The first is a rule in
-every prompt that the page text and the learner's words are data and never
-instructions. The second gives that rule a boundary that uploaded text cannot forge. Each prompt
-fences uploaded text with markers, and a PDF that contains the same marker
-could close the fence early. Since PR~\#179 one function rewrites exactly
-those markers inside untrusted text into look-alikes that no fence matches
-(\code{ai/untrusted.py}), in the tutors, in Luna, in the reading view, and in every
-prompt of the parse. The idea is related to
-spotlighting~\cite{hines2024spotlighting}. Before that change, at
-\code{\thesisPreviousCommit}, the prompts inserted retrieved text raw, and the reading view's prompts lacked even
-the rule of the first layer.
+The defence has two layers, and neither is a boundary in the strict sense,
+because the model, not a parser, decides what it treats as an instruction.
+The first is a rule in every prompt that the page text and the learner's
+words are data and never instructions. The second keeps intact the fence that
+this rule points at. Each prompt fences uploaded text with markers, and a PDF
+that contains the same marker could close the fence early. Since PR~\#179 one
+function rewrites exactly those markers inside untrusted text into look-alikes
+that no fence matches (\code{ai/untrusted.py}), in the tutors, in Luna, in the
+reading view, and in every prompt of the parse. A page can then no longer
+reproduce a marker, but it can still address the model in plain words, which
+is why spotlighting lowers the success of injection without removing
+it~\cite{hines2024spotlighting}.
 
-Rewriting the markers does not make injection impossible. An output check bounds the damage only in three places:
-Luna's literal phrase check, the citation check of the ask bar, and the block
-validation of the reading view. An injected instruction that makes the reading
-view's Explain write something false in well-formed blocks would pass. One earlier hole widened the audience: the single-file upload did not
-check who owned the target course. We closed it on the API path
-(\code{722167b0}, with 10 tests). On the database path it is open. The
-policy that lets an account create a lecture row checks only that the row
-names its creator as owner, not that the creator owns the course it names
-(migration \code{20260713000000}; production, read in November 2026). The
-policy therefore permits a signed-in user who writes to the database directly
-to add a lecture row to another owner's Space, whose members can then read
-it. We did not test whether text in such a row reaches a model prompt.
+The file says so itself: rewriting the markers does not make injection
+impossible. An output check bounds the damage only in three places: Luna's
+literal phrase check, the citation check of the ask bar, and the block
+validation of the reading view. An injected instruction that makes Explain
+write something false in well-formed blocks would pass. Explain and Ask may
+also answer with a small app whose code the model writes. There the browser
+holds the line: the app runs in a frame without the page's origin, under a
+content security policy that allows no network (\code{Sandbox.tsx}). Text
+blocks have no such bound. They show images from any address
+(\code{Prose.tsx}), and the repository's web server sets no content security
+policy, so an injected page might make Ask show an image whose address
+carries the learner's question to a third party~\cite{greshake2023indirect}.
+We did not test this.
+
+One hole widens the audience. The database policy for new lecture rows checks
+that a row names its creator as owner, not that the creator owns the Space it
+names (migration \code{20260713000000}; production, November 2026). A
+signed-in account that writes to the database directly can therefore add a
+Lesson to another owner's Space. The API path checks ownership
+(\code{722167b0}). We did not test whether text in such a row reaches a model
+prompt.
 
 \section{Questions That Carry a Key}
 \label{sec:assessment}
