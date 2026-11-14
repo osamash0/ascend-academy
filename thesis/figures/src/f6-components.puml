@@ -17,40 +17,34 @@ skinparam componentStyle uml2
 component "**Browser**\nReact SPA" as BR
 
 package "Hetzner CX23 -- Docker, one bridge network" {
-  component "**frontend**\nnginx 1.27, static bundle\nproxies /api/ (prefix kept)" as FE
+  component "**frontend**\nnginx: serves the app,\nforwards /api/ to the API" as FE
   rectangle "one Dockerfile" as BE {
-    component "**api**\nFastAPI, 1 uvicorn worker\nv4 routers behind flags" as API
-    component "**worker**\nArq, max_jobs 4\ncrons every 10 min" as WK
+    component "**api**\nFastAPI, one process;\nnew routes behind switches" as API
+    component "**worker**\nArq, at most 4 jobs;\nmaintenance every 10 min" as WK
   }
-  database "**redis**\ncache, allkeys-lru" as RC
-  queue "**redis-queue**\nbroker + pub/sub\nnoeviction + AOF" as RQ
+  database "**redis**\ncache, may drop\nold entries" as RC
+  queue "**redis-queue**\njobs + messages,\nnever dropped, on disk" as RQ
 }
 
 rectangle "**Supabase** (managed)" as SBC {
-  component "Auth · PostgREST\n· Storage (HTTPS)" as REST
+  component "Auth · database web\ninterface · Storage (HTTPS)" as REST
   database "Postgres\n+ pgvector" as PG
   REST -[hidden]down- PG
 }
 
-cloud "**LLM providers**, no gateway\nGroq · Google · OpenRouter\nMistral · Cloudflare · OpenAI\n//openai_only: OpenAI alone//" as LLM
+cloud "**LLM providers**, no gateway\nGroq · Google · OpenRouter\nMistral · Cloudflare · OpenAI\n//one switch can limit//\n//this to OpenAI//" as LLM
 
 BR --> FE : HTTPS / SSE
-BR ---> REST : auth +\nRLS reads
+BR ---> REST : sign-in,\nreads
 FE --> API : /api/...
 
-API --> RQ : enqueue, ZCARD,\nSUBSCRIBE
-WK --> RQ : consume, heartbeat,\nPUBLISH parse:<hash>
+API --> RQ : enqueue, length,\nprogress
+WK --> RQ : jobs, heartbeat,\nprogress
 BE --> RC
 
 BE ---> REST : HTTPS, sync
-BE ---> PG : asyncpg\n(DATABASE_URL)
+BE ---> PG : direct\nconnection pool
 BE ---> LLM
 
-note right of PG
-  v4 Spaces, reader, Luna and parse
-  persistence need this pool. Unset,
-  they fail, yet /health/ready answers
-  200 (database "not_configured").
-end note
 
 @enduml

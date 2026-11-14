@@ -26,9 +26,9 @@ skinparam rectangle {
   FontSize 10
 }
 
-rectangle "**A — Reader: Explain / Ask**\n//one page, in the reader//" as A #F2F2F2 {
+rectangle "**A — Reading view: Explain / Ask**\n//one page//" as A #F2F2F2 {
   rectangle "Text of the current page (at most 3 500 chars)\n+ neighbouring titles (Explain) or earlier turns (Ask)\n**no retrieval**: nothing to cite" as A1 #DCDCDC
-  rectangle "Prompt: stated facts only; page text\nis data, fence defused; say if missing" as A2
+  rectangle "Prompt: stated facts only; page text\nis treated as data; say if missing" as A2
   rectangle "Checked UI blocks,\ncached per content revision" as A3
   A1 --> A2
   A2 --> A3
@@ -37,22 +37,22 @@ rectangle "**A — Reader: Explain / Ask**\n//one page, in the reader//" as A #F
 rectangle "**B — Luna study session**\n//the page and its neighbours//" as B #F2F2F2 {
   rectangle "Page ± 1 (2 500 chars each)\n+ related pages by full-text search" as B1
   rectangle "Prompt: page text is data,\nnever instructions" as B2
-  rectangle "**Every move is checked**: the page\nmust exist, a highlight must be verbatim" as B3 #BFBFBF
+  rectangle "**Each step of Luna is checked**: the page\nmust exist, a quoted passage must be on it" as B3 #BFBFBF
   B1 --> B2
   B2 --> B3
 }
 
-rectangle "**C — Home ask: course tutor**\n//all Lessons in a Space//" as C #F2F2F2 {
-  rectangle "Hybrid retrieve, k = 6\nvector + full-text, fused (RRF)" as C1
+rectangle "**C — Ask bar of a Space**\n//all Lessons in a Space//" as C #F2F2F2 {
+  rectangle "Search: the 6 best passages,\nby meaning and by words combined" as C1
   rectangle "**Hard refusal gate**: best similarity\n< 0.65 refuses before any LLM call" as C2 #BFBFBF
-  rectangle "Cites [Source N] -> clickable\nLesson-page chips" as C3
+  rectangle "Cites [Source N] -> links\nto the page in its Lesson" as C3
   C1 --> C2
   C2 --> C3
 }
 
-rectangle "**D — Classic lecture tutor**\n//professors; students only if v4 is off//" as D #FFFFFF {
-  rectangle "One lecture, k = 5, threshold 0.65\n**no pre-LLM gate**" as D1 #DCDCDC
-  rectangle "Cites [Slide N];\npost-hoc filter" as D2
+rectangle "**D — Lecture tutor of the older interface**\n//professors; students only if the current\ninterface is switched off//" as D #FFFFFF {
+  rectangle "One lecture, the 5 best passages,\nthreshold 0.65, **no gate before\nthe model call**" as D1 #DCDCDC
+  rectangle "Cites [Slide N];\nfiltered afterwards" as D2
   rectangle "Citations dropped\nby the UI" as D3 #DCDCDC
   D1 --> D2
   D2 --> D3

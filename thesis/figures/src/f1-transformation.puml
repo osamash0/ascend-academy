@@ -29,8 +29,8 @@ rectangle "**INPUT** — one PDF" as IN #F2F2F2 {
 rectangle "**TRANSFORMATION** — in the worker, server-authoritative" as MID #DCDCDC {
   rectangle "1. Extract\npage text (PyMuPDF),\nstore the PDF" as T1
   rectangle "2. Route\ntext / figure /\nno-text pages" as T2
-  rectangle "3. Synthesise\nbatched LLM,\n8 slides per call" as T3
-  rectangle "4. Embed\n768-dim\nvectors" as T4
+  rectangle "3. Generate\ntext per page,\n8 pages per call" as T3
+  rectangle "4. Embed\nvectors\nfor search" as T4
   T1 -right-> T2
   T2 -right-> T3
   T3 -right-> T4
@@ -38,19 +38,19 @@ rectangle "**TRANSFORMATION** — in the worker, server-authoritative" as MID #D
 
 rectangle "**OUTPUT** — the original, plus addressable objects" as OUT #F2F2F2 {
   rectangle "**Reading copy**\nthe PDF itself,\ncompacted" as O0
-  rectangle "**Slide records**\ntitle · text · summary\n//needs_review, vision_routed//" as O1
-  rectangle "**Quiz questions**\n5-8 four-option MCQs\nper deck, each on a slide" as O2
-  rectangle "**Embeddings**\npgvector 768,\nHNSW index" as O3
+  rectangle "**Pages**\ntitle · text · summary;\nmarked if read\nby vision or\nneeding review" as O1
+  rectangle "**Quiz questions**\n5-8 multiple-choice\nquestions per deck,\neach tied to a page" as O2
+  rectangle "**Embeddings**\nstored with\na search index" as O3
   O0 -[hidden]right- O1
   O1 -[hidden]right- O2
   O2 -[hidden]right- O3
 }
 
 rectangle "**LIVE FOR STUDENTS** — production, 2026-11" as CAP #BFBFBF {
-  rectangle "**Reader**\npages at once;\nExplain / Ask a page" as C0
+  rectangle "**Reading view**\npages at once;\nExplain / Ask a page" as C0
   rectangle "**Luna sessions**\nthe page, its neighbours,\nrelated pages" as C1
   rectangle "**Practice**\nstored quiz questions;\ncheckpoints from the text" as C2
-  rectangle "**Home ask**\ncourse tutor with\nrefusal + citations" as C3
+  rectangle "**Ask bar**\nanswers from\na Space, cites\nor refuses" as C3
   C0 -[hidden]right- C1
   C1 -[hidden]right- C2
   C2 -[hidden]right- C3

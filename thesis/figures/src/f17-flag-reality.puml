@@ -31,19 +31,19 @@ rectangle "**ON in production** since 2026-10-29/30" as ON #BFBFBF {
 }
 
 rectangle "**OFF** — code default" as OFF #F2F2F2 {
-  rectangle "REVIEW_ENGINE · EXAM_MODE\nSTUDY_GUIDE · GLOBAL_SEARCH\nASK_LUNA\n//classic tools, no v4 room yet//" as OFF1
+  rectangle "REVIEW_ENGINE · EXAM_MODE\nSTUDY_GUIDE · GLOBAL_SEARCH\nASK_LUNA\n//tools of the older interface//" as OFF1
   rectangle "COURSE_BRAIN · STUDIO_PAGES\nLLM_PROMPT_LOGGING\n//backend only//" as OFF2
 }
 
 rectangle "**How a flag reaches the screen**" as HOW #FFFFFF {
   rectangle "**One switch per feature**\nthe prod build copies each backend flag\ninto its VITE_FEATURE_* build argument\n(8 of the 12 have a UI side)" as SW
-  rectangle "**Classic rooms**\na student is redirected to the v4 room\nthat replaced it; a classic tool whose\nbackend is off answers 404" as GATE
+  rectangle "**Screens of the older interface**\na student is sent to the current screen\nthat replaced it; an older tool whose\nbackend is off answers 404" as GATE
   SW -[hidden]right- GATE
 }
 
 rectangle "**Gaps that remain**" as GAPS #FFFFFF {
-  rectangle "**Flag no longer gates the capability**\nGLOBAL_SEARCH off hides the classic\ncommand palette, but the same course\ntutor answers on v4 Home under FEATURE_V4" as LEAK #DCDCDC
-  rectangle "**Silent cascade**\nCOURSE_BRAIN off -> no concepts written\n-> review_cards.concept_id stays NULL\n-> the mastery update returns early" as CASC #DCDCDC
+  rectangle "**Flag no longer gates the capability**\nGLOBAL_SEARCH off hides the older\nsearch box, but the same tutor still\nanswers in the ask bar of the\ncurrent interface" as LEAK #DCDCDC
+  rectangle "**Silent cascade**\nCOURSE_BRAIN off -> no topics extracted\n-> review cards carry no topic\n-> progress per topic never updates" as CASC #DCDCDC
   LEAK -[hidden]right- CASC
 }
 

@@ -123,7 +123,7 @@ the owner's view of \cref{ch:loop} (PR~\#181), and the backend of a fourth view 
 
 \thesisfigure{f6-components}
   {Component view of the deployed system. The API and the worker, built from
-   one Dockerfile, call the LLM providers directly. The current interface depends on the direct asyncpg pool to
+   one Dockerfile, call the LLM providers directly. The current interface depends on the direct connection pool to
    PostgreSQL, a dependency that the readiness check (\cref{sec:deployment})
    does not test.}
   {fig:components}
@@ -146,15 +146,14 @@ chains inside the application (\cref{sec:provider-strategy}), not a gateway
 in front of many providers.
 
 \paragraph{Two database paths.}
-The backend reaches PostgreSQL in two ways. The first is the Supabase client
-over HTTP (PostgREST), in two variants: a service-role client that bypasses
-row-level security, and an anonymous-key client that is subject to it. The
-second is a direct connection pool (asyncpg) through Supabase's transaction
-pooler. The pool is optional at start-up but not in practice: the ingestion pipeline writes its runs, lectures, slides, and quiz questions
-through it, and every service of the current interface uses it. Older routes still run on the HTTP client, at roughly 360 call sites in the backend code (a comment of the production compose file records the count).
+The backend reaches PostgreSQL in two ways. The first is Supabase's web interface to the
+database, used with one of two keys: a privileged key that bypasses
+row-level security, or a normal key that obeys it. The second is a direct
+connection pool. The pool is optional at start-up but not in practice: the ingestion pipeline writes its runs, lectures, slides, and quiz questions
+through it, and every service of the current interface uses it. Older routes still use the web interface, at roughly 360 call sites in the backend code (a comment of the production compose file records the count).
 
 The two paths have a security consequence that shapes the rest of the design.
-Writes through the pool and through the service-role client bypass row-level
+Writes through the pool and with the privileged key bypass row-level
 security~\cite{postgresql-rls}, so for those routes application code enforces authorisation, for example by an explicit course-ownership check before it accepts an upload. Row-level security is the boundary only for queries the
 browser makes directly. \Cref{sec:authorisation} returns to this.
 
