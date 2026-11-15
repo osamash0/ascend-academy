@@ -168,8 +168,10 @@ reachable at the pin, and \emph{deployed} means running in production. We name t
 \section{Method}
 \label{sec:method-note}
 
-We follow a build-and-evaluate approach. Each of the three main chapters
-describes what we built and ends with evaluations, seven in all. In
+We follow a build-and-evaluate approach, the pattern of design science:
+build an artefact for a stated problem and evaluate it against that
+problem~\cite{hevner2004design}. Each of the three main chapters describes
+what we built and ends with evaluations, seven in all. In
 \cref{ch:content}, the \emph{routing study} tries the old rule that sends pages to
 a vision model, and candidates for a new one, on 1{,}593 pages of 25 decks; the \emph{extraction
 benchmark} lets the author choose, without knowing the methods, the better of
@@ -186,7 +188,8 @@ before the run for the benchmark, the similarity verifier, and the refusal
 gate. For the study with scripted readers we wrote them first but committed
 them with the results. The routing study, the scorecard, and the answer
 check had none, so their results are descriptive, and we say so where we
-report them. \emph{We} means the author, and the author with the co-developer where we built the system jointly; what the author did alone, such as judging and labelling, we attribute to \emph{the author}. We checked statements about the system against the code at the revision named above, unless a section names a later
+report them. Each chapter names the threats to the validity of its
+evaluations~\cite{wohlin2012experimentation}. \emph{We} means the author, and the author with the co-developer where we built the system jointly; what the author did alone, such as judging and labelling, we attribute to \emph{the author}. We checked statements about the system against the code at the revision named above, unless a section names a later
 one, and against production where the two can differ. Where the repository does
 not record a reason for a decision, we say so and do not supply one.
 

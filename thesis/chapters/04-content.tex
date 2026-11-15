@@ -395,7 +395,7 @@ produces. The question was whether a layout-aware tool, a converter to
 Markdown, or a vision model transcribing the page image would give a learner
 better text, and what each costs. Before the benchmark, nobody had measured the choice of extractor.
 
-\paragraph{Design.} We pre-registered the benchmark: the author committed a protocol that fixes the question, the hypothesis, the page selection, the duel format, the stopping rule, and the analysis on 30 October 2026 before any vote.
+\paragraph{Design.} We pre-registered the benchmark~\cite{nosek2018preregistration}: the author committed a protocol that fixes the question, the hypothesis, the page selection, the duel format, the stopping rule, and the analysis in October 2026, before any vote.
 Every later change is a dated deviation in the same file, committed before
 the runs and votes it governs. The first fixed how the viewer displays line
 breaks, before any vote. The second added the two vision models and a second
@@ -423,10 +423,10 @@ comparison every scheduled pair meets three times on three page types. From
 the third comparison on, new methods met only the top three and the anchor,
 so 15 of the 55 pairs never met. Hidden repeat duels check the
 judge's consistency, and a pre-registered second round adds duels among the top
-four when their intervals overlap. Ratings come from a Bradley--Terry model, in which each method has a
+four when their intervals overlap. Ratings come from a Bradley--Terry model~\cite{bradley1952rank}, in which each method has a
 strength and its expected score against another is its share of the two
-strengths. Minorisation-maximisation fits the strengths, with a weak prior of one virtual drawn game
-per method (protocol, section~7) and a bootstrap of 1{,}000 resamples (seed
+strengths. Minorisation-maximisation~\cite{hunter2004mm} fits the strengths, with a weak prior of one virtual drawn game
+per method (protocol, section~7) and a bootstrap~\cite{efron1993bootstrap} of 1{,}000 resamples (seed
 20261103). Points are $1000 + 400 \log_{10}$ of the strength ratio to the
 anchor, so 400 points above the anchor means a ratio of 10:1 in expected
 score. Every vote enters the fit, hidden repeats included. A vote of ``same''
@@ -437,7 +437,7 @@ replacement and treats them as independent, although the 283 votes concern 24 pa
 about this judge on these pages (\code{backend/\allowbreak eval/\allowbreak
 parser\_bench/\allowbreak ranking.py}).
 A challenger passes if the lower end of its bootstrap interval,
-Bonferroni-corrected for the $k = 10$ challengers, lies above 1000. The
+Bonferroni-corrected~\cite{dunn1961multiple} for the $k = 10$ challengers, lies above 1000. The
 hypothesis H1, that the judge rates at least one method above current, holds if any
 challenger passes. The test is on these bounds and not on rank. The frozen protocol worded H1 for layout-aware tools and four
 challengers, and the deviations extended it to every method added later, the

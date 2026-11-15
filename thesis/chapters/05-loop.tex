@@ -399,8 +399,11 @@ an owner who wants to find out about one member.
 With almost no real reading (the opening of this chapter gives the counts),
 we asked a narrower question that the code can answer: given readers who
 behave in known ways, does the owner's view say what it should, and stay
-silent when it should? Because the engine is a pure function, the study needs
-no server. A script (\code{backend/eval/persona\_study.py} at
+silent when it should? Synthetic learner data has been proposed for building
+and testing learning-analytics software without the privacy risks of real
+data~\cite{berg2016synthetic}; here it also stands in for data that did not
+arrive. Because the engine is a pure function, the
+study needs no server. A script (\code{backend/eval/persona\_study.py} at
 \code{a342dea9}, whose engine is identical to \code{2e146f51}) builds one
 Space with one Lesson of 30~pages, writes the events of scripted readers
 straight into the engine's input, and calls the function behind the owner's
