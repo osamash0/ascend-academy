@@ -23,9 +23,10 @@ the owner what learners do on them. Along the way a model writes three kinds
 of text that a learner may take for true: an answer to a question, a quiz
 question with its key, and the task behind a graded exercise.
 
-One rule runs through the chapter. Where the system can compute an answer, it computes it and does not ask the model. Where it cannot, a second model, meant to differ from the one that wrote the content, decides.
-Where neither is possible, nothing checks the content, and the original page,
-which a learner sees first, remains the reference. The checks drop what fails them, except three that only mark an item, which we name where they occur.
+One rule runs through the chapter. Where the system can compute an answer, it computes it and does not ask the model. For the quiz questions of the parse, a second model, meant to differ from the one that wrote them, answers each question without the key.
+Everywhere else the checks test only the structure of what a model writes,
+and the original page, which a learner sees first, remains the reference for
+its meaning. The checks drop what fails them, except three that only mark an item, which we name where they occur.
 
 No check in the system decides whether a sentence of
 generated prose is true. Every verifier below, that is, every step that computes, validates, filters,
@@ -226,14 +227,12 @@ the whole deck from up to ten selected pages (\cref{sec:pipeline}). Each has
 four options and names the one page that states its key. The prompt asks for
 distractors that the page does not state as true and forbids negated
 questions, two common rules of item
-writing~\cite{haladyna2002mcq}. The code accepts at most twelve questions,
-because the code does not trust the length of a model's list either
-(\code{parser/synthesis.py:52}). \Cref{fig:question-lifecycle} shows what
+writing~\cite{haladyna2002mcq}. \Cref{fig:question-lifecycle} shows what
 happens next.
 
 \begin{description}
   \item[Resolve the key.] The model names the correct option as an index, a
-        letter, or the option's text. If none of these matches an option, the code drops the question and logs it. Until June 2026 the code stored such a question with option~A as its key (commit \code{f25dd41c}). The code
+        letter, or the option's text. If none of these matches an option, the code drops the question and logs it. The code
         states the reason: a wrong answer key is worse than fewer questions.
   \item[Structural gates.] The gates (\code{parser/quiz\_grounding.py:127}) involve no model. They drop a question if its cited page is missing, out of range, or empty, or if its key does not resolve. A number in the
         key that is not on the page, or a distractor that the page supports
@@ -260,7 +259,7 @@ one provider (\cref{sec:openai-only}). The pull request records the reason for a
 model of the generating model's own family checked the question that started
 this work, an ambiguous question whose options all appear on its page, it
 agreed with the wrong key twice. The literature also reports that a model tends to favour text like its own~\cite{panickssery2024selfpreference}. Second, the pipeline treats an outage and a dispute differently. If the check itself fails or returns an unreadable reply, the pipeline keeps the question, so that a provider outage never empties
-a quiz. If the check disputes the key, the model rewrites the question once, and the pipeline drops it only if the check disputes the rewrite too. The parse receipt of the Lesson counts the outcome of every stage.
+a quiz. A dispute, by contrast, leads to the one repair described above.
 
 \subsection{Grading by Computation}
 \label{sec:c6-grading}
@@ -357,7 +356,7 @@ which we did not register in advance.
 
 \Cref{tab:verifiers} gives the result. The lexical score never keeps a wrong
 key, but it drops 14 of 16 correct paraphrases, among them all eight German
-ones. Enforced, it would have deleted all eight correct German keys of the probe. We therefore set it to mark and not to drop, and the constant carries a comment
+ones. We therefore set it to mark and not to drop, and the constant carries a comment
 that forbids enforcing it without a new measurement.
 
 The similarity score failed its acceptance criterion, and it failed in the direction that the procedure had named as its risk.

@@ -104,9 +104,9 @@ written during the parse, each tied to a page, and learners practise it under
 Practice. A \emph{checkpoint} is written for the pages of one idea when a
 learner reaches its end. A \emph{rehearsal} is a short mixed test from a
 Space's Lessons, and in a study session Luna writes three to six practice
-questions. The server grades the first three
-(\code{v4\_practice\_service.py}, \code{v4\_rehearsal\_service.py}), and
-\cref{ch:trust} checks them. The check-in is not a question but the learner's
+questions. The server grades the deck quiz and the checkpoints and stores a
+finished rehearsal as the browser grades it (\cref{sec:c6-grading});
+\cref{ch:trust} describes the checks of each. The check-in is not a question but the learner's
 own, optional judgement.
 
 \section{What Is Built and What Is Switched On}
@@ -157,7 +157,7 @@ instances serve as cache and as job broker.
 \paragraph{No gateway on the LLM path.}
 The backend calls every LLM provider directly from one module
 (\code{backend/\allowbreak services/\allowbreak ai/\allowbreak orchestrator.py}), where failover, rate limiting, and cost
-accounting live. At \code{\thesisEarlierCommit} the production stack still
+accounting live. At the revision of August 2026 (\code{\thesisEarlierCommit}), the production stack still
 contained a LiteLLM gateway that no code path used. We removed it in August and September 2026 (\cref{tab:decisions}), and the backend README still describes it. The design that we defend here is therefore two ordered provider
 chains inside the application (\cref{sec:provider-strategy}), not a gateway
 in front of many providers.
@@ -181,8 +181,8 @@ Supabase session token as a bearer token. A test enforces this boundary: no
 module of the v4 feature folder may import the Supabase client.
 
 \paragraph{Deployment.}
-Production runs these components on one virtual machine in five containers;
-\cref{sec:deployment} describes deployment, monitoring, and backups, and one
+Production runs these components on one virtual machine in five containers.
+\Cref{sec:deployment} describes deployment, monitoring, and backups, and one
 gap: the host's proxy configuration exists only on the server.
 
 \section{Technology Choices}
@@ -203,12 +203,13 @@ among them the job queue, the two Redis instances, and the removal of the
 gateway. The production extractor is a case apart: the plain-text call of PyMuPDF
 became the extractor by attrition and not by comparison, and the benchmark of
 \cref{ch:content} rates nine of the ten alternatives above it on points,
-five of them also at the corrected lower bound.
+five of them also at the corrected lower bound and four when pages are
+resampled.
 
 \section{Constraints}
 \label{sec:constraints}
 
-Constraints shaped the design more than any requirement did. The system
+Four constraints shaped the design. The system
 runs on one virtual machine with two virtual CPUs and 4\,GB of memory.
 Model calls run on free or low-cost quotas, which is why every chain of
 providers in \cref{ch:content} has a fallback and a spending cap. The
@@ -217,6 +218,8 @@ recovery. And the team was two students, then one.
 
 One more condition is not a constraint and still shapes every evaluation in
 this thesis: the system has almost no users. The evaluations therefore work
-on material and not on people. The material is 25~lecture decks with
-1{,}593~pages from two courses of one university, in English and German
-(\cref{sec:c4-requirements}).
+on material and not on people. In \cref{ch:content}, the routing study and
+the deck-plan scorecard use 25~lecture decks with 1{,}593~pages from two
+courses of one university, in English and German (\cref{sec:c4-requirements}),
+and the extraction benchmark uses 24~pages from five PDFs of three courses
+(\cref{sec:parser-bench}).

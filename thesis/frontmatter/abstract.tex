@@ -6,65 +6,63 @@
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
 
-Lecture material travels as PDF. Software cannot address what is on its
-pages, so the file cannot answer a question, check understanding, or show
-the lecturer where readers struggle. Learnstation, the
-web application in production that this thesis describes, turns an uploaded
-PDF into addressable content while the original page stays the reference.
+Lecture material travels as PDF files that software cannot address, so a
+file cannot answer a question, check understanding, or show its lecturer
+where readers struggle. This thesis asks how such a file can become pages
+that a learner reads at once, how what learners do can return to the
+material's owner without naming anyone, and how content that a language
+model writes can be checked before learners see it. We built Learnstation, a
+web application in production, and evaluated its parts offline, because
+almost no learner data arrived.
 
-For the transformation (RQ1), a first pass without a model routes 87 of
-1{,}593 pages to a vision model. In a blind
-benchmark of eleven extraction methods on 24~pages with 283~pairwise votes,
-the author rated transcription by a vision model highest. Five of the ten
-alternatives rank above the production extractor at a lower bound corrected
-for ten comparisons, and four when pages rather than votes are resampled.
-For the feedback loop (RQ2), one governed log of 17~event types feeds an
-owner's view that names no one and stays silent on pages that fewer than
-five people have read. With scripted readers, the view
-reported every planted behaviour in all 100 runs with different random draws
-and said nothing about a Space of four members. For verification (RQ3), code grades computable answers, and
-a second model checks generated quiz questions.
-In the calls that returned a verdict, that check made no error on a probe of
-16~pairs with off-topic distractors. A similarity verifier failed its
-pre-registered test.
+A rule without a model sends 87 of
+1{,}593~pages to a vision model, and in a pre-registered blind benchmark of
+eleven extraction methods the author rated transcription by a vision model
+highest and the extractor in production below at least four of the other
+ten. With scripted readers, an owner's view that names no one and stays
+silent on pages that fewer than five people have read reported every planted
+behaviour in all 100 runs with different random draws and stayed silent for
+a Space of four. Code grades the answers it can compute, and a second model
+that answers generated quiz questions without the key made no error on a
+probe of 16~pairs with off-topic distractors, in the calls that returned a
+verdict, while a similarity verifier failed its pre-registered test.
 
-The author was the only judge of the benchmark. The floor of five counts the accounts that read a page,
-not the people a finding is about: one confused reader among five can carry
-a finding, and an owner can add accounts. Besides, the owner's view entered the
-code after the revision described. No study with learners was run.
+These results show what the system does with known input, not what learners gain:
+the author was the benchmark's only judge, the floor of five counts readers
+rather than the people a finding is about, and no study with learners was
+run.
 
 \clearpage
 
 \begin{otherlanguage}{ngerman}
 \section*{Zusammenfassung}
 
-Vorlesungsmaterial wird als PDF weitergegeben. Software kann auf den Inhalt
-seiner Seiten nicht gezielt zugreifen: Die Datei beantwortet keine Frage, prüft kein Verständnis und
-zeigt den Lehrenden nicht, wo Lesende Schwierigkeiten haben. Learnstation, die
-produktiv betriebene Webanwendung dieser Arbeit, überführt ein hochgeladenes
-PDF in adressierbare Inhalte, während die Originalseite die Referenz bleibt.
+Vorlesungsmaterial wird als PDF weitergegeben, auf dessen Inhalt Software
+nicht gezielt zugreifen kann: Die Datei beantwortet keine Frage, prüft kein
+Verständnis und zeigt den Lehrenden nicht, wo Lesende Schwierigkeiten haben.
+Diese Arbeit fragt, wie eine solche Datei zu Seiten wird, die man sofort
+lesen kann, wie das, was Lernende tun, zu den Besitzenden des Materials
+zurückfließt, ohne jemanden zu nennen, und wie sich Inhalte, die ein
+Sprachmodell schreibt, prüfen lassen, bevor Lernende sie sehen. Wir haben
+Learnstation gebaut, eine produktiv betriebene Webanwendung, und ihre Teile
+offline evaluiert, weil kaum Daten von Lernenden ankamen.
 
-Für die Umwandlung (RQ1) leitet ein erster Durchlauf ohne Sprachmodell 87
-von 1593~Seiten an ein Vision-Modell. In einem Blindvergleich von elf Extraktionsverfahren auf 24~Seiten
-mit 283~paarweisen Urteilen bewertete der Autor die Transkription durch ein
-Vision-Modell am höchsten. Fünf der zehn Alternativen liegen an einer
-für zehn Vergleiche korrigierten unteren Grenze über dem Verfahren der
-Produktion, vier noch dann, wenn Seiten statt Urteile neu gezogen werden.
-Für die Rückmeldung (RQ2) speist ein Protokoll mit 17~festgelegten
-Ereignistypen eine Ansicht für die Besitzenden des Materials, die niemanden
-nennt und zu Seiten schweigt, die weniger als fünf Personen gelesen haben. Mit per Skript gesteuerten Lesenden meldete die
-Ansicht jedes eingeplante Verhalten in allen 100 Läufen mit verschiedenen
-Zufallswerten und schwieg zu einem Space mit vier Mitgliedern. Für die Prüfung (RQ3)
-bewertet Code berechenbare Antworten, und ein zweites Modell prüft
-generierte Quizfragen. In den Aufrufen mit Urteil machte diese
-Prüfung an einer Probe aus 16~Paaren mit themenfremden Distraktoren keinen
-Fehler. Ein Ähnlichkeitsverfahren bestand seinen präregistrierten Test
-nicht.
+Eine Regel ohne
+Sprachmodell leitet 87 von 1593~Seiten an ein Vision-Modell, und in einem
+präregistrierten Blindvergleich von elf Extraktionsverfahren bewertete der
+Autor die Transkription durch ein Vision-Modell am höchsten und das
+Verfahren der Produktion schlechter als mindestens vier der zehn anderen. Mit
+per Skript gesteuerten Lesenden meldete eine Ansicht für die Besitzenden, die
+niemanden nennt und zu Seiten mit weniger als fünf Lesenden schweigt, jedes
+eingeplante Verhalten in allen 100 Läufen mit verschiedenen Zufallswerten
+und schwieg bei einem Space mit vier Mitgliedern. Code bewertet berechenbare
+Antworten, und ein zweites Modell, das generierte Quizfragen ohne Lösung
+beantwortet, machte an einer Probe aus 16~Paaren mit themenfremden
+Distraktoren in den Aufrufen mit Urteil keinen Fehler, während ein
+Ähnlichkeitsverfahren seinen präregistrierten Test nicht bestand.
 
-Der Autor war der einzige Urteilende des Vergleichs. Die Grenze von fünf
-zählt die Konten, die eine Seite gelesen haben, nicht die Personen, um die es
-in einem Befund geht: Eine verwirrte Person unter fünf kann einen Befund
-tragen, und Besitzende können Konten hinzufügen. Außerdem kam die Ansicht
-erst nach dem beschriebenen Code-Stand hinzu. Eine Studie mit Lernenden
-wurde nicht durchgeführt.
+Die Ergebnisse zeigen, was das System mit bekannten Eingaben tut, nicht, was
+Lernende gewinnen: Der Autor war der einzige Urteilende des Vergleichs, die
+Grenze von fünf zählt Lesende und nicht die Personen, um die es in einem
+Befund geht, und eine Studie mit Lernenden wurde nicht durchgeführt.
 \end{otherlanguage}

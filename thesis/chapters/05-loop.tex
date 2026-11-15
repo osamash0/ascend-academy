@@ -23,8 +23,8 @@ What readers do on the pages of \cref{ch:content} travels back to the
 person who wrote them.
 
 We describe the event log and the aggregation engine at \code{\thesisCommit}. The screen that shows the result to an owner entered the main branch two days later (PR~\#181, November 2026)
-with five small changes to what the engine sends
-(\cref{sec:c5-findings}), and the evaluation in
+with changes to what the engine sends, which we mark where they matter, and
+the evaluation in
 \cref{sec:c5-evaluation} ran on that later state, revision \code{2e146f51}.
 The deployed system has almost no readers. In the 56~days before our count
 in November 2026, members read in four Spaces, the busiest had six readers,
@@ -57,7 +57,7 @@ an assistant that proposes changes for the owner to approve, are future work
   {fig:loop}
 
 \Cref{fig:loop} shows the part that the system builds, as the path of one interaction. The reading view \emph{records} it through one function,
-\code{record\_event}, which \emph{governs} it: the function rejects an event of an unknown type or with an unknown field. One log, to which the backend only appends, \emph{stores} the event. When an owner asks, the engine \emph{aggregates} the
+\code{record\_event}, which \emph{governs} it: the function rejects an event of an unknown type or with an unknown field. One log \emph{stores} the event. When an owner asks, the engine \emph{aggregates} the
 log of the Space's members, and the owner's view \emph{shows} the result as
 one sentence, three numbers, and a map of pages. At every stage after
 storage this loop speaks about pages and never about people. Two older paths
@@ -161,7 +161,8 @@ schema around it and where production differs from the repository.
 
 \subsection{From Rows to Page Facts}
 
-The engine is a pure function. Its input is one value that holds, among
+Apart from the themes at the end of this section, the engine is a pure
+function. Its input is one value that holds, among
 other things, the members of the Space, its Lessons, the events, and the
 current time
 (\code{insights/\allowbreak sources/\allowbreak space.py:67--82}). Its output is the payload the

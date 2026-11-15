@@ -25,7 +25,7 @@ pipelines that led to it, the provider layer underneath, and three pieces of
 evidence: a routing study on 1{,}593 pages, a pre-registered blind benchmark of
 eleven extraction methods, and the deck-plan scorecard. Where we have fixed a finding from an earlier state of the code, we report it as \emph{found, then fixed} and name the earlier state as
 \code{\thesisEarlierCommit} (August 2026) or \code{\thesisPreviousCommit}
-(2 November 2026). \Cref{sec:built-vs-deployed} states once what the deployed server runs.
+(November 2026). \Cref{sec:built-vs-deployed} states once what the deployed server runs.
 
 \section{The Input and What It Demands}
 \label{sec:c4-requirements}
@@ -118,7 +118,7 @@ remains unmeasured.
 
 The pipeline that runs today is the fifth numbered version and the last of
 nine generations, several of which existed side by side in the code
-for a while. \Cref{tab:lineage} in \cref{app:detail} lists them. The table gives the recorded reason for each step where the repository holds one. Where it does not, the reason is the author's reconstruction, and the table marks it as such.
+for a while. \Cref{tab:lineage} in \cref{app:detail} lists them.
 \Cref{sec:lineage-table} gives the three steps that carry the design
 lessons of this chapter: pipeline v5 made the server the only writer of parse
 results, the staged pipeline v3 never became the default because Docling, its
@@ -583,7 +583,7 @@ current extraction at more than 10:1 in expected score on the fitted scale,
 and that of the smaller at about 9:1. Both cost under a cent a page.
 The author preferred pymupdf4llm at about 4.5:1 without a fee, at under a second more per page,
 measured with its OCR pass on, which production would switch off. The heavy layout engines rank lower and need gigabytes of memory the production
-machine does not have. The author judged the current extraction unusable, together with its opponent, in 18 of its 33 first-round duels over all four comparisons, and its footer on 23 of 24 pages is one visible reason. The
+machine does not have. In the first comparison the author judged it unusable together with its opponent in 31 of its 39 duels, and its footer on 23 of 24 pages is one visible reason. The
 judge chose between rendered outputs. Whether synthesis, quiz, and retrieval
 do better on the preferred text, we did not measure.
 

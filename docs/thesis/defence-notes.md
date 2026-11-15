@@ -627,3 +627,15 @@ Three statements in the study notes of 9 November were wrong and are marked
 there: arm B did light the Lesson, the thresholds were not tuned for real
 ratios (they have no recorded source), and a different seed does change
 which kinds fire (arm A).
+
+### Details cut from chapter 6 on 15 November (for oral questions)
+
+- **How many deck-quiz questions does the code accept?** At most twelve
+  (`parser/synthesis.py:52`, `MAX_DECK_QUIZ_QUESTIONS`; Appendix A lists it),
+  because the code does not trust the length of a model's list.
+- **What happened to a question whose key did not resolve, before June 2026?**
+  It was stored with option A as its key (fixed in `f25dd41c`). Since then the
+  code drops it, and says why: a wrong answer key is worse than fewer questions.
+- **What does the parse receipt record?** The outcome of every stage of the
+  question lifecycle for each Lesson (Figure 6.1: "counts written to the parse
+  receipt"; Appendix C, cost as a question of trust).
