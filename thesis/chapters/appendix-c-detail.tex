@@ -7,76 +7,6 @@
 This appendix holds detail that the chapters summarise. The title of each
 section names the chapter it belongs to.
 
-\section{Deployment and Operations (Chapter 3)}
-\label{sec:deployment}
-
-\thesisfigure{f7-deployment}
-  {Production deployment as run since 30~October 2026: five containers on one
-   Hetzner VM behind a host nginx that terminates TLS, with Supabase, Resend,
-   Better Stack, and Cloudflare (DNS, R2) as external services. A systemd timer
-   pings Better Stack every five minutes. The nightly dump is encrypted with the age tool before upload to R2, and its decryption key is kept off the server.}
-  {fig:deployment}
-
-Production runs on one virtual machine (Hetzner CX23: two virtual CPUs, 4\,GB of
-memory, Ubuntu~24.04) with five containers defined in
-\code{docker-compose.prod.yml} (\cref{fig:deployment}):
-\begin{itemize}
-  \item \code{frontend}: nginx serving the built application on port 3000, bound
-    to the loopback interface only, and forwarding \code{/api/} to the API;
-  \item \code{api}: FastAPI under one uvicorn worker, limited to 512\,MB;
-  \item \code{worker}: the Arq worker, also limited to 512\,MB, running up to four
-    jobs at once;
-  \item \code{redis}: the cache, 256\,MB with least-recently-used eviction;
-  \item \code{redis-queue}: the job broker, 128\,MB (in a container of 160\,MB) with eviction disabled and
-    append-only persistence, because a queue that silently drops jobs is worse
-    than one that refuses new ones.
-\end{itemize}
-TLS is terminated by nginx on the host, with certificates from Let's Encrypt.
-That host configuration lives on the server, not in the repository. The deploy
-runbook documents it. DNS is held by Cloudflare without proxying. The database,
-authentication, and storage are a managed Supabase project in the EU (Ireland)
-region on the free tier, which provides no point-in-time recovery.
-
-\paragraph{A reproducibility finding.}
-Until November the repository held four compose files: one for local
-development, a production file whose header named ``a shared university
-server'', a staging file that referred to Redis hosts it did not define, and one
-for Oracle Cloud. None named the host in use. The staging and Oracle files
-were deleted and the production header now names the Hetzner machine (found,
-then fixed). What still exists only on the server is the host proxy
-configuration and the script that writes the nightly dump, so the deployed system
-still cannot be reconstructed from the repository alone. The gap is narrower
-than it was in August: the deploy, monitoring, and backup procedures are written
-down as runbooks, and the heartbeat and the scripts that encrypt and upload the dump are
-versioned.
-But the
-system's ground truth is still the server, not the repository. This is why the
-project's own rules say to inspect the running images rather than trust
-\code{git log}.
-
-\paragraph{Operations.}
-Deploys are manual: a build and restart over SSH, with the previous images
-tagged for rollback. A systemd timer runs a heartbeat every five minutes. It
-checks readiness, that all five containers run, that the public site answers,
-disk and memory headroom, and certificate validity, and it reports to an
-external monitor that alerts when the heartbeat goes silent. The nightly
-database dump is encrypted with \code{age} and copied to object storage in the
-EU, with a 14-day retention. These are modest measures, sized to a system with
-few real users, which is the scale at which the platform operates.
-
-\paragraph{The readiness signal.}
-The API exposes a liveness probe (\code{/health}) and a readiness probe
-(\code{/health/ready}). The readiness probe checks the database, both Redis
-instances, and whether a worker is alive when jobs are waiting. One condition
-deserves mention: when no database URL is configured, the probe records the
-database as \code{not\_configured} and still reports ready. Routes that use the
-Supabase HTTP client still work without the pool, but the pipeline and the routes of the current interface do not, so this is not a usable mode. At \code{\thesisPreviousCommit} the
-code comment still called it a supported ``REST-only'' mode, and it now says
-plainly that every upload fails while the check reports ready. In
-production the URL is set and the pool is initialised at start-up, so this is a
-latent gap rather than a live fault: a misconfiguration would pass the health
-check and surface only as failing requests.
-
 \section{Technology Decisions (Chapter 3)}
 \label{sec:decisions-table}
 
@@ -98,7 +28,7 @@ check and surface only as failing requests.
     No LLM gateway & The gateway had no live callers, used 1\,GB of a 4\,GB
       host, and its health check could block start-up. &
       \code{68a091e0}, 25~Aug (main: PR~\#51, 28~Aug) \\
-    HNSW instead of IVFFlat & Recorded in the migration that replaces the
+    HNSW~\cite{malkov2020hnsw} instead of IVFFlat & Recorded in the migration that replaces the
       index. & \code{20260719000002} \\
     Small WebP posters for page previews & Full PDFs as backdrops exceeded
       the storage egress quota; posters are 97.6\,\% smaller than the PDFs
@@ -113,39 +43,16 @@ check and surface only as failing requests.
 \section{Pipeline Lineage (Chapter 4)}
 \label{sec:lineage-table}
 
-Three of these steps carry the design lessons the chapter builds on.
-Pipeline v5, the rebuild of June, made the server the only writer of parse
-results. Before, the browser had driven the parse and written the result. The
-commit that introduced pipeline v5 names server-side writing as the first of
-two things pipeline v4 could not do. The second was reading a page as an
-image. On the deck that had exposed this blindness, pipeline v5 routed 88 of
-143 pages to vision. The staged pipeline v3, with
-Docling~\cite{auer2024docling} and a model gateway, never became the default:
-the configuration default stayed at version~2 until 28 June and then jumped to
-version~5 ``to match the live deployment''. The commit that created the
-requirements of the production image left Docling out because it brought in
-several heavy dependencies and added more than 30 minutes to the build, and
-told the image to run version~2 (\code{backend/\allowbreak requirements-docker.txt},
-\code{6ce7b5f1}). Pipeline v5 was then built on the tested
-PyMuPDF~\cite{pymupdf} engine of version~2 (\code{4f19bd1e}), so Docling had
-no caller. It left the remaining requirements in October after eight security
-advisories. No quality reason for dropping it is recorded. The benchmark in \cref{sec:parser-bench} later rated Docling above the
-current extraction, but not by a margin that survives the correction for
-testing ten methods at once. And the
-25-character vision threshold, introduced with the per-page synthesis of pipeline v5
-on 17~June (\code{bd03f1d5}), came to be applied in four places with three
-measures until the one routing rule of 6 November replaced it
-(\cref{sec:c4-routing-study}).
-
+\Cref{tab:lineage} lists the nine generations of the parsing pipeline that led
+to the pipeline of \cref{sec:pipeline}.
 
 \begin{table}[H]
   \centering
   \small
   \caption{The pipeline lineage at a glance (dates are 2026; v1 to v5 are
     the numbered pipeline versions, unrelated to the v4 interface of
-    \cref{sec:vision}). Sources: the
-    commits named in the text and the development timeline in the
-    repository.}
+    \cref{sec:vision}). Source: the
+    development timeline in the repository (\code{docs/timeline/}).}
   \label{tab:lineage}
   \begin{tabular}{@{}llp{0.56\textwidth}@{}}
     \toprule
@@ -251,120 +158,56 @@ environment (\code{requirements.txt}). The production image pins
 \code{arq>=0.26,<0.27} (\code{requirements-docker.txt}), and we did not check
 whether version~0.26 behaves the same.
 
-\section{The Provider Strategy (Chapter 4)}
+\section{The Provider Layer (Chapter 4)}
 \label{sec:provider-strategy}
 
 Every generated artefact depends on a hosted language model. The backend
 calls the providers directly, through two ordered chains over the same eight
 providers: a \emph{bulk} chain, ordered by capacity, for high-volume work such
 as page synthesis, and a \emph{quality} chain, ordered by expected answer
-quality, for fewer and harder calls. A call walks its chain and skips a
-provider that is unavailable. A rejected key, a payment error, and a missing
-model disable a provider until restart, a rate limit starts a backoff, and
-every other failure moves on without penalty (\cref{fig:provider-chain} in
-\cref{sec:multi-provider}). The chain is shallower than it looks: its eight
-entries use six credentials.
+quality, for fewer and harder calls. Both end with OpenAI as a last resort. A
+call walks its chain and skips a provider that is unavailable. A rejected key,
+a payment error, and a missing model disable a provider until restart, a rate
+limit starts a backoff of 90~seconds that doubles up to ten minutes, and every
+other failure moves on without penalty. The chain is shallower than it looks:
+its eight entries use six credentials, so one revoked key takes out two
+entries.
 
-The design comes from free tiers, whose limits are reached within minutes of
-bulk parsing. The code also contains an \emph{OpenAI-only} mode with one paid
-provider. In that mode the API and the worker refuse to start when the key of
-another provider is present, so that a misconfigured deployment cannot send
-student data to a provider that the privacy policy does not name. The
-default mode sends content to such providers. The privacy page (\code{legal.json}, section~4)
-names OpenAI, Groq, Google, and OpenRouter as AI providers, while the two
-chains also call Cloudflare, which the page names only for e-mail forwarding
-and backups, and Mistral, which it does not name
-(\code{orchestrator.py:389}, \code{:393}). The cost ledger records calls to two
-providers that the page at the pin does not name as AI providers: 100 to
-Cloudflare on 26~August 2026, and 26 to Cerebras between 2~August and
-10~October 2026, while Cerebras was still in the chains. The ledger records no
-call to Mistral. The OpenAI-only mode
-is the author's target and was not switched on at the pin: a probe in
-November 2026 found six providers keyed in production
-(\cref{sec:openai-only}). Spending is bounded by a monthly cap per user (by
-default \$2) and a daily ceiling on paid calls (by default \$10), and every
-call is written to a cost ledger. \Cref{ch:trust} tests whether these limits
-hold when providers fail.
-
-\section{The Provider Layer in Detail (Chapter 4)}
-\label{sec:provider-detail}
-
-\thesisfigure{f11-provider-chain}
-  {LLM failover. The registry holds nine entries, but the two chains use eight
-   of them on six credentials. A rejected key (401), payment (402) and a missing
-   model (404) disable a provider until restart, rate limits back off, and every
-   other failure, 403 included, carries no penalty.}
-  {fig:provider-chain}
+The default mode sends content to providers that the privacy page does not
+name for this purpose. The page (\code{legal.json}, section~4) names OpenAI,
+Groq, Google, and OpenRouter as AI providers, while the two chains also call
+Cloudflare, which the page names only for e-mail forwarding and backups, and
+Mistral, which it does not name (\code{orchestrator.py:389}, \code{:393}). The
+cost ledger records 100 calls to Cloudflare on 26~August 2026 and 26 to
+Cerebras between 2~August and 10~October 2026, while Cerebras was still in the
+chains; it records no call to Mistral.
 
 \subsection{From Free Tiers Towards One Paid Provider}
 \label{sec:provider-history}
 
-The provider changed many times in ten months: a local model (February
-2026), Gemini, Groq, then Cerebras at the head of a free-tier failover chain
-(May), a LiteLLM gateway (May), an OpenAI-compatible provider with the stated
-plan ``OpenAI now, a self-hosted university model later'' (June, because the
-free vision tiers hit their rate limits almost immediately), the gateway
-removed (August), the two in-process chains revived after eight of their nine entries were found dead (September), and an OpenAI-only option with spending caps
-for the October launch. The gateway's removal is the one step with a lesson:
-it had been introduced with a pipeline generation that never became the
+The provider changed many times in ten months: a local model (February 2026),
+Gemini, Groq, then Cerebras at the head of a free-tier failover chain (May), a
+LiteLLM gateway (May), an OpenAI-compatible provider (June, because the free
+vision tiers hit their rate limits almost immediately), the gateway removed
+again (August), and an OpenAI-only option with spending caps for the October
+launch. The gateway had come with a pipeline generation that never became the
 default, so it ended with no live callers while still costing 1\,GB of memory
-on a 4\,GB machine and blocking start-up when unhealthy. A gateway pays off
-with many callers and many providers. This system ended with one caller and
-most of its traffic on one provider. A read-only query of the cost ledger
-(\code{llm\_calls}) on 11~November 2026 counted 3{,}388 calls in the 30 days
-from 30~September to 29~October 2026. OpenAI made 3{,}053 of them (90\,\%),
-mostly embeddings (2{,}660) and bulk generation (249). Gemini made 228, mostly
-embeddings (208), and Groq made 95, led by Luna sessions (29) and the reader's
-Explain requests (28). All 2{,}660 OpenAI embedding calls fall on one day,
-11~October 2026, the day the code records the OpenAI embedding model as
-confirmed live (\code{embeddings.py:24}). At the pin the default mode embeds
-with Gemini (\code{embeddings.py:21--25}), and from 24~October to 10~November
-only Gemini embedded (876 calls). What ran the October calls we did not
-identify. Whether the stored vectors now mix the two models, which are not
-comparable (\cref{sec:schema-notes}), we did not check. The
-repository does not record why OpenAI-only
-became the target. The author's account is that the free tiers were not
-reliable enough for bulk parsing and the OpenAI key was the one that worked.
-
-\subsection{The Multi-Provider Mechanism}
-\label{sec:multi-provider}
-
-The multi-provider design is the default mode, and the one production runs
-(\cref{fig:provider-chain}). A registry describes each provider: model,
-credential, daily request limit, requests and tokens per minute, and the date
-those limits were last verified. Two ordered chains draw on it. The \emph{bulk}
-chain, used for high-volume work such as slide synthesis, is ordered by capacity, and
-the \emph{quality} chain, used for fewer but harder calls, by expected answer
-quality. Both hold the same eight providers in different orders and end with
-OpenAI as a last resort. A call walks its chain and skips any provider that is
-unavailable.
-
-A failed call is classified in three ways, with one exception. A rejected key
-(HTTP 401), a payment error (402), and a ``model not found'' error (404)
-disable the provider for the
-rest of the process. A 403 deliberately does not, because one provider answers a
-moderation-flagged prompt with 403. A rate-limit error (429) starts a backoff of 90~seconds that doubles
-with each repeat, up to ten minutes. Every other error carries no penalty: the
-call moves on to the next provider. The classification is partly by status code
-and partly by matching text in the exception message.
-
-The chain looks deeper than it is. The eight entries use six credentials
-(two Groq models share one key, two Google models another), so one revoked
-key takes out two entries. The call wrapper's eight rate-limit attempts run
-under a 25-second timeout (the code default) that fits at most four. Two failure classes are
-found-then-fixed cases: at \code{\thesisEarlierCommit} (August 2026) a provider whose
-credit had run out was retried on every call (Cerebras, then at the head of
-both chains, later failed exactly so. Payment errors became permanent in
-September and Cerebras left the chains in October), and at
-\code{\thesisPreviousCommit} (November 2026) a rejected key was still retried on every call,
-until 401 joined the permanent classes in November.
-The registry also treats its own numbers as perishable: a test fails when a
-reachable provider's limits were last verified more than 45 days ago, because
-free-tier limits change without notice.
+on a 4\,GB machine. A read-only query of the cost ledger (\code{llm\_calls}) on
+11~November 2026 counted 3{,}388 calls in the 30 days from 30~September to
+29~October 2026, 90\,\% of them to OpenAI and mostly embeddings. All 2{,}660
+OpenAI embedding calls fall on one day, 11~October 2026, while the default mode
+at the pin embeds with Gemini (\code{embeddings.py:21--25}), and from
+24~October to 10~November only Gemini embedded. Whether the stored vectors now
+mix the two models, which are not comparable, we did not check. The repository
+does not record why OpenAI-only became the target. The author's account is
+that the free tiers were not reliable enough for bulk parsing and the OpenAI
+key was the one that worked.
 
 \subsection{The OpenAI-Only Mode: Built, Not Yet Switched On}
 \label{sec:openai-only}
 
+The OpenAI-only mode is the author's target and was off at the pin: a probe in
+November 2026 found six providers keyed in production.
 In OpenAI-only mode, both chains collapse to the single OpenAI entry, and the
 API and worker refuse to boot if any other provider's key is present. The
 code gives the reason: a misconfigured deployment must not quietly send
@@ -400,17 +243,6 @@ records every free-tier call at zero. Two limits are weaker than they look:
 the per-user cap fails open if Redis is unavailable, and a pre-parse headroom
 check never fires while OpenAI is configured, because the registry gives OpenAI no daily request limit and so counts it
 as unlimited.
-
-\section{A Hosted Parser, Tried Once (Chapter 4)}
-\label{sec:c4-llamaparse}
-
-On 31 October 2026 a hosted parsing service (LlamaParse) was run on one deck
-to see whether buying the extraction step would give better text than the current extraction. It did not. Its output mis-numbered pages until a page separator was configured, its
-Python package had been out of maintenance since 1~May 2026, it would have added a
-dependency the production image does not carry, and it would send every uploaded page to LlamaParse, which the privacy page names only for uploads that select that engine. The trial is recorded
-in the repository (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak llamaparse-trial-2026-10-31.md})
-and the service was not adopted. It is reported here because it is a decision
-with a reason, not because it is a result.
 
 \section{The Deck-Plan Scorecard (Chapter 4)}
 \label{sec:c4-deck-lab}
@@ -455,10 +287,10 @@ the view aggregates and who may see the result. The
 schema is defined only by plain SQL migrations (139 files at
 \code{\thesisCommit}). They create 79 tables, one of which is the default
 partition of the event table, so 78 logical tables. Thirty-six of them form
-the core of the domain. \Cref{fig:er} in \cref{app:figures} shows identity,
-Spaces, content and parsing, and \cref{fig:er-learning} the learner-facing
-tables for practice, Luna sessions, notes, and points. The rest are
-catalogues, caches, analytics roll-ups, and operational tables.
+the core of the domain. \Cref{fig:er} in \cref{app:figures} shows 19 of them,
+for identity, Spaces, content, and parsing; the other 17 serve practice, Luna
+sessions, notes, and points. The remaining tables are catalogues, caches,
+analytics roll-ups, and operational tables.
 
 \paragraph{A Space is a course.}
 The current interface speaks of \emph{Spaces}, but no Space table exists. A
@@ -482,31 +314,6 @@ functions in production insert the student role only, so that only an
 administrator can make an account a professor. The project therefore applies migrations by hand and checks
 the outcome against the system catalogue. The repository describes the intended
 database, and the running one has to be inspected.
-
-\section{Schema Notes (Chapter 5)}
-\label{sec:schema-notes}
-
-\paragraph{Vectors.}
-Page embeddings are stored with the pgvector extension~\cite{pgvector} as
-768-dimensional vectors with an HNSW index~\cite{malkov2020hnsw} on cosine distance. Two embedding
-models can fill that column, depending on the provider mode. Their vectors
-are not comparable, so switching models requires re-embedding every page.
-
-\paragraph{Tables without a writer, keys without a check.}
-Several tables have a schema and no live writer: a table of text chunks with
-its own vector index, the per-page parse records, and the concept-mastery
-table, whose writer returns early for every card. They are the remains of
-designs that were built ahead of their consumers. The opposite fault is a
-contract that nothing checks. Badges are awarded by name, and the award
-function returns \code{NULL} for a name it does not know. Three badge names
-used by the review feature were never added to the catalogue, so awarding
-them silently does nothing. A foreign key would not have caught this,
-because nothing is inserted. Two tables deliberately leave references without
-foreign keys: the cost ledger of model calls, to survive the deletion of the
-runs it records, and the event log, whose references to Lesson and page live
-in the payload for the reasons given in \cref{sec:c5-events}. The event log
-does keep a foreign key to its user, which is what the deletion cascade
-uses.
 
 \section{The Second Fence: Authorisation (Chapter 5)}
 \label{sec:authorisation}
@@ -612,23 +419,12 @@ professor role, which in production only an administrator grants.
   \end{tabular}
 \end{table}
 
-\paragraph{A boundary repaired in steps.}
-The owner's view is only as private as the database beneath it, which is why
-the history of that boundary belongs to the answer to RQ2. The database
-boundary was not designed once. It was repaired in nine steps
-over eleven migrations. The faults concern who may hold a role, functions
-that run with the rights of the role that defined them and could be executed
-by anyone, and drift between repository and production, where the
-bucket for lecture PDFs was private in the repository, while in production
-anyone could list it and download every lecture PDF until October. \Cref{sec:hardening} gives the
-sequence.
-
 \section{Hardening as a Sequence (Chapter 5)}
 \label{sec:hardening}
 
 The database boundary was not designed once. It was repaired in nine steps
 over eleven migrations, each of which documents its own problem in its
-header (\cref{fig:security-arc} in \cref{app:figures}). We summarise the
+header. We summarise the
 classes of fault and not the individual migrations.
 
 The first class, from January to June 2026, concerns who may hold a role. Roles
@@ -752,8 +548,8 @@ seeds, its themes in 61, and the numbers of arm~I in all 100.
 A learner trusts the content. The person who runs the system also has to
 trust that the system
 does not spend without limit and does not keep calling a provider that can no
-longer answer. \Cref{app:detail} describes the chain of providers (\cref{sec:multi-provider})
-and the caps (\cref{sec:cost-controls}). Here the question is whether those limits
+longer answer. \Cref{sec:provider-strategy} describes the chain of providers
+and \cref{sec:cost-controls} the caps. Here the question is whether those limits
 hold when providers fail. It belongs to RQ3 because the answer check is
 itself a model call: what happens when verification fails depends on what
 happens when a provider fails.
@@ -785,24 +581,6 @@ the route, the prompt and its version, the provider, the model, the tokens and
 the cost of each call, and the counts of questions proposed, kept, repaired,
 and dropped (migration \code{20261012000000}). The receipt does not prevent a
 wrong result. It makes one traceable to the call that produced it.
-
-\section{The Change of 24 June (Chapter 6)}
-\label{sec:c6-history-detail}
-
-No commit message, pull request, or test records why the refusal was
-removed. The commit was written by the co-developer and has no message body,
-and the pull request that carried it does not mention the change. It follows by one minute a commit titled ``debugging AI
-Tutor'', which repaired the chat request after the API paths had been
-versioned two days before. The only trace of a motive is a comment in the diff:
-the tutor should not refuse outright ``if the question is conceptual'', and
-every question now goes to the model ``so it can provide supplementary
-knowledge''. No test or measurement came with the change. The test that had
-expected the refusal was adjusted four days later (commit \code{8f986043}).
-We therefore report the change and its circumstances, and we do not supply a
-reason.
-\TODO{Author: ask the co-developer why the refusal was removed on 24 June
-(f39e93dc). If there is an answer, add one sentence here and attribute it as
-a personal communication; if not, the paragraph stands as it is.}
 
 \section{The Trust Mechanisms in One Table (Chapter 6)}
 \label{sec:c6-inventory-table}

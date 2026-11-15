@@ -861,3 +861,100 @@ History and the older interface, deleted from the text:
 - **Property tests.** Appendix C also reports two cost defects that planning
   the property tests uncovered; chapter 6 now points there only for the case
   of a failing provider.
+
+### The appendix pass (15 November)
+
+Deleted from Appendix C, because no chapter needs them:
+
+- **Deployment and Operations (with its deployment figure).** Five containers
+  on one Hetzner CX23 (two vCPUs, 4 GB, Ubuntu 24.04): `frontend` (nginx on
+  port 3000, loopback only, forwarding `/api/`), `api` (FastAPI, one uvicorn
+  worker, 512 MB), `worker` (Arq, 512 MB, up to four jobs), `redis` (cache,
+  256 MB, LRU eviction), `redis-queue` (broker, 128 MB in a 160 MB container,
+  no eviction, append-only). TLS by the host's nginx with Let's Encrypt; that
+  configuration lives only on the server (the deploy runbook documents it);
+  DNS at Cloudflare without proxying; Supabase in the EU (Ireland) on the free
+  tier, without point-in-time recovery. Until November the repository held
+  four compose files, none naming the host in use; the staging and Oracle
+  files were deleted and the production header fixed. The host proxy
+  configuration and the dump script exist only on the server; the runbooks,
+  the heartbeat and the scripts that encrypt and upload the dump are
+  versioned. Deploys are manual with rollback tags; a five-minute heartbeat
+  checks readiness, the containers, the public site, disk and memory, and the
+  certificate; the nightly dump is encrypted with `age` and kept 14 days in EU
+  object storage. `/health/ready` reports ready with the database
+  `not_configured` when no database URL is set, although the pipeline and the
+  routes of the current interface need the pool (a latent gap, not a live
+  fault). Chapter 3 now states the deployment facts in four sentences.
+- **The prose of the pipeline lineage (the table stays).** Pipeline v5 (June)
+  made the server the only writer of parse results; on the deck that had
+  exposed v4's blindness it routed 88 of 143 pages to vision. Pipeline v3 with
+  Docling never became the default: the configuration stayed at version 2
+  until 28 June and then jumped to 5. The production image left Docling out
+  because of heavy dependencies and a build over 30 minutes (`6ce7b5f1`); v5
+  was built on version 2's PyMuPDF engine (`4f19bd1e`); Docling left the
+  requirements in October after eight security advisories, with no quality
+  reason recorded. The 25-character threshold came with v5 on 17 June
+  (`bd03f1d5`) and was applied in four places with three measures until the
+  one routing rule of 6 November. The table's caption now cites
+  `docs/timeline/` (on main).
+- **The two provider sections, merged into one.** Kept: the chains, the
+  failure classes, the six credentials, the privacy-page gap, the history in
+  brief, the open question whether stored vectors mix two embedding models,
+  the OpenAI-only mode in full, and the cost controls. Deleted: the failover
+  figure; the registry's fields (model, credential, daily limit, requests and
+  tokens per minute, date verified); a 403 does not disable a provider,
+  because one provider answers a moderation-flagged prompt with 403; the
+  classification partly matches exception text; the wrapper's eight
+  rate-limit attempts run under a 25-second default timeout that fits at most
+  four; two found-then-fixed failure classes (at `0be0081` a provider without
+  credit was retried on every call, as Cerebras later failed, and payment
+  errors became permanent in September; at `2b8b1f7b` a rejected key was
+  retried until 401 became permanent in November); a test fails when a
+  provider's limits were verified more than 45 days ago; the chains were
+  revived in September after eight of nine entries were found dead; the
+  gateway blocked start-up when unhealthy; the ledger detail (Gemini 228 calls,
+  208 of them embeddings; Groq 95, led by Luna sessions 29 and Explain 28;
+  OpenAI bulk generation 249); what ran the October OpenAI embeddings was not
+  identified (`embeddings.py:24`).
+- **A Hosted Parser, Tried Once.** LlamaParse on one deck, 31 October 2026:
+  it mis-numbered pages until a page separator was configured, its Python
+  package had been unmaintained since 1 May 2026, it added a dependency, and
+  it would send every uploaded page to LlamaParse, which the privacy page
+  names only for uploads that select that engine. The record is
+  `docs/thesis/experiments/llamaparse-trial-2026-10-31.md`; not adopted.
+  Chapter 4 no longer mentions it.
+- **Schema Notes.** 768-dimensional vectors with an HNSW index on cosine
+  distance (the HNSW citation moved to the decisions table); the two
+  embedding models are not comparable; tables without a live writer (text
+  chunks with their own vector index, per-page parse records, the
+  concept-mastery table, whose writer returns early); three badge names
+  missing from the catalogue, so awarding them silently does nothing; the cost
+  ledger keeps no foreign key so that it survives the deletion of runs; the
+  event log keeps a foreign key to its user for the deletion cascade.
+- **"A boundary repaired in steps"** repeated the opening of "Hardening as a
+  Sequence", which follows directly.
+- **The Change of 24 June, with its TODO.** The older tutor's refusal was
+  removed on 24 June 2026 in commit `f39e93dc` by the co-developer, without a
+  message body, one minute after a commit titled "debugging AI Tutor". A
+  comment in the diff says the tutor should not refuse outright "if the
+  question is conceptual" and should send every question to the model "so it
+  can provide supplementary knowledge". The test that expected the refusal
+  was adjusted four days later (`8f986043`). The TODO asked the author to ask
+  the co-developer why; the question stays here for the defence.
+
+Deleted from Appendix B (the sources stay in `thesis/figures/src`, and
+`figures/MANIFEST.md` marks the figures as not wired):
+
+- **F9b**, the learner-facing half of the schema (17 tables: practice, Luna
+  sessions, notes, gamification). The schema section now names what they
+  serve.
+- **F15**, the hardening arc (nine steps in two phases). "Hardening as a
+  Sequence" gives the three classes of fault with their migrations.
+- **F16**, the citation gap (at `0be0081` no screen a student could reach
+  showed a source). Chapter 6 no longer tells that history.
+
+Tooling: `scripts/lint_tex.py` now counts figures placed with a plain figure
+environment (Figures 3.1 and 4.3) and expects 20. After Figure 4.3 left
+`\thesisfigure` it had warned "only 18 of 19 available figures are used", a
+non-blocking warning that went unreported in the chapter 4 summary.

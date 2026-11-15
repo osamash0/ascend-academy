@@ -49,8 +49,8 @@ of October 2026, anyone can upload a PDF and read it at once, and the system add
 We therefore built the interface twice. We wrote the second interface, which the repository calls v4 (a label unrelated to the numbered pipeline versions of \cref{sec:c4-lineage}), as a new part of the frontend beside the first one and not as a refactoring of it (\code{docs/design-v4/UI-SESSION-BRIEF.md},
 PR~\#55). We recorded how we did this and not why we ruled out refactoring. As we recall, the first interface assumed a university, with professors and courses, while the second had to work for any material and any group. We call the screens of the first interface, one per course, lecture, and professor, the \emph{older interface} below. They still exist in the code but no longer
 receive learners. The backend changed more often:
-\cref{sec:c4-lineage} lists nine generations of the parsing pipeline
-in ten months.
+\cref{tab:lineage} in \cref{app:detail} lists nine generations of the
+parsing pipeline in ten months.
 
 Five principles hold across the current system.
 \begin{description}
@@ -141,7 +141,7 @@ the owner's view of \cref{ch:loop} (PR~\#181), and the backend of a fourth view 
 \thesisfigure{f6-components}
   {Component view of the deployed system. The API and the worker, built from
    one Dockerfile, call the LLM providers directly. The current interface depends on the direct connection pool to
-   PostgreSQL, a dependency that the readiness check (\cref{sec:deployment})
+   PostgreSQL, a dependency that the readiness check
    does not test.}
   {fig:components}
 
@@ -181,9 +181,11 @@ Supabase session token as a bearer token. A test enforces this boundary: no
 module of the v4 feature folder may import the Supabase client.
 
 \paragraph{Deployment.}
-Production runs these components on one virtual machine in five containers.
-\Cref{sec:deployment} describes deployment, monitoring, and backups, and one
-gap: the host's proxy configuration exists only on the server.
+Production runs these components in five containers on one virtual machine.
+Deploys are manual, the nightly database dump is encrypted before it leaves
+the server, and an external monitor alerts when a heartbeat goes silent. The
+host's proxy configuration exists only on the server, so the deployed system
+cannot be rebuilt from the repository alone.
 
 \section{Technology Choices}
 \label{sec:stack}

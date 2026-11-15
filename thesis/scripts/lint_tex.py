@@ -20,10 +20,14 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FIGDIR = ROOT / "figures"
-TOTAL_FIGURES = 19
+# Figure files the thesis uses, counting plain figure environments too
+# (15 November 2026: five figures left the appendices).
+TOTAL_FIGURES = 20
 
 FIG_MACRO_FILE = re.compile(r"\\thesisfigure(?:page)?\{([^}]+)\}\s*\{")
 FIG_MACRO_LABEL = re.compile(r"\\thesisfigure(?:page)?\{[^}]*\}\s*\{.*?\}\s*\{([^}]+)\}", re.S)
+# A figure placed with a plain figure environment (for a [t] placement) counts too.
+FIG_INCLUDE = re.compile(r"\\includegraphics(?:\[[^\]]*\])?\{([^}#]+)\}")
 
 
 def strip_comments(text: str) -> str:
@@ -56,6 +60,8 @@ def main() -> int:
                 problems.append(f"{rel}: missing \\input/\\include target {m.group(1)}.tex")
 
         figures.update(m.group(1) for m in FIG_MACRO_FILE.finditer(body))
+        figures.update(m.group(1) for m in FIG_INCLUDE.finditer(body)
+                       if (FIGDIR / f"{m.group(1)}.pdf").exists())
 
         if path.name != "preamble.tex":
             for m in re.finditer(r"\\label\{([^}]+)\}", body):

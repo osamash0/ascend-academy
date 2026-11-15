@@ -1,17 +1,17 @@
 % Appendix B, assembled 2026-11-10. Diagrams that the body refers to and
 % that are too large for it: F4, F5, F17 (chapter 3), F9, F9b, F14, F15 (chapter 5),
-% F12, F16 (chapter 6).
+% F12, F16 (chapter 6). On 2026-11-15 F9b, F15 and F16 left the thesis (see
+% docs/thesis/defence-notes.md).
 \chapter{Supplementary Diagrams}
 \label{app:figures}
 
-This appendix holds ten diagrams that the body refers to.
-\Cref{fig:pipeline} belongs to \cref{sec:pipeline},
+This appendix holds seven diagrams that the chapters and \cref{app:detail}
+refer to. \Cref{fig:pipeline} belongs to \cref{sec:pipeline},
 \cref{fig:use-case,fig:domain-model} to \cref{sec:stakeholders},
 \cref{fig:flag-reality} to \cref{sec:built-vs-deployed},
-\cref{fig:er,fig:er-learning} to \cref{sec:data-model},
-\cref{fig:security-arc} to \cref{sec:hardening},
+\cref{fig:er} to \cref{sec:data-model},
 \cref{fig:trust-boundaries} to \cref{sec:authorisation}, and
-\cref{fig:tutor-sequence,fig:citation-gap} to \cref{sec:tutor}.
+\cref{fig:tutor-sequence} to \cref{sec:tutor}.
 
 \thesisfigurepage{f8-pipeline}
   {The ingestion pipeline. Two entry routes admit a PDF synchronously and
@@ -46,22 +46,6 @@ This appendix holds ten diagrams that the body refers to.
    key.}
   {fig:er}
 
-\thesisfigurepage{f9b-er-learning}
-  {Core physical schema, part 2: the 17 learner-facing tables (practice, Luna
-   sessions, notes, gamification), attached to grey stubs of part-1 tables.
-   Dashed lines have no database-enforced foreign key, and two are polymorphic
-   \code{space\_id} text links. \code{learning\_events} is marked partitioned
-   as the migrations declare it; production has no partitions
-   (\cref{tab:deployed}).}
-  {fig:er-learning}
-
-\thesisfigure{f15-security-arc}
-  {Privilege-escalation hardening in two phases: five steps over six
-   migrations from January to June 2026, then four steps over five migrations
-   from October to November 2026. Steps 1 and 3 each opened a hole that a
-   later step closed, and no step marks the hardening as complete.}
-  {fig:security-arc}
-
 \thesisfigure{f14-trust-boundaries}
   {Trust boundaries. A browser holding the anonymous key meets three
    database-side boundaries --- table row-level security, function execute grants, and storage policies. Most backend routes bypass row-level security
@@ -72,9 +56,3 @@ This appendix holds ten diagrams that the body refers to.
   {The grounded course tutor behind the home ask bar. Groundedness is enforced
    at five points, including a refusal before any model call.}
   {fig:tutor-sequence}
-
-\thesisfigure{f16-citation-gap}
-  {Source attribution. The server's validated citations reach learners only through the
-   ask bar of the current interface, while the older interface still discards them. At
-   \thesisEarlierCommit{}, no screen a student could reach showed a source.}
-  {fig:citation-gap}
