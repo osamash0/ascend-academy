@@ -400,3 +400,106 @@ instructions to follow" (`insights/themes.py:76–80`). The prompt does not use
 `inert()`. The output filter drops any theme with a word only one asker used
 (`themes.py:113–144`), so one member alone cannot put a word of their own into
 a theme.
+
+### 6.2 The hierarchy of scopes (why the three ways to ask differ)
+
+**Why do the three surfaces see different amounts of material?**
+They form a hierarchy of scopes, and each answer starts from the least
+material its question needs (the author's design idea). At the pin:
+- Explain: the open page and the titles of pages p−2 … p+2
+  (`v4_reader_service.py:728`); Ask: the open page, the conversation's last
+  turns and the question (`:854`). Neither searches.
+- Luna: the step's target page and the page the learner reads, each with one
+  page either side (`luna/context.py:23`). Only in a "connect" step does it
+  search the rest of the Space: full-text, 3 hits, the current Lesson
+  excluded (`session_service.py:114–117, 274–277`; `find_in_course`,
+  `v4_reader_service.py:968`).
+- Ask bar: hybrid search over the Space's live Lessons, best six
+  (`ai/retrieval.py`).
+
+**What is the evidence that less material helps?**
+Shi et al. (ICML 2023) show that irrelevant context lowers the accuracy of
+language models. Liu et al. (TACL 2024) show that models use information in
+the middle of a long context less well. Neither tested our system; we did not
+measure what a wider scope would do to Explain.
+
+**Is there evidence against it?**
+Yes, and an examiner may know it. Cuconasu et al., "The Power of Noise"
+(SIGIR 2024, pp. 719–729, doi:10.1145/3626772.3657834), found that adding
+random documents to a RAG prompt could raise accuracy in their setting, while
+related but irrelevant documents hurt it. The honest reading: what hurts is
+material that looks relevant but is not, which is what a wide search inside a
+Space tends to return. Narrow scope avoids that by not searching at all.
+
+**What does the narrow scope cost?**
+The checks weaken as the scope narrows: Explain and Ask have no retrieved set
+to check a citation against, so only the block structure is checked, and the
+fallback is the original page one key away (6.1). A question that needs
+another page cannot be answered there; the prompt tells the model to say so.
+
+**Is the scope also a security boundary?**
+For the ask bar, yes: the Space restriction is in the SQL query, not a filter
+afterwards (migration `20261014000000`), and the caller must be a member or
+the owner. A narrow scope cannot leak another Space's material into an answer.
+
+**Why was the reliability remark cut from 6.2.4?**
+For space. The point stands: a learner cannot perceive a trust mechanism that
+no screen shows, which limits what a later study of perceived reliability
+could find.
+
+**Can the refusal gate be tested without a model?**
+Yes. The gate is a pure function of the retrieved list (`tutor.py:302–347`),
+so a test asserts on it with no model call. Cut from 6.2.2 for space.
+
+**Is "the checks weaken as the scope narrows" a general law?**
+No, it describes this system as built, and the sections show it: the ask bar
+has a refusal gate before the model and a citation filter after it (6.2.2);
+Luna's validator checks the pages and phrases it names (6.2.3); Explain and
+Ask are checked only for the structure of their blocks (6.2.3). Figure 2.1
+draws the same order. A narrow scope does not force weak checks; we simply
+built no content check for the reading view.
+
+**What happens when a question on a page needs another page?**
+Nothing in code. Only the prompt rules decide (`v4_reader_service.py`):
+- both Explain and Ask: "On factual pages (schedules, contacts,
+  requirements), use only stated facts … say it is not given" (`:615`);
+- Explain only: "On conceptual pages, add intuition, a clearly hypothetical
+  concrete example, or the mistake students make" (`:636`), so on a
+  conceptual page the model is invited to add knowledge of its own;
+- Ask only: "say so plainly if the slide or lecture does not cover
+  something" (`:774`).
+No validator checks whether the model followed them.
+
+### 7.4 The learner's own loop (future work)
+
+**What is the learner's loop?** Chapter 5's loop sends what many learners do
+on a page to its owner, who may change the page. The learner's loop sends
+what one learner does back to that learner: a page they marked *Still foggy*
+or asked about with Ask would start a Luna session on that page, and its
+questions would come back later as practice cards. The owner's loop improves
+the material for everyone; the learner's loop helps one person go back to
+their own weak pages.
+
+**Why does the text not mention Luna's memory?** Luna also keeps short notes
+about the learner, written at the end of each session. The thesis never
+defines them, and chapter 3 uses "notes" for the learner's own notes, so the
+paragraph says only what Luna lacks: the reading view's signals.
+
+**What exists today?** Luna plans a session from the Lesson, the open page,
+the learner's first message and its notes from earlier sessions
+(`luna/prompts.py:114–119`); the notes are written only at a session's
+wrap-up (`session_service.py:383`). Luna's revisit deck shows only cards from
+Luna sessions (`luna/store.py:230–242`, `source_type = 'luna_session'`). The
+reader offers a session whenever the learner is not following the timeline
+(`lights.ts:123`, `lunaReady: !following`), not because of any signal.
+
+**What would be new?** The reading view's own signals (a *Still foggy*
+check-in, a question asked in Ask) would start a Luna session on that page
+and add its questions to the revisit cards.
+
+**Why is it safe for privacy?** The learner sees only their own events, so no
+other person is shown; the floor of five in Chapter 5 protects members from
+the owner, which this loop does not involve.
+
+**Why is it not a claim about learning?** It is not built or tested. Whether
+it helps is for the controlled study proposed first in 7.4.

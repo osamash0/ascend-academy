@@ -174,7 +174,7 @@ every reader of the page.
 The nearest step is a fourth view of a page that rebuilds its layout as text. Its backend (PR~\#182) is on the main branch and off, and its part in the
 reading view (PR~\#183) is not.
 
-Two wider directions are our ideas, not results. The first would close the
+Three wider directions are our ideas, not results. The first would close the
 loop of \cref{ch:loop} inside the software. An assistant, the platform's own
 or one the owner already uses, would read the owner's view, propose changes
 to the pages a finding points to, and apply them only after the owner
@@ -184,7 +184,16 @@ owner sees: the page facts behind the floor, never the event log. The route
 that lets a lecturer regenerate the generated text of one page with a short
 instruction (\code{ai\_content.py:328--337}) is a first piece of it. The
 second direction is models that a university runs itself, keeping learner
-questions inside the institution.
+questions inside the institution. The third would give the learner a loop of
+their own. In \cref{ch:loop} what learners do on a page returns to its owner,
+who may change the page. What one learner does could also return to that
+learner. A page they marked \emph{Still foggy}, or asked about with Ask, could
+start a study session with Luna on that page and become one of the practice
+cards that Luna schedules for later (\cref{sec:built-vs-deployed}). Today
+neither happens: Luna plans a session without these signals
+(\code{luna/prompts.py:114--119}), and her cards come only from her own
+sessions (\code{luna/store.py:230--242}). Only the learner would see this
+loop. We have not built or tested it.
 
 \section{Closing}
 \label{sec:reflection}

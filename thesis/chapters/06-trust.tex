@@ -48,12 +48,27 @@ nothing at run time and it is the fallback for every mechanism that follows.
 \section{Answers Grounded in the Space}
 \label{sec:tutor}
 
-A learner can ask in three places: the ask bar on the home screen, which
-answers from a whole Space, a study session with the assistant, Luna, and
-Explain and Ask on a single page of the reading view. \Cref{fig:groundedness} in
-\cref{sec:rag} places them on a scale of how strongly the answer is tied to
-the material. This section describes the strongest of them in detail and then
-contrasts the other two.
+A learner can ask in three places, and they form a hierarchy of scopes.
+Explain and Ask in the reading view answer about the open page. They see little
+beyond that page and search nothing (\code{v4\_reader\_service.py:728,854}).
+Luna, in a study session, sees the pages around the one it teaches and the one
+the learner reads, and searches the rest of the Space only in a step that
+connects Lessons
+(\code{luna/context.py:23}, \code{session\_service.py:274}). The
+ask bar on the home screen answers about a whole Space and must search it
+first. Our aim was that each answer starts from the least material its
+question needs, and that retrieval runs only where a question reaches beyond
+the page, because a language model can be distracted by context that does not
+bear on the question~\cite{shi2023distracted} and uses information in the
+middle of a long context less well~\cite{liu2024lost}. We did not measure
+whether the narrow scope gives better answers here, and it has a cost: a
+question on one page that depends on an earlier or later page, or on another
+Lesson, reaches beyond what Explain and Ask see, and what the model does then
+rests on prompt rules alone (\cref{sec:c6-structure}). In the system as
+built, the checks also weaken as the scope narrows, from a refusal gate and a
+citation check on the ask bar (\cref{sec:anti-hallucination}) to a check of
+the answer's structure alone in the reading view (\cref{sec:c6-structure};
+\cref{fig:groundedness}).
 
 \subsection{Retrieval Inside One Space}
 \label{sec:retrieval}
@@ -68,7 +83,7 @@ This scope was wrong until October 2026. The scoped search joined the
 embeddings on a column that is empty for most rows, so the ask bar could not
 see those pages: 40 of 68 in one Space (commit \code{b66a97c6}, PR~\#96, with
 a database test that fails on the old join). No record says how large the
-blind part was in other Spaces, or when the fix reached production. Every
+blind part was in other Spaces. Every
 later check depends on retrieval: a refusal gate and a citation check are
 worth nothing when retrieval does not see the material.
 
@@ -84,8 +99,7 @@ worth nothing when retrieval does not see the material.
   \item \emph{Input sanitising.} The code trims the learner's message, cuts it at 2,000 characters, rewrites the delimiters with which the prompt fences uploaded text (\cref{sec:injection}) and the angle brackets so that the message cannot reproduce them literally, and marks phrases such as ``ignore previous instructions'' as quoted (\code{tutor.py:71--90}). The ask bar's own route refuses
         a question of more than 600 characters before that.
   \item \emph{Refusal gate.} If no retrieved page reaches similarity 0.65, the gate returns a fixed ``not covered'' reply before any model call
-        (\code{tutor.py:302--347}). The gate is a pure function of the
-        retrieved list, so a test can assert on it without a model.
+        (\code{tutor.py:302--347}).
   \item \emph{Citation check.} The reply cites \code{[Source N]}. The check removes a citation whose number is not in the retrieved set from the list of citations (\code{tutor.py:272--299}).
 \end{enumerate}
 
@@ -97,38 +111,30 @@ literature~\cite{rashkin2023ais,gao2023alce}, the system verifies that a
 citation points at retrieved material, not that the material supports the
 claim.
 
-\subsection{Strict First, Relaxed Later, Strict Again}
-\label{sec:c6-history}
-
 The first grounded tutor (commit \code{8d2eb095}, May 2026) refused
-everything outside the retrieved pages. In June 2026 a commit removed the
+everything outside the retrieved pages. In June 2026 a commit removed that
 refusal from the tutor of the older interface (\code{f39e93dc}), for a reason
-the repository does not record. Since then that tutor may add outside
-knowledge in a labelled block quote, a prompt rule that no code checks
-(\code{ai/prompts.py:506--540}; \cref{sec:c6-history-detail}). The ask bar,
-which learners reach in the current interface, kept the gate and answers only
-from the Space, so the system returned to strict answering with the interface
-and not by a recorded decision.
+the repository does not record (\cref{sec:c6-history-detail}). That tutor no
+longer reaches students, and the ask bar kept the gate.
 
 \subsection{Luna and the Reading View: Checks on Structure}
 \label{sec:c6-structure}
 
-The other two surfaces do not use this retrieval and do not cite. Luna works
-on the open page and the page before and after it, and can look up related
-pages of the Space by full-text search. Explain and Ask get no search at all.
-Both surfaces check the shape of what the model writes.
+The other two surfaces do not use this retrieval and do not cite. Both check
+the shape of what the model writes.
 
 Luna names pages and lights up phrases on them. The validator drops a move to a page that does not exist, and a phrase survives only if it occurs literally on that
 page (\code{luna/validate.py}, 12 unit tests). A check question must have
 exactly one correct option.
 
-Explain and Ask in the reading view see the open page and little else
-(\code{v4\_reader\_service.py:728}). Their output
+The output of Explain and Ask
 must parse into a fixed set of blocks, and the service drops a block that does not
 (\code{v4\_reader\_service.py}, \code{validate\_answer}). Beyond that they rely
-on prompt rules: use only facts the page states, say when the page does not give something, and label an invented example as hypothetical. These rules are
-instructions to the model. Nothing verifies that the model follows them, and
-this is the weakest of the three surfaces.
+on prompt rules. On a factual page the model must use only the stated facts
+and say when one is not given; on a conceptual page Explain may add intuition
+and hypothetical examples; and Ask must say plainly when the page
+does not cover something (\code{v4\_reader\_service.py:615,636,774}).
+Nothing verifies that the model follows them.
 
 \subsection{Whether the Learner Sees the Source}
 \label{sec:citation-gap}
@@ -138,8 +144,7 @@ nothing to check. At \code{\thesisEarlierCommit} no screen in use showed the
 citations that the server computed (\cref{fig:citation-gap} in
 \cref{app:figures}). In the current interface the ask bar shows each citation
 as a link to its page. The reading view's Explain and Ask show none, and their
-only source is the open page itself. A learner cannot perceive a trust mechanism that no screen shows, which limits what any later study of perceived reliability could
-find.
+only source is the open page itself.
 
 \section{Uploaded Text Is Not an Instruction}
 \label{sec:injection}
