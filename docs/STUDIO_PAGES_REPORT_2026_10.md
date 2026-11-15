@@ -111,7 +111,7 @@ MuPDF error: format error: corrupt object stream (67 0 R)
 | Freistellung-3.pdf | 6 | 1 (17%) | 7.3 | 1 |
 | Freistellung-Demo.pdf | 6 | 1 (17%) | 7.8 | 1 |
 | Freistellung.pdf | 2 | 2 (100%) | 2.5 | 0 |
-| GPU Server · Wiki · FB12 _ AG Papenbrock _ Wiki · GitLab.pdf | 2 | 0 (0%) | 37.0 | 5 |
+| GPU server wiki page (export).pdf | 2 | 0 (0%) | 37.0 | 5 |
 | GPU-Server_2024-05-02.pdf | 2 | 0 (0%) | 30.0 | 4 |
 | IMPROVEMENTS_SUMMARY.pdf | 7 | 0 (0%) | 32.1 | 7 |
 | Immatrikulationsbescheinigung (Certificate of Enrollment).pdf | 1 | 0 (0%) | 28.0 | 3 |

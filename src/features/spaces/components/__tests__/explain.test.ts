@@ -49,7 +49,7 @@ describe('a page’s points', () => {
 
 describe('Explain always has something to say', () => {
   it('uses the authored answer where there is one', () => {
-    expect(explainFor('l-s-dbs-4', 34, { title: '', markdown: '' }).blocks.some((b) => b.type === 'closure')).toBe(true);
+    expect(explainFor('l-s-dbs-4', 3, { title: '', markdown: '' }).blocks.some((b) => b.type === 'closure')).toBe(true);
   });
 
   it('composes one from the text anywhere else', () => {

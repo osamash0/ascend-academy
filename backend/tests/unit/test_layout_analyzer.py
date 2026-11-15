@@ -332,7 +332,7 @@ async def test_pages_analysed_at_once_read_as_they_do_one_at_a_time():
     the reading order built from them, changed for every later page."""
     data = DECK.read_bytes()
     reader = PDFReader(data)
-    pages = range(24)
+    pages = range(await reader.get_page_count())
     one_at_a_time = [await analyze_page_layout_async(reader, i) for i in pages]
     at_once = await asyncio.gather(*(analyze_page_layout_async(reader, i) for i in pages))
     assert list(at_once) == one_at_a_time

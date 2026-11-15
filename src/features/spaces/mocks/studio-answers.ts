@@ -32,97 +32,118 @@ export const STUDIO_ANSWERS: ScriptedAnswer[] = [
   {
     question: 'Why does repeated data cause problems?',
     match: /repeat|redundan|duplicat/i,
-    anchorId: 's-p5-2',
+    anchorId: 's-p8-1',
     markdown:
       'If the same fact is stored twice, an update can change one copy and miss the other — and the table starts telling two stories. Normalization splits relations so each fact lives in one place, which removes these **update anomalies** at the root.',
-    citations: [cite(5, 'p5-b10', 'Goal: Avoid redundancies'), cite(5, 'p5-b11', 'Approach: Split relation schemas')],
+    citations: [
+      cite(1, 'p1-b1', 'Redundancy is one fact stored in more than one row'),
+      cite(8, 'p8-b3', 'Miss one and two rows now disagree about the same product'),
+    ],
   },
   {
     question: 'What is a functional dependency?',
     match: /functional dependenc|\bfds?\b/i,
-    anchorId: 's-p6-1',
+    anchorId: 's-p2-1',
     markdown:
-      'A promise about the data: if you know X, you know A. Whenever two rows share the same X values, they must share the same A value. In the example table, knowing a creature’s **Name** tells you its **Weight**.',
+      'A promise about the data: if you know X, you know A. Whenever two rows share the same X values, they must share the same A value. On the order lines, knowing the **Product** tells you its **Product name**.',
     format: 'A table to try',
     blocks: [
-      { type: 'text', md: 'A promise about the data: if you know X, you know A. Whenever two rows share the same X values, they must share the same A value. In the example table, knowing a creature’s **Name** tells you its **Weight**.' },
-      { type: 'fdTable', title: 'Does Name → Weight hold?', columns: ['Name', 'Weight', 'Type'], rows: [['Pikachu', '6.0', 'electric'], ['Nidoran', '7.0', 'poison'], ['Nidoran', '7.0', 'poison'], ['Vulpix', '9.9', 'fire'], ['Abra', '19.5', 'psychic']], fd: { lhs: ['Name'], rhs: ['Weight'] }, prompt: 'Change one Nidoran’s weight and watch the dependency break.' },
+      { type: 'text', md: 'A promise about the data: if you know X, you know A. Whenever two rows share the same X values, they must share the same A value. On the order lines, knowing the **Product** tells you its **Product name**.' },
+      { type: 'fdTable', title: 'Does Product → Product name hold?', columns: ['Order', 'Product', 'Product name'], rows: [['1001', 'P7', 'Desk lamp'], ['1002', 'P7', 'Desk lamp'], ['1003', 'P7', 'Desk lamp'], ['1003', 'P2', 'Notebook']], fd: { lhs: ['Product'], rhs: ['Product name'] }, prompt: 'Rename one Desk lamp and watch the dependency break.' },
     ],
-    citations: [cite(6, 'p6-b6', 'A functional dependency (FD) X → A'), cite(7, 'p7-b14', 'Name → Weight')],
-  },
-  {
-    question: 'Why doesn’t commutativity hold?',
-    match: /commutativ|y\s*→\s*x/i,
-    anchorId: 's-p10-1',
-    markdown:
-      'X → Y only says X decides Y, not the other way round. Many X values can share one Y value — a₁, a₂ and a₄ all point to b₁ — so knowing Y cannot tell you which X you have.',
-    format: 'See it fail',
-    blocks: [
-      { type: 'text', md: 'X → Y only says X decides Y, not the other way round. Many X values can share one Y value — a₁, a₂ and a₄ all point to b₁ — so knowing Y cannot tell you which X you have.' },
-      { type: 'fdTable', title: 'X → Y holds — does Y → X?', columns: ['X', 'Y', 'Z'], rows: [['a₁', 'b₁', 'c₁'], ['a₂', 'b₁', 'c₁'], ['a₃', 'b₂', 'c₁'], ['a₄', 'b₁', 'c₁']], fd: { lhs: ['Y'], rhs: ['X'] }, prompt: 'Rows that share a Y value but differ in X are the counterexample.' },
+    citations: [
+      cite(2, 'p2-b1', 'A → B: any two rows agreeing on A must agree on B'),
+      cite(6, 'p6-b3', 'product alone → product name'),
     ],
-    citations: [cite(10, 'p10-b17', 'Commutativity does not apply!'), cite(10, 'p10-b23', 'a 1 b 1 c 1')],
   },
   {
     question: 'Can I split the left-hand side too?',
     match: /left[- ]hand|split.*left|left.*split/i,
-    anchorId: 's-p8-2',
+    anchorId: 's-p6-1',
     markdown:
-      'No. Title, Year → Length needs *both* attributes: one title can exist in several years with different lengths. Drop either one and the dependency breaks, which is why splitting only works on the right.',
-    citations: [cite(8, 'p8-b15', 'The splitting rule only on right-hand side!'), cite(8, 'p8-b17', '⇏ Year → Length')],
+      'Not in general. (order, product) → quantity needs *both* attributes: one order holds many products and one product appears in many orders, so dropping either breaks the dependency. When part of the left side *is* enough on its own, as product → product name, that part is a partial dependency — exactly what 2NF removes.',
+    citations: [
+      cite(6, 'p6-b3', '(order, product) → quantity'),
+      cite(7, 'p7-b2', 'Project the partial dependency out into its own relation'),
+    ],
   },
   {
-    question: 'What does pseudotransitivity give me?',
-    match: /pseudo/i,
-    anchorId: 's-p12-2',
+    question: 'Does Postcode → City mean City → Postcode?',
+    match: /commutativ|the other way|city\s*→\s*postcode/i,
+    anchorId: 's-p9-2',
     markdown:
-      'A shortcut. If X decides Y, and W together with Y decides Z, then W together with X decides Z — you may swap Y for X inside a left-hand side. It comes in handy in the **closure algorithm**.',
-    citations: [cite(12, 'p12-b21', 'X → Y ∧ WY → Z ⇒ WX → Z')],
+      'No. Postcode → City only says the postcode decides the city, not the other way round. One city has many postcodes, so knowing the city cannot tell you which postcode you have.',
+    format: 'See it fail',
+    blocks: [
+      { type: 'text', md: 'No. Postcode → City only says the postcode decides the city, not the other way round. One city has many postcodes, so knowing the city cannot tell you which postcode you have.' },
+      { type: 'fdTable', title: 'Postcode → City holds — does City → Postcode?', columns: ['Postcode', 'City'], rows: [['10115', 'Berlin'], ['10117', 'Berlin'], ['80331', 'Munich'], ['80333', 'Munich']], fd: { lhs: ['City'], rhs: ['Postcode'] }, prompt: 'Rows that share a city but differ in postcode are the counterexample.' },
+    ],
+    citations: [
+      cite(9, 'p9-b2', 'Postcode fixes the city'),
+      cite(9, 'p9-b5', 'C1 Ada 10115 Berlin'),
+    ],
   },
   {
-    question: 'What is the closure of {Title, Year}?',
+    question: 'What makes a dependency transitive?',
+    match: /transitiv/i,
+    anchorId: 's-p9-1',
+    markdown:
+      'A chain through something that is not a key. The customer decides the postcode and the postcode decides the city, so the city depends on the customer only by way of the postcode. **3NF** cuts the chain by giving postcode and city a relation of their own.',
+    citations: [
+      cite(9, 'p9-b1', 'Key → A and A → B, where A is not itself a key'),
+      cite(10, 'p10-b1', 'No non-prime attribute is determined by another non-prime one'),
+    ],
+  },
+  {
+    question: 'What is the closure of {Order, Product}?',
     match: /closure/i,
-    anchorId: 's-p8-2',
+    anchorId: 's-p3-1',
     format: 'Step through it',
     markdown:
-      'The closure X⁺ is everything X determines: keep firing dependencies whose left side you already have. From {Title, Year} you reach Length, Type and StudioName, then President through StudioName, then PresAddr through President.',
-    citations: [cite(8, 'p8-b14', 'Title, Year → Length, Type, StudioName'), cite(9, 'p9-b9', 'Closure Algorithm!')],
+      'The closure X⁺ is everything X determines: keep firing dependencies whose left side you already have. From {Order, Product} you reach Quantity, then Product name through Product, Customer through Order and City through Customer — every attribute, so {Order, Product} is a key.',
+    citations: [cite(6, 'p6-b3', '(order, product) → quantity, but product alone → product name')],
     blocks: [
       { type: 'key', md: 'X⁺ is everything X determines — keep firing dependencies whose left side you already have.' },
-      { type: 'closure', title: 'Compute {Title, Year}⁺', attrs: ['Title', 'Year', 'Length', 'Type', 'StudioName', 'President', 'PresAddr'], fds: [{ lhs: ['Title', 'Year'], rhs: ['Length', 'Type', 'StudioName'] }, { lhs: ['StudioName'], rhs: ['President'] }, { lhs: ['President'], rhs: ['PresAddr'] }], start: ['Title', 'Year'] },
+      { type: 'closure', title: 'Compute {Order, Product}⁺', attrs: ['Order', 'Product', 'Quantity', 'ProductName', 'Customer', 'City'], fds: [{ lhs: ['Order', 'Product'], rhs: ['Quantity'] }, { lhs: ['Product'], rhs: ['ProductName'] }, { lhs: ['Order'], rhs: ['Customer'] }, { lhs: ['Customer'], rhs: ['City'] }], start: ['Order', 'Product'] },
     ],
   },
   {
     question: 'Split this relation into BCNF',
     match: /bcnf|boyce/i,
-    anchorId: 's-p3-1',
+    anchorId: 's-p11-1',
     format: 'Decompose it',
     markdown:
       'A relation is in Boyce-Codd normal form when the left side of every dependency is a key. Where one is not, split the relation along that dependency and check each half again.',
-    citations: [cite(5, 'p5-b11', 'Approach: Split relation schemas')],
+    citations: [
+      cite(11, 'p11-b1', 'Every determinant is a candidate key, with no exceptions'),
+      cite(7, 'p7-b2', 'Project the partial dependency out into its own relation'),
+    ],
     blocks: [
       { type: 'text', md: 'A relation is in **Boyce-Codd normal form** when the left side of every dependency is a key. Where one is not, split the relation along that dependency and check each half again.' },
-      { type: 'bcnf', title: 'Split Studios into BCNF', relation: { name: 'Studios', attrs: ['Title', 'Year', 'StudioName', 'President', 'PresAddr'] }, fds: [{ lhs: ['Title', 'Year'], rhs: ['StudioName'] }, { lhs: ['StudioName'], rhs: ['President'] }, { lhs: ['President'], rhs: ['PresAddr'] }] },
+      { type: 'bcnf', title: 'Split OrderLines into BCNF', relation: { name: 'OrderLines', attrs: ['Order', 'Product', 'Quantity', 'ProductName', 'Customer', 'City'] }, fds: [{ lhs: ['Order', 'Product'], rhs: ['Quantity'] }, { lhs: ['Product'], rhs: ['ProductName'] }, { lhs: ['Order'], rhs: ['Customer'] }, { lhs: ['Customer'], rhs: ['City'] }] },
     ],
   },
   {
-    question: 'Quiz me on Armstrong’s axioms',
-    match: /quiz|armstrong|axiom/i,
-    anchorId: 's-p9-2',
+    question: 'Quiz me on the normal forms',
+    match: /quiz|normal forms?\b/i,
+    anchorId: 's-p7-1',
     format: 'Try first',
     markdown:
-      'Question: you know X → Y and Y → Z. Which rule gives you X → Z? Transitivity. Any two rows that agree on X agree on Y, and then on Z.',
-    citations: [cite(9, 'p9-b8', 'X → Y ∧ Y → Z ⇒ X → Z'), cite(11, 'p11-b20', 'must agree in Z as well')],
+      'Question: order lines keyed by (Order, Product) also store the product name. Which normal form do they break first? 2NF. The product name depends on the product alone, which is only part of the key.',
+    citations: [
+      cite(7, 'p7-b1', 'no non-prime attribute depends on part of a key'),
+      cite(6, 'p6-b3', 'product alone → product name'),
+    ],
     blocks: [
-      { type: 'check', question: 'You know X → Y and Y → Z. Which rule gives you X → Z?', options: [
-        { text: 'Reflexivity', why: 'That only gives X → Y when Y ⊆ X.' },
-        { text: 'Augmentation', why: 'That adds the same attributes to both sides; it never chains two dependencies.' },
-        { text: 'Transitivity', correct: true, why: 'X → Y and Y → Z give X → Z.' },
+      { type: 'check', question: 'Order lines keyed by (Order, Product) also store the product name. Which normal form do they break first?', options: [
+        { text: '1NF', why: 'Every cell still holds one value, so 1NF holds.' },
+        { text: '2NF', correct: true, why: 'Product → product name uses only part of the key: a partial dependency.' },
+        { text: 'BCNF only', why: 'BCNF breaks too, but 2NF breaks before it.' },
       ] },
-      { type: 'steps', title: 'Why transitivity holds (page 11)', steps: [
-        { label: 'Take two rows', body: 'Pick any two rows that agree on X.' },
-        { label: 'X → Y', body: 'Because X → Y, their Y values are equal.' },
-        { label: 'Y → Z', body: 'Because Y → Z, their Z values are equal too, so X → Z.' },
+      { type: 'steps', title: 'Why it breaks 2NF (page 6)', steps: [
+        { label: 'Find the key', body: 'Order and product together decide every other attribute.' },
+        { label: 'Look at one part', body: 'The product alone already decides the product name.' },
+        { label: 'Name it', body: 'A non-prime attribute depending on part of the key is a partial dependency, which 2NF forbids.' },
       ] },
     ],
   },

@@ -248,11 +248,11 @@ describe('the Studio canvas, in German', () => {
 
   it('a playable Check, and steps: Prüfen, Noch mal versuchen, Weiter', async () => {
     await mount();
-    await ask('Quiz me on Armstrong’s axioms');
-    const group = screen.getByRole('group', { name: /^You know X/ });
+    await ask('Quiz me on the normal forms');
+    const group = screen.getByRole('group', { name: /^Order lines keyed by/ });
     const check = within(group).getByRole('button', { name: 'Prüfen' });
     expect(check).toBeDisabled();
-    fireEvent.click(within(group).getByRole('radio', { name: /Transitivity/ }));
+    fireEvent.click(within(group).getByRole('radio', { name: /2NF/ }));
     fireEvent.click(check);
     await run(300);
     expect(within(group).getByRole('button', { name: 'Noch mal versuchen' })).toBeInTheDocument();
@@ -261,7 +261,7 @@ describe('the Studio canvas, in German', () => {
     await run(300);
     expect(within(group).getByRole('button', { name: 'Prüfen' })).toBeInTheDocument();
     // The steps: Step 1 of 3, and the way through.
-    const steps = screen.getByRole('group', { name: /^Why transitivity/ });
+    const steps = screen.getByRole('group', { name: /^Why it breaks 2NF/ });
     expect(within(steps).getByText('Schritt 1 von 3')).toBeInTheDocument();
     expect(within(steps).getByRole('button', { name: 'Vorheriger Schritt' })).toBeDisabled();
     fireEvent.click(within(steps).getByRole('button', { name: 'Nächster Schritt' }));
@@ -287,7 +287,7 @@ describe('the Studio canvas, in German', () => {
     clean();
 
     // The closure, stepped to its end.
-    await ask('What is the closure of {Title, Year}?');
+    await ask('What is the closure of {Order, Product}?');
     const closure = screen.getByRole('group', { name: /^Compute / });
     expect(within(closure).getByText('Starte mit')).toBeInTheDocument();
     expect(within(closure).getByText('Fang mit der Startmenge selbst an.')).toBeInTheDocument();
@@ -305,7 +305,7 @@ describe('the Studio canvas, in German', () => {
 
     // BCNF: the reason for a split, then the verdict.
     await ask('Split this relation into BCNF');
-    const bcnf = screen.getByRole('group', { name: /^Split Studios/ });
+    const bcnf = screen.getByRole('group', { name: /^Split OrderLines/ });
     expect(await within(bcnf).findByText(/Teile die Relation: Alles, was .+ bestimmt, kommt in eine Relation, der Rest bleibt bei /, undefined, { timeout: 5000 })).toBeInTheDocument();
     clean();
     const step = within(bcnf).getByRole('button', { name: 'Nächster Schritt' });

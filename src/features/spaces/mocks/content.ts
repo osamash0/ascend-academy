@@ -1,5 +1,5 @@
 import type { LectureConcept, LocalizedLectureBundle } from '@/types/domain';
-import { normalizationSlides } from './content.normalization';
+import { normalizationDeck, normalizationSlides } from './content.normalization';
 
 /**
  * What a Lesson is made of, in the shapes the backend already serves.
@@ -29,26 +29,19 @@ export interface LessonContent {
 }
 
 /*
- * The deck's own order is FD → closure → BCNF → normal forms, so BCNF comes
- * before 1NF here and the reading face follows the pages, not the Lesson's
- * concept list. `slide_indices` are 0-based, as the concept graph writes
- * them; the closure-algorithm pages (31–39) and the automation pages (61–65)
- * belong to no Concept, which is realistic — the graph tags what it can.
+ * Each page of the deck names the Concept it covers, so the ranges below are
+ * read from the deck rather than typed twice. `slide_indices` are 0-based, as
+ * the concept graph writes them.
  */
-const range = (fromPage: number, toPage: number) =>
-  Array.from({ length: toPage - fromPage + 1 }, (_, i) => fromPage - 1 + i);
+const pagesOf = (conceptId: string) =>
+  normalizationDeck.filter((p) => p.conceptId === conceptId).map((p) => p.page - 1);
 
 const normalizationConcepts: LectureConcept[] = [
-  { concept_id: 'c-l-s-dbs-4-1', name: 'Functional dependency', weight: 0.34, slide_indices: range(4, 29) },
-  {
-    concept_id: 'c-l-s-dbs-4-5',
-    name: 'BCNF',
-    weight: 0.3,
-    slide_indices: [...range(41, 60), ...range(74, 75)],
-  },
-  { concept_id: 'c-l-s-dbs-4-2', name: '1NF', weight: 0.1, slide_indices: range(67, 69) },
-  { concept_id: 'c-l-s-dbs-4-3', name: '2NF', weight: 0.12, slide_indices: range(70, 71) },
-  { concept_id: 'c-l-s-dbs-4-4', name: '3NF', weight: 0.14, slide_indices: range(72, 73) },
+  { concept_id: 'c-l-s-dbs-4-1', name: 'Functional dependency', weight: 0.34, slide_indices: pagesOf('c-l-s-dbs-4-1') },
+  { concept_id: 'c-l-s-dbs-4-2', name: '1NF', weight: 0.1, slide_indices: pagesOf('c-l-s-dbs-4-2') },
+  { concept_id: 'c-l-s-dbs-4-3', name: '2NF', weight: 0.12, slide_indices: pagesOf('c-l-s-dbs-4-3') },
+  { concept_id: 'c-l-s-dbs-4-4', name: '3NF', weight: 0.14, slide_indices: pagesOf('c-l-s-dbs-4-4') },
+  { concept_id: 'c-l-s-dbs-4-5', name: 'BCNF', weight: 0.3, slide_indices: pagesOf('c-l-s-dbs-4-5') },
 ];
 
 const CONTENT: Record<string, LessonContent> = {

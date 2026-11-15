@@ -32,15 +32,15 @@ describe('AnswerBlockView', () => {
   it('fdTable flips its live verdict and marks the two rows when an edit breaks the dependency', () => {
     view({
       type: 'fdTable',
-      title: 'Does Name decide Weight?',
-      columns: ['Name', 'Weight'],
-      rows: [['Nidoran', '7.0'], ['Nidoran', '7.0'], ['Pikachu', '6.0']],
-      fd: fd('Name', 'Weight'),
-      prompt: 'Change a weight.',
+      title: 'Does Product decide Name?',
+      columns: ['Product', 'Name'],
+      rows: [['P7', 'Desk lamp'], ['P7', 'Desk lamp'], ['P2', 'Notebook']],
+      fd: fd('Product', 'Name'),
+      prompt: 'Change a name.',
     });
-    const group = screen.getByRole('group', { name: 'Does Name decide Weight?' });
+    const group = screen.getByRole('group', { name: 'Does Product decide Name?' });
     expect(within(group).getByText('Holds on these rows')).toBeTruthy();
-    fireEvent.change(screen.getByLabelText('Row 2, Weight'), { target: { value: '9.0' } });
+    fireEvent.change(screen.getByLabelText('Row 2, Name'), { target: { value: 'Reading lamp' } });
     expect(within(group).getByText(/Broken by rows 1 and 2/)).toBeTruthy();
     const marked = group.querySelectorAll('tr[data-violates="true"]');
     expect(marked.length).toBe(2);

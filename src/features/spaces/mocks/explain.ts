@@ -6,12 +6,12 @@ import { beatsFromMarkdown } from '../components/reader/beats';
 /**
  * What Explain says about a page — the stand-in for the model.
  *
- * Authored answers for the Normalization Lesson (`l-s-dbs-4`), each written
- * as the JSON a model would be asked for, and each choosing its own format:
- * the design-process slide is a chain of stages, the definition is a table
- * you can break, the closure slides are a calculator, the BCNF slides a
- * decomposer. Every other page — and every other Lesson — gets an answer
- * composed from its own parsed text, so the panel is never empty.
+ * Authored answers for the Normalization Lesson (`l-s-dbs-4`), one per page
+ * of its deck, each written as the JSON a model would be asked for and each
+ * choosing its own format: the definition is a table you can break, the keys
+ * page a closure calculator, the transitive chain a set of steps, the BCNF
+ * page a decomposer. Every other Lesson gets an answer composed from its own
+ * parsed text, so the panel is never empty.
  *
  * Swap this module's body for a call and nothing else changes shape.
  */
@@ -24,49 +24,6 @@ const fd = (lhs: string, rhs: string): FD => ({
 });
 
 /* ---------------------------------------------------------------- answers */
-
-const designProcess: ExplainAnswer = {
-  title: 'Normalization is one stage of designing a database',
-  format: 'A chain of stages',
-  blocks: [
-    {
-      type: 'explore',
-      title: 'The design process',
-      intro: 'Seven stages, each turning the last one’s output into something more exact. Pick one.',
-      flow: true,
-      parts: [
-        { id: 'req', label: 'Requirements', spot: 'Requirement Analysis', body: 'Talk to the people who will use the data. The output is an informal description — words, not yet a model.' },
-        { id: 'con', label: 'Conceptual', spot: 'Conceptional Design', body: 'Turn the description into an Entity-Relationship diagram: the things, their attributes, how they relate.' },
-        { id: 'dis', label: 'Distribution', spot: 'Distribution Design', body: 'Decide where the data lives when there is more than one machine: partitioning.' },
-        { id: 'log', label: 'Logical', spot: 'Logical Design', body: 'Translate the ER diagram into relation schemas. **This is where normalization happens**: the schemas are checked for redundancy and split until it is gone.' },
-        { id: 'ddl', label: 'Definition', spot: 'Data Definition', body: 'Write the schemas down as SQL DDL — `CREATE TABLE` with keys and constraints.' },
-        { id: 'phy', label: 'Physical', spot: 'Physical Design', body: 'Tune for the machine: indices, storage parameters, how tables are laid out on disk.' },
-        { id: 'imp', label: 'Running', spot: 'Implementation and Maintenance', body: 'Install it, back it up, keep it alive. The design keeps paying off — or costing — here.' },
-      ],
-    },
-    { type: 'key', md: 'Normalization refines the **logical design**. It takes relation schemas that work and makes them *not repeat themselves*.' },
-  ],
-  next: ['Why does redundancy matter?', 'Show me a schema that needs normalizing'],
-};
-
-const covers: ExplainAnswer = {
-  title: 'Four ideas, each built on the one before',
-  format: 'A chain of ideas',
-  blocks: [
-    {
-      type: 'explore',
-      title: 'This Lesson',
-      intro: 'Each idea is a tool the next one needs.',
-      flow: true,
-      parts: [
-        { id: 'fd', label: 'Functional dependencies', spot: 'Functional Dependencies', body: 'A → B: rows that agree on A agree on B. The raw material — every later idea is phrased in FDs.' },
-        { id: 'cl', label: 'Closure', spot: 'Closure Algorithm', body: 'Everything a set of attributes determines, X⁺. The one computation you need to answer almost any question about FDs.' },
-        { id: 'bcnf', label: 'BCNF', spot: 'Boyce-Codd Normal Form', body: 'A schema is in BCNF when every FD’s left side is a key. Closure tells you whether it is; the algorithm splits it until it is.' },
-        { id: 'nf', label: 'Normal forms', spot: 'Normal Forms', body: '1NF to 4NF: the ladder BCNF sits on, and what each rung buys you.' },
-      ],
-    },
-  ],
-};
 
 const motivation: ExplainAnswer = {
   title: 'One wide table repeats itself — and then contradicts itself',
@@ -131,74 +88,42 @@ const definition: ExplainAnswer = {
   next: ['Can data prove an FD?', 'How do FDs relate to keys?'],
 };
 
-const example: ExplainAnswer = {
-  ...definition,
-  title: 'Spot the dependency in the data',
+const partial: ExplainAnswer = {
+  title: 'Part of the key is already enough',
+  format: 'A table to try',
   blocks: [
     {
       type: 'fdTable',
-      title: 'Which FDs survive these rows?',
-      columns: ['Name', 'Weight', 'Type'],
+      title: 'Which part of the key decides the name?',
+      columns: ['Order', 'Product', 'Quantity', 'Name'],
       rows: [
-        ['Anchor', '12', 'Steel'],
-        ['Rope', '2', 'Fibre'],
-        ['Bucket', '1', 'Plastic'],
-        ['Anchor', '12', 'Steel'],
-        ['Hook', '2', 'Steel'],
+        ['1001', 'P7', '2', 'Desk lamp'],
+        ['1002', 'P7', '1', 'Desk lamp'],
+        ['1003', 'P7', '4', 'Desk lamp'],
+        ['1003', 'P2', '1', 'Notebook'],
       ],
-      fd: fd('Name', 'Weight, Type'),
-      prompt: 'Name → Weight, Type holds. Now try Weight → Type: press Weight, then Type.',
+      fd: fd('Product', 'Name'),
+      prompt: 'Product → Name holds. Now try Order → Name: press Order, then Name.',
     },
-    { type: 'key', md: 'Weight → Type fails on Rope and Hook — same weight, different type. One counter-example is enough.' },
+    { type: 'key', md: 'Order → Name fails on order 1003 — one order, two names. The name needs the product, which is only **part** of the key (Order, Product).' },
   ],
 };
 
-const splitting: ExplainAnswer = {
-  title: 'Only the right-hand side comes apart',
-  format: 'Side by side',
+const transitive: ExplainAnswer = {
+  title: 'A dependency that runs through a non-key',
+  format: 'Step by step',
   blocks: [
-    {
-      type: 'compare',
-      columns: [
-        { title: 'Splitting rule', tone: 'a', points: ['A₁…Aₙ → B₁…Bₘ', 'gives A₁…Aₙ → Bᵢ for each i', 'Title, Year → Length, Genre ⇒ Title, Year → Length'] },
-        { title: 'Combining rule', tone: 'b', points: ['A₁…Aₙ → Bᵢ for each i', 'gives A₁…Aₙ → B₁…Bₘ', 'Title, Year → Length and Title, Year → Genre ⇒ Title, Year → Length, Genre'] },
-      ],
-      note: 'The two rules are each other’s inverse — and both leave the left side alone.',
-    },
-    {
-      type: 'check',
-      question: 'From Title, Year → Length, does Title → Length follow?',
-      options: [
-        { text: 'No', correct: true, why: 'Splitting works on the right side only. Two films can share a title in different years with different lengths.' },
-        { text: 'Yes, by splitting', why: 'That would split the left side, which no rule allows.' },
-      ],
-    },
-  ],
-};
-
-const axioms: ExplainAnswer = {
-  title: 'Three rules derive every FD that follows',
-  format: 'Rules, then a proof',
-  blocks: [
-    {
-      type: 'explore',
-      title: 'Armstrong’s axioms',
-      intro: 'Sound — they never derive something false. Complete — they derive everything true.',
-      parts: [
-        { id: 'r', label: 'Reflexivity', spot: 'Reflexivity', body: 'If Y ⊆ X then X → Y. The trivial FDs: a set always determines its own parts.' },
-        { id: 'a', label: 'Augmentation', spot: 'Augmentation', body: 'If X → Y then XZ → YZ for any Z. Adding the same attributes to both sides keeps it true.' },
-        { id: 't', label: 'Transitivity', spot: 'Transitivity', body: 'If X → Y and Y → Z then X → Z. Dependencies chain.' },
-      ],
-    },
     {
       type: 'steps',
-      title: 'Derive AD → CD from A → B and B → C',
+      title: 'Follow the chain on the customer table',
       steps: [
-        { label: 'Chain', body: 'A → B and B → C give **A → C** by transitivity.' },
-        { label: 'Widen', body: 'Augment both sides of A → C with D: **AD → CD**.' },
-        { label: 'Done', body: 'Two rules, two lines. Closure (coming up) does the same without guessing which rule to use.' },
+        { label: 'Customer → Postcode', body: 'The key decides the postcode: each customer has one.' },
+        { label: 'Postcode → City', body: 'The postcode decides the city, and the postcode is **not** a key.' },
+        { label: 'Customer → City', body: 'So the customer decides the city only by way of the postcode: a **transitive** dependency.' },
+        { label: 'Split', body: 'Give Postcode and City a relation of their own, and 10115 → Berlin is stored once.' },
       ],
     },
+    { type: 'key', md: 'Third normal form forbids exactly this: a non-prime attribute decided by another non-prime one.' },
   ],
 };
 
@@ -211,8 +136,8 @@ const anomalies: ExplainAnswer = {
       title: 'Anomalies',
       intro: 'All three come from storing one fact in many rows.',
       parts: [
-        { id: 'u', label: 'Update', spot: 'Update Anomaly', body: 'The studio moves. Its address is in fifty rows; miss one and the table contradicts itself.' },
-        { id: 'd', label: 'Delete', spot: 'Delete Anomaly', body: 'Delete a studio’s last movie and the studio’s address goes with it — a fact lost by accident.' },
+        { id: 'u', label: 'Update', spot: 'update anomaly', body: 'The studio moves. Its address is in fifty rows; miss one and the table contradicts itself.' },
+        { id: 'd', label: 'Delete', body: 'Delete a studio’s last movie and the studio’s address goes with it — a fact lost by accident.' },
         { id: 'i', label: 'Insert', body: 'A new studio with no movies yet cannot be stored without inventing a movie for it.' },
       ],
     },
@@ -339,20 +264,17 @@ const threeVsBcnf: ExplainAnswer = {
 
 /** Which pages get which authored answer. */
 const AUTHORED: [number[], ExplainAnswer][] = [
-  [[2, 80], designProcess],
-  [[3, 30, 40, 66, 79], covers],
-  [[5], motivation],
-  [[6], definition],
-  [[7], example],
-  [[8], splitting],
-  [[9, 10, 11, 12], axioms],
-  [[27, 28, 29], anomalies],
-  [[33, 34, 35, 36, 37], closure],
-  [[41, 42, 43, 44, 45], decomposition],
-  [[46, 47, 48, 49, 50, 51, 52], bcnf],
-  [[67, 78], forms],
-  [[68, 69], firstNf],
-  [[74, 75], threeVsBcnf],
+  [[1], motivation],
+  [[2], definition],
+  [[3], closure],
+  [[4, 5], firstNf],
+  [[6], partial],
+  [[7], decomposition],
+  [[8], anomalies],
+  [[9], transitive],
+  [[10], forms],
+  [[11], bcnf],
+  [[12], threeVsBcnf],
 ];
 
 /* ------------------------------------------------------------- composing */
