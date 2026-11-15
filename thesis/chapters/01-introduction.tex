@@ -35,7 +35,7 @@ people have read. \Cref{tab:vocabulary} gives the words that the rest of the
 thesis uses for the system.
 
 
-\begin{figure}[htbp]
+\begin{figure}[t]
   \centering
   \includegraphics[width=0.78\textwidth]{f1-transformation}%
   \caption{The transformation this thesis addresses. The system keeps one PDF as the reading surface and turns it into independently addressable learning objects. Every capability students use in production builds on one of them.}%
@@ -145,9 +145,9 @@ active in the previous seven days, one of them ours
 (\code{docs/\allowbreak thesis/\allowbreak evidence/}). We ran no user study, and no claim
 in this thesis is about what students learn.
 
-Two students built Learnstation, and each of them submits a thesis on the shared code base. The co-developer created the repository on
-23~January 2026, and 101 of its commits on all branches are theirs, the last on
-28~August 2026. Their work includes the first content filter in three layers
+Two students built Learnstation, and each of them submits a thesis on the shared code base. The co-developer created the repository in
+January 2026, and 101 of its commits on all branches are theirs, the last in
+August 2026. Their work includes the first content filter in three layers
 (commit \code{bfbe6c09}), the integration of the Groq provider
 (\code{76aa4b42}), and the first anonymised analytics for lecturers
 (\code{3abfaa54}, \code{52ead4b5}). They also wired external extractors into
@@ -162,15 +162,29 @@ is required, is question 4 for the supervisor on 2026-11-11. Replace this
 paragraph's last two sentences with the agreed wording.}
 
 The thesis describes the code at revision \code{\thesisCommit} of
-6~November 2026, called \emph{the pin} below. \emph{In the code} means
+November 2026, called \emph{the pin} below. \emph{In the code} means
 reachable at the pin, and \emph{deployed} means running in production. We name three changes that the project merged after that date where they matter, and we mark them as later.
 
 \section{Method}
 \label{sec:method-note}
 
 We follow a build-and-evaluate approach. Each of the three main chapters
-describes what we built and ends with an evaluation. The extraction benchmark, the similarity verifier, and the re-run of the
-refusal gate had their expectations committed before the run. For the study with scripted readers we wrote them first but committed them with the results. Three evaluations had no expectations fixed before they ran: the routing study, the deck-plan scorecard, and the answer check. Their results are therefore descriptive, and we say so where we report them. \emph{We} means the author, and the author with the co-developer where we built the system jointly; what the author did alone, such as judging and labelling, we attribute to \emph{the author}. We checked statements about the system against the code at the revision named above, unless a section names a later
+describes what we built and ends with evaluations, seven in all. In
+\cref{ch:content}, the \emph{routing study} tries the old rule that sends pages to
+a vision model, and candidates for a new one, on 1{,}593 pages of 25 decks; the \emph{extraction
+benchmark} lets the author choose, without knowing the methods, the better of
+two transcriptions of the same page, made by eleven methods; and the
+\emph{deck-plan scorecard} compares which parts of a deck the quiz step
+reads before and after the deck plan. In \cref{ch:loop}, a \emph{study with scripted readers} feeds the
+owner's view readers who behave in planned ways. In \cref{ch:trust}, 16
+hand-made pairs of a correct and a wrong answer key test the \emph{similarity
+verifier} and the \emph{answer check}, and 57 questions test the
+\emph{refusal gate} of the ask bar again. We committed our expectations
+before the run for the benchmark, the similarity verifier, and the refusal
+gate. For the study with scripted readers we wrote them first but committed
+them with the results. The routing study, the scorecard, and the answer
+check had none, so their results are descriptive, and we say so where we
+report them. \emph{We} means the author, and the author with the co-developer where we built the system jointly; what the author did alone, such as judging and labelling, we attribute to \emph{the author}. We checked statements about the system against the code at the revision named above, unless a section names a later
 one, and against production where the two can differ. Where the repository does
 not record a reason for a decision, we say so and do not supply one.
 
