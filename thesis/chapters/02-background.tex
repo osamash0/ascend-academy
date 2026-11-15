@@ -63,8 +63,8 @@ of a model to judge the output of a model. Such judges agree with human
 raters to a useful degree, but they carry biases of
 their own~\cite{zheng2023judging}, and a model tends to rate its own output
 more favourably than that of others~\cite{panickssery2024selfpreference}.
-This is why the answer check in \cref{ch:trust} runs on a different model
-than the one that wrote the question. The second is prompt injection. When a
+The answer check in \cref{ch:trust} is meant to run on a different model
+than the one that wrote the question, which this finding supports. The second is prompt injection. When a
 model reads a document, instructions hidden in the document compete with the
 instructions of the application~\cite{greshake2023indirect,perez2022ignore},
 and OWASP lists the risk first among the risks of LLM applications~\cite{owasp2025llm}. Marking untrusted text as data, called
@@ -216,7 +216,7 @@ did not run either system, and the table compares what the papers describe.
       Ratings by pedagogical experts &
       A review by several models and an expert panel, described as a
       framework &
-      Computed answer keys, and an independent check on a different model \\
+      Computed answer keys, and a check by a second model \\
     Personalisation &
       Yes, of the content itself &
       Language, style, and difficulty chosen by the user &

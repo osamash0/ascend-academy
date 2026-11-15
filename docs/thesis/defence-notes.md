@@ -503,3 +503,38 @@ the owner, which this loop does not involve.
 
 **Why is it not a claim about learning?** It is not built or tested. Whether
 it helps is for the controlled study proposed first in 7.4.
+
+### 6.4–6.7 The second model, failing open, and the RQ3 answer
+
+**Is the checker always a different model from the writer?**
+No, only while the provider chains do not fail over. The check prefers the
+head of the quality chain (Groq's reasoning model, `CHECK_MODEL = "groq"`,
+`parser/synthesis.py:76–80`); the question is written on the bulk chain. Both
+chains hold the same eight providers in a different order
+(`orchestrator.py:389–393`), so after failovers both calls can land on the
+same model. In OpenAI-only mode (off) both chains collapse to `["openai"]`
+(`:396–397`); with production's empty model settings that is gpt-4o-mini for
+both, the model that agreed twice with the wrong key of the question that
+started the work (code comment at `synthesis.py:76–79`).
+
+**Why a different model at all: the literature or our own measurement?**
+Our own: the pull request records that a model of the writer's family agreed
+with the wrong key twice. Self-preference (Panickssery et al.) supports the
+choice; it was not the recorded reason.
+
+**What does "fails open" mean here?**
+When the checker errors or returns an unreadable reply, the question is kept
+(code comment: "A failed or unreadable check keeps the question as before").
+The system gives up the check of one key so that an outage does not empty a
+quiz. Failing closed would drop every question during an outage.
+
+**Is a translated quiz checked?**
+No. `_validate_translation` (`localization_service.py:181–213`) compares
+ids, slide numbers, question count, `correct_answer`, and option count. It
+does not read the translated wording, so the answer check vouches only for
+the original language.
+
+**Why does 6.7 have two parts and not three?**
+RQ3 was narrowed in November to "checked before learners see it, and what
+happens when a check fails". The measurements (6.5) now support the first
+part instead of answering a separate "how can it be measured" question.

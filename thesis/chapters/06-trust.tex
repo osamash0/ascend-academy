@@ -23,7 +23,7 @@ the owner what learners do on them. Along the way a model writes three kinds
 of text that a learner may take for true: an answer to a question, a quiz
 question with its key, and the task behind a graded exercise.
 
-One rule runs through the chapter. Where the system can compute an answer, it computes it and does not ask the model. Where it cannot, a second model that did not write the content decides.
+One rule runs through the chapter. Where the system can compute an answer, it computes it and does not ask the model. Where it cannot, a second model, meant to differ from the one that wrote the content, decides.
 Where neither is possible, nothing checks the content, and the original page,
 which a learner sees first, remains the reference. The checks drop what fails them, except three that only mark an item, which we name where they occur.
 
@@ -250,10 +250,13 @@ happens next.
         not move the question to another page.
 \end{description}
 
-Two properties of the answer check are design decisions. First, the model that checks a question is not the model that wrote it. The small model at the head of the bulk chain writes the question, and the check runs on the quality chain, led by a larger reasoning
+Two properties of the answer check are design decisions. First, the check is meant to run on another model than the one that wrote the question. The small model at the head of the bulk chain writes the question, and the check runs on the quality chain, led by a larger reasoning
 model (\cref{sec:provider-strategy}). At the pin the heads of both chains are models of the
 same provider (\code{orchestrator.py:389}, \code{:393}), so the
-independence is one of model, not of vendor. The pull request records the reason for a different model with a measurement: when a
+independence is one of model, not of vendor. Both chains hold the same eight
+providers in a different order, so after failovers both calls can land on the
+same model, and in the OpenAI-only mode, which is off, both chains collapse to
+one provider (\cref{sec:openai-only}). The pull request records the reason for a different model with a measurement: when a
 model of the generating model's own family checked the question that started
 this work, an ambiguous question whose options all appear on its page, it
 agreed with the wrong key twice. The literature also reports that a model tends to favour text like its own~\cite{panickssery2024selfpreference}. Second, the pipeline treats an outage and a dispute differently. If the check itself fails or returns an unreadable reply, the pipeline keeps the question, so that a provider outage never empties
@@ -432,17 +435,17 @@ fails also depends on what happens when a provider fails. \Cref{sec:c6-cost} rep
 \subsection{No Human Approval}
 \label{sec:review}
 
-No person has to approve generated content before learners see it. In the older interface a professor can review a batch of uploads, but a lecture has no
-draft state: its content is visible as soon as the parse ends, and only the professor's browser stores ``done reviewing''
-(\code{BatchReviewPage.tsx}). A slide that a professor corrected by hand keeps its review mark. In the current interface the owner of a Space adds Lessons with no
-review screen at all, and the members of a published Space see a new Lesson
-the moment its parse creates it. Publishing controls who can find and join a
-Space, not what its members see.
+No person has to approve generated content before learners see it. The
+review page of the older interface marks a batch as reviewed only in the
+professor's browser (\code{BatchReviewPage.tsx}). In the current interface
+the owner of a Space adds Lessons with no review screen at all, and the
+members of a published Space see a new Lesson the moment its parse creates
+it. Publishing decides who can find a Space, not what its members see.
 
 This is a consequence of a decision with another purpose. We built the reading view so that a learner can open a page seconds after the upload (\cref{sec:pipeline}).
 A real approval step would need a draft state on the Lesson and would delay exactly
 that. The automatic checks of this chapter are therefore the only line
-between the model and the learner, which is why the system drops an item that fails a check and does not pass it on for a human to catch.
+between the model and the learner.
 
 \subsection{The Mechanisms in One Table}
 \label{sec:c6-inventory}
@@ -455,34 +458,47 @@ supports a key or a sentence. The answer check tests a key only indirectly,
 by whether a second model reaches it, and the lexical module says itself
 that it is no such test. There is no detector for invented content in the prose of
 Explain, Ask, or Luna, and current surveys treat this as an open
-problem~\cite{ji2023hallucination,huang2025hallucination}. And nothing checks
-that the older tutor really puts outside knowledge into a block quote.
+problem~\cite{ji2023hallucination,huang2025hallucination}. Metrics such as
+FActScore~\cite{min2023factscore} and the faithfulness score of
+RAGAS~\cite{es2024ragas} could estimate how much of that prose its page
+supports; we did not run them. Nor does anything check a translation: a quiz
+translated into the other language keeps its ids, option count, and key
+(\code{localization\_service.py:181--213}), but nothing reads its wording, so
+the answer check vouches only for the original language.
 
 \section{Answer to RQ3}
 \label{sec:c6-answer}
 
-The measurements in this chapter cover answer keys and the refusal gate.
-Nothing verifies or measures the prose of explanations and answers.
+\emph{How can the quality of LLM-generated learning content be checked
+before learners see it?} Only in parts. In this system every check runs
+before the content reaches a learner, in three ways of falling strength. By
+computation, where the content has a formal answer: code grades three kinds
+of task and never uses the model's key. By a second model, for the quiz
+questions written during the parse: it answers each question from its cited
+page without the key, on another model than the writer's while the provider
+chains do not fail over. By structure everywhere else: pages must exist,
+phrases must be on the page, citations must point at retrieved sources,
+blocks must parse. This weakest kind also covers the multiple-choice and
+ordering questions of the checkpoints and the rehearsal, which the system
+grades against the model's key. Nothing checks whether generated prose is
+true.
 
-\emph{How can a system verify the quality of content that a language model writes?}
-In this system, in three ways of falling strength. By computation, where the
-content has a formal answer: code grades three kinds of task and never uses the model's key. By the answer check, for the quiz questions that a model writes during parsing: a different model answers each question
-from its cited page without the key, and if that check is unavailable the system keeps the question. By structure everywhere else: pages must exist, phrases
-must be on the page, citations must point at retrieved sources, blocks must
-parse. This weakest kind also covers the multiple-choice and ordering
-questions of the reading view and the rehearsal, which the system grades against the model's key.
+We measured how well the checks work for answer keys and the refusal gate
+only, with a small probe written before any verifier scored it. On 16 pairs
+the lexical score dropped 14 good keys, the similarity score kept 8 wrong ones
+and failed a criterion fixed in advance, and the answer check made neither
+error in the calls that returned a verdict, on a probe whose distractors are
+off the subject. Its result is promising, not proven. On the ask bar, the gate
+let through all 27 questions with an answer in one Space and refused all 30
+without one, by a narrow margin. The failure of the similarity score is a
+result too: it kept a plausible check out of the system.
 
-\emph{How can a system measure it?} With a small probe that its author writes before any verifier scores it and that contains both kinds of error. On 16 pairs the
-lexical score dropped 14 good keys, the similarity score kept 8 wrong ones
-and failed an acceptance criterion that we had fixed in advance, and the
-answer check made neither error in the calls that returned a verdict, on
-a probe whose distractors are off the subject. The refusal gate, which we tested in one Space with 57 questions,
-let through all 27 that have an answer and refused all 30 that have none, by
-a narrow margin. The failure of the similarity score shaped the design as much as the success
-of the answer check.
-
-\emph{What happens when verification fails?} The system drops the item: a key that it cannot resolve, a question whose key the check disputes twice, a move to a page
-that does not exist, a block that does not parse. The gate refuses a question outside the material before any model call. When the verifier itself is
-unavailable the system keeps the content, by decision, so that an outage does
-not remove it. And where no verifier exists, for the meaning of generated
-prose, the original page remains the first thing a learner sees.
+\emph{What happens when a check fails?} The system drops the item, and with no
+human approval (\cref{sec:review}) there is nobody to pass it to: a key that
+it cannot resolve, a question whose key the check disputes twice, a move to a
+page that does not exist, a block that does not parse. On the ask bar, the
+gate refuses a question whose retrieved pages all fall below the similarity
+threshold, before any model call. When the checker itself is unavailable, the
+check fails open: it keeps the question, so that an outage does not empty a
+quiz. And where no check exists, for the meaning of generated prose, the
+original page remains the first thing a learner sees.
