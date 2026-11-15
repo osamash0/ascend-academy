@@ -2,10 +2,13 @@
  * Static meeting schedules for courses, keyed by their canonical (German)
  * course title — the same key used by `common:curriculum` for translation.
  *
- * Only the proper nouns (rooms, addresses, dates, instructor names) live here
- * as literals; every label that has a German/English form (event type, weekday,
- * rhythm) is stored as an i18n key and resolved in the UI via
- * `common:courseSchedule.*`, so a single dataset renders in the active locale.
+ * Only the proper nouns (rooms, addresses, dates) live here as literals; every
+ * label that has a German/English form (event type, weekday, rhythm) is stored
+ * as an i18n key and resolved in the UI via `common:courseSchedule.*`, so a
+ * single dataset renders in the active locale.
+ *
+ * No people. Lecturer and tutor names never go in the repo or the bundle, so
+ * an entry has no field for them.
  */
 
 export type ScheduleEventType = 'lecture' | 'exercise' | 'sqlWorkshop' | 'exam';
@@ -36,8 +39,6 @@ export interface ScheduleEntry {
   rhythm: ScheduleRhythm;
   /** Time range, e.g. `09:00 - 12:00`. */
   time: string;
-  /** Instructor name(s), shown verbatim. Omitted for exams/workshops. */
-  instructor?: string;
 }
 
 /** Map of canonical German course title → its scheduled events. */
@@ -52,7 +53,6 @@ export const COURSE_SCHEDULES: Record<string, ScheduleEntry[]> = {
       day: 'friday',
       rhythm: 'weekly',
       time: '09:00 - 12:00',
-      instructor: 'Prof. Dr. Thorsten Papenbrock',
     },
     {
       type: 'exercise',
@@ -64,7 +64,6 @@ export const COURSE_SCHEDULES: Record<string, ScheduleEntry[]> = {
       day: 'tuesday',
       rhythm: 'biweekly',
       time: '14:00 - 16:00',
-      instructor: 'Ilnaz Tayebi / Aly Hassan Abdulaziz Moustafa',
     },
     {
       type: 'exercise',
@@ -76,7 +75,6 @@ export const COURSE_SCHEDULES: Record<string, ScheduleEntry[]> = {
       day: 'tuesday',
       rhythm: 'biweekly',
       time: '16:00 - 18:00',
-      instructor: 'Kian Kazemzadeh Marand',
     },
     {
       type: 'exercise',
@@ -88,7 +86,6 @@ export const COURSE_SCHEDULES: Record<string, ScheduleEntry[]> = {
       day: 'wednesday',
       rhythm: 'biweekly',
       time: '10:00 - 12:00',
-      instructor: 'Tibebu Tewolde',
     },
     {
       type: 'exercise',
@@ -100,7 +97,6 @@ export const COURSE_SCHEDULES: Record<string, ScheduleEntry[]> = {
       day: 'wednesday',
       rhythm: 'biweekly',
       time: '14:00 - 16:00',
-      instructor: 'Johannes Wichert',
     },
     {
       type: 'sqlWorkshop',

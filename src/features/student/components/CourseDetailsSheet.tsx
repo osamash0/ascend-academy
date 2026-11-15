@@ -301,12 +301,6 @@ export function CourseDetailsSheet({
                                   : `${entry.start} – ${entry.end}`}
                               </span>
                             </div>
-                            {entry.instructor && (
-                              <div className="flex items-center gap-2">
-                                <User className="w-3.5 h-3.5 shrink-0 text-muted-foreground/60" />
-                                <span className="font-medium text-foreground/80">{entry.instructor}</span>
-                              </div>
-                            )}
                           </div>
                         </div>
                       );
