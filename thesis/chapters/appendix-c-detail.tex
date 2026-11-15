@@ -412,6 +412,39 @@ in the repository (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowb
 and the service was not adopted. It is reported here because it is a decision
 with a reason, not because it is a result.
 
+\section{The Deck-Plan Scorecard (Chapter 4)}
+\label{sec:c4-deck-lab}
+
+We measured the deck plan of \cref{sec:c4-deck-plan} on the 25 decks of the corpus before the merge, with a scorecard that compares the old selection of
+pages for metadata and quiz generation against the planned one. The plan's
+\emph{span}, the fraction of a deck between the first and the last page the
+quiz step reads, rose from a mean of 0.17 to 0.84. The sections the quiz
+draws on rose from 26 to all 31 eligible sections, and removing boilerplate
+saved 14{,}875 words of model input over the corpus. The metadata pass still sees 24\,\% of pages. The scorecard runs without
+a model. Span and section coverage are what the plan's page selection aims to raise, so it confirms the implementation
+and is not evidence of better quizzes.
+
+Production shows the same shift. Before PR~\#84, all 524 deck-quiz questions
+in production sat on the first eleven pages of their deck, 32 of them on the
+first page. Since then they reach page 121
+(\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak deck-quiz-anchors.md}).
+This counts where the questions are attached, not whether they are good.
+
+We checked the 60\,\% threshold of the boilerplate afterwards
+(\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak deck-plan-threshold/}).
+Moving it to 50\,\% or 70\,\% changes the boilerplate of three or four of the
+25 decks, all but one of them database decks. On the systems decks every
+boilerplate line recurs on at least 90\,\% of pages. The lines just below the
+threshold include topic headings that recur on many slides, and those above
+70\,\% are mostly lines a slide template repeats, such as the course name, the
+lecturer's name and the slide number. The threshold changes what the model
+reads and which pages it picks, never the page text the learner sees.
+
+Before the plan, the metadata pass read pages 1 to 15; it now reaches page 21 to 127,
+depending on the deck, with a median of 50. Without the boilerplate the model reads
+about nine fewer words per page.
+
+
 \section{The Schema Around the Log (Chapter 5)}
 \label{sec:data-model}
 
@@ -455,7 +488,7 @@ database, and the running one has to be inspected.
 
 \paragraph{Vectors.}
 Page embeddings are stored with the pgvector extension~\cite{pgvector} as
-768-dimensional vectors with an HNSW index on cosine distance. Two embedding
+768-dimensional vectors with an HNSW index~\cite{malkov2020hnsw} on cosine distance. Two embedding
 models can fill that column, depending on the provider mode. Their vectors
 are not comparable, so switching models requires re-embedding every page.
 

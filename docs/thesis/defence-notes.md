@@ -678,3 +678,51 @@ which kinds fire (arm A).
 - **Account deletion** is an ordered job that survives a crash (PR #90).
 - **The layout view:** backend PR #182 is on main and switched off; the
   reading-view part PR #183 is not on main.
+
+### Details cut in the second round of shortening (15 November)
+
+Chapter 4:
+- 12 of the 1,593 pages have fewer than 25 characters: eleven empty closing
+  photo pages and one summary page with 11 characters.
+- The measured 82-page deck took 703 s from upload to a complete reading
+  view; the last three and a half minutes passed after the worker had written
+  the last page (`docs/thesis/evidence/reader-timing.md`).
+- Thirteen of the 16 failed production parses fell in July: seven translations
+  over the 90-second model timeout, four writes to a database column that
+  production did not yet have, two files missing from storage.
+- An older upload route still streams progress as server-sent events over
+  Redis pub/sub; the current interface polls. Making the server the only
+  writer of parse output was one reason for rebuilding pipeline v5.
+- Lineage in one sentence now; the three design steps (v5 server-only writer,
+  v3 not default because Docling was too heavy, the 25-character threshold of
+  June) stay in Appendix C.
+- Routing details: text pages are batched eight per call with a one-call
+  fallback; vision pages render at twice the base resolution; the footer is
+  also left out of the optional page summaries (`studio_summary.py:48-51`);
+  a generator-aware classifier was deleted in September 2026 and a second
+  router has no caller.
+- Idempotency in full: the hash names the stored object; upserted outputs and
+  embedding reuse make a re-parse safe; lecture reuse; each mechanism covers a
+  gap the others leave (Appendix C, "The Nine Idempotency Mechanisms",
+  with its figure).
+- The benchmark's deviations one by one: line breaks; vision models plus a
+  second comparison; heavy local engines plus a third; the PaddleOCR build
+  plus a fourth. The four comparisons were judged between 30 October and
+  1 November 2026. The current extraction came second to last, above only
+  MarkItDown.
+- The deck-plan scorecard now lives in Appendix C, with the PR #84 numbers.
+
+Chapter 2:
+- Paper Plain was evaluated with 24 participants; Learn Your Way comes from a
+  team at Google, and its trial had students aged 15 to 18.
+- The January proposal compared the project with quiz and presentation
+  products from public product pages; not repeated in the thesis.
+- Literature no longer cited because its paragraph was cut: the doing effect
+  (Koedinger et al. 2015), multiple representations (Ainsworth 1999, 2006;
+  the reading view is consistent with it, not derived from it), human versus
+  intelligent tutoring (VanLehn 2011), a model-generated conversational tutor
+  that changed perception but not learning (Schmucker et al. 2024), and two
+  gamification sources (Deterding et al. 2011; Hamari et al. 2014). SM-2
+  (Wozniak 1990) is now cited in chapter 3.
+- HNSW (Malkov and Yashunin) is now cited in Appendix C, where the index is
+  described.
