@@ -538,3 +538,34 @@ the original language.
 RQ3 was narrowed in November to "checked before learners see it, and what
 happens when a check fails". The measurements (6.5) now support the first
 part instead of answering a separate "how can it be measured" question.
+
+## Chapter 1: Method
+
+### 1.5 The seven evaluations
+
+**Why seven evaluations, when a bachelor thesis usually has one?**
+Each answers a part of a research question, and each is small and scoped to
+what it can show. One per chapter carries the answer; the others support it:
+
+| RQ | Main evaluation | Supporting |
+|---|---|---|
+| RQ1 | extraction benchmark (24 pages, 283 blind votes, protocol committed before the first vote) | routing study, deck-plan scorecard |
+| RQ2 | study with scripted readers (5 of 8 expected findings shown, 13 of 15 silences kept) | none |
+| RQ3 | the 16 pairs (lexical score drops 14 good keys; similarity keeps 8 wrong ones and fails its criterion; answer check makes no error in the calls that returned a verdict) | refusal gate (27 of 27 answerable let through, 30 of 30 refused, narrow margin) |
+
+**Why a simulation for RQ2 and not real readers?**
+Real reading data did not arrive: in 56 days, 4 Spaces had a member who
+read, at most 6 readers in one Space, and 1 page reached the floor of five
+(`docs/thesis/evidence/readers.md`). The engine behind the owner's view is a
+pure function of its input, so scripted readers with planted behaviour test
+exactly what the code does with known input: does the view say what it
+should, and stay silent when it should? It does not show how real learners
+behave, or whether an owner acts on what the view says. The expectations
+were written before the run but committed with the results (1.5).
+
+**Which evaluation is the weakest, and why keep it?**
+The answer check: it was built for one real failing question and measured
+on the same 16 pairs, with no criterion fixed in advance; its wrong keys are
+on the topic but plainly false, and its other options are off the subject
+(6.5.3). It stays because it is the check that runs in
+production, and the thesis calls its result promising, not proven.
