@@ -1,0 +1,78 @@
+% A neutral six-page deck, written for the thesis figure of the reading view.
+% Its text is our own; it contains no course material and no names. Upload the
+% built PDF to a Library, open it in the reading view, and take the
+% screenshots there; the figure's caption says which views they show.
+% Build: latexmk -pdf -outdir=../../build sample-deck.tex
+\documentclass[aspectratio=169,11pt]{beamer}
+\usetheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+
+\title{Binary Search}
+\subtitle{Finding an item in a sorted list}
+\date{}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{The idea}
+  \begin{itemize}
+    \item Look at the middle element of the part that is left.
+    \item If it is the item, stop.
+    \item If the item is smaller, continue in the left half;
+          otherwise continue in the right half.
+    \item Every step halves the part that is left.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Step by step}
+  Find 23 in the sorted list 3, 8, 12, 17, 23, 31, 42.
+  \medskip
+  \begin{center}
+  \begin{tabular}{@{}cccl@{}}
+    \toprule
+    low & high & middle & comparison \\
+    \midrule
+    0 & 6 & 3 (17) & 23 > 17: go right \\
+    4 & 6 & 5 (31) & 23 < 31: go left \\
+    4 & 4 & 4 (23) & found \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \medskip
+  Three comparisons instead of five.
+\end{frame}
+
+\begin{frame}{Cost}
+  \begin{itemize}
+    \item A list of $n$ items needs at most $\lfloor \log_2 n \rfloor + 1$ comparisons.
+    \item 1,000 items: at most 10 comparisons.
+    \item 1,000,000 items: at most 20 comparisons.
+    \item A linear search may need all $n$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Preconditions and pitfalls}
+  \begin{itemize}
+    \item The list must be sorted, or the halves mean nothing.
+    \item With fixed-width integers, $(\mathit{low} + \mathit{high})/2$ can overflow;
+          $\mathit{low} + (\mathit{high} - \mathit{low})/2$ cannot.
+    \item Loop bounds are a common source of off-by-one errors.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Summary}
+  \begin{itemize}
+    \item Halve the part that is left at every step.
+    \item At most about $\log_2 n$ comparisons.
+    \item Works only on sorted input.
+  \end{itemize}
+\end{frame}
+
+\end{document}

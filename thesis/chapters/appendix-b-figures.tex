@@ -1,12 +1,13 @@
 % Appendix B, assembled 2026-11-10. Diagrams that the body refers to and
-% that are too large for it: F4, F5 (chapter 3), F9, F9b, F14, F15 (chapter 5),
+% that are too large for it: F4, F5, F17 (chapter 3), F9, F9b, F14, F15 (chapter 5),
 % F12, F16 (chapter 6).
 \chapter{Supplementary Diagrams}
 \label{app:figures}
 
-This appendix holds nine diagrams that the body refers to.
+This appendix holds ten diagrams that the body refers to.
 \Cref{fig:pipeline} belongs to \cref{sec:pipeline},
 \cref{fig:use-case,fig:domain-model} to \cref{sec:stakeholders},
+\cref{fig:flag-reality} to \cref{sec:built-vs-deployed},
 \cref{fig:er,fig:er-learning} to \cref{sec:data-model},
 \cref{fig:security-arc} to \cref{sec:hardening},
 \cref{fig:trust-boundaries} to \cref{sec:authorisation}, and
@@ -31,6 +32,11 @@ This appendix holds nine diagrams that the body refers to.
   {Conceptual domain model. Analysis-level vocabulary, deliberately distinct
    from the physical database schema.}
   {fig:domain-model}
+
+\thesisfigure{f17-flag-reality}
+  {Built versus delivered. Twelve backend flags are all off by default, and
+   production switches on four. Since the end of October the build sets each frontend flag from its backend flag. This removed screens that the interface showed at the earlier revision \thesisEarlierCommit{} (August 2026) while their backend was off.}
+  {fig:flag-reality}
 
 \thesisfigurepage{f9-er-core}
   {Core physical schema, part 1: identity, Spaces, content, and parsing --- 19

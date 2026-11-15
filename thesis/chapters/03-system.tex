@@ -26,9 +26,25 @@ professor creates a course, uploads slides, and students work through
 lectures, quizzes, and a dashboard. Its first idea was to stand between the
 learning management system, which stores files, and the AI assistant, which
 knows nothing about the course. Over the year the centre moved from the
-course to the page. In the system that production has served since 29~October
-2026, anyone can upload a PDF and read it at once, and the system adds everything else to the pages while the learner reads them
+course to the page. In the system that production has served since the end
+of October 2026, anyone can upload a PDF and read it at once, and the system adds everything else to the pages while the learner reads them
 (\code{docs/\allowbreak superpowers/\allowbreak specs/\allowbreak 2026-10-26-library-and-spaces-design.md}).
+\Cref{fig:reading-view} shows the reading view on one page.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{f27-reading-view}
+  \caption{The reading view in production, November 2026, on page~3 of a six-page
+   sample deck that we wrote for this figure: (a)~the page as uploaded,
+   (b)~Explain for the same page. \textbf{1}~The uploaded page.
+   \textbf{2}~The three views of a page: Page, Explain, and Text.
+   \textbf{3}~The way into a study session with Luna. \textbf{4}~Turning the
+   page, and the timeline of the Lesson. \textbf{5}~Explain's answer: a title
+   in plain words and blocks, here three steps to click through. \textbf{6}~A
+   check question that Explain wrote into its answer. \textbf{7}~Ask, for a
+   question about this page, with two suggested questions.}
+  \label{fig:reading-view}
+\end{figure}
 
 We therefore built the interface twice. We wrote the second interface, which the repository calls v4 (a label unrelated to the numbered pipeline versions of \cref{sec:c4-lineage}), as a new part of the frontend beside the first one and not as a refactoring of it (\code{docs/design-v4/UI-SESSION-BRIEF.md},
 PR~\#55). We recorded how we did this and not why we ruled out refactoring. As we recall, the first interface assumed a university, with professors and courses, while the second had to work for any material and any group. We call the screens of the first interface, one per course, lecture, and professor, the \emph{older interface} below. They still exist in the code but no longer
@@ -98,13 +114,9 @@ own, optional judgement.
 
 A description of this system has to separate what exists in the code from
 what a learner can reach. Twelve backend flags, all off by default, guard the features, and production switches on four
-(\cref{fig:flag-reality}): the current interface, its reading view, sessions with Luna,
+(\cref{fig:flag-reality} in \cref{app:figures}): the current interface, its reading view, sessions with Luna,
 and uploads by students.
 
-\thesisfigure{f17-flag-reality}
-  {Built versus delivered. Twelve backend flags are all off by default, and
-   production switches on four. Since the end of October the build sets each frontend flag from its backend flag. This removed screens that the interface showed at the earlier revision \thesisEarlierCommit{} (August 2026) while their backend was off.}
-  {fig:flag-reality}
 
 With these four flags a learner can upload a PDF, read it in the three views
 of the reading view, and let Explain explain a page. The learner can ask a

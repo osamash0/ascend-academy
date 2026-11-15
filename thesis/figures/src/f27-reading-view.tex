@@ -1,0 +1,44 @@
+% F27 -- The reading view on one page of a sample deck: (a) the page, (b) Explain.
+% Chapter 3 (Learnstation at a Glance). Drawn with TikZ at print width, included at scale 1.
+% Claim supported: a reader who never saw the system can name the parts of the
+% reading view that chapters 3 to 6 discuss.
+% Screenshots: production, 15 November 2026, of the deck built from
+% src/sample-deck.tex (our own text, no course material), uploaded to the
+% author's Library; page 3. Cropped only: the pane's address bar (a) and the
+% screenshot tool's toolbar (b). Markers sit on empty background.
+% Build (from figures/): pdflatex -output-directory=.texbuild src/f27-reading-view.tex
+%   && cp .texbuild/f27-reading-view.pdf .
+\documentclass[border=1pt]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage{tgheros}
+\renewcommand*\familydefault{\sfdefault}
+\usepackage{graphicx}
+\usepackage{tikz}
+\begin{document}
+\footnotesize
+\begin{tikzpicture}[
+  num/.style={circle, fill=white, draw=black, line width=0.6pt, inner sep=0pt,
+               minimum size=11pt, font=\scriptsize\bfseries}]
+  % (a) the page: 1038 x 828 px at 210 pt wide
+  \begin{scope}[x=0.20231pt, y=0.20231pt]
+    \node[anchor=south west, inner sep=0] at (0,0)
+      {\includegraphics[width=210pt]{f27-reading-view-page}};
+    \draw[black!40, line width=0.3pt] (0,0) rectangle (1038,828);
+    \node[num] at (60,714) {1};   % the uploaded page
+    \node[num] at (916,740) {2};  % Page / Explain / Text
+    \node[num] at (646,740) {3};  % Study with Luna
+    \node[num] at (620,49) {4};   % page turning and the timeline
+    \node[anchor=north] at (519,-25) {(a) Page};
+  \end{scope}
+  % (b) Explain: 1039 x 832 px at 210 pt wide, 11 pt to the right
+  \begin{scope}[shift={(221pt,0)}, x=0.20212pt, y=0.20212pt]
+    \node[anchor=south west, inner sep=0] at (0,0)
+      {\includegraphics[width=210pt]{f27-reading-view-explain}};
+    \draw[black!40, line width=0.3pt] (0,0) rectangle (1039,832);
+    \node[num] at (960,632) {5};  % Explain's answer as blocks
+    \node[num] at (960,342) {6};  % a check question inside the answer
+    \node[num] at (965,57) {7};   % Ask, with suggested questions
+    \node[anchor=north] at (519,-25) {(b) Explain};
+  \end{scope}
+\end{tikzpicture}
+\end{document}
