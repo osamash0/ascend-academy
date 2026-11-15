@@ -835,3 +835,29 @@ their lines.
   paragraph repeats, the RQ2 answer's lead-in line, and "retention has never
   run" in the answer's last paragraph (5.2.2 states it). Dunlosky and Rawson
   are no longer named in the sentence; the citation stays.
+
+### Details cut from chapter 6 in the third round (15 November)
+
+History and the older interface, deleted from the text:
+
+- **The blind scoped search.** Until October 2026 a wrong join hid 40 of 68
+  pages of one Space from the ask bar (commit `b66a97c6`, PR #96, with a
+  database test that fails on the old join); no record says how large the
+  blind part was in other Spaces. The point it made: every later check depends
+  on retrieval, and a refusal gate or a citation check is worth nothing when
+  retrieval does not see the material.
+- **The older tutor's refusal.** The tutor of the older interface lost its
+  refusal in June 2026 for a reason the repository does not record (Appendix
+  C, "The Change of 24 June"); it no longer reaches students, and the ask bar
+  kept the gate. Nothing in chapters 1 to 7 points to that appendix section
+  any more.
+- **Citations nobody saw.** At the revision of August 2026 (`0be0081`) no
+  screen in use showed the citations that the server computed (the
+  citation-gap figure in Appendix B, now referenced only from there).
+- **The older review page.** It marks a batch as reviewed only in the
+  professor's browser (`src/pages/BatchReviewPage.tsx`).
+- **Retrieval settings,** now only in Appendix A: similarity above 0.65 for
+  the vector search, at most 12 hits from each search, fusion constant 60.
+- **Property tests.** Appendix C also reports two cost defects that planning
+  the property tests uncovered; chapter 6 now points there only for the case
+  of a failing provider.
