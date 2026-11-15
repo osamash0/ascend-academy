@@ -13,7 +13,7 @@ def _pdf() -> bytes:
     p1 = d.new_page(width=720, height=405)
     p1.insert_text((72, 80), "Functional dependencies", fontsize=28)
     p1.insert_text((72, 140), "A determines B when equal A values imply equal B values.", fontsize=14)
-    p1.insert_text((72, 390), "Papenbrock 2024", fontsize=9)
+    p1.insert_text((72, 390), "Sample deck 2024", fontsize=9)
     p2 = d.new_page(width=720, height=405)
     pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 40, 40), False)
     pix.clear_with(200)

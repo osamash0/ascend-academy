@@ -54,7 +54,7 @@ def test_long_english_deck_with_incidental_hits_is_not_german():
     to readers as a German deck.
     """
     english = (
-        "Database Systems Relational Algebra Thorsten Papenbrock Basics Basic "
+        "Database Systems Relational Algebra Jane Doe Basics Basic "
         "Operators Advanced Operators Complex Expressions Multiset Semantics "
     ) * 40 + " der mit und"
 

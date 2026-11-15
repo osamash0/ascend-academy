@@ -102,7 +102,7 @@ def test_running_lines_are_band_lines_on_many_pages_page_numbers_aside():
 
 
 def test_line_key_leaves_out_only_the_pages_own_number():
-    assert line_key("Slide 26 · Thorsten Papenbrock", 26) == line_key("slide 3 thorstenpapenbrock", 3)
+    assert line_key("Slide 26 · Jane Doe", 26) == line_key("slide 3 janedoe", 3)
     assert line_key("Exercise 1", 5) != line_key("Exercise 2", 5)
     assert line_key("Exercise 1/2/3", 9) != line_key("Exercise 1/2", 9)
     assert line_key("Page 126", 26) == "page126"                              # 26 inside 126 is not the number

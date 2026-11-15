@@ -31,10 +31,10 @@ def test_prompt_marks_blocks_and_leaves_footers_out(monkeypatch):
 
     monkeypatch.setattr(ss, "generate_text_bulk", fake)
     out = asyncio.run(ss.summarize_text_pages(
-        [(2, _pb(2, ["Every determinant is a key."], footer="Papenbrock 2024"))],
+        [(2, _pb(2, ["Every determinant is a key."], footer="Sample deck 2024"))],
         lecture_title="Normalization", ai_model="openai", source_language="en"))
     assert "[p2-b0] Every determinant is a key." in seen["prompt"]
-    assert "Papenbrock 2024" not in seen["prompt"]
+    assert "Sample deck 2024" not in seen["prompt"]
     assert seen["kw"]["json_mode"] is True
     assert seen["kw"]["prompt_name"] == "studio_summary"
     assert out == {2: [{"markdown": "A **key** idea.", "covers": ["p2-b0"]}]}

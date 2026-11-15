@@ -6,7 +6,7 @@ SYNTHESIS_QUIZ_VERIFY_PROMPT through the real model on
     must be agreed (a dispute is a false drop) and its on-topic HALLUCINATED
     key must be disputed (agreement is a false keep), with the probe's
     off-topic distractors and the key's position rotated;
-  - the LS-115 regression on public/v4-mock/normalization.pdf slide 2: the
+  - the LS-115 regression on the design-steps slide in data/ls115_deck.py: the
     two-clause question must be disputed, its sound twin agreed.
 Cost logging is stubbed, so no row reaches any database or Redis.
 
@@ -17,25 +17,12 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-from pathlib import Path
 
 from backend.eval.data.grounding_probe import DE_OFF_TOPIC, EN_OFF_TOPIC, PROBE_PAIRS
-from backend.eval.decks import load_pdf_pages, real_deck_pages
+from backend.eval.data.ls115_deck import LS115, LS115_SOUND, SLIDES
+from backend.eval.decks import real_deck_pages
 from backend.services.parser import synthesis
 from backend.services.parser.deck_plan import build_deck_skeleton
-
-ROOT = Path(__file__).resolve().parents[2]
-
-LS115 = {
-    "question": "During database design, which step directly follows Conceptional Design and leads to relation schemas?",
-    "options": ["Logical Design", "Physical Design", "Data Definition", "Distribution Design"],
-    "correctAnswer": "Logical Design",
-}
-LS115_SOUND = {
-    "question": "Which design step produces the relation schemas?",
-    "options": ["Logical Design", "Physical Design", "Data Definition", "Requirement Analysis"],
-    "correctAnswer": "Logical Design",
-}
 
 
 def _stub_cost_logging() -> None:
@@ -78,9 +65,9 @@ async def main(ai_model: str = "openai") -> dict:
         where = f"{p.deck.strip()[:14]} s{p.slide}"
         cases.append((where, "paraphrased", "agreed", _question(p.stem, p.paraphrased, off, p.slide, i), p.slide, skeletons[p.deck]))
         cases.append((where, "hallucinated", "disputed", _question(p.stem, p.hallucinated, off, p.slide, i + 1), p.slide, skeletons[p.deck]))
-    norm = build_deck_skeleton(load_pdf_pages(ROOT / "public" / "v4-mock" / "normalization.pdf"))
-    cases.append(("normalization s2", "LS-115", "disputed", LS115, 2, norm))
-    cases.append(("normalization s2", "LS-115 sound twin", "agreed", LS115_SOUND, 2, norm))
+    steps = build_deck_skeleton(SLIDES)
+    cases.append(("design steps s2", "LS-115", "disputed", LS115, 2, steps))
+    cases.append(("design steps s2", "LS-115 sound twin", "agreed", LS115_SOUND, 2, steps))
 
     rows = []
     for where, kind, want, q, slide, skeleton in cases:
