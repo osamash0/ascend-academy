@@ -402,13 +402,14 @@ behave in known ways, does the owner's view say what it should, and stay
 silent when it should? Synthetic learner data has been proposed for building
 and testing learning-analytics software without the privacy risks of real
 data~\cite{berg2016synthetic}; here it also stands in for data that did not
-arrive. Because the engine is a pure function, the
+arrive. Because the engine is a pure function apart from the themes, the
 study needs no server. A script (\code{backend/eval/persona\_study.py} at
 \code{a342dea9}, whose engine is identical to \code{2e146f51}) builds one
 Space with one Lesson of 30~pages, writes the events of scripted readers
 straight into the engine's input, and calls the function behind the owner's
-route. Fixed strings replace the summarising model, and each arm runs with a
-fixed seed in seconds.
+route. Fixed strings replace the summarising model. We chose the personas'
+behaviours and values ourselves; they come from no data, and
+\cref{sec:c5-personas-detail} lists them with the seeds.
 
 Five personas behave in known ways. A \emph{steady} reader reads every page
 for 20 to 60~seconds, checks in with \emph{Clicked}, and clears
@@ -418,11 +419,13 @@ turns back from page~13. An \emph{asker} asks on every third page, a
 \emph{skimmer} spends under five seconds per page and stops at page~10, and
 an \emph{overconfident} reader checks in with \emph{Clicked} everywhere and misses
 the checkpoint on page~10. Eight arms mix these personas. Before the first
-run we wrote down, for every arm, which findings must appear and which must
-not: 23 expectations. They went into the script in the same session as the
+run we wrote down 23 expectations: which findings must appear in which arm,
+and which must not. They went into the script in the same session as the
 results (\code{a342dea9}), so their order rests on our word, not on a
 record. Two further arms, added after the result to explain misses, are
-marked post hoc and do not count.
+marked post hoc and do not count. After the result, a sweep over 100 seeds
+under a protocol committed beforehand showed which results depend on the
+random draw (\cref{sec:c5-personas-detail}).
 
 \subsection{Results}
 \label{sec:c5-results}
@@ -433,7 +436,7 @@ marked post hoc and do not count.
   \caption{The study with scripted readers, run in November 2026 at \code{2e146f51}: 10
     arms, 5{,}370 events. \enquote{Met} counts expectations written before the
     first run.
-    Arms I and J are post hoc. Source:
+    Arms I and J are post hoc. One seed per arm; \cref{tab:sweep} gives 100. Source:
     \code{docs/thesis/experiments/persona-study/RESULTS.md}.}
   \label{tab:persona}
   \begin{tabular}{@{}llp{0.42\textwidth}l@{}}
@@ -455,20 +458,30 @@ marked post hoc and do not count.
   \end{tabular}
 \end{table}
 
-\Cref{tab:persona} gives the result: the engine met 18 of the 23
-expectations, nine of them in the control arm~G. Eight expectations asked the
-view to show something (a finding, themes, the weekly numbers, or the word
-for enough readers), and the engine met five; fifteen asked it to withhold
-something, and it met thirteen. An engine that never reports a finding or a
-theme would withhold correctly in all fifteen cases and show what it should
-in one of the eight (\code{mute\_engine.py},
+\Cref{tab:persona} gives the published run: the engine met 18 of the 23
+expectations, nine of them in the control arm~G. An engine that never reports
+a finding or a theme meets 16 of the 23 (\code{mute\_engine.py},
 \code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak persona-study/}),
-so the withholding half tests the floor rules, not detection. Struggling
-readers produced a hotspot and a speed bump (arm~A), skimmers a leak and
-skipped pages (arm~E), and overconfident readers a calibration gap and
-nothing else (arm~F). In the control arm, with four members, the payload held
-no finding, no theme, and no number, and the screen is the lower half of
-\cref{fig:door}.
+and over 100 seeds the engine met 16 to 19, with a median of 17
+(\cref{tab:sweep} in \cref{sec:c5-personas-detail}). The count therefore
+measures mostly silence, and the published run was a good draw. The findings
+themselves held at every seed: struggling readers produced a finding on
+page~10 and a speed bump on page~12 (arm~A), skimmers a leak and skipped
+pages (arm~E), and overconfident readers a calibration gap (arm~F). On
+page~10 that finding was the hotspot in 19 seeds and, in the other 81, the
+more specific overpacked page, which pre-empts it when the page's reading
+time also runs long (\cref{tab:detectors}). In the control
+arm, with four members, the payload held no finding, no theme, and no reading
+figure at every seed, only the member count and the floor, which the screen
+does not show; the screen is the lower half of \cref{fig:door}.
+
+Tests without readers fix the same rules: at \code{2e146f51}, 141 unit tests
+of the engine, 26 of them written as plain sentences
+(\code{tests/unit/test\_landing\_stories.py}), and 62 database tests that
+replay every migration into an empty Postgres and check the event schema,
+row-level security, erasure, the read path, and the owner gate. They test
+the database that the migrations describe, not production
+(\cref{sec:c5-events-storage}).
 
 \subsection{Three Things the Misses Showed}
 \label{sec:c5-findings}
@@ -488,12 +501,14 @@ numbers even when the map is full.
 
 \paragraph{The floor counts readers, not the people a finding is about.}
 In arm~B three of thirteen members said \emph{Still foggy} on page~10, and the view
-reported a hotspot. The page had thirteen readers, at least five of whom
+reported a hotspot, at every seed, because these check-ins are not random. The page had thirteen readers, at least five of whom
 rated it, so it was above the floor, and three of thirteen are 23\,\%,
 above the hotspot rule of 20\,\%. The view names nobody and sends no count of
 three, so the promise holds by its letter, but not in the stronger sense
 that five people stand behind a pattern: an owner who knows the group may
-guess who the three are. Only the speed bump counts the people a finding is
+guess who the three are. With one struggler fewer, two of twelve are
+17\,\% and the hotspot vanishes, so one person can switch a finding on or off
+(\cref{sec:c5-privacy}). Only the speed bump counts the people a finding is
 about (since PR~\#181). We froze the code at the pin, so we report this as a
 limit and name the stricter rule, five people behind each finding, as the
 change to make.
@@ -503,27 +518,18 @@ In arm~C five members asked about the same pages and no themes appeared,
 because the engine makes themes only for hotspot pages. Five people who ask
 about a page that is not a hotspot reach no one.
 
-\subsection{What the Tests Cover Without the Study}
-
-Tests without readers fix the same rules: at \code{2e146f51}, 141 unit tests
-of the engine, 26 of them written as plain sentences such as \enquote{a page
-four people reached says nothing even if all four were foggy}
-(\code{tests/unit/test\_landing\_stories.py}), and 62 database tests that
-replay every migration into an empty Postgres and check the event schema,
-row-level security, erasure, the read path, and the owner gate. They test
-the database that the migrations describe, not production
-(\cref{sec:c5-events-storage}).
-
 \subsection{Limits}
 
 The study tests whether the aggregation separates known behaviours and
-whether the floor holds. The personas sit far from the thresholds: a skimmer
-always stays under the rule of five seconds, and a struggling reader is
-always confused on the hard pages. The study therefore shows that the engine
-implements the rules of \cref{tab:detectors}, not that the rules describe
-real reading. There is one Lesson, one Space, and one seed per arm, and the
-hotspot of arm~B rests on 23\,\% against a rule of 20\,\%, so we do not know
-how often it would appear. Fixed strings replaced the model that writes
+whether the floor holds. It verifies that the engine implements the rules of
+\cref{tab:detectors}; it does not validate that the rules describe real
+reading, Boehm's distinction between building the product right and building
+the right product~\cite{boehm1984verifying}. Most personas sit far from the
+thresholds: a skimmer always stays under the rule of five seconds, and a
+struggling reader is always confused on the hard pages. In arm~A, however,
+the reading time of page~10 sits near the line between the hotspot and the
+overpacked page, and the random draw decides between them. There is one
+Lesson and one Space. Fixed strings replaced the model that writes
 themes, so the study says nothing about what real themes might reveal. We
 wrote both the engine and the study, so expectations and code can share a
 misreading. And we did not observe whether an owner changes a page after
@@ -550,9 +556,10 @@ no statement about a person, none about a page that fewer than five people
 have read, and the owner absent from their own numbers. It therefore shows
 no individual learner: no name, no list, and no count of one to four people.
 Against the stricter standard of \cref{sec:analytics-privacy} it falls short
-in one known case, because the floor counts the readers of a page and one
-confused rater among five can carry a hotspot; five people behind each
-finding would close this gap (\cref{sec:c5-findings}). The floor protects
+for the findings that are shares of a page's raters: one confused rater among
+five can carry a hotspot, and two can carry a confusion block or a
+calibration gap. Five people behind each finding would close this gap
+(\cref{sec:c5-findings}). The floor protects
 against accidental exposure, not against an owner who pads the Space with
 accounts or compares views over time, and two older paths around the view
 stay open until the prepared fixes are applied (\cref{sec:c5-privacy}).
@@ -560,9 +567,12 @@ stay open until the prepared fixes are applied (\cref{sec:c5-privacy}).
 \paragraph{What the view can tell.} Without showing any individual learner,
 the view tells an owner which page confuses readers, where readers leave,
 which pages they skip, where they turn back, and where they feel sure and
-are wrong. In the study with scripted readers it did so for each of these
-behaviours and stayed silent below the floor; whether real owners read it
-that way, we did not observe. It says nothing about a group under five,
+are wrong. In the study with scripted readers it reported each of these
+behaviours at every one of 100 seeds when the behaviour had an arm of its
+own, and stayed silent below the floor. In the mixed arm of 27 only the
+hotspot and the calibration gap rose, so a behaviour that few of a page's
+readers share, such as five skimmers among 27, stays below the rules. Whether
+real owners read the view that way, we did not observe. It says nothing about a group under five,
 shows no weekly numbers in a quiet week, and reports themes only where a page
 is already a hotspot.
 

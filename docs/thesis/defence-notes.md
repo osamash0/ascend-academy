@@ -550,7 +550,7 @@ what it can show. One per chapter carries the answer; the others support it:
 | RQ | Main evaluation | Supporting |
 |---|---|---|
 | RQ1 | extraction benchmark (24 pages, 283 blind votes, protocol committed before the first vote) | routing study, deck-plan scorecard |
-| RQ2 | study with scripted readers (5 of 8 expected findings shown, 13 of 15 silences kept) | none |
+| RQ2 | study with scripted readers (every planted behaviour flagged at each of 100 seeds; 18 of 23 expectations in the published run, median 17 over 100 seeds, 16 for an engine that reports nothing) | none |
 | RQ3 | the 16 pairs (lexical score drops 14 good keys; similarity keeps 8 wrong ones and fails its criterion; answer check makes no error in the calls that returned a verdict) | refusal gate (27 of 27 answerable let through, 30 of 30 refused, narrow margin) |
 
 **Why a simulation for RQ2 and not real readers?**
@@ -569,3 +569,61 @@ on the same 16 pairs, with no criterion fixed in advance; its wrong keys are
 on the topic but plainly false, and its other options are off the subject
 (6.5.3). It stays because it is the check that runs in
 production, and the thesis calls its result promising, not proven.
+
+### 5.6 The study with scripted readers, after the seed sweep
+
+**What did the supervisor's example thesis teach us?**
+An earlier bachelor thesis from the chair, which the supervisor shared,
+evaluated its system with a simulation and no users. Its simulation stood in
+for the environment, not for people; it fixed its requirements before the
+results, marked one requirement as only partly met, and left the user study
+openly to future work. It gave no source for evaluating without users, a thin
+model description, no baseline, and no variation. We kept what it did well
+(criteria fixed first, honest scope) and added what it lacked: a source for
+synthetic learner data (Berg et al.) and for verification versus validation
+(Boehm), the personas' values in Appendix C, a baseline (the engine that
+reports nothing), and variation (the seed sweep). We copied no text from it.
+
+**Is 18 of 23 a good result?**
+Not on its own. An engine that reports nothing meets 16 of 23, because 15 of
+the expectations ask for silence, nine of them in the control arm. Over 100
+seeds the engine met 16 to 19 (median 17); the published run was a good
+draw. The robust result is per kind: every planted behaviour was flagged at
+every seed (a finding on page 10 and a speed bump on page 12 in arm A; a
+leak and skipped pages in arm E; a calibration gap in arm F), and the
+control arm of four members stayed silent at every seed.
+
+**Why did arm A show "overpacked" in 81 seeds instead of the hotspot?**
+Overpacked pre-empts the hotspot on the same page when confusion is at least
+30 %, at least 0.3 of the readers asked, and the page's median dwell reaches
+1.5 times the Lesson's. In arm A page 10 has 50 % confusion and every
+struggler asks, so the dwell decides: the median of twelve readers falls
+between the slowest steady reader and the fastest struggler, about 1.5 to
+1.7 times the Lesson's median, and the draw puts it on either side of the
+line. For the owner both name page 10.
+
+**Was the sweep decided after seeing the data?**
+The protocol and the driver were committed first (`8ba95552`, 17:14:01 on
+15 November 2026); the run took eight seconds right after it, and the
+results followed (`03e8c92b`). Seed base 0 reproduced the published run
+exactly. Two predictions missed narrowly and are reported: the hotspot of
+arm A in 19 seeds, not 20 to 60, and one calibration gap in arm A.
+
+**Is the study a validation of the rules?**
+No. It verifies that the engine implements its rules; whether the rules
+describe real reading would need real readers (Boehm: building the product
+right versus building the right product).
+
+**What would a study with real owners look like?**
+One course over a term: the lecturer gets the owner's view, and we record
+which flagged pages they change and whether the signals on those pages
+change for later readers, plus a short interview on whether the findings
+read as intended. It needs at least five readers per page per week to show
+the weekly numbers, which is why the quiet weeks before the exams gave no
+data.
+
+**What did the sweep correct in the notes?**
+Three statements in the study notes of 9 November were wrong and are marked
+there: arm B did light the Lesson, the thresholds were not tuned for real
+ratios (they have no recorded source), and a different seed does change
+which kinds fire (arm A).

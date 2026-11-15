@@ -632,6 +632,87 @@ repository described. A last step in November protects the integrity of
 profiles and points (\code{20261101015412}). The sequence has no final
 state, and we do not claim one.
 
+\section{The Scripted Readers in Detail (Chapter 5)}
+\label{sec:c5-personas-detail}
+
+The study of \cref{sec:c5-evaluation} builds one Space with one Lesson of
+30~pages. Five ideas are anchored on pages 5, 10, 15, 20, and 25, where a
+reader checks in and meets a checkpoint, and pages 8 to 12 are the hard
+pages. Each member reads the Lesson once, on a day drawn uniformly from the
+55~days before a fixed clock (from the six days before it in arm~I). Arm
+number $k$ of \cref{tab:persona}, counted from zero, runs with seed
+$20261109 + k$. We chose every behaviour and value in
+\cref{tab:personas-params} ourselves; none comes from data, and the askers
+draw their questions from six that we wrote. Two personas send a third
+check-in, \emph{unsure}, that the reading view no longer offers
+(\code{v4\_reader.py:340}); in the confusion share it counts like
+\emph{Clicked}. The script is archived next to
+its results (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak
+persona-study/\allowbreak persona\_study.py}).
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \caption{The personas. A reading time is drawn from a normal distribution
+    with the given mean and standard deviation and cut to the range in
+    brackets.}
+  \label{tab:personas-params}
+  \newcommand*{\rr}{\raggedright\hspace{0pt}}
+  \begin{tabular}{@{}lp{0.24\textwidth}p{0.16\textwidth}p{0.2\textwidth}p{0.15\textwidth}@{}}
+    \toprule
+    Persona & Reading time per page & Explain, Ask & Check-in & Checkpoint \tabularnewline
+    \midrule
+    steady & \rr 40\,s, sd 10 (20--60), every page & \rr none & \rr \emph{Clicked} & \rr right \tabularnewline
+    struggling & \rr as steady, three times as long on pages 8--12; turns back from page~13 to page~12 twice & \rr Explain on pages 8--12, Ask there with probability 0.7 & \rr \emph{Still foggy} on page~10, elsewhere \emph{Clicked}, \emph{Clicked}, or \emph{unsure} at random & \rr wrong on page~10, elsewhere right with probability 0.8 \tabularnewline
+    asker & \rr 40\,s, sd 10 (20--60) & \rr Ask on every third page & \rr \emph{unsure} on page~10, elsewhere \emph{Clicked} & \rr right with probability 0.85 \tabularnewline
+    skimmer & \rr 2.5\,s, sd 1 (1--4.5), pages 1--10 only & \rr none & \rr none & \rr none \tabularnewline
+    overconfident & \rr 35\,s, sd 8 (20--60) & \rr none & \rr \emph{Clicked} & \rr wrong on page~10, elsewhere right \tabularnewline
+    confused asker\textsuperscript{a} & \rr 40\,s, sd 10 (20--60) & \rr Ask on pages 8--12 & \rr \emph{Still foggy} on page~10, elsewhere \emph{Clicked} & \rr wrong on page~10, elsewhere right \tabularnewline
+    \bottomrule
+  \end{tabular}\par\smallskip
+  {\footnotesize \textsuperscript{a}Post hoc, arm~J only.}
+\end{table}
+
+After the result we ran all ten arms with 100 seed bases, under a protocol
+committed before the run (\code{seed-sweep/\allowbreak PROTOCOL.md}, commit
+\code{8ba95552}); base~0 is the published run, and the sweep reproduced it.
+\Cref{tab:sweep} gives, for each expectation written before the first run,
+the number of seeds in which it held. The predictions in the protocol held
+except two, narrowly: we expected the hotspot of arm~A in 20 to 60 of 100
+seeds and saw it in 19, and we expected no calibration gap in arm~A and saw
+one. One finding appeared where no persona was built to cause it: a
+calibration gap on a page other than page~10, in four seeds of arm~C and one
+of arm~A, from the random checkpoint misses of askers and struggling readers.
+Of the post-hoc expectations, the hotspot of arm~J held in all 100
+seeds, its themes in 61, and the numbers of arm~I in all 100.
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \caption{The 23 expectations written before the first run, over 100 seed
+    bases (\code{seed-sweep/\allowbreak RESULTS.md}). Per seed the engine met
+    16 to 19 of them (median 17); an engine that reports nothing meets 16.}
+  \label{tab:sweep}
+  \begin{tabular}{@{}llr@{}}
+    \toprule
+    Arm & Expectation & Held in \\
+    \midrule
+    A & a hotspot & 19 of 100 \\
+    A & no skipped page; no calibration gap & 100; 99 of 100 \\
+    A & the weekly numbers have a value & 1 of 100 \\
+    A & the reach word is not \code{few} & 100 of 100 \\
+    B & no hotspot; no finding on pages 8--12 & 0; 0 of 100 \\
+    C & themes are made & 0 of 100 \\
+    D & no themes & 100 of 100 \\
+    E & a leak; skipped pages; no hotspot & 100 of 100 each \\
+    F & a calibration gap & 100 of 100 \\
+    G & nothing shown, numbers empty, reach \code{few} (nine expectations) & 100 of 100 each \\
+    H & the weekly numbers have a value & 17 of 100 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+
 \section{Cost as a Question of Trust (Chapter 6)}
 \label{sec:c6-cost}
 
