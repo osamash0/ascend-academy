@@ -23,10 +23,10 @@ A first pass without a model sends 87 of the 1{,}593 pages of the corpus to
 a vision model. In the pre-registered blind benchmark the author rated
 transcription by a vision model highest and the production extraction below
 five of the ten alternatives at the corrected lower bound, four when pages
-are resampled (\cref{sec:c4-answer}). The limits are one judge without a
-second rater, whose later comparisons were less blind, born-digital pages
-from one university, and a preference between rendered outputs that we did
-not test on the models that consume the text. We measured neither end-to-end
+are resampled (\cref{sec:c4-answer}). One judge made every vote, without a
+second rater, and the later comparisons were less blind. The pages are
+born-digital and come from one university, and the preference between
+rendered outputs was not tested on the models that consume the text. We measured neither end-to-end
 reliability nor the grounding of the page text.
 
 \paragraph{RQ2: from learner events back to the owner.}
@@ -34,9 +34,9 @@ One governed log of 17~event types feeds an engine that turns events into
 findings about pages, and an owner's view that names no one and says nothing
 about a page that fewer than five people have read. With scripted readers the
 view reported every planted behaviour at each of 100 seeds and said nothing
-about a Space of four (\cref{sec:c5-answer}). Against the stricter standard of \cref{sec:analytics-privacy}, that
-no statement is about fewer than five people, it falls short: a hotspot can
-rest on one confused rater among five, the floor counts accounts that an owner can add, and a policy of the older dashboard still lets an
+about a Space of four (\cref{sec:c5-answer}). It falls short of the stricter
+standard of \cref{sec:analytics-privacy}, that no statement is about fewer
+than five people. A hotspot can rest on one confused rater among five, the floor counts accounts that an owner can add, and a policy of the older dashboard still lets an
 owner with the professor role read event rows with user ids
 (\cref{sec:c5-privacy}).
 
@@ -44,9 +44,9 @@ owner with the professor role read event rows with user ids
 The system checks generated content by computation where it can compute an
 answer, by a second model for the quiz questions of the parse, and by
 structure elsewhere (\cref{sec:c6-answer}). On 16~fixed pairs the second
-model gave no wrong verdict in the calls that returned one, measured
+model gave no wrong verdict in the calls that returned one. That result is
 in-sample, without a criterion fixed in advance, and with distractors off the
-subject of the page; the similarity score failed its pre-registered test, and
+subject of the page. The similarity score failed its pre-registered test, and
 we did not adopt it. When the check is unavailable, the system keeps the
 question, and nothing verifies the prose of explanations and answers.
 
@@ -71,11 +71,10 @@ reason the project recorded was its own measurement
 (\cref{sec:c6-lifecycle}). The probe compares verifiers and does not test that bias itself.
 
 \paragraph{Nobody chose the simple method.}
-The text extractor in production is what remained when we removed other
-tools for memory, cost, or complexity, and the benchmark of \cref{ch:content}
-was the first comparison it faced. Measuring a method before
-relying on it applies to the verifiers as well: the similarity score of
-\cref{ch:trust} looked right and failed.
+The production extractor faced its first comparison only in the benchmark of
+\cref{ch:content} (\cref{sec:stack}), and the similarity score of
+\cref{ch:trust} looked right and failed. A method should be measured before
+the system relies on it.
 
 \paragraph{Cost shaped the architecture.}
 Free and low-cost quotas explain the ordered provider chains, the spending

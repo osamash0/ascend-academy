@@ -21,7 +21,7 @@ both directions. The file cannot answer a question, cannot check whether a learn
 stopped at page twelve.
 
 Large language models (LLMs) have made it cheap to add an assistant to such a file.
-Such an assistant answers the individual learner, but nothing ties the answer to the page it came from, every student repeats the work, and the lecturer learns nothing from it. The research on intelligent textbooks has described the
+Such an assistant answers the individual learner, but nothing ties the answer to the page it came from. Every student repeats the work, and the lecturer learns nothing from it. The research on intelligent textbooks has described the
 alternative for decades: reading material that carries its own structure,
 practice, and record of use~\cite{brusilovsky2022return}. What is new is that
 a language model can derive much of that structure from an ordinary PDF.
@@ -172,28 +172,34 @@ reachable at the pin, and \emph{deployed} means running in production. We name t
 We follow a build-and-evaluate approach, the pattern of design science:
 build an artefact for a stated problem and evaluate it against that
 problem~\cite{hevner2004design}. Each of the three main chapters describes
-what we built and ends with evaluations, seven in all. In
-\cref{ch:content}, the \emph{routing study} tries the old rule that sends pages to
-a vision model, and candidates for a new one, on 1{,}593 pages of 25 decks; the \emph{extraction
-benchmark} lets the author choose, without knowing the methods, the better of
-two transcriptions of the same page, made by eleven methods; and the
-\emph{deck-plan scorecard} compares which parts of a deck the quiz step
-reads before and after the deck plan. In \cref{ch:loop}, a \emph{study with scripted readers} feeds the
-owner's view readers who behave in planned ways. In \cref{ch:trust}, 16
-hand-made pairs of a correct and a wrong answer key test the \emph{similarity
-verifier} and the \emph{answer check}, and 57 questions test the
-\emph{refusal gate} of the ask bar again. The main evaluation of each
-chapter is the extraction benchmark, the study with scripted readers, and the
-test on the 16 pairs; the others support them. We committed our expectations
-before the run for the benchmark, the similarity verifier, and the refusal
-gate. For the study with scripted readers we wrote them first but committed
-them with the results. The routing study, the scorecard, and the answer
-check had none, so their results are descriptive, and we say so where we
-report them. Each chapter names the threats to the validity of its
-evaluations~\cite{wohlin2012experimentation}. \emph{We} means the author, and the author with the co-developer where we built the system jointly; what the author did alone, such as judging and labelling, we attribute to \emph{the author}. We checked statements about the system against the code at the revision named above, unless a section names a later
-one, and against production where the two can differ. Where the repository does
-not record a reason for a decision, we say so, and we mark a reason that
-rests only on our memory.
+what we built and ends with evaluations, seven in all. In \cref{ch:content},
+the \emph{routing study} tries the old rule that sends pages to a vision
+model, and candidates for a new one, on 1{,}593 pages of 25 decks. The
+\emph{extraction benchmark} lets the author choose, without knowing the
+methods, the better of two transcriptions of the same page, made by eleven
+methods. The \emph{deck-plan scorecard} compares which parts of a deck the
+quiz step reads before and after the deck plan. In \cref{ch:loop}, a
+\emph{study with scripted readers} feeds the owner's view readers who behave
+in planned ways. In \cref{ch:trust}, 16 hand-made pairs of a correct and a
+wrong answer key test the \emph{similarity verifier} and the \emph{answer
+check}, and 57 questions test the \emph{refusal gate} of the ask bar again.
+The main evaluation of each chapter is the extraction benchmark, the study
+with scripted readers, and the test on the 16 pairs; the others support them.
+
+We committed our expectations before the run for the benchmark, the
+similarity verifier, and the refusal gate. For the study with scripted
+readers we wrote them first but committed them with the results. The routing
+study, the scorecard, and the answer check had none, so their results are
+descriptive, and we say so where we report them. Each chapter names the
+threats to the validity of its evaluations~\cite{wohlin2012experimentation}.
+
+\emph{We} means the author, and the author with the co-developer where we
+built the system jointly; what the author did alone, such as judging and
+labelling, we attribute to \emph{the author}. We checked statements about the
+system against the code at the revision named above, unless a section names a
+later one, and against production where the two can differ. Where the
+repository does not record a reason for a decision, we say so, and we mark a
+reason that rests only on our memory.
 
 AI coding agents generated most of the code under the author's direction, and the author reviewed their changes and decided what to keep. The project's development timeline counts 1{,}229 of
 1{,}599~non-merge commits up to November 2026, about 77\,\%, as the work of an agent. A language model helped draft, revise, and review the text of this thesis.
@@ -209,7 +215,7 @@ became RQ2. Its other questions needed interaction data from real learners.
 We sent the system to students, but almost no interaction data arrived,
 possibly because it was the time before their exams (\cref{ch:loop} gives
 the counts). Two questions that need studies with participants therefore
-remain open (\cref{sec:limitations}), and we do not pursue the question on
+remain open (\cref{sec:limitations}). We do not pursue the question on
 data-profiling metrics, because there is almost no data to profile. While we
 built the system, two needs came first: lecture PDFs had to become pages
 that learners can read, and the content that a model writes had to be

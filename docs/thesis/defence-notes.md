@@ -958,3 +958,27 @@ Tooling: `scripts/lint_tex.py` now counts figures placed with a plain figure
 environment (Figures 3.1 and 4.3) and expects 20. After Figure 4.3 left
 `\thesisfigure` it had warned "only 18 of 19 available figures are used", a
 non-blocking warning that went unreported in the chapter 4 summary.
+
+### Details cut from chapters 1, 3 and 7 (15 November)
+
+- **Chapter 3, repeats and trivia.** The platform's first idea was to stand
+  between the learning management system, which stores files, and the AI
+  assistant, which knows nothing about the course. The code calls the
+  Library's uploads "materials". Older routes reach the database through
+  Supabase's web interface at roughly 360 call sites (a comment in the
+  production compose file records the count). The opening listed what the
+  chapter covers; the section titles say it. "Only its owner can publish it"
+  repeated the sentence before.
+- **Chapter 3, numbers that chapters 4 and 7 give.** The benchmark rates nine
+  of the ten alternatives above the current extraction on points, five at
+  the corrected lower bound and four when pages are resampled. The corpus:
+  25 decks with 1,593 pages from two courses of one university, in English
+  and German; the benchmark's 24 pages from five PDFs of three courses.
+- **Chapter 3, two stale pointers fixed.** PR #182 (the backend of a fourth
+  view of a page, switched off) pointed to the outlook, which no longer
+  discusses it; the provider chains pointed to chapter 4, which no longer
+  describes them (Appendix C does).
+- **Chapter 7.** That the production extractor "is what remained when we
+  removed other tools for memory, cost, or complexity" now stands only in
+  chapter 3.
+- **Chapter 1.** Unpacked only; nothing deleted.
