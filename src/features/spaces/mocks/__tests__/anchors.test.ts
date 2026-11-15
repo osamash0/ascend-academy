@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { LectureConcept, Slide } from '@/types/domain';
 import {
   anchorForPage,
   conceptOfPage,
@@ -49,38 +50,50 @@ describe('the content fixture is the endpoints’ shape', () => {
   });
 });
 
+/*
+ * The deck tags every page, in the Lesson's own order. What a real file also
+ * brings — a Concept explained before one the Lesson lists first, untagged
+ * pages, a Concept split around another — is built here, on eight pages.
+ */
+const page = (n: number): Slide => ({ id: `s${n}`, slide_number: n, title: `Page ${n}`, content_text: 'text', summary: null });
+const filePages = [1, 2, 3, 4, 5, 6, 7, 8].map(page);
+const tags: LectureConcept[] = [
+  { concept_id: 'c', name: 'C', weight: 0.2, slide_indices: [5, 6] }, // pages 6–7
+  { concept_id: 'b', name: 'B', weight: 0.3, slide_indices: [3, 7] }, // pages 4 and 8, around C
+  { concept_id: 'a', name: 'A', weight: 0.5, slide_indices: [1] }, // page 2; pages 1, 3 and 5 are untagged
+];
+const fileSections = sectionsFromRows(filePages, tags);
+
 describe('sections are the file in reading order', () => {
   it('orders Concepts by their first page, not by the Lesson’s list', () => {
-    expect(sections.map((s) => s.name)).toEqual([
-      'Functional dependency',
-      'BCNF',
-      '1NF',
-      '2NF',
-      '3NF',
-    ]);
+    expect(fileSections.map((s) => s.name)).toEqual(['A', 'B', 'C']);
+    expect(sections.map((s) => s.name)).toEqual(['Functional dependency', '1NF', '2NF', '3NF', 'BCNF']);
   });
 
   it('loses no page: every slide is in exactly one section', () => {
     const pages = sections.flatMap((s) => s.blocks.map((b) => b.page)).sort((a, b) => a - b);
     expect(pages).toEqual(content.bundle.slides.map((s) => s.slide_number).sort((a, b) => a - b));
+    const filed = fileSections.flatMap((s) => s.blocks.map((b) => b.page)).sort((a, b) => a - b);
+    expect(filed).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   });
 
   it('files an untagged page under the Concept before it', () => {
-    // The closure-algorithm pages carry no tag and sit inside the FD section of the deck.
-    expect(conceptOfPage(35, content.concepts)).toBeNull();
-    expect(anchorForPage(35, sections)?.conceptId).toBe('c-l-s-dbs-4-1');
+    expect(conceptOfPage(3, tags)).toBeNull();
+    expect(anchorForPage(3, fileSections)?.conceptId).toBe('a');
+    expect(anchorForPage(5, fileSections)?.conceptId).toBe('b');
   });
 
   it('files the title and agenda under the first Concept rather than under nothing', () => {
+    expect(anchorForPage(1, fileSections)?.conceptId).toBe('a');
     expect(anchorForPage(1, sections)?.conceptId).toBe('c-l-s-dbs-4-1');
   });
 
   it('keeps a split Concept in one section, in page order', () => {
-    const bcnf = sections.find((s) => s.name === 'BCNF')!;
-    const pages = bcnf.blocks.map((b) => b.page);
-    expect(pages).toContain(41);
-    expect(pages).toContain(74);
-    expect([...pages].sort((a, b) => a - b)).toEqual(pages);
+    const b = fileSections.find((s) => s.name === 'B')!;
+    const pages = b.blocks.map((x) => x.page);
+    expect(pages).toContain(4);
+    expect(pages).toContain(8);
+    expect([...pages].sort((x, y) => x - y)).toEqual(pages);
   });
 });
 
@@ -101,7 +114,7 @@ describe('what the spine and the pager are handed', () => {
   });
 
   it('lands a Concept on its first page', () => {
-    expect(firstPageOf('c-l-s-dbs-4-2', sections)).toBe(67);
+    expect(firstPageOf('c-l-s-dbs-4-2', sections)).toBe(4);
     expect(firstPageOf('c-nope', sections)).toBeNull();
   });
 });

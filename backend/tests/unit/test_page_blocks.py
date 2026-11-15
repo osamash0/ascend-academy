@@ -1,7 +1,8 @@
 """page_blocks must reproduce the committed Studio sample exactly.
 
 src/features/spaces/mocks/studio-normalization.json was generated from
-public/v4-mock/normalization.pdf pages 1-12 by scripts/studio/build_fixture.py.
+public/v4-mock/normalization.pdf pages 1-12 by scripts/studio/build_fixture.py
+(scripts/v4-mock/build_normalization_deck.py runs both).
 The production extractor is that logic, so it must rebuild the sample block
 for block. If this test fails, either the extractor regressed or the fixture
 must be regenerated on purpose (and the frontend tests re-run).

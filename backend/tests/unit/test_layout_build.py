@@ -73,17 +73,11 @@ def test_only_figures_have_no_text(layouts):
             assert b["text"] or b["kind"] == "figure"
 
 
-def test_normalization_page_26_keeps_its_last_line(doc):
-    # page_blocks called the last sub-bullet a footer (low on the page, set smaller than the body); it runs on no
-    # other page, so it stays a block and the page is layout with the line kept
-    lp = build_page_layout(doc[25], 26, repeated_places(doc), running_lines(doc), footline_totals(doc))
-    assert lp["verdict"] == "layout", lp["reasons"]
-    assert any("ActorName}" in b["text"] and "Year" in b["text"] and b["bbox"][1] > 0.94 for b in lp["blocks"])
-
-
-def test_at_least_seven_of_twelve_normalization_pages_are_layout(layouts):
-    # page 8 is held for split sub/superscripts ("A 1 ,A 2") until the vision pass
-    assert sum(lp["verdict"] == "layout" for lp in layouts) >= 7
+def test_every_page_of_the_sample_deck_is_layout_and_its_running_footer_is_furniture(doc, layouts):
+    # a clean, generated deck: nothing on it needs the vision pass, and the footer on every page is dropped
+    assert [lp["verdict"] for lp in layouts] == ["layout"] * 12
+    assert running_lines(doc) == {("bottom", line_key("Normalization · Learnstation sample deck"))}
+    assert not any("sample deck" in b["text"] for lp in layouts for b in lp["blocks"])
 
 
 # --- built in code ---------------------------------------------------------------------------------------

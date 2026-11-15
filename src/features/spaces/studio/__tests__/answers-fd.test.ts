@@ -32,24 +32,24 @@ describe('the FD engine computes what the tools show', () => {
   });
 });
 
-describe('fd engine on Normalization.pdf examples', () => {
-  it('Name → Weight holds on the creature table until a weight changes (page 7)', () => {
-    const cols = ['Name', 'Weight'];
-    const rows = [['Nidoran', '7.0'], ['Nidoran', '7.0'], ['Pikachu', '6.0']];
-    expect(violations(cols, rows, fd('Name', 'Weight'))).toEqual([]);
-    rows[1][1] = '9.0';
-    expect(violations(cols, rows, fd('Name', 'Weight'))).toEqual([[0, 1]]);
+describe('fd engine on the sample deck’s examples', () => {
+  it('Product → Name holds on the order lines until a name changes (page 8)', () => {
+    const cols = ['Product', 'Name'];
+    const rows = [['P7', 'Desk lamp'], ['P7', 'Desk lamp'], ['P2', 'Notebook']];
+    expect(violations(cols, rows, fd('Product', 'Name'))).toEqual([]);
+    rows[1][1] = 'Reading lamp';
+    expect(violations(cols, rows, fd('Product', 'Name'))).toEqual([[0, 1]]);
   });
-  it('Y → X fails on the page-10 counterexample', () => {
+  it('Y → X fails where one Y value has several X values', () => {
     const cols = ['X', 'Y', 'Z'];
     const rows = [['a1', 'b1', 'c1'], ['a2', 'b1', 'c1'], ['a3', 'b2', 'c1'], ['a4', 'b1', 'c1']];
     expect(violations(cols, rows, fd('X', 'Y'))).toEqual([]);
     expect(violations(cols, rows, fd('Y', 'X')).length).toBe(3);
   });
-  it('the closure of {title, year} reaches every attribute', () => {
-    const fds = [fd('title year', 'length type studioName'), fd('studioName', 'president'), fd('president', 'presAddr')];
-    const steps = closureSteps(['title', 'year'], fds);
-    expect(steps[steps.length - 1].after.sort()).toEqual(['length', 'presAddr', 'president', 'studioName', 'title', 'type', 'year'].sort());
-    expect(fdText(fds[1])).toBe('studioName → president');
+  it('the closure of {order, product} reaches every attribute', () => {
+    const fds = [fd('order product', 'quantity'), fd('product', 'productName'), fd('order', 'customer'), fd('customer', 'city')];
+    const steps = closureSteps(['order', 'product'], fds);
+    expect(steps[steps.length - 1].after.sort()).toEqual(['city', 'customer', 'order', 'product', 'productName', 'quantity'].sort());
+    expect(fdText(fds[1])).toBe('product → productName');
   });
 });

@@ -2,6 +2,7 @@ import type { Concept, Lesson, Material, MaterialPage, Person, Space } from '../
 import { viewer, keller, weber, lindqvist, okonkwo, ferreira } from './people';
 import { practiceForLesson } from './practice';
 import { contributionsForLesson, membersForSpace } from './contributions';
+import { normalizationDeck } from './content.normalization';
 
 /**
  * Lesson fixtures — titles, order and progress taken verbatim from the
@@ -130,7 +131,8 @@ const lesson = (
 };
 
 /**
- * The Material behind Normalization, page by page.
+ * The Material behind Normalization, page by page: the pages of
+ * `public/v4-mock/normalization.pdf`, read from the deck it is rendered from.
  *
  * Twelve pages grouped by Concept and in the same order as the passages, so
  * "this page belongs to 2NF" and "the passage on 2NF" are two routes to one
@@ -143,131 +145,12 @@ const lesson = (
  * layout with a title and three or four lines on it, and filler lines are all
  * the same length — which is exactly the thing the card has to survive.
  */
-const normalizationPages: MaterialPage[] = [
-  {
-    page: 1,
-    conceptId: 'c-l-s-dbs-4-1',
-    title: 'What normalization is for',
-    bullets: [
-      'Redundancy is one fact stored in more than one row',
-      'Insert, update and delete anomalies all follow from it',
-      'A table that repeats a fact can be made to contradict itself',
-      'The normal forms are a sequence of guarantees, each stricter',
-    ],
-  },
-  {
-    page: 2,
-    conceptId: 'c-l-s-dbs-4-1',
-    title: 'Functional dependency',
-    bullets: [
-      'A → B: any two rows agreeing on A must agree on B',
-      'A claim about every row the table will ever hold',
-      'Read it off the meaning of the data, never off a sample',
-    ],
-  },
-  {
-    page: 3,
-    conceptId: 'c-l-s-dbs-4-1',
-    title: 'Keys, from dependencies',
-    bullets: [
-      'Superkey: an attribute set that determines all the others',
-      'Candidate key: a superkey with nothing left to remove',
-      'Prime attribute: one that belongs to some candidate key',
-      'Every normal form below is stated in these three words',
-    ],
-  },
-  {
-    page: 4,
-    conceptId: 'c-l-s-dbs-4-2',
-    title: 'First normal form',
-    bullets: [
-      'Every attribute holds one indivisible value',
-      'No repeating groups: no phone1, phone2, phone3',
-      'No lists in a cell, however convenient they look',
-    ],
-  },
-  {
-    page: 5,
-    conceptId: 'c-l-s-dbs-4-2',
-    title: 'Why a list in a cell hurts',
-    bullets: [
-      'It cannot be joined against, constrained, or usefully indexed',
-      'Reading one entry means reading and parsing all of them',
-      'Split the group into its own relation, keyed by the parent',
-      'The cost is one join; the gain is a database that can check it',
-    ],
-  },
-  {
-    page: 6,
-    conceptId: 'c-l-s-dbs-4-3',
-    title: 'Partial dependency',
-    bullets: [
-      'Only possible under a composite key',
-      'A non-prime attribute depending on part of that key',
-      '(order, product) → quantity, but product alone → product name',
-    ],
-  },
-  {
-    page: 7,
-    conceptId: 'c-l-s-dbs-4-3',
-    title: 'Second normal form',
-    bullets: [
-      'In 1NF, and no non-prime attribute depends on part of a key',
-      'Project the partial dependency out into its own relation',
-      'Automatic when the key is a single attribute — no part to depend on',
-    ],
-  },
-  {
-    page: 8,
-    conceptId: 'c-l-s-dbs-4-3',
-    title: 'The update anomaly, worked',
-    bullets: [
-      'Product name repeated on every order line naming that product',
-      'Renaming it means finding every one of those lines',
-      'Miss one and two rows now disagree about the same product',
-    ],
-  },
-  {
-    page: 9,
-    conceptId: 'c-l-s-dbs-4-4',
-    title: 'Transitive dependency',
-    bullets: [
-      'Key → A and A → B, where A is not itself a key',
-      'Postcode fixes the city, so the city rides along on the row',
-      'The city is stored once per row sharing that postcode',
-    ],
-  },
-  {
-    page: 10,
-    conceptId: 'c-l-s-dbs-4-4',
-    title: 'Third normal form',
-    bullets: [
-      'No non-prime attribute is determined by another non-prime one',
-      'The key, the whole key, and nothing but the key',
-      'Always reachable, and it can always keep every dependency',
-    ],
-  },
-  {
-    page: 11,
-    conceptId: 'c-l-s-dbs-4-5',
-    title: 'Boyce-Codd normal form',
-    bullets: [
-      'Every determinant is a candidate key, with no exceptions',
-      'Stricter than 3NF by exactly one clause',
-      'The two only differ where candidate keys overlap',
-    ],
-  },
-  {
-    page: 12,
-    conceptId: 'c-l-s-dbs-4-5',
-    title: 'What BCNF costs',
-    bullets: [
-      'A BCNF decomposition can lose a functional dependency',
-      '3NF keeps every dependency; BCNF is not obliged to',
-      'Which one to give up is a design decision, not a mechanical step',
-    ],
-  },
-];
+const normalizationPages: MaterialPage[] = normalizationDeck.map(({ page, conceptId, title, bullets }) => ({
+  page,
+  conceptId,
+  title,
+  bullets,
+}));
 
 /**
  * Index Structures has a Material and no text — the shape the reader used to
