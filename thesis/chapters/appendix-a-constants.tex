@@ -13,10 +13,13 @@ container on 11~November 2026 found the LLM call timeout at 90\,s
 (\cref{sec:openai-only}). Per-row evidence and the
 names of the variables are in \code{docs/thesis/evidence/CONSTANTS.md}.
 
+% The caption sits outside the longtable: the class's longtable caption
+% started 3.6pt left of the text edge.
+\captionof{table}{System constants: defaults in the code at the pin.
+  $\dagger$~can be overridden by an environment variable.}
+\label{tab:constants}
+\setlength{\LTpre}{0.5\baselineskip}
 \begin{longtable}{@{}p{5.6cm}p{3.1cm}p{5.0cm}@{}}
-  \caption{System constants: defaults in the code at the pin. $\dagger$~can
-    be overridden by an environment variable.}
-  \label{tab:constants} \\
   \toprule
   \textbf{Constant} & \textbf{Value} & \textbf{Location} \\
   \midrule

@@ -12,6 +12,10 @@
 \usepackage[ngerman,english]{babel}  % ngerman only for the Zusammenfassung
 \usepackage{csquotes}          % required by biblatex; also gives \enquote{}
 \usepackage{microtype}         % subtle spacing/protrusion — noticeably better justification
+% Hanging punctuation for text fonts only: in the typewriter font a period is
+% wide, so web addresses in the bibliography hung about 4pt into the margin.
+\DeclareMicrotypeSet[protrusion]{textonly}{family={rm*,sf*}}
+\UseMicrotypeSet[protrusion]{textonly}
 
 % --- Maths --------------------------------------------------------------------
 \usepackage{amsmath}
