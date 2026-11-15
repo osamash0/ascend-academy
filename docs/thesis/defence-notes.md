@@ -800,3 +800,38 @@ so.
   unusable"). The deck plan removes the footer from the model's input but not
   from the stored text. The text keeps "we did not change the production
   parser at the pin" in the answer.
+
+### Details cut from chapter 5 in the third round (15 November)
+
+Deleted from the text; the code references the text dropped are listed with
+their lines.
+
+- **Names that repeated the sentence.** `EVENT_REGISTRY` and `extra="forbid"`
+  (`backend/schemas/learning_events.py`); the function `record_event` (the text
+  keeps `event_repo.py:64-91`); `MIN_READERS = 5` (the text keeps
+  `space_engine.py:25`); `LANDS_BELOW = 0.2`; `LANDING_TTL = 300`
+  (`backend/services/v4_landing_service.py:49`, line 53 at `2e146f51`);
+  `assert_space_owner` (the text keeps `domain/authorization.py:47-62`).
+- **Table 5.1.** The nine types that the engine does not read, by name:
+  `lecture_start`, `micro_quiz_attempt`, `login`, `search_performed`,
+  `exam_generated`, `exam_submitted`, `review_graded`, `lecture_uploaded`,
+  `onboarding_completed`. The table now names two and counts nine.
+- **Storage.** References to the Lesson and the page live inside the payload
+  without a foreign key, which trades enforced integrity for a cheap insert. A
+  daily roll-up table exists in the code but not in production, and the
+  retention script would fill it before it deletes anything; the script is
+  neither a job of the worker nor a service of the deployment.
+- **Facts.** "Read" means a view with positive duration.
+- **Weekly numbers.** The third number weighs every member equally: one who
+  answered one question counts as much as one who answered ten.
+- **Themes.** At most twelve words per theme and five pages per view; the
+  result is cached for 30 days; the model sees at most 60 questions per page.
+- **Dwell.** The roles of the deck plan could keep a title page from being
+  reported as skipped (future work).
+- **Pseudonyms.** The older dashboard's pseudonym was an unsalted hash of the
+  user id, the same in every course; PR #175 removed it.
+- **Repeats.** The opening's bridge sentence ("what readers do ... travels
+  back to the person who wrote them"), a sentence in 5.1 that the figure's
+  paragraph repeats, the RQ2 answer's lead-in line, and "retention has never
+  run" in the answer's last paragraph (5.2.2 states it). Dunlosky and Rawson
+  are no longer named in the sentence; the citation stays.
