@@ -80,11 +80,9 @@ most 12 hits) run inside the Space, and reciprocal rank fusion with constant 60
 keeps the best six (\code{ai/retrieval.py}). The SQL query applies the scope, as a restriction to the Space's live Lessons, and not as a filter
 afterwards (migration \code{20261014000000}).
 
-This scope was wrong until October 2026. The scoped search joined the
-embeddings on a column that is empty for most rows, so the ask bar could not
-see those pages: 40 of 68 in one Space (commit \code{b66a97c6}, PR~\#96, with
-a database test that fails on the old join). No record says how large the
-blind part was in other Spaces. Every
+Until October 2026 a wrong join hid 40 of 68 pages of one Space from this
+search (commit \code{b66a97c6}); no record says how large the blind part was
+in other Spaces. Every
 later check depends on retrieval: a refusal gate and a citation check are
 worth nothing when retrieval does not see the material.
 
@@ -112,11 +110,9 @@ literature~\cite{rashkin2023ais,gao2023alce}, the system verifies that a
 citation points at retrieved material, not that the material supports the
 claim.
 
-The first grounded tutor (commit \code{8d2eb095}, May 2026) refused
-everything outside the retrieved pages. In June 2026 a commit removed that
-refusal from the tutor of the older interface (\code{f39e93dc}), for a reason
-the repository does not record (\cref{sec:c6-history-detail}). That tutor no
-longer reaches students, and the ask bar kept the gate.
+The tutor of the older interface lost its refusal in June 2026, for a reason
+the repository does not record (\cref{sec:c6-history-detail}); it no longer
+reaches students, and the ask bar kept the gate.
 
 \subsection{Luna and the Reading View: Checks on Structure}
 \label{sec:c6-structure}
@@ -401,8 +397,7 @@ overlap, but the gap is narrow: no unanswerable question reaches more than
 0.65 lies between them. A
 threshold of 0.75 would have refused 13 of the 27 answerable questions. We had
 predicted that some of the absent database topics would pass the gate, but none
-did. For the answerable questions, the expected page was among the first five hits in 25 of 27 cases (the
-closest setting the grid measured to the six hits the ask bar keeps).
+did.
 
 \subsection{What the Numbers Do Not Show}
 \label{sec:c6-threats}

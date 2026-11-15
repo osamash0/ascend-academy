@@ -639,3 +639,42 @@ which kinds fire (arm A).
 - **What does the parse receipt record?** The outcome of every stage of the
   question lifecycle for each Lesson (Figure 6.1: "counts written to the parse
   receipt"; Appendix C, cost as a question of trust).
+
+### Details cut in the first round of shortening (15 November)
+
+- **Why did the pipeline become dependable?** In our experience only when one
+  path remained: by the end of May 2026 the upload route switched between four
+  parser paths, none removed; two of the three tables that no live code writes
+  and several faults in chapter 4 trace back to that state. Not measured.
+- **Did the system run ahead of its users?** Yes: review, exams, badges, and
+  analytics were built before learners arrived, and production switches on
+  four of twelve flags. Feature toggles accumulate as debt (Rahman et al. 2016;
+  Hodgson 2017); here it showed as menu entries that led to "not found" until
+  the build derived each interface flag from its backend flag in October.
+- **Other drift between documents and the system:** the nginx comment says
+  the proxy strips a path prefix it keeps (`nginx.conf:24`); configuration
+  named a server the system did not run on; the production database has a
+  column no migration defines and a migration history of two entries; until
+  October a storage bucket let anyone download every lecture PDF.
+- **Recall of the ask bar's retrieval in the refusal-gate run:** the expected
+  page was among the first five hits for 25 of 27 answerable questions (the
+  grid's closest setting to the six hits the ask bar keeps).
+- **The retrieval join bug:** the scoped search joined embeddings on a column
+  that is empty for most rows; PR #96 fixed it with a database test that fails
+  on the old join.
+- **The first grounded tutor** (`8d2eb095`, May 2026) refused everything
+  outside the retrieved pages; `f39e93dc` (June 2026) removed the refusal from
+  the older interface's tutor.
+- **Event table detail:** the migrations also declare a default partition and
+  four indexes (user, lecture, type and time, GIN on the payload); an unused
+  `pseudonymize.ts` helper from an early plan for pseudonyms is still in the
+  frontend.
+- **Owner gate in the browser:** the owner's link is visible only to the
+  owner, and the browser sends anyone else back to the Space; the server's
+  403/404 is the real gate.
+- **The older professor dashboard:** since PR #175 it applies the floor of
+  five and returns no rows per student; since PR #176 its routes require the
+  professor role (Appendix C, authorisation).
+- **Account deletion** is an ordered job that survives a crash (PR #90).
+- **The layout view:** backend PR #182 is on main and switched off; the
+  reading-view part PR #183 is not on main.

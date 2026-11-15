@@ -48,9 +48,7 @@ The system builds the first part: it records, aggregates, and shows. The
 decision belongs to the owner and lies outside the software. Returning a
 changed page works today only as a new upload: the owner uploads the revised
 PDF as a new Lesson, the system has no versions of a Lesson, and the events
-of the old Lesson do not carry over to the new one. Versioned material, and
-an assistant that proposes changes for the owner to approve, are future work
-(\cref{sec:future-work}).
+of the old Lesson do not carry over to the new one.
 
 \thesisfigure{f23-loop}
   {The feedback loop in five stages. The engine applies the floor of five readers when it aggregates events, and no name leaves the last stage.}
@@ -115,7 +113,7 @@ engine reads six.
   \end{tabular}
 \end{table}
 
-The table shows two decisions about content. The system never stores the answer the AI gives to a question, only the question, cut to 400 characters. And
+The table shows two decisions about content. The system never stores the answer the AI gives to a question, only the question. And
 nothing from a private study session with the assistant becomes an event at
 all (\code{insights/sources/space.py:38}).
 
@@ -123,16 +121,12 @@ all (\code{insights/sources/space.py:38}).
 \label{sec:c5-events-storage}
 
 The migrations declare the table partitioned by month on the event's
-timestamp, with a default partition for rows outside any month, and give it
-four indexes: by user, by lecture, by type and time, and a GIN index on the
-payload (migration \code{20260721010000}). Production differs. A read-only
+timestamp (migration \code{20260721010000}). Production differs. A read-only
 probe of its system catalogue in November 2026 found
 \code{learning\_events} to be a plain table without partitions
 (\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak event-table.md}). References
-to the Lesson and the page live inside the payload and have no foreign key.
-This trades enforced integrity for a cheap insert. The declared design also
-meant partitions that an operator can drop as a whole, but production has
-none to drop.
+to the Lesson and the page live inside the payload and have no foreign key,
+which trades enforced integrity for a cheap insert.
 
 A daily roll-up table and a retention script exist in the code. No scheduler
 runs the script: it is neither a job of the worker nor a service of the
@@ -141,9 +135,7 @@ fill before it deletes anything, and the script works by dropping old partitions
 production table does not have. \emph{Retention has never run}, so we cannot claim that the system
 deletes old events.
 
-Events carry the real user id without a pseudonym. An unused helper
-from an early plan for pseudonyms, \code{pseudonymize.ts}, is still in the
-frontend code. The protection that exists limits who may read the log and
+Events carry the real user id without a pseudonym. The protection that exists limits who may read the log and
 what leaves the aggregation (\cref{sec:c5-privacy}).
 
 A member can insert events for themselves directly, through the database
@@ -153,8 +145,7 @@ type constraint but not the Pydantic models, so its payload may hold fields
 that the backend would refuse. Guards keep one member from distorting what the owner sees: a trigger rejects a client timestamp that is more than
 300~seconds away from the server's clock, the engine reads at most 5{,}000
 events per member, and it reads only the payload keys it needs (PRs~\#142
-and \#175). The event log is one of 78 tables, and \cref{sec:data-model} describes the
-schema around it and where production differs from the repository.
+and \#175). \Cref{sec:data-model} describes the schema around the log.
 
 \section{Aggregation}
 \label{sec:c5-aggregation}
@@ -292,7 +283,7 @@ used (\code{themes.py:89--144}).
 \section{What the Owner Sees}
 \label{sec:c5-door}
 
-The owner reaches the view from the Space's page, through one link that only the owner sees. The route has a guard in the browser and one on the server. The browser sends anyone who is not the owner back to the Space. On the server,
+Only the owner reaches the view. On the server,
 \code{assert\_space\_owner} answers a member with 403 and anyone else with 404
 (\code{domain/authorization.py:47--62}).
 
@@ -317,10 +308,6 @@ Below the floor the screen shows the assistant's one sentence and the closing
 line, and no number and no map. The sentence says whether anyone has read
 yet, not how many.
 
-The older professor dashboard still exists beside this view. Since PR~\#175
-it applies the same floor of five and returns no rows per student, and since
-PR~\#176 its routes require the professor role.
-
 \section{Privacy by Design}
 \label{sec:c5-privacy}
 
@@ -340,8 +327,7 @@ it limits what leaves them.
     that one setting turns on is one mistake away from showing individuals.
   \item[A minimum count per page.] The view says something about a page only
     if at least five members have read it, and uses a share only once five of
-    those readers contributed to it. Below that the value is \code{null}, and
-    a word replaces the size of the group. The rule borrows the minimum group
+    those readers contributed to it (\cref{sec:c5-aggregation}). The rule borrows the minimum group
     size of $k$-anonymity~\cite{sweeney2002kanonymity}, but it is a threshold
     on released statistics, not a property of released records, and only the
     engine's code enforces it. \Cref{sec:c5-findings} shows where it is
@@ -351,8 +337,7 @@ it limits what leaves them.
   \item[Names among members are opt-in.] Whether other members of a Space see
     a member's name is a profile setting that is off by default (PR~\#146).
   \item[Export and erasure.] A user can download their data and delete their
-    account; deletion is an ordered job that survives a crash and takes the
-    events with the account (PR~\#90).
+    account, and deletion takes the events with the account.
 \end{description}
 
 The sentence that a member sees when joining a Space and the privacy page

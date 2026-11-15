@@ -19,42 +19,36 @@ This chapter collects the answers to the research questions, discusses what the 
 \label{sec:summary}
 
 \paragraph{RQ1: from PDF to readable pages.}
-We design the transformation for reliability with a first pass that uses no model. One rule, measured on the
-page without its footer, sends 87 of the 1{,}593 pages of the corpus to a
-vision model. In the blind benchmark, under a protocol
-fixed before the first vote and extended to the vision models after the
-first comparison, the author rated transcription by a vision model highest (1452 and 1376 points) and pymupdf4llm third (1263).
-Nine of the ten alternatives score above the production extraction on points,
-five at the corrected lower bound, and four when we resample pages rather than votes.
-The limits are one judge without a second rater, born-digital pages from one
-university, later comparisons that were less blind, and a preference between
-rendered outputs that we did not test on the models that consume the text. We measured neither end-to-end reliability nor the grounding of the page text.
+A first pass without a model sends 87 of the 1{,}593 pages of the corpus to
+a vision model. In the pre-registered blind benchmark the author rated
+transcription by a vision model highest and the production extraction below
+five of the ten alternatives at the corrected lower bound, four when pages
+are resampled (\cref{sec:c4-answer}). The limits are one judge without a
+second rater, whose later comparisons were less blind, born-digital pages
+from one university, and a preference between rendered outputs that we did
+not test on the models that consume the text. We measured neither end-to-end
+reliability nor the grounding of the page text.
 
 \paragraph{RQ2: from learner events back to the owner.}
-We model interaction as one governed log of 17~event types, which the
-Space engine turns into findings per page, of which nine kinds can reach
-the owner. The owner's view
-names no one and says nothing about a page that fewer than five people have
-read. In the study with scripted readers, the view reported every planted
-behaviour at each of 100 seeds and said nothing about a Space of four. Its
-count of met expectations, 18 of 23 in the published run and a median of 17
-over the seeds, says little, because an engine that reports nothing meets 16.
-The hotspot of arm~B, three confused readers among thirteen at every seed,
-shows that the rules do not keep the promise made to members
-(\cref{sec:c5-evaluation}). It shows no individual
-learner. Against the stricter standard of \cref{sec:analytics-privacy}, that
+One governed log of 17~event types feeds an engine that turns events into
+findings about pages, and an owner's view that names no one and says nothing
+about a page that fewer than five people have read. With scripted readers the
+view reported every planted behaviour at each of 100 seeds and said nothing
+about a Space of four (\cref{sec:c5-answer}). Against the stricter standard of \cref{sec:analytics-privacy}, that
 no statement is about fewer than five people, it falls short: a hotspot can
 rest on one confused rater among five, the floor counts accounts that an owner can add, and a policy of the older dashboard still lets an
 owner with the professor role read event rows with user ids
 (\cref{sec:c5-privacy}).
 
 \paragraph{RQ3: checking generated content.}
-The system verifies generated content by computation where it can compute an answer, by the answer check for the quiz questions that a model writes during parsing, and by structure elsewhere. On 16~fixed pairs the answer check gave no wrong
-verdict among the calls that returned one, and one call did not. We measured it in-sample, without an acceptance criterion fixed in advance, and with distractors that are off the subject of the page. The
-lexical score would have dropped 14 of the 16 correct keys, and the
-similarity score failed its pre-registered test with 8 of 16 wrong keys kept, and we did not adopt it. When the check is unavailable, the system keeps the question. Nothing verifies the prose of explanations and answers: the ask bar relies on retrieval
-and on citations it does not require, and Explain, Ask, and Luna on rules in
-the prompt and on the original page next to the text.
+The system checks generated content by computation where it can compute an
+answer, by a second model for the quiz questions of the parse, and by
+structure elsewhere (\cref{sec:c6-answer}). On 16~fixed pairs the second
+model gave no wrong verdict in the calls that returned one, measured
+in-sample, without a criterion fixed in advance, and with distractors off the
+subject of the page; the similarity score failed its pre-registered test, and
+we did not adopt it. When the check is unavailable, the system keeps the
+question, and nothing verifies the prose of explanations and answers.
 
 \paragraph{The three aims.}
 Of the aims in \cref{sec:aims}, the system meets the first two within the limits of RQ1 and RQ2, and the third for the learners of a Space, who share its owner's
@@ -76,52 +70,34 @@ self-preference advises~\cite{panickssery2024selfpreference}, although the
 reason the project recorded was its own measurement
 (\cref{sec:c6-lifecycle}). The probe compares verifiers and does not test that bias itself.
 
-\paragraph{One live path.}
-By the end of May 2026 the upload route switched between four parser paths,
-each of which a developer started to fix the previous one, and none of which anyone removed. Two of the three
-tables that no live code writes (\cref{sec:schema-notes}) and several faults
-in \cref{ch:content} trace back to that state. In our experience the pipeline
-became dependable only when one path remained, which we did not measure.
-
 \paragraph{Nobody chose the simple method.}
-The text extractor in production is what remained when we removed other tools for memory, cost, or complexity. The benchmark of \cref{ch:content}
-was the first comparison it faced, and the author rated nine of the ten alternatives above it on points, five of them also at the corrected lower bound and four when pages are resampled. Measuring a method before
+The text extractor in production is what remained when we removed other
+tools for memory, cost, or complexity, and the benchmark of \cref{ch:content}
+was the first comparison it faced. Measuring a method before
 relying on it applies to the verifiers as well: the similarity score of
 \cref{ch:trust} looked right and failed.
 
 \paragraph{Cost shaped the architecture.}
 Free and low-cost quotas explain the ordered provider chains, the spending
-caps, parsing once, and the deterministic first pass. Two faults found while
-planning the provider chaos tests were faults of cost, which five invariants now guard in 11~property tests. For a system that a
-student can afford to run, cost is a design requirement from the start.
+caps, parsing once, and the deterministic first pass
+(\cref{sec:constraints}). For a system that a student can afford to run, cost
+is a design requirement from the start.
 
 \paragraph{Agent-written code needs written-down expectations.}
-With about 77\,\% of the commits written by coding agents, the practices that kept the code
+With most commits written by coding agents (\cref{sec:method-note}), the practices that kept the code
 in line with the intention fixed an expectation before the work: a
 failing test first, a threshold registered before a run, documented claims
 checked against the code, and a pinned revision. We found several of the faults reported here later, where we had skipped these practices.
-
-\paragraph{The system ran ahead of its users.}
-We built review, exams, badges, and analytics for learners who had not arrived: production switches on four of twelve flags (\cref{sec:built-vs-deployed}). Feature toggles accumulate as debt~\cite{rahman2016toggles,hodgson2017toggles}, and here the debt showed as
-menu entries that led to routes answering ``not found'' until, in October,
-the build derived each interface flag from its backend flag. The move to a
-reading-first interface in October was a late correction of the same habit.
 
 \paragraph{Documentation and reality.}
 \label{sec:reality-vs-documented}
 
 The documents of the project and the running system drifted apart, and we
-found the drift only by reading code and probing production. This matters
-because the three answers rest on statements about the system. The verified
-cases include a description of a gateway that we had removed
-(\cref{sec:architecture}), a comment saying that the proxy strips a path
-prefix it keeps (\code{nginx.conf:24}), and configuration that named a server
-the system did not run on (\cref{sec:deployment}). The production
-database also differs from the repository: it has a column that no migration
-defines, a migration history of only two entries, and an event table without
-the declared partitions. Until October it also had a storage bucket from which
-anyone could download every lecture PDF
-(\cref{sec:data-model,sec:hardening}). The literature documents such drift for larger teams~\cite{lethbridge2003documentation,aghajani2019docissues,desilva2012erosion}.
+found the drift only by reading code and probing production, for example a
+description of a gateway that we had removed (\cref{sec:architecture}) and a
+production database that differs from its migrations
+(\cref{sec:data-model,sec:hardening}). This matters because the three answers
+rest on statements about the system. The literature documents such drift for larger teams~\cite{lethbridge2003documentation,aghajani2019docissues,desilva2012erosion}.
 In a project of one or two people, no second reader compares code, comment,
 and document. What helped was to treat the running system as the source of truth and to
 delete instead of archive.
@@ -167,14 +143,11 @@ practice questions, so that the trial isolates the reading surface, and a
 usability questionnaire~\cite{brooke1996sus,laugwitz2008ueq}, and the
 event log of \cref{ch:loop} would supply time on page and revisits.
 
-The findings suggest engineering steps. First, a new comparison should judge pymu\-pdf4llm against the current extraction with its OCR pass off. If pymupdf4llm still leads, it should replace the current call, and the parser should strip the running footer from the stored text. Second, the floor of five should
-apply to the people a finding is about, the prepared fixes for the two paths around the owner's view should be applied (\cref{sec:c5-privacy}), the project should close the database paths that \cref{tab:deployed} lists, and switch on the retention job, which first needs the partitions that production lacks. Third, uploaders of the same file should share its parse, which the content hash already permits and the
+The findings suggest engineering steps. First, a new comparison should judge pymu\-pdf4llm against the current extraction with its OCR pass off. If pymupdf4llm still leads, it should replace the current call, and the parser should strip the running footer from the stored text. Second, the privacy changes that
+\cref{sec:c5-findings,sec:c5-privacy} name should be made. Third, uploaders of the same file should share its parse, which the content hash already permits and the
 ownership model does not yet. Fourth, the loop needs its return channel: a
 member's question that reaches the owner, and an owner's answer that reaches
 every reader of the page.
-
-The nearest step is a fourth view of a page that rebuilds its layout as text. Its backend (PR~\#182) is on the main branch and off, and its part in the
-reading view (PR~\#183) is not.
 
 Three wider directions are our ideas, not results. The first would close the
 loop of \cref{ch:loop} inside the software. An assistant, the platform's own
@@ -200,8 +173,6 @@ loop. We have not built or tested it.
 \section{Closing}
 \label{sec:reflection}
 
-The thesis set out to let a lecture PDF answer questions and report how people read it. In the system as merged, a learner can open a page at once, have it explained, ask about it, and practise it, and its owner sees where readers struggle without the view naming them. The measurements say that the text under these features
-should come from a better extractor, that the loop separates scripted
-behaviours, and that one of three verifiers failed its test. The habit the
+The thesis set out to let a lecture PDF answer questions and report how people read it. In the system as merged, a learner can open a page at once, have it explained, ask about it, and practise it, and its owner sees where readers struggle without the view naming them. The habit the
 project produced is to write down the expectation, to measure, and to report
 the result when it disappoints.
