@@ -1,6 +1,8 @@
 # Persona study: what the run of 2026-11-09 shows
 
-*Companion to `RESULTS.md` (machine-written by `backend/eval/persona_study.py`). The script, its personas, arms and pre-registered expectations are in that file; this note is the reading. Re-run: `.venv/bin/python -m backend.eval.persona_study` from the repository root, no database, no model call, a few seconds.*
+*Companion to `RESULTS.md` (machine-written by `backend/eval/persona_study.py`). The script, its personas, arms and pre-registered expectations are in that file; this note is the reading. The script ran at `a342dea9`, which this branch never contained; it is archived here as `persona_study.py`, byte-identical. `seed-sweep/PROTOCOL.md` gives a way to run it in isolation, with no `.env`, no database, and no network, in a few seconds. Its docstring says the personas write eight event types; they write five (`slide_view`, `confidence_rating`, `ai_tutor_query`, `slide_back_navigation`, `checkpoint_attempt`).*
+
+*Corrected 15 November 2026: three statements below were wrong and are marked.*
 
 ## What it is, and is not
 
@@ -15,12 +17,12 @@ Five scripted personas (steady, struggling, frequent asker, skimmer, overconfide
 | B: a finding named pages 8–12 | same hotspot | same | same |
 | C: five askers, no themes | no `confusion_hotspot`, so no themes | Themes are made only for hotspot pages (`v4_landing_service._themes` walks the ranked hotspots), and the askers said "unsure", which is not "confused" for the hotspot rule. Arm J (askers who are also confused on page 10) got themes with five askers. | Themes are a hotspot's explanation, not a free-standing channel. Five people asking about a page that is not a hotspot are heard by no one. Say so in the outlook (Plan 4, questions). |
 
-Everything else behaved as written: the control arm of four members showed reach `few`, no findings, no themes, null figures; three strugglers among thirteen did not light the Lesson; four askers got no themes; the skimmers produced a leak after page 10 and ten skipped pages; six overconfident readers produced a calibration gap on page 10 and nothing else; the strugglers produced a hotspot on page 10 and a speed bump on page 12 (two turn-backs each from page 13); the realistic mix surfaced the hotspot and the calibration gap and nothing noisy.
+Everything else behaved as written: the control arm of four members showed reach `few`, no findings, no themes, null figures; four askers got no themes (*corrected: an earlier version said here that three strugglers among thirteen did not light the Lesson; they did, through the hotspot of arm B*); the skimmers produced a leak after page 10 and ten skipped pages; six overconfident readers produced a calibration gap on page 10 and nothing else; the strugglers produced a hotspot on page 10 and a speed bump on page 12 (two turn-backs each from page 13); the realistic mix surfaced the hotspot and the calibration gap and nothing noisy.
 
 ## Limits of the study
 
-- Personas are clean; the engine's thresholds were tuned for real ratios, so the arms separate more sharply than real readers would. Noise was added to dwell and to correctness, not to behaviour.
-- One Lesson, one Space, one seed per arm (20261109 + arm index). A different seed moves which pages are skipped, not which kinds fire.
+- Personas are clean, so the arms separate more sharply than real readers would. (*Corrected: an earlier version said the thresholds were tuned for real ratios; they have no recorded source, as chapter 5 says.*) Noise was added to dwell and to correctness, not to behaviour.
+- One Lesson, one Space, one seed per arm (20261109 + arm index). (*Corrected: an earlier version said a different seed moves which pages are skipped, not which kinds fire. The seed sweep of 15 November, `seed-sweep/`, shows otherwise for arm A: over 100 seeds page 10 carried the hotspot in 19 and the more specific overpacked finding in 81.*)
 - Themes are canned strings; a real model call would cost a few cents and is not needed for the machinery question.
 - Nothing was inserted into a database; the SQL read path (`load_space_data`) is covered by `backend/tests/db/test_landing_space_source.py`, not by this run.
 
