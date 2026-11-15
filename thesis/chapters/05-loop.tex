@@ -175,10 +175,10 @@ by a missed checkpoint, are the ones that no single signal could give.
 
 \subsection{The Floor}
 
-One constant governs what the view may say: the floor of five
-(\code{insights/\allowbreak space\_engine.py:25}). A page that fewer than five
-members other than the owner have viewed says nothing; the members who viewed
-it are the page's \emph{readers}. \enquote{Nothing} is not zero. The share of
+One constant, the floor of five, governs what the view may say. A page that
+fewer than five members other than the owner have viewed says nothing
+(\code{insights/\allowbreak space\_engine.py:25}); the members who viewed it
+are the page's \emph{readers}. \enquote{Nothing} is not zero. The share of
 readers who reached for help on such a page is \code{null}, and the screen
 draws a faint outline instead of a dim cell, which would read as \enquote{few
 reached for help}. This distinction entered after the pin; at the pin such a
