@@ -1,14 +1,14 @@
 /**
- * Static meeting schedules for courses, keyed by their canonical (German)
- * course title — the same key used by `common:curriculum` for translation.
+ * Meeting schedules for courses, keyed by their canonical (German) course
+ * title — the same key used by `common:curriculum` for translation.
  *
- * Only the proper nouns (rooms, addresses, dates) live here as literals; every
- * label that has a German/English form (event type, weekday, rhythm) is stored
- * as an i18n key and resolved in the UI via `common:courseSchedule.*`, so a
- * single dataset renders in the active locale.
+ * Every label that has a German/English form (event type, weekday, rhythm) is
+ * an i18n key resolved in the UI via `common:courseSchedule.*`; only rooms,
+ * addresses, dates and times would be literals.
  *
- * No people. Lecturer and tutor names never go in the repo or the bundle, so
- * an entry has no field for them.
+ * Empty on purpose. A real university's timetable and the people who teach it
+ * never go in the repo or the bundle, so no course has a schedule and the
+ * details sheet leaves the section out. An entry has no field for a person.
  */
 
 export type ScheduleEventType = 'lecture' | 'exercise' | 'sqlWorkshop' | 'exam';
@@ -42,94 +42,7 @@ export interface ScheduleEntry {
 }
 
 /** Map of canonical German course title → its scheduled events. */
-export const COURSE_SCHEDULES: Record<string, ScheduleEntry[]> = {
-  Datenbanksysteme: [
-    {
-      type: 'lecture',
-      location:
-        'Vortragsraum B008 (00/2080), Deutschhausstraße 9, Universitätsbibliothek (F | 01)',
-      start: '17.04.2026',
-      end: '10.07.2026',
-      day: 'friday',
-      rhythm: 'weekly',
-      time: '09:00 - 12:00',
-    },
-    {
-      type: 'exercise',
-      seq: 1,
-      location:
-        '03C45 (SR XIII C3), Hans-Meerwein-Straße 6, Institutsgebäude (H | 04)',
-      start: '12.05.2026',
-      end: '14.07.2026',
-      day: 'tuesday',
-      rhythm: 'biweekly',
-      time: '14:00 - 16:00',
-    },
-    {
-      type: 'exercise',
-      seq: 2,
-      location:
-        '03A16 (HS II A3), Hans-Meerwein-Straße 6, Institutsgebäude (H | 04)',
-      start: '12.05.2026',
-      end: '14.07.2026',
-      day: 'tuesday',
-      rhythm: 'biweekly',
-      time: '16:00 - 18:00',
-    },
-    {
-      type: 'exercise',
-      seq: 3,
-      location:
-        '03A20 (HS I A3), Hans-Meerwein-Straße 6, Institutsgebäude (H | 04)',
-      start: '13.05.2026',
-      end: '15.07.2026',
-      day: 'wednesday',
-      rhythm: 'biweekly',
-      time: '10:00 - 12:00',
-    },
-    {
-      type: 'exercise',
-      seq: 4,
-      location:
-        '03C52 (SR XII C3), Hans-Meerwein-Straße 6, Institutsgebäude (H | 04)',
-      start: '13.05.2026',
-      end: '15.07.2026',
-      day: 'wednesday',
-      rhythm: 'biweekly',
-      time: '14:00 - 16:00',
-    },
-    {
-      type: 'sqlWorkshop',
-      location:
-        '03D25 (03D25 E-Klausuren), Hans-Meerwein-Straße 6, Institutsgebäude (H | 04)',
-      start: '26.06.2026',
-      end: '26.06.2026',
-      day: 'friday',
-      rhythm: 'once',
-      time: '09:00 - 14:00',
-    },
-    {
-      type: 'exam',
-      seq: 1,
-      location: '+5/0030 (HS A), Hans-Meerwein-Straße 8, Hörsaalgebäude (H | 05)',
-      start: '17.07.2026',
-      end: '17.07.2026',
-      day: 'friday',
-      rhythm: 'once',
-      time: '13:00 - 16:00',
-    },
-    {
-      type: 'exam',
-      seq: 2,
-      location: '+5/0030 (HS A), Hans-Meerwein-Straße 8, Hörsaalgebäude (H | 05)',
-      start: '16.09.2026',
-      end: '16.09.2026',
-      day: 'wednesday',
-      rhythm: 'once',
-      time: '09:00 - 12:00',
-    },
-  ],
-};
+export const COURSE_SCHEDULES: Record<string, ScheduleEntry[]> = {};
 
 /** Look up a course's schedule by its canonical German title. */
 export function getCourseSchedule(title?: string | null): ScheduleEntry[] {
