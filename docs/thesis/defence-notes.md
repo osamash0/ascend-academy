@@ -726,3 +726,77 @@ Chapter 2:
   (Wozniak 1990) is now cited in chapter 3.
 - HNSW (Malkov and Yashunin) is now cited in Appendix C, where the index is
   described.
+
+### Details cut from chapter 4 in the third round (15 November)
+
+Deleted from the thesis, not moved; Appendix C already holds the items marked
+so.
+
+- **Admission control (the whole subsection).** The API checks
+  authentication, a rate limit of five uploads per minute (ten on the route of
+  the current interface), and that the uploader owns the target Space; it reads
+  at most 50 MB and validates type, signature, and page count (at most 300).
+  For students it claims a monthly quota atomically (five by default, thirty in
+  production). Queue backpressure answers 429 once 50 jobs wait; one worker
+  runs at most four jobs. These limits are settings, chosen and not measured.
+  Outside development the API never parses inside the request. Two
+  qualifications: the backpressure check fails open when it cannot read the
+  queue depth, and the route of the current interface applies the quota but no
+  queue ceiling, so admission control belongs to each route, not to the
+  pipeline. The text keeps one sentence and points to Appendix A for the
+  limits.
+- **Providers (paragraph).** Bulk and quality chains; a spending cap per user
+  and day; the privacy policy names OpenAI, Groq, Google and OpenRouter, while
+  the default chains also call Cloudflare and Mistral (Appendix C keeps this);
+  the OpenAI-only mode was off at the pin.
+- **Chapter opening.** The "found, then fixed" convention and the pointer to
+  the deployed state. Appendix C now gives the months of the two older
+  revisions itself.
+- **Third demand.** The first AI features ran on a local model, replaced after
+  a few weeks by the free tiers of hosted models.
+- **Pipeline.** The code calls v5 "unified"; Docling is no longer installed.
+  Tests named before: `test_parse_runs_stalled_sweep.py` (the stuck-run sweep)
+  and `test_job_locks.py` (the lock against parsing one file twice at once);
+  `test_unified_pipeline_e2e.py` stays in the text.
+- **Asynchronous processing.** Redis keeps jobs across restarts; the interface
+  polls the run every three seconds (`useRunReading.ts`); for later visits and
+  other devices the worker stores a copy rewritten so that its first page
+  arrives sooner, which the browser fetches in 16 kB ranges.
+- **Deck plan.** The role rules in full: the first page is the title, a page
+  with almost no text is empty, a short numbered page such as "3. Scheduling"
+  starts a section, a first line "Inhalt", "Übung", "Summary" or "Literatur"
+  makes an agenda, exercise, summary or references page, and every other page
+  is content. The step entered in October 2026 (PR #84); the old filter
+  numbered the pages it kept 1 to 10.
+- **Routing.** Text pages are synthesised eight per model call; the parse
+  receipt stores the reason for each page's route; before November four places
+  in the code decided with three measures; `backend/eval/routing_check.py`
+  fails if the image pages sent to vision leave 75 to 100.
+- **Idempotency and failures.** The lock is best-effort by decision; the
+  worker never retries automatically although one setting reads as if it did
+  (Appendix C keeps both).
+- **Routing study.** File names `routing-labels-2026-11-05.csv` and
+  `routing-signals-2026-11-05.json`; footer-free characters are counted as
+  PyMuPDF's block-level extraction counts them.
+- **Benchmark design.** One deck per course plus two exercise sheets of the
+  software-engineering course, treated as a fourth source; seeds 20261030
+  (page draw) and 20261103 (bootstrap); a prior of one virtual drawn game per
+  method (protocol, section 7); page types lists 8, diagram 5, dense text 5,
+  layout 3, table or formula 3; deviation 2 chose `gpt-6.1-sol`.
+- **Benchmark numbers that Figure 4.3 shows.** Marker 1141, Docling 1128,
+  OpenDataLoader 1112, PaddleOCR 1037, pdf.js 1007, MarkItDown 952. Corrected
+  lower bounds: 1331 and 1251 (vision), 1164 (pymupdf4llm), 1068 (MinerU), 1030
+  (OpenDataLoader); Marker 958, Docling 983. First round alone: 1321, 1311,
+  1063, 1055, OpenDataLoader 916. Page bootstrap: 1325, 1243, 1150, 1078,
+  OpenDataLoader 987. The quick "both unusable" verdicts had a median of 3.2 s.
+- **Where the methods differ.** MinerU breaks lines as often as the text layer
+  (21 % of line pairs) and 18 % of its words are not in PyMuPDF's text layer;
+  Docling 7 %, Marker 8 %. Footer counts: OpenDataLoader 4, Marker 1, MinerU 0.
+- **Cost.** Current 0.004 to 0.058 s per page; pymupdf4llm 0.56 to 0.93 s;
+  vision $0.04 (`gpt-4.1-mini`) and $0.17 (`gpt-6.1-sol`) for the 24 pages.
+- **What follows (paragraph).** pymupdf4llm stands 263 points above current,
+  about 4.5:1, without a fee, under a second more per page and about 330 MB
+  more memory; the two met directly in three duels (two wins, one "both
+  unusable"). The deck plan removes the footer from the model's input but not
+  from the stored text. The text keeps "we did not change the production
+  parser at the pin" in the answer.

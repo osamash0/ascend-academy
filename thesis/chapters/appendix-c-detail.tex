@@ -352,11 +352,11 @@ The chain looks deeper than it is. The eight entries use six credentials
 (two Groq models share one key, two Google models another), so one revoked
 key takes out two entries. The call wrapper's eight rate-limit attempts run
 under a 25-second timeout (the code default) that fits at most four. Two failure classes are
-found-then-fixed cases: at \code{\thesisEarlierCommit} a provider whose
+found-then-fixed cases: at \code{\thesisEarlierCommit} (August 2026) a provider whose
 credit had run out was retried on every call (Cerebras, then at the head of
 both chains, later failed exactly so. Payment errors became permanent in
 September and Cerebras left the chains in October), and at
-\code{\thesisPreviousCommit} a rejected key was still retried on every call,
+\code{\thesisPreviousCommit} (November 2026) a rejected key was still retried on every call,
 until 401 joined the permanent classes in November.
 The registry also treats its own numbers as perishable: a test fails when a
 reachable provider's limits were last verified more than 45 days ago, because
@@ -546,7 +546,7 @@ API route. The ownership checks in code and the database policies are each teste
 place where they meet is not.
 
 \paragraph{A fault at that meeting point.}
-At \code{\thesisPreviousCommit} the rule ``ownership, not role'' had a
+At \code{\thesisPreviousCommit} (November 2026) the rule ``ownership, not role'' had a
 consequence that nobody intended. A student who owned a Space could call
 the analytics routes of the older interface for the Lessons in it. Those
 routes checked ownership and not the account type, and one of them returned

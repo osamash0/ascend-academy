@@ -17,13 +17,10 @@
 \chapter{Turning a PDF into Pages}
 \label{ch:content}
 
-This chapter answers RQ1. It describes the pipeline at revision
-\code{\thesisCommit} (November 2026), the ten months of pipelines that led to
-it, the provider layer underneath, and two pieces of evidence: a routing study
-on 1{,}593 pages and a pre-registered blind benchmark of eleven extraction
-methods. A scorecard of the deck plan is in \cref{sec:c4-deck-lab}. Where we have fixed a finding from an earlier state of the code, we report it as \emph{found, then fixed} and name the earlier state as
-\code{\thesisEarlierCommit} (August 2026) or \code{\thesisPreviousCommit}
-(November 2026). \Cref{sec:built-vs-deployed} states once what the deployed server runs.
+This chapter answers RQ1. It describes the pipeline at the pin and two pieces
+of evidence: a routing study on 1{,}593 pages and a pre-registered blind
+benchmark of eleven extraction methods. A scorecard of the deck plan is in
+\cref{sec:c4-deck-lab}.
 
 \section{The Input and What It Demands}
 \label{sec:c4-requirements}
@@ -63,19 +60,15 @@ The input makes three demands on the design.
     complete reading view
     (\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak reader-timing.md}).
     The pipeline therefore runs behind the learner's reading, not in front of it.
-  \item[Model calls cost money and fail.] The first AI features ran on a
-    local model, which the project replaced after a few weeks with the free
-    tiers of hosted models. Their rate limits stopped bulk parsing within
-    minutes, so we could not test the parser at our own pace
+  \item[Model calls cost money and fail.] The free tiers of hosted models
+    stopped bulk parsing within minutes through their rate limits
     (\cref{sec:provider-history}). A self-hosted model on a university GPU
-    server was planned but not set up. Setting it up and operating it would
-    have cost time and required experience we did not have, and we did not
-    expect it to make the work easier. Its cost would also have been harder
-    to compare, so we chose a paid API instead. On
-    a small budget with a provider that charges per token, every call has a
-    price. That makes the number of model calls per deck a design variable.
-    It also makes the central comparison of this chapter possible: whether a
-    page is best read by a text extractor, by a vision model, or by both.
+    server would have needed time and experience that we did not have, and
+    its cost would have been harder to compare, so we chose a paid API. With
+    a provider that charges per token, every call has a price, which makes
+    the number of model calls per deck a design variable. It also frames the
+    central comparison of this chapter: whether a page is best read by a text
+    extractor, by a vision model, or by both.
 \end{description}
 
 \begin{figure}[htbp]
@@ -105,143 +98,111 @@ The input makes three demands on the design.
 
 These three demands are the yardstick for the rest of the chapter: how the
 pipeline handles a page whose meaning lies in a figure, how soon a learner can
-read, and what a deck costs. \Cref{sec:c4-evaluation} measures the first and
-prices the vision transcription per page. \Cref{sec:c4-answer} states what
-remains unmeasured.
+read, and what a deck costs.
 
 \section{The Pipeline as Built}
 \label{sec:pipeline}
 \label{sec:c4-lineage}
 
 One pipeline is in use: pipeline v5, the last of nine generations
-(\cref{tab:lineage} in \cref{app:detail}), which the code calls ``unified'' and keeps in
-\code{backend/\allowbreak services/\allowbreak parser/\allowbreak unified\_orchestrator.py}. PyMuPDF~\cite{pymupdf} extracts the text. Docling, the heavier layout-analysis library of an earlier generation, is no longer installed. In this chapter
-\emph{lecture} and \emph{slide} name the database rows that hold a Lesson
-and its pages.
-\Cref{fig:pipeline} in \cref{app:figures} shows the path from an upload to a
+(\cref{tab:lineage} in \cref{app:detail}), kept in
+\code{backend/\allowbreak services/\allowbreak parser/\allowbreak unified\_orchestrator.py}.
+PyMuPDF~\cite{pymupdf} extracts the text. In this chapter \emph{lecture} and
+\emph{slide} name the database rows that hold a Lesson and its pages, and
+\cref{fig:pipeline} in \cref{app:figures} shows the path from an upload to a
 readable page.
 
-\paragraph{What reliable means here.} A transformation that learners
-depend on must also be reliable. We mean three properties of the design: every accepted upload
-ends either as a readable Lesson or as a visible failure, the same work is
-not done twice for one uploader, and an upload the system would reject is
-refused before it costs anything. The subsections below describe the
-mechanisms behind each property. Tests at the pin check them one by one, for
-example the stuck-run sweep (\code{test\_parse\_runs\_stalled\_sweep.py}),
-the lock against parsing the same file twice at once
-(\code{test\_job\_locks.py}), and a full run against a real database that
-replays a second run without a second lecture
-(\code{test\_unified\_pipeline\_e2e.py}). In production, 115 parses ran on
-pipeline v5 between June and November 2026, our own uploads
-included: 99 completed, 16 failed, and none was left unfinished. Of the 23 parses since September,
-21 completed and two exceeded the job timeout (\cref{sec:async};
-\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak parse-runs.md}).
-These counts show that failures surfaced as failures. They are too few, and
-the load too light, to measure reliability under real use.
-
-\subsection{Synchronous Admission Control}
-\label{sec:admission}
-
-Everything that can reject an upload cheaply happens in the API, before it
-queues a job. The API checks authentication, a rate limit of five uploads per
-minute (ten on the route of the current interface), and that the uploader
-owns the target Space; it reads at most 50\,MB and validates type, signature,
-and page count (at most 300). For students it makes an atomic claim on a
-monthly quota, five uploads by default and thirty in production, which caps
-what one student's uploads can cost. Queue backpressure refuses with 429 once
-50 jobs wait, so that a burst of uploads meets an honest refusal instead of an
-open-ended wait for the one worker, which runs at most four jobs at a time.
-These limits are settings, chosen and not measured. Only then does the API
-store the file and enqueue the job, and outside development it never parses
-inside the request. Two qualifications apply: the backpressure check fails open when it cannot read the queue depth, and the route that the current interface uses applies the quota but no queue ceiling, so admission control is a property of each route
-and not of the pipeline.
+\paragraph{What reliable means here.} A transformation that learners depend on
+must also be reliable. We mean two properties of the design: every accepted
+upload ends either as a readable Lesson or as a visible failure, and the same
+work is not done twice for one uploader. The subsections below describe the
+mechanisms. Tests at the pin check each one, for example with a full run
+against a real database (\code{test\_unified\_pipeline\_e2e.py}). The API
+refuses an upload that breaks a limit, for example one that is too large or
+over a student's monthly quota, before it queues a job, and
+\cref{app:constants} lists the limits. In production, 115 parses ran on
+pipeline v5 between June and November 2026, our own uploads included: 99
+completed, 16 failed, and none was left unfinished
+(\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak parse-runs.md}).
+Of the 23 parses since September, 21 completed and two exceeded the job
+timeout (\cref{sec:async}). These counts show that failures surfaced as
+failures. They are too few, and the load too light, to measure reliability
+under real use.
 
 \subsection{Asynchronous Processing, Page by Page}
 \label{sec:async}
 
-Parsing a deck takes minutes (\cref{sec:c4-requirements}), longer than an
-HTTP request should live, so the API hands the work to a durable queue and
-returns. The Redis instance that holds the queue keeps jobs across restarts,
-and the worker takes them, with a job timeout of 900~seconds. A job that runs
-longer is cancelled, and its run ends as failed with a message to the user
-(\code{arq\_worker.py:51--56,362}). In November 2026 this happened to two
-decks of 78 and 104 pages, while decks of 82 to 136 pages had finished in
-October, so the page count alone does not predict it. Where the limit lies we
-did not measure.
+Parsing a deck takes minutes, longer than an HTTP request should live, so the
+API hands the work to a durable queue and returns, and a worker takes the job.
+A job that runs longer than 900~seconds is cancelled, and its run ends as
+failed with a message to the user (\code{arq\_worker.py:51--56,362}). In
+November 2026 this happened to two decks of 78 and 104 pages, although decks
+of 82 to 136 pages had finished in October, so the page count alone does not
+predict it. We did not measure where the limit lies.
 
-Inside one job, the pipeline runs a fixed sequence. It extracts the text of
-every page, builds a deterministic plan of the deck (\cref{sec:c4-deck-plan}),
-generates lecture-level metadata, and creates the lecture row. It then
-synthesises the slides in chunks, writes optional page summaries, generates
-the deck quiz, finalises and writes a parse receipt, localises, and waits for
-the embeddings. The pipeline creates the lecture row \emph{before} slide synthesis and inserts every slide as soon as it is ready. This is what makes early reading possible. On the uploader's device the
-reading view opens the file itself at once, without the network, so a learner reads
-the lecturer's own pages while the generated ones arrive. The current
-interface polls the run every three seconds and opens the full reading view as soon
-as the first pages exist, long before the parse ends
-(\code{useEarlyReading.ts}, \code{useRunReading.ts}). For later visits and
-other devices the worker stores a copy of the file rewritten so that its first
-page arrives sooner, and the browser fetches it in 16\,kB ranges. The worker
-writes all content, and the browser never writes parse output.
+Inside one job the pipeline runs a fixed sequence: it extracts the text of
+every page, plans the deck (\cref{sec:c4-deck-plan}), generates the Lesson's
+metadata, synthesises the pages, writes optional page summaries, generates the
+deck quiz, writes a parse receipt, translates, and waits for the embeddings.
+It creates the lecture row before it synthesises any page and inserts every
+slide as soon as it is ready, which makes early reading possible. On the
+uploader's device the reading view opens the file itself at once, so a learner
+reads the lecturer's own pages while the generated ones arrive, and it shows
+the generated pages as soon as the first exist, long before the parse ends
+(\code{useEarlyReading.ts}). The worker writes all content, and the browser
+never writes parse output.
 
 \subsection{Planning the Deck Without a Model}
 \label{sec:c4-deck-plan}
 
 Before any model call, a deterministic step plans the deck
-(\code{deck\_plan.py}). It finds boilerplate: lines that recur on at least
-60\,\% of pages wherever they sit, such as a course name in the header or a
-slide number at the foot. The threshold was chosen, not derived. The step
-assigns each page one of eight roles: the first page is the title, a page
-with almost no text is empty, a short numbered page such as ``3.~Scheduling''
-starts a section, a page whose first line is a heading word such as
-``Inhalt'', ``\"Ubung'', ``Summary'' or ``Literatur'' is an agenda, exercise,
-summary or references page, and every other page is content. It then groups
-pages into sections and selects which pages the metadata and quiz steps read.
-The model sees text without the boilerplate, while the stored slide keeps the
-original. A line of real content that recurs as often is hidden from the
-model too. Because this step makes no model call, we can test it thoroughly,
+(\code{deck\_plan.py}). It finds boilerplate, lines that recur on at least
+60\,\% of the pages, such as a course name in the header; the threshold was
+chosen, not derived. It gives each page one of eight roles by simple rules,
+such as title, section start, agenda, or summary. It then groups the pages
+into sections and selects the pages that the metadata and quiz steps read. The
+model sees the text without the boilerplate, while the stored slide keeps the
+original. A line of real content that recurs as often is hidden from the model
+too. Because the step makes no model call, we can test it thoroughly,
 including with property-based tests.
 
-The step entered the code in October 2026 (PR~\#84). Before it, the
-deck-level metadata and quiz passes read only the first pages of a deck, and
-a filtering step numbered the pages it kept 1 to 10, so a quiz question could
-point at the wrong page. \Cref{sec:c4-deck-lab} reports what the plan changed,
-offline on 25 decks and in production, and checks the threshold.
+Before this step, the metadata and quiz steps read only the first pages of a
+deck, and a quiz question could point at the wrong page, because a filter
+renumbered the pages it kept. \Cref{sec:c4-deck-lab} reports what the plan
+changed, offline on 25 decks and in production.
 
 \subsection{Routing: Text versus Vision}
 \label{sec:routing}
 
-One function decides how the pipeline reads each page. It measures the PDF page
-itself, so the decision does not depend on which parser supplied the text. It counts the page's own text, leaving out
-running footers, and the share of the page that embedded images cover. For
-the rule, a running footer is a text block that starts in the bottom tenth of
-the page in smaller type than the page's body text
-(\code{page\_blocks.py:22--23,185}). A deck without footers loses nothing,
-and both counts are equal. A small source line at the foot of a slide is left
-out like a footer. This footer is not the boilerplate of
-\cref{sec:c4-deck-plan}: routing judges each page alone, by where a text block
-sits and how small its type is, while the deck plan compares the pages of a
-deck by how often a line recurs, and neither changes the page text the
-learner sees. A page with fewer
-than 25 characters of text has nothing to read but the picture (a scan, a photo)
-and goes to a vision model. A page with fewer than 150 characters whose embedded images
-cover at least 5\,\% of it depends on its image and also goes to vision,
-keeping its own text as content while the vision model supplies title and
-summary. Every other page is text, synthesised in batches of eight pages per model call. If a vision call fails for a page without text, the pipeline keeps the raw text and flags the page for review. The parse receipt stores the reason for each page's route.
+One function decides how the pipeline reads each page. It measures the PDF
+page itself, so the decision does not depend on which parser supplied the
+text. It counts the page's own text without running footers, and the share of
+the page that embedded images cover. A running footer is a text block that
+starts in the bottom tenth of the page in smaller type than the page's body
+text, which also covers a small source line at the foot of a slide
+(\code{page\_blocks.py:22--23,185}). Unlike the boilerplate of the deck plan,
+which compares the pages of a deck, the footer is judged on each page alone,
+and neither changes the text that the learner sees.
+
+A page with fewer than 25 characters of text has nothing to read but the
+picture, such as a scan or a photo, and goes to a vision model. A page with
+fewer than 150 characters whose embedded images cover at least 5\,\% of it
+depends on its image and also goes to vision: it keeps its own text as
+content, and the vision model supplies title and summary. Every other page is
+read as text. If a vision call fails for a page without text, the pipeline
+keeps the raw text and flags the page for review.
 
 The rule counts embedded images only. A diagram drawn with lines and boxes
-does not count as a figure, so such a page goes to
-vision only if it has fewer than 25~characters (\cref{fig:page-types}c).
-Otherwise the text model reads its labels without the drawing. How many pages
-of the corpus this affects we did not measure.
+does not count as a figure, so such a page goes to vision only if it has fewer
+than 25~characters (\cref{fig:page-types}c); otherwise the text model reads
+its labels without the drawing. We did not measure how many pages of the
+corpus this affects.
 
-This rule replaced a single character threshold (found, then fixed). Until
-November a page went to vision only if it had fewer than 25 characters of raw
-extracted text, and four places in the code made the decision with three different measures. The study in \cref{sec:c4-routing-study} shows that the old rule sent no
-page with an image to vision, and that the new rule sends 87 of the
-1{,}593 pages, 75 of them pages with an image. An offline check
-(\code{backend/eval/routing\_check.py}) fails if a change moves the number of
-image pages sent to vision outside 75 to 100.
+This rule replaced a single threshold in November 2026: until then a page went
+to vision only if it had fewer than 25 characters of raw extracted text. The
+study in \cref{sec:c4-routing-study} shows that the old rule sent no page with
+an image to vision, and that the new rule sends 87 of the 1{,}593 pages, 75 of
+them pages with an image.
 
 \subsection{Parse Once: Idempotency}
 \label{sec:idempotency}
@@ -256,30 +217,20 @@ lock, is reachable, they give at most one parse per uploader and pipeline
 version, unless someone forces a re-parse. Without Redis, two simultaneous jobs of one uploader can both parse
 (\cref{sec:idempotency-detail}).
 
-This is the precise content of the project's ``parse once'' principle. The system stores the bytes once and keys the retrieval index by hash, so everyone who uploads a document shares its embeddings. The parsed lecture is not: two students who upload the
-same deck each get, and each pay for, one parse. Sharing a parse across
-uploaders would require the second uploader to trust content that a model generated for the first, and the orchestrator's own docstring declares that case out of scope.
-The final chapter names it as future work.
-
-The lock is best-effort by decision: if Redis fails, the worker proceeds
-without it. The guarantee also has a gap between uploaders: if a second user uploads
-identical bytes while the first user's parse runs, the second user's job
-finds the shared lock held and stays queued until the sweep marks it as
-failed after six hours.
+This is the precise content of the project's ``parse once'' principle. The
+system stores the bytes once and keys the retrieval index by hash, so everyone
+who uploads a document shares its embeddings. The parsed lecture is not
+shared: two students who upload the same deck each get, and each pay for, one
+parse. Sharing it would require the second uploader to trust content that a
+model generated for the first, a case that the orchestrator's own docstring
+declares out of scope; the final chapter names it as future work. If a second
+user uploads identical bytes while the first user's parse runs, the second job
+waits behind the shared lock and fails after six hours.
 
 \paragraph{Failures.}
-A failed job finalises the pages it has written and marks its run as failed,
-a sweep resolves runs that are stuck, and the user can retry. The worker never retries a failed parse automatically, although one of its settings reads as if it did (\cref{sec:failure-handling}).
-
-\paragraph{Providers.}
-Every generated artefact depends on a hosted language model. The backend
-calls the providers directly, through an ordered \emph{bulk} chain for
-high-volume work and a \emph{quality} chain for fewer and harder calls.
-A cap limits spending per user and per day. The privacy policy names
-OpenAI, Groq, Google, and OpenRouter as the AI providers that receive
-content. The default chains also call Cloudflare and Mistral, which it does
-not name for this purpose. An OpenAI-only mode, which was off at the pin,
-would keep content with OpenAI alone (\cref{sec:provider-strategy}).
+A failed job finalises the pages it has written and marks its run as failed, a
+sweep resolves runs that are stuck, and the user can retry
+(\cref{sec:failure-handling}).
 
 \section{Evaluation}
 \label{sec:c4-evaluation}
@@ -295,12 +246,14 @@ cost. \Cref{sec:c4-llamaparse} records a one-deck trial of a hosted parsing serv
 \paragraph{Why.} The 25-character threshold had no recorded rationale: it entered the code in June 2026 without a reason for its value, and it survived three pipeline
 generations. Before replacing it, the author asked what it did on real decks.
 
-\paragraph{Setup.} All 25 decks of the corpus (1{,}593 pages, which the project's offline harness, the Deck Lab, holds) went through the production extractor. For each page the author recorded three signals: raw text characters, footer-free text characters as PyMuPDF's block-level extraction counts them, and the share of the page that figure blocks cover. The author then applied the old rule and candidate rules offline. The scripts and the
-page texts stay with the author because they contain slide text. The labels
-of the 55~pages and the text-free signals of all 1{,}593 pages are in the
-repository (\code{routing-labels-2026-11-05.csv} and
-\code{routing-signals-2026-11-05.json} under
-\code{docs/\allowbreak thesis/\allowbreak experiments/}).
+\paragraph{Setup.} All 25 decks of the corpus, which the project's offline
+harness, the Deck Lab, holds, went through the production extractor. For each
+page the author recorded three signals: the raw text characters, the
+characters without footers, and the share of the page that figures cover. The
+author then applied the old rule and candidate rules offline. The scripts and
+the page texts stay with the author because they contain slide text; the
+labels and the text-free signals of all pages are in the repository
+(\code{docs/\allowbreak thesis/\allowbreak experiments/}).
 
 \paragraph{Result.} No page in the corpus has between 15 and 39 raw
 characters, so any threshold in that range routes the same 12 pages to vision:
@@ -310,17 +263,16 @@ none reached a vision model, because a page number and a footer alone exceed
 25 characters. The systems decks never reached vision at all, their minimum
 being 76 raw characters. The threshold therefore selected empty pages, not pages with a figure.
 
-To decide what a page with a figure needs, the author labelled the hard case: all 55
-pages with at least one figure block and 25 to 150 raw characters, answering
-for each whether a text model could explain the page from its text alone. The author labelled 53, all as needing the image, and left two unlabelled. The rule in the code at the pin (vision for a page with fewer than 25
-footer-free characters, or with fewer than 150 footer-free characters and
-figures covering at least 5\,\% of it) sends 87 pages of the corpus to
-vision: the 12 pages without text and 75 figure-carried pages
-(\cref{fig:routing}). It
-catches 52 of the 53 labelled pages and both unlabelled ones. The one miss is
-a page whose figure covers less than 5\,\% of it. The alternative of routing
-every page under 150 characters would have cost 149 vision calls instead of
-87 and caught all 53 labelled pages, one more than the rule in the code.
+To decide what a page with a figure needs, the author labelled the hard case:
+all 55 pages with at least one figure block and 25 to 150 raw characters,
+answering for each whether a text model could explain the page from its text
+alone. The author labelled 53, all as needing the image, and left two
+unlabelled. The rule in the code at the pin sends 87 pages of the corpus to
+vision: the 12 pages without text and 75 pages carried by a figure
+(\cref{fig:routing}). It catches 52 of the 53 labelled pages and both
+unlabelled ones; the one miss is a page whose figure covers less than 5\,\% of
+it. Routing every page under 150 characters would have cost 149 vision calls,
+not 87, and caught all 53.
 
 \thesisfigure{f25-routing}
   {Routing at the pin on all 1{,}593 pages of the 25 Deck Lab decks. Each dot
@@ -337,183 +289,212 @@ every page under 150 characters would have cost 149 vision calls instead of
    y axis a square root.}
   {fig:routing}
 
-\paragraph{What this does and does not show.} The author made the labels on a sample chosen to be the hard case and then shaped the rule to catch them. The 52 of 53 is a fit on the calibration set of the rule and
-not an accuracy. Of the 75 figure-carried pages the rule routes to vision, 21 lie outside the
-55-page labelled sample. The study establishes that the old rule routed no page with a figure to
-vision on 1{,}593 real pages and that the new rule routes the figure-carried
-ones at one vision call each. The labels contain no page that the author judged readable from its text, so the study cannot estimate how many of the 87 vision calls
-are unnecessary. And \enquote{needs the image} is the author's judgement. We ran no text model on the pages to see whether its explanation fails. Production did not yet run the new rule at the pin, and it has run in production since
-November 2026.
+\paragraph{What this does and does not show.} The author made the labels on a
+sample chosen to be the hard case and then shaped the rule to catch them, so
+the 52 of 53 is a fit on the rule's calibration set and not an accuracy. Of
+the 75 pages carried by a figure that the rule routes to vision, 21 lie outside
+the labelled sample. The study establishes that the old rule routed no page
+with a figure to vision on 1{,}593 real pages, and that the new rule routes
+the pages carried by a figure at one vision call each. The labels contain no
+page that the author judged readable from its text, so the study cannot
+estimate how many of the 87 vision calls are unnecessary. And \enquote{needs
+the image} is the author's judgement: we ran no text model on the pages to see
+whether its explanation fails. Production did not yet run the new rule at the
+pin and has run it since November 2026.
 
 \subsection{The Text Extraction Benchmark}
 \label{sec:parser-bench}
 
-\paragraph{Why.} The current extraction is PyMuPDF's plain text layer. Every
-later step, the synthesis, the quiz, the retrieval index, reads what it
-produces. The question was whether a layout-aware tool, a converter to
+\paragraph{Why.} The current extraction is PyMuPDF's plain text layer, and
+every later step reads what it produces: the synthesis, the quiz, and the
+retrieval index. The question was whether a layout-aware tool, a converter to
 Markdown, or a vision model transcribing the page image would give a learner
-better text, and what each costs. Before the benchmark, nobody had measured the choice of extractor.
+better text, and what each costs. Before the benchmark, nobody had measured
+the choice of extractor.
 
-\paragraph{Design.} We pre-registered the benchmark~\cite{nosek2018preregistration}: the author committed a protocol that fixes the question, the hypothesis, the page selection, the duel format, the stopping rule, and the analysis in October 2026, before any vote.
-Every later change is a dated deviation in the same file, committed before
-the runs and votes it governs. The first fixed how the viewer displays line
-breaks, before any vote; the other three each added methods and a comparison.
-The benchmark thus grew from five methods to eleven after the author knew the first result, which the pooled analysis below has to carry. The author judged eleven methods: ten challengers against \emph{current}, the
+\paragraph{Design.} We pre-registered the
+benchmark~\cite{nosek2018preregistration}: in October 2026, before any vote,
+the author committed a protocol that fixes the question, the hypothesis, the
+page selection, the duel format, the stopping rule, and the analysis. Every
+later change is a dated deviation in the same file, committed before the runs
+and votes it governs. The first fixed how the viewer displays line breaks,
+before any vote; the other three each added methods and a comparison. The
+benchmark thus grew from five methods to eleven after the author knew the
+first result, which the pooled analysis below has to carry.
+
+The author judged eleven methods: ten challengers against \emph{current}, the
 production extraction, which anchors the scale at 1000. The challengers were
 two Markdown converters, pymupdf4llm~\cite{pymupdf4llm} and
-MarkItDown~\cite{markitdown}, and four layout engines,
+MarkItDown~\cite{markitdown}; four layout engines,
 Docling~\cite{auer2024docling}, MinerU~\cite{wang2024mineru},
-Marker~\cite{marker}, and OpenDataLoader~\cite{opendataloader}. The others
-were the browser engine pdf.js~\cite{pdfjs}, a PaddleOCR vision-language
-model~\cite{paddleocr} in a 4-bit build, and two vision-model transcriptions of the page image,
-\code{gpt-4.1-mini} and \code{gpt-6.1-sol}, a larger model that we chose for its capability per dollar (protocol, deviation~2).
-The test set is 24 born-digital pages from five PDFs of three courses in two
-languages: one deck from each course and two exercise sheets of the
-software-engineering course. The protocol treats the sheets as a fourth
-source and draws the pages per source by a stated rule plus a seeded random
-draw (seed 20261030). The author assigned them by hand to five page types: lists (8), diagram (5), dense text
-(5), layout (3), and table or formula (3). The set includes no scanned page.
+Marker~\cite{marker}, and OpenDataLoader~\cite{opendataloader}; the browser
+engine pdf.js~\cite{pdfjs}; a PaddleOCR vision-language
+model~\cite{paddleocr} in a 4-bit build; and two vision models that
+transcribe the page image, \code{gpt-4.1-mini} and the larger
+\code{gpt-6.1-sol}, which we chose for its capability per dollar. The test set
+is 24 born-digital pages from five PDFs of three courses in two languages,
+drawn per source by a stated rule and a seeded random draw. The author
+assigned each page one of five types, such as lists, diagram, or dense text.
+The set includes no scanned page.
 
-Each duel shows the judge the page image and two methods' outputs, with
-method names hidden and sides balanced by a seeded schedule, and asks ``Which would you rather
-learn from?'' with the answers left, right, same, or both unusable. Within a
-comparison every scheduled pair meets three times on three page types. From
-the third comparison on, new methods met only the top three and the anchor,
-so 15 of the 55 pairs never met. Hidden repeat duels check the
-judge's consistency, and a pre-registered second round adds duels among the top
-four when their intervals overlap. Ratings come from a Bradley--Terry model~\cite{bradley1952rank}, in which each method has a
-strength and its expected score against another is its share of the two
-strengths. Minorisation-maximisation~\cite{hunter2004mm} fits the strengths, with a weak prior of one virtual drawn game
-per method (protocol, section~7) and a bootstrap~\cite{efron1993bootstrap} of 1{,}000 resamples (seed
-20261103). Points are $1000 + 400 \log_{10}$ of the strength ratio to the
-anchor, so 400 points above the anchor means a ratio of 10:1 in expected
-score. Every vote enters the fit, hidden repeats included. A vote of ``same''
-or ``both unusable'' counts as half a win for each side, so the scale
-measures preference and not usability. Such draws are 142 of the 283 votes,
-so a ratio on this scale is not the chance of winning a duel. The bootstrap resamples single votes with
-replacement and treats them as independent, although the 283 votes concern 24 pages and the first round determined the schedule of the second. Its intervals are therefore likely too narrow, and we read H1 as a statement
-about this judge on these pages (\code{backend/\allowbreak eval/\allowbreak
-parser\_bench/\allowbreak ranking.py}).
+Each duel shows the judge the page image and the outputs of two methods, with
+the method names hidden and the sides balanced by a seeded schedule, and asks
+``Which would you rather learn from?'' The judge answers left, right, same, or
+both unusable. Within a comparison every scheduled pair meets three times on
+three page types. From the third comparison on, new methods met only the top
+three and the anchor, so 15 of the 55 pairs never met. Hidden repeat duels
+check the judge's consistency, and a pre-registered second round adds duels
+among the top four when their intervals overlap.
+
+Ratings come from a Bradley--Terry model~\cite{bradley1952rank}, in which each
+method has a strength and its expected score against another is its share of
+the two strengths. Minorisation-maximisation~\cite{hunter2004mm} fits the
+strengths with a weak prior, and a bootstrap~\cite{efron1993bootstrap} of
+1{,}000 resamples gives their intervals. Points are $1000 + 400 \log_{10}$ of
+the strength ratio to the anchor, so 400 points above the anchor means a ratio
+of 10:1 in expected score. Every vote enters the fit, hidden repeats included.
+A vote of ``same'' or ``both unusable'' counts as half a win for each side, so
+the scale measures preference and not usability. Such draws are 142 of the 283
+votes, so a ratio on this scale is not the chance of winning a duel. The
+bootstrap treats single votes as independent, although the 283 votes concern
+24 pages and the first round set the schedule of the second. Its intervals are
+therefore likely too narrow, and we read H1 as a statement about this judge on
+these pages
+(\code{backend/\allowbreak eval/\allowbreak parser\_bench/\allowbreak ranking.py}).
+
 A challenger passes if the lower end of its bootstrap interval,
-Bonferroni-corrected~\cite{dunn1961multiple} for the $k = 10$ challengers, lies above 1000. The
-hypothesis H1, that the judge rates at least one method above current, holds if any
-challenger passes. The test is on these bounds and not on rank. The frozen protocol worded H1 for layout-aware tools and four
+Bonferroni-corrected~\cite{dunn1961multiple} for the $k = 10$ challengers, lies
+above 1000. The hypothesis H1, that the judge rates at least one method above
+current, holds if any challenger passes. The test is on these bounds and not on
+rank. The frozen protocol worded H1 for layout-aware tools and four
 challengers, and the deviations extended it to every method added later, the
 vision models among them.
 
 \paragraph{Procedure.} The benchmark ran in four \emph{comparisons}, each a
-batch of duels among a fixed set of methods. Within a comparison a first
+batch of duels among a fixed set of methods. The first held the five fast
+methods: current, pymupdf4llm, MarkItDown, pdf.js, and OpenDataLoader. The
+second added the two vision models, the third the three heavy local engines,
+Docling, MinerU, and Marker, which processed only a 60-page excerpt of the
+five PDFs, and the fourth the PaddleOCR build. Within a comparison a first
 round followed the seeded schedule, and a pre-registered second round could
-add duels among the leaders. The author judged the four in late October and early November 2026: the five fast methods (current, pymupdf4llm, MarkItDown,
-pdf.js, and OpenDataLoader), the two paid vision models, the three heavy
-local engines (Docling, MinerU, and Marker), which processed only a 60-page
-excerpt of the five PDFs, and the 4-bit PaddleOCR build.
-They hold 283 votes in all. Hidden repeats agreed in 12 of 13 cases (exact
-95\,\% interval 64 to 100\,\%), and the author retracted no vote. Of the 141 decisive votes, 86 chose the output shown on the right-hand side
-(binomial test, $p = 0.011$). The balanced
-schedule keeps this from favouring a method, but it shows that something
-other than content moved decisions. We pool all four on one scale.
+add duels among the leaders. The author judged all four in late October and
+early November 2026, 283 votes in all. Hidden repeats agreed in 12 of 13 cases
+(exact 95\,\% interval 64 to 100\,\%), and the author retracted no vote. Of
+the 141 decisive votes, 86 chose the output on the right-hand side (binomial
+test, $p = 0.011$). The balanced schedule keeps this from favouring a method,
+but it shows that something other than content moved decisions. We pool all
+four comparisons on one scale.
 
-\thesisfigure{f20-parser-benchmark}
-  {Text extraction benchmark: Bradley--Terry ratings of eleven methods from 283
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{f20-parser-benchmark}
+  \caption{Text extraction benchmark: Bradley--Terry ratings of eleven methods from 283
    blind pairwise votes over 24 pages, pooled over four comparisons and
    anchored at the current production extraction (1000). Filled dots mark the
    five methods whose Bonferroni-corrected lower bound ($k=10$) lies above 1000,
    which is the test of hypothesis H1.}
-  {fig:parser-bench}
+  \label{fig:parser-bench}
+\end{figure}
 
-\paragraph{Result.} \Cref{fig:parser-bench} shows the pooled fit. The two
-vision transcriptions lead with 1452 and 1376 points, followed by pymupdf4llm
-at 1263, MinerU at 1216, Marker at 1141, Docling at 1128, OpenDataLoader at
-1112, the PaddleOCR build at 1037, and pdf.js at 1007. Current sits at its
-anchor of 1000 and MarkItDown below it at 952. H1 holds for five methods,
-with corrected lower bounds of 1331 and 1251 for the two vision models, 1164
-for pymupdf4llm, 1068 for MinerU, and 1030 for OpenDataLoader. Marker and
-Docling rank above OpenDataLoader on points but do not pass: with 19 and 22
-duels each, their corrected bounds are 958 and 983. The result needs three qualifications. First, OpenDataLoader's pass does
-not hold up. It rests on the
-second-round duels: on the 133 first-round votes alone, the same test passes
-the two vision models (1321 and 1311), pymupdf4llm (1063), and MinerU (1055),
-and OpenDataLoader falls under the anchor at 916. And when the bootstrap
-resamples the 24 pages instead of single votes, which respects that votes on
-one page are not independent, H1 holds for the two vision models,
-pymupdf4llm, and MinerU (bounds 1325, 1243, 1150, and 1078) and not for
-OpenDataLoader (987). We added this check after the result, in November
-(\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak
-parser-benchmark/\allowbreak analysis/}). Second, the two vision models' intervals overlap, so their order is
-unsettled. Third, in the first comparison ``both unusable'' was the most frequent
-answer for the current extraction: 31 of its 39 duels ended that way. These verdicts were quick (22 of the 31 took under five seconds, median 3.2\,s) and fell late in one sitting of 108 duels. They record that the
-text looks unusable at a glance, not a reading of both outputs.
+\paragraph{Result.} \Cref{fig:parser-bench} shows the pooled ratings. The two
+vision models lead, with 1452 and 1376 points, followed by pymupdf4llm at 1263
+and MinerU at 1216. The other six challengers lie between 952 and 1141, and
+current sits at its anchor of 1000. H1 holds: five methods pass, the two
+vision models, pymupdf4llm, MinerU, and OpenDataLoader. Marker and Docling
+score more points than OpenDataLoader but do not pass: with only 19 and 22
+duels, their lower bounds stay below 1000.
+
+The result needs three qualifications. First, OpenDataLoader's pass does not
+hold up. It fails on the 133 first-round votes alone, and it fails again when
+the bootstrap resamples whole pages instead of single votes, which respects
+that the votes on one page are not independent. The other four pass both
+checks, which we added after the result, in November
+(\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak parser-benchmark/\allowbreak analysis/}).
+Second, the intervals of the two vision models overlap, so their order is
+unsettled. Third, in the first comparison ``both unusable'' was the most
+frequent answer for the current extraction, in 31 of its 39 duels. These
+verdicts were quick, 22 of the 31 under five seconds, and fell late in one
+sitting of 108 duels, so they record that the text looks unusable at a glance,
+not a reading of both outputs.
 
 \paragraph{Where the methods differ.} Automatic checks over the same 24 pages
-explain part of the ranking. The current extraction carries the running
-footer into the content on 23 of 24 pages, as do pdf.js and MarkItDown (23
-each) and pymupdf4llm (20). OpenDataLoader, Marker, and MinerU strip it (4, 1,
-and 0 pages), and Docling does not (14). The smaller vision model leaks it on 8
-pages and the stronger one on 18, because the prompt asks for everything that the page prints. MinerU breaks lines as often as the text layer does (21\,\% of
-line pairs for both), and 18\,\% of its words do not occur in PyMuPDF's
-text layer of the page. Docling and Marker reach 7 and 8\,\%. That share counts invented words and
-HTML tag names, but also any text that the reference itself misses. pymupdf4llm runs its own OCR pass on pages it judges image-heavy,
-which is part of why it scores well and which production would have to switch off.
+explain part of the ranking. The current extraction carries the running footer
+into the content on 23 of the 24 pages. So do pdf.js and MarkItDown, and
+pymupdf4llm and Docling on 20 and 14 pages, while OpenDataLoader, Marker, and
+MinerU strip it on all but at most four. The vision models copy it on 8 and 18
+pages, the stronger more often, because the prompt asks for everything that the
+page prints. pymupdf4llm runs its own OCR pass on pages it judges image-heavy,
+which is part of why it scores well and which production would have to switch
+off.
 
-\paragraph{Cost.} The current extraction takes 0.004 to 0.058 seconds per
-page at about 62\,MB resident. The heavy engines take 1.2 to 5.8 seconds per
-page at about 0.9 to 3\,GB resident, a lower bound because the measurement does not count memory that they allocate on the GPU. Each needs a model download of
-0.5 to 1.7\,GB. pymupdf4llm, with its OCR pass on, takes 0.56 to
-0.93 seconds per page at about 390\,MB. The two vision transcriptions
-together cost \$0.21 for the 24 pages at list prices (\$0.04 for \code{gpt-4.1-mini} and \$0.17 for \code{gpt-6.1-sol}), at 1.8 to 5.7 seconds
-per page, and leave the server. Production's OpenAI vision calls use neither
-model. They run on the code default \code{gpt-4o-mini}, because the model
-variables were never set (\cref{sec:openai-only}). The benchmark therefore
-describes the vision path with \code{gpt-4.1-mini} set, not the path as deployed. On a 4\,GB
-production machine shared with the API, the worker, and two Redis instances,
-the heavy engines are not an option. The vision models are an option that costs a fee per page and per uploader.
+\paragraph{Cost.} The current extraction takes at most 0.06 seconds per page
+at about 62\,MB of memory, and pymupdf4llm, with its OCR pass on, under a
+second at about 390\,MB. The heavy engines take 1.2 to 5.8 seconds per page
+and 0.9 to 3\,GB of memory, not counting what they allocate on the GPU, and
+each needs a model download of 0.5 to 1.7\,GB. On the 4\,GB production
+machine, which also runs the API, the worker, and two Redis instances, they are
+not an option. The two vision models together cost \$0.21 for the 24 pages at
+list prices, under a cent per page, at 1.8 to 5.7 seconds per page, and the
+page leaves the server; the fee is paid per page and per uploader.
+Production's OpenAI vision calls use neither model:
+they run on the code default \code{gpt-4o-mini}, because the model variables
+were never set (\cref{sec:openai-only}). The benchmark therefore describes the
+vision path with \code{gpt-4.1-mini} set, not the path as deployed.
 
-\paragraph{Threats.} The protocol names them before the result. The judge
-is the author of the product. The automatic checks use PyMuPDF's own text
-layer as reference, which favours two of the methods. The 24 pages come from
-one university and hold no scan, duels within a comparison are not
-independent, later comparisons were less blind, and the heavy engines saw a
-60-page cut. We corrected for none of this. Two further threats are not in
-the protocol. The benchmark measures which rendered output a reader prefers,
-and methods that emit headings, lists, and tables gain typography in the benchmark's viewer that plain text does not. The consumers of the text in the pipeline
-are models (synthesis, quiz, and retrieval), and we did not measure whether the preference carries over to them. A retrieval run per extractor over
-the golden set would test it. And no second rater judged any subset, so how
-far the result depends on the one judge is unknown.
-
-\paragraph{What follows.} We did not change the production parser on this basis at the pin. pymupdf4llm, the
-Markdown converter built on PyMuPDF, stands 263 points above it, about 4.5:1
-in expected score, without a fee, for under a second more per page and about
-330\,MB more memory in the tested configuration. The two met directly in
-three duels, with two wins and one \enquote{both unusable}. The decision between pymupdf4llm and a vision model, which the author preferred further still at a price, and the footer problem that the deck
-plan already solves for the model's input but not for the stored text, is open, and the final chapter discusses it.
+\paragraph{Threats.} The protocol names them before the result. The judge is
+the author of the product. The automatic checks use PyMuPDF's own text layer as
+reference, which favours two of the methods. The 24 pages come from one
+university and hold no scan, duels within a comparison are not independent,
+later comparisons were less blind, and the heavy engines saw a 60-page excerpt.
+We corrected for none of this. Two further threats are not in the protocol.
+First, methods that emit headings, lists, and tables gain typography in the
+benchmark's viewer that plain text does not, so the benchmark measures which
+rendered output a reader prefers. Second, the real consumers of the text are
+models, for synthesis, quiz, and retrieval, and we did not measure whether the
+preference carries over to them; a retrieval run per extractor over the golden
+set would test it. No second rater judged any subset either, so how far the
+result depends on the one judge is unknown.
 
 \section{Answer to RQ1}
 \label{sec:c4-answer}
 
-How can heterogeneous lecture PDFs be transformed into structured pages that a learner can read at once? The answer this chapter gives has four parts. Of these,
-the routing study evaluates the third, the scorecard confirms the implementation of the second and production shows
-that the deck quiz now reaches beyond the first pages, and we describe the first and fourth without a measurement. Identity by
-content: a SHA-256 hash names the bytes, the system stores one object per hash, keeps one run per document, version, and uploader, and replays a finished run rather than repeating it. A lock keeps concurrent duplicates out while Redis, which holds the lock, is
-reachable. Decide
-before generating: a deterministic plan assigns roles and sections, strips
-boilerplate from the model's input, and selects the pages the deck-level steps
-read, with no model call. Route by what the page holds, not by a raw character count: one rule,
-measured on the page without its footer, sends pages without text and
-figure-carried pages to a vision model and everything else to text. On
-1{,}593 real pages this means 87 vision calls, where the old rule made 12,
-all on pages without teaching text. Write as you go: the
-worker, not the browser, writes every page the moment it exists, and the
-reading view opens on the original PDF at once.
+How can heterogeneous lecture PDFs be transformed into structured pages that a
+learner can read at once? Our answer has four parts. The routing study
+evaluates the third. The scorecard confirms the implementation of the second,
+and production shows that the deck quiz now reaches beyond the first pages. We
+describe the first and the fourth without a measurement.
 
-How do text extraction methods compare in the quality of their text and their cost? On 24 pages from five PDFs of three courses, the author, who judged blind, preferred the transcription of the stronger vision model to the
-current extraction at more than 10:1 in expected score on the fitted scale,
-and that of the smaller at about 9:1. Both cost under a cent a page.
-The author preferred pymupdf4llm at about 4.5:1 without a fee, at under a second more per page,
-measured with its OCR pass on, which production would switch off. The heavy layout engines rank lower and need gigabytes of memory the production
-machine does not have. In the first comparison the author judged the current extraction unusable together with its opponent in 31 of its 39 duels, and its footer on 23 of 24 pages is one visible reason. The
-judge chose between rendered outputs. Whether synthesis, quiz, and retrieval
-do better on the preferred text, we did not measure.
+\begin{description}
+  \item[Identity by content.] A SHA-256 hash names the bytes. The system
+    stores one object per hash, keeps one run per document, version, and
+    uploader, and replays a finished run instead of repeating it. A lock keeps
+    concurrent duplicates out while Redis, which holds the lock, is reachable.
+  \item[Decide before generating.] A deterministic plan assigns roles and
+    sections, strips boilerplate from the model's input, and selects the pages
+    that the deck-level steps read, with no model call.
+  \item[Route by what the page holds.] One rule, measured on the page without
+    its footer, sends pages without text and pages carried by a figure to a
+    vision model and everything else to text. On 1{,}593 real pages this means
+    87 vision calls, where the old rule made 12, all on pages without teaching
+    text.
+  \item[Write as you go.] The worker, not the browser, writes every page the
+    moment it exists, and the reading view opens on the original PDF at once.
+\end{description}
+
+How do text extraction methods compare in the quality of their text and their
+cost? On 24 pages from five PDFs of three courses, the author, judging blind,
+preferred the transcription of the stronger vision model to the current
+extraction at more than 10:1 in expected score on the fitted scale, and that of
+the smaller one at about 9:1. Both cost under a cent a page. The author
+preferred pymupdf4llm at about 4.5:1 without a fee, at under a second more per
+page, measured with its OCR pass on, which production would switch off. The
+heavy layout engines rank lower and need gigabytes of memory that the
+production machine does not have. In the first comparison the author judged the
+current extraction unusable together with its opponent in 31 of its 39 duels,
+and its footer on 23 of 24 pages is one visible reason. The judge chose between
+rendered outputs; whether synthesis, quiz, and retrieval do better on the
+preferred text, we did not measure. We did not change the production parser on
+this basis at the pin.
 
 The yardstick of \cref{sec:c4-requirements} had three marks. The routing rule and its study answer how the pipeline handles a page with a figure. The design answers how soon a learner reads, because the reading view opens on the original page at once; we did not measure the time until the generated text of a page arrives. We did not measure what a deck costs: the benchmark prices the vision transcription per page, and we did not evaluate the cost ledger of production.
 
