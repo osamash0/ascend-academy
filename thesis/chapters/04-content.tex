@@ -263,8 +263,11 @@ first line.
 And it groups the pages into sections and picks, spread over all sections, up
 to ten pages for the deck quiz and up to fifteen for the Lesson's title and
 summary (\code{synthesis.py:176}, \code{deck\_plan.py:250--259}). We chose the
-60\,\% without measuring it; at 50 or 70\,\%, the boilerplate of three or four
-of the 25 decks changes
+60\,\% without measuring it. A later check on the 25 decks shows that few
+lines fall near it: of the lines that recur on at least a fifth of a deck's
+pages, 9 recur on 50 to 70\,\% and 77 on 70\,\% or more. Moving the threshold
+to 50 or 70\,\% therefore changes the boilerplate of three or four decks, and
+moving it to 30 or 90\,\% that of ten or eleven
 (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak deck-plan-threshold/}).
 Because the step calls no model, we could test it thoroughly, also with
 property-based tests, which check a rule on many generated decks.
