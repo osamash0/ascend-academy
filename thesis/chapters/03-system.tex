@@ -11,7 +11,7 @@
 % ---------------------------------------------------------------------------
 % 2026-11-10 (cut to length): deployment, the readiness signal and the
 % decisions table moved to appendix C; a summary paragraph stays here.
-\chapter{Learnstation at a Glance}
+\chapter{System Overview}
 \label{ch:system}
 
 This chapter describes the system as a whole, so that the three chapters
@@ -130,7 +130,7 @@ guides, and a global search page exist in the code, and a learner cannot reach t
 
 The thesis describes the pin, \code{\thesisCommit}. Since November 2026
 production runs the main branch at \code{2e146f51}: the pin plus three later
-merges, a change to the home screen (PR~\#170), the owner's view of
+merges that change the code, a change to the home screen (PR~\#170), the owner's view of
 \cref{ch:loop} (PR~\#181), and the backend of a fourth view of a page, which a
 flag keeps off (PR~\#182).
 
@@ -223,8 +223,8 @@ database is a managed PostgreSQL on a free tier without point-in-time
 recovery.
 
 One more condition is not a constraint and still shapes every evaluation in
-this thesis. In July 2026 we announced the platform by e-mail to the
-participants of the Database Systems course. Five people signed up with
+this thesis. In July 2026 the platform was announced by e-mail to the
+participants of the Database Systems course (\cref{sec:scope}). Five people signed up with
 university addresses and looked around, but none used it enough to give us
 data to evaluate or feedback to learn from. The evaluations therefore work on
 material and not on people.

@@ -22,8 +22,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 FIGDIR = ROOT / "figures"
 # Figure files the thesis uses, counting plain figure environments too
 # (15 November 2026: five figures left the appendices; 16 November 2026:
-# seven more left with Appendices A to C).
-TOTAL_FIGURES = 13
+# seven more left with Appendices A to C; Figures 1.1 and 2.1 left with the
+# RQ3 pass).
+TOTAL_FIGURES = 11
 
 FIG_MACRO_FILE = re.compile(r"\\thesisfigure(?:page)?\{([^}]+)\}\s*\{")
 FIG_MACRO_LABEL = re.compile(r"\\thesisfigure(?:page)?\{[^}]*\}\s*\{.*?\}\s*\{([^}]+)\}", re.S)

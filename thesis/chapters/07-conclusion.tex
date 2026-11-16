@@ -1,180 +1,168 @@
 % ---------------------------------------------------------------------------
-% OPTION A, CHAPTER 7. Written 2026-11-10 with AI assistance (Claude) from
-% the answer sections of chapters 4 to 6, docs/thesis/OUTLINE_BRIEF.md
-% (chapter 7), docs/timeline/development-timeline.md §6--7 and the leftover
-% briefs of the former evaluation chapter (now in
-% chapters/superseded/06-evaluation.tex.txt). Every number repeats one from
-% chapters 4 to 6. The ledger of "twelve documented claims that do not hold"
-% (docs/thesis/ARCHITECTURE_PRIMER.md §6) was NOT re-verified at the pin;
-% sec:reality-vs-documented therefore uses only cases that this thesis
-% verifies elsewhere and states no count.
+% CHAPTER 7. Rewritten in November 2026 with AI assistance (Claude) from
+% Draft 1 of the review of 15 November (results.json, part ch7apx), the
+% fixes of its verification (verify.json), the outlook drafts of parts ch2
+% (D3) and ch3, and the author's decisions on RQ3 and the probe pairs. Every
+% number repeats one from chapters 4 to 6; the July sign-ups stay in 1.4,
+% and limitation 1 points there. Left out, for the defence notes: the
+% paragraphs on cost and on documentation drift (with
+% lethbridge2003documentation, aghajani2019docissues, desilva2012erosion),
+% the three aims, and from the outlook the open privacy fixes, the way back
+% from owner to readers, an owner's assistant, models run by the university,
+% and the learner's own loop.
 % The author must read, revise and own every sentence before submission.
 % ---------------------------------------------------------------------------
 \chapter{Discussion and Conclusion}
 \label{ch:conclusion}
 
-This chapter collects the answers to the research questions, discusses what the work showed beyond them, states its limitations, and looks ahead.
-
 \section{Answers to the Research Questions}
 \label{sec:summary}
 
-\paragraph{RQ1: from PDF to readable pages.}
-A first pass without a model sends 87 of the 1{,}593 pages of the corpus to
-a vision model. In the pre-registered blind benchmark the author rated
-transcription by a vision model highest and the production extraction below
-five of the ten alternatives at the corrected lower bound, four when pages
-are resampled (\cref{sec:c4-answer}). One judge made every vote, without a
-second rater, and the later comparisons were less blind. The pages are
-born-digital and come from one university, and the preference between
-rendered outputs was not tested on the models that consume the text. We measured neither end-to-end
-reliability nor the grounding of the page text.
+\paragraph{RQ1: from a PDF to readable pages.}
+A learner reads the uploaded PDF at once, while a worker writes its
+structured pages. A rule without a model call sends the pages without text
+and the pages carried by a figure to a vision model: 87 of the 1{,}593 pages
+of the corpus. In the blind benchmark the author preferred the transcription
+by a vision model most, at under a cent a page, and ranked four of the ten
+other methods above the production extraction in every analysis we ran
+(\cref{sec:parser-bench,sec:c4-answer}). The author judged rendered outputs as a reader; we did not
+measure what the models that later read the text do with them, nor whether
+the generated text of a page is grounded in it.
 
 \paragraph{RQ2: from learner events back to the owner.}
-One governed log of 17~event types feeds an engine that turns events into
-findings about pages, and an owner's view that names no one and says nothing
-about a page that fewer than five people have read. With scripted readers the
-view reported each of the five behaviours that its rules look for,
-confusion, leaving, skipping, turning back, and overconfidence, at all
-100~seeds when an arm was built around it, and said nothing about a Space of
-four; five readers who asked about the same pages raised no theme at any seed
-(\cref{sec:c5-answer}). It falls short of the stricter
-standard of \cref{sec:analytics-privacy}, that no statement is about fewer
-than five people. A hotspot can rest on one confused rater among five, the floor counts accounts that an owner can add, and a policy of the older dashboard still lets an
-owner with the professor role read event rows with user ids
-(\cref{sec:c5-privacy}).
+An engine turns a log of 17~checked event types into findings about pages,
+which the owner's view shows without names and only for pages with at least
+five readers. With scripted readers the view reported each of the five
+behaviours that its rules look for, confusion, leaving, skipping, turning
+back, and overconfidence, at all 100~seeds when an arm was built around it,
+and nothing for a Space of four; five readers who asked about the same pages
+raised no theme at any seed (\cref{sec:c5-answer}). The view falls short of
+the stricter standard of \cref{sec:analytics-privacy}, that no statement is
+about fewer than five people, because its floor counts the accounts that read
+a page, which an owner can add, and not the people behind a finding
+(\cref{sec:c5-privacy,sec:c5-findings}).
 
-\paragraph{RQ3: checking generated content.}
-The system checks generated content by computation where it can compute an
-answer, by a second model for the quiz questions of the parse, and by
-structure elsewhere (\cref{sec:c6-answer}). On 16~fixed pairs the second
-model gave no wrong verdict in the calls that returned one. That result is
-in-sample, without a criterion fixed in advance, and with distractors off the
-subject of the page. The similarity score failed its pre-registered test, and
-we did not adopt it. When the check is unavailable, the system keeps the
-question, and nothing verifies the prose of explanations and answers.
-
-\paragraph{The three aims.}
-Of the aims in \cref{sec:aims}, the system meets the first two within the limits of RQ1 and RQ2, and the third for the learners of a Space, who share its owner's
-parse, but not for two uploaders of the same file.
+\paragraph{RQ3: checking the answer keys of generated quiz questions.}
+Before learners see the deck quiz, a second model checks each of its
+questions by answering it from the cited page without seeing the key. A
+disputed question is rewritten once and dropped at a second dispute, and a
+question whose check returns no verdict is kept, so that an outage does not
+empty a quiz (\cref{sec:c6-lifecycle}). On 16~fixed pairs of a correct and a
+wrong answer key, the similarity score failed its criterion fixed in advance,
+and the check gave no wrong verdict in the 31 calls that returned one, which
+still allows an error rate of up to about one in five
+(\cref{sec:c6-results,sec:c6-threats}). That
+result is in-sample, measured in the change that built the check, with no
+criterion fixed in advance; the pairs' distractors were off the subject; and
+we did not measure how often the generating model writes a wrong key.
 
 \section{Discussion}
 \label{sec:discussion}
 
-The observations below are lessons of one project, not general results.
-
 \paragraph{The answers and the literature.}
 On RQ1, the benchmark agrees with Dinh et al.\ that the page image carries
-more than the text layer~\cite{dinh2025slides}. The agreement is on a
-different task, a reader's preference between renderings and not the
-accuracy of answers. On RQ2, the floor borrows
-the minimum group size of $k$-anonymity~\cite{sweeney2002kanonymity} and
-applies it to pages. It guarantees five readers behind a page, not five people behind a finding. On RQ3, the answer check runs on a different model, as the work on
-self-preference advises~\cite{panickssery2024selfpreference}, although the
-reason the project recorded was its own measurement
-(\cref{sec:c6-lifecycle}). The probe compares verifiers and does not test that bias itself.
+more than the text layer~\cite{dinh2025slides}, but on another task: they
+measured a model's answers, and we measured a reader's preference. On RQ2,
+the floor borrows the minimum group size of
+$k$-anonymity~\cite{sweeney2002kanonymity}, but as a threshold on released
+statistics, not as a property of released records (\cref{sec:c5-privacy}). On RQ3, the answer check runs on
+another model than the writer, as the work on self-preference
+advises~\cite{panickssery2024selfpreference}, though by default on a larger
+model of the same family (\cref{sec:c6-lifecycle}).
 
-\paragraph{Nobody chose the simple method.}
-The production extractor faced its first measured comparison only in the benchmark of
-\cref{ch:content} (\cref{sec:stack}), and the similarity score of
-\cref{ch:trust} looked right and failed. A method should be measured before
-the system relies on it.
+\paragraph{Measure a method before relying on it.}
+We chose the production extractor by uploading decks, looking at the titles,
+page texts, and quizzes that came out, and fixing what failed
+(\cref{sec:stack}). This made it work on the decks we tried, but its first
+measured comparison was the benchmark of \cref{ch:content}, in which the
+author preferred other methods to it. The similarity score of \cref{ch:trust}
+went the other way: it also looked right, but we measured it before the system
+relied on it, and it failed and stayed out of the system.
 
-\paragraph{Cost shaped the architecture.}
-Free and low-cost quotas explain the ordered provider chains, the spending
-caps, parsing once, and the deterministic first pass
-(\cref{sec:constraints}). For a system that a student can afford to run, cost
-is a design requirement from the start.
-
-\paragraph{Agent-written code needs written-down expectations.}
-With most commits written by coding agents (\cref{sec:method-note}), the practices that kept the code
-in line with the intention fixed an expectation before the work: a
-failing test first, a threshold registered before a run, documented claims
-checked against the code, and a pinned revision. We found several of the faults reported here later, where we had skipped these practices.
-
-\paragraph{Documentation and reality.}
-\label{sec:reality-vs-documented}
-
-The documents of the project and the running system drifted apart, and we
-found the drift only by reading code and probing production, for example a
-description of a gateway that we had removed (\cref{sec:architecture}) and a
-production database that differs from its migrations
-(\cref{tab:deployed}). This matters because the three answers
-rest on statements about the system. The literature documents such drift for larger teams~\cite{lethbridge2003documentation,aghajani2019docissues,desilva2012erosion}.
-In a project of one or two people, no second reader compares code, comment,
-and document. What helped was to treat the running system as the source of truth and to
-delete instead of archive.
+\paragraph{Write the expectation down first.}
+To keep the code that coding agents wrote (\cref{sec:method-note}) in line
+with our intention, we adopted practices that fix an expectation before the
+work: a failing test first, a criterion fixed before a run, and a pinned
+revision. The protocol of the benchmark was frozen before the first vote, and
+each later change is a dated deviation (\cref{sec:parser-bench}). The sweep over 100~seeds followed a
+protocol committed before it ran and showed that the published run of the
+scripted readers had been a good draw (\cref{sec:c5-results}). We wrote the
+23 expectations of that study before its first run but committed them with
+its results, so their order rests on our word, not on a record.
 
 \section{Limitations}
 \label{sec:limitations}
 
-Each chapter states the limitations of its evaluation. These hold for
-the thesis as a whole.
+Besides the limits of each chapter, seven hold for the thesis as a whole.
 
 \begin{enumerate}
-  \item \emph{No learners.} We ran no study with participants. Nothing in
-    this thesis shows that anyone learns more, or more willingly, with the
-    system than with the PDF.
-  \item \emph{The author is the judge.} The person who built the system made the benchmark votes and the routing labels and wrote the 16~pairs of the probe with AI assistance, without a second rater. The votes were blind to method names
-    within each comparison, but later comparisons were less blind, and the
-    selection of pages and pairs was not independent.
+  \item \emph{No learners.} We ran no study with participants, and real use
+    stayed too small to evaluate (\cref{sec:scope}). Nothing here shows that
+    anyone learns more, or more willingly, with the system than with the PDF.
+  \item \emph{The author is the judge.} The author, who built the system, made
+    the benchmark votes and the routing labels and wrote the 16~pairs of the
+    probe with AI assistance, without a second rater. The votes hid the method
+    names, but later comparisons were less blind, and the pages and pairs were
+    not selected independently.
   \item \emph{One university, small samples.} All material comes from a few
-    courses at one university, born-digital, in two languages. Twenty-four
-    pages and sixteen pairs show where a method fails on these pages but
-    do not estimate rates in other material.
-  \item \emph{No competing system.} The comparison in \cref{tab:related} rests on publications only.
-  \item \emph{The author audited the author's system.} The findings on drift and on security come from reading our own code and from
-read-only probes of production. A second reader would find more.
-  \item \emph{One machine.} We know nothing about the behaviour of the
+    born-digital courses of one university, in two languages. Twenty-four
+    pages and sixteen pairs show where a method fails, not its rate on other
+    material.
+  \item \emph{No competing system.} The comparison in \cref{tab:related} rests
+    on publications only.
+  \item \emph{The author audited the author's system.} The security and
+    privacy findings come from reading our own code and from a read-only probe
+    of production (\cref{tab:deployed}). We ran no attack, and a second reader
+    would find more.
+  \item \emph{One machine.} We ran no load test and know nothing about the
     system under load.
-  \item \emph{Two theses, one code base.} We draw the split in \cref{sec:scope} by commits. Design discussions between the two developers left
-    no record, so the split of ideas is less sharp than the split of code.
+  \item \emph{Two theses, one code base.} We draw the split in
+    \cref{sec:scope} by commits. We discussed many design ideas together
+    without writing them down, so the split of ideas is less sharp than the
+    split of code.
 \end{enumerate}
-
-Two questions of the January proposal remain open because they need
-participants: how students perceive motivation in a gamified platform, and
-whether interactive content improves learning compared to static slides
-(\cref{sec:research-questions}).
 
 \section{Outlook}
 \label{sec:future-work}
 
-The first step that should follow is the missing study, modelled on the
-trial of Learn Your Way~\cite{learnlm2025textbook}: two groups, the same
-material, one with the plain PDF and one with the reading view, tested right after and again days later. Both groups would get the same
-practice questions, so that the trial isolates the reading surface, and a
-usability questionnaire~\cite{brooke1996sus,laugwitz2008ueq}, and the
-event log of \cref{ch:loop} would supply time on page and revisits.
+\paragraph{A study with learners.}
+The first next step is the missing study. One group reads the plain PDF and
+one the reading view, both take a test right after reading and again days
+later, and the event log of \cref{ch:loop} adds time on page and revisits.
+Unlike the trial of Learn Your Way~\cite{learnlm2025textbook}, both groups
+should get the same practice questions, so that the study isolates the
+reading surface (\cref{sec:positioning}).
 
-The findings suggest engineering steps. First, a new comparison should judge pymu\-pdf4llm against the current extraction with its OCR pass off. If pymupdf4llm still leads, it should replace the current call, and the parser should strip the running footer from the stored text. Second, the privacy changes that
-\cref{sec:c5-findings,sec:c5-privacy} name should be made. Third, uploaders of the same file should share its parse, which the content hash already permits and the
-ownership model does not yet. Fourth, the loop needs its return channel: a
-member's question that reaches the owner, and an owner's answer that reaches
-every reader of the page.
+\paragraph{A fair test of the answer check.}
+The answer check needs a test that it can fail: a sample of questions that
+the model generated for new decks, with distractors on the subject of the
+page, whose keys two raters label before the check runs, scored once against
+a criterion fixed first.
 
-Three wider directions are our ideas, not results. The first would close the
-loop of \cref{ch:loop} inside the software. An assistant, the platform's own
-or one the owner already uses, would read the owner's view, propose changes
-to the pages a finding points to, and apply them only after the owner
-approves, keeping each change as a new version of the material, versioned
-and shared like source code. Such an assistant must see no more than the
-owner sees: the page facts behind the floor, never the event log. The route
-that lets a lecturer regenerate the generated text of one page with a short
-instruction (\code{ai\_content.py:328--337}) is a first piece of it. The
-second direction is models that a university runs itself, keeping learner
-questions inside the institution. The third would give the learner a loop of
-their own. In \cref{ch:loop} what learners do on a page returns to its owner,
-who may change the page. What one learner does could also return to that
-learner. A page they marked \emph{Still foggy}, or asked about with Ask, could
-start a study session with Luna on that page and become one of the practice
-cards that Luna schedules for later (\cref{sec:built-vs-deployed}). Today
-neither happens: Luna plans a session without these signals
-(\code{luna/prompts.py:114--119}), and her cards come only from her own
-sessions (\code{luna/store.py:230--242}). Only the learner would see this
-loop. We have not built or tested it.
+\paragraph{The pipeline.}
+The two results of \cref{ch:content} suggest a combination, the author's
+idea, which we have not built or tested: pymu\-pdf4llm reads the text pages,
+and the routing rule sends the pages without text and the pages carried by a
+figure to a low-cost vision model. A new comparison should first judge
+pymupdf4llm with its OCR pass off, as production would run it, against the
+current extraction. Uploaders of the same file could share one parse once the
+embeddings no longer move to whoever parsed last
+(\code{unified\_orchestrator.py:785--791}).
 
-\section{Closing}
+\paragraph{The owner's view.}
+The floor should count the people behind each finding
+(\cref{sec:c5-findings}). The view also needs a defence against differencing
+(\cref{sec:c5-privacy}); differential privacy would bound what one person
+changes in the released numbers~\cite{dwork2006dp}.
+
+\paragraph{One place to ask.}
+Today a learner asks in three places, each with its own scope: Explain and
+Ask on one page, Luna in a study session, and the ask bar across a Space
+(\cref{ch:trust}). One place to ask could choose the scope from the question,
+the open page, its neighbours, or the whole Space, and apply that scope's
+checks. This too is the author's idea, not built or tested.
+
+\paragraph{Closing.}
 \label{sec:reflection}
-
-The thesis set out to let a lecture PDF answer questions and report how people read it. In the system as merged, a learner can open a page at once, have it explained, ask about it, and practise it, and its owner sees where readers struggle without the view naming them. The habit the
-project produced is to write down the expectation, to measure, and to report
-the result when it disappoints.
+The habit the project left us with is to write the expectation down, to
+measure, and to report the result when it disappoints.

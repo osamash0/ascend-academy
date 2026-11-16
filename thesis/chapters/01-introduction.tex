@@ -1,11 +1,14 @@
 % ---------------------------------------------------------------------------
-% OPTION A, CHAPTER 1. Written 2026-11-10 with AI assistance (Claude) from
-% docs/thesis/OUTLINE_BRIEF.md (chapter 1), BRIEF_VERIFICATION.md,
-% verification-notes/2026-11-09-scope-process.md, docs/timeline/ and the
-% January proposal (vision/Thesis Presentation.pdf), all on branch
-% claude/thesis-brief-verification-6573e8. The wording of the co-authorship
-% split and of the AI-use declaration waits for the supervisor (two \TODO).
-% The author must read, revise and own every sentence before submission.
+% CHAPTER 1. Rewritten in November 2026 with AI assistance (Claude) from the
+% review docs/thesis/reviews/2026-11-15-g-focus-length-voice.md (Package C),
+% its verification, and the author's decisions: three problems, each followed
+% by its research question; RQ3 narrowed to the answer keys of quiz questions;
+% Figure 1.1 and the table of five problems cut; the vocabulary table kept for
+% now; an evaluation table added to the Method. The co-authorship split still
+% waits for the supervisor (one \TODO, unchanged). The evidence file on the
+% July sign-ups (docs/thesis/evidence/july-signups.md) must be committed
+% before submission. The author must read, revise and own every sentence
+% before submission.
 % ---------------------------------------------------------------------------
 \chapter{Introduction}
 \label{ch:introduction}
@@ -13,35 +16,37 @@
 \section{Motivation}
 \label{sec:motivation}
 
-In the courses that the author and the co-developer attended, teaching
-material comes as a PDF. A lecturer writes slides,
-exports them, and uploads the file to a learning management system. Students
-download it and read it alone. From that moment the material is silent in
-both directions. The file cannot answer a question, cannot check whether a learner understood a page, and cannot tell the lecturer that half of the learners
-stopped at page twelve.
+In the courses we attended, teaching material comes as a PDF. A lecturer
+exports the slides of one lecture as one PDF, which this thesis calls a
+\emph{deck}, and uploads it to a learning management system. Students
+download the file and read it alone. From then on the file cannot check
+whether a learner understood a page, and the lecturer cannot see that half of
+the learners stopped at page twelve.
 
-Large language models (LLMs) have made it cheap to add an assistant to such a file.
-Such an assistant answers the individual learner, but nothing ties the answer to the page it came from. Every student repeats the work, and the lecturer learns nothing from it. The research on intelligent textbooks has described the
-alternative for decades: reading material that carries its own structure,
-practice, and record of use~\cite{brusilovsky2022return}. What is new is that
-a language model can derive much of that structure from an ordinary PDF.
+Research on intelligent textbooks describes the opposite: textbooks that
+model their own content, embed practice, and record how they are
+used~\cite{brusilovsky2022return}. Large language models (LLMs) are neural
+networks that are trained on large amounts of text and write text in reply to
+an instruction. Recent systems use them to turn textbooks and slide decks into
+new learning material~\cite{learnlm2025textbook,zhou2025slide2text}. Below,
+\emph{model} means a language model, and a \emph{vision model} is a language
+model that also reads images.
 
-This thesis describes Learnstation, a web application that the author built with a fellow student to take that
-step for lecture material. A lecturer or a student uploads a PDF and
-reads it at once. While they read, the system turns each page into objects
-that software can address: a text of the page, a vector for search, and, for
-selected pages, questions about it (\cref{fig:transformation}). An assistant
-called Luna works on these objects, next to the page they come from. The system returns what learners do on the pages to the owner of the material as patterns about pages, with no names and only for pages that at least five
-people have read. \Cref{tab:vocabulary} gives the words that the rest of the
-thesis uses for the system.
+We began with summaries and explanations: from February 2026 a model rewrote
+every page at upload and summarised it (\code{4c23d254}). Existing tools
+already explain a document on demand, and in our experience they do it very
+well. We saw little that we could add there. This thesis therefore studies
+three other steps: turning a lecture PDF into structured pages, returning what
+readers do to the person who uploaded the material, and checking the quiz
+questions that a model writes before learners see them.
 
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=0.78\textwidth]{f1-transformation}%
-  \caption{The transformation this thesis addresses. The system keeps one PDF as the reading surface and turns it into independently addressable learning objects. Every capability students use in production builds on one of them.}%
-  \label{fig:transformation}%
-\end{figure}
+Learnstation is the web application that the author and a fellow student
+built. Anyone can upload a PDF to it and read the file at once. While they
+read, the system turns each page into a record with a title, a text, and a
+summary, writes a short quiz for the deck, and records what readers do on each
+page. The owner of the material, who uploaded it, sees what its readers do as
+patterns about pages, without names. \Cref{tab:vocabulary} gives the words
+that the rest of the thesis uses for the system.
 
 \begin{table}[htbp]
   \centering\small
@@ -53,7 +58,7 @@ thesis uses for the system.
     \textbf{Word} & \textbf{Meaning} \\
     \midrule
     Space & A place where a group reads the same material. Its \emph{owner}
-      created it; its \emph{members} joined it. \\
+      created it and uploads its material; its \emph{members} joined it. \\
     Lesson, page, idea & A Lesson is one uploaded document in a Space, a page
       one of its pages, and an idea a run of pages on one topic. \\
     Library & A learner's own uploads. \\
@@ -70,81 +75,137 @@ thesis uses for the system.
       question that the server grades, and the check-in lets the learner say
       how the idea landed: \emph{Clicked} or \emph{Still foggy}. \\
     owner's view & Shows the owner how the material lands, as patterns about
-      pages and never about people. \\
+      pages, without names. \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\section{Problem Statement}
+\section{Problem Statement and Research Questions}
 \label{sec:problem}
+\label{sec:research-questions}
 
-The work started from five problems that the author and the co-developer
-(\cref{sec:scope}) had observed as students, not from a survey (\cref{tab:problems}).
+Each of the three steps meets a problem, and each problem leads to one
+research question with its own chapter.
 
-\begin{table}[htbp]
-  \centering\small
-  \caption{The five problems, the mechanism that addresses each, and where
-    the thesis examines it.}
-  \label{tab:problems}
-  \begin{tabular}{@{}p{0.31\textwidth}p{0.41\textwidth}p{0.18\textwidth}@{}}
-    \toprule
-    \textbf{Problem} & \textbf{Mechanism} & \textbf{Examined in} \\
-    \midrule
-    The lecturer gets no feedback on the material. &
-      An event log, detectors that speak about pages, and an owner's view
-      without names. &
-      \cref{ch:loop} \\
-    A learning session leaves no trace. &
-      Reading position, notes, answers, and sessions with Luna persist per page. &
-      described, not evaluated \\
-    Neither the student nor the lecturer sees progress. &
-      The same log feeds the student's own history and the owner's
-      aggregated view. &
-      owner's side: \cref{ch:loop} \\
-    Every upload pays the cost of processing a file again. &
-      The system parses a file at most once per uploader, and the text feeds one shared search index. &
-      described in \cref{ch:content}, not measured \\
-    Static material gives no reason to come back. &
-      Practice questions, spaced review, and a ledger of experience points. &
-      not evaluated \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+The first problem is the file itself. A PDF records where characters and
+images sit on a page, not which text is a heading or in which order a person
+reads it. On a slide, much of the meaning often lies in a figure
+(\cref{sec:document-ai}). Lecture decks are also \emph{heterogeneous}: one
+deck mixes dense text, formulas, diagrams drawn with lines, and pictures
+(\cref{sec:c4-requirements}). A learner should be able to read at once while
+the system recovers the structure of the pages. The methods that recover the
+text of a page differ in quality and in cost. We had never measured our own
+choice among them before the benchmark of this thesis
+(\cref{sec:parser-bench}).
 
-The mechanisms create a sixth problem: text and questions that a language
-model writes can be wrong. The system therefore has to say how it checks them and
-what it does when a check fails.
+\begin{description}
+  \item[RQ1] How can heterogeneous lecture PDFs be transformed into
+    structured pages that a learner can read at once, and how do text
+    extraction methods compare in the quality of their text and their cost?
+\end{description}
+
+The second problem is that the owner learns nothing about how the material is
+read. A system can record what learners do on each page as \emph{events}, such
+as reading a page or answering a question. Such events could show which page
+confuses readers, where readers leave, and which pages they skip. They are
+personal data, however, and in a course of twenty the lecturer knows every
+learner (\cref{sec:analytics-privacy}).
+
+\begin{description}
+  \item[RQ2] How can learner interaction events be modelled, aggregated, and
+    fed back to the owner of the material without showing any individual
+    learner, and what can such a view tell an owner about their material?
+\end{description}
+
+The third problem is the quiz. A model can write multiple-choice questions for
+every deck, but a question can carry a wrong \emph{answer key}, the option
+marked as correct. A wrong key marks a correct learner wrong, and the learner
+has no reason to doubt it. A check of the keys can itself err in two
+directions: it can drop a correct question or keep a wrong one. In
+Learnstation no person approves a question before learners see it, so
+automatic checks are the only line between the model and the learner
+(\cref{sec:review}).
+
+\begin{description}
+  \item[RQ3] How reliably can the answer keys of quiz questions that a
+    language model generates be checked before learners see them, and what
+    happens when a check fails?
+\end{description}
+
+The questions grew out of a project proposal of January 2026,
+\enquote{Discovering Impact: characterizing learning interaction data in
+educational contexts}. Its question on how to aggregate interaction events
+became RQ2. Its other questions needed interaction data from real learners,
+and almost none arrived (\cref{sec:scope}). Two of them, on motivation in a
+gamified platform and on whether interactive content improves learning, need
+a study with participants and stay open (\cref{sec:limitations}). We do not
+pursue its question on metrics for profiling interaction data, because there
+is almost none to profile. The routing study of \cref{ch:content}, which asks
+which pages need a vision model, profiles all 1{,}593 pages of 25 lecture decks
+by three signals each and so serves that interest in part. RQ1 and RQ3 came
+from building the system.
+
+\Cref{ch:background} gives the background and \cref{ch:system} an overview of
+the system. \Cref{ch:content,ch:loop,ch:trust} answer RQ1 to RQ3, and
+\cref{ch:conclusion} discusses the answers and their limits.
 
 \section{Aims and Contributions}
 \label{sec:aims}
 
-The thesis has three aims: to transform static lecture material into
-structured content while the original page stays the reference, to feed what
-learners do back to the owner of the material without naming any learner, and to generate
-shared content once and not once per learner.
+The thesis has three aims, one per question. The first is to turn lecture
+PDFs into structured pages while the original page stays what the learner
+sees first. The second is to show the owner how the material is read without
+showing any individual learner. The third is to check the answer keys of
+generated quiz questions before learners see them and to measure how reliable
+these checks are.
 
 We make four contributions.
 \begin{enumerate}
-  \item A deterministic first pass that decides without a model call which
-    pages need a vision model (\cref{ch:content}).
-  \item A blind benchmark of eleven text extraction methods on 24~lecture
-    pages in 283~pairwise votes, under a protocol frozen before the first
-    vote and extended by four recorded deviations (\cref{ch:content}).
-  \item A feedback loop from learner to owner whose view names no person and
-    says nothing about a page that fewer than five people have read
-    (\cref{ch:loop}).
-  \item Verification of generated questions by computation and by an independent answer check, with one verifier that failed its test and that we did not adopt (\cref{ch:trust}).
+  \item A rule that decides without a model call which pages go to a vision
+    model, and a study that compares it with the old rule on all 1{,}593
+    pages of 25 decks (\cref{ch:content}).
+  \item A blind comparison of eleven text extraction methods on 24 pages from
+    five PDFs: the author cast 283 votes with the method names
+    hidden, under a protocol committed before the first vote
+    (\cref{ch:content}). The comparison also reports each method's time and
+    memory per page, measured on an 8\,GB Mac
+    (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak parser-benchmark/\allowbreak PROTOCOL.md}).
+  \item An event log, and an engine that reports to the owner patterns about
+    pages that name no one and nothing about a page with fewer than five
+    readers. We tested the engine with scripted readers: simulated members of
+    a Space whose behaviour we planted (\cref{ch:loop}).
+  \item A comparison of three checks of quiz answer keys on one probe: 16
+    fixed pairs of a correct and a wrong answer key, which the author wrote
+    with AI assistance. A lexical score, which measures how much of a key's wording
+    occurs on its page, would drop 14 of the 16 correct keys. A similarity
+    score, which compares the meaning of the page with that of the question
+    and its key, failed its pre-registered test and was not adopted. A second model that answers without the key made neither error
+    in the calls that returned a verdict. On this probe every question had
+    three off-topic options besides the key under test, and no criterion for
+    the second model was fixed in advance (\cref{ch:trust}).
 \end{enumerate}
 
 \section{Scope and Delimitation}
 \label{sec:scope}
 
-This is an engineering thesis. It describes a system that runs in production
-and evaluates its parts with curated data. In November 2026 the production database held 55 accounts on real mail or
-university domains among 216, our own included. Two had been
-active in the previous seven days, one of them ours
-(\code{docs/\allowbreak thesis/\allowbreak evidence/}). We ran no user study, and no claim
-in this thesis is about what students learn.
+This is an engineering thesis about a system that runs in production. It
+makes no claim about what students learn, because we ran no study with
+learners and real use stayed too small to evaluate. In July 2026 the platform
+was announced by e-mail to the participants of the Database Systems course.
+Five accounts with university addresses signed up. Together they wrote 12
+events, and none of them records a page read
+(\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak july-signups.md}).
+In November 2026 the production database held 216 accounts, 55 of them on a
+real mail or university domain, our own accounts and some test accounts among
+them. Two of the 55 had written an event in the previous seven days, one of
+them ours
+(\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak accounts-2026-11-10.md}).
+
+Learnstation has more features than this thesis evaluates, among them Explain
+and Ask on a page, the ask bar for a whole Space, a study assistant called
+Luna with its spaced practice cards, and rehearsals, short mixed tests from a
+Space's Lessons. The thesis describes them only where a research question
+needs them.
 
 Two students built Learnstation, and each of them submits a thesis on the shared code base. The co-developer created the repository in
 January 2026, and 101 of its commits on all branches are theirs, the last in
@@ -159,12 +220,17 @@ view, the verification of generated questions, and the interface in which
 students read. Where a chapter describes something the co-developer wrote, it
 says so.
 \TODO{Author: the exact wording of the split, and whether a signed statement
-is required, is question 4 for the supervisor on 2026-11-11. Replace this
+is required, is question 4 for the supervisor. Replace this
 paragraph's last two sentences with the agreed wording.}
 
-The thesis describes the code at revision \code{\thesisCommit} of
-November 2026, called \emph{the pin} below. \emph{In the code} means
-reachable at the pin, and \emph{deployed} means running in production. We name three changes that the project merged after that date where they matter, and we mark them as later.
+The thesis describes the code at one revision of the repository,
+\code{\thesisCommit} of November 2026, which we froze for the thesis and call
+\emph{the pin}. \emph{In the code} means reachable at the pin, and
+\emph{deployed} means running in production. Since November 2026 production
+runs \code{2e146f51}, the pin plus three later merges that change the code. Where one of these
+merges matters, we name it and mark it as later. We checked the statements
+about the system against the code at the pin, or at a later revision where a
+section names one, and against production where the two can differ.
 
 Security enters the thesis only where a research question needs it: the
 privacy of members in the owner's view (\cref{ch:loop}) and instructions
@@ -176,69 +242,61 @@ this thesis.
 \section{Method}
 \label{sec:method-note}
 
-We follow a build-and-evaluate approach, the pattern of design science:
-build an artefact for a stated problem and evaluate it against that
-problem~\cite{hevner2004design}. Each of the three main chapters describes
-what we built and ends with evaluations, seven in all. In \cref{ch:content},
-the \emph{routing study} tries the old rule that sends pages to a vision
-model, and candidates for a new one, on 1{,}593 pages of 25 decks. The
-\emph{extraction benchmark} lets the author choose, without knowing the
-methods, the better of two transcriptions of the same page, made by eleven
-methods. The \emph{deck-plan scorecard} compares which parts of a deck the
-quiz step reads before and after the deck plan. In \cref{ch:loop}, a
-\emph{study with scripted readers} feeds the owner's view readers who behave
-in planned ways. In \cref{ch:trust}, 16 fixed pairs of a correct and a
-wrong answer key, which the author wrote with AI assistance, test the \emph{similarity verifier} and the \emph{answer
-check}, and 57 questions test the \emph{refusal gate} of the ask bar again.
-The main evaluation of each chapter is the extraction benchmark, the study
-with scripted readers, and the test on the 16 pairs; the others support them.
+We follow design science: we build an artefact for a stated problem and
+evaluate it against that problem~\cite{hevner2004design}. Each of
+\cref{ch:content,ch:loop,ch:trust} first describes what we built and then
+evaluates it. We evaluate offline, on lecture material and scripted input
+instead of learners, because almost no learner data arrived
+(\cref{sec:scope}).
 
-We committed our expectations before the run for the benchmark, the
-similarity verifier, and the refusal gate. For the study with scripted
-readers we wrote them first but committed them with the results. The routing
-study, the scorecard, and the answer check had none, so their results are
-descriptive, and we say so where we report them. Each chapter names the
-threats to the validity of its evaluations~\cite{wohlin2012experimentation}.
+\Cref{tab:evaluations} lists the four evaluations. A result can be checked
+against an expectation only where we committed one before the run; otherwise
+we report it as a description. Each
+chapter names the threats to the validity of its
+evaluation~\cite{wohlin2012experimentation}.
 
-\emph{We} means the author, and the author with the co-developer where we
-built the system jointly; what the author did alone, such as judging and
-labelling, we attribute to \emph{the author}. We checked statements about the
-system against the code at the revision named above, unless a section names a
-later one, and against production where the two can differ. Where the
-repository does not record a reason for a decision, we say so, and we mark a
-reason that rests only on our memory.
+\begin{table}[htbp]
+  \centering\small
+  \caption{The four evaluations of this thesis. The fourth column says
+    whether we committed our expectation to the repository before the run.}
+  \label{tab:evaluations}
+  \begin{tabular}{@{}p{0.04\textwidth}p{0.17\textwidth}p{0.24\textwidth}p{0.17\textwidth}p{0.25\textwidth}@{}}
+    \toprule
+    \textbf{RQ} & \textbf{Evaluation} & \textbf{Data and size}
+      & \textbf{Expectation committed first} & \textbf{Main threat} \\
+    \midrule
+    1 & Routing study (\cref{sec:c4-routing-study}) &
+      1{,}593 pages of 25 decks; 53 hard-case pages labelled by the author &
+      no &
+      the rule was shaped on the labelled pages, so its hits are a fit, not
+      an accuracy \\
+    1 & Extraction benchmark (\cref{sec:parser-bench}) &
+      11 methods, 24 pages from five PDFs, 283 blind votes &
+      yes; four dated deviations extended it &
+      one judge, the author; a preference between rendered texts, not tested
+      on the models that read them \\
+    2 & Study with scripted readers (\cref{sec:c5-method}) &
+      one Space, a Lesson of 30 pages; 10 groups of readers (2 added after
+      the result); 5{,}370 events; 100 seeds per group &
+      written before the first run, committed with the results; the reruns:
+      yes &
+      we chose the behaviour; the study shows that the engine follows its
+      rules, not that they fit real reading \\
+    3 & Three checks of answer keys (\cref{sec:c6-method}) &
+      16 fixed pairs from two decks &
+      similarity score: yes; the other two: no &
+      written pairs stand in for generated keys; the answer check was
+      measured in the change that built it \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
-AI coding agents generated most of the code under the author's direction, and the author reviewed their changes and decided what to keep. The project's development timeline counts 1{,}229 of
-1{,}599~non-merge commits up to November 2026, about 77\,\%, as the work of an agent. A language model helped draft, revise, and review the text of this thesis.
-We consider this part of the method and not a footnote to it, because we adopted practices in the later chapters, such as writing the test first, pre-registering thresholds, and pinning a revision, to keep agent-written code honest.
+\emph{We} means the author, together with the co-developer where we built the
+system jointly; work that the author did alone, such as judging and
+labelling, we attribute to \emph{the author}.
 
-\section{Research Questions}
-\label{sec:research-questions}
-
-The thesis grew out of a project proposal of January 2026,
-\enquote{Discovering Impact: characterizing learning interaction data in
-educational contexts}. Its question on how to aggregate interaction events
-became RQ2. Its other questions needed interaction data from real learners.
-We sent the system to students, but almost no interaction data arrived,
-possibly because it was the time before their exams (\cref{ch:loop} gives
-the counts). Two questions that need studies with participants therefore
-remain open (\cref{sec:limitations}). We do not pursue the question on
-data-profiling metrics, because there is almost no data to profile. While we
-built the system, two needs came first: lecture PDFs had to become pages
-that learners can read, and the content that a model writes had to be
-checked before learners see it. These became RQ1 and RQ3.
-
-\begin{description}
-  \item[RQ1] How can heterogeneous lecture PDFs be transformed into
-    structured pages that a learner can read at once, and how do text
-    extraction methods compare in the quality of their text and their cost?
-  \item[RQ2] How can learner interaction events be modelled, aggregated, and
-    fed back to content owners without showing any individual learner, and
-    what can such a view tell an owner about their material?
-  \item[RQ3] How can the quality of LLM-generated learning content be
-    checked before learners see it, and what happens when a check fails?
-\end{description}
-
-Each question has its own chapter: RQ1 \cref{ch:content}, RQ2
-\cref{ch:loop}, and RQ3 \cref{ch:trust}. The third aim, a property of the design, we describe and do not
-measure. \Cref{ch:background,ch:system} give the background and the system.
+AI coding agents generated most of the code under the author's direction, and
+the author reviewed their changes and decided what to keep. The project's
+development timeline counts 1{,}229 of 1{,}599~non-merge commits up to early
+November 2026, about 77\,\%, as written by an agent. A language model also
+helped draft, revise, and review the text of this thesis.

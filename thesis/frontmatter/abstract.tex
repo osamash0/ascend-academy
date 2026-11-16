@@ -1,70 +1,68 @@
-% Drafted 2026-11-10 with AI assistance (Claude) from chapter 7. Every number
-% is taken from chapters 4 to 7. The author must read, revise and own every
-% sentence before submission.
-% Shortened 2026-11-11 (AI-assisted revision) to about 230 words per language;
-% persona-study numbers regrouped as in sec:c5-results.
+% Rewritten in November 2026 with AI assistance (Claude) around the three
+% research questions, from the review docs/thesis/reviews/2026-11-15-g-*
+% (Package C), its verification, and the author's decisions. RQ3 follows the
+% wording of sec:research-questions. Every number is taken from chapters 4
+% to 6. The English abstract has at most 250 words. The author must read,
+% revise and own every sentence before submission, and a German reader should
+% check the Zusammenfassung.
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
 
-Lecture material travels as PDF files that software cannot address, so a
-file cannot answer a question, check understanding, or show its lecturer
-where readers struggle. This thesis asks how such a file can become pages
-that a learner reads at once, how what learners do can return to the
-material's owner without naming anyone, and how content that a language
-model writes can be checked before learners see it. We built Learnstation, a
-web application in production, and evaluated its parts offline, because
-almost no learner data arrived.
+A lecture PDF cannot check what a reader understood or show its owner, who
+uploaded it, how it is read. We ask how such a file can become structured
+pages, how learner events can reach the owner without showing any learner,
+and how reliably the answer keys of quiz questions that a language model
+generates can be checked before learners see them, and what happens when a
+check fails. With almost no learner data, we evaluated our system,
+Learnstation, offline.
 
-A rule without a model sends 87 of
-1{,}593~pages to a vision model, and in a pre-registered blind benchmark of
-eleven extraction methods the author rated transcription by a vision model
-highest and the extractor in production below at least four of the other
-ten. With scripted readers, an owner's view that names no one and stays
-silent on pages that fewer than five people have read reported confusion,
-leaving, skipping, turning back, and overconfidence in all 100 runs with
-different random draws whenever a group of scripted readers was built around
-one of them, and stayed silent for a Space of four. Code grades the answers it can compute, and a second model
-that answers generated quiz questions without the key made no error on a
-probe of 16~pairs with off-topic distractors, in the calls that returned a
-verdict, while a similarity verifier failed its pre-registered test.
+A rule without a model call sends 87 of 1{,}593~pages to a vision model,
+which reads page images. In a pre-registered blind benchmark of eleven
+extractors, the author rated vision transcription highest and the production
+extractor below at least four others. The owner's view reported confusion,
+leaving, skipping, turning back, and overconfidence in all 100 random draws
+whenever a group of scripted readers was built around one of them, and
+nothing for a Space of four. One reader can still switch a finding on or off.
+On 16~fixed pairs of a correct and a wrong key with off-topic distractors, a
+similarity score failed its pre-registered test, and a second model answering
+without the key made no error where it gave a verdict. A question it disputes
+twice is dropped.
 
-These results show what the system does with known input, not what learners gain:
-the author was the benchmark's only judge, the floor of five counts readers
-rather than the people a finding is about, and no study with learners was
-run.
+The results call for comparing extractors again and testing the second model
+on new pairs. They show the system's behaviour on known input, not learning gains: the author
+was the only judge, and no learner study was run.
 
 \clearpage
 
 \begin{otherlanguage}{ngerman}
 \section*{Zusammenfassung}
 
-Vorlesungsmaterial wird als PDF weitergegeben, auf dessen Inhalt Software
-nicht gezielt zugreifen kann: Die Datei beantwortet keine Frage, prüft kein
-Verständnis und zeigt den Lehrenden nicht, wo Lesende Schwierigkeiten haben.
-Diese Arbeit fragt, wie eine solche Datei zu Seiten wird, die man sofort
-lesen kann, wie das, was Lernende tun, zu den Besitzenden des Materials
-zurückfließt, ohne jemanden zu nennen, und wie sich Inhalte, die ein
-Sprachmodell schreibt, prüfen lassen, bevor Lernende sie sehen. Wir haben
-Learnstation gebaut, eine produktiv betriebene Webanwendung, und ihre Teile
-offline evaluiert, weil kaum Daten von Lernenden ankamen.
+Ein Vorlesungs-PDF kann weder prüfen, was Lesende verstanden haben, noch der
+Person, die es hochgeladen hat, zeigen, wie es gelesen wird. Wir fragen, wie
+aus einer solchen Datei strukturierte Seiten werden können, wie
+Lernereignisse diese Person erreichen können, ohne einzelne Lernende zu
+zeigen, und wie zuverlässig sich die Lösungen von Quizfragen, die ein
+Sprachmodell generiert, prüfen lassen, bevor Lernende sie sehen, und was
+geschieht, wenn eine Prüfung fehlschlägt. Da kaum Daten von Lernenden
+vorlagen, haben wir unser System Learnstation offline evaluiert.
 
-Eine Regel ohne
-Sprachmodell leitet 87 von 1593~Seiten an ein Vision-Modell, und in einem
-präregistrierten Blindvergleich von elf Extraktionsverfahren bewertete der
-Autor die Transkription durch ein Vision-Modell am höchsten und das
-Verfahren der Produktion schlechter als mindestens vier der zehn anderen. Mit
-per Skript gesteuerten Lesenden meldete eine Ansicht für die Besitzenden, die
-niemanden nennt und zu Seiten mit weniger als fünf Lesenden schweigt,
-Verwirrung, Abbruch, Überspringen, Zurückblättern und Selbstüberschätzung in
-allen 100 Läufen mit verschiedenen Zufallswerten, wo eine Gruppe von Lesenden
-eigens darauf ausgelegt war, und schwieg bei einem Space mit vier Mitgliedern. Code bewertet berechenbare
-Antworten, und ein zweites Modell, das generierte Quizfragen ohne Lösung
-beantwortet, machte an einer Probe aus 16~Paaren mit themenfremden
-Distraktoren in den Aufrufen mit Urteil keinen Fehler, während ein
-Ähnlichkeitsverfahren seinen präregistrierten Test nicht bestand.
+Eine Regel ohne Modellaufruf leitet 87 von 1593~Seiten an ein Vision-Modell
+weiter, das Seitenbilder liest. In einem präregistrierten Blindvergleich von
+elf Extraktionsverfahren bewertete der Autor die Transkription durch ein
+Vision-Modell am höchsten und das Verfahren der Produktion schlechter als
+mindestens vier andere. Die Ansicht für die hochladende Person meldete in
+allen 100 Zufallsläufen Verwirrung, Abbruch, Überspringen, Zurückblättern und
+Selbstüberschätzung, wo eine Gruppe per Skript gesteuerter Lesender eigens auf
+eines davon ausgelegt war, und nichts bei einem Space mit vier Mitgliedern.
+Eine einzelne lesende Person kann einen Befund dennoch ein- oder ausschalten.
+An 16~festen Paaren aus einer richtigen und einer falschen Lösung mit
+themenfremden Distraktoren bestand ein Ähnlichkeitsmaß seinen
+präregistrierten Test nicht, und ein zweites Modell, das ohne Lösung
+antwortet, machte keinen Fehler, wo es ein Urteil abgab. Eine Frage, die es
+zweimal beanstandet, wird verworfen.
 
-Die Ergebnisse zeigen, was das System mit bekannten Eingaben tut, nicht, was
-Lernende gewinnen: Der Autor war der einzige Urteilende des Vergleichs, die
-Grenze von fünf zählt Lesende und nicht die Personen, um die es in einem
-Befund geht, und eine Studie mit Lernenden wurde nicht durchgeführt.
+Die Ergebnisse sprechen dafür, die Extraktionsverfahren erneut zu vergleichen
+und das zweite Modell an neuen Paaren zu testen. Sie beschreiben das Verhalten
+des Systems bei bekannten Eingaben, nicht, was Lernende gewinnen: Der Autor war der
+einzige Urteilende, und eine Studie mit Lernenden wurde nicht durchgeführt.
 \end{otherlanguage}

@@ -83,18 +83,6 @@ and whether the source supports the sentence that cites
 it~\cite{rashkin2023ais}. Models that a prompt asks to cite often fail the second~\cite{gao2023alce}, and metrics such as FActScore~\cite{min2023factscore} and RAGAS~\cite{es2024ragas} measure that gap. We use the word \emph{grounded} for an answer that a system restricts to retrieved material and the word \emph{verified} only where a
 separate step has checked the content.
 
-A system can enforce groundedness at different strengths.
-\Cref{fig:groundedness} shows the four that exist in Learnstation, from a gate that refuses before any model call to a prompt that asks the model
-to stay with the page. \Cref{ch:trust} describes each of them and how the
-system moved between them.
-
-\thesisfigure{f3-grounded-vs-ungrounded}
-  {Four groundedness regimes over the same material. The course tutor behind
-   the ask bar of a Space refuses before any model call. The system checks Luna's page references and highlighted phrases against the page. Explain
-   and Ask in the reading view rely on rules in the prompt for their content, and the tutor of the
-   older interface, which has no refusal gate, no longer reaches students. \Cref{ch:trust} introduces each of them.}
-  {fig:groundedness}
-
 \section{What the Learning Sciences Ask For}
 \label{sec:learning-science}
 
