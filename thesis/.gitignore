@@ -21,3 +21,6 @@ build/
 # changes on every build. Remove this line if you want submission snapshots
 # tracked instead.
 main.pdf
+
+# Private title-page values (matriculation number); the repository is public.
+metadata.local.tex

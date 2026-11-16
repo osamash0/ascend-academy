@@ -23,19 +23,20 @@ A learner reads the uploaded PDF at once, while a worker writes its
 structured pages. A rule without a model call sends the pages without text
 and the pages carried by a figure to a vision model: 87 of the 1{,}593 pages
 of the corpus. In the blind benchmark the author preferred the transcription
-by a vision model most, at under a cent a page, and ranked four of the ten
-other methods above the production extraction in every analysis we ran
+by a vision model most, at under a cent a page, and four of the ten
+other methods passed the test against the production extraction in every analysis we ran
 (\cref{sec:parser-bench,sec:c4-answer}). The author judged rendered outputs as a reader; we did not
 measure what the models that later read the text do with them, nor whether
-the generated text of a page is grounded in it.
+a page's generated text is grounded in it.
 
 \paragraph{RQ2: from learner events back to the owner.}
 An engine turns a log of 17~checked event types into findings about pages,
 which the owner's view shows without names and only for pages with at least
-five readers. With scripted readers the view reported each of the five
-behaviours that its rules look for, confusion, leaving, skipping, turning
-back, and overconfidence, at all 100~seeds when an arm was built around it,
-and nothing for a Space of four; five readers who asked about the same pages
+five readers. With scripted readers the view reported each of five
+behaviours, confusion, leaving, skipping, turning back, and overconfidence,
+at all 100~seeds when an arm was built around it, and nothing for a Space
+of four. In a mixed group, a behaviour that few of a page's readers shared
+stayed below the rules; five readers who asked about the same pages
 raised no theme at any seed (\cref{sec:c5-answer}). The view falls short of
 the stricter standard of \cref{sec:analytics-privacy}, that no statement is
 about fewer than five people, because its floor counts the accounts that read
@@ -65,10 +66,11 @@ more than the text layer~\cite{dinh2025slides}, but on another task: they
 measured a model's answers, and we measured a reader's preference. On RQ2,
 the floor borrows the minimum group size of
 $k$-anonymity~\cite{sweeney2002kanonymity}, but as a threshold on released
-statistics, not as a property of released records (\cref{sec:c5-privacy}). On RQ3, the answer check runs on
+statistics, not as a property of released records (\cref{sec:c5-privacy}). On RQ3, the answer check runs by default on
 another model than the writer, as the work on self-preference
-advises~\cite{panickssery2024selfpreference}, though by default on a larger
-model of the same family (\cref{sec:c6-lifecycle}).
+advises~\cite{panickssery2024selfpreference}, though on a larger model of
+the same family; failovers can make it the same model
+(\cref{sec:c6-lifecycle}).
 
 \paragraph{Measure a method before relying on it.}
 We chose the production extractor by uploading decks, looking at the titles,
@@ -84,7 +86,7 @@ To keep the code that coding agents wrote (\cref{sec:method-note}) in line
 with our intention, we adopted practices that fix an expectation before the
 work: a failing test first, a criterion fixed before a run, and a pinned
 revision. The protocol of the benchmark was frozen before the first vote, and
-each later change is a dated deviation (\cref{sec:parser-bench}). The sweep over 100~seeds followed a
+each later change is a dated deviation (\cref{sec:parser-bench}). The rerun of every arm with 100~seeds followed a
 protocol committed before it ran and showed that the published run of the
 scripted readers had been a good draw (\cref{sec:c5-results}). We wrote the
 23 expectations of that study before its first run but committed them with
@@ -110,7 +112,7 @@ Besides the limits of each chapter, seven hold for the thesis as a whole.
     material.
   \item \emph{No competing system.} The comparison in \cref{tab:related} rests
     on publications only.
-  \item \emph{The author audited the author's system.} The security and
+  \item \emph{The author audited a system we built.} The security and
     privacy findings come from reading our own code and from a read-only probe
     of production (\cref{tab:deployed}). We ran no attack, and a second reader
     would find more.

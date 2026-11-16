@@ -13,20 +13,20 @@ uploaded it, how it is read. We ask how such a file can become structured
 pages, how learner events can reach the owner without showing any learner,
 and how reliably the answer keys of quiz questions that a language model
 generates can be checked before learners see them, and what happens when a
-check fails. With almost no learner data, we evaluated our system,
-Learnstation, offline.
+check fails. With almost no learner data, we evaluated Learnstation
+offline.
 
 A rule without a model call sends 87 of 1{,}593~pages to a vision model,
 which reads page images. In a pre-registered blind benchmark of eleven
 extractors, the author rated vision transcription highest and the production
 extractor below at least four others. The owner's view reported confusion,
 leaving, skipping, turning back, and overconfidence in all 100 random draws
-whenever a group of scripted readers was built around one of them, and
-nothing for a Space of four. One reader can still switch a finding on or off.
+whenever scripted readers were built around one of them, and
+nothing for a group of four. One reader can still switch a finding on or off.
 On 16~fixed pairs of a correct and a wrong key with off-topic distractors, a
 similarity score failed its pre-registered test, and a second model answering
 without the key made no error where it gave a verdict. A question it disputes
-twice is dropped.
+twice is dropped; one it cannot check is kept.
 
 The results call for comparing extractors again and testing the second model
 on new pairs. They show the system's behaviour on known input, not learning gains: the author
@@ -35,7 +35,8 @@ was the only judge, and no learner study was run.
 \clearpage
 
 \begin{otherlanguage}{ngerman}
-\section*{Zusammenfassung}
+\chapter*{Zusammenfassung}
+\addcontentsline{toc}{chapter}{Zusammenfassung}
 
 Ein Vorlesungs-PDF kann weder prüfen, was Lesende verstanden haben, noch der
 Person, die es hochgeladen hat, zeigen, wie es gelesen wird. Wir fragen, wie
@@ -49,17 +50,18 @@ vorlagen, haben wir unser System Learnstation offline evaluiert.
 Eine Regel ohne Modellaufruf leitet 87 von 1593~Seiten an ein Vision-Modell
 weiter, das Seitenbilder liest. In einem präregistrierten Blindvergleich von
 elf Extraktionsverfahren bewertete der Autor die Transkription durch ein
-Vision-Modell am höchsten und das Verfahren der Produktion schlechter als
+Vision-Modell am höchsten und das im Produktivsystem eingesetzte Verfahren schlechter als
 mindestens vier andere. Die Ansicht für die hochladende Person meldete in
 allen 100 Zufallsläufen Verwirrung, Abbruch, Überspringen, Zurückblättern und
 Selbstüberschätzung, wo eine Gruppe per Skript gesteuerter Lesender eigens auf
-eines davon ausgelegt war, und nichts bei einem Space mit vier Mitgliedern.
+eines davon ausgelegt war, und nichts bei einer Gruppe von vier Lesenden.
 Eine einzelne lesende Person kann einen Befund dennoch ein- oder ausschalten.
 An 16~festen Paaren aus einer richtigen und einer falschen Lösung mit
 themenfremden Distraktoren bestand ein Ähnlichkeitsmaß seinen
 präregistrierten Test nicht, und ein zweites Modell, das ohne Lösung
 antwortet, machte keinen Fehler, wo es ein Urteil abgab. Eine Frage, die es
-zweimal beanstandet, wird verworfen.
+zweimal beanstandet, wird verworfen; eine, die es nicht prüfen kann, bleibt
+im Quiz.
 
 Die Ergebnisse sprechen dafür, die Extraktionsverfahren erneut zu vergleichen
 und das zweite Modell an neuen Paaren zu testen. Sie beschreiben das Verhalten

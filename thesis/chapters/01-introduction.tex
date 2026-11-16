@@ -84,8 +84,8 @@ that the rest of the thesis uses for the system.
 \label{sec:problem}
 \label{sec:research-questions}
 
-Each of the three steps meets a problem, and each problem leads to one
-research question with its own chapter.
+Each step meets a problem that leads to one research question with its own
+chapter.
 
 The first problem is the file itself. A PDF records where characters and
 images sit on a page, not which text is a heading or in which order a person
@@ -172,14 +172,14 @@ We make four contributions.
     (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak parser-benchmark/\allowbreak PROTOCOL.md}).
   \item An event log, and an engine that reports to the owner patterns about
     pages that name no one and nothing about a page with fewer than five
-    readers. We tested the engine with scripted readers: simulated members of
-    a Space whose behaviour we planted (\cref{ch:loop}).
+    readers. We tested it with scripted readers, simulated members whose
+    behaviour we planted (\cref{ch:loop}).
   \item A comparison of three checks of quiz answer keys on one probe: 16
     fixed pairs of a correct and a wrong answer key, which the author wrote
     with AI assistance. A lexical score, which measures how much of a key's wording
     occurs on its page, would drop 14 of the 16 correct keys. A similarity
     score, which compares the meaning of the page with that of the question
-    and its key, failed its pre-registered test and was not adopted. A second model that answers without the key made neither error
+    and its key, failed its pre-registered test and was not adopted. A second model that answers without the key, the \emph{answer check}, made neither error
     in the calls that returned a verdict. On this probe every question had
     three off-topic options besides the key under test, and no criterion for
     the second model was fixed in advance (\cref{ch:trust}).
@@ -249,9 +249,9 @@ evaluates it. We evaluate offline, on lecture material and scripted input
 instead of learners, because almost no learner data arrived
 (\cref{sec:scope}).
 
-\Cref{tab:evaluations} lists the four evaluations. A result can be checked
-against an expectation only where we committed one before the run; otherwise
-we report it as a description. Each
+\Cref{tab:evaluations} lists the four evaluations. A comparison with an
+expectation counts as a test only where we committed the expectation before
+the run; otherwise we report it as a description. Each
 chapter names the threats to the validity of its
 evaluation~\cite{wohlin2012experimentation}.
 
@@ -260,33 +260,35 @@ evaluation~\cite{wohlin2012experimentation}.
   \caption{The four evaluations of this thesis. The fourth column says
     whether we committed our expectation to the repository before the run.}
   \label{tab:evaluations}
+  \newcommand*{\rr}{\raggedright\hspace{0pt}}
   \begin{tabular}{@{}p{0.04\textwidth}p{0.17\textwidth}p{0.24\textwidth}p{0.17\textwidth}p{0.25\textwidth}@{}}
     \toprule
-    \textbf{RQ} & \textbf{Evaluation} & \textbf{Data and size}
-      & \textbf{Expectation committed first} & \textbf{Main threat} \\
+    \textbf{RQ} &
+      \rr \textbf{Evaluation} &
+      \rr \textbf{Data and size} &
+      \rr \textbf{Expectation committed first} &
+      \rr \textbf{Main threat} \tabularnewline
     \midrule
-    1 & Routing study (\cref{sec:c4-routing-study}) &
-      1{,}593 pages of 25 decks; 53 hard-case pages labelled by the author &
-      no &
-      the rule was shaped on the labelled pages, so its hits are a fit, not
-      an accuracy \\
-    1 & Extraction benchmark (\cref{sec:parser-bench}) &
-      11 methods, 24 pages from five PDFs, 283 blind votes &
-      yes; four dated deviations extended it &
-      one judge, the author; a preference between rendered texts, not tested
-      on the models that read them \\
-    2 & Study with scripted readers (\cref{sec:c5-method}) &
-      one Space, a Lesson of 30 pages; 10 groups of readers (2 added after
-      the result); 5{,}370 events; 100 seeds per group &
-      written before the first run, committed with the results; the reruns:
-      yes &
-      we chose the behaviour; the study shows that the engine follows its
-      rules, not that they fit real reading \\
-    3 & Three checks of answer keys (\cref{sec:c6-method}) &
-      16 fixed pairs from two decks &
-      similarity score: yes; the other two: no &
-      written pairs stand in for generated keys; the answer check was
-      measured in the change that built it \\
+    1 &
+      \rr Routing study (\cref{sec:c4-routing-study}) &
+      \rr 1{,}593 pages of 25 decks; 53 hard-case pages labelled by the author &
+      \rr no &
+      \rr the rule was shaped on the labelled pages, so its hits are a fit, not an accuracy \tabularnewline
+    1 &
+      \rr Extraction benchmark (\cref{sec:parser-bench}) &
+      \rr 11 methods, 24 pages from five PDFs, 283 blind votes &
+      \rr yes; three of four dated deviations extended it &
+      \rr one judge, the author; a preference between rendered texts, not tested on the models that read them \tabularnewline
+    2 &
+      \rr Study with scripted readers (\cref{sec:c5-method}) &
+      \rr a Lesson of 30 pages; 10 groups of readers (2 added after the result), each in its own Space; 5{,}370 events in the published run; 100 seeds per group &
+      \rr written before the first run, committed with the results; the reruns: yes &
+      \rr we chose the behaviour; the study shows that the engine follows its rules, not that they fit real reading \tabularnewline
+    3 &
+      \rr Three checks of answer keys (\cref{sec:c6-method}) &
+      \rr 16 fixed pairs from two decks &
+      \rr similarity score: yes; the other two: no &
+      \rr written pairs stand in for generated keys; the answer check was measured in the change that built it \tabularnewline
     \bottomrule
   \end{tabular}
 \end{table}

@@ -49,7 +49,8 @@ Explain, Ask, the ask bar, Luna, checkpoint, check-in, and the owner's view.
   \item[floor] The rule that nothing is said about a page that fewer than
     five readers have viewed (\cref{sec:c5-aggregation}).
   \item[generating model] The model that wrote a quiz question. The answer
-    check runs on a different one.
+    check runs on a different one by default, but after failovers both
+    calls can land on the same model (\cref{sec:c6-lifecycle}).
   \item[H1] The benchmark's hypothesis that at least one method is rated
     above the current extraction, tested on the corrected lower bounds.
   \item[in the code] Reachable at the pin, whether or not deployed.
@@ -65,7 +66,7 @@ Explain, Ask, the ask bar, Luna, checkpoint, check-in, and the owner's view.
     the prompt and its version, and for each metered call the provider, the
     model, the tokens, and the cost (vision and embedding calls are not
     metered); and the counts of quiz questions kept, repaired, and dropped.
-  \item[pin, the] Revision \code{\thesisCommit} of 6~November 2026, the code
+  \item[pin, the] Revision \code{\thesisCommit} of November 2026, the code
     this thesis describes (\cref{sec:scope}).
   \item[pipeline v1 to v5] The numbered versions of the parsing code
     (\cref{sec:c4-lineage}); unrelated to the v4 interface.
@@ -77,7 +78,7 @@ Explain, Ask, the ask bar, Luna, checkpoint, check-in, and the owner's view.
     (\cref{sec:c6-method}).
   \item[reach] The word (none, few, or enough) that the owner's view gives
     instead of a count of readers.
-  \item[reader] A person who reads. The readers of a page are the members
+  \item[reader] A learner who has read a page (\cref{tab:vocabulary}). In the owner's view, the readers of a page are the members
     other than the owner who viewed it.
   \item[rehearsal] A short mixed test that a model writes from a Space's
     pages; computable tasks in it are graded by code
@@ -90,8 +91,8 @@ Explain, Ask, the ask bar, Luna, checkpoint, check-in, and the owner's view.
     and fails runs that have been queued for six hours.
   \item[uploader] The user whose upload started a parse; a file is parsed at
     most once per uploader and pipeline version (\cref{sec:idempotency}).
-  \item[verifier] A step that computes, validates, filters, or drops
-    generated content.
-  \item[vision model] A model that reads the rendered image of a page
-    instead of its text.
+  \item[verifier] A step that tests a generated question before learners
+    see it and then keeps, marks, or drops it (\cref{ch:trust}).
+  \item[vision model] A language model that also reads images, here the
+    rendered image of a page (\cref{sec:motivation}).
 \end{description}

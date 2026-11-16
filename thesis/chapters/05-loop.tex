@@ -26,7 +26,7 @@ log of these events and the engine that aggregates them at \code{2e146f51},
 the revision that production runs and that we evaluated (\cref{sec:scope}).
 Of the three merges after the pin that change the code, one added the owner's
 screen and changed four things that the engine sends (PR~\#181,
-November 2026). A page with fewer than five readers now carries no value,
+November 2026), each explained in \cref{sec:c5-aggregation}. A page with fewer than five readers now carries no value,
 where the pin sent~0. The number of a Space's readers became a word. A
 finding no longer carries a count of one to four people. And a speed bump
 reaches the owner only when five people turned back, where two sufficed at
@@ -206,7 +206,7 @@ chose the 20\,\% of the hotspot and of the leaky bucket by judgement.
   \caption{The detectors and when they fire (\code{insights/detectors.py}).
     Dwell is how long a page stays open; a rater is a reader who checked in.
     On the owner's screen a finding also needs at least five readers of its
-    page, and every share at least five people behind it, for example five
+    page, and every share must be taken over at least five people, for example five
     raters for a hotspot. A speed bump needs five people who turned back
     (\code{insights/space\_engine.py}, \code{insights/landing\_map.py}).
     Two further detectors never reach the screen: the engine computes a
@@ -276,7 +276,7 @@ Only the owner reaches the view: the server answers a member with 403
   \label{fig:door}
 \end{figure}
 
-\Cref{fig:door} shows the screen for 27 scripted readers: Luna's sentence
+\Cref{fig:door} shows the screen for 27 scripted readers: Luna's sentence, chosen from a fixed set and written by no model,
 naming the Lesson to look at; the three numbers, each with its last eight
 weeks as small bars, where a week without a value stays empty, never zero;
 and a map with one cell per page, brighter where more readers reached for
@@ -287,7 +287,7 @@ still foggy.} In the last line the owner reads that their own reading is never
 counted.
 
 Below the floor the screen shows only Luna's sentence and the last line. For
-the control arm of four members the sentence reads \enquote{A few people have
+a Space with one to four readers the sentence reads \enquote{A few people have
 been reading. Patterns show once five people have been through a page.} It
 reveals whether anyone has read, not how many.
 
@@ -387,8 +387,8 @@ whose behaviour we fixed in advance: which pages it reads and for how long,
 where it asks, how it checks in, and whether it answers checkpoints right.
 Synthetic learner data has been proposed for testing learning-analytics
 software without the privacy risks of real data~\cite{berg2016synthetic};
-here it also stands in for data that did not arrive. A script builds one Space
-with one Lesson of 30~pages, writes the scripted readers' events into the
+here it also stands in for data that did not arrive. For each group of readers, a script builds a
+Space with the same Lesson of 30~pages, writes the scripted readers' events into the
 engine's input, and calls the function that serves the owner's view, with
 fixed strings in place of the model that writes themes
 (\code{backend/eval/persona\_study.py} at \code{a342dea9}, whose engine is
@@ -480,9 +480,9 @@ tested, but the place where they meet is not.
 \label{sec:c5-findings}
 
 None of the five misses departs from the code's rules. In arms A, C, and H our
-expectations had misread the rules. Arm~B's two misses show that the rules do
-not keep the promise made to members, that patterns rest on at least five
-people.
+expectations had misread the rules. Arm~B's two misses show that the rules keep
+the promise made to members, patterns across at least five people, only by
+its letter.
 
 \paragraph{The numbers cover the current week.}
 In arms A and H all three numbers were empty although 12 and 27 members had
@@ -521,7 +521,7 @@ reading, Boehm's distinction between building the product right and building
 the right product~\cite{boehm1984verifying}. Most personas sit far from the
 thresholds, but in arm~A the reading time of page~10 sits near the line
 between the hotspot and the overpacked page, and the random draw decides
-between them. There is one Lesson and one Space. Fixed strings replaced the
+between them. All arms share one Lesson. Fixed strings replaced the
 model that writes themes, so the study shows nothing about what real themes
 might reveal. We wrote both the engine and the study, so expectations and code
 can share a misreading. And we did not observe whether an owner changes a page
@@ -549,9 +549,8 @@ stay open until the prepared fixes are applied
 \paragraph{What the view can tell.} The view shows an owner which page
 confuses readers, where they leave, which pages they skip, where they turn
 back, and where they feel sure but are wrong. With scripted readers it
-reported each of these behaviours at all 100 seeds when the behaviour had an
-arm of its own, and for a Space of four it showed no finding, theme, or number. In a mixed group,
+reported each of these behaviours at all 100 seeds when an arm was
+built around it, and for a Space of four it showed no finding, theme, or number. In a mixed group,
 a behaviour that few of a page's readers share stays below the rules. The view
 shows no weekly numbers in a week with fewer than five readers, and themes
-only on a page that is already a hotspot (\cref{sec:c5-findings}). We did not
-observe whether real owners use the view to improve their pages.
+only on a page that is already a hotspot (\cref{sec:c5-findings}).

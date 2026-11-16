@@ -74,10 +74,13 @@ an owner adds Lessons through the course manager of the older interface
 (\code{SpaceManageScreen.tsx:127}). The database stores a Space as a
 course, a Lesson as a lecture, and a page as a slide.
 
-Learners meet questions that a model wrote in four places: the deck quiz,
+Learners meet questions that a model wrote in four places where the system
+stores or grades them: the deck quiz,
 the checkpoint at the end of an idea, the rehearsal, and the three to six
 practice questions that Luna writes after a study session and that the
 system keeps for later review (\code{luna/\allowbreak store.py:204--228}).
+Explain, Ask, and Luna can also end an answer with a check question, which
+the interface marks right or wrong by its key (\cref{fig:reading-view}).
 The \emph{deck quiz} holds five to eight multiple-choice questions per
 Lesson; a model writes them during the parse and ties each to one page.
 \Cref{ch:trust} examines how the system checks these questions, the deck

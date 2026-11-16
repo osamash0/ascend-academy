@@ -49,8 +49,8 @@ an independent test of it (\cref{sec:c4-routing-study}).
 The input makes three demands on the design.
 
 \begin{description}
-  \item[Pages differ in kind.] This is what \emph{heterogeneous} means here:
-    no single way of reading fits every page. A born-digital PDF stores its
+  \item[Pages differ in kind.] No single way of reading fits
+    every page. A born-digital PDF stores its
     words in its text layer and its pictures as embedded images. A deck mixes dense text, bullet lists with
     formulas, diagrams drawn with lines, and pictures (\cref{fig:page-types}).
     In the text layer a drawn diagram is only a handful of loose labels, and
@@ -111,7 +111,8 @@ read, and what a deck costs.
 The pipeline went through five versions in 2026, v1 to v5;
 \cref{tab:lineage} in \cref{app:detail} lists them by month, with the filter of
 v1 and three later rebuilds of v5 as rows of their own. Before any of them, a
-lecturer typed each slide into a form with a title, the content, a summary,
+lecturer typed each slide into a form that the co-developer built, with a
+title, the content, a summary,
 and one question (\code{184e5742}). Every version since has filled these
 fields from a PDF, although at the pin the questions come as one quiz per
 deck.
@@ -149,7 +150,7 @@ image more than half an hour longer, so the image left Docling out and ran v2
 v4, a port of an earlier Node.js version, asked the model to explain each page
 as a professor would in one continuous lecture (\code{6ce7b5f1}). It had no
 router: an offline check in June sent 142 of the 143 pages of a
-machine-learning lecture exported from PowerPoint to text (message of commit
+machine-learning lecture to text (message of commit
 \code{4f19bd1e}).
 
 \paragraph{v5, since June: one path, written by the server.}
@@ -315,8 +316,7 @@ corpus this affects.
 
 For RQ1, the routing study asks whether pages
 reach the right model. The extraction benchmark asks which method produces
-the text a reader prefers, with the author as the only judge, and at what
-cost.
+the text a reader prefers, and at what cost.
 
 \subsection{The Routing Study}
 \label{sec:c4-routing-study}
@@ -351,7 +351,7 @@ unlabelled. The rule in the code at the pin sends 87 pages of the corpus to
 vision: the 12 pages without text and 75 pages carried by a figure
 (\cref{fig:routing}). It catches 52 of the 53 labelled pages and both
 unlabelled ones; the one miss is a page whose figure covers less than 5\,\% of
-it. Routing every page under 150 characters would have cost 149 vision calls,
+it. Routing every page under 150 raw characters would have cost 149 vision calls,
 not 87, and caught all 53.
 
 \thesisfigure{f25-routing}
@@ -426,8 +426,8 @@ Each duel shows the judge the page image and the outputs of two methods, with
 the method names hidden and the sides balanced by a seeded schedule, and asks
 ``Which would you rather learn from?'' The judge answers left, right, same, or
 both unusable. Within a comparison every scheduled pair meets three times on
-three page types. From the third comparison on, new methods met only the top
-three and the anchor, so 15 of the 55 pairs never met. Hidden repeat duels
+three page types. From the third comparison on, new methods met only each other, the top
+three, and the anchor, so 15 of the 55 pairs never met. Hidden repeat duels
 check the judge's consistency, and a pre-registered second round adds duels
 among the top four when their intervals overlap.
 

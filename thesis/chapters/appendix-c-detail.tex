@@ -38,8 +38,8 @@ filter of v1 and three later rebuilds of v5 have rows of their own.
     content filter & Mar & Pattern check, density score, then a model
       judge: non-teaching pages get no AI content. No longer called after
       June. \\
-    v2 routed pipeline & May & Each page classified, then sent to text,
-      OCR, or vision; a deck-level ``blueprint''. The default until June. \\
+    v2 routed pipeline & May & Each page classified, then sent to a text,
+      vision, or table route (tables by OCR first); a deck-level ``blueprint''. The default until June. \\
     v3 staged pipeline & May & Five resumable stages (eight in the design),
       Docling, an Arq job queue, pgvector, a LiteLLM gateway. Never the
       default; later described in the code as dormant. \\
@@ -72,7 +72,7 @@ filter of v1 and three later rebuilds of v5 have rows of their own.
 \section{The Scripted Readers in Detail (Chapter 5)}
 \label{sec:c5-personas-detail}
 
-The study of \cref{sec:c5-evaluation} builds one Space with one Lesson of
+The study of \cref{sec:c5-evaluation} builds, for each arm, a Space with the same Lesson of
 30~pages. Five ideas are anchored on pages 5, 10, 15, 20, and 25, where a
 reader checks in and meets a checkpoint, and pages 8 to 12 are the hard
 pages. Each member reads the Lesson once, on a day drawn uniformly from the
@@ -82,8 +82,9 @@ $20261109 + k$. We chose every behaviour and value in
 \cref{tab:personas-params} ourselves; none comes from data, and the askers
 draw their questions from six that we wrote. Two personas send a third
 check-in, \emph{unsure}, that the reading view no longer offers
-(\code{v4\_reader.py:340}); it counts like \emph{Clicked} in the confusion share, and like
-\emph{Still foggy} in the help signal and in the calibration gap. The script is archived next to
+(\code{v4\_reader.py:340}). It counts like \emph{Clicked} in the share of
+\emph{Still foggy} check-ins, and like \emph{Still foggy} in the share of
+readers who reached for help and in the calibration gap. The script is archived next to
 its results (\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak
 persona-study/\allowbreak persona\_study.py}).
 
@@ -97,7 +98,7 @@ persona-study/\allowbreak persona\_study.py}).
   \newcommand*{\rr}{\raggedright\hspace{0pt}}
   \begin{tabular}{@{}lp{0.22\textwidth}p{0.15\textwidth}p{0.19\textwidth}p{0.14\textwidth}@{}}
     \toprule
-    Persona & Reading time per page & Explain, Ask & Check-in & Checkpoint \tabularnewline
+    Persona & \rr Reading time per page & \rr Explain, Ask & \rr Check-in & \rr Checkpoint \tabularnewline
     \midrule
     steady & \rr 40\,s, sd 10 (20--60), every page & \rr none & \rr \emph{Clicked} & \rr right \tabularnewline
     struggling & \rr as steady, three times as long on pages 8--12; turns back from page~13 to page~12 twice & \rr Explain on pages 8--12, Ask there with probability 0.7 & \rr \emph{Still foggy} on page~10, elsewhere \emph{Clicked}, \emph{Clicked}, or \emph{unsure} at random & \rr wrong on page~10, elsewhere right with probability 0.8 \tabularnewline
@@ -112,7 +113,7 @@ persona-study/\allowbreak persona\_study.py}).
 
 After the result we ran all ten arms with 100 seed bases, under a protocol
 committed before the run (\code{seed-sweep/\allowbreak PROTOCOL.md}, commit
-\code{8ba95552}); base~0 is the published run, and the sweep reproduced it.
+\code{8ba95552}). Base~0 is the published run, and the sweep reproduced it.
 \Cref{tab:sweep} gives, for each expectation written before the first run,
 the number of seeds in which it held. The predictions in the protocol held
 except two, narrowly: we expected the hotspot of arm~A in 20 to 60 of 100
@@ -147,10 +148,10 @@ seeds, its themes in 61, and the numbers of arm~I in all 100.
   \end{tabular}
 \end{table}
 
-\section{Declared and Deployed Database Rules (Chapters 5 and 6)}
+\section[Declared and Deployed Database Rules (Chapters 5 and 6)]{Declared and Deployed Database Rules \mbox{(Chapters 5 and 6)}}
 \label{sec:deployed-rules}
 
-A read-only probe of the production catalogue on 11~November 2026 read the
+A read-only probe of the production catalogue in November 2026 read the
 policies and function definitions that \cref{tab:deployed} lists. Its entries
 are readings of what each rule permits; we tested no exploit.
 
@@ -158,13 +159,13 @@ are readings of what each rule permits; we tested no exploit.
   \centering\small
   \caption{Declared, tested, and deployed: database-side rules that bear on
     \cref{ch:loop,ch:trust}. The middle column is what the migrations at the
-    pin declare (database tests exist only for the partitioning and the
-    anonymous SECURITY DEFINER exposure), the right
-    column what the read-only probe of production found on 11~November 2026.}
+    pin declare (database tests exist for the partitioning, the role at sign-up, the
+    professor policy, and the anonymous SECURITY DEFINER exposure), the right
+    column what the read-only probe of production found in November 2026.}
   \label{tab:deployed}
   \begin{tabular}{@{}p{0.27\textwidth}p{0.3\textwidth}p{0.35\textwidth}@{}}
     \toprule
-    Rule & Declared (migrations at the pin) & Deployed (11~November 2026) \\
+    Rule & Declared (migrations at the pin) & Deployed (November 2026) \\
     \midrule
     Event table partitioned by month &
       declared; the tests check the partitions &

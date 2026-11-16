@@ -20,6 +20,10 @@
 \newcommand{\thesisPlace}{Marburg}
 \newcommand{\thesisSubmissionDate}{November 2026}
 
+% Private values stay out of this public repository: metadata.local.tex,
+% ignored by git, may \renewcommand any command above (the matriculation number).
+\InputIfFileExists{metadata.local.tex}{}{}
+
 % The commit the implementation chapters describe. Every architectural claim in
 % this thesis was verified against code at this revision — state it explicitly
 % so a reader can reproduce the inspection.

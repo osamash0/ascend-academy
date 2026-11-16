@@ -25,6 +25,7 @@ FIGTEX   = $(wildcard $(FIGDIR)/src/f*.tex)
 FIGPDF  += $(patsubst $(FIGDIR)/src/%.tex,$(FIGDIR)/%.pdf,$(FIGTEX))
 
 TEXFILES = $(MAIN).tex preamble.tex metadata.tex references.bib \
+           $(wildcard metadata.local.tex) \
            $(wildcard chapters/*.tex) $(wildcard frontmatter/*.tex)
 
 PYTHON  ?= python3

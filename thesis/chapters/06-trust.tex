@@ -65,8 +65,10 @@ learner sees it. Only the deck quiz gets a check of what its key means.
 Learners also read prose that a model writes: Explain and Ask on one page, the
 ask bar across a Space, and Luna in a study session. No check decides whether
 that prose is true. Its checks test only structure, for example that a
-highlighted phrase occurs on its page, and we did not measure them. Explain
-and Ask may also answer with a small app whose code the model writes; it runs
+highlighted phrase occurs on its page, and we did not measure them. An answer
+can also end with a check question whose key is checked only for its form
+(\code{v4\_reader\_service.py:523--524}, \code{luna/\allowbreak validate.py:130}).
+Explain and Ask may also answer with a small app whose code the model writes; it runs
 in the learner's browser in a frame without the page's origin, under a content
 security policy that allows no network (\code{Sandbox.tsx:30,145}). The ask
 bar also declines a question that no page of the Space matches closely enough;
@@ -105,21 +107,20 @@ questions, two common rules of item writing~\cite{haladyna2002mcq}.
   \item[Lexical support.] A score measures how much of the key's wording
     occurs on the cited page. A score below 0.5 marks the question, as do a
     number in the key that the page lacks and a distractor that the page
-    supports better than the key. No mark drops a question, because the switch
-    that would make it drop is off (\code{parser/synthesis.py:55--63}).
-    \Cref{sec:c6-results} shows why.
+    supports better than the key. No mark drops a question: the drop switch is off
+    (\code{parser/synthesis.py:55--63}), and \cref{sec:c6-results} shows why.
   \item[Answer check.] A second language model reads the cited page, the
-    question, and the options, but not the key, and answers as a careful
-    student would (PR~\#166). If it picks another option, finds a second
-    option it could defend, or finds none, it disputes the key.
+    question, and the options, but not the key, and answers like a careful
+    student (PR~\#166). If it picks another option, finds a second defensible
+    one, or finds none, it disputes the key.
   \item[Repair or drop.] The writing model rewrites a disputed question once
     against the same page, and the check runs again. A second dispute drops
     it.
 \end{description}
 
 A marked question still reaches learners, who do not see the mark
-(\code{v4\_practice\_\allowbreak service.py:86--96}). The \emph{parse receipt}, the record
-that a finished parse writes, counts how many questions were
+(\code{v4\_practice\_\allowbreak service.py:86--96}). The parse receipt
+(\cref{sec:async}) counts how many questions were
 kept, marked, repaired, and dropped, and why
 (\code{parser/\allowbreak synthesis.py:387--400}).
 
@@ -141,7 +142,7 @@ model, \code{gpt-oss-20b}, writes the question, and a larger one,
 two ordered lists of providers of \cref{sec:architecture}
 (\code{orchestrator.py:260,347,389,393}). Both are sizes of one model family,
 served by Groq, so the check is only partly independent of the writer. The two
-chains list the same eight providers in a different order, so after failovers
+chains list the same eight entries, from six providers, in a different order, so after failovers
 both calls can land on the same model. In the OpenAI-only mode, which sends every model call to OpenAI and is off,
 writer and checker are one model unless two OpenAI models are configured
 (\code{orchestrator.py:105--106,395--397}).
@@ -166,7 +167,7 @@ server refuses a task whose computed answer would be empty or trivial
 again and records its own verdict (\code{v4\_reader.py:326}). A finished
 rehearsal, however, it stores as the browser reports it
 (\code{v4\_rehearsal\_service.py:508}). For multiple choice and ordering the
-model's key stands. All of this is design, and we did not measure it.
+model's key stands. All of this is design that we did not measure.
 
 Every question, the deck quiz included, reaches the browser with its key
 (\code{v4\_practice\_\allowbreak service.py:91}). Grading on the server protects the
@@ -198,10 +199,10 @@ policies at the pin, the same account could then write that Lesson's pages and
 quiz questions itself, past every check of this chapter (migration
 \code{20260122202809}).
 
-A prompt encloses uploaded text between markers. Since PR~\#179 one function
+A prompt encloses uploaded text between markers. Since November 2026 one function
 rewrites any such marker inside uploaded text, so that a PDF cannot close the
 enclosure early, and the quiz step applies it to every page it sends
-(\code{parser/synthesis.py:181,217,264}). The prompts that repair and check a
+(PR~\#179; \code{parser/\allowbreak synthesis.py:181,\allowbreak 217,\allowbreak 264}). The prompts that repair and check a
 question also contain the rule that the page is data, never an instruction
 (\code{ai/prompts.py:443,465}). The prompt that writes the quiz lacks this rule
 (\code{ai/prompts.py:396--422}). The prompt that translates a Lesson, its quiz
@@ -246,8 +247,8 @@ finds only one option on the subject of the page.
 
 For the similarity score we wrote the procedure down before the first
 embedding request (commit \code{c3fa0c1e}). The score compares
-\emph{embeddings}, lists of numbers that place texts with similar meaning close
-together: one for the page, and one for the question together with its key.
+two embeddings (\cref{sec:async}): one for the page, and one for the question
+together with its key.
 The procedure fixed the scoring rule, a threshold fitted only on a separate
 calibration set of key pairs from other decks, and a single scoring of the
 probe. It fixed the acceptance criterion: at most two calibration errors, at
@@ -379,15 +380,17 @@ with so few pairs, its error rate can still be about one in five
 is in-sample, without a criterion fixed in advance, and with off-topic
 distractors, so it is promising, not proven. The two simpler verifiers failed
 on the same pairs: the lexical score dropped 14 of 16 correct keys, and the
-similarity score kept 8 of 16 wrong ones and failed the criterion that we had
-fixed in advance. For three kinds of database task in checkpoints and
+similarity score kept 8 of 16 wrong ones and failed its pre-registered
+criterion. For three kinds of database task in checkpoints and
 rehearsals, code computes the key, a design that we did not measure. The other
-keys of checkpoints, rehearsals, and Luna are checked only for their form, and
-we did not measure how often the generating model writes a wrong key.
+keys of checkpoints, rehearsals, Luna, and check questions in answers are
+checked only for their form, and
+we did not measure how often the generating model writes a wrong key. No
+check reads the translated quiz (\cref{sec:c6-gaps}).
 
 \emph{What happens when a check fails?} The system drops the question: a key
 that matches no option, a cited page that is missing or empty, a key that the
-second model disputes twice. A first dispute gets one repair on the same page,
+second model disputes twice. A first dispute gets one repair,
 and the lexical score only marks. When the second model fails or its reply is
-unreadable, the check fails open and keeps the question, so that an outage
-does not empty a quiz. No person reviews a question before learners see it.
+unreadable, the check fails open and keeps the question, so an outage
+cannot empty a quiz. No person reviews a question before learners see it.
