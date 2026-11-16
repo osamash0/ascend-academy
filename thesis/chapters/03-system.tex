@@ -1,32 +1,36 @@
 % ---------------------------------------------------------------------------
-% OPTION A, CHAPTER 3. Assembled 2026-11-10 with AI assistance (Claude).
-% Sections 3.5 and 3.6 (architecture, deployment) are the author's drafted
-% text from the former design chapter (chapters/superseded/04-design.tex.txt),
-% moved here with one cross-reference re-pointed. The other sections are new,
-% written from docs/thesis/OUTLINE_BRIEF.md (chapter 3), CHAPTER_MATERIAL.md,
-% BRIEF_VERIFICATION.md and docs/timeline/ on branch
-% claude/thesis-brief-verification-6573e8. The use-case and domain diagrams
-% (F4, F5) moved to appendix B.
-% The author must read, revise and own every sentence before submission.
+% CHAPTER 3. Rewritten in November 2026 with AI assistance (Claude) from
+% Package E of the review of 15 November (results.json, part ch3: the draft
+% "Chapter 3 at minimal size" and actions ch3-01 to ch3-22), the issues of
+% its verification (verify.json), and the author's decisions. Sections 3.3 to
+% 3.5 keep the text verified earlier the same day: the two provider chains,
+% the removal of the gateway (68a091e0), the browser's direct path to the
+% database, the stack in the author's account, and the spending caps.
+% Removed: the section "What Is Built and What Is Switched On" (label
+% sec:built-vs-deployed, cited nowhere else; production at 2e146f51 is in
+% 1.4), the five principles, and the July sign-ups (1.4). Every removed
+% passage is kept verbatim in the defence notes. The author must read,
+% revise and own every sentence before submission.
 % ---------------------------------------------------------------------------
-% 2026-11-10 (cut to length): deployment, the readiness signal and the
-% decisions table moved to appendix C; a summary paragraph stays here.
 \chapter{System Overview}
 \label{ch:system}
 
-This chapter describes the system as a whole, so that the three chapters
-that follow can each go deep into one part. It answers no research question.
+This chapter gives what the next three chapters need to know about the
+system. It answers no research question.
 
 \section{From a Course Platform to a Reading View}
 \label{sec:vision}
 
 Learnstation started in January 2026 as a platform for lecturers: a
-professor creates a course, uploads slides, and students work through
-lectures, quizzes, and a dashboard. Over the year the centre moved from the
-course to the page. In the system that production has served since the end
-of October 2026, anyone can upload a PDF and read it at once, and the system adds everything else to the pages while the learner reads them
-(\code{docs/\allowbreak superpowers/\allowbreak specs/\allowbreak 2026-10-26-library-and-spaces-design.md}).
-\Cref{fig:reading-view} shows the reading view on one page.
+professor created a course, and students worked through its lectures and
+quizzes. During the year we moved its centre from the lecturer to the
+learner, because a platform open to any learner can grow without waiting
+for a lecturer to upload and review every file. Since the end of October
+2026, anyone who signs up can upload a PDF and read it at once, while the
+system writes a title and a summary for each page and a short quiz for the
+deck in the background
+(\code{2026-10-26-\allowbreak library-and-spaces-\allowbreak design.md}).
+\Cref{fig:reading-view} shows the reading view.
 
 \begin{figure}[t]
   \centering
@@ -43,188 +47,133 @@ of October 2026, anyone can upload a PDF and read it at once, and the system add
   \label{fig:reading-view}
 \end{figure}
 
-We therefore built the interface twice. The second interface, which the
-repository calls v4, is a new part of the frontend beside the first one, not a
-refactoring of it (\code{docs/design-v4/UI-SESSION-BRIEF.md}, PR~\#55). We
-recorded how we did this and not why we ruled out refactoring. As we recall,
-the first interface assumed a university, with professors and courses, while
-the second had to work for any material and any group. We call the screens of
-the first interface, one per course, lecture, and professor, the \emph{older
-interface} below. They still exist in the code but no longer receive
-learners. The backend changed more often: \cref{tab:lineage} in
-\cref{app:detail} lists nine generations of the parsing pipeline in ten
-months, whose numbers are unrelated to the v4 of the interface.
+For this move we built a second interface, which the repository calls v4, a
+name unrelated to the numbered versions of the parsing pipeline
+(\cref{tab:lineage}). Its design rebuilt the vocabulary and structure of the
+product around the Space and gave roles to people inside a Space instead of
+to accounts (\code{UI-SESSION-BRIEF.md:10}; \code{01-foundations.md:26--33}). We wrote it as a new part of
+the frontend and left the screens of the first interface, which we call the
+\emph{older interface}, untouched (\code{UI-SESSION-BRIEF.md}, PR~\#55).
+They are still in the code, but learners no longer read in them.
 
-Five principles hold across the current system.
-\begin{description}
-  \item[Read first.] A learner can open an uploaded file before any AI step has finished. No feature may delay the learner.
-  \item[The original page is the reference.] The page as the author made it
-    is the default view. Generated text is one switch away and never
-    replaces it.
-  \item[Deterministic first, AI second.] Code decides what code can decide: page hashes, the plan of a deck, the route of a page, the grading
-    of a computable answer.
-  \item[Parse once.] The system processes a file once per uploader and reuses the result for every learner who reads it.
-  \item[The server decides.] The server computes points, progress, and grades, and the browser displays them, except the result of a rehearsal (\cref{sec:c6-grading}).
-\end{description}
-
-\section{Vocabulary and Roles}
+\section{Spaces, Roles, and Questions}
 \label{sec:stakeholders}
 
-The system uses a small vocabulary on purpose
-(\code{docs/V4\_GLOSSARY.md}), and \cref{tab:vocabulary} defines it. A page
-is one page of the uploaded document, whether it was a slide or a sheet of
-paper, and a model groups the ideas when a Lesson is first read. Where this
-thesis means the person who wrote the material, it says \emph{lecturer}, and
-\emph{the author} always means the writer of this thesis. The words course,
-lecture, and slide belong to the older interface and to the database, which
-still stores a Space as a course.
+In the code a Space knows the two roles of \cref{tab:vocabulary}, owner and
+member (\code{v4\_spaces\_\allowbreak service.py:139--142}). Every account that signs
+up can create a Space, publish it, and join a published one
+(\code{v4\_spaces.py:59--91}). The database also lets a student account join
+an unpublished Space (migration \code{20260604000000}; \cref{tab:deployed}).
+Accounts still carry a type from the older interface (student, professor,
+or admin), which guards the older screens; within a Space, ownership decides.
 
-In the code a Space knows two roles: the \emph{owner}, who created it, and
-the \emph{member}, who joined it
-(\code{backend/services/v4\_spaces\_service.py:139--142}). Any signed-in
-user can create a Space and publish it, and can
-join a published one. The database policy also lets a student account enrol
-in one that is not published (\cref{tab:deployed}). The account types of the
-older interface (student, professor, admin) still exist and still guard the
-older interface. \Cref{sec:c5-privacy} names one place
-where the two permission schemes, account type and Space ownership,
-conflicted.
+Unlike the Library, which the interface shows to no one else, a Space is for
+reading with others: its members read its Lessons, and its owner sees in the
+owner's view of \cref{ch:loop} how the material lands with them. At the pin,
+an owner adds Lessons through the course manager of the older interface
+(\code{SpaceManageScreen.tsx:127}). The database stores a Space as a
+course, a Lesson as a lecture, and a page as a slide.
 
-\paragraph{From an upload to a Lesson.}
-In the current interface a learner's upload lands in their Library, a private
-Space of their own, and opens at once. A shared Space gets its Lessons from
-its owner, at the pin through the course manager of the older interface
-(\code{SpaceManageScreen.tsx:127}); members join a published Space and read
-them.
-
-\paragraph{Four kinds of question.}
-Learners meet questions in four places, all written by a model. The
-\emph{deck quiz}, five to eight multiple-choice questions per Lesson, is
-written during the parse, each tied to a page, and learners practise it under
-Practice. A \emph{checkpoint} is written for the pages of one idea when a
-learner reaches its end. A \emph{rehearsal} is a short mixed test from a
-Space's Lessons, and in a study session Luna writes three to six practice
-questions. The server grades the deck quiz and the checkpoints and stores a
-finished rehearsal as the browser grades it (\cref{sec:c6-grading}). The check-in is not a question but the learner's
-own, optional judgement.
-
-\section{What Is Built and What Is Switched On}
-\label{sec:built-vs-deployed}
-
-A description of this system has to separate what exists in the code from
-what a learner can reach. Twelve backend flags, all off by default, guard the features, and production switches on four: the current interface, its reading view, sessions with Luna,
-and uploads by students.
-
-
-With these four flags a learner can upload a PDF, read it in the three views
-of the reading view, and let Explain explain a page. The learner can ask a
-question about a page or about a whole Space and get an answer with links to
-pages. A model writes checkpoint questions for the pages of one idea while
-the learner reads, and the learner answers them. The learner can also run a
-practice session with Luna, whose cards a variant of SM-2~\cite{wozniak1990sm2} schedules, take
-notes, and see a history of earned points. An owner can publish a Space. The view of how people read it entered the main branch two days after the pinned revision
-(\cref{ch:loop}).
-
-The review engine of the older interface, an exam mode, generated study
-guides, and a global search page exist in the code, and a learner cannot reach them in the current interface. We do not count them as delivered.
-
-The thesis describes the pin, \code{\thesisCommit}. Since November 2026
-production runs the main branch at \code{2e146f51}: the pin plus three later
-merges that change the code, a change to the home screen (PR~\#170), the owner's view of
-\cref{ch:loop} (PR~\#181), and the backend of a fourth view of a page, which a
-flag keeps off (PR~\#182).
+Learners meet questions that a model wrote in four places: the deck quiz,
+the checkpoint at the end of an idea, the rehearsal, and the three to six
+practice questions that Luna writes after a study session and that the
+system keeps for later review (\code{luna/\allowbreak store.py:204--228}).
+The \emph{deck quiz} holds five to eight multiple-choice questions per
+Lesson; a model writes them during the parse and ties each to one page.
+\Cref{ch:trust} examines how the system checks these questions, the deck
+quiz above all.
 
 \section{Architecture}
 \label{sec:architecture}
 
 \thesisfigure{f6-components}
-  {Component view of the deployed system. The API and the worker, built from
-   one Dockerfile, call the LLM providers directly.}
+  {Component view of the deployed system: five containers on one virtual
+   machine, the managed services of Supabase, and the providers of language
+   models, which the API and the worker call directly.}
   {fig:components}
 
-The system consists of three runtime parts and a set of managed services
-(\cref{fig:components}). A single-page application written in React and
-TypeScript runs in the browser. A FastAPI application~\cite{fastapi} serves the
-HTTP API. A separate worker process, built on the Arq job queue~\cite{arq}, runs
-everything that takes longer than a request should: parsing, LLM synthesis,
-embedding, localisation, and scheduled maintenance. Supabase~\cite{supabase}
-provides the PostgreSQL database, authentication, and object storage. Two Redis
-instances serve as cache and as job broker.
+The system consists of three parts of our own and a set of managed services
+(\cref{fig:components}). A single-page application runs in the browser and
+calls an API. A worker takes jobs from a queue and runs what takes longer
+than a web request should: parsing with its model calls, translation
+between English and German, and maintenance. Supabase~\cite{supabase}
+provides the PostgreSQL database, sign-in, and file storage. In production, five containers on one
+virtual machine run the API, the worker, the web server, and two
+instances of Redis, an in-memory data store: one for a cache and one for
+the queue
+(\code{docker-compose.prod.yml}).
 
 \paragraph{No gateway on the LLM path.}
-The backend calls every LLM provider directly from one module
-(\code{backend/\allowbreak services/\allowbreak ai/\allowbreak orchestrator.py}), where failover, rate limiting,
-and cost accounting live, through two ordered chains of providers: a
-\emph{bulk chain}, ordered by capacity, for high-volume work such as page
-synthesis, and a \emph{quality chain}, ordered by expected answer quality,
-for fewer and harder calls. Both end with OpenAI. A LiteLLM gateway that no
-code path used was still in the production stack at the revision of August
-2026 (\code{\thesisEarlierCommit}). We removed it in August and September,
-because it had no live callers, took 1\,GB of the 4\,GB machine, and its
-health check could block start-up (\code{68a091e0}); the backend README still
-describes it.
+The backend calls the providers of language models directly, from one
+module that also limits rates and counts costs
+(\code{ai/\allowbreak orchestrator.py}). A call goes along an ordered chain
+of providers: when one provider fails, the call \emph{fails over} to the
+next. The \emph{bulk chain}, ordered by capacity, serves high-volume work
+such as the titles and summaries of pages, and the \emph{quality chain},
+ordered by expected answer quality, serves fewer and harder calls. Both end
+with OpenAI. Until August 2026 the production configuration also held a
+LiteLLM gateway, a proxy in front of the providers. We removed it in August
+and September, because no live code called it, it took a quarter of the
+machine's memory (1\,GB), and its health check could block start-up
+(\code{68a091e0}).
 
-\paragraph{Two database paths.}
-The backend reaches PostgreSQL in two ways. The first is Supabase's web interface to the
-database, used with one of two keys: a privileged key that bypasses
-row-level security, or a normal key that obeys it. The second is a direct
-connection pool. The pool is optional at start-up but not in practice: the ingestion pipeline writes its runs, lectures, slides, and quiz questions
-through it, and every service of the current interface uses it. Older routes still use the web interface.
+\paragraph{Two ways into the database.}
+The first way leads through the backend, which identifies the caller by the
+Supabase session token sent with each request
+(\code{auth\_middleware.py:71}). The screens of the current interface reach
+the database only this way, except for the language setting
+(\code{useLanguagePreference.ts:97--99}). A test forbids their code to import
+the Supabase client (\code{boundary.test.ts}). The app around these screens,
+which handles sign-in, reads account data such as the profile and the
+account type straight from the database (\code{auth.tsx:89--122}).
+The backend reaches PostgreSQL through a direct connection pool or, on older
+routes, through Supabase's web interface to the database with a privileged
+or a normal key (\code{database.py:4--8,\allowbreak 148--190}). The pool and
+the privileged key bypass \emph{row-level security}~\cite{postgresql-rls},
+the rules inside the database that decide which rows a user may read or
+write. Routes that use them therefore check in code whether the caller may
+act, for example whether the caller owns the Space before an upload
+(\code{upload.py:101--127}).
 
-The two paths have a security consequence that shapes the rest of the design.
-Writes through the pool and with the privileged key bypass row-level
-security~\cite{postgresql-rls}, so for those routes application code enforces authorisation, for example by an explicit course-ownership check before it accepts an upload. On the path from the browser, the database's own rules are the only
-check: row-level security, the right to call a function, and the rules of the
-file storage. A function that runs with the rights of the role that defined it
-skips row-level security and must check its caller itself
-(\cref{tab:deployed}).
-
-\paragraph{Browser to backend.}
-The browser talks to Supabase directly only for authentication, for reading the
-user's role, and in the remaining screens of the older interface. All data of the current interface goes through the FastAPI backend, which receives the user's
-Supabase session token as a bearer token. A test enforces this boundary: no
-module of the v4 feature folder may import the Supabase client.
-
-\paragraph{Deployment.}
-Production runs these components in five containers on one virtual machine.
-Deploys are manual, the nightly database dump is encrypted before it leaves
-the server, and an external monitor alerts when a heartbeat goes silent. The
-host's proxy configuration exists only on the server, so the deployed system
-cannot be rebuilt from the repository alone.
+The second way leads from the browser straight to the database: the browser
+holds a key for Supabase, which sign-in needs, so a signed-in user can also
+query the database directly, as the screens of the older interface still do.
+On this path the database's own rules are the only check: row-level
+security, the right to call a function, and the rules of the file storage.
+A function that runs with the rights of the role that defined it skips
+row-level security and must check its caller itself (\cref{tab:deployed}).
 
 \section{Technology Choices}
 \label{sec:stack}
 
 Before we started, we discussed the stack together. The co-developer
-researched and chose the first one, React, Vite, TypeScript, Tailwind,
-Supabase, and a FastAPI service, and it came with the first commit in January
-(\code{184e5742}). The later choices were the author's own. In May the author
-added Redis, the Arq job queue, and nginx (\code{6ce7b5f1}): parsing a deck
-takes longer than an HTTP request should last, so it runs as a job, and nginx
-serves the built interface and forwards its API calls to the backend. In July
-the author split Redis into two instances, because a cache may drop entries
-while a queue must never lose a job (\code{43a86927}). We did not choose the
-text extractor by comparing libraries. We uploaded decks, looked at the
-titles, the page text, and the quiz that came out, and fixed what failed; in
-this way PyMuPDF replaced pypdf in April for better text extraction
-(PR~\#4). The benchmark of \cref{ch:content} was the first measured comparison
-that this extractor faced.
+researched and chose the first one: React, Vite, TypeScript, and Tailwind
+for the browser, Supabase, and a FastAPI~\cite{fastapi} service
+(\code{184e5742}). The later choices were the author's own. In May the
+author added Redis and the Arq~\cite{arq} job queue, because parsing a deck
+takes longer than an HTTP request should last, and nginx, which serves the
+application and forwards its calls to the API (\code{6ce7b5f1}). In June
+the co-developer also built on Redis, with a cache for sign-in tokens
+(\code{8fac2fc3}). In July the author split Redis into two instances,
+because a cache may drop entries while a queue must never lose a job
+(\code{43a86927}). We did not choose the text extractor by comparing
+libraries: we uploaded decks, looked at the titles, page texts, and quizzes
+that came out, and fixed what failed. PyMuPDF~\cite{pymupdf} replaced pypdf
+in April for better text extraction, without a recorded comparison
+(PR~\#4). The benchmark of \cref{ch:content} was the first measured
+comparison that this extractor faced.
 
 \section{Constraints}
 \label{sec:constraints}
 
-Three constraints shaped the design. The system
-runs on one virtual machine with two virtual CPUs and 4\,GB of memory.
-Model calls run on free or low-cost quotas, which is why the provider chains
-have a fallback and spending is capped: each user has a monthly cap of \$2 by
-default, and all users together a daily ceiling on OpenAI of \$10
-(\code{core/\allowbreak config.py:187--195}). The
-database is a managed PostgreSQL on a free tier without point-in-time
-recovery.
-
-One more condition is not a constraint and still shapes every evaluation in
-this thesis. In July 2026 the platform was announced by e-mail to the
-participants of the Database Systems course (\cref{sec:scope}). Five people signed up with
-university addresses and looked around, but none used it enough to give us
-data to evaluate or feedback to learn from. The evaluations therefore work on
-material and not on people.
+Three constraints shaped the design. The virtual machine has two virtual
+CPUs and 4\,GB of memory. Model calls run on free or low-cost quotas, which
+is why the provider chains fail over and spending is capped: by default a
+user may spend \$2 a month, and all users together \$10 a day on OpenAI
+(\code{core/\allowbreak config.py:187--195}). When Redis, which counts each
+user's spending, is unavailable, the check lets the call through, so that a
+metering failure never stops a model call
+(\code{ai/\allowbreak cost.py:22--25,\allowbreak 113--128}). The database
+is a managed PostgreSQL on a free tier without point-in-time recovery. Real
+use stayed too small to evaluate (\cref{sec:scope}), so the evaluations in
+this thesis work on material, not on people.

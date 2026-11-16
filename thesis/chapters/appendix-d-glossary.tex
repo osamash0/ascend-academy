@@ -56,17 +56,19 @@ Explain, Ask, the ask bar, Luna, checkpoint, check-in, and the owner's view.
   \item[lecturer] The person who wrote the material, as distinct from the
     owner who uploads it.
   \item[older interface] The first interface of the system, with screens per
-    course, lecture, and professor; still in the code, no longer reached by
-    learners (\cref{sec:vision}).
+    course, lecture, and professor; still in the code, where owners add
+    Lessons through its course manager, but no longer reached by learners
+    (\cref{sec:vision}).
   \item[owner] The person who made a Space and uploads its material, and who
     receives the owner's view.
   \item[parse receipt] The record a parse writes: for each page its route,
-    the prompt and its version, the provider, the model, the tokens, and the
-    cost, and the counts of quiz questions kept, repaired, and dropped.
+    the prompt and its version, and for each metered call the provider, the
+    model, the tokens, and the cost (vision and embedding calls are not
+    metered); and the counts of quiz questions kept, repaired, and dropped.
   \item[pin, the] Revision \code{\thesisCommit} of 6~November 2026, the code
     this thesis describes (\cref{sec:scope}).
   \item[pipeline v1 to v5] The numbered versions of the parsing code
-    (\cref{tab:lineage}); unrelated to the v4 interface.
+    (\cref{sec:c4-lineage}); unrelated to the v4 interface.
   \item[points] A rating on the benchmark's scale: 1000 plus 400 times the
     decimal logarithm of a method's strength relative to the current
     extraction, so that 400 points are a ratio of 10:1 in expected score.

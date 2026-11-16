@@ -1,208 +1,177 @@
 % ---------------------------------------------------------------------------
-% OPTION A, CHAPTER 2. Written 2026-11-10 with AI assistance (Claude) from
-% docs/thesis/OUTLINE_BRIEF.md (chapter 2, candidate sources) and
-% CHAPTER_MATERIAL.md on branch claude/thesis-brief-verification-6573e8.
-% Eleven sources were added to references.bib on 2026-11-10 with metadata
-% from Crossref, arXiv and CEUR-WS. Of the two preprints in the comparison
-% table, Slide2Text (arXiv:2503.17710) was read in full; for Learn Your Way
-% (arXiv:2509.13348) the abstract and the study design were read, not every
-% section. The table compares what the papers describe; nothing was run.
-% Figure F2 (positioning) is no longer used: it was drawn from this system's
-% own capabilities, not from a literature search.
+% CHAPTER 2. Rewritten in November 2026 with AI assistance (Claude) from the
+% review docs/thesis/reviews/2026-11-15-g-focus-length-voice.md (Package F),
+% its drafts and actions (results.json, part ch2: D1, D2, ch2-01 to ch2-17),
+% the verification (verify.json) and the author's decisions: one section per
+% research question, then related systems. The retrieval and attribution
+% paragraph of draft D1 left too, because no remaining chapter uses it;
+% Chapter 6 defines embeddings where it uses them. The threshold rule of
+% statistical agencies, with the four sources the author read, stays in
+% Chapter 5 (sec:c5-aggregation, The Floor); this chapter points there, so
+% that the five of RQ2's standard is not read as derived from those sources.
+% Every passage that left the chapter is kept verbatim in the defence notes,
+% under "Chapter 2 ordered by research question". Labels kept: ch:background,
+% sec:document-ai, sec:analytics-privacy, sec:llms, sec:positioning,
+% tab:related. Dropped: sec:rag, sec:learning-science (no other chapter
+% cites them).
 % The author must read, revise and own every sentence before submission.
 % ---------------------------------------------------------------------------
 \chapter{Background and Related Work}
 \label{ch:background}
 
-This chapter gives the background that the three main chapters rely on and
-places Learnstation among related systems. It follows the path of a page:
-how software recovers text from a PDF, what a language model adds and where it fails, how a system ties answers to a source, what the learning sciences say about practice, and how a system can return data about learners without exposing them.
-The chapter ends with a comparison of the two systems closest to ours.
+This chapter gives the background for the three research questions and places
+Learnstation among related systems. \Cref{sec:document-ai} shows how software
+recovers text from a PDF (RQ1), \cref{sec:analytics-privacy} how a system can
+return data about learners without exposing them (RQ2), and \cref{sec:llms}
+where a language model fails and why its quiz questions are hard to check
+(RQ3). The chapter ends with the two systems closest to ours.
 
 \section{Recovering Content from Documents}
 \label{sec:document-ai}
 
-A PDF describes where glyphs and images sit on a page. It does not
-say which glyphs form a heading, which a table, or in which order a human
-reads them. Document understanding is the field that recovers this structure.
-Models such as LayoutLM learn from text and position
-together~\cite{xu2020layoutlm}, trained on human-annotated page
-layouts~\cite{pfitzmann2022doclaynet}, and Nougat transcribes pages directly
-from the image~\cite{blecher2023nougat}. Open-source
-toolkits such as Docling~\cite{auer2024docling} and
+Document understanding studies how to recover what a PDF does not record:
+which text forms a heading, which a table, and in which order a person reads
+it. Open-source toolkits such as Docling~\cite{auer2024docling} and
 MinerU~\cite{wang2024mineru} package layout analysis, table recognition, and
-optical character recognition into one converter, and benchmarks such as
-OmniDocBench compare converters across document
-types~\cite{ouyang2025omnidocbench}. A simpler path reads the text layer that
-a born-digital PDF already carries, for which we use
-PyMuPDF~\cite{pymupdf}.
+the reading of text from images, called optical character recognition (OCR),
+into one converter. OmniDocBench compares such converters on pages of nine
+kinds, slides among them, by how closely their output matches annotated
+reference text~\cite{ouyang2025omnidocbench}. Nougat transcribes scientific
+documents directly from the page image~\cite{blecher2023nougat}. A
+vision model can also transcribe a page from its rendered image
+(\cref{sec:parser-bench}). A
+\emph{born-digital} PDF, one exported from software and not scanned, already
+stores its characters and their positions, which together form its
+\emph{text layer}. A simpler path reads this layer, as Learnstation does
+with PyMuPDF~\cite{pymupdf}.
 
-Lecture slides are a hard case for all of these. A slide holds little text, and much of its meaning is in a figure,
-an arrow, or the position of two boxes. SlideVQA shows that questions about slide decks can need more than one slide and its visual content~\cite{tanaka2023slidevqa}. Dinh et al.\ compare ways to give a
-language model access to university course material and find that passing
-retrieved slides as images works better than passing their extracted
-text~\cite{dinh2025slides}.
-None of the works above compares extractors on lecture slides by a reader's
-preference, or at the cost a small server can bear. \Cref{ch:content} does
-both, with the author as the only judge.
-
-\section{Language Models and Their Failure Modes}
-\label{sec:llms}
-
-A large language model produces fluent text for any prompt, whether or not
-the text is true. The literature calls a fluent and unsupported statement a
-hallucination and treats it as a property of the technique and not a rare
-fault~\cite{ji2023hallucination,huang2025hallucination}. For learning
-material this matters more than elsewhere, because a learner reads the material to
-learn what they do not yet know and so has the least basis to notice an error.
-
-Two further failure modes shape \cref{ch:trust}. The first concerns the use
-of a model to judge the output of a model. Such judges agree with human
-raters about as often as humans agree with each other, above 80\,\% in one
-study, but they carry biases of their own~\cite{zheng2023judging}, and a
-model tends to rate its own output more favourably than that of
-others~\cite{panickssery2024selfpreference}. The second is prompt injection.
-When a model reads a document, instructions hidden in the document compete
-with the instructions of the
-application~\cite{greshake2023indirect,perez2022ignore,owasp2025llm}. Marking untrusted text as data, called
-spotlighting, lowers the success of such attacks without removing
-them~\cite{hines2024spotlighting}. Every uploaded PDF is untrusted text in
-this sense.
-
-\section{Retrieval and Groundedness}
-\label{sec:rag}
-
-Retrieval-augmented generation answers a question in two steps. It first
-retrieves passages from a corpus and then lets the model write an answer from
-them~\cite{lewis2020rag,gao2023ragsurvey}. Retrieval commonly compares dense vectors of question and passage~\cite{karpukhin2020dpr}, in some systems combined with keyword search. We store the vectors in PostgreSQL with the
-pgvector extension~\cite{pgvector}.
-
-Retrieval makes an answer checkable, and it does not make it correct. Work on
-attribution separates two questions: whether a citation points at a source,
-and whether the source supports the sentence that cites
-it~\cite{rashkin2023ais}. Models that a prompt asks to cite often fail the second~\cite{gao2023alce}, and metrics such as FActScore~\cite{min2023factscore} and RAGAS~\cite{es2024ragas} measure that gap. We use the word \emph{grounded} for an answer that a system restricts to retrieved material and the word \emph{verified} only where a
-separate step has checked the content.
-
-\section{What the Learning Sciences Ask For}
-\label{sec:learning-science}
-
-Results from the learning sciences explain why the assistant stays close to
-the page (\cref{ch:trust}); they also motivate the practice features of
-\cref{ch:system}, which this thesis does not evaluate. Retrieving something
-from memory strengthens it more than reading it again, and practice spread
-over time beats the same practice in one
-block~\cite{roediger2006testing,cepeda2006distributed,dunlosky2013techniques}.
-Automatically generated questions can bring such practice into
-textbooks~\cite{vancampenhout2021transforming}, although judging their
-quality is hard~\cite{kurdi2020aqg}.
-
-The evidence on AI tutors is mixed. A tutor built on a language model beat
-active learning in class in one controlled
-study~\cite{kestin2025aitutoring}. In another, students who practised with an
-unrestricted chat model did worse once they lost access to it, and a version
-with guardrails largely avoided that harm~\cite{bastani2025guardrails}. We
-read these results as support for a design in which the assistant stays with
-the material and makes the learner do something, and as a warning against
-claiming a learning effect without measuring it. Game elements such as points
-and badges, which the system also has, show small positive effects on average
-and depend on the context~\cite{sailer2020gamification}.
+Lecture slides are a hard case. A slide holds little text, and much of its
+meaning lies in a figure, an arrow, or the position of two boxes. Questions
+about a slide deck can need more than one slide and its visual
+content~\cite{tanaka2023slidevqa}. Dinh et al.\ give a language model
+university course material and find that it answers course questions better
+when it receives the retrieved slides as images than as their extracted
+text~\cite{dinh2025slides}. We found no work that compares text extraction
+methods on lecture slides by which text a reader would rather learn from,
+together with what each method costs per page. \Cref{ch:content} makes such a
+comparison, with the author as the only judge.
 
 \section{Feeding Data Back Without Exposing Learners}
 \label{sec:analytics-privacy}
 
-Learning analytics collects traces of what learners do and returns them to
-someone who can act on them, and Clow describes this as a cycle that is only
-complete when the action reaches the learners again~\cite{clow2012cycle}.
-The person who can act on a confusing page is the lecturer who made it. The
-traces are personal data, however, and in a course of twenty the lecturer
-knows every learner. A classic technical measure is a
-minimum group size: under $k$-anonymity a released record must be
-indistinguishable from at least $k-1$ others~\cite{sweeney2002kanonymity}.
-A minimum group size has known limits. It does not protect a value that
-every member of the group shares, which $\ell$-diversity
-addresses~\cite{machanavajjhala2007ldiversity}, and it says nothing about
-what two releases reveal together. Differential privacy limits what any number of releases reveals about one
-person, at a privacy cost that adds up over releases~\cite{dwork2006dp}.
-RQ2 asks for a view that shows no individual learner. As a stricter
-standard, we call a view privacy-preserving in this thesis if no statement it
-releases is about fewer than five people, and \cref{ch:loop} measures the
-remaining risk of the owner's view against it.
+In learning analytics, a system collects traces of what learners do and
+returns them to someone who can act on them. Clow describes this as a cycle
+that is complete only when an action reaches the learners
+again~\cite{clow2012cycle}. In Learnstation the person who can act on a
+confusing page is the owner, who uploaded the material to a Space
+(\cref{tab:vocabulary}). The traces are personal data, however, and in a
+Space of twenty the owner may know every reader.
+
+A classic protection is a minimum group size. Under $k$-anonymity, each record
+in a released table must be indistinguishable from at least $k-1$ other
+records in the attributes that could identify a
+person~\cite{sweeney2002kanonymity}. \Cref{sec:c5-aggregation} compares the
+minimum that the owner's view applies with the practice of statistical
+agencies, and \cref{sec:c5-privacy}
+discusses what such a minimum leaves unprotected. RQ2 asks for a view that
+shows no individual learner. As a stricter standard, we call a view
+privacy-preserving in this thesis if no statement it releases is about fewer
+than five people, and \cref{ch:loop} measures the remaining risk of the
+owner's view against it.
+
+\section{Checking What a Language Model Writes}
+\label{sec:llms}
+
+A language model writes fluent text in reply to any \emph{prompt}, the
+instruction it is given, whether or not the text is true. A
+fluent statement that no source supports is called a \emph{hallucination},
+and surveys treat it as a property of the technique, not a rare
+fault~\cite{ji2023hallucination,huang2025hallucination}. In learning material
+this matters, because a learner reads to learn what they do not yet know and
+is the least able to notice an error.
+
+One result of the learning sciences motivates the quiz questions that
+Learnstation generates: being tested on a text helps a learner remember it
+longer than reading the text again, which is called the \emph{testing
+effect}~\cite{roediger2006testing}. Software can generate such questions for
+a textbook~\cite{vancampenhout2021transforming}, but judging their quality is
+hard~\cite{kurdi2020aqg}. One way to check what a model writes is to let a
+second model judge it. Such judges agree with human raters about as often as
+humans agree with each other, above 80\,\% in one study, but they have biases
+of their own~\cite{zheng2023judging}. A model also tends to rate its own
+output more favourably than that of other
+models~\cite{panickssery2024selfpreference}. For a system that shows
+generated questions to learners without a person's approval, these results
+leave open what RQ3 asks: how reliably the answer keys of such questions can
+be checked before learners see them, and what happens when a check fails.
 
 \section{Related Systems}
 \label{sec:positioning}
 
-Intelligent textbooks are the closest tradition. Brusilovsky et al.\ describe
-their return: textbooks that model their content, embed practice, and record
-use, now with machine learning for the steps that once required
-authors~\cite{brusilovsky2022return}. A second line augments the reading
-surface of a document without changing the document. Paper Plain adds plain
-language summaries and guiding questions to medical
-papers~\cite{august2023paperplain}. The Semantic Reader project builds such augmented reading interfaces for
-scientific papers in general~\cite{lo2024semanticreader}. Learnstation
-shares the principle of this line: the original stays visible, and the
-generated layer sits on top of it.
+Learnstation belongs to the tradition of intelligent textbooks
+(\cref{sec:motivation}), which Brusilovsky et al.\ see returning, now with
+machine learning doing steps that once required
+authors~\cite{brusilovsky2022return}. A second line of work augments the
+reading surface of a document without changing the document, for example for
+scientific papers~\cite{lo2024semanticreader}. Learnstation shares the
+principle of this line: the original page stays visible, and the generated
+layer sits on top of it.
 
 Two recent systems transform teaching material with language models and are
-close enough to compare directly (\cref{tab:related}). Learn Your Way turns a textbook into several personalised representations
-``while maintaining content integrity'' and reports a randomised controlled
-trial with 60~students against a standard PDF
-reader~\cite{learnlm2025textbook}. The treatment in that trial includes
-quizzes that the control does not have, so the trial does not isolate the
-effect of the reading surface. Slide2Text takes PowerPoint files and writes a
-textbook from them~\cite{zhou2025slide2text}. It enriches the slides with
-passages retrieved from external papers and web search, which is the opposite
-of our choice to stay inside the uploaded material. Both are preprints.
+close enough to compare directly (\cref{tab:related}). Learn Your Way turns a
+textbook into several personalised representations ``while maintaining
+content integrity'' and reports a randomised controlled trial with
+60~students against a standard PDF reader~\cite{learnlm2025textbook}. The
+treatment in that trial includes quizzes that the control does not have, so
+the trial does not isolate the effect of the reading surface. Slide2Text takes
+PowerPoint files and writes a textbook from them~\cite{zhou2025slide2text}. It
+enriches the slides with passages retrieved from external papers and web
+search, which is the opposite of our choice to stay inside the uploaded
+material. Both are preprints.
 
-\begin{table}[htbp]
+\begin{table}[tbp]
   \centering\small
   \caption{Learnstation and the two closest systems, compared on what their
     publications describe. We ran no system for this comparison.}
   \label{tab:related}
-  \begin{tabular}{@{}p{0.16\textwidth}p{0.245\textwidth}p{0.245\textwidth}p{0.245\textwidth}@{}}
+  \newcommand*{\rr}{\raggedright\hspace{0pt}}
+  \begin{tabular}{@{}p{0.15\textwidth}p{0.25\textwidth}p{0.25\textwidth}p{0.25\textwidth}@{}}
     \toprule
      & \textbf{Learn Your Way}~\cite{learnlm2025textbook}
      & \textbf{Slide2Text}~\cite{zhou2025slide2text}
-     & \textbf{Learnstation} \\
+     & \textbf{Learnstation} \tabularnewline
     \midrule
-    Input &
-      Textbook material &
-      PowerPoint files (text, notes, images by OCR) &
-      Any lecture PDF: slides, scripts, exercise sheets \\
-    Output &
-      Several representations of the same content &
-      A textbook with chapters, cases, and exercises &
-      The original page, a text of it, questions, and a search index \\
-    Relation to the source &
-      Generated from the source, content integrity as a stated goal &
-      Source enriched with retrieved external papers and web results &
-      Original page stays the default view; answers cite pages; the ask bar
-      refuses outside the material \\
-    Checks on generated content &
-      Ratings by pedagogical experts &
-      A review by several models and an expert panel, described as a
+    \rr From what to what &
+      \rr Textbook material to several representations of the same content &
+      \rr PowerPoint files to a textbook with chapters, cases, and exercises &
+      \rr A lecture PDF to its original pages, a title, text, and summary per
+      page, a quiz, and a search index \tabularnewline
+    \rr Checks on generated content &
+      \rr Ratings by pedagogical experts &
+      \rr A review by several models and an expert panel, described as a
       framework &
-      Computed answer keys, and a check by a second model \\
-    Personalisation &
-      Yes, of the content itself &
-      Language, style, and difficulty chosen by the user &
-      None of the content; only the schedule of practice \\
-    Feedback to the owner &
-      None described &
-      None described &
-      Patterns per page from five readers on, no names \\
-    Evaluation &
-      Controlled trial with 60~students &
-      One case study on a deck of 39~slides; a controlled study is planned,
-      no results reported &
-      Blind benchmark, scripted readers, a probe of 16~pairs; no learners \\
+      \rr A second model checks the deck quiz; code computes the keys of three
+      kinds of database task \tabularnewline
+    \rr Feedback to the owner &
+      \rr None described &
+      \rr None described &
+      \rr Patterns per page from five readers on, no names \tabularnewline
+    \rr Evaluation &
+      \rr Controlled trial with 60~students &
+      \rr One case study on a deck of 39~slides; a controlled study is
+      planned &
+      \rr Routing study, blind benchmark, scripted readers, 16~fixed pairs of
+      answer keys; no learners \tabularnewline
     \bottomrule
   \end{tabular}
 \end{table}
 
-The comparison shows where this thesis stands. Both related systems aim at
-the individual learner and personalise the content. As far as
-the publications describe, neither has a path back to the owner of the material and neither rejects a
-generated item automatically. Learnstation makes the opposite trade: every
-learner gets the same content, the owner gets a view of how people read it, and a check runs on generated quiz questions before a learner sees them, unless the
-check itself is unavailable. What Learn Your
-Way has and this thesis lacks is evidence from real learners.
+Both systems aim at the individual learner: they personalise the content and
+present it in new forms. We do not try to contribute there. As far as their
+publications describe, neither system sends anything back to the owner of the
+material, and neither rejects a generated question automatically. We make the
+opposite trade: in Learnstation every learner in a Space gets the same
+content, the owner sees how people read it (RQ2), and a check runs on
+generated quiz questions before a learner sees them, unless the check itself
+is unavailable (RQ3). What Learn Your Way has and this thesis lacks is
+evidence from real learners.

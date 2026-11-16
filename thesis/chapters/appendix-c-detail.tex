@@ -13,17 +13,18 @@ the parameters and the seed sweep of the study with scripted readers of
 \section{The Pipeline and Its Lineage (Chapter 4)}
 \label{sec:lineage-table}
 
-\Cref{tab:lineage} lists the nine generations of the parsing pipeline that led
-to the pipeline of \cref{sec:pipeline}.
+\Cref{tab:lineage} lists by month the pipeline versions v1 to v5 of
+\cref{sec:c4-lineage}, which led to the pipeline of \cref{sec:pipeline}; the
+filter of v1 and three later rebuilds of v5 have rows of their own.
 
 \begin{table}[tp]
   \centering
   \small
   \caption{The pipeline lineage at a glance (2026; v1 to v5 are the numbered
     pipeline versions, unrelated to the v4 interface of \cref{sec:vision}).
-    Source: the development timeline in the repository
-    (\code{docs/timeline/}); the rows v1 and v5 were checked commit by commit
-    in November 2026.}
+    Sources: the commits cited in \cref{sec:c4-lineage} and, for the last
+    three rows, PRs~\#84, \#139, \#145, and \#178; the rows v1 and v5 were
+    checked commit by commit in November 2026.}
   \label{tab:lineage}
   \begin{tabular}{@{}llp{0.6\textwidth}@{}}
     \toprule
@@ -116,9 +117,7 @@ committed before the run (\code{seed-sweep/\allowbreak PROTOCOL.md}, commit
 the number of seeds in which it held. The predictions in the protocol held
 except two, narrowly: we expected the hotspot of arm~A in 20 to 60 of 100
 seeds and saw it in 19, and we expected no calibration gap in arm~A and saw
-one. One finding appeared where no persona was built to cause it: a
-calibration gap on a page other than page~10, in four seeds of arm~C and one
-of arm~A, from the random checkpoint misses of askers and struggling readers.
+one, which \cref{sec:c5-results} traces to chance.
 Of the post-hoc expectations, the hotspot of arm~J held in all 100
 seeds, its themes in 61, and the numbers of arm~I in all 100.
 

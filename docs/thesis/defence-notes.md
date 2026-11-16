@@ -888,7 +888,9 @@ Deleted from Appendix C, because no chapter needs them:
   fault). Chapter 3 now states the deployment facts in four sentences.
 - **The prose of the pipeline lineage (the table stays).** Pipeline v5 (June)
   made the server the only writer of parse results; on the deck that had
-  exposed v4's blindness it routed 88 of 143 pages to vision. Pipeline v3 with
+  exposed v4's blindness it routed 88 of 143 pages to vision [correction, 16 November:
+  an offline check in v5's first commit, not the version that served; the thesis no longer
+  cites it, see "Chapter 4 rewritten (16 November)" below]. Pipeline v3 with
   Docling never became the default: the configuration stayed at version 2
   until 28 June and then jumped to 5. The production image left Docling out
   because of heavy dependencies and a build over 30 minutes (`6ce7b5f1`); v5
@@ -2255,4 +2257,1808 @@ threshold, before any model call. When the checker itself is unavailable, the
 check fails open: it keeps the question, so that an outage does not empty a
 quiz. And where no check exists, for the meaning of generated prose, the
 original page remains the first thing a learner sees.
+```
+
+### Chapter 2 ordered by research question (16 November)
+
+Chapter 2 now has one section per research question, followed by the related systems: Recovering Content from Documents (RQ1), Feeding Data Back Without Exposing Learners (RQ2), Checking What a Language Model Writes (RQ3), and Related Systems. The pass follows the review of 15 November (Package F; drafts D1 and D2 and actions ch2-01 to ch2-17 in `results.json`, part ch2), its verification (`verify.json`), and the author's decisions of 16 November. Besides what the review proposed, the retrieval and attribution paragraph of draft D1 left too, because no remaining chapter uses it. The chapter shrinks from about 1,360 words of text and a table of 227 words to about 1,090 words and a table of 174 words. In the base build it filled PDF pages 12 to 15, the last one holding only the table; the new text should fill about three pages (an estimate at about 480 words per page; we did not build). Every passage of `02-background.tex` that was cut or rewritten follows verbatim, each with its reason. The second paragraph of Related Systems (Learn Your Way and Slide2Text) is unchanged and therefore not repeated. The groundedness-regimes paragraph and Figure 2.1 left in an earlier pass; their text is under "The RQ3 pass (16 November)", and the old Chapter 6 sections that described each regime are under "Chapter 6 refocused on quiz answer keys (16 November)".
+
+#### What the cut sources say (for oral questions)
+
+These summaries restate the cut passages below, so that an answer in the oral defence does not need the old PDF.
+- Spacing: practice spread over several sessions helps memory more than the same amount of practice in one session (Cepeda et al. 2006; review by Dunlosky et al. 2013). It motivated Luna's spaced practice cards, which a variant of SM-2 schedules and which the thesis does not evaluate; the new Chapter 3 no longer names SM-2.
+- AI tutors: a tutor built on a language model beat in-class active learning in one controlled study (Kestin et al. 2025). Students who practised with an unrestricted chat model did worse once they lost access to it, and a version with guardrails largely avoided that harm (Bastani et al. 2025). We read both as support for an assistant that stays with the material, and as a warning against claiming a learning effect without measuring it.
+- Gamification: points and badges show small positive effects on average, and the effects depend on the context (Sailer and Homner 2020).
+- Document understanding: LayoutLM learns from text and position together (Xu et al. 2020); DocLayNet is a human-annotated dataset of page layouts for training layout models (Pfitzmann et al. 2022).
+- Retrieval and attribution: retrieval-augmented generation retrieves passages and then lets the model answer from them (Lewis et al. 2020; survey by Gao et al. 2023), commonly by comparing dense vectors (Karpukhin et al. 2020), which Learnstation stores with pgvector. Attribution separates whether a citation points at a source from whether the source supports the sentence (Rashkin et al. 2023); models asked to cite often fail the second (Gao et al. 2023, ALCE); FActScore (Min et al. 2023) and RAGAS (Es et al. 2024) measure that gap. The thesis used "grounded" for an answer restricted to retrieved material and "verified" only where a separate step checked it.
+- Prompt injection: direct injection (Perez and Ribeiro 2022) left the thesis. Indirect injection (Greshake et al. 2023), the OWASP list and spotlighting (Hines et al. 2024) stay in Chapter 6.3.
+- Privacy: ℓ-diversity (Machanavajjhala et al. 2007) and differential privacy (Dwork 2006) stay in Chapter 5 (Privacy by Design) and Chapter 7 (Outlook).
+- Augmented reading: Paper Plain adds plain-language summaries and guiding questions to medical papers (August et al. 2023).
+
+With this pass, 17 keys are cited nowhere in the current chapters, so biblatex no longer prints them: august2023paperplain, bastani2025guardrails, cepeda2006distributed, dunlosky2013techniques, es2024ragas, gao2023alce, gao2023ragsurvey, karpukhin2020dpr, kestin2025aitutoring, lewis2020rag, min2023factscore, perez2022ignore, pfitzmann2022doclaynet, pgvector, rashkin2023ais, sailer2020gamification, xu2020layoutlm. They stay in `references.bib`. Keys that left Chapter 2 but are still cited elsewhere: greshake2023indirect, owasp2025llm, hines2024spotlighting (Chapter 6), machanavajjhala2007ldiversity (Chapter 5), dwork2006dp (Chapters 5 and 7). No key is new in Chapter 2: the threshold rule (fcsm2005spwp22, hundepool2026handbook) stays in Chapter 5 (Aggregation, The Floor) together with ritchie2022ten and seastrom2010nces, and Chapter 2 points there.
+
+#### Header comment (old lines 1-13; replaced)
+
+The provenance comment described the chapter of 10 November and the earlier removal of figure F2. The new comment describes this pass, the labels kept and dropped, and where the cut text went.
+
+```latex
+% ---------------------------------------------------------------------------
+% OPTION A, CHAPTER 2. Written 2026-11-10 with AI assistance (Claude) from
+% docs/thesis/OUTLINE_BRIEF.md (chapter 2, candidate sources) and
+% CHAPTER_MATERIAL.md on branch claude/thesis-brief-verification-6573e8.
+% Eleven sources were added to references.bib on 2026-11-10 with metadata
+% from Crossref, arXiv and CEUR-WS. Of the two preprints in the comparison
+% table, Slide2Text (arXiv:2503.17710) was read in full; for Learn Your Way
+% (arXiv:2509.13348) the abstract and the study design were read, not every
+% section. The table compares what the papers describe; nothing was run.
+% Figure F2 (positioning) is no longer used: it was drawn from this system's
+% own capabilities, not from a literature search.
+% The author must read, revise and own every sentence before submission.
+% ---------------------------------------------------------------------------
+```
+
+#### Opening (old lines 17-20; rewritten)
+
+The opening followed the path of a page through five topics, two of which left the chapter. It now names one section per research question (rewrite R1, action ch2-09), so that an examiner sees at once which literature serves which question.
+
+```latex
+This chapter gives the background that the three main chapters rely on and
+places Learnstation among related systems. It follows the path of a page:
+how software recovers text from a PDF, what a language model adds and where it fails, how a system ties answers to a source, what the learning sciences say about practice, and how a system can return data about learners without exposing them.
+The chapter ends with a comparison of the two systems closest to ours.
+```
+
+#### 2.1, first paragraph (old lines 25-38; rewritten)
+
+The sentence on LayoutLM and DocLayNet left (action ch2-08), because no other chapter uses that history. The first sentence no longer restates what a PDF records, which Chapter 1 now says. The paragraph now defines OCR, born-digital and text layer in one clause each (vision model keeps its definition in Chapter 1), and the OmniDocBench sentence says what that benchmark compares (pages of nine kinds, slides among them, against annotated reference text), so that the hedged gap at the end of the section is visibly true.
+
+```latex
+A PDF describes where glyphs and images sit on a page. It does not
+say which glyphs form a heading, which a table, or in which order a human
+reads them. Document understanding is the field that recovers this structure.
+Models such as LayoutLM learn from text and position
+together~\cite{xu2020layoutlm}, trained on human-annotated page
+layouts~\cite{pfitzmann2022doclaynet}, and Nougat transcribes pages directly
+from the image~\cite{blecher2023nougat}. Open-source
+toolkits such as Docling~\cite{auer2024docling} and
+MinerU~\cite{wang2024mineru} package layout analysis, table recognition, and
+optical character recognition into one converter, and benchmarks such as
+OmniDocBench compare converters across document
+types~\cite{ouyang2025omnidocbench}. A simpler path reads the text layer that
+a born-digital PDF already carries, for which we use
+PyMuPDF~\cite{pymupdf}.
+```
+
+#### 2.1, second paragraph (old lines 40-47; rewritten)
+
+Four changes. "For all of these" left as an overgeneralisation. Dinh et al.'s task is now explicit (a model answers course questions), so the difference from Chapter 4, which measures a reader's preference, shows before Chapter 7 discusses it (Polish 2.1 #1). The novelty claim is hedged as what we found (Polish 2.1 #2): OmniDocBench, cited in the same section, does compare converters on slide pages, only not by a reader's preference or by cost. And "at the cost a small server can bear" became "what each method costs per page", because the benchmark measured time and memory on an 8 GB Mac, not on a server, and the verification removed the same overclaim from the abstract.
+
+```latex
+Lecture slides are a hard case for all of these. A slide holds little text, and much of its meaning is in a figure,
+an arrow, or the position of two boxes. SlideVQA shows that questions about slide decks can need more than one slide and its visual content~\cite{tanaka2023slidevqa}. Dinh et al.\ compare ways to give a
+language model access to university course material and find that passing
+retrieved slides as images works better than passing their extracted
+text~\cite{dinh2025slides}.
+None of the works above compares extractors on lecture slides by a reader's
+preference, or at the cost a small server can bear. \Cref{ch:content} does
+both, with the author as the only judge.
+```
+
+#### 2.2 Language Models and Their Failure Modes (old lines 49-70; merged into the new 2.3, prompt injection cut)
+
+The hallucination paragraph and the model-as-judge sentences moved into the new section "Checking What a Language Model Writes" (label sec:llms kept). There it relies on Chapter 1's definition of a language model and defines prompt in one clause, and the unsupported comparison "more than elsewhere" left (action ch2-10). The prompt-injection sentences left (action ch2-03): Chapter 6.3 treats instructions hidden in a page on the quiz path with the same sources and explains OWASP there (Polish 2.1 #3). perez2022ignore is no longer cited.
+
+```latex
+\section{Language Models and Their Failure Modes}
+\label{sec:llms}
+
+A large language model produces fluent text for any prompt, whether or not
+the text is true. The literature calls a fluent and unsupported statement a
+hallucination and treats it as a property of the technique and not a rare
+fault~\cite{ji2023hallucination,huang2025hallucination}. For learning
+material this matters more than elsewhere, because a learner reads the material to
+learn what they do not yet know and so has the least basis to notice an error.
+
+Two further failure modes shape \cref{ch:trust}. The first concerns the use
+of a model to judge the output of a model. Such judges agree with human
+raters about as often as humans agree with each other, above 80\,\% in one
+study, but they carry biases of their own~\cite{zheng2023judging}, and a
+model tends to rate its own output more favourably than that of
+others~\cite{panickssery2024selfpreference}. The second is prompt injection.
+When a model reads a document, instructions hidden in the document compete
+with the instructions of the
+application~\cite{greshake2023indirect,perez2022ignore,owasp2025llm}. Marking untrusted text as data, called
+spotlighting, lowers the success of such attacks without removing
+them~\cite{hines2024spotlighting}. Every uploaded PDF is untrusted text in
+this sense.
+```
+
+#### 2.3 Retrieval and Groundedness (old lines 72-84; cut)
+
+Cut whole, with the definitions of grounded and verified. After Chapter 6 was refocused on quiz answer keys, no chapter uses retrieval-augmented generation, attribution, or the distinction between grounded and verified (verification, examiner 1, on draft D1). Chapter 6 defines embeddings where its similarity score uses them (6.4.1, Method). Chapters 4 and 7 still say that a text is "grounded in" a page, in the everyday sense, which needs no definition. If the supervisor keeps the old RQ3 and the ask-bar sections of Chapter 6 come back, this section comes back with them.
+
+```latex
+\section{Retrieval and Groundedness}
+\label{sec:rag}
+
+Retrieval-augmented generation answers a question in two steps. It first
+retrieves passages from a corpus and then lets the model write an answer from
+them~\cite{lewis2020rag,gao2023ragsurvey}. Retrieval commonly compares dense vectors of question and passage~\cite{karpukhin2020dpr}, in some systems combined with keyword search. We store the vectors in PostgreSQL with the
+pgvector extension~\cite{pgvector}.
+
+Retrieval makes an answer checkable, and it does not make it correct. Work on
+attribution separates two questions: whether a citation points at a source,
+and whether the source supports the sentence that cites
+it~\cite{rashkin2023ais}. Models that a prompt asks to cite often fail the second~\cite{gao2023alce}, and metrics such as FActScore~\cite{min2023factscore} and RAGAS~\cite{es2024ragas} measure that gap. We use the word \emph{grounded} for an answer that a system restricts to retrieved material and the word \emph{verified} only where a
+separate step has checked the content.
+```
+
+#### 2.4 What the Learning Sciences Ask For (old lines 86-108; cut except two sentences)
+
+Kept, in the new 2.3: the testing effect (roediger2006testing), now named as the result that motivates the quiz questions, and the sentence that software can generate questions but that judging their quality is hard (vancampenhout2021transforming, kurdi2020aqg). Cut: spacing (cepeda2006distributed, dunlosky2013techniques), the two trials of AI tutors (kestin2025aitutoring, bastani2025guardrails), gamification (sailer2020gamification), and the clause that these results motivate features the thesis does not evaluate, which invited the question "why is this here?" (Polish 2.4 #1). Chapter 1's scope already says that the thesis makes no claim about what students learn. SM-2 (Polish 2.4 #3) had already left Chapter 2 in an earlier pass.
+
+```latex
+\section{What the Learning Sciences Ask For}
+\label{sec:learning-science}
+
+Results from the learning sciences explain why the assistant stays close to
+the page (\cref{ch:trust}); they also motivate the practice features of
+\cref{ch:system}, which this thesis does not evaluate. Retrieving something
+from memory strengthens it more than reading it again, and practice spread
+over time beats the same practice in one
+block~\cite{roediger2006testing,cepeda2006distributed,dunlosky2013techniques}.
+Automatically generated questions can bring such practice into
+textbooks~\cite{vancampenhout2021transforming}, although judging their
+quality is hard~\cite{kurdi2020aqg}.
+
+The evidence on AI tutors is mixed. A tutor built on a language model beat
+active learning in class in one controlled
+study~\cite{kestin2025aitutoring}. In another, students who practised with an
+unrestricted chat model did worse once they lost access to it, and a version
+with guardrails largely avoided that harm~\cite{bastani2025guardrails}. We
+read these results as support for a design in which the assistant stays with
+the material and makes the learner do something, and as a warning against
+claiming a learning effect without measuring it. Game elements such as points
+and badges, which the system also has, show small positive effects on average
+and depend on the context~\cite{sailer2020gamification}.
+```
+
+#### 2.5 Feeding Data Back Without Exposing Learners (old lines 110-129; rewritten)
+
+Clow's cycle, k-anonymity and the stricter standard of five people stay. The sentence with the standard is unchanged, because Chapters 5 and 7 measure the owner's view against it. Four changes. The person who acts is the owner of a Space, not the lecturer of a course (action ch2-07). k-anonymity now names the attributes that could identify a person. The sentences on ℓ-diversity and differential privacy left, because Chapter 5 (Privacy by Design) explains both with the same sources where the owner's view meets them; Chapter 2 points there. And a pointer was added to Chapter 5 (Aggregation, The Floor), which sets the floor of five against the threshold rule of statistical agencies with the four sources the author read. Chapter 2 does not repeat those sources: next to the standard of five they would read as its derivation, and Chapter 5 already says that the five is a judgement, below the ten that is most common for results about students. Chapter 2 does not name Clow's cycle "the loop", as action ch2-07 proposed, because Chapter 5 introduces the loop where it uses the term, and two definitions could drift apart.
+
+```latex
+\section{Feeding Data Back Without Exposing Learners}
+\label{sec:analytics-privacy}
+
+Learning analytics collects traces of what learners do and returns them to
+someone who can act on them, and Clow describes this as a cycle that is only
+complete when the action reaches the learners again~\cite{clow2012cycle}.
+The person who can act on a confusing page is the lecturer who made it. The
+traces are personal data, however, and in a course of twenty the lecturer
+knows every learner. A classic technical measure is a
+minimum group size: under $k$-anonymity a released record must be
+indistinguishable from at least $k-1$ others~\cite{sweeney2002kanonymity}.
+A minimum group size has known limits. It does not protect a value that
+every member of the group shares, which $\ell$-diversity
+addresses~\cite{machanavajjhala2007ldiversity}, and it says nothing about
+what two releases reveal together. Differential privacy limits what any number of releases reveals about one
+person, at a privacy cost that adds up over releases~\cite{dwork2006dp}.
+RQ2 asks for a view that shows no individual learner. As a stricter
+standard, we call a view privacy-preserving in this thesis if no statement it
+releases is about fewer than five people, and \cref{ch:loop} measures the
+remaining risk of the owner's view against it.
+```
+
+#### 2.6 Related Systems, first paragraph (old lines 131-143; rewritten)
+
+Intelligent textbooks now point to Chapter 1, which says what they are, and keep the one new point, that machine learning now does steps that once required authors. Paper Plain (august2023paperplain) left: one source is enough for the line of augmented reading (action ch2-16), and the running text of the section names no system beyond the two in Table 2.1. The Semantic Reader citation stays, without the project's name.
+
+```latex
+\section{Related Systems}
+\label{sec:positioning}
+
+Intelligent textbooks are the closest tradition. Brusilovsky et al.\ describe
+their return: textbooks that model their content, embed practice, and record
+use, now with machine learning for the steps that once required
+authors~\cite{brusilovsky2022return}. A second line augments the reading
+surface of a document without changing the document. Paper Plain adds plain
+language summaries and guiding questions to medical
+papers~\cite{august2023paperplain}. The Semantic Reader project builds such augmented reading interfaces for
+scientific papers in general~\cite{lo2024semanticreader}. Learnstation
+shares the principle of this line: the original stays visible, and the
+generated layer sits on top of it.
+```
+
+#### Table 2.1 (old lines 156-200; four rows)
+
+The table had seven rows and floated onto a page of its own, which stayed about two-thirds empty. It now has four rows (draft D2, action ch2-05): Input and Output merged as "From what to what", "Checks on generated content", "Feedback to the owner" and "Evaluation". "Relation to the source" and "Personalisation" left, because the text states both; with them went the cell on the ask bar's refusal, which Chapter 6 no longer describes. The cells are ragged right. Two Learnstation cells became more precise: the checks now say that a second model checks the deck quiz and that code computes the keys of three kinds of database task (Chapter 6, table of question checks), and the evaluation names the routing study and the 16 fixed pairs. The Slide2Text evaluation cell lost "no results reported", which "planned" already implies.
+
+```latex
+\begin{table}[htbp]
+  \centering\small
+  \caption{Learnstation and the two closest systems, compared on what their
+    publications describe. We ran no system for this comparison.}
+  \label{tab:related}
+  \begin{tabular}{@{}p{0.16\textwidth}p{0.245\textwidth}p{0.245\textwidth}p{0.245\textwidth}@{}}
+    \toprule
+     & \textbf{Learn Your Way}~\cite{learnlm2025textbook}
+     & \textbf{Slide2Text}~\cite{zhou2025slide2text}
+     & \textbf{Learnstation} \\
+    \midrule
+    Input &
+      Textbook material &
+      PowerPoint files (text, notes, images by OCR) &
+      Any lecture PDF: slides, scripts, exercise sheets \\
+    Output &
+      Several representations of the same content &
+      A textbook with chapters, cases, and exercises &
+      The original page, a text of it, questions, and a search index \\
+    Relation to the source &
+      Generated from the source, content integrity as a stated goal &
+      Source enriched with retrieved external papers and web results &
+      Original page stays the default view; answers cite pages; the ask bar
+      refuses outside the material \\
+    Checks on generated content &
+      Ratings by pedagogical experts &
+      A review by several models and an expert panel, described as a
+      framework &
+      Computed answer keys, and a check by a second model \\
+    Personalisation &
+      Yes, of the content itself &
+      Language, style, and difficulty chosen by the user &
+      None of the content; only the schedule of practice \\
+    Feedback to the owner &
+      None described &
+      None described &
+      Patterns per page from five readers on, no names \\
+    Evaluation &
+      Controlled trial with 60~students &
+      One case study on a deck of 39~slides; a controlled study is planned,
+      no results reported &
+      Blind benchmark, scripted readers, a probe of 16~pairs; no learners \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+```
+
+#### Closing paragraph (old lines 202-208; rewritten)
+
+Rewritten as one contribution statement in the authors' voice (rewrite R6, action ch2-06), from the author's note in Polish.md: tools that explain and re-present material already do it well, so the thesis does not try to contribute there. "As far as their publications describe", "unless the check itself is unavailable" and the last sentence stay. No product such as NotebookLM is named, because the supervisor has not yet answered whether products may be named.
+
+```latex
+The comparison shows where this thesis stands. Both related systems aim at
+the individual learner and personalise the content. As far as
+the publications describe, neither has a path back to the owner of the material and neither rejects a
+generated item automatically. Learnstation makes the opposite trade: every
+learner gets the same content, the owner gets a view of how people read it, and a check runs on generated quiz questions before a learner sees them, unless the
+check itself is unavailable. What Learn Your
+Way has and this thesis lacks is evidence from real learners.
+```
+
+### Defence notes, Chapter 3 (rewrite of November 2026)
+
+These notes keep, word for word, every passage of `thesis/chapters/03-system.tex` (the version of 16 November 2026, before this rewrite) that the new chapter removed or rewrote, so that nothing is lost for the oral defence. Each block says what left and why, and where the content now lives. Line numbers refer to the old file. Code references are to the pin, dfc20df6, unless a commit is named. The reading-view figure (old lines 31-44) and the labels ch:system, sec:vision, sec:stakeholders, sec:architecture, sec:stack and sec:constraints are unchanged and not repeated here.
+
+#### Header comment of the file (old lines 1-13)
+
+The comment at the top of the file described how the chapter was assembled on 10 November and cut later that day. A new comment now describes this rewrite and what it removed. The old comment is kept here for the record; it never printed.
+
+```latex
+% ---------------------------------------------------------------------------
+% OPTION A, CHAPTER 3. Assembled 2026-11-10 with AI assistance (Claude).
+% Sections 3.5 and 3.6 (architecture, deployment) are the author's drafted
+% text from the former design chapter (chapters/superseded/04-design.tex.txt),
+% moved here with one cross-reference re-pointed. The other sections are new,
+% written from docs/thesis/OUTLINE_BRIEF.md (chapter 3), CHAPTER_MATERIAL.md,
+% BRIEF_VERIFICATION.md and docs/timeline/ on branch
+% claude/thesis-brief-verification-6573e8. The use-case and domain diagrams
+% (F4, F5) moved to appendix B.
+% The author must read, revise and own every sentence before submission.
+% ---------------------------------------------------------------------------
+% 2026-11-10 (cut to length): deployment, the readiness signal and the
+% decisions table moved to appendix C; a summary paragraph stays here.
+```
+
+#### Chapter opening (old lines 17-18)
+
+Rewritten (ch3-01). The old opening promised a description of the system as a whole; the new one says that the chapter gives what Chapters 4 to 6 need, which is what the review asked for (Polish 3.1 #5: Chapter 3 wrote about things outside RQ1 to RQ3).
+
+```latex
+This chapter describes the system as a whole, so that the three chapters
+that follow can each go deep into one part. It answers no research question.
+```
+
+#### 3.1, first paragraph (the move from the course to the page) (old lines 23-29)
+
+Rewritten (ch3-01, rewrite 1; Polish 3.1 #1). The new paragraph gives the author's reason for the move, in the authors' voice: a platform open to any learner can grow without waiting for a lecturer to upload and review every file. It also makes "adds everything else" concrete as a title and a summary for each page and a short quiz for the deck. It does not say that the system writes the text of a page, because at the pin text pages keep their extracted text and the model writes only the title and the summary (unified_orchestrator.py:1161-1164; fact check of 15 November). "In the system that production has served" became "anyone who signs up", because uploads to the Library need an account with the student type (v4_spaces.py:180-182), which every sign-up gets in production (tab:deployed).
+
+```latex
+Learnstation started in January 2026 as a platform for lecturers: a
+professor creates a course, uploads slides, and students work through
+lectures, quizzes, and a dashboard. Over the year the centre moved from the
+course to the page. In the system that production has served since the end
+of October 2026, anyone can upload a PDF and read it at once, and the system adds everything else to the pages while the learner reads them
+(\code{docs/\allowbreak superpowers/\allowbreak specs/\allowbreak 2026-10-26-library-and-spaces-design.md}).
+\Cref{fig:reading-view} shows the reading view on one page.
+```
+
+#### 3.1, "We therefore built the interface twice" (old lines 46-56)
+
+Rewritten (ch3-07; voice review, reason site 1). "We recorded how we did this and not why ... As we recall" is the voice the author did not want, and it was not accurate: the design brief records the scope ("a rebuild of the product's vocabulary and structure", docs/design-v4/UI-SESSION-BRIEF.md:10) and the rule (build in a new namespace, do not touch the old product, :33), and docs/design-v4/01-foundations.md:26-33 puts roles inside a Space ("no global professor or student account type"). The new text states these facts side by side and does not claim that they caused the choice, because the causal "so" still needs the author's confirmation. The sentence on nine generations of the parsing pipeline left, because Chapter 4 and tab:lineage tell that history; the clause that v4 is unrelated to the pipeline versions stays, now pointing to tab:lineage.
+
+```latex
+We therefore built the interface twice. The second interface, which the
+repository calls v4, is a new part of the frontend beside the first one, not a
+refactoring of it (\code{docs/design-v4/UI-SESSION-BRIEF.md}, PR~\#55). We
+recorded how we did this and not why we ruled out refactoring. As we recall,
+the first interface assumed a university, with professors and courses, while
+the second had to work for any material and any group. We call the screens of
+the first interface, one per course, lecture, and professor, the \emph{older
+interface} below. They still exist in the code but no longer receive
+learners. The backend changed more often: \cref{tab:lineage} in
+\cref{app:detail} lists nine generations of the parsing pipeline in ten
+months, whose numbers are unrelated to the v4 of the interface.
+```
+
+#### 3.1, the five principles (old lines 58-68)
+
+Removed. The outline for the new Chapter 3 lists the move to the learner, the second interface and the older interface for 3.1, and the page budget (3.5 to 4 pages with both figures) left no room. Each principle is stated where it is used: "Read first" is Chapter 4's demand that a learner should not wait and Chapter 1's first aim; "The original page is the reference" is in Chapter 1's aims and Fig. 3.1; "Deterministic first, AI second" is shown by the routing rule and the deck plan (Chapter 4) and by grading by computation (sec:c6-grading); "Parse once" is told precisely in sec:idempotency, including the nuance of Polish 3.1 #2 (reuse is automatic for one uploader, a forced re-parse is possible in the course manager, LectureUpload.tsx:629-649, and two uploaders of the same file each pay one parse); "The server decides" is in sec:c6-grading with its one exception, the rehearsal. Useful for an oral question on the design principles.
+
+```latex
+Five principles hold across the current system.
+\begin{description}
+  \item[Read first.] A learner can open an uploaded file before any AI step has finished. No feature may delay the learner.
+  \item[The original page is the reference.] The page as the author made it
+    is the default view. Generated text is one switch away and never
+    replaces it.
+  \item[Deterministic first, AI second.] Code decides what code can decide: page hashes, the plan of a deck, the route of a page, the grading
+    of a computable answer.
+  \item[Parse once.] The system processes a file once per uploader and reuses the result for every learner who reads it.
+  \item[The server decides.] The server computes points, progress, and grades, and the browser displays them, except the result of a rehearsal (\cref{sec:c6-grading}).
+\end{description}
+```
+
+#### 3.2, "Vocabulary and Roles": the vocabulary paragraph (old lines 70-80)
+
+Removed (Polish 3.1 #3: "quite confusing"). The paragraph packed four things into one: a pointer to the vocabulary, what a page and an idea are, who "lecturer" and "the author" are, and the old words in the database. Table 1.1 (tab:vocabulary) defines page, idea and Library; Chapter 1's Method and the glossary define "the author"; the glossary defines "lecturer". The new 3.2 points to tab:vocabulary and keeps one sentence on the old database words (a Space is stored as a course, a Lesson as a lecture, a page as a slide). The section is now titled "Spaces, Roles, and Questions"; its label sec:stakeholders stays.
+
+```latex
+\section{Vocabulary and Roles}
+\label{sec:stakeholders}
+
+The system uses a small vocabulary on purpose
+(\code{docs/V4\_GLOSSARY.md}), and \cref{tab:vocabulary} defines it. A page
+is one page of the uploaded document, whether it was a slide or a sheet of
+paper, and a model groups the ideas when a Lesson is first read. Where this
+thesis means the person who wrote the material, it says \emph{lecturer}, and
+\emph{the author} always means the writer of this thesis. The words course,
+lecture, and slide belong to the older interface and to the database, which
+still stores a Space as a course.
+```
+
+#### 3.2, the roles paragraph (old lines 82-91)
+
+Rewritten. Kept: the two roles in the code (v4_spaces_service.py:139-142), creating, publishing and joining a Space, the self-enrolment policy (now cited as migration 20260604000000, lines 21-27, together with tab:deployed, so that Chapter 5's padding argument has its precondition here), and the three account types. Changed: "Any signed-in user" became "Every account that signs up", because the create and publish routes admit the student and professor types only (require_creator, auth_middleware.py:263; v4_spaces.py:59-91), and every sign-up gets one of them (ch3-22). Removed: the pointer to sec:c5-privacy for the place where account type and Space ownership conflicted; Chapter 5 tells it in its place.
+
+```latex
+In the code a Space knows two roles: the \emph{owner}, who created it, and
+the \emph{member}, who joined it
+(\code{backend/services/v4\_spaces\_service.py:139--142}). Any signed-in
+user can create a Space and publish it, and can
+join a published one. The database policy also lets a student account enrol
+in one that is not published (\cref{tab:deployed}). The account types of the
+older interface (student, professor, admin) still exist and still guard the
+older interface. \Cref{sec:c5-privacy} names one place
+where the two permission schemes, account type and Space ownership,
+conflicted.
+```
+
+#### 3.2, "From an upload to a Lesson" (old lines 93-98)
+
+Rewritten (ch3-13; Polish 3.1 #4: "then why would I create a space?"). "a private Space of their own" mixed up the Library and a Space. The phrase came from the code, which stores a learner's own uploads as a "personal Space" (v4_personal; v4_spaces_service.py:174-175). The new text says what a Space is for: reading with others, while the owner sees how the material lands (01-foundations.md:29: the owner "sees analytics"; :33: what others call a professor is an owner whose Space has 200 members). The course-manager fact stays (SpaceManageScreen.tsx:127, which sends a live Space to /professor/courses/:id; App.tsx:801-803 admits professor and student accounts; world.ts:180 is the only hand-off from the current interface to an old route).
+
+```latex
+\paragraph{From an upload to a Lesson.}
+In the current interface a learner's upload lands in their Library, a private
+Space of their own, and opens at once. A shared Space gets its Lessons from
+its owner, at the pin through the course manager of the older interface
+(\code{SpaceManageScreen.tsx:127}); members join a published Space and read
+them.
+```
+
+#### 3.2, "Four kinds of question" (old lines 100-109)
+
+Rewritten (ch3-14). "Kinds" became "places", because Chapter 6 uses "kinds of question" for task types (functional dependencies, closure, BCNF, multiple choice, ordering). The grading sentence left, because sec:c6-grading has it; the check-in sentence left, because tab:vocabulary has it. The new text adds that the system keeps Luna's practice questions as review cards for later review (luna/store.py:204-228; they are written after a study session's wrap-up, luna/session_service.py:396-426) and points to Chapter 6 for the checks, the deck quiz above all.
+
+```latex
+\paragraph{Four kinds of question.}
+Learners meet questions in four places, all written by a model. The
+\emph{deck quiz}, five to eight multiple-choice questions per Lesson, is
+written during the parse, each tied to a page, and learners practise it under
+Practice. A \emph{checkpoint} is written for the pages of one idea when a
+learner reaches its end. A \emph{rehearsal} is a short mixed test from a
+Space's Lessons, and in a study session Luna writes three to six practice
+questions. The server grades the deck quiz and the checkpoints and stores a
+finished rehearsal as the browser grades it (\cref{sec:c6-grading}). The check-in is not a question but the learner's
+own, optional judgement.
+```
+
+#### Section "What Is Built and What Is Switched On" (label sec:built-vs-deployed) (old lines 111-135)
+
+Removed (ch3-11; Polish 3.3 #1, #3, #4). The thesis no longer describes the switched-off features, so an inventory of them qualified nothing, and nothing outside Chapter 3 cited the label. Facts for an oral question: at the pin backend/core/config.py:106-213 has twelve feature flags, all off by default (review_engine, exam_mode, global_search, student_uploads, v4_reader, v4, luna_sessions, course_brain, studio_pages, study_guide, ask_luna, llm_prompt_logging), and production switches on four. The sentence on Luna's cards cited wozniak1990sm2, which no other chapter cites. Production at 2e146f51 (the pin plus #170, #181 and #182) is now stated once, in Section 1.4.
+
+```latex
+\section{What Is Built and What Is Switched On}
+\label{sec:built-vs-deployed}
+
+A description of this system has to separate what exists in the code from
+what a learner can reach. Twelve backend flags, all off by default, guard the features, and production switches on four: the current interface, its reading view, sessions with Luna,
+and uploads by students.
+
+
+With these four flags a learner can upload a PDF, read it in the three views
+of the reading view, and let Explain explain a page. The learner can ask a
+question about a page or about a whole Space and get an answer with links to
+pages. A model writes checkpoint questions for the pages of one idea while
+the learner reads, and the learner answers them. The learner can also run a
+practice session with Luna, whose cards a variant of SM-2~\cite{wozniak1990sm2} schedules, take
+notes, and see a history of earned points. An owner can publish a Space. The view of how people read it entered the main branch two days after the pinned revision
+(\cref{ch:loop}).
+
+The review engine of the older interface, an exam mode, generated study
+guides, and a global search page exist in the code, and a learner cannot reach them in the current interface. We do not count them as delivered.
+
+The thesis describes the pin, \code{\thesisCommit}. Since November 2026
+production runs the main branch at \code{2e146f51}: the pin plus three later
+merges that change the code, a change to the home screen (PR~\#170), the owner's view of
+\cref{ch:loop} (PR~\#181), and the backend of a fourth view of a page, which a
+flag keeps off (PR~\#182).
+```
+
+#### 3.3, the component figure and its old caption (old lines 137-143)
+
+Caption changed; the figure stays in the body, as the author decided (ch3-02). The new caption says what the figure shows: five containers on one virtual machine, the managed services of Supabase, and the providers of language models, which the API and the worker call directly. The old caption's detail that the API and the worker are built from one Dockerfile is visible in the figure itself (the box "one Dockerfile").
+
+```latex
+\section{Architecture}
+\label{sec:architecture}
+
+\thesisfigure{f6-components}
+  {Component view of the deployed system. The API and the worker, built from
+   one Dockerfile, call the LLM providers directly.}
+  {fig:components}
+```
+
+#### 3.3, the parts paragraph (old lines 145-152)
+
+Rewritten. "LLM synthesis" became "parsing with its model calls", and 3.1 names what the model writes, because the fact check found that the model does not write the text of text pages. "Embedding" left Chapter 3: the embeddings are computed inside the parse job (unified_orchestrator.py:1033-1043), and the new Chapter 4 defines the word at its first use. The technologies and their citations (React, FastAPI, Arq) moved to 3.4, next to the reasons for choosing them, so that each is named once. The two Redis instances and the five containers are one sentence with its source (docker-compose.prod.yml: redis, redis-queue, api, frontend, worker). The worker also runs the generation of review cards and two analytics roll-ups (arq_worker.py:322-339), summed up as maintenance.
+
+```latex
+The system consists of three runtime parts and a set of managed services
+(\cref{fig:components}). A single-page application written in React and
+TypeScript runs in the browser. A FastAPI application~\cite{fastapi} serves the
+HTTP API. A separate worker process, built on the Arq job queue~\cite{arq}, runs
+everything that takes longer than a request should: parsing, LLM synthesis,
+embedding, localisation, and scheduled maintenance. Supabase~\cite{supabase}
+provides the PostgreSQL database, authentication, and object storage. Two Redis
+instances serve as cache and as job broker.
+```
+
+#### 3.3, "No gateway on the LLM path" (old lines 154-165)
+
+Kept in substance: one module calls the providers directly, the bulk chain ordered by capacity and the quality chain ordered by expected answer quality, both ending with OpenAI (orchestrator.py:389, 393 at the pin), and the removal with its recorded reasons (68a091e0, 25 August: no live callers, 1 GB and 0.75 vCPU of a 4 GB / 2 vCPU machine, and a health check on which api and worker waited at start-up; the remnants were swept in 7830d49a in September). Failover is now defined in one clause. Removed for length: the sentence naming the August revision (0be0081, whose docker-compose.prod.yml still lists the litellm service) and the clause "the backend README still describes it" (backend/README.md:123 at the pin), which Chapter 7 no longer uses as its example of documentation drift.
+
+```latex
+\paragraph{No gateway on the LLM path.}
+The backend calls every LLM provider directly from one module
+(\code{backend/\allowbreak services/\allowbreak ai/\allowbreak orchestrator.py}), where failover, rate limiting,
+and cost accounting live, through two ordered chains of providers: a
+\emph{bulk chain}, ordered by capacity, for high-volume work such as page
+synthesis, and a \emph{quality chain}, ordered by expected answer quality,
+for fewer and harder calls. Both end with OpenAI. A LiteLLM gateway that no
+code path used was still in the production stack at the revision of August
+2026 (\code{\thesisEarlierCommit}). We removed it in August and September,
+because it had no live callers, took 1\,GB of the 4\,GB machine, and its
+health check could block start-up (\code{68a091e0}); the backend README still
+describes it.
+```
+
+#### 3.3, "Two database paths" (old lines 167-172)
+
+Rewritten into "Two ways into the database" (ch3-12; Polish 3.4 #2: "explain this all to me"). The new text orders the facts by the two ways in: through the backend, and from the browser. Kept: Supabase's web interface with a privileged key that bypasses row-level security or a normal key that obeys it, the direct pool, and older routes on the web interface (core/database.py:4-8, 148-190). Removed detail: the pool is optional at start-up (without DATABASE_URL the backend logs a warning and skips it, core/database.py:162-164) but not in practice, because the ingestion pipeline writes its runs, lectures, slides and quiz questions through it and every service of the current interface uses it.
+
+```latex
+\paragraph{Two database paths.}
+The backend reaches PostgreSQL in two ways. The first is Supabase's web interface to the
+database, used with one of two keys: a privileged key that bypasses
+row-level security, or a normal key that obeys it. The second is a direct
+connection pool. The pool is optional at start-up but not in practice: the ingestion pipeline writes its runs, lectures, slides, and quiz questions
+through it, and every service of the current interface uses it. Older routes still use the web interface.
+```
+
+#### 3.3, the security consequence of the two paths (old lines 174-180)
+
+Kept in substance, with code anchors instead of a pointer to the deleted appendix section (examiner 2): the pool and the privileged key bypass row-level security, so routes check in code whether the caller may act, for example course ownership before an upload (api/v1/upload.py:101-127, whose docstring says the lecture is written over asyncpg, which bypasses RLS, so this check is the only thing that stops a caller from attaching a lecture to somebody else's course). The corrected description of the browser's direct path (the database's own rules: row-level security, the right to call a function, the rules of the file storage; definer functions skip row-level security; tab:deployed) is kept word for word.
+
+```latex
+The two paths have a security consequence that shapes the rest of the design.
+Writes through the pool and with the privileged key bypass row-level
+security~\cite{postgresql-rls}, so for those routes application code enforces authorisation, for example by an explicit course-ownership check before it accepts an upload. On the path from the browser, the database's own rules are the only
+check: row-level security, the right to call a function, and the rules of the
+file storage. A function that runs with the rights of the role that defined it
+skips row-level security and must check its caller itself
+(\cref{tab:deployed}).
+```
+
+#### 3.3, "Browser to backend" (old lines 182-186)
+
+Rewritten with the corrections of the verification. The current interface writes the language setting to the profile directly (useLanguagePreference.ts:97-99, the one exception that boundary.test.ts allows by name), and the app shell reads the profile and the account type from Supabase at sign-in (src/lib/auth.tsx:89-122). For an oral question: the shell also reads Luna's look and the badges directly (src/features/avatar/useAvatar.ts:60-63, 94-97) and joins a Supabase Realtime presence channel for every signed-in user (src/features/social/store.tsx:32). The check therefore replaced "all its data except sign-in, the account type, and the language setting" with one statement about the sealed screens and one about the app around them. Kept: the bearer token, now cited at core/auth_middleware.py:71, and the boundary test (boundary.test.ts, added in 7c83180e, August). Not added, because the record lacks it: why live data goes through FastAPI and not straight to Supabase (Polish 3.4 #3). The record has only the reason for the boundary itself: the interface was first built on mock data, so that wiring it later would swap the data source and not rewrite screens (UI-SESSION-BRIEF.md:78).
+
+```latex
+\paragraph{Browser to backend.}
+The browser talks to Supabase directly only for authentication, for reading the
+user's role, and in the remaining screens of the older interface. All data of the current interface goes through the FastAPI backend, which receives the user's
+Supabase session token as a bearer token. A test enforces this boundary: no
+module of the v4 feature folder may import the Supabase client.
+```
+
+#### 3.3, "Deployment" (old lines 188-193)
+
+Removed in the check, after a rewrite: Package E keeps only what Chapters 4 to 6 use, action ch3-01 lists "Deployment" among what goes, and Section 1.4 places the hosting infrastructure outside the thesis. The rewrite stated four facts, each with its source: five containers on one virtual machine (still in the parts paragraph of 3.3, docker-compose.prod.yml); manual deploys over SSH (docs/runbooks/deploy-main-to-prod.md: no deploy automation); the encrypted nightly dump and the external monitor (docs/runbooks/monitoring-and-backups.md: the dump is age-encrypted before it goes to Cloudflare R2, and Better Stack alerts by e-mail when a check-in reports a problem or stops arriving); and the proxy configured only on the server (deploy-main-to-prod.md: host nginx terminates TLS and proxies to 127.0.0.1:3000 from a site file in /etc/nginx, which the repository does not hold). First the rewritten paragraph, verbatim, then the old one:
+
+```latex
+\paragraph{Deployment.}
+Deploys are manual, over SSH (\code{deploy-main-to-prod.md}). Each night the
+server encrypts a dump of the database before copying it off the machine,
+and an external monitor alerts the author when the server stops reporting
+that it is well (\code{monitoring-and-backups.md}). The proxy in front of
+the containers is configured only on the server, so the deployed system
+cannot be rebuilt from the repository alone (\code{deploy-main-to-prod.md}).
+```
+
+```latex
+\paragraph{Deployment.}
+Production runs these components in five containers on one virtual machine.
+Deploys are manual, the nightly database dump is encrypted before it leaves
+the server, and an external monitor alerts when a heartbeat goes silent. The
+host's proxy configuration exists only on the server, so the deployed system
+cannot be rebuilt from the repository alone.
+```
+
+#### 3.4, Technology Choices (old lines 195-211)
+
+Kept, with two changes from the verification. First, "in this way PyMuPDF replaced pypdf" applied the author's general method of uploading and fixing to one change without a record; PR #4 (squash commit ac71c1a4, whose message repeats that of 227267e7) states only that it rewrote the parsing backend "to use PyMuPDF for better text extraction". The new text says "without a recorded comparison". Second, the co-developer's commit 8fac2fc3 (June: a Redis client in backend/core/redis.py and a Redis cache for sign-in tokens) is named, so that the paragraph does not imply that the co-developer had no part in Redis. The roles of nginx moved into the sentence of 6ce7b5f1, and the citations of FastAPI and Arq moved here from 3.3. Open: whether the later choices were discussed with the co-developer, and the author's reason for nginx.
+
+```latex
+\section{Technology Choices}
+\label{sec:stack}
+
+Before we started, we discussed the stack together. The co-developer
+researched and chose the first one, React, Vite, TypeScript, Tailwind,
+Supabase, and a FastAPI service, and it came with the first commit in January
+(\code{184e5742}). The later choices were the author's own. In May the author
+added Redis, the Arq job queue, and nginx (\code{6ce7b5f1}): parsing a deck
+takes longer than an HTTP request should last, so it runs as a job, and nginx
+serves the built interface and forwards its API calls to the backend. In July
+the author split Redis into two instances, because a cache may drop entries
+while a queue must never lose a job (\code{43a86927}). We did not choose the
+text extractor by comparing libraries. We uploaded decks, looked at the
+titles, the page text, and the quiz that came out, and fixed what failed; in
+this way PyMuPDF replaced pypdf in April for better text extraction
+(PR~\#4). The benchmark of \cref{ch:content} was the first measured comparison
+that this extractor faced.
+```
+
+#### 3.5, Constraints (old lines 213-223)
+
+Kept, with the qualifier the verification asked for: when Redis is unavailable, the per-user check lets the call through (ai/cost.py:113-128), so that a metering outage never breaks a model call (ai/cost.py:22-25). For an oral question: the per-user cap applies to model calls that name a user, such as Explain, Ask, Luna and rehearsals, and by default to parses of students' uploads (core/config.py:190-207; orchestrator.py:1483-1510); the OpenAI ceiling is shared by all workers through Redis. The machine size now stands once, here.
+
+```latex
+\section{Constraints}
+\label{sec:constraints}
+
+Three constraints shaped the design. The system
+runs on one virtual machine with two virtual CPUs and 4\,GB of memory.
+Model calls run on free or low-cost quotas, which is why the provider chains
+have a fallback and spending is capped: each user has a monthly cap of \$2 by
+default, and all users together a daily ceiling on OpenAI of \$10
+(\code{core/\allowbreak config.py:187--195}). The
+database is a managed PostgreSQL on a free tier without point-in-time
+recovery.
+```
+
+#### 3.5, the July sign-ups (old lines 225-230)
+
+Removed (author's decision: Section 1.4 states the July sign-ups, with five accounts, 12 events and no page read). Constraints now ends with one sentence that points to sec:scope.
+
+```latex
+One more condition is not a constraint and still shapes every evaluation in
+this thesis. In July 2026 the platform was announced by e-mail to the
+participants of the Database Systems course (\cref{sec:scope}). Five people signed up with
+university addresses and looked around, but none used it enough to give us
+data to evaluate or feedback to learn from. The evaluations therefore work on
+material and not on people.
+```
+
+#### Not adopted from the review draft "Chapter 3 at minimal size"
+
+The chapter title "Learnstation at a Glance" (the author kept "System Overview"); the move of the component figure to an appendix (the author kept it in the body); the three labels stacked on 3.3 (sec:stack and sec:constraints keep sections of their own); the pointers to sec:provider-strategy, sec:cost-controls and sec:authorisation, whose sections no longer exist (verification); "the model calls that write each page's text" (fact check: text pages keep their extracted text); "row-level security ... is the only check" on the browser's path (examiner 2: function rights and storage rules also decide, and definer functions skip row-level security); "In this way PyMuPDF replaced pypdf ... because it extracted the text better" (fact check: no record links the change to the upload-and-fix method); and the July sentences (Section 1.4 holds them). The draft's sentence "The owner need not have written the material; where we mean the writer, we say lecturer" and its remark that learners answer the deck quiz under Practice also stayed out, for length; the glossary defines "lecturer".
+
+### Chapter 4 rewritten (16 November): what left the chapter, verbatim
+
+Chapter 4 was rewritten on 16 November 2026 from the reviewed drafts of 15 November (results.json, part ch4: rewrites R1 to R6, drafts 'Answer to RQ1', 'Parse once, fail visibly' and 'Planning the Deck Without a Model'), their verification (verify.json) and the author's decisions of 16 November. It gained Section 4.2, How the Pipeline Developed, written only from commits, PR texts, commit messages and code at the pin. Every paragraph of the chapter at 8cb8dec1 that changed or left is kept below in its old wording, so that every sentence survives here; each entry says what left and why. Section names below are those of the chapter; the old numbering had no Section 4.2 on the history, so old 4.2 to 4.4 are now 4.3 to 4.5. Paragraphs not listed are unchanged: 'The input makes three demands on the design.', the yardstick sentence, the drawn-diagram paragraph of the routing rule, the opening of the evaluation, the routing study's Setup and its figure, the benchmark's Design paragraph on pre-registration, the duels, the figure, the Result and its three qualifications.
+
+#### The old header comment of the file
+
+The comment block at the top of the file described the cuts of 9 and 10 November. A new comment now records today's rewrite, its sources, and the labels it keeps. The old block is kept here so that the history of the file stays readable.
+
+```latex
+% ---------------------------------------------------------------------------
+% OPTION A, CHAPTER 4 (RQ1). Re-cut 2026-11-09 from the drafted "System
+% Design" chapter (04-design.tex: ingestion pipeline, provider strategy) and
+% the benchmark subsection of the drafted "Evaluation" chapter, both written
+% 2026-11-05/06 at the final pin dfc20df6 with AI assistance (Claude) from
+% facts verified against the code. New prose in this file (requirements,
+% lineage, deck plan, routing study, benchmark results, Deck Lab, LlamaParse,
+% answer to RQ1) was written 2026-11-09 from docs/thesis/CHAPTER_MATERIAL.md
+% and BRIEF_VERIFICATION.md §8; every number there carries a source. The
+% author must read, revise and own every sentence before submission.
+% Labels of the moved sections are unchanged so that other chapters' \cref
+% still resolve.
+% ---------------------------------------------------------------------------
+% 2026-11-10 (cut to length): the lineage table, the idempotency layers,
+% failure handling, the provider detail and the hosted-parser trial moved to
+% appendix C; summaries stay here.
+\chapter{From PDF to Structured Pages}
+\label{ch:content}
+```
+
+#### Chapter opening
+
+The opening now also names the new Section 4.2, How the Pipeline Developed. The old sentences are kept here.
+
+```latex
+This chapter answers RQ1. It describes the pipeline at the pin and two pieces
+of evidence: a routing study on 1{,}593 pages and a pre-registered blind
+benchmark of eleven extraction methods.
+```
+
+#### The Input and What It Demands: what the input is
+
+Chapter 1 now defines the deck (Section 1.1), and Table 1.1 defines Lesson and page, so the chapter no longer defines them again. One sentence stays and points to the table.
+
+```latex
+The input is a lecture PDF: the slides a lecturer exports and shares, which
+this thesis calls a \emph{deck}. A deck is one PDF of slides, usually for one
+lecture session. Inside the system it becomes a Lesson, and each of its pages
+a page.
+```
+
+#### The Input and What It Demands: the corpus paragraph
+
+Two sentences changed; the rest is the author's version of 16 November, unchanged. The sentence that defines heterogeneous moved into the first demand, where rewrite R2 makes it concrete (Polish 4.1 item 2). 'All are born-digital, and scanned documents are outside the corpus' became 'All are born-digital, exported from a program and not scanned', which defines the term in one clause; scanned documents stay outside the corpus.
+
+```latex
+The prototype was built for the Database Systems course at the University of
+Marburg, and its eleven decks, ten in English and one German introduction,
+are part of the corpus. To see whether the pipeline also works on other
+slides, we added fourteen German decks of a second Marburg course, System
+Software and Computer Communication (\emph{Systemsoftware und
+Rechnerkommunikation}). Together they form the corpus of this
+chapter: 25 decks with 1{,}593 pages. The benchmark adds one
+software-engineering deck and two exercise sheets. All are born-digital, and
+scanned documents are outside the corpus. \emph{Heterogeneous} here means the
+mix of page types within such decks. Pages from both courses were used to
+calibrate the routing rule, so the second course is not an independent test
+of it (\cref{sec:c4-routing-study}).
+```
+
+#### The Input and What It Demands: the three demands
+
+The first demand follows rewrite R2 and Polish 4.1 item 2 ('i dont get this'): it now leads with the point, defines the text layer and a figure, and says 'most pages' instead of 'almost every page', because the threshold sweep finds only 3 of the 54 boilerplate lines of the database decks on 90 % of the pages or more (verification, facts). 'Embedded image' became 'figure', because the 421 count pages with a figure block after logos and backgrounds are removed (routing-labels record). The sentences 'A method that reads only the text layer reads the footer with the same confidence as the content. It reads a drawn diagram as a handful of loose labels.' left in this wording; their content stays in the rewritten demand. In the third demand, 'through their rate limits' became 'because they accept only a few calls per minute or per day' (action ch4-05). The second demand is unchanged.
+
+```latex
+\begin{description}
+  \item[Pages are heterogeneous.] A deck mixes dense text, bullet lists with
+    formulas, diagrams drawn with lines, and pictures
+    (\cref{fig:page-types}). 421 of the 1{,}593 pages contain at least one
+    embedded image. The systems
+    decks carry a footer and a page number on almost every page, and the database
+    decks carry a course name. A method that reads only the text layer reads
+    the footer with the same confidence as the content. It reads a drawn
+    diagram as a handful of loose labels.
+  \item[A learner should not wait.] The learner should start on a deck at once,
+    as with any PDF, while the system prepares everything else in the
+    background. Preparing a deck can take minutes: in one measured run of
+    October 2026, an 82-page deck took about twelve minutes from upload to a
+    complete reading view
+    (\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak reader-timing.md}).
+    The pipeline therefore runs behind the learner's reading, not in front of it.
+  \item[Model calls cost money and fail.] The free tiers of hosted models
+    stopped bulk parsing within minutes through their rate limits
+    (commit \code{a12666cd}). A self-hosted model on a university GPU
+    server would have needed time and experience that we did not have, and
+    its cost would have been harder to compare, so we chose a paid API. With
+    a provider that charges per token, every call has a price, which makes
+    the number of model calls per deck a design variable. It also frames the
+    central comparison of this chapter: whether a page is best read by a text
+    extractor, by a vision model, or by both.
+\end{description}
+```
+
+#### Figure 4.1 in two rows
+
+Set in one row, as action ch4-06 asks, with short labels and a shorter caption. The caption sentence on drawings left, because the routing section states it ('The rule counts embedded images only ...'). The old figure code is kept here in case the one-row panels turn out too small in the build; the review's fallback is two rows at 0.3 of the text width.
+
+```latex
+\begin{figure}[htbp]
+  \centering
+  \begin{tabular}{@{}p{0.48\textwidth}@{\hspace{0.04\textwidth}}p{0.48\textwidth}@{}}
+    \includegraphics[width=0.48\textwidth]{f26-page-types-a} &
+    \includegraphics[width=0.48\textwidth]{f26-page-types-b} \\
+    \small (a) Dense text: 1{,}345 characters, read as text. &
+    \small (b) Bullets and formulas: 641 characters, read as text. \\[6pt]
+    \includegraphics[width=0.48\textwidth]{f26-page-types-c} &
+    \includegraphics[width=0.48\textwidth]{f26-page-types-d} \\
+    \small (c) A diagram drawn with lines: 63 characters of labels, read as
+    text. &
+    \small (d) A plot with a running footer: 32 characters, 97 with the
+    footer; the image covers 45\,\% of the page, so it goes to vision. \\
+  \end{tabular}
+  \caption{Four pages of the corpus, drawn from their real layout: each line
+    of text is a bar, bullets are dots, lines with formula symbols are
+    hatched, a footer is dashed, and an embedded image is a crossed box. The
+    content of the slides is not shown, and character counts leave footers
+    out. The routing rule does not count a
+    drawing as a figure, so page~(c) is read as text, while an image page with
+    this little text goes to vision. Script:
+    \code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak page-types/}.}
+  \label{fig:page-types}
+\end{figure}
+```
+
+#### The heading of the pipeline section, with both labels
+
+The label sec:c4-lineage moved to the new Section 4.2, How the Pipeline Developed; sec:pipeline stays on The Pipeline as Built.
+
+```latex
+\section{The Pipeline as Built}
+\label{sec:pipeline}
+\label{sec:c4-lineage}
+```
+
+#### The Pipeline as Built: the opening paragraph
+
+'The last of nine generations' left, because the new Section 4.2 tells five versions, and the lineage table in the appendix lists the later rebuilds of v5 as rows. The sentences that 'lecture' and 'slide' name database rows and that PyMuPDF extracts the text left (action ch4-08): the chapter no longer uses the row names, and the job steps now name PyMuPDF. The pointer to the pipeline figure stays, now saying that the figure uses the terms of the code (Polish 4.3 items 1 and 2).
+
+```latex
+One pipeline is in use: pipeline v5, the last of nine generations
+(\cref{tab:lineage} in \cref{app:detail}), kept in
+\code{backend/\allowbreak services/\allowbreak parser/\allowbreak unified\_orchestrator.py}.
+PyMuPDF~\cite{pymupdf} extracts the text. In this chapter \emph{lecture} and
+\emph{slide} name the database rows that hold a Lesson and its pages, and
+\cref{fig:pipeline} in \cref{app:figures} shows the path from an upload to a
+readable page.
+```
+
+#### The Pipeline as Built: What reliable means here
+
+Rewritten as 'What we mean by reliable' (rewrite R3, Polish 4.3 item 3). 'A transformation that learners depend on must also be reliable' and 'The subsections below describe the mechanisms' left. The second count left: 'Of the 23 parses since September, 21 completed and two exceeded the job timeout (\cref{sec:async}).' The two timeouts stay in the subsection on asynchronous processing, and the September count is in docs/thesis/evidence/parse-runs.md. The upload limits, the end-to-end test and the 115 production parses stay.
+
+```latex
+\paragraph{What reliable means here.} A transformation that learners depend on
+must also be reliable. We mean two properties of the design: every accepted
+upload ends either as a readable Lesson or as a visible failure, and the same
+work is not done twice for one uploader. The subsections below describe the
+mechanisms. Tests at the pin check each one, for example with a full run
+against a real database (\code{test\_unified\_pipeline\_e2e.py}). The API
+refuses an upload that breaks a limit before it queues a job: more than
+50\,MB or 300 pages, more uploads than a student's monthly quota (five by
+default, 30 in production), or a queue that already holds 50 jobs
+(\code{core/\allowbreak config.py:90,101,134}, \code{upload\_service.py:13}). In production, 115 parses ran on
+pipeline v5 between June and November 2026, our own uploads included: 99
+completed, 16 failed, and none was left unfinished
+(\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak parse-runs.md}).
+Of the 23 parses since September, 21 completed and two exceeded the job
+timeout (\cref{sec:async}). These counts show that failures surfaced as
+failures. They are too few, and the load too light, to measure reliability
+under real use.
+```
+
+#### Asynchronous Processing, Page by Page: the first paragraph
+
+'Parsing a deck takes minutes, longer than an HTTP request should live, so' left in this wording: Section 4.1 already says that preparing a deck takes minutes, and Chapter 3 and the v3 paragraph of Section 4.2 say that parsing runs as a job. The 900-second timeout, the two November decks and 'We did not measure where the limit lies' stay. The line range of arq_worker.py became 52--56, because line 51 is blank at the pin.
+
+```latex
+Parsing a deck takes minutes, longer than an HTTP request should live, so the
+API hands the work to a durable queue and returns, and a worker takes the job.
+A job that runs longer than 900~seconds is cancelled, and its run ends as
+failed with a message to the user (\code{arq\_worker.py:51--56,362}). In
+November 2026 this happened to two decks of 78 and 104 pages, although decks
+of 82 to 136 pages had finished in October, so the page count alone does not
+predict it. We did not measure where the limit lies.
+```
+
+#### Asynchronous Processing, Page by Page: the fixed sequence
+
+Rewritten after rewrite R4, Polish 4.3.2 item 2 ('does user understand slide synthesis?') and Polish, Figure 1.1, item 2 ('why we chose 8 slide per call'). The paragraph now defines synthesis (a title and a short summary for each page; a page keeps its own text unless it has none), the parse receipt (the text-model calls with their tokens and cost; vision and embedding calls are not metered, unified_orchestrator.py:546--547) and embeddings, and uses the decided wording on eight pages per call. 'writes optional page summaries' left, because a flag that is off in production (FEATURE_STUDIO_PAGES) gates that step. 'creates the lecture row ... inserts every slide' became 'creates the Lesson ... stores each page'. 'The worker writes all content, and the browser never writes parse output' left; the v5 paragraph of Section 4.2 says that the server writes every Lesson, page and question. 'on the uploader's device' stays, as the verification asked.
+
+```latex
+Inside one job the pipeline runs a fixed sequence: it extracts the text of
+every page, plans the deck (\cref{sec:c4-deck-plan}), generates the Lesson's
+metadata, synthesises the pages, writes optional page summaries, generates the
+deck quiz, writes a parse receipt, translates, and waits for the embeddings.
+It creates the lecture row before it synthesises any page and inserts every
+slide as soon as it is ready, which makes early reading possible. On the
+uploader's device the reading view opens the file itself at once, so a learner
+reads the lecturer's own pages while the generated ones arrive, and it shows
+the generated pages as soon as the first exist, long before the parse ends
+(\code{useEarlyReading.ts}). The worker writes all content, and the browser
+never writes parse output.
+```
+
+#### Planning the Deck Without a Model
+
+Rewritten after draft D4 (action ch4-12) and the verification (examiner 1, B9). The section now names the three things the plan does, defines deterministic and boilerplate, and gives the page budgets that Chapter 6 relies on: up to ten pages for the quiz and up to fifteen for the title and summary (synthesis.py:176, deck_plan.py:250--259). 'The threshold was chosen, not derived' became 'We chose the 60 % without measuring it', followed by the check at 50 and 70 % from the former scorecard. The renumbering fault stays, now with the first 15 and first 10 pages from the docstring of deck_plan.py (lines 3--4), as the verification asked. 'Before this step, the metadata and quiz steps' became 'Before the plan, ... the title step ... and the quiz step'.
+
+```latex
+Before any model call, a deterministic step plans the deck
+(\code{deck\_plan.py}). It finds boilerplate, lines that recur on at least
+60\,\% of the pages, such as a course name in the header; the threshold was
+chosen, not derived. It gives each page one of eight roles by simple rules,
+such as title, section start, agenda, or summary. It then groups the pages
+into sections and selects the pages that the metadata and quiz steps read. The
+model sees the text without the boilerplate, while the stored slide keeps the
+original. A line of real content that recurs as often is hidden from the model
+too. Because the step makes no model call, we can test it thoroughly,
+including with property-based tests.
+
+Before this step, the metadata and quiz steps read only the first pages of a
+deck, and a quiz question could point at the wrong page, because a filter
+renumbered the pages it kept. In production, all 524 deck-quiz questions
+written before the plan sat on the first eleven pages of their decks; since
+the plan they reach page 121
+(\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak deck-quiz-anchors.md}).
+```
+
+#### Routing: Text versus Vision, the rule
+
+Rewritten as three cases (rewrite R5, action ch4-14). The definition of a running footer stays, with the reason that the code itself gives, that footers are never summarised (page_blocks.py:186), as the verification asked instead of a reason in our voice. The sentence that contrasts the footer with the boilerplate of the deck plan left (ch4-14): 'Unlike the boilerplate of the deck plan, which compares the pages of a deck, the footer is judged on each page alone, and neither changes the text that the learner sees.' The last sentence changed, because the code flags every page without text for review, not only those whose vision call fails (unified_orchestrator.py:434--457), and keeps the raw text when the call fails (lines 275--278).
+
+```latex
+One function decides how the pipeline reads each page. It measures the PDF
+page itself, so the decision does not depend on which parser supplied the
+text. It counts the page's own text without running footers, and the share of
+the page that embedded images cover. A running footer is a text block that
+starts in the bottom tenth of the page in smaller type than the page's body
+text, which also covers a small source line at the foot of a slide
+(\code{page\_blocks.py:22--23,185}). Unlike the boilerplate of the deck plan,
+which compares the pages of a deck, the footer is judged on each page alone,
+and neither changes the text that the learner sees.
+
+A page with fewer than 25 characters of text has nothing to read but the
+picture, such as a scan or a photo, and goes to a vision model. A page with
+fewer than 150 characters whose embedded images cover at least 5\,\% of it
+depends on its image and also goes to vision: it keeps its own text as
+content, and the vision model supplies title and summary. Every other page is
+read as text. If a vision call fails for a page without text, the pipeline
+keeps the raw text and flags the page for review.
+```
+
+#### Routing: Text versus Vision, the threshold the rule replaced
+
+Deleted (action ch4-14). Section 4.2 now tells when the 25-character threshold came in, and the routing study reports the comparison in full: 87 of 1,593 pages, 75 of them carried by a figure.
+
+```latex
+This rule replaced a single threshold in November 2026: until then a page went
+to vision only if it had fewer than 25 characters of raw extracted text. The
+study in \cref{sec:c4-routing-study} shows that the old rule sent no page with
+an image to vision, and that the new rule sends 87 of the 1{,}593 pages, 75 of
+them pages with an image.
+```
+
+#### Parse Once: Idempotency (a subsection until now), and Failures
+
+Cut to one paragraph, 'Parse once, fail visibly', at the end of the subsection on asynchronous processing, which keeps the label sec:idempotency (draft D3, action ch4-09). It keeps the hash as identity, the unique key, the lock and the replay, the Redis caveat, the reason from the docstring why a parse is not shared (unified_orchestrator.py:785--791), the second uploader's case, failure, sweep and retry. What left: the subsection heading; the count 'nine mechanisms in four layers ..., eight of them active' (the mechanisms are in docs/thesis/defence-notes.md under 'Appendix C, The Nine Idempotency Mechanisms'); the explicit 'Without Redis, two simultaneous jobs of one uploader can both parse', now 'as long as Redis, which holds the lock, is reachable'; the sentence on the project's 'parse once' principle with the bytes stored once and the shared embeddings; and the pointer 'The final chapter names sharing as future work' (the outlook of Chapter 7 still names it). 'the second job waits behind the shared lock and fails after six hours' became: the second job finds the lock held, its run stays queued, and the sweep fails it after six hours (arq_worker.py:67,72), as Appendix C.3 described it.
+
+```latex
+\subsection{Parse Once: Idempotency}
+\label{sec:idempotency}
+
+The pipeline is content-addressed: a file's SHA-256 hash is its identity, and
+nine mechanisms in four layers use it to avoid doing the same work twice,
+eight of them active in the code. Three carry the guarantee: a unique key on
+hash, pipeline version, and user for each parse, a lock on the hash while the
+worker parses, and the replay of a finished run. While Redis, which holds the
+lock, is reachable, they give at most one parse per uploader and pipeline
+version, unless someone forces a re-parse. Without Redis, two simultaneous jobs of one uploader can both parse.
+
+This is the precise content of the project's ``parse once'' principle. The
+system stores the bytes once and keys the retrieval index by hash, so everyone
+who uploads a document shares its embeddings. The parsed lecture is not
+shared: two students who upload the same deck each get, and each pay for, one
+parse. The orchestrator's docstring declares sharing out of scope for a
+technical reason: the embeddings are attached to a Lesson through the file's
+hash, so a shared parse would silently move them to whichever owner parsed
+last (\code{unified\_orchestrator.py:785--791}). The final chapter names
+sharing as future work. If a second
+user uploads identical bytes while the first user's parse runs, the second job
+waits behind the shared lock and fails after six hours.
+
+\paragraph{Failures.}
+A failed job finalises the pages it has written and marks its run as failed, a
+sweep resolves runs that are stuck, and the user can retry.
+```
+
+#### The Routing Study: Why
+
+Rewritten in our voice (action ch4-15, Polish 4.2 item 2). 'No recorded rationale' and 'survived three pipeline generations' left: the threshold entered v5 in June (commit bd03f1d5), and Section 4.2 now counts five versions, not nine generations.
+
+```latex
+\paragraph{Why.} The 25-character threshold had no recorded rationale: it entered the code in June 2026 without a reason for its value, and it survived three pipeline
+generations. Before replacing it, the author asked what it did on real decks.
+```
+
+#### The Routing Study: Result
+
+'figure block' became 'figure' (action ch4-23), because Section 4.1 now defines a figure. Nothing else changed.
+
+```latex
+\paragraph{Result.} No page in the corpus has between 15 and 39 raw
+characters, so any threshold in that range routes the same 12 pages to vision:
+the eleven empty closing photo pages of the database decks and one summary
+page. None is teaching content. Of the 421 pages that contain a figure block,
+none reached a vision model, because a page number and a footer alone exceed
+25 characters. The systems decks never reached vision at all, their minimum
+being 76 raw characters. The threshold therefore selected empty pages, not pages with a figure.
+
+To decide what a page with a figure needs, the author labelled the hard case:
+all 55 pages with at least one figure block and 25 to 150 raw characters,
+answering for each whether a text model could explain the page from its text
+alone. The author labelled 53, all as needing the image, and left two
+unlabelled. The rule in the code at the pin sends 87 pages of the corpus to
+vision: the 12 pages without text and 75 pages carried by a figure
+(\cref{fig:routing}). It catches 52 of the 53 labelled pages and both
+unlabelled ones; the one miss is a page whose figure covers less than 5\,\% of
+it. Routing every page under 150 characters would have cost 149 vision calls,
+not 87, and caught all 53.
+```
+
+#### The Routing Study: what this does and does not show
+
+Only a pointer to Section 1.4 was added to the last sentence, where the thesis says what production runs. Nothing left; the old paragraph is kept here so that the record of changes is complete.
+
+```latex
+\paragraph{What this does and does not show.} The author made the labels on a
+sample chosen to be the hard case and then shaped the rule to catch them, so
+the 52 of 53 is a fit on the rule's calibration set and not an accuracy. Of
+the 75 pages carried by a figure that the rule routes to vision, 21 lie outside
+the labelled sample. The study establishes that the old rule routed no page
+with a figure to vision on 1{,}593 real pages, and that the new rule routes
+the pages carried by a figure at one vision call each. The labels contain no
+page that the author judged readable from its text, so the study cannot
+estimate how many of the 87 vision calls are unnecessary. And \enquote{needs
+the image} is the author's judgement: we ran no text model on the pages to see
+whether its explanation fails. Production did not yet run the new rule at the
+pin and has run it since November 2026.
+```
+
+#### The Text Extraction Benchmark: Why
+
+'Before the benchmark, nobody had measured the choice of extractor' left, because Chapter 1 (Section 1.2) and Chapter 7 say it. The three kinds of method are now defined in one clause each: layout engine, Markdown, vision model.
+
+```latex
+\paragraph{Why.} The current extraction is PyMuPDF's plain text layer, and
+every later step reads what it produces: the synthesis, the quiz, and the
+retrieval index. The question was whether a layout-aware tool, a converter to
+Markdown, or a vision model transcribing the page image would give a learner
+better text, and what each costs. Before the benchmark, nobody had measured
+the choice of extractor.
+```
+
+#### The Text Extraction Benchmark: the methods and the test set
+
+The four comparisons are now named here in one sentence (action ch4-16), moved from the Procedure paragraph. 'The set includes no scanned page' left, because the Threats paragraph says it ('hold no scan').
+
+```latex
+The author judged eleven methods: ten challengers against \emph{current}, the
+production extraction, which anchors the scale at 1000. The challengers were
+two Markdown converters, pymupdf4llm~\cite{pymupdf4llm} and
+MarkItDown~\cite{markitdown}; four layout engines,
+Docling~\cite{auer2024docling}, MinerU~\cite{wang2024mineru},
+Marker~\cite{marker}, and OpenDataLoader~\cite{opendataloader}; the browser
+engine pdf.js~\cite{pdfjs}; a PaddleOCR vision-language
+model~\cite{paddleocr} in a 4-bit build; and two vision models that
+transcribe the page image, \code{gpt-4.1-mini} and the larger
+\code{gpt-6.1-sol}, which we chose for its capability per dollar. The test set
+is 24 born-digital pages from five PDFs of three courses in two languages,
+drawn per source by a stated rule and a seeded random draw. The author
+assigned each page one of five types, such as lists, diagram, or dense text.
+The set includes no scanned page.
+```
+
+#### The Text Extraction Benchmark: the ratings
+
+Rewritten after R6, in our voice. 'Every vote enters the fit, hidden repeats included' stays as 'All 283 votes enter the fit, the 13 hidden repeats included', as the verification asked. The bootstrap is defined in a clause. 'Its intervals are therefore likely too narrow, and we read H1 as a statement about this judge on these pages' moved, the first half staying here and the second going to the H1 paragraph, after H1 is defined.
+
+```latex
+Ratings come from a Bradley--Terry model~\cite{bradley1952rank}, in which each
+method has a strength and its expected score against another is its share of
+the two strengths. Minorisation-maximisation~\cite{hunter2004mm} fits the
+strengths with a weak prior, and a bootstrap~\cite{efron1993bootstrap} of
+1{,}000 resamples gives their intervals. Points are $1000 + 400 \log_{10}$ of
+the strength ratio to the anchor, so 400 points above the anchor means a ratio
+of 10:1 in expected score. Every vote enters the fit, hidden repeats included.
+A vote of ``same'' or ``both unusable'' counts as half a win for each side, so
+the scale measures preference and not usability. Such draws are 142 of the 283
+votes, so a ratio on this scale is not the chance of winning a duel. The
+bootstrap treats single votes as independent, although the 283 votes concern
+24 pages and the first round set the schedule of the second. Its intervals are
+therefore likely too narrow, and we read H1 as a statement about this judge on
+these pages
+(\code{backend/\allowbreak eval/\allowbreak parser\_bench/\allowbreak ranking.py}).
+```
+
+#### The Text Extraction Benchmark: H1
+
+The Bonferroni correction is defined in a clause, and the sentence on reading H1 moved here from the ratings paragraph. Nothing left.
+
+```latex
+A challenger passes if the lower end of its bootstrap interval,
+Bonferroni-corrected~\cite{dunn1961multiple} for the $k = 10$ challengers, lies
+above 1000. The hypothesis H1, that the judge rates at least one method above
+current, holds if any challenger passes. The test is on these bounds and not on
+rank. The frozen protocol worded H1 for layout-aware tools and four
+challengers, and the deviations extended it to every method added later, the
+vision models among them.
+```
+
+#### The Text Extraction Benchmark: Procedure
+
+The list of the four comparisons moved to the Design paragraph. 'Within a comparison a first round followed the seeded schedule, and a pre-registered second round could add duels among the leaders' left, because the Design paragraph states the pre-registered second round (action ch4-16). The judging months, the hidden repeats, the side bias and the pooling stay.
+
+```latex
+\paragraph{Procedure.} The benchmark ran in four \emph{comparisons}, each a
+batch of duels among a fixed set of methods. The first held the five fast
+methods: current, pymupdf4llm, MarkItDown, pdf.js, and OpenDataLoader. The
+second added the two vision models, the third the three heavy local engines,
+Docling, MinerU, and Marker, which processed only a 60-page excerpt of the
+five PDFs, and the fourth the PaddleOCR build. Within a comparison a first
+round followed the seeded schedule, and a pre-registered second round could
+add duels among the leaders. The author judged all four in late October and
+early November 2026, 283 votes in all. Hidden repeats agreed in 12 of 13 cases
+(exact 95\,\% interval 64 to 100\,\%), and the author retracted no vote. Of
+the 141 decisive votes, 86 chose the output on the right-hand side (binomial
+test, $p = 0.011$). The balanced schedule keeps this from favouring a method,
+but it shows that something other than content moved decisions. We pool all
+four comparisons on one scale.
+```
+
+#### The Text Extraction Benchmark: where the methods differ
+
+The method-by-method footer counts left (action ch4-17); one contrast sentence stays, as the verification asked: the methods that strip the footer do not lead, while the vision models copy it on 8 and 18 pages. Left verbatim: 'So do pdf.js and MarkItDown, and pymupdf4llm and Docling on 20 and 14 pages, while OpenDataLoader, Marker, and MinerU strip it on all but at most four.' OCR is now defined in a clause.
+
+```latex
+\paragraph{Where the methods differ.} Automatic checks over the same 24 pages
+explain part of the ranking. The current extraction carries the running footer
+into the content on 23 of the 24 pages. So do pdf.js and MarkItDown, and
+pymupdf4llm and Docling on 20 and 14 pages, while OpenDataLoader, Marker, and
+MinerU strip it on all but at most four. The vision models copy it on 8 and 18
+pages, the stronger more often, because the prompt asks for everything that the
+page prints. pymupdf4llm runs its own OCR pass on pages it judges image-heavy,
+which is part of why it scores well and which production would have to switch
+off.
+```
+
+#### The Text Extraction Benchmark: Cost
+
+'Measured on an 8 GB Mac' and a reference to the protocol were added, because the benchmark measured time and memory on an M1 Mac with 8 GB, and the protocol calls the speeds relative, not production figures (PROTOCOL.md:178). Nothing left.
+
+```latex
+\paragraph{Cost.} The current extraction takes at most 0.06 seconds per page
+at about 62\,MB of memory, and pymupdf4llm, with its OCR pass on, under a
+second at about 390\,MB. The heavy engines take 1.2 to 5.8 seconds per page
+and 0.9 to 3\,GB of memory, not counting what they allocate on the GPU, and
+each needs a model download of 0.5 to 1.7\,GB. On the 4\,GB production
+machine, which also runs the API, the worker, and two Redis instances, they are
+not an option. The two vision models together cost \$0.21 for the 24 pages at
+list prices, under a cent per page, at 1.8 to 5.7 seconds per page, and the
+page leaves the server; the fee is paid per page and per uploader.
+Production's OpenAI vision calls use neither model:
+they run on the code default \code{gpt-4o-mini}, because the model variables
+were never set. The benchmark therefore describes the
+vision path with \code{gpt-4.1-mini} set, not the path as deployed.
+```
+
+#### The Text Extraction Benchmark: Threats
+
+'The protocol names them before the result' became 'We named these in the protocol before the result'. 'over the golden set' left, because the chapter does not define the golden set. Every threat stays.
+
+```latex
+\paragraph{Threats.} The protocol names them before the result. The judge is
+the author of the product. The automatic checks use PyMuPDF's own text layer as
+reference, which favours two of the methods. The 24 pages come from one
+university and hold no scan, duels within a comparison are not independent,
+later comparisons were less blind, and the heavy engines saw a 60-page excerpt.
+We corrected for none of this. Two further threats are not in the protocol.
+First, methods that emit headings, lists, and tables gain typography in the
+benchmark's viewer that plain text does not, so the benchmark measures which
+rendered output a reader prefers. Second, the real consumers of the text are
+models, for synthesis, quiz, and retrieval, and we did not measure whether the
+preference carries over to them; a retrieval run per extractor over the golden
+set would test it. No second rater judged any subset either, so how far the
+result depends on the one judge is unknown.
+```
+
+#### Answer to RQ1
+
+Replaced by the halved answer (draft D2, action ch4-18) with the fixes of the verification. The new answer keeps the routing numbers with the caveat that they are a fit, not an accuracy; the benchmark ratios with their cost; the memory of the heavy engines, 0.9 to 3 GB, against the 4 GB machine; the construct limit; one reliability sentence (design, tests, 115 parses with 16 visible failures, no load test, fault injection only in the provider layer); and a pointer to the outlook. What left: the four-part description with 'Identity by content', which was not measured and is not part of RQ1; the repeated benchmark detail, '31 of its 39 duels' and the footer on 23 of 24 pages, which the benchmark section keeps; the yardstick paragraph, whose three marks the new text answers (the routing study, reading at once, cost not measured); 'whether the new routing rule improves what learners read', which the routing study's limits cover; and the sentence on the open production decision between pymupdf4llm and vision, which the outlook of Chapter 7 carries.
+
+```latex
+How can heterogeneous lecture PDFs be transformed into structured pages that a
+learner can read at once? Our answer has four parts. The routing study
+evaluates the third. The scorecard confirms the implementation of the second,
+and production shows that the deck quiz now reaches beyond the first pages. We
+describe the first and the fourth without a measurement.
+
+\begin{description}
+  \item[Identity by content.] A SHA-256 hash names the bytes. The system
+    stores one object per hash, keeps one run per document, version, and
+    uploader, and replays a finished run instead of repeating it. A lock keeps
+    concurrent duplicates out while Redis, which holds the lock, is reachable.
+  \item[Decide before generating.] A deterministic plan assigns roles and
+    sections, strips boilerplate from the model's input, and selects the pages
+    that the deck-level steps read, with no model call.
+  \item[Route by what the page holds.] One rule, measured on the page without
+    its footer, sends pages without text and pages carried by a figure to a
+    vision model and everything else to text. On 1{,}593 real pages this means
+    87 vision calls, where the old rule made 12, all on pages without teaching
+    text.
+  \item[Write as you go.] The worker, not the browser, writes every page the
+    moment it exists, and the reading view opens on the original PDF at once.
+\end{description}
+
+How do text extraction methods compare in the quality of their text and their
+cost? On 24 pages from five PDFs of three courses, the author, judging blind,
+preferred the transcription of the stronger vision model to the current
+extraction at more than 10:1 in expected score on the fitted scale, and that of
+the smaller one at about 9:1. Both cost under a cent a page. The author
+preferred pymupdf4llm at about 4.5:1 without a fee, at under a second more per
+page, measured with its OCR pass on, which production would switch off. The
+heavy layout engines rank lower and need gigabytes of memory that the
+production machine does not have. In the first comparison the author judged the
+current extraction unusable together with its opponent in 31 of its 39 duels,
+and its footer on 23 of 24 pages is one visible reason. The judge chose between
+rendered outputs; whether synthesis, quiz, and retrieval do better on the
+preferred text, we did not measure. We did not change the production parser on
+this basis at the pin.
+
+The yardstick of \cref{sec:c4-requirements} had three marks. The routing rule and its study answer how the pipeline handles a page with a figure. The design answers how soon a learner reads, because the reading view opens on the original page at once; we did not measure the time until the generated text of a page arrives. We did not measure what a deck costs: the benchmark prices the vision transcription per page, and we did not evaluate the cost ledger of production.
+
+The reliability of \cref{sec:pipeline} rests on its design, on tests of
+each mechanism, and on 115 production parses under light load. We ran no load
+test, and fault injection covers only the provider layer
+(\code{tests/\allowbreak unit/\allowbreak test\_chaos\_*.py}), not the database, the storage, or the worker.
+
+We did not measure three things: whether the text generated for a page is
+grounded in that page, whether the new routing rule improves what learners
+read, and whether any extraction method improves learning. The final chapter
+takes up these limits and the open production decision between pymupdf4llm
+and vision.
+```
+
+#### The sources behind the new Section 4.2, claim by claim
+
+Section 4.2 uses only commits, PR texts, commit messages and code; every claim was read at the commit it cites on 16 November. This list is for the oral defence. The workbench's re-run counts are not cited in the thesis, because their scripts are not in the repository.
+
+| Claim in 4.2 | Source | Kind |
+|---|---|---|
+| A form with title, content, summary and one question per slide, before any parser | `184e5742` (`src/pages/LectureUpload.tsx`, first migration) | code |
+| The first parser read each page with pypdf | `be25cc1d` (`file_parse_service.py`: `PdfReader`, `extract_text`, "Slide N") | code |
+| A model wrote a rewrite, a summary and a question for every page at upload, three calls per page | `4c23d254` (subject "AI Slide Enhancement with Ollama, Dual-View Slide Viewer, and Quiz Fixes") | code and message |
+| A fourth call for the title from March | `10296bef` ("Use AI to generate meaningful slide titles instead of Slide N") | code and message |
+| The four calls merged into one per page at the end of March, by the co-developer | `76aa4b42` (`file_parse_service.py`: `process_slide_batch` replaces the four calls) | code |
+| The original page beside the generated text | `4c23d254` ("Dual-View Slide Viewer") | message |
+| The co-developer's filter kept non-teaching pages from the model, because they wasted tokens and produced useless questions; it reads the slide text | `bfbe6c09` (`content_filter.py`; `project_docs/implementation_plan_slides_filtering_v2`, section Problem) | code and plan in the commit |
+| PyMuPDF replaced pypdf in April; with a vision model available, every page went to it as an image | `227267e7`, PR #4 (merge `ac71c1a4`) | code and message |
+| v2 measured each page and routed it by rules before any model call | `7ffb0cd2` (`slide_classifier.py`, `file_parse_service.py`) | code |
+| Rule 2 of v2 skips a page that the filter marked as metadata, so the filter decides first | `a801c31f` (`slide_classifier.py`, rule list) | code |
+| v3: Arq job queue on Redis | `6ce7b5f1` (`workers/arq_worker.py`, `parser/stage1..5`) | code |
+| v3: five stages, progress per page, resume after a crash | `6ce7b5f1` (`backend/services/parser/orchestrator.py` docstring: "wires all five stages together", "Idempotency / resume contract"); the design note `122460ec` (goal 2, principle P1) planned eight stages | code |
+| v3 never served: Docling "adds 30+ min to build", the image runs version 2 | `requirements-docker.txt` at `6ce7b5f1` | code |
+| v4 is a port of a Node.js version; its prompt asks for a professor's continuous lecture | `6ce7b5f1` (`parser/v4_orchestrator.py` docstring and `analyze_slide` prompt) | code |
+| v4 sent 142 of 143 pages of a PowerPoint lecture to text in an offline check | message of `4f19bd1e` | message |
+| v5 built in one day in June; the server writes lectures, slides and quiz questions; a vision-capable model | `4f19bd1e` (message: "fixes the two things v4 could not do") | message |
+| One call per page by the end of that day, because a batch timeout blanked eight slides at once; 25-character threshold | `bd03f1d5` (message; `_MIN_TEXT_FOR_SYNTH = 25`) | code and message |
+| The filter of v1 left the path with that rewrite | `bd03f1d5` calls neither `parse_pdf_stream` nor the filter (checked per commit) | code |
+| v5 the only path since July | `a65b0f9d` (message: "exactly ONE pipeline (unified/v5) is reachable") | message |
+| Groups of text pages again in July, because one call per page was "an ~8x cost multiple on the dominant cost driver"; per-page fallback for a failed group | `49994d51` | message and code |
+| v4's functions for the deck's title, a page and the deck quiz moved into a shared module that v5 calls | `a65b0f9d` (message) | message |
+| 25-character threshold set in June (routing study, Why) | `bd03f1d5` | code |
+
+Eight pages per call: 12 pages per call before May 2026 (the chunker that `35fc8b50` replaced); 5 per call with one page of overlap on 3 May, so that the model can resolve references such as "this method" across a group boundary without a bigger call (`35fc8b50`; comment at `orchestrator.py:145--148` at the pin); 8 per call on 7 May (`6bfb51e6`, no reason recorded). The author's account: "we tried a lot of things and 8 was good". At the pin the groups of v5 do not overlap; the summary of the last page of a group goes to the next group as context (`unified_orchestrator.py:1058--1060,1214--1215`).
+
+#### Checked but not used in the thesis text
+
+- The workbench's re-run counts (the 30-page test file: 23 pages skipped by the filter, 1, 2 or 24, 3 and 10 pages with their image; the 143-page lecture: 89 skipped plus 28 to the judge, 108, 58 and 74 to vision). Their scripts are not in the repository, so the thesis does not cite them.
+- "Unified routes 88 to VISION" in the message of `4f19bd1e`: an offline check of v5's first version, not of the version that served. Not cited, so that the 88 is not read as the served v5.
+- The supervisor's suggestion of the on-demand button (February): confirmed by the author on 16 November and added to the v1 paragraph of Section 4.2. The buttons are in `be25cc1d` ("AI Generate" beside a slide's summary and its question in the lecturer's form, calling a local Ollama model); the suggestion itself is the author's account.
+- The claims marked "memory" in the workbench: that the local model was too slow, that Gemini's free tier ran out on a full Database Systems lecture, that Groq and Cerebras were chosen for their free token allowance, that AI moved into the upload to test the whole chain and spare uploaders the buttons.
+- "99/143 PowerPoint pages misclassified as decorative by v2" (CHANGELOG.md at `a4fc5abc`): a claim in our release notes with no measurement behind it.
+- The generator-aware router of v3 (`parser/classifier.py` at `6ce7b5f1`): most PowerPoint pages with a picture or a drawing went to a vision model, without the filter's verdict. A drafted sentence on it, and the lesson that v2 and v3 show that a new check helps only once the old one leaves the path, were cut for length; both are true of the code.
+- The free vision tier refused calls on the day v5 was built, so a paid OpenAI vision model followed (`a12666cd`); Section 4.1 cites the commit for the free tiers, so 4.2 does not repeat it.
+- The deck plan (PR #84), the reading view that opens at once (PRs #139 and #145, October) and the routing rule (PR #178, November) rebuilt v5 from the inside; the appendix table lists them.
+
+#### A code fact for the defence, not in the thesis
+
+The prompt for a group of text pages (`ai/prompts.py:99--140` at the pin) also asks for rewritten content and one multiple-choice question per page. The pipeline keeps only the title and the summary and pins the page text to the raw text (`unified_orchestrator.py:409--417,1159--1165`), so the tokens of the rewritten content and of these questions are paid for and discarded.
+
+### Defence notes, Chapter 5 (Learner Events and the Owner's View)
+
+Written in November 2026 with AI assistance (Claude) during the rewrite of Chapter 5 for the first draft (Package H of the review on focus, length and voice of November 2026, actions C5-06 to C5-23, and the fixes of its verification). Each section below quotes, verbatim, a passage of the chapter as it stood before this rewrite (chapters/05-loop.tex of the preview-3 base), and says in one paragraph what left the thesis and why. Line numbers refer to that old file. Nothing here is new evidence; every fact was already in the thesis.
+
+#### Header comment of the chapter file (old lines 1–17)
+
+The provenance comment of the earlier pass and its cut-to-length note left the file. They described sources and moves of an earlier pass; the new header names today's sources (Package H of the review of November 2026, its verification, and the author's decisions). The comment is not thesis text and is kept here only for the record.
+
+```latex
+% ---------------------------------------------------------------------------
+% OPTION A, CHAPTER 5 (RQ2). Written 2026-11-10 with AI assistance (Claude)
+% from docs/thesis/CHAPTER_MATERIAL.md §5.1--5.9, the verification note
+% docs/thesis/verification-notes/2026-11-09-analytics-rq2.md and the persona
+% study in docs/thesis/experiments/persona-study/ (RESULTS.md, NOTES.md), all
+% on branch claude/thesis-brief-verification-6573e8. Every number carries a
+% source there. The engine is described at the pin \thesisCommit; the owner's
+% view and the persona study are at 2e146f51, three days after the pin, and
+% the text says so wherever it matters. Added 2026-11-10: sec:data-model (the
+% author's drafted text from the former design chapter, shortened; the two ER
+% diagrams moved to appendix B) and sec:authorisation with sec:hardening
+% (written from the evidence briefs of the former implementation chapter,
+% now in chapters/superseded/05-implementation.tex.txt).
+% The author must read, revise and own every sentence before submission.
+% ---------------------------------------------------------------------------
+% 2026-11-10 (cut to length): schema notes and the hardening sequence moved
+% to appendix C, F14 to appendix B.
+```
+
+#### Chapter opening (old lines 21–31)
+
+Left: the full restatement of RQ2 (the chapter now opens as Chapter 4 does, with "This chapter answers RQ2"); "entered the main branch two days later", which names a day count where the new text uses months only; and "we mark these changes where they matter", because the changes of PR #181 are now listed once in the opening (C5-11) and the scattered remarks are gone. The verification required the list to include the speed bump (five people who turned back, where two sufficed at the pin); the new opening states it, together with the null below the floor, the reach word, and the rule that a finding carries no count of one to four people. The real-usage numbers (readers.md) stay, reworded. New: the loop is defined in the author's words, and the owner is pointed to Table 1.1 instead of being defined again (Polish.md, abstract comments 4, 6 and 7), and an event is defined at its first use (C5-23).
+
+```latex
+This chapter answers RQ2: how a system can model learner interaction events, aggregate them, and feed them back to the owner of the material without showing any individual learner, and what such a view can tell an owner about their material.
+
+We describe the event log and the aggregation engine at the pin. The screen
+that shows the result to an owner entered the main branch two days later
+(PR~\#181, November 2026) and changed what the engine sends; we mark these
+changes where they matter. The evaluation ran on that later revision,
+\code{2e146f51}. The deployed system has almost no readers. In the 56~days
+before our count in November 2026, members read in four Spaces; the busiest
+had six readers, and only one page reached five, our own accounts possibly
+among them (\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak readers.md}).
+The evidence is therefore a study with scripted readers.
+```
+
+#### Section 5.1, the loop as built (old lines 36–60)
+
+Left: the narration of the loop as a cycle that starts with a PDF (the opening now defines the loop once); the long walk through the five stages of Figure 5.1, now one sentence; "At every stage after storage this loop speaks about pages and never about people", which makes the software speak and states an absolute that arm B contradicts (a hotspot can rest on three people), replaced by "After the log, no stage passes on a name or a list of members"; and the forward pointer "Two older paths outside it do not" (C5-11). The caption now says "loop" instead of "feedback loop". The figure itself is unchanged and still carries the labels that C5-19 asks to correct.
+
+```latex
+The loop starts with a PDF. Its owner uploads it to a Space, and learners
+read it. What they do returns to the owner as facts about pages, the owner
+decides whether to change a page, and a changed PDF goes back to the
+learners, so that the cycle starts again. This is the cycle of learning analytics that Clow describes,
+which closes only when an action reaches the learners
+again~\cite{clow2012cycle}.
+
+The system builds the first part: it records, aggregates, and shows. The
+decision belongs to the owner and lies outside the software. Returning a
+changed page works today only as a new upload: the owner uploads the revised
+PDF as a new Lesson, the system has no versions of a Lesson, and the events
+of the old Lesson do not carry over to the new one.
+
+\thesisfigure{f23-loop}
+  {The feedback loop in five stages. The engine applies the floor of five readers when it aggregates events, and no name leaves the last stage.}
+  {fig:loop}
+
+\Cref{fig:loop} shows the part that the system builds, as the path of one
+interaction. The reading view \emph{records} it through one function, which
+\emph{governs} it: the function rejects an event of an unknown type or with an
+unknown field. One log \emph{stores} the event. When an owner asks, the engine
+\emph{aggregates} the log of the Space's members, and the owner's view
+\emph{shows} the result as one sentence, three numbers, and a map of pages. At
+every stage after storage this loop speaks about pages and never about people.
+Two older paths outside it do not, and \cref{sec:c5-privacy} names them.
+```
+
+#### Section 5.2.1, first paragraphs (old lines 65–83)
+
+Left: the subsection title "One Log, Seventeen Governed Types"; with Storage dissolved, Section 5.2 has no subsections, and "governed" survives only where Figure 5.1 names the stage, with its meaning in plain words (C5-22, Polish.md abstract comment 5). Left also: the wording "who, when, an event type, and a JSON payload" (replaced by the definition of an event, C5-23, which now stands at its first use in the opening, and by a description of the event row at the start of 5.2), "The backend does not store an event that fails either check", "A row that a member inserts directly ... meets only the first" (now in the paragraph on direct inserts), "the function logs the failure", and the counting sentence on eight, seventeen and six (the table shows these; the text keeps one pointer).
+
+```latex
+\subsection{One Log, Seventeen Governed Types}
+
+All interaction data lives in one table, \code{learning\_events}: who, when,
+an event type, and a JSON payload. Two checks restrict the type. In the
+database a check constraint lists the 17 allowed types. In the backend each
+type has a Pydantic model in one registry, and every model forbids unknown
+fields (\code{schemas/learning\_events.py}). The backend does not store an
+event that fails either check. A row that a member inserts directly through
+the database interface meets only the first.
+
+All writes of the reading view go through one function
+(\code{event\_repo.py:64--91}). It validates the payload and inserts the row
+inside a savepoint. If the database rejects the row, the function logs the
+failure and drops the event, and the learner's request, for example turning a
+page, still succeeds. The design loses an event rather than fail a reader.
+
+\Cref{tab:events} lists the types. The reading view writes eight of the
+seventeen, and the others belong to the older interface or to backend jobs. The
+engine reads six.
+```
+
+#### Caption of Table 5.1 (old lines 88–90)
+
+Only the word "governed" left the caption ("The 17 governed event types" became "The 17 event types"), because the review found the word unexplained jargon. The table body is unchanged.
+
+```latex
+  \caption{The 17 governed event types. \enquote{View} marks the types the reading view writes, \enquote{engine} the types the aggregation reads.
+    Sources: \code{schemas/learning\_events.py:76--282};
+    \code{insights/sources/space.py:39--46}.}
+```
+
+#### Section 5.2.1, the two decisions about content (old lines 112–114)
+
+Left: "The table shows two decisions about content" (the second decision is not in the table) and "the answer the AI gives" (C5-23: "the model's answer"). The two decisions stay, and the new text names the principle they apply, data minimisation under Article 5(1)(c) of the GDPR (C5-23; the IT-security lens looks for it by name).
+
+```latex
+The table shows two decisions about content. The system never stores the answer the AI gives to a question, only the question. And
+nothing from a private study session with the assistant becomes an event at
+all (\code{insights/sources/space.py:38}).
+```
+
+#### Section 5.2.2, Storage (old lines 116–137)
+
+The subsection was dissolved (C5-09), because half of it explained how a script that never ran would work. Left: the partition mechanics of the retention script, migration 20260721010000 (the declared monthly partitioning), "We therefore cannot claim that the system deletes old events", the clause on what the existing protection limits, and the policy that lets a member delete their own rows (migration 20260731010000). Moved: the real user id and the retention not in force, with event-table.md, to the opening of 5.5; the guards against forged events to 5.2. The verification required the trigger to be marked "at the pin", because migration 20261105010000 is applied by hand and no record shows it in production. New in 5.2: why members can insert rows directly (the older interface writes from the browser) and that such a row can carry a verdict of the member's own choosing, which the engine reads; this matches Chapter 6.
+
+```latex
+\subsection{Storage}
+\label{sec:c5-events-storage}
+
+A retention script in the code would delete old events, but \emph{it has
+never run}. No scheduler starts it, and it works by dropping old monthly
+partitions, which production does not have: the migrations declare the table
+partitioned by month (migration \code{20260721010000}), but a read-only probe
+of the production catalogue in November 2026 found a plain table
+(\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak event-table.md}).
+We therefore cannot claim that the system deletes old events. Events also
+carry the real user id without a pseudonym; the protection that exists limits
+who may read the log and what leaves the aggregation.
+
+A member can insert events for themselves directly, through the database
+interface that the browser holds, and a database policy also lets a member
+delete their own rows (migration \code{20260731010000}). Such a row passes the
+type constraint but not the Pydantic models, so its payload may hold fields
+that the backend would refuse. Three guards keep one member from distorting
+what the owner sees. A trigger rejects a client timestamp more than
+300~seconds away from the server's clock, the engine reads at most 5{,}000
+events per member, and it reads only the payload keys it needs (PRs~\#142
+and~\#175).
+```
+
+#### Section 5.3.1, from rows to page facts (old lines 144–175)
+
+Left: "which is what makes the study ... possible" (merged into one sentence), the side clause that the reading view records Still foggy on the first page of an idea (the appendix on the scripted readers keeps it), "A request for help shows that a page was hard for some readers, but not that every reader who asked needed help" (merged into the proxy sentence), "The map, the share that is null below the floor, and the landing number all use it; no finding rests on a request for help alone" (replaced: the detectors use their own rules, so no finding rests on this signal at all), and the separate paragraph on three kinds of signal, folded into one sentence (C5-20). New: the older "Unsure" check-in also counts as reaching for help (C5-13, verified at space_facts.py:72–75), and the code reference for the owner's exclusion moved here from 5.5.
+
+```latex
+Apart from the themes at the end of this section, the engine is a pure
+function. Its input is one value that holds the members of the Space, its
+Lessons, the events, and the current time, among other things
+(\code{insights/\allowbreak sources/\allowbreak space.py:67--82}). Its output
+is the payload that the owner's screen draws. Nothing in between touches the
+database, which is what makes the study in \cref{sec:c5-evaluation} possible.
+
+The input has bounds. Members are the enrolled users without the owner, and
+events are the six types of \cref{tab:events} from the last 56~days, at most
+200{,}000 in all. From them the engine builds a small set of facts for every
+page: who read it, who opened Explain, who asked, who rated it and how, who
+turned back to it, and who answered its checkpoint right or wrong at the first
+try.
+
+From these facts it forms one signal per page. A reader \emph{reached for
+help} if they opened Explain, asked a question, checked in with \emph{Still
+foggy}, which the reading view records on the first page of an idea, or with
+\emph{unsure}, which only the older interface offers, or turned
+back to the page (\code{insights/\allowbreak space\_facts.py:72--75}). The
+signal is a proxy, not a measured need. A request for help shows that a page
+was hard for some readers, but not that every reader who asked needed help:
+some ask out of interest, and some who struggle never ask. A reader may also
+turn back to revise. Because any one of the four counts, the signal errs
+towards flagging a page rather than missing one, and no study with real
+readers has checked it. The map, the share that is \code{null} below the
+floor, and the landing number all use it; no finding rests on a request for
+help alone.
+
+The engine thus reads three kinds of signal: what readers do, what they say in
+the check-in, and what they get right in checkpoints and quizzes. Each is a
+proxy. The findings that combine kinds, such as a confident check-in followed
+by a missed checkpoint, are the ones that no single signal could give.
+```
+
+#### Section 5.3.2, the floor (old lines 177–194)
+
+Left: "says nothing" (the software does not speak; the new text says what is shown and withheld), "This distinction entered after the pin; at the pin such a page reported 0, which the screen would have drawn as 'everything is fine'" and "This too entered after the pin, which still sent the count" (C5-11; the opening lists the changes of PR #181 once), and the figure pointer. New: the origin of the floor (the roadmap of July 2026, the mock-exam summary, the Space engine from October 2026) and the four sources the author read, with the honest conclusion that five is a judgement within established practice and below the ten most common for results about students.
+
+```latex
+\subsection{The Floor}
+
+One constant, the floor of five, governs what the view may say. A page that
+fewer than five members other than the owner have viewed says nothing
+(\code{insights/\allowbreak space\_engine.py:25}); the members who viewed it
+are the page's \emph{readers}. \enquote{Nothing} is not zero. The share of
+readers who reached for help on such a page is \code{null}, and the screen
+draws a faint outline instead of a dim cell, which would read as \enquote{few
+reached for help}. This distinction entered after the pin; at the pin such a
+page reported 0, which the screen would have drawn as \enquote{everything is
+fine}.
+
+The same rule holds for the whole Space. Instead of a count of its readers,
+the payload carries one of three words, its \emph{reach}: \code{none},
+\code{few} for fewer than five, or \code{enough}. This too entered after the
+pin, which still sent the count. Counts appear only from five readers on: the
+weekly number of members who read and, for a page with a finding, the number
+of people who opened Explain or asked (\cref{fig:door}).
+```
+
+#### Section 5.3.3, eleven detectors, with the three-column Table 5.2 (old lines 196–249)
+
+Left: the title "Eleven Detectors" (now "Detectors and Findings"); "the only one that speaks about individual students" (talking software; the caption now says "the only detector about individual students"); the sentence on shares that need five contributors and the minimum of three ratings that never binds (C5-08: the caption carries the floor rules); "We recorded no source for the detectors' thresholds ..." (C5-17, replaced by the author's decision: the thresholds date from June 2026, the 20 % values were chosen by judgement, no source gives them, and the study did not tune them; the floor of five now has its own paragraph in 5.3.2); the three-column table, whose third column repeated "shown from 5 raters" (C5-08), including the row note "since PR #181; at the pin from 2", which now sits in the opening, and the rows for the silent misleader and the silent strugglers, now in the caption; and the dwell paragraph (C5-20), whose two points are now clauses in the overpacked and skipped-page rows. The calibration paragraph was cut to two sentences. The misalignment row now states the rule exactly (under 15 % Still foggy and no long dwell, detectors.py:288–305), where the old row said "without any sign of confusion".
+
+```latex
+\subsection{Eleven Detectors}
+
+A detector is a rule over the facts of one Lesson that produces a finding: a
+kind, a page, and a severity. \Cref{tab:detectors} gives each rule in one line.
+We wrote the detectors for the older professor dashboard, and the Space engine
+reuses ten of the eleven; the one it skips is the only one that speaks about
+individual students. Nine kinds of finding can reach the owner's screen. The
+Space engine uses a share of ratings, tries, or checkpoint pairs only once
+five of the page's readers have contributed to it, so a detector's own minimum
+of three ratings never binds there
+(\code{insights/\allowbreak space\_engine.py:38--46}).
+
+We recorded no source for the detectors' thresholds, which date from June 2026
+(commit \code{0b2aa58e}), and none for the floor of five, set in October 2026
+(commit \code{01951949}). Neither was calibrated against real readers. Both
+were chosen before the study, so the study did not tune them.
+
+\begin{table}[t]
+  \centering
+  \small
+  \caption{The eleven detectors. Thresholds are the constants in
+    \code{insights/detectors.py}; \enquote{Owner's view} names what the Space engine adds (\code{insights/landing\_map.py}).}
+  \label{tab:detectors}
+  \begin{tabular}{@{}lp{0.44\textwidth}p{0.24\textwidth}@{}}
+    \toprule
+    Finding & Fires when & Owner's view \\
+    \midrule
+    confusion hotspot & at least 3 ratings on a page, 20\,\% or more \emph{Still foggy} & shown from 5 raters \\
+    overpacked & 5 views, 30\,\% \emph{Still foggy}, dwell 1.5 times the Lesson's median, plus questions or a wide spread of dwell & shown from 5 raters \\
+    confusion block & two or more neighbouring pages, each 25\,\% \emph{Still foggy} & shown from 5 raters \\
+    leaky bucket & the worst page-to-page loss of readers still in the Lesson (who read the page or any later one) is 20\,\% or more & shown \\
+    skipped page & 5 views, median dwell under 5 seconds & shown \\
+    speed bump & readers return from the next page; long dwell, little confusion & shown from 5 people who turned back (since PR~\#181; at the pin from 2) \\
+    calibration gap & 35\,\% or more of those who said \emph{Clicked} miss the linked checkpoint & shown from 5 such people \\
+    quiz misalignment & pass rate under 50\,\% without any sign of confusion & shown from 5 raters \\
+    healthy & confusion of 25\,\% or more, yet 75\,\% pass: readers worked through it & shown from 5 raters \\
+    silent misleader & 60\,\% \emph{Clicked}, yet under 50\,\% pass, too few linked pairs & computed, not sent \\
+    silent strugglers & individual students with low progress and no questions & not run \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Dwell time is ambiguous: a long stay may mean a hard page or a reader who
+stepped away, a short one a page that was skipped, already known, or only a
+title. The rule for an overpacked page therefore also requires confusion,
+while the rule for a skipped page reads dwell alone. Because the engine does
+not know a page's role, it reports a title page that readers pass quickly as
+skipped.
+
+A reader who checks in with \emph{Clicked} and then misses the checkpoint has
+judged their own understanding too optimistically. Such overconfidence led
+students to stop studying too early and to retain
+less~\cite{dunlosky2012overconfidence}, which is why the engine reports a
+calibration gap. We did not measure retention.
+```
+
+#### Section 5.3.4, the three numbers (old lines 253–261)
+
+Only the clause "where a week is the seven days counted back from the moment the owner opens the view" was shortened to "counted back from the moment the owner opens the view". The themes paragraph that follows is unchanged, as the verification required.
+
+```latex
+Beside the findings the engine computes three numbers, one value for each of
+the last eight weeks, where a week is the seven days counted back from the
+moment the owner opens the view (\code{insights/figures.py}). The first is how
+many members read anything. The second is the share of \emph{landing} pages
+among the pages that at least five members read in that week; a page lands
+when fewer than 20\,\% of its readers reached for help. The third is the
+average share of right first tries per member who tried a checkpoint. A
+number has a value in a week only if at least five members read, or tried, in
+it.
+```
+
+#### Section 5.4, what the owner sees, with the two-screenshot Figure 5.2 (old lines 280–302)
+
+Left: the lower screenshot (f22-door-below-floor) and the two-part caption (C5-07), because it showed only one sentence and a footer; the sentence is now quoted in the text. Left also: "The assistant says one sentence" (Luna is named), the long walk from top to bottom, "The last line tells the owner" and "The sentence says whether anyone has read yet" (talking software). New: one real finding quoted from the screen (C5-18), so that the text shows what an insight looks like. The upper screenshot is now 0.7 of the text width instead of the full width, to save space; the merge must update the figure count and figures/MANIFEST.md, since f22 is no longer used.
+
+```latex
+Only the owner reaches the view. The server answers a member with 403 and
+anyone else with 404 (\code{domain/authorization.py:47--62}).
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{f21-door-above-floor}\\[6pt]
+  \includegraphics[width=\textwidth]{f22-door-below-floor}
+  \caption{The owner's view, drawn by the real screen from two payloads of the study with scripted readers (\cref{sec:c5-evaluation}), with the navigation bar cropped.
+    Top: arm~I, 27~members who all read in the last week. Bottom: arm~G, the
+    control, with four members. The same sentence would appear for four real readers.}
+  \label{fig:door}
+\end{figure}
+
+\Cref{fig:door} shows the screen above and below the floor. From top to bottom
+it holds four things. The assistant says one sentence that names the Lesson to
+look at, with one button that opens the page. Three numbers follow, each the value of the current week with its eight
+weeks as bars. The screen leaves a week without a value empty and does not draw it as zero. Then comes the map: one cell per page, brighter where more readers
+reached for help, a faint outline where fewer than five have read. A cell with a finding carries a label and opens that page, and the finding stands below as one
+sentence. The last line tells the owner that the view never counts their own reading.
+
+Below the floor the screen shows the assistant's one sentence and the closing
+line, and no number and no map. The sentence says whether anyone has read
+yet, not how many.
+```
+
+#### Section 5.5, privacy by design (old lines 307–377)
+
+Left: "it limits what leaves them" (reworded); the long pseudonym history, including "the simplest and safest protection by design that we saw" and "code that one setting turns on is one mistake away from showing individuals" (kept in short form as the reason: no wrong setting can show individuals again); the bullet "The owner is not in the data" (C5-12; 5.3.1 and 5.4 say it, and the code reference moved to 5.3.1); the bullet "Names among members are opt-in" with PR #146 (C5-12; the setting now appears in the get_user_profile sentence); "The view keeps this promise within the limits below" (reworded); and "the database policies guard the tables themselves". Changed by the verification: the professor policy now says that it reaches a member's events in other Spaces, excludes only the reading view's questions, and that in production only an administrator grants the role (tab:deployed); get_user_profile now lists what it returns and that, by the policies at the pin, any owner could put a name to every member (read in the code, untested); the PRs #184 and #185 still "limit" the two paths, as the verification asked, where the review draft had said they "close" them; the padding attack names its precondition (any account can join any Space, published or not, migration 20260604000000); and the analytics fault is split into one sentence per PR, with production carrying it until November 2026. The storage facts from 5.2.2 open the section.
+
+```latex
+The General Data Protection Regulation asks for data protection by design and
+by default~\cite{gdpr2016}. The system does not anonymise the stored events;
+it limits what leaves them.
+
+\begin{description}
+  \item[No output about a person.] The owner's view has no list of members,
+    no per-person progress, and no name. An earlier version showed individuals
+    under pseudonyms (PR~\#142). Pseudonymised data
+    remain personal data~\cite[Recital~26]{gdpr2016}. In November 2026 we
+    therefore decided that the view shows no person at all, the simplest and
+    safest protection by design that we saw. PR~\#175 removed the pseudonyms
+    together with the switch that kept them off, because code that one setting
+    turns on is one mistake away from showing individuals.
+  \item[A minimum count per page.] The view says something about a page only
+    if at least five members have read it, and uses a share only once five of
+    those readers contributed to it. The rule borrows the minimum group
+    size of $k$-anonymity~\cite{sweeney2002kanonymity}, but it is a threshold
+    on released statistics, not a property of released records, and only the
+    engine's code enforces it. \Cref{sec:c5-findings} shows where it is
+    weaker than it sounds.
+  \item[The owner is not in the data.] The engine removes the owner's own
+    events before it counts anything (\code{sources/space.py:107--112}).
+  \item[Names among members are opt-in.] Whether other members of a Space see
+    a member's name is a profile setting that is off by default (PR~\#146).
+  \item[Export and erasure.] A user can download their data and delete their
+    account, and deletion takes the events with the account.
+\end{description}
+
+The sentence that a member sees when joining a Space and the privacy page both
+promise \enquote{patterns across at least five people, never by name}
+(\code{v4Spaces.json:491}, \code{legal.json:35}). The view keeps this promise
+within the limits below and those of \cref{sec:c5-findings}.
+
+\paragraph{Two paths around the view.}
+The view reads the log through the backend and checks ownership in code, and
+the database policies guard the tables
+themselves (\cref{tab:deployed}). Two older paths bypass the view. A policy of the older dashboard
+lets an account with the professor role read the event rows, with user ids,
+of every member of any course it owns; no screen uses it. And a function that
+every signed-in account may call, \code{get\_user\_profile}, returns the
+name, picture, and institution that a user has entered for any user id,
+whatever that user's visibility setting. Both held in production in November
+2026. Migrations that limit the policy to the professor's own Lessons and
+make the function honour the setting are prepared (PRs~\#184 and~\#185) and
+not yet applied. \code{get\_user\_profile} is one of 49 functions that run
+with the rights of the role that defined them, skip row-level security, and
+could be called by every signed-in account in production in November 2026;
+we did not audit whether each checks its caller (\cref{tab:deployed}). A
+third path, the analytics routes of the older interface, let a student who
+owned a Space read members' user ids and their questions word for word.
+PR~\#176 limits these routes to professor accounts, with a test over eleven
+routes, and PR~\#175 removed rows per member and questions in members' own
+words from what they return, which holds even if a check is missing again.
+Production carried the fault until both were deployed in November 2026.
+
+\paragraph{Whom the floor protects against.}
+The floor guards members against an owner who reads the view as built, not
+against one who sets out to identify a member. The system allows each of
+three ways around it; we tried none. \emph{Padding:} the floor counts
+accounts, and in production any new account may enrol in any course and
+write its own events, so four extra accounts lift a page with one real reader
+above the floor. \emph{Differencing:} the engine recomputes the view over a
+moving window of 56~days whenever its five-minute cache has expired, so comparing the view before and after one known
+member read a page reveals that member's part. \emph{Homogeneity:} a share
+of 100\,\% says that every reader reached for help, a value that a minimum
+group size does not protect and that $\ell$-diversity
+addresses~\cite{machanavajjhala2007ldiversity}. Differential privacy would
+bound what any one person changes in a released statistic, also over
+repeated releases~\cite{dwork2006dp}; the view adds no noise. The floor
+therefore protects against accidental exposure in a small group, not against
+an owner who wants to find out about one member.
+```
+
+#### Section 5.6.1, method (old lines 385–413)
+
+Left: "With almost no real reading" (the opening says it), "and stay silent when it should" (talking software; now "withhold what it should"), "Because the engine is a pure function apart from the themes, the study needs no server" (5.3.1 says it), the steady reader's "20 to 60 seconds" (the appendix table keeps the values), "They went into the script in the same commit as the results, so their order rests on our word, not on a record" (C5-16 and Polish.md 1.5 comment 1: said once, plainly), and the sentence on the sweep, reworded. New: definitions of scripted reader, persona, arm, and seed (C5-16, voice rule 11).
+
+```latex
+With almost no real reading, we asked a narrower question that the code can
+answer: given readers who behave in known ways, does the owner's view say what
+it should, and stay silent when it should? Synthetic learner data has been
+proposed for building and testing learning-analytics software without the
+privacy risks of real data~\cite{berg2016synthetic}; here it also stands in
+for data that did not arrive. Because the engine is a pure function apart from
+the themes, the study needs no server. A script builds one Space with one
+Lesson of 30~pages, writes the events of scripted readers straight into the
+engine's input, and calls the function behind the owner's route
+(\code{backend/eval/persona\_study.py} at \code{a342dea9}, whose engine is
+identical to \code{2e146f51}). Fixed strings replace the summarising model. We
+chose the personas' behaviours and values ourselves; they come from no data,
+and \cref{sec:c5-personas-detail} lists them with the seeds.
+
+Five personas behave in known ways. A \emph{steady} reader reads every page
+for 20 to 60~seconds, checks in with \emph{Clicked}, and clears
+checkpoints. A \emph{struggling} reader dwells three times as long on pages 8
+to 12, asks there, checks in with \emph{Still foggy}, misses first tries, and
+turns back from page~13. An \emph{asker} asks on every third page, a
+\emph{skimmer} spends under five seconds per page and stops at page~10, and
+an \emph{overconfident} reader checks in with \emph{Clicked} everywhere and misses
+the checkpoint on page~10. Eight arms mix these personas. Before the first
+run we wrote down 23 expectations: which findings must appear in which arm,
+and which must not. They went into the script in the same commit as the
+results, so their order rests on our word, not on a
+record. Two further arms, added after the result to explain misses, are
+marked post hoc and do not count. After the result, a sweep over 100 seeds
+under a protocol committed beforehand showed which results depend on the
+random draw.
+```
+
+#### Section 5.6.2, results paragraphs (old lines 446–469)
+
+Left: "The count therefore measures mostly silence" (C5-15: replaced by the split from mute_engine.out.txt, 5 of 8 expectations to show something and 13 of 15 to withhold something, against 1 and 15 for an engine that reports nothing); the arm A clause "(Table 5.2)"; the control-arm ending "only the member count and the floor, which the screen does not show. The lower half of Figure 5.2 is that screen" (C5-07: the screen is now quoted in 5.4); the 26 unit tests written as plain sentences (tests/unit/test_landing_stories.py); and the list of what the database tests check (event schema, row-level security, erasure, the read path, the owner gate). The verification required the tests sentence to keep both counts, that the tests check the database the migrations describe and not production, and that no test exercises row-level security through an API route; all three stay. New: the one finding that no persona was built to cause, a calibration gap in four seeds of arm C and one of arm A (C5-14).
+
+```latex
+\Cref{tab:persona} gives the published run: the engine met 18 of the 23
+expectations, nine of them in the control arm~G. An engine that never reports
+a finding or a theme meets 16 of the 23 (\code{mute\_engine.py}). Over 100
+seeds, ours met 16 to 19, with a median of 17 (\cref{tab:sweep}). The count
+therefore measures mostly silence, and the published run was a good draw.
+
+In arms A, E, and F the planted findings held at every seed. Struggling readers produced a
+finding on page~10 and a speed bump on page~12 (arm~A), skimmers a leak and
+skipped pages (arm~E), and overconfident readers a calibration gap (arm~F). On
+page~10 that finding was the hotspot in 19 seeds and the more specific
+overpacked page in the other 81; the overpacked page pre-empts the hotspot
+when the page's reading time also runs long (\cref{tab:detectors}). In the
+control arm, with four members, the payload held no finding, no theme, and no
+reading figure at any seed, only the member count and the floor, which the
+screen does not show. The lower half of \cref{fig:door} is that screen.
+
+Tests without readers fix the same rules at the same revision: 141 unit tests
+of the engine, 26 of them written as plain sentences
+(\code{tests/unit/test\_landing\_stories.py}), and 62 database tests. The
+database tests replay every migration into an empty Postgres and check the
+event schema, row-level security, erasure, the read path, and the owner gate.
+They test the database that the migrations describe, not production
+(\cref{sec:c5-events-storage}), and no test exercises row-level security
+through an API route.
+```
+
+#### Section 5.6.3, the misses (old lines 479–504)
+
+Left: the heading "The numbers speak about this week" (talking software; now "The numbers cover the current week"); "said Still foggy" (people check in); "at least five of whom rated it" (all thirteen checked in, NOTES.md: 13 raters, 3 confused); "The view names nobody and sends no count of three" (talking software); "(since PR #181)" and "We froze the code at the pin, so we report this as a limit and name the stricter rule ... as the change to make" (C5-11: the opening carries the revision; the verified plainer wording is "We did not change the engine after the study"); and the one-sentence reason in the themes paragraph, which now adds that the askers checked in with Unsure, which the hotspot rule does not count (NOTES.md).
+
+```latex
+\paragraph{The numbers speak about this week.}
+In arms A and H all three numbers were empty although 12 and 27 members had
+read. The view shows the current week, and the scripted readers read on
+single days spread over eight weeks, so in neither arm did the current week
+reach five readers. Arm~I places the same 27 readers in one week, and the
+numbers appear. A Space with fewer than five readers per week shows no
+numbers even when the map is full.
+
+\paragraph{The floor counts readers, not the people a finding is about.}
+In arm~B three of thirteen members said \emph{Still foggy} on page~10, and the
+view reported a hotspot at every seed, because these check-ins are not random.
+The page had thirteen readers, at least five of whom rated it, so it was above
+the floor, and three of thirteen are 23\,\%, above the hotspot rule of
+20\,\%. The view names nobody and sends no count of three, so the promise
+holds by its letter. It does not hold in the stronger sense that five people
+stand behind a pattern: an owner who knows the group may guess who the three
+are. With one struggler fewer, two of twelve are 17\,\% and the hotspot
+vanishes, so one person can switch a finding on or off. Only the speed bump
+counts the people a finding is about (since PR~\#181). We froze the code at
+the pin, so we report this as a limit and name the stricter rule, five people
+behind each finding, as the change to make.
+
+\paragraph{Themes explain a hotspot and nothing else.}
+In arm~C five members asked about the same pages and no themes appeared,
+because the engine makes themes only for hotspot pages. Five people who ask
+about a page that is not a hotspot reach no one.
+```
+
+#### Section 5.6.4, limits (old lines 508–521)
+
+Left: the two separate sentences on personas that sit far from the thresholds ("a skimmer always stays under the rule of five seconds, and a struggling reader is always confused on the hard pages"), merged into one (C5-20), and "the study says nothing about what real themes might reveal" (talking software; now "shows nothing").
+
+```latex
+The study tests whether the aggregation separates known behaviours and
+whether the floor holds. It verifies that the engine implements the rules of
+\cref{tab:detectors}; it does not validate that the rules describe real
+reading, Boehm's distinction between building the product right and building
+the right product~\cite{boehm1984verifying}. Most personas sit far from the
+thresholds: a skimmer always stays under the rule of five seconds, and a
+struggling reader is always confused on the hard pages. In arm~A, however,
+the reading time of page~10 sits near the line between the hotspot and the
+overpacked page, and the random draw decides between them. There is one
+Lesson and one Space. Fixed strings replaced the model that writes
+themes, so the study says nothing about what real themes might reveal. We
+wrote both the engine and the study, so expectations and code can share a
+misreading. And we did not observe whether an owner changes a page after
+seeing a finding, the step that closes the loop.
+```
+
+#### Section 5.7, answer to RQ2 (old lines 526–564)
+
+The answer was halved (C5-10), because it restated 5.5, 5.6.3 and Chapter 7. Left: "One governed event log"; "rows that members insert directly still meet the database's type constraint"; "and a word replaces the size of the group"; "It therefore shows no individual learner: no name, no list, and no count of one to four people"; "two can carry a confusion block or a calibration gap; five people behind each finding would close this gap"; "The floor protects against accidental exposure, not against an owner who pads the Space with accounts or compares views over time" (the answer keeps padding and differencing in one clause); "In the mixed arm of 27 only the hotspot and the calibration gap rose ... such as five skimmers among 27"; "Whether real owners read the view that way, we did not observe" (voice rule 8; the new last sentence puts the subject first); "It says nothing about a group under five" (talking software); and the paragraph "Decide and return" (5.1 says it). The verification required the answer to keep the quiet-week numbers and the themes only on hotspots; both stay.
+
+```latex
+\paragraph{Model.} One governed event log with seventeen types models
+learner interaction. The reading view writes it through one function that
+checks every event and never fails a reader's request, and rows that members
+insert directly still meet the database's type constraint.
+
+\paragraph{Aggregate.} A pure function over the last 56~days turns a Space's
+events into facts per page, from three kinds of signal: what readers do, what
+they say, and what they get right. A floor of five readers decides what may be
+said. Below it a value is \code{null}, not zero, and a word replaces the size
+of the group.
+
+\paragraph{Feed back.} The owner's view limits the output, not the storage. It
+makes no statement about a person and none about a page that fewer than five
+people have read, and the owner is absent from their own numbers. It therefore
+shows no individual learner: no name, no list, and no count of one to four
+people. Against the stricter standard of \cref{sec:analytics-privacy} it falls
+short for the findings that are shares of a page's raters. One confused rater
+among five can carry a hotspot, and two can carry a confusion block or a
+calibration gap; five people behind each finding would close this gap
+(\cref{sec:c5-findings}). The floor protects against accidental exposure, not
+against an owner who pads the Space with accounts or compares views over time.
+Two older paths around the view stay open until the prepared fixes are applied
+(\cref{sec:c5-privacy}).
+
+\paragraph{What the view can tell.} Without showing any individual learner,
+the view tells an owner which page confuses readers, where readers leave,
+which pages they skip, where they turn back, and where they feel sure and
+are wrong. In the study with scripted readers it reported each of these
+behaviours at every one of 100 seeds when the behaviour had an arm of its
+own, and stayed silent below the floor. In the mixed arm of 27 only the
+hotspot and the calibration gap rose, so a behaviour that few of a page's
+readers share, such as five skimmers among 27, stays below the rules. Whether
+real owners read the view that way, we did not observe. It says nothing about a group under five,
+shows no weekly numbers in a quiet week, and reports themes only where a page
+is already a hotspot.
+
+\paragraph{Decide and return.} This step belongs to the owner. A changed page
+returns to learners only as a new upload, and a member cannot yet send a
+question to the owner.
 ```
