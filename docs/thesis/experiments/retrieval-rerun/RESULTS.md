@@ -81,7 +81,7 @@ not used as a comparison in the thesis.
 
 ### Harness corrected and lecture_dense repeated (after the pin)
 
-On Abi's go the harness now reads `lectures.pdf_hash` for every golden
+The harness now reads `lectures.pdf_hash` for every golden
 lecture before a lecture_dense sweep and passes id and hash, as the chat
 service does; a failed lookup stops the run (`resolve_pdf_hashes` in
 `backend/eval/retrieval_grid.py`, four new unit tests). This is an eval-only

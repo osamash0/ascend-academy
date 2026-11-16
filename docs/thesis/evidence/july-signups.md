@@ -9,7 +9,7 @@ signed up in the days after (16 and 19 July 2026):
 
 | What | Count |
 |---|---|
-| Accounts (four student addresses, one staff address) | 5 |
+| Accounts | 5 |
 | Events written, all five together | 12 |
 | Page reads | 0 |
 | Questions asked of the AI | 0 |
