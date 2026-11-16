@@ -62,12 +62,6 @@ filter of v1 and three later rebuilds of v5 have rows of their own.
   \end{tabular}
 \end{table}
 
-\thesisfigurepage{f8-pipeline}
-  {The ingestion pipeline. Two entry routes admit a PDF synchronously and
-   converge on one content-addressed object and one Arq job, which writes each
-   page as soon as it is synthesised. Pentagons mark where the reader gains
-   something --- the original PDF at once, then each persisted page.}
-  {fig:pipeline}
 
 \section{The Scripted Readers in Detail (Chapter 5)}
 \label{sec:c5-personas-detail}
@@ -194,3 +188,10 @@ are readings of what each rule permits; we tested no exploit.
     \bottomrule
   \end{tabular}
 \end{table}
+
+\thesisfigurepage{f8-pipeline}
+  {The ingestion pipeline. Two entry routes admit a PDF synchronously and
+   converge on one content-addressed object and one Arq job, which writes each
+   page as soon as it is synthesised. Pentagons mark where the reader gains
+   something --- the original PDF at once, then each persisted page.}
+  {fig:pipeline}
