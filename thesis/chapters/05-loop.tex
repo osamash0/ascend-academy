@@ -18,8 +18,8 @@
 
 This chapter answers RQ2. By \emph{the loop} we mean the way
 back from the readers to the owner of a Space (\cref{tab:vocabulary}): the system records what
-readers do on the pages, turns it into facts about pages, and shows these
-facts to the owner, who can then improve the material.
+readers do on the pages, turns it into facts about pages, and shows them
+to the owner, who can improve the material.
 
 An \emph{event} is one thing a learner did, stored as one row. We describe the
 log of these events and the engine that aggregates them at \code{2e146f51},
@@ -267,9 +267,9 @@ Only the owner reaches the view: the server answers a member with 403
 (forbidden) and anyone else with 404 (not found)
 (\code{domain/\allowbreak authorization.py:47--62}).
 
-\begin{figure}[htbp]
+\begin{figure}[tb]
   \centering
-  \includegraphics[width=0.85\textwidth]{f21-door-above-floor}
+  \includegraphics[width=0.75\textwidth]{f21-door-above-floor}
   \caption{The owner's view, drawn by the real screen from the payload of
     arm~I of the study with scripted readers (\cref{sec:c5-evaluation}):
     27~members who all read in the last week. The navigation bar is cropped.}
@@ -316,8 +316,16 @@ The system therefore protects members by limiting what leaves the log.
     released numbers, not a property of released records, and only the
     engine's code enforces it.
   \item[Export and erasure.] A user can download their data and delete their
-    account, and deleting the account deletes its events.
+    account, and deleting the account deletes its events
+    (\cref{fig:your-data}).
 \end{description}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.62\textwidth]{f30-your-data}
+  \caption{Export and erasure in the settings of every account, November 2026.}
+  \label{fig:your-data}
+\end{figure}
 
 When a member joins a Space, and on the privacy page, the system promises
 \enquote{patterns across at least five people, never by name}
@@ -474,7 +482,7 @@ database tests of the event log, its access rules, and erasure, which replay eve
 test the database that the migrations describe, not production
 (\cref{sec:c5-privacy}). No test exercises row-level security through an API
 route: the ownership checks in code and the database policies are each
-tested, but the place where they meet is not.
+tested, but not where they meet.
 
 \subsection{Three Things the Misses Showed}
 \label{sec:c5-findings}
@@ -489,8 +497,8 @@ In arms A and H all three numbers were empty although 12 and 27 members had
 read. The view shows the current week, and the scripted readers read on single
 days spread over eight weeks, so in neither arm did the current week reach
 five readers. Arm~I places the same 27 readers in one week, and the numbers
-appear. A Space with fewer than five readers per week shows no numbers even
-when the map is full.
+appear. Under five readers a week, a Space shows no numbers even
+with a full map.
 
 \paragraph{The floor counts readers, not the people a finding is about.}
 In arm~B three of thirteen members checked in with \emph{Still foggy} on
@@ -531,8 +539,8 @@ after seeing a finding, the step that closes the loop.
 \label{sec:c5-answer}
 
 \paragraph{Model.} One log with seventeen checked event types, such as a page
-view, a question, or a check-in, records what learners do. A write that fails
-drops the event, never the reader's request.
+view, a question, or a check-in, records what learners do. A failed write
+drops the event, not the request.
 
 \paragraph{Aggregate.} A pure function turns the last 56~days of a Space's
 events into facts per page, from what readers do, say, and get right. Below a

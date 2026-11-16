@@ -54,7 +54,18 @@ product around the Space and gave roles to people inside a Space instead of
 to accounts (\code{UI-SESSION-BRIEF.md:10}; \code{01-foundations.md:26--33}). We wrote it as a new part of
 the frontend and left the screens of the first interface, which we call the
 \emph{older interface}, untouched (\code{UI-SESSION-BRIEF.md}, PR~\#55).
-They are still in the code, but learners no longer read in them.
+They are still in the code, but learners no longer read in them
+(\cref{fig:older-interface}).
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.9\textwidth]{f28-older-interface}
+  \caption{A lecture in the older interface, June 2026: the uploaded page
+    beside the text that a model wrote for it, with experience points and
+    trophies at the top. We blurred the course slide, the lecturer's name,
+    and the account name.}
+  \label{fig:older-interface}
+\end{figure}
 
 \section{Spaces, Roles, and Questions}
 \label{sec:stakeholders}
@@ -82,9 +93,18 @@ system keeps for later review (\code{luna/\allowbreak store.py:204--228}).
 Explain, Ask, and Luna can also end an answer with a check question, which
 the interface marks right or wrong by its key (\cref{fig:reading-view}).
 The \emph{deck quiz} holds five to eight multiple-choice questions per
-Lesson; a model writes them during the parse and ties each to one page.
+Lesson; a model writes them during the parse and ties each to one page
+(\cref{fig:deck-quiz}).
 \Cref{ch:trust} examines how the system checks these questions, the deck
 quiz above all.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.38\textwidth]{f29-deck-quiz}
+  \caption{A question of the deck quiz after a right answer, November 2026.
+    The feedback names the page that holds the answer.}
+  \label{fig:deck-quiz}
+\end{figure}
 
 \section{Architecture}
 \label{sec:architecture}
