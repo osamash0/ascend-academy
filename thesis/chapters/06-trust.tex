@@ -76,15 +76,13 @@ view checks only the structure of an answer (\cref{sec:c6-structure};
 
 The ask bar uses retrieval-augmented generation~\cite{lewis2020rag}. A vector
 search and a full-text search run inside the Space, each returning at most 12
-pages, and reciprocal rank fusion keeps the best six (\code{ai/retrieval.py};
-\cref{app:constants} gives the settings). The SQL query applies the scope as a
+pages, and reciprocal rank fusion keeps the best six (\code{ai/retrieval.py}). The SQL query applies the scope as a
 restriction to the Space's live Lessons, not as a filter afterwards
 (migration \code{20261014000000}).
 
 \subsection{Five Points of Control}
 \label{sec:anti-hallucination}
 
-\Cref{fig:tutor-sequence} in \cref{app:figures} shows the path of one question through five points of control.
 
 \begin{enumerate}
   \item \emph{Scope.} The Space must be one the caller belongs to or owns
@@ -149,10 +147,10 @@ prompt built from them; any signed-in user can own a Space
 reach the member's own answer and the model that writes the owner's themes,
 where a filter drops every theme with a word that only one asker used.
 \emph{Any signed-in account} can write to the database directly, where the
-database's own rules are the only check (\cref{sec:authorisation}). Together
+database's own rules are the only check (\cref{tab:deployed}). Together
 they threaten what members read, how members are graded, what members ask,
-and what the system costs, which the cost caps bound
-(\cref{sec:cost-controls}). Against an owner who uploads a false page no check
+and what the system costs, which the spending caps of \cref{sec:constraints}
+bound. Against an owner who uploads a false page no check
 helps, because every check takes the page as its reference. The checks defend
 against the model's errors, not against the person who supplies the
 material.
@@ -240,19 +238,21 @@ happens next.
 \end{description}
 
 Two properties of the answer check are design decisions. First, the check is
-meant to run on another model than the one that wrote the question. The small
-model at the head of the bulk chain writes the question, and the check runs on
-the quality chain, led by a larger reasoning model
-(\cref{sec:provider-strategy}). At the pin the heads of both chains are models
-of the same provider, so the independence is one of model, not of vendor
-(\code{orchestrator.py:389,393}). Both chains hold the same eight providers in
-a different order, so after failovers both calls can land on the same model.
-In the OpenAI-only mode, which is off, both chains collapse to one provider
-(\cref{sec:openai-only}). The pull request records the reason for a different
-model with a measurement: a model of the generating model's own family, asked
-to check the question that started this work, agreed with its wrong key twice.
-That question was ambiguous, with all its options on its page. The literature
-also reports that a model tends to favour text like its
+meant to run on another model than the one that wrote the question. By
+default the small model at the head of the bulk chain, \code{gpt-oss-20b},
+writes the question, and the check runs on the head of the quality chain,
+the larger reasoning model \code{gpt-oss-120b} (\cref{sec:architecture}).
+These are two sizes of one model family from one provider, so the
+independence is one of model size, not of family or vendor
+(\code{orchestrator.py:260,347,389,393}). Both chains hold the same eight
+providers in a different order, so after failovers both calls can land on the
+same model. In the OpenAI-only mode, which is off, both chains collapse to one
+provider. We chose a different model after a test: when the bulk model of the
+time, \code{gpt-4o-mini}, checked the question that started this work
+instead, it agreed with its wrong key twice, because it shared the writer's
+misreading (\code{parser/\allowbreak synthesis.py:76--79}). That question was
+ambiguous, with all its options on its page. The literature also reports that
+a model tends to favour text like its
 own~\cite{panickssery2024selfpreference}.
 
 Second, the pipeline treats an outage and a dispute differently. If the check
@@ -284,9 +284,11 @@ covers exactly the questions that have a formal answer. It is the strongest
 verifier in the system and the narrowest. Every question, the deck quiz in
 practice included, reaches the browser together with its answer, because the
 browser grades first (\code{v4\_practice\_service.py:91}). Grading on the
-server therefore protects a recorded verdict, and with it the owner's view
-of \cref{ch:loop}, against a forged answer. It does not hide the answer from
-a learner who reads the network traffic.
+server protects the verdict that the server records. It does not stop a
+member from writing a checkpoint or quiz event with a verdict of their own
+through the database interface, which the owner's view of \cref{ch:loop} also
+reads (\code{insights/\allowbreak sources/\allowbreak space.py}), and it does
+not hide the answer from a learner who reads the network traffic.
 
 \section{Measuring the Verifiers}
 \label{sec:c6-evaluation}
@@ -298,7 +300,7 @@ every verifier of answer keys on the same fixed probe.
 \subsection{Method}
 \label{sec:c6-method}
 
-The probe is 16 pairs, which the author wrote by hand in October 2026 before any verifier scored them (\code{backend/eval/data/grounding\_probe.py}). Eight pairs
+The probe is 16 pairs, which the author wrote with AI assistance in October 2026, before any verifier scored them (\code{backend/eval/data/grounding\_probe.py}). Eight pairs
 are in English, from a lecture on transactions, and eight in German, from a
 lecture on storage management. Both decks are disjoint from the decks on which we fitted any threshold. Each pair holds one correct key that
 paraphrases the page and one wrong key that stays on the topic of the page.
@@ -424,8 +426,9 @@ of 0.025 on this sample does not show how the threshold behaves on other
 material.
 A question that passes the gate does not thereby get a correct answer: we did not measure what the model then writes.
 
-The answer check is itself a model call; \cref{sec:c6-cost} reports property
-tests for the case in which its provider fails.
+The answer check is itself a model call. Unit tests fix what happens when it
+fails: a failed or unreadable check keeps the question, and the checker never
+sees the key (\code{tests/\allowbreak unit/\allowbreak test\_quiz\_answer\_check.py}).
 
 \section{Where Nobody Checks}
 \label{sec:c6-missing}
@@ -443,11 +446,10 @@ A real approval step would need a draft state on the Lesson and would delay exac
 that. The automatic checks of this chapter are therefore the only line
 between the model and the learner.
 
-\subsection{The Mechanisms in One Table}
+\subsection{What the Checks Cover}
 \label{sec:c6-inventory}
 
-\Cref{tab:mechanisms} in \cref{sec:c6-inventory-table} groups the
-26~mechanisms that exist in the code by what they guard. The verifiers guard mainly structure and answer keys, where a check can be exact. Prompt rules guard meaning on every surface, and the answer check guards it for quiz keys only.
+The verifiers guard mainly structure and answer keys, where a check can be exact. Prompt rules guard meaning on every surface, and the answer check guards it for quiz keys only.
 
 There is no entailment check: nothing tests directly whether a page logically
 supports a key or a sentence. The answer check tests a key only indirectly,

@@ -982,3 +982,645 @@ non-blocking warning that went unreported in the chapter 4 summary.
   removed other tools for memory, cost, or complexity" now stands only in
   chapter 3.
 - **Chapter 1.** Unpacked only; nothing deleted.
+
+### The layout pass (16 November): appendices cut, verbatim
+Appendix A (constants), six diagrams of Appendix B, and ten sections of
+Appendix C left the thesis. Their LaTeX follows unchanged, so nothing is
+lost for the oral defence. What stays in the thesis: the pipeline diagram,
+the lineage table (with the workbench's two corrections and months only),
+the scripted readers in detail, and the table of declared and deployed
+database rules. The figure sources stay in `thesis/figures/src`.
+
+#### Appendix A, Verified System Constants
+
+```latex
+\chapter{Verified System Constants}
+\label{app:constants}
+
+Every value below is a default in the code at revision \thesisCommit{},
+read from source and not from project documentation. Where documentation
+states a different default, the documentation is out of date; see
+\cref{sec:reality-vs-documented}. Twelve values, marked~$\dagger$, can be
+overridden by environment variables, and production does not have to run
+them. The deployed values were not read, with two exceptions: production
+allows a student 30 uploads per month (the operator's configuration, 30
+October 2026), where the code default is five, and a read of the API
+container on 11~November 2026 found the LLM call timeout at 90\,s
+(\cref{sec:openai-only}). Per-row evidence and the
+names of the variables are in \code{docs/thesis/evidence/CONSTANTS.md}.
+
+% The caption sits outside the longtable: the class's longtable caption
+% started 3.6pt left of the text edge.
+\captionof{table}{System constants: defaults in the code at the pin.
+  $\dagger$~can be overridden by an environment variable.}
+\label{tab:constants}
+\setlength{\LTpre}{0.5\baselineskip}
+\begin{longtable}{@{}p{5.6cm}p{3.1cm}p{5.0cm}@{}}
+  \toprule
+  \textbf{Constant} & \textbf{Value} & \textbf{Location} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Constant} & \textbf{Value} & \textbf{Location} \\
+  \midrule
+  \endhead
+  \midrule
+  \multicolumn{3}{r@{}}{\textit{continued on next page}} \\
+  \endfoot
+  \bottomrule
+  \endlastfoot
+
+  % --- Ingestion: admission control ---
+  Maximum upload size                    & 50\,MB$^\dagger$ & \code{config.py:90} \\
+  nginx request-body limit               & 55\,MB          & \code{nginx.conf:66} \\
+  Maximum pages per document             & 300             & \code{upload\_service.py:13} \\
+  Maximum files per batch                & 30$^\dagger$    & \code{config.py:92} \\
+  Student uploads per month              & 5$^\dagger$ (production: 30) & \code{config.py:134} \\
+  Worker concurrency                     & 4$^\dagger$     & \code{config.py:96} \\
+  Queue depth limit                      & 50$^\dagger$    & \code{config.py:101} \\
+  % --- Ingestion: asynchronous processing ---
+  Job timeout                            & 900\,s          & \code{arq\_worker.py:362} \\
+  Job retry limit (\code{max\_tries})    & 5               & \code{arq\_worker.py:371} \\
+  Job result retention                   & 7\,days         & \code{arq\_worker.py:365} \\
+  SSE heartbeat interval                 & 20\,s           & \code{upload\_service.py:333} \\
+  Proxy idle timeout                     & 120\,s          & \code{nginx.conf:52} \\
+  Worker heartbeat interval / TTL        & 30\,s / 90\,s   & \code{arq\_worker.py:47}, \code{worker\_heartbeat.py:24} \\
+  Stalled-run reconciler cutoff          & 25\,min         & \code{arq\_worker.py:57} \\
+  Reconciler sweep interval              & 10\,min         & \code{arq\_worker.py:336} \\
+  Parse job lock TTL                     & 1200\,s         & \code{unified\_orchestrator.py:68} \\
+  Review-card job lock TTL               & 300\,s          & \code{card\_factory.py:39} \\
+  % --- Ingestion: routing and synthesis ---
+  Page routing: no-text threshold        & 25 chars        & \code{page\_blocks.py:201} \\
+  Page routing: figure-page text cap     & 150 chars       & \code{page\_blocks.py:202} \\
+  Page routing: minimum figure share     & 0.05 of page    & \code{page\_blocks.py:203} \\
+  Vision model (default)                 & Gemini$^\dagger$ & \code{config.py:74} (selector); model \code{gemini-flash-latest}, \code{orchestrator.py:331} \\
+  Synthesis batch size                   & 8 slides$^\dagger$ & \code{orchestrator.py:158} \\
+  Synthesis batch context overlap        & 1 slide$^\dagger$ (retired v2 path only) & \code{orchestrator.py:162} \\
+  Deck quiz questions asked for (cap)    & 5--8 (12)       & \code{ai/prompts.py:422}, \code{synthesis.py:52} \\
+  Options per question                   & 4 (3 distractors) & \code{quiz\_validator.py:98} \\
+  % --- LLM provider strategy ---
+  Provider registry entries              & 9               & \code{orchestrator.py:239} \\
+  LLM call timeout                       & 25\,s$^\dagger$ (production: 90\,s) & \code{llm\_client.py:72} \\
+  LLM rate-limit retry attempts          & 8               & \code{llm\_client.py:36} \\
+  LLM retry backoff                      & 4--60\,s, exp.  & \code{llm\_client.py:37} \\
+  Monthly per-user LLM cap               & \$2.00$^\dagger$ & \code{config.py:194} \\
+  Daily ceiling on paid calls, all users             & \$10.00$^\dagger$ & \code{config.py:187} \\
+  % --- Grounded tutor ---
+  Embedding model                        & \code{gemini-\allowbreak embedding-001}$^\dagger$ & \code{embeddings.py:21,25} \\
+  Embedding dimensions                   & 768             & \code{embeddings.py:29} \\
+  Retrieval top-$k$ (one Lesson / one Space)   & 5 / 6           & \code{retrieval.py:30,32} \\
+  Similarity threshold                   & 0.65            & \code{retrieval.py:31} \\
+  Similarity assigned to the open page      & 0.0             & \code{retrieval.py:180} \\
+  Reciprocal rank fusion (RRF) constant                           & 60              & \code{retrieval.py:254} \\
+  Query-embedding cache TTL              & 600\,s          & \code{retrieval.py:41} \\
+  Context cap (total / per page)        & 10\,000 / 2\,400 chars & \code{tutor.py:42--43} \\
+  History window                         & 5 turns $\times$ 1\,000 chars & \code{tutor.py:44--45} \\
+  User message cap                       & 2\,000 chars    & \code{ai\_content.py:54} \\
+  % --- Spaced repetition (SM-2) ---
+  Rating scale                           & 1--4            & \code{review/scheduler.py:58} \\
+  Ease factor minimum / initial          & 1.3 / 2.5       & \code{review/scheduler.py:20--21} \\
+  Graduating intervals                   & 1\,d / 6\,d     & \code{review/scheduler.py:25--26} \\
+  Relearning interval (``again'')        & 10\,min         & \code{review/scheduler.py:29} \\
+  Ease penalty on lapse                  & $-0.20$         & \code{review/scheduler.py:65} \\
+  Ease delta (hard / good / easy)        & $-0.15$ / 0 / $+0.15$ & \code{review/scheduler.py:82} \\
+  Easy interval bonus                    & $\times 1.3$    & \code{review/scheduler.py:83} \\
+  New cards per queue call / total cap   & 20 / 100        & \code{review.py:56--57} \\
+  % --- Mock exams ---
+  Exam length (default / min / max)      & 30 / 20 / 40    & \code{exams.py:80,42--43} \\
+  Exam time limit / grace period         & 45\,min / 30\,s & \code{exams.py:44--45} \\
+  Exam sampling seed                     & 63-bit, server-side & \code{exams.py:110} \\
+  Sampler minimum weight                 & 0.05            & \code{exam\_service.py:23} \\
+  Difficulty boost (hard / medium / easy)& 1.2 / 1.0 / 0.8 & \code{exam\_service.py:24} \\
+  Unseen-concept weight                  & 0.5             & \code{exam\_service.py:88} \\
+
+
+\end{longtable}
+```
+
+#### Appendix B, the six diagrams that left (captions)
+
+```latex
+\thesisfigure{f4-use-case}
+  {Actors and goals as implemented. Student goals are served by the current
+   interface. Whether a user may create and publish a Space depends on
+   ownership, not on the account type, and professor and admin goals remain in
+   the older interface. The shaded goal is built but
+   switched off in production.}
+  {fig:use-case}
+
+\thesisfigure{f5-domain-model}
+  {Conceptual domain model. Analysis-level vocabulary, deliberately distinct
+   from the physical database schema.}
+  {fig:domain-model}
+
+\thesisfigure{f17-flag-reality}
+  {Built versus delivered. Twelve backend flags are all off by default, and
+   production switches on four. Since the end of October the build sets each frontend flag from its backend flag. This removed screens that the interface showed at the earlier revision \thesisEarlierCommit{} (August 2026) while their backend was off.}
+  {fig:flag-reality}
+
+\thesisfigurepage{f9-er-core}
+  {Core physical schema, part 1: identity, Spaces, content, and parsing --- 19
+   of the 36 core tables, out of 79 tables defined in the migrations
+   (distinct \code{CREATE TABLE} names, one of them the default partition of
+   the event table). The dashed line marks a reference without a database-enforced foreign
+   key.}
+  {fig:er}
+
+\thesisfigure{f14-trust-boundaries}
+  {Trust boundaries. A browser holding the anonymous key meets three
+   database-side boundaries --- table row-level security, function execute grants, and storage policies. Most backend routes bypass row-level security
+   and check ownership in application code.}
+  {fig:trust-boundaries}
+
+\thesisfigurepage{f12-tutor-sequence}
+  {The grounded course tutor behind the home ask bar. Groundedness is enforced
+   at five points, including a refusal before any model call.}
+  {fig:tutor-sequence}
+```
+
+#### Appendix C, Technology Decisions
+
+```latex
+\section{Technology Decisions (Chapter 3)}
+\label{sec:decisions-table}
+
+\begin{table}[htbp]
+  \centering\small
+  \caption{Technology decisions with a recorded reason (dates are 2026).}
+  \label{tab:decisions}
+  \begin{tabular}{@{}p{0.26\textwidth}p{0.46\textwidth}p{0.20\textwidth}@{}}
+    \toprule
+    \textbf{Decision} & \textbf{Recorded reason} & \textbf{Source} \\
+    \midrule
+    A background job queue (Arq) & Parsing takes longer than a request may. &
+      \code{6ce7b5f1}, 19~May; \code{CHANGELOG.md} \\
+    Two Redis instances & A cache may evict; a queue must not lose a job. &
+      \code{43a86927}, 16~July \\
+    PyMuPDF for text and rendering & A second renderer was dropped for a
+      memory leak; the plain text call stayed as the only live extractor. &
+      \code{227267e7}, \code{b1c7a428}; \code{CHANGELOG.md} \\
+    No LLM gateway & The gateway had no live callers, used 1\,GB of a 4\,GB
+      host, and its health check could block start-up. &
+      \code{68a091e0}, 25~Aug (main: PR~\#51, 28~Aug) \\
+    HNSW~\cite{malkov2020hnsw} instead of IVFFlat & Recorded in the migration that replaces the
+      index. & \code{20260719000002} \\
+    Small WebP posters for page previews & Full PDFs as backdrops exceeded
+      the storage egress quota; posters are 97.6\,\% smaller than the PDFs
+      they replace. &
+      PR~\#12, 17~Aug \\
+    One embedding size (768) & Two embedding models fill the same column. &
+      \code{ai/embeddings.py} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+```
+
+#### Appendix C, The Nine Idempotency Mechanisms
+
+```latex
+\section{The Nine Idempotency Mechanisms (Chapter 4)}
+\label{sec:idempotency-detail}
+
+\thesisfigure{f10-idempotency}
+  {Nine idempotency mechanisms in four layers, eight of them active in the
+   code. Thick borders mark mechanisms keyed on the bytes alone and shared by
+   every uploader. The rest are per uploader, run, or lecture, so the stack
+   yields at most one parse per uploader and pipeline version, and two
+   uploaders of the same bytes each pay for one.}
+  {fig:idempotency}
+
+\Cref{fig:idempotency} shows the nine mechanisms that use this identity to avoid
+doing the same work twice, grouped in four layers. Eight of them are active in the code.
+\begin{description}
+  \item[Layer 1, the request.] \emph{M0}: a database parse cache keyed by hash.
+    The older upload route still reads it, but the live pipeline never writes
+    it, so it can no longer hit. It is a legacy layer. \emph{M1}: the hash is the
+    stored file's name, written with upsert, so identical bytes become one
+    object. \emph{M2}: deduplication per uploader. The route of the current interface returns the
+    Lesson the student
+    already owns, without a quota charge or a job, and the batch route skips
+    bytes the same user has already uploaded.
+  \item[Layer 2, the database.] \emph{M3}: each parse is a row in
+    \code{parse\_runs} with a unique key on hash, pipeline version, and user.
+    Creating it is an upsert that never overwrites an existing row's state.
+    \emph{M4}: a run that already completed is replayed from the database
+    instead of re-parsed, unless a re-parse is forced.
+  \item[Layer 3, Redis.] \emph{M5}: before parsing, the worker takes a lock on
+    the hash (\code{SET NX}, 20 minutes, longer than the 15-minute job timeout).
+  \item[Layer 4, the outputs.] \emph{M6}: a re-parse clears the lecture's content
+    but keeps the lecture, so links to it survive. \emph{M7}: the reader copy, the
+    poster image, and the parse receipt are written with upsert. \emph{M8}: before
+    any paid embedding call, a slide's text hash is checked, and unchanged
+    slides are not embedded again.
+\end{description}
+
+The weak link is chosen deliberately: the lock is best-effort, so if Redis
+fails the worker proceeds without it, preferring availability over strict
+mutual exclusion, and two simultaneous jobs for one uploader can then both create a lecture. The
+guarantee also has a gap between uploaders. Four
+mechanisms (M0, M1, M5, and M8) are keyed on the bytes alone and shared by
+every uploader. The rest are per uploader, run, or lecture. A second user who
+uploads identical bytes while the first parse runs finds the shared lock
+held, and the second user's job stays queued until the sweep, which runs
+every ten minutes, fails runs that have been queued for six hours. If the uploads do
+not overlap, each user pays for a full parse. At the end of every parse
+the embeddings are re-attached by hash, so they point at whichever uploader's lecture finished last. The thesis presents the case of
+the second uploader as a known
+limitation of the design.
+```
+
+#### Appendix C, Failure Handling
+
+```latex
+\section{Failure Handling (Chapter 4)}
+\label{sec:failure-handling}
+
+Failure handling has three tiers. Inside the job, any exception is caught: a
+partial lecture is finalised if slides were already written, the run is
+marked failed, and the error is re-raised. A refusal because the user's
+budget is exhausted ends the job normally. Above the job, a sweep every ten
+minutes resolves runs stuck in extraction for more than 25 minutes
+(completed with their real slide count if slides exist, failed otherwise)
+and marks runs still queued after six hours as failed. The second case was
+added in September 2026 (found, then fixed), and a dead-letter table records
+the failures. Finally, the user can retry a failed run, which re-queues it
+with a forced re-parse. One setting does not do what it appears to: the
+worker's \code{max\_tries = 5} reads like five retries with backoff, and its
+comment said so until November, but in the installed Arq~\cite{arq} an
+ordinary exception finishes a job on its first try, so a failed parse is
+never retried automatically. Embedding failures raise rather than return a
+zero vector, which would corrupt similarity search silently. We read the
+retry semantics in the source of Arq~0.28.0, the version of the development
+environment (\code{requirements.txt}). The production image pins
+\code{arq>=0.26,<0.27} (\code{requirements-docker.txt}), and we did not check
+whether version~0.26 behaves the same.
+```
+
+#### Appendix C, The Provider Layer
+
+```latex
+\section{The Provider Layer (Chapter 4)}
+\label{sec:provider-strategy}
+
+Every generated artefact depends on a hosted language model. The backend
+calls the providers directly, through two ordered chains over the same eight
+providers: a \emph{bulk} chain, ordered by capacity, for high-volume work such
+as page synthesis, and a \emph{quality} chain, ordered by expected answer
+quality, for fewer and harder calls. Both end with OpenAI as a last resort. A
+call walks its chain and skips a provider that is unavailable. A rejected key,
+a payment error, and a missing model disable a provider until restart, a rate
+limit starts a backoff of 90~seconds that doubles up to ten minutes, and every
+other failure moves on without penalty. The chain is shallower than it looks:
+its eight entries use six credentials, so one revoked key takes out two
+entries.
+
+The default mode sends content to providers that the privacy page does not
+name for this purpose. The page (\code{legal.json}, section~4) names OpenAI,
+Groq, Google, and OpenRouter as AI providers, while the two chains also call
+Cloudflare, which the page names only for e-mail forwarding and backups, and
+Mistral, which it does not name (\code{orchestrator.py:389}, \code{:393}). The
+cost ledger records 100 calls to Cloudflare on 26~August 2026 and 26 to
+Cerebras between 2~August and 10~October 2026, while Cerebras was still in the
+chains; it records no call to Mistral.
+
+\subsection{From Free Tiers Towards One Paid Provider}
+\label{sec:provider-history}
+
+The provider changed many times in ten months: a local model (February 2026),
+Gemini, Groq, then Cerebras at the head of a free-tier failover chain (May), a
+LiteLLM gateway (May), an OpenAI-compatible provider (June, because the free
+vision tiers hit their rate limits almost immediately), the gateway removed
+again (August), and an OpenAI-only option with spending caps for the October
+launch. The gateway had come with a pipeline generation that never became the
+default, so it ended with no live callers while still costing 1\,GB of memory
+on a 4\,GB machine. A read-only query of the cost ledger (\code{llm\_calls}) on
+11~November 2026 counted 3{,}388 calls in the 30 days from 30~September to
+29~October 2026, 90\,\% of them to OpenAI and mostly embeddings. All 2{,}660
+OpenAI embedding calls fall on one day, 11~October 2026, while the default mode
+at the pin embeds with Gemini (\code{embeddings.py:21--25}), and from
+24~October to 10~November only Gemini embedded. Whether the stored vectors now
+mix the two models, which are not comparable, we did not check. The repository
+does not record why OpenAI-only became the target. The author's account is
+that the free tiers were not reliable enough for bulk parsing and the OpenAI
+key was the one that worked.
+
+\subsection{The OpenAI-Only Mode: Built, Not Yet Switched On}
+\label{sec:openai-only}
+
+The OpenAI-only mode is the author's target and was off at the pin: a probe in
+November 2026 found six providers keyed in production.
+In OpenAI-only mode, both chains collapse to the single OpenAI entry, and the
+API and worker refuse to boot if any other provider's key is present. The
+code gives the reason: a misconfigured deployment must not quietly send
+student data to a provider the privacy policy does not name, so the mode is
+as much a data-protection boundary as a reliability choice. Switching it on
+is not a configuration flip: the other keys must be removed, every slide must
+be embedded again (the two embedding models' vectors are not comparable), and
+the privacy pages must change. The failure classes change meaning with it: a
+rate limit only delays calls and never leaves the service without a
+provider, while a rejected key or a payment error disables the only provider
+until restart, and with it every AI feature. One quality mechanism depends on
+the providers being different: generated quiz questions are checked by a
+second model that did not write them (Groq's reasoning model in the default
+mode), and in OpenAI-only mode that independence holds only if the checking
+model differs from the writing one. The trust chapter takes this up.
+A read of the API container on 11~November 2026 found
+\code{OPENAI\_MODEL}, \code{OPENAI\_BULK\_MODEL}, and \code{OPENAI\_VISION\_MODEL}
+empty. All three therefore fall back to the code default \code{gpt-4o-mini}
+(\code{orchestrator.py:105--107}), and the cost ledger shows every OpenAI call
+of the preceding 30 days on that model, the five vision calls included. The
+launch setting in \code{.env.example} (\code{gpt-4.1-mini}) was not in effect.
+\code{LLM\_TIMEOUT\_SECONDS} is set to 90 seconds, against a code default of
+25 (\cref{tab:constants}).
+
+\subsection{Cost Controls}
+\label{sec:cost-controls}
+
+Each user has a monthly cost cap (by default \$2), checked before every call
+and enforced for student parses. All users together have a daily ceiling on
+OpenAI (by default \$10) that also binds embeddings, and every call is written to
+a cost ledger. In the default mode the ledger prices only OpenAI calls and
+records every free-tier call at zero. Two limits are weaker than they look:
+the per-user cap fails open if Redis is unavailable, and a pre-parse headroom
+check never fires while OpenAI is configured, because the registry gives OpenAI no daily request limit and so counts it
+as unlimited.
+```
+
+#### Appendix C, The Deck-Plan Scorecard
+
+```latex
+\section{The Deck-Plan Scorecard (Chapter 4)}
+\label{sec:c4-deck-lab}
+
+We measured the deck plan of \cref{sec:c4-deck-plan} on the 25 decks of the corpus before the merge, with a scorecard that compares the old selection of
+pages for metadata and quiz generation against the planned one. The plan's
+\emph{span}, the fraction of a deck between the first and the last page the
+quiz step reads, rose from a mean of 0.17 to 0.84. The sections the quiz
+draws on rose from 26 to all 31 eligible sections, and removing boilerplate
+saved 14{,}875 words of model input over the corpus. The metadata pass still sees 24\,\% of pages. The scorecard runs without
+a model. Span and section coverage are what the plan's page selection aims to raise, so it confirms the implementation
+and is not evidence of better quizzes.
+
+Production shows the same shift. Before PR~\#84, all 524 deck-quiz questions
+in production sat on the first eleven pages of their deck, 32 of them on the
+first page. Since then they reach page 121
+(\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak deck-quiz-anchors.md}).
+This counts where the questions are attached, not whether they are good.
+
+We checked the 60\,\% threshold of the boilerplate afterwards
+(\code{docs/\allowbreak thesis/\allowbreak experiments/\allowbreak deck-plan-threshold/}).
+Moving it to 50\,\% or 70\,\% changes the boilerplate of three or four of the
+25 decks, all but one of them database decks. On the systems decks every
+boilerplate line recurs on at least 90\,\% of pages. The lines just below the
+threshold include topic headings that recur on many slides, and those above
+70\,\% are mostly lines a slide template repeats, such as the course name, the
+lecturer's name and the slide number. The threshold changes what the model
+reads and which pages it picks, never the page text the learner sees.
+
+Before the plan, the metadata pass read pages 1 to 15; it now reaches page 21 to 127,
+depending on the deck, with a median of 50. Without the boilerplate the model reads
+about nine fewer words per page.
+```
+
+#### Appendix C, The Schema Around the Log
+
+```latex
+\section{The Schema Around the Log (Chapter 5)}
+\label{sec:data-model}
+
+The event log is one table among many, and the loop reads several of the
+others: who owns a Space, who is a member, which pages a Lesson has. The
+section serves RQ2 in this respect only: these tables decide whose events
+the view aggregates and who may see the result. The
+schema is defined only by plain SQL migrations (139 files at
+\code{\thesisCommit}). They create 79 tables, one of which is the default
+partition of the event table, so 78 logical tables. Thirty-six of them form
+the core of the domain. \Cref{fig:er} in \cref{app:figures} shows 19 of them,
+for identity, Spaces, content, and parsing; the other 17 serve practice, Luna
+sessions, notes, and points. The remaining tables are catalogues, caches,
+analytics roll-ups, and operational tables.
+
+\paragraph{A Space is a course.}
+The current interface speaks of \emph{Spaces}, but no Space table exists. A
+Space is a row in \code{courses}, and membership is a row in
+\code{course\_enrollments}. A student's own uploads (the Library of \cref{sec:stakeholders}) are not a
+Space row at all: they are lecture rows without a course. The cost of this choice is that
+the vocabulary of the schema (professor, course) no longer matches that of
+the product.
+
+\paragraph{Schema drift.}
+Migrations are not the only source of truth for the deployed database. The
+production database has a vector column on \code{slides} that no migration
+defines. In August 2026 it was empty in all 5{,}445 rows. Three further tables
+exist only in production (probed in October 2026), and production's migration history records two of
+the migrations. A read-only probe on 11~November 2026 found two more
+differences that bear on \cref{ch:loop}. The event table, which the
+migrations partition by month, is a plain table in production. And the
+sign-up function of the repository (migration \code{20260615000800}) grants
+a role requested at sign-up, student or professor, while both sign-up
+functions in production insert the student role only, so that only an
+administrator can make an account a professor. The project therefore applies migrations by hand and checks
+the outcome against the system catalogue. The repository describes the intended
+database, and the running one has to be inspected.
+```
+
+#### Appendix C, The Second Fence: Authorisation
+
+```latex
+\section{The Second Fence: Authorisation (Chapter 5)}
+\label{sec:authorisation}
+
+At \code{\thesisCommit} the 139 migration files contain 253 \code{CREATE
+POLICY} statements. This counts statements in the migrations, not the
+policies in force in a database, because later migrations drop and replace
+earlier ones.
+
+The owner's view limits what it computes. Whether the data under it is
+safe depends on who can reach the tables at all, and by which path.
+\Cref{fig:trust-boundaries} in \cref{app:figures} shows the two paths.
+
+A browser holds the anonymous key of the database service and can address the
+database directly. On that path it meets three boundaries inside the
+database: row-level security~\cite{postgresql-rls}, which the migrations
+enable on every table, the right to execute a function, and the policies of the file
+storage. The backend takes the other path. Its service-role client and
+its SQL pool bypass row-level security (\code{core/database.py:5--6,
+150--190}), so on most backend routes, and on every route of the loop, the
+check is a line of Python that compares the caller with
+the owner of the Space or with its members. Two properties of the policies
+matter for the loop. Rows that a creator owns are guarded by ownership and
+no longer by the professor role (migration \code{20260713000000}). And
+permissive policies combine by OR: what a caller sees is the union of all
+policies that apply, so one generous policy written for an old screen
+widens every later one (\code{20260719020000}). The gap named at the end of
+\cref{sec:c5-privacy} is of this kind.
+
+\paragraph{What is tested, and what is not.}
+About 24~test files replay every migration into a throwaway PostgreSQL,
+switch to the anonymous or the signed-in role, and assert which rows and
+functions that role can reach (\code{backend/tests/db/}). The tests that
+drive API routes run either on an in-memory fake of the database or on the
+administrator's connection. No test exercises row-level security through an
+API route. The ownership checks in code and the database policies are each tested. The
+place where they meet is not.
+
+\paragraph{A fault at that meeting point.}
+At \code{\thesisPreviousCommit} (November 2026) the rule ``ownership, not role'' had a
+consequence that nobody intended. A student who owned a Space could call
+the analytics routes of the older interface for the Lessons in it. Those
+routes checked ownership and not the account type, and one of them returned
+members' user ids and the questions they had asked the tutor, word for
+word. The older interface showed these pages to professors only. The
+backend did not enforce that. Two changes closed it before the pinned
+revision. PR~\#176 puts every such route behind a check of the professor
+account type, covered by one test over eleven routes
+(\code{tests/integration/test\_analytics\_professor\_gate.py}). PR~\#175
+changed what the data contains: no route returns a row per student, and a
+question appears only once five different people asked it, and never with
+an id. The second change is the stronger one, because it holds even when a
+check is missing again.
+
+\paragraph{What production permits.}
+A read-only probe of the production catalogue on 11~November 2026 read the
+policies and function definitions that \cref{tab:deployed} lists. These are
+readings of what a policy permits, and we tested no exploit. The anonymous role
+was the subject of the audit of October (\cref{sec:hardening}), and the probe
+also covered the signed-in role, \code{authenticated}, which every account
+holds. Three attackers matter for these rules. The first is any signed-in
+account, which every sign-up creates. The second is the owner of a Space, who
+can also create further accounts. The third is an owner who also holds the
+professor role, which in production only an administrator grants.
+
+% [table tab:deployed: kept in the thesis, Appendix A]
+```
+
+#### Appendix C, Hardening as a Sequence
+
+```latex
+\section{Hardening as a Sequence (Chapter 5)}
+\label{sec:hardening}
+
+The database boundary was not designed once. It was repaired in nine steps
+over eleven migrations, each of which documents its own problem in its
+header. We summarise the
+classes of fault and not the individual migrations.
+
+The first class, from January to June 2026, concerns who may hold a role. Roles
+moved to their own table, with a policy that let a user insert their own
+row. That policy was removed in May (\code{20260502000003}). Roles were then
+set only at sign-up, and the sign-up was opened to any e-mail domain
+(\code{20260601000000}, \code{20260615000800}). Opening sign-up to any domain let a professor read across courses. A
+further migration narrowed this to their own enrolled students, though not to
+their own courses (\cref{tab:deployed}) (\code{20260621000000}). The migration that opened the read
+and the one that closed it were committed on the same day, so the history
+shows no window of exposure. Twice in this
+phase a step opened a hole that a later step closed.
+
+The second class concerns functions that run with the rights of the role
+that defined them. In July five functions of this kind were closed. One of them took a user id from its caller,
+checked nothing, and was executable by everyone through a default grant. It
+was reproduced on a local database, closed, and is guarded by 13~tests
+(\code{20260721000001}). The repair was incomplete, because the hosting
+service grants execution to the anonymous role directly: a probe of
+production on 11~October 2026 found 42 such functions that an anonymous
+caller could execute (\code{20261011000000}). That probe and its migration
+covered the anonymous role only. On 11~November 2026, 49 such functions were
+executable by the signed-in role, and we did not audit whether each checks
+its caller (\cref{tab:deployed}).
+
+The third class is drift between repository and production. The storage
+bucket for lecture PDFs had been made private in the repository in May.
+That migration never ran in production, so until 24~October 2026 anyone,
+signed in or not, could list the bucket with the anonymous key and download
+every lecture PDF, private student uploads included (\code{20261024010000},
+\code{20261024020000}). We did not establish whether anyone did. No
+line of code was wrong. The deployed database was not the one the
+repository described. A last step in November protects the integrity of
+profiles and points (\code{20261101015412}). The sequence has no final
+state, and we do not claim one.
+```
+
+#### Appendix C, Cost as a Question of Trust
+
+```latex
+\section{Cost as a Question of Trust (Chapter 6)}
+\label{sec:c6-cost}
+
+A learner trusts the content. The person who runs the system also has to
+trust that the system
+does not spend without limit and does not keep calling a provider that can no
+longer answer. \Cref{sec:provider-strategy} describes the chain of providers
+and \cref{sec:cost-controls} the caps. Here the question is whether those limits
+hold when providers fail. It belongs to RQ3 because the answer check is
+itself a model call: what happens when verification fails depends on what
+happens when a provider fails.
+
+In October 2026 we planned a set of property tests, the Provider Chaos Lab:
+scripted providers that fail in chosen ways, a frozen clock, and five
+invariants written down before the tests. Reading the code for that plan
+turned up two defects that were live in production. The daily ceiling on paid
+calls was never enforced in the worker, the process that does all parsing,
+because the worker never opened the connection to the shared counter. And a
+retired model at one provider was never switched off, because that provider's
+library reports the HTTP status under another name. A deck of 50 pages made
+about 50 calls that could not succeed. Earlier tests had missed the second
+defect because they raised a generic error and not the library's own type.
+
+The five invariants are: a provider that answers with a permanent error
+receives no further call in the process; cumulative cost stays below the daily
+ceiling plus one call, even when every other provider fails; one request makes
+at most 64 attempts (eight providers, eight tries); if any provider answers,
+its text is returned, and unreadable JSON never reaches the caller as data;
+and a failing vision provider is switched off after its first failure. They
+are pinned by 11 property tests in four files, on a harness with 10 tests of
+its own (21 tests named \code{test\_chaos\_*} under
+\code{backend/tests/unit}), and each was checked by breaking the code on purpose and seeing the test fail.
+The fixes reached production with PR~\#92.
+
+One measure works after the fact. Every parse writes a receipt: for each page
+the route, the prompt and its version, the provider, the model, the tokens and
+the cost of each call, and the counts of questions proposed, kept, repaired,
+and dropped (migration \code{20261012000000}). The receipt does not prevent a
+wrong result. It makes one traceable to the call that produced it.
+```
+
+#### Appendix C, The Trust Mechanisms in One Table
+
+```latex
+\section{The Trust Mechanisms in One Table (Chapter 6)}
+\label{sec:c6-inventory-table}
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \caption{The 26 mechanisms that exist in the code, by what they guard. A
+    \emph{verifier} computes, validates, filters, or drops; a \emph{prompt rule}
+    only instructs the model; a \emph{harness} measures offline; an
+    \emph{input-side} mechanism changes text before a model sees it; a
+    \emph{limit} bounds cost or calls. Source:
+    \code{docs/thesis/verification-notes/2026-11-09-trust-rq3.md}, section~11.}
+  \label{tab:mechanisms}
+  \begin{tabular}{@{}p{0.19\textwidth}cp{0.50\textwidth}p{0.17\textwidth}@{}}
+    \toprule
+    Guards & $n$ & Mechanisms & Kind \\
+    \midrule
+    Answer keys & 6 & key resolution; structural gates; lexical score (marks only); answer check; repair pinned to its page; shape of options &
+      verifiers \\
+    Grading & 2 & computed answers for three kinds of task; refusal of trivial
+      tasks & verifiers \\
+    Output structure & 5 & block validation; screening of generated mini-apps;
+      Luna's page and phrase checks; teach-back quotes; links between Lessons &
+      verifiers \\
+    Citations & 4 & citation filter of each tutor; refusal gate; labelled
+      outside knowledge; anchor check of the golden set &
+      2 verifiers, 1 prompt rule, 1 harness \\
+    Untrusted text & 3 & rewriting of fence delimiters; sanitising of the learner's message;
+      single-pass slot filling & input side \\
+    Cost and providers & 5 & monthly cap; daily ceiling; switching off dead
+      providers; chaos tests; parse receipts & limits and tests \\
+    Measurement & 1 & the offline harnesses (probe, scorecard, retrieval grid,
+      benchmark) & harness \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+```

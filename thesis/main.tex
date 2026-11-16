@@ -40,8 +40,9 @@
 \input{frontmatter/declaration}
 \input{frontmatter/abstract}
 
+% Contents to section level; no list of figures (layout pass, 16 November 2026).
+\setcounter{tocdepth}{1}
 \tableofcontents
-\listoffigures
 % \listoftables      % uncomment once the thesis actually contains tables
 
 \cleardoublepage
@@ -61,8 +62,6 @@
 
 \appendix
 \crefalias{chapter}{appendix}
-\include{chapters/appendix-a-constants}
-\include{chapters/appendix-b-figures}
 \include{chapters/appendix-c-detail}
 \include{chapters/appendix-d-glossary}
 

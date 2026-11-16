@@ -82,15 +82,13 @@ still stores a Space as a course.
 In the code a Space knows two roles: the \emph{owner}, who created it, and
 the \emph{member}, who joined it
 (\code{backend/services/v4\_spaces\_service.py:139--142}). Any signed-in
-user, whatever the account type, can create a Space and publish it, and can
+user can create a Space and publish it, and can
 join a published one. The database policy also lets a student account enrol
 in one that is not published (\cref{tab:deployed}). The account types of the
 older interface (student, professor, admin) still exist and still guard the
-older interface. \Cref{sec:authorisation} shows one place
+older interface. \Cref{sec:c5-privacy} names one place
 where the two permission schemes, account type and Space ownership,
-conflicted. \Cref{fig:use-case} in
-\cref{app:figures} shows actors and goals as implemented, and
-\cref{fig:domain-model} the vocabulary as a domain model.
+conflicted.
 
 \paragraph{From an upload to a Lesson.}
 In the current interface a learner's upload lands in their Library, a private
@@ -114,8 +112,7 @@ own, optional judgement.
 \label{sec:built-vs-deployed}
 
 A description of this system has to separate what exists in the code from
-what a learner can reach. Twelve backend flags, all off by default, guard the features, and production switches on four
-(\cref{fig:flag-reality} in \cref{app:figures}): the current interface, its reading view, sessions with Luna,
+what a learner can reach. Twelve backend flags, all off by default, guard the features, and production switches on four: the current interface, its reading view, sessions with Luna,
 and uploads by students.
 
 
@@ -142,9 +139,7 @@ flag keeps off (PR~\#182).
 
 \thesisfigure{f6-components}
   {Component view of the deployed system. The API and the worker, built from
-   one Dockerfile, call the LLM providers directly. The current interface depends on the direct connection pool to
-   PostgreSQL, a dependency that the readiness check
-   does not test.}
+   one Dockerfile, call the LLM providers directly.}
   {fig:components}
 
 The system consists of three runtime parts and a set of managed services
@@ -159,11 +154,15 @@ instances serve as cache and as job broker.
 \paragraph{No gateway on the LLM path.}
 The backend calls every LLM provider directly from one module
 (\code{backend/\allowbreak services/\allowbreak ai/\allowbreak orchestrator.py}), where failover, rate limiting,
-and cost accounting live, through two ordered provider chains inside the
-application (\cref{sec:provider-strategy}). A LiteLLM gateway that no code
-path used was still in the production stack at the revision of August 2026
-(\code{\thesisEarlierCommit}); we removed it in August and September
-(\cref{tab:decisions}), and the backend README still describes it.
+and cost accounting live, through two ordered chains of providers: a
+\emph{bulk chain}, ordered by capacity, for high-volume work such as page
+synthesis, and a \emph{quality chain}, ordered by expected answer quality,
+for fewer and harder calls. Both end with OpenAI. A LiteLLM gateway that no
+code path used was still in the production stack at the revision of August
+2026 (\code{\thesisEarlierCommit}). We removed it in August and September,
+because it had no live callers, took 1\,GB of the 4\,GB machine, and its
+health check could block start-up (\code{68a091e0}); the backend README still
+describes it.
 
 \paragraph{Two database paths.}
 The backend reaches PostgreSQL in two ways. The first is Supabase's web interface to the
@@ -174,8 +173,11 @@ through it, and every service of the current interface uses it. Older routes sti
 
 The two paths have a security consequence that shapes the rest of the design.
 Writes through the pool and with the privileged key bypass row-level
-security~\cite{postgresql-rls}, so for those routes application code enforces authorisation, for example by an explicit course-ownership check before it accepts an upload. Row-level security is the boundary only for queries the
-browser makes directly.
+security~\cite{postgresql-rls}, so for those routes application code enforces authorisation, for example by an explicit course-ownership check before it accepts an upload. On the path from the browser, the database's own rules are the only
+check: row-level security, the right to call a function, and the rules of the
+file storage. A function that runs with the rights of the role that defined it
+skips row-level security and must check its caller itself
+(\cref{tab:deployed}).
 
 \paragraph{Browser to backend.}
 The browser talks to Supabase directly only for authentication, for reading the
@@ -193,32 +195,36 @@ cannot be rebuilt from the repository alone.
 \section{Technology Choices}
 \label{sec:stack}
 
-We did not choose most of the stack by deliberation. React, Vite, TypeScript,
-Tailwind, Supabase, and a FastAPI stub came with the scaffold of the
-co-developer's first commit in January (\code{184e5742}), and Redis and nginx followed as the
-common companions. We name them as defaults and do not defend them.
-\SUGGEST{choose A or B. (A) We, the author and the co-developer, discussed
-the later architecture decisions of \cref{tab:decisions} together, among
-them the job queue, the two Redis instances, and the removal of the gateway,
-and the author implemented them. (B) The author made and implemented the
-later architecture decisions of \cref{tab:decisions}, among them the job
-queue, the two Redis instances, and the removal of the gateway.} Seven choices
-do have a recorded reason (\cref{tab:decisions} in \cref{app:detail}),
-among them the job queue, the two Redis instances, and the removal of the
-gateway. The production extractor is a case apart: the plain-text call of PyMuPDF
-became the extractor by attrition and not by comparison, and the benchmark of
-\cref{ch:content} was the first comparison it faced.
+Before we started, we discussed the stack together. The co-developer
+researched and chose the first one, React, Vite, TypeScript, Tailwind,
+Supabase, and a FastAPI service, and it came with the first commit in January
+(\code{184e5742}). The later choices were the author's own. In May the author
+added Redis, the Arq job queue, and nginx (\code{6ce7b5f1}): parsing a deck
+takes longer than an HTTP request should last, so it runs as a job, and nginx
+serves the built interface and forwards its API calls to the backend. In July
+the author split Redis into two instances, because a cache may drop entries
+while a queue must never lose a job (\code{43a86927}). We did not choose the
+text extractor by comparing libraries. We uploaded decks, looked at the
+titles, the page text, and the quiz that came out, and fixed what failed; in
+this way PyMuPDF replaced pypdf in April for better text extraction
+(PR~\#4). The benchmark of \cref{ch:content} was the first measured comparison
+that this extractor faced.
 
 \section{Constraints}
 \label{sec:constraints}
 
-Four constraints shaped the design. The system
+Three constraints shaped the design. The system
 runs on one virtual machine with two virtual CPUs and 4\,GB of memory.
 Model calls run on free or low-cost quotas, which is why the provider chains
-have a fallback and a spending cap (\cref{sec:provider-strategy}). The
+have a fallback and spending is capped: each user has a monthly cap of \$2 by
+default, and all users together a daily ceiling on OpenAI of \$10
+(\code{core/\allowbreak config.py:187--195}). The
 database is a managed PostgreSQL on a free tier without point-in-time
-recovery. And the team was two students, then one.
+recovery.
 
 One more condition is not a constraint and still shapes every evaluation in
-this thesis: the system has almost no users, so the evaluations work on
+this thesis. In July 2026 we announced the platform by e-mail to the
+participants of the Database Systems course. Five people signed up with
+university addresses and looked around, but none used it enough to give us
+data to evaluate or feedback to learn from. The evaluations therefore work on
 material and not on people.

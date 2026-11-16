@@ -166,6 +166,13 @@ The thesis describes the code at revision \code{\thesisCommit} of
 November 2026, called \emph{the pin} below. \emph{In the code} means
 reachable at the pin, and \emph{deployed} means running in production. We name three changes that the project merged after that date where they matter, and we mark them as later.
 
+Security enters the thesis only where a research question needs it: the
+privacy of members in the owner's view (\cref{ch:loop}) and instructions
+hidden in uploaded pages (\cref{ch:trust}). We did not audit the security of
+the system as a whole and ran no attack; attacks on the PDF library, denial of
+service beyond the upload limits, and the hosting infrastructure lie outside
+this thesis.
+
 \section{Method}
 \label{sec:method-note}
 
@@ -180,8 +187,8 @@ methods, the better of two transcriptions of the same page, made by eleven
 methods. The \emph{deck-plan scorecard} compares which parts of a deck the
 quiz step reads before and after the deck plan. In \cref{ch:loop}, a
 \emph{study with scripted readers} feeds the owner's view readers who behave
-in planned ways. In \cref{ch:trust}, 16 hand-made pairs of a correct and a
-wrong answer key test the \emph{similarity verifier} and the \emph{answer
+in planned ways. In \cref{ch:trust}, 16 fixed pairs of a correct and a
+wrong answer key, which the author wrote with AI assistance, test the \emph{similarity verifier} and the \emph{answer
 check}, and 57 questions test the \emph{refusal gate} of the ask bar again.
 The main evaluation of each chapter is the extraction benchmark, the study
 with scripted readers, and the test on the 16 pairs; the others support them.

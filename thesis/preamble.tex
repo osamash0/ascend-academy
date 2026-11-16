@@ -71,8 +71,27 @@
   giveninits=true,
   urldate=long,
   dateabbrev=false,
+  isbn=false,
 ]{biblatex}
 \addbibresource{references.bib}
+% An entry with a DOI or an arXiv number prints that instead of its web
+% address and access date; software and web pages keep their address.
+\DeclareSourcemap{
+  \maps[datatype=bibtex]{
+    \map[overwrite]{
+      \step[fieldsource=doi, final]
+      \step[fieldset=url, null]
+      \step[fieldset=urldate, null]
+    }
+    \map[overwrite]{
+      \step[fieldsource=eprint, final]
+      \step[fieldset=doi, null]
+      \step[fieldset=url, null]
+      \step[fieldset=urldate, null]
+    }
+  }
+}
+\renewcommand*{\bibfont}{\small}
 % Access note for every external link, month only: ``last accessed November 2026''.
 \DefineBibliographyStrings{english}{urlseen={last accessed}}
 % Let long URLs in the bibliography break after letters and digits too.
@@ -85,6 +104,8 @@
   hidelinks,                   % no coloured boxes — correct for a printed thesis
   pdfusetitle,
 ]{hyperref}
+% A link to a figure lands on the figure, not on its caption.
+\usepackage[all]{hypcap}
 \usepackage[capitalise,noabbrev]{cleveref}
 
 % --- Convenience --------------------------------------------------------------

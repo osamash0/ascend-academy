@@ -134,7 +134,7 @@ that the backend would refuse. Three guards keep one member from distorting
 what the owner sees. A trigger rejects a client timestamp more than
 300~seconds away from the server's clock, the engine reads at most 5{,}000
 events per member, and it reads only the payload keys it needs (PRs~\#142
-and~\#175). \Cref{sec:data-model} describes the schema around the log.
+and~\#175).
 
 \section{Aggregation}
 \label{sec:c5-aggregation}
@@ -157,7 +157,8 @@ try.
 
 From these facts it forms one signal per page. A reader \emph{reached for
 help} if they opened Explain, asked a question, checked in with \emph{Still
-foggy}, which the reading view records on the first page of an idea, or turned
+foggy}, which the reading view records on the first page of an idea, or with
+\emph{unsure}, which only the older interface offers, or turned
 back to the page (\code{insights/\allowbreak space\_facts.py:72--75}). The
 signal is a proxy, not a measured need. A request for help shows that a page
 was hard for some readers, but not that every reader who asked needed help:
@@ -263,8 +264,12 @@ One step uses a language model. For a hotspot page on which at least five
 readers also asked a question, the model summarises their questions into at
 most three short themes. It sees the latest three questions of each asker,
 each cut to 300 characters, and the call goes to an external provider
-(\code{insights/\allowbreak themes.py:32--36,76,169}). This is the one step at
-which members' own words leave the server. The owner sees the themes and the
+(\code{insights/\allowbreak themes.py:32--36,76,169}). This is the one step of
+the engine at which members' own words leave the server; a member's question
+also reaches a provider when they ask it. The themes call goes first to OpenAI
+and then along the quality chain, which includes two providers, Cloudflare and
+Mistral, that the privacy page does not name as AI providers
+(\code{orchestrator.py:393}, \code{legal.json}). The owner sees the themes and the
 number of askers, never a question in a member's own words: a filter drops a
 theme that repeats a question and any theme with a word that only one asker
 used (\code{themes.py:89--144}).
@@ -334,8 +339,8 @@ within the limits below and those of \cref{sec:c5-findings}.
 
 \paragraph{Two paths around the view.}
 The view reads the log through the backend and checks ownership in code, and
-the database policies of \cref{sec:authorisation} guard the tables
-themselves. Two older paths bypass the view. A policy of the older dashboard
+the database policies guard the tables
+themselves (\cref{tab:deployed}). Two older paths bypass the view. A policy of the older dashboard
 lets an account with the professor role read the event rows, with user ids,
 of every member of any course it owns; no screen uses it. And a function that
 every signed-in account may call, \code{get\_user\_profile}, returns the
@@ -343,7 +348,16 @@ name, picture, and institution that a user has entered for any user id,
 whatever that user's visibility setting. Both held in production in November
 2026. Migrations that limit the policy to the professor's own Lessons and
 make the function honour the setting are prepared (PRs~\#184 and~\#185) and
-not yet applied.
+not yet applied. \code{get\_user\_profile} is one of 49 functions that run
+with the rights of the role that defined them, skip row-level security, and
+could be called by every signed-in account in production in November 2026;
+we did not audit whether each checks its caller (\cref{tab:deployed}). A
+third path, the analytics routes of the older interface, let a student who
+owned a Space read members' user ids and their questions word for word.
+PR~\#176 limits these routes to professor accounts, with a test over eleven
+routes, and PR~\#175 removed rows per member and questions in members' own
+words from what they return, which holds even if a check is missing again.
+Production carried the fault until both were deployed in November 2026.
 
 \paragraph{Whom the floor protects against.}
 The floor guards members against an owner who reads the view as built, not
@@ -435,7 +449,7 @@ a finding or a theme meets 16 of the 23 (\code{mute\_engine.py}). Over 100
 seeds, ours met 16 to 19, with a median of 17 (\cref{tab:sweep}). The count
 therefore measures mostly silence, and the published run was a good draw.
 
-The findings themselves held at every seed. Struggling readers produced a
+In arms A, E, and F the planted findings held at every seed. Struggling readers produced a
 finding on page~10 and a speed bump on page~12 (arm~A), skimmers a leak and
 skipped pages (arm~E), and overconfident readers a calibration gap (arm~F). On
 page~10 that finding was the hotspot in 19 seeds and the more specific
@@ -451,7 +465,8 @@ of the engine, 26 of them written as plain sentences
 database tests replay every migration into an empty Postgres and check the
 event schema, row-level security, erasure, the read path, and the owner gate.
 They test the database that the migrations describe, not production
-(\cref{sec:c5-events-storage}).
+(\cref{sec:c5-events-storage}), and no test exercises row-level security
+through an API route.
 
 \subsection{Three Things the Misses Showed}
 \label{sec:c5-findings}

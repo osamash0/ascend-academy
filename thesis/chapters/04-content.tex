@@ -19,8 +19,7 @@
 
 This chapter answers RQ1. It describes the pipeline at the pin and two pieces
 of evidence: a routing study on 1{,}593 pages and a pre-registered blind
-benchmark of eleven extraction methods. A scorecard of the deck plan is in
-\cref{sec:c4-deck-lab}.
+benchmark of eleven extraction methods.
 
 \section{The Input and What It Demands}
 \label{sec:c4-requirements}
@@ -30,11 +29,12 @@ this thesis calls a \emph{deck}. A deck is one PDF of slides, usually for one
 lecture session. Inside the system it becomes a Lesson, and each of its pages
 a page.
 
-The pipeline was first developed on the decks of one course at the University
-of Marburg, Database Systems: eleven decks, ten in English and one German
-introduction. To see how it handles material it was not developed on, the
-author later added fourteen German decks of a second Marburg course, on
-systems software and computer networks. Together they form the corpus of this
+The prototype was built for the Database Systems course at the University of
+Marburg, and its eleven decks, ten in English and one German introduction,
+are part of the corpus. To see whether the pipeline also works on other
+slides, we added fourteen German decks of a second Marburg course, System
+Software and Computer Communication (\emph{Systemsoftware und
+Rechnerkommunikation}). Together they form the corpus of this
 chapter: 25 decks with 1{,}593 pages. The benchmark adds one
 software-engineering deck and two exercise sheets. All are born-digital, and
 scanned documents are outside the corpus. \emph{Heterogeneous} here means the
@@ -62,7 +62,7 @@ The input makes three demands on the design.
     The pipeline therefore runs behind the learner's reading, not in front of it.
   \item[Model calls cost money and fail.] The free tiers of hosted models
     stopped bulk parsing within minutes through their rate limits
-    (\cref{sec:provider-history}). A self-hosted model on a university GPU
+    (commit \code{a12666cd}). A self-hosted model on a university GPU
     server would have needed time and experience that we did not have, and
     its cost would have been harder to compare, so we chose a paid API. With
     a provider that charges per token, every call has a price, which makes
@@ -118,9 +118,10 @@ upload ends either as a readable Lesson or as a visible failure, and the same
 work is not done twice for one uploader. The subsections below describe the
 mechanisms. Tests at the pin check each one, for example with a full run
 against a real database (\code{test\_unified\_pipeline\_e2e.py}). The API
-refuses an upload that breaks a limit, for example one that is too large or
-over a student's monthly quota, before it queues a job, and
-\cref{app:constants} lists the limits. In production, 115 parses ran on
+refuses an upload that breaks a limit before it queues a job: more than
+50\,MB or 300 pages, more uploads than a student's monthly quota (five by
+default, 30 in production), or a queue that already holds 50 jobs
+(\code{core/\allowbreak config.py:90,101,134}, \code{upload\_service.py:13}). In production, 115 parses ran on
 pipeline v5 between June and November 2026, our own uploads included: 99
 completed, 16 failed, and none was left unfinished
 (\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak parse-runs.md}).
@@ -168,8 +169,10 @@ including with property-based tests.
 
 Before this step, the metadata and quiz steps read only the first pages of a
 deck, and a quiz question could point at the wrong page, because a filter
-renumbered the pages it kept. \Cref{sec:c4-deck-lab} reports what the plan
-changed, offline on 25 decks and in production.
+renumbered the pages it kept. In production, all 524 deck-quiz questions
+written before the plan sat on the first eleven pages of their decks; since
+the plan they reach page 121
+(\code{docs/\allowbreak thesis/\allowbreak evidence/\allowbreak deck-quiz-anchors.md}).
 
 \subsection{Routing: Text versus Vision}
 \label{sec:routing}
@@ -209,28 +212,27 @@ them pages with an image.
 
 The pipeline is content-addressed: a file's SHA-256 hash is its identity, and
 nine mechanisms in four layers use it to avoid doing the same work twice,
-eight of them active in the code (\cref{fig:idempotency} in
-\cref{sec:idempotency-detail}). Three carry the guarantee: a unique key on
+eight of them active in the code. Three carry the guarantee: a unique key on
 hash, pipeline version, and user for each parse, a lock on the hash while the
 worker parses, and the replay of a finished run. While Redis, which holds the
 lock, is reachable, they give at most one parse per uploader and pipeline
-version, unless someone forces a re-parse. Without Redis, two simultaneous jobs of one uploader can both parse
-(\cref{sec:idempotency-detail}).
+version, unless someone forces a re-parse. Without Redis, two simultaneous jobs of one uploader can both parse.
 
 This is the precise content of the project's ``parse once'' principle. The
 system stores the bytes once and keys the retrieval index by hash, so everyone
 who uploads a document shares its embeddings. The parsed lecture is not
 shared: two students who upload the same deck each get, and each pay for, one
-parse. Sharing it would require the second uploader to trust content that a
-model generated for the first, a case that the orchestrator's own docstring
-declares out of scope; the final chapter names it as future work. If a second
+parse. The orchestrator's docstring declares sharing out of scope for a
+technical reason: the embeddings are attached to a Lesson through the file's
+hash, so a shared parse would silently move them to whichever owner parsed
+last (\code{unified\_orchestrator.py:785--791}). The final chapter names
+sharing as future work. If a second
 user uploads identical bytes while the first user's parse runs, the second job
 waits behind the shared lock and fails after six hours.
 
 \paragraph{Failures.}
 A failed job finalises the pages it has written and marks its run as failed, a
-sweep resolves runs that are stuck, and the user can retry
-(\cref{sec:failure-handling}).
+sweep resolves runs that are stuck, and the user can retry.
 
 \section{Evaluation}
 \label{sec:c4-evaluation}
@@ -438,7 +440,7 @@ list prices, under a cent per page, at 1.8 to 5.7 seconds per page, and the
 page leaves the server; the fee is paid per page and per uploader.
 Production's OpenAI vision calls use neither model:
 they run on the code default \code{gpt-4o-mini}, because the model variables
-were never set (\cref{sec:openai-only}). The benchmark therefore describes the
+were never set. The benchmark therefore describes the
 vision path with \code{gpt-4.1-mini} set, not the path as deployed.
 
 \paragraph{Threats.} The protocol names them before the result. The judge is
@@ -501,7 +503,7 @@ The yardstick of \cref{sec:c4-requirements} had three marks. The routing rule an
 The reliability of \cref{sec:pipeline} rests on its design, on tests of
 each mechanism, and on 115 production parses under light load. We ran no load
 test, and fault injection covers only the provider layer
-(\cref{sec:c6-cost}), not the database, the storage, or the worker.
+(\code{tests/\allowbreak unit/\allowbreak test\_chaos\_*.py}), not the database, the storage, or the worker.
 
 We did not measure three things: whether the text generated for a page is
 grounded in that page, whether the new routing rule improves what learners
