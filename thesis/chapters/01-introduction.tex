@@ -213,15 +213,15 @@ are theirs, the last from August 2026. Their work includes the first content fil
 (commit \code{bfbe6c09}), the integration of the Groq provider
 (\code{76aa4b42}), and the first anonymised analytics for lecturers
 (\code{3abfaa54}, \code{52ead4b5}). They also wired external extractors into
-the fourth parser pipeline (\code{8aa255e2}) and made about a dozen security
-fixes in July 2026. This thesis covers the parts that came after or replaced them: the
+the fourth parser pipeline (\code{8aa255e2}), wrote most of a dashboard for
+administrators (\code{0ef792dc}), and made about a dozen security fixes in
+July 2026. This thesis covers the parts that came after or replaced them: the
 page-by-page pipeline and its benchmark, the event engine and the owner's
 view, the verification of generated questions, and the interface in which
 students read. Where a chapter describes something the co-developer wrote, it
-says so.
-\TODO{Author: the exact wording of the split, and whether a signed statement
-is required, is question 4 for the supervisor. Replace this
-paragraph's last two sentences with the agreed wording.}
+says so. \Cref{tab:contrib} counts the lines of code by the developer whose
+commit last changed them: 240 of the 64{,}759 lines in these parts are the
+co-developer's, as are 3.5\,\% of all lines.
 
 The thesis describes the code at one revision of the repository,
 \code{\thesisCommit} of November 2026, which we froze for the thesis and call
@@ -231,6 +231,7 @@ runs \code{2e146f51}, the pin plus three later merges that change the code. Wher
 merges matters, we name it and mark it as later. We checked the statements
 about the system against the code at the pin, or at a later revision where a
 section names one, and against production where the two can differ.
+\Cref{app:detail} says where the evidence lies.
 
 Security enters the thesis only where a research question needs it: the
 privacy of members in the owner's view (\cref{ch:loop}) and instructions

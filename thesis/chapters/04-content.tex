@@ -344,7 +344,7 @@ being 76 raw characters. The threshold therefore selected empty pages, not
 pages with a figure.
 
 To decide what a page with a figure needs, the author labelled the hard case:
-all 55 pages with at least one figure and 25 to 150 raw characters,
+all 55 pages with at least one figure and 25 to 149 raw characters,
 answering for each whether a text model could explain the page from its text
 alone. The author labelled 53, all as needing the image, and left two
 unlabelled. The rule in the code at the pin sends 87 pages of the corpus to
@@ -373,11 +373,13 @@ not 87, and caught all 53.
 sample chosen to be the hard case and then shaped the rule to catch them, so
 the 52 of 53 is a fit on the rule's calibration set and not an accuracy. Of
 the 75 pages carried by a figure that the rule routes to vision, 21 lie outside
-the labelled sample. The study establishes that the old rule routed no page
-with a figure to vision on 1{,}593 real pages, and that the new rule routes
-the pages carried by a figure at one vision call each. The labels contain no
-page that the author judged readable from its text, so the study cannot
-estimate how many of the 87 vision calls are unnecessary. And \enquote{needs
+the labelled sample. The study establishes that the old rule routed none of
+the 421 pages with a figure to vision and that the new rule routes 75 of them.
+The labels contain no page that the author judged readable from its text,
+and only one of the 1{,}506 pages that the rule reads as text, the one miss;
+345 of the others hold a figure. The study can therefore estimate neither how
+many of the 87 vision calls are unnecessary nor how many pages beyond the 53
+need the image (\code{docs/\allowbreak thesis/\allowbreak experiments/}). And \enquote{needs
 the image} is the author's judgement: we ran no text model on the pages to see
 whether its explanation fails. Production did not yet run the new rule at the
 pin and has run it since November 2026 (\cref{sec:scope}).

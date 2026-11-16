@@ -8,7 +8,16 @@
 
 This appendix holds the pipeline diagram and the lineage of \cref{ch:content},
 the parameters and the seed sweep of the study with scripted readers of
-\cref{ch:loop}, and the database rules that \cref{ch:loop,ch:trust} rely on.
+\cref{ch:loop}, the database rules that \cref{ch:loop,ch:trust} rely on, and
+who built which part of the code (\cref{ch:introduction}).
+
+The code at the pin is public in the repository
+\url{https://github.com/osamash0/ascend-academy}, revision
+\code{dfc20df61d0caf8fb1c9\allowbreak 0a215fa72bcd394de4a1}. The evidence that the
+chapters cite under \code{docs/\allowbreak thesis/} holds no slide text and
+no rows of the production database. It is part of the digital submission of
+this thesis, with every commit that the chapters name, as a copy of the
+repository (a git bundle, branch \code{thesis-evidence}).
 
 \section{The Pipeline and Its Lineage (Chapter 4)}
 \label{sec:lineage-table}
@@ -107,7 +116,7 @@ persona-study/\allowbreak persona\_study.py}).
 
 After the result we ran all ten arms with 100 seed bases, under a protocol
 committed before the run (\code{seed-sweep/\allowbreak PROTOCOL.md}, commit
-\code{8ba95552}). Base~0 is the published run, and the sweep reproduced it.
+\code{1db7b660}). Base~0 is the published run, and the sweep reproduced it.
 \Cref{tab:sweep} gives, for each expectation written before the first run,
 the number of seeds in which it held. The predictions in the protocol held
 except two, narrowly: we expected the hotspot of arm~A in 20 to 60 of 100
@@ -185,6 +194,47 @@ are readings of what each rule permits; we tested no exploit.
     \code{SECURITY DEFINER} functions &
       anonymous execution revoked (October) &
       49 executable by \code{authenticated}; whether each checks its caller was not audited \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Who Built What (Chapter 1)}
+\label{sec:contributions}
+
+\begin{table}[H]
+  \centering\footnotesize
+  \renewcommand*{\code}[1]{\texttt{#1}}%
+  \caption{Lines of code at the pin by the developer whose commit last changed
+    them (\code{git blame -w -C -M}), without tests and generated, lock, and
+    data files. A: the author, with the coding agents the author directed; C:
+    the co-developer. Of the 1{,}528 commits that the pin reaches, 53 are C's;
+    eight more come from a bot identity, whose 65 lines the author counts for
+    C. All evaluation code is A's: \code{backend/eval/} at the pin and every
+    commit after the pin. C created the upload service and its validation (\code{21b4d8a2},
+    \code{377f7fa1}); C's security fixes of July 2026 survive in 359 lines, the
+    extractor wiring (\code{8aa255e2}) in 36, and the Groq integration
+    (\code{76aa4b42}) in 4.}
+  \label{tab:contrib}
+  \begin{tabular}{@{}p{0.62\textwidth}rrl@{}}
+    \toprule
+    Part, with its main paths at the pin & A & C & Created in \\
+    \midrule
+    Pipeline (RQ1): \code{parser/}, \code{arq\_worker.py} & 4{,}533 & 26 & A, \code{6ce7b5f1} \\
+    Upload entry (RQ1): \code{upload.py}, \code{upload\_service.py}, validation & 1{,}192 & 214 & A, \code{be25cc1d} \\
+    Benchmark (RQ1): \code{eval/parser\_bench/} & 9{,}518 & 0 & A, \code{e2cc63c5} \\
+    Events, engine, owner's view (RQ2): \code{insights/}, \code{landing/} & 5{,}325 & 0 & A, \code{0b2aa58e} \\
+    Quiz checks (RQ3): \code{quiz\_grounding.py}, answer check & 614 & 0 & A, \code{323e234b} \\
+    Reading interface: \code{src/features/spaces/}, v4 routes & 43{,}337 & 0 & A, \code{f9aad62c} \\
+    \midrule
+    Database schema: \code{supabase/migrations/}, other than events & 10{,}126 & 355 & C, \code{184e5742} \\
+    Stack: \code{package.json}, build configs, \code{App.tsx}, \code{main.py} & 2{,}682 & 641 & C, \code{184e5742} \\
+    Sign-in: \code{auth.tsx}, \code{Auth.tsx}, \code{auth\_middleware.py} & 1{,}122 & 200 & C, \code{184e5742} \\
+    Content filter: \code{content\_filter.py} & 60 & 315 & C, \code{bfbe6c09} \\
+    Lecturer analytics: \code{analytics\_service.py} and its page & 1{,}763 & 103 & C, \code{8a34f6a0} \\
+    Admin dashboard: \code{AdminDashboard.tsx}, \code{admin.py}, \code{admin/} & 1{,}040 & 1{,}265 & A, \code{343890c5} \\
+    Tutor memory: \code{chat\_memory.py}, two services in \code{ai/} & 286 & 462 & C, \code{c96a4d32} \\
+    \midrule
+    All code at the pin, 1{,}148 files & 191{,}969 & 6{,}887 & \\
     \bottomrule
   \end{tabular}
 \end{table}
