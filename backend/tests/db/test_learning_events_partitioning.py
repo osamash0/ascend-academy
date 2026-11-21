@@ -328,7 +328,8 @@ def test_all_six_rls_policies_survive_the_rebuild(db_conn):
     assert {
         "Users can view their own events",
         "Users can insert their own events",
-        "Professors view events for their enrolled students",
+        # Narrowed to the professor's own lectures by 20261113000000.
+        "Professors view events about their own lectures",
         "Admins view learning events",
         "Admins delete learning events",
         "Users can delete own events",

@@ -87,25 +87,27 @@ def _reset_user(cur) -> None:
 
 
 def test_professor_jwt_cannot_read_v4_reader_questions_of_an_enrolled_member(
-    db_conn, make_user, make_course, make_course_enrollment
+    db_conn, make_user, make_course, make_course_enrollment, make_lecture
 ):
     prof = make_user(role="professor")
     member = make_user()
     course = make_course(prof)
     make_course_enrollment(member, course)
+    # Since 20261113000000 a professor reads only events about their own lectures.
+    lid = str(make_lecture(prof))
 
     with db_conn.cursor() as cur:
         # Written as the superuser, the way the backend's asyncpg writer does.
-        _insert_event(cur, member, "slide_view", '{"lectureId": "L1", "page": 2}')
+        _insert_event(cur, member, "slide_view", f'{{"lectureId": "{lid}", "page": 2}}')
         _insert_event(
             cur,
             member,
             "ai_tutor_query",
-            '{"lectureId": "L1", "source": "v4_reader", "kind": "ask", '
+            f'{{"lectureId": "{lid}", "source": "v4_reader", "kind": "ask", '
             '"query": "why is the second derivative negative here"}',
         )
         # The legacy Ask has no `source` key: NULL must not hide it.
-        _insert_event(cur, member, "ai_tutor_query", '{"lectureId": "L1", "query": "legacy"}')
+        _insert_event(cur, member, "ai_tutor_query", f'{{"lectureId": "{lid}", "query": "legacy"}}')
 
         _as_user(cur, prof)
         try:
