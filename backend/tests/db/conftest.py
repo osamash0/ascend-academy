@@ -277,15 +277,27 @@ def db_conn(pg_dsn, applied_migrations) -> Iterator["psycopg.Connection"]:
         yield conn
 
 
+def grant_role(cur, user_id, role: str) -> None:
+    """Grant a non-student role server-side, as the admin API does: sign-up
+    always yields 'student' (20261121000200), so the single user_roles row is
+    updated rather than a second row added."""
+    cur.execute(
+        "UPDATE public.user_roles SET role = %s::app_role WHERE user_id = %s",
+        (role, str(user_id)),
+    )
+
+
 # ── Synthetic factories ──────────────────────────────────────────────────────
 
 
 @pytest.fixture
 def make_user(db_conn):
     """
-    Insert a synthetic auth.users row. The 20260501000000 trigger handles
-    profile + user_roles creation based on raw_user_meta_data->>'role'.
-    Returns the new uuid.
+    Insert a synthetic auth.users row. The sign-up trigger creates the profile
+    and a single 'student' role (20261121000200: a role requested in the
+    sign-up metadata is ignored). Any other role is then granted server-side,
+    as the admin API does, by updating that one row (a second user_roles row
+    would break fetchRole's .single()). Returns the new uuid.
     """
 
     def _make(role: str = "student", email: str | None = None) -> uuid.UUID:
@@ -299,6 +311,8 @@ def make_user(db_conn):
                 """,
                 (str(uid), em, f'{{"role": "{role}"}}'),
             )
+            if role != "student":
+                grant_role(cur, uid, role)
         return uid
 
     return _make

@@ -108,6 +108,8 @@ def professor(conn) -> Iterator[uuid.UUID]:
             "VALUES (%s, %s, %s::jsonb)",
             (str(uid), f"p52-prof-{uid}@test.local", '{"role": "professor"}'),
         )
+        # Sign-up yields student (20261121000200); grant the role server-side.
+        cur.execute("UPDATE public.user_roles SET role = 'professor' WHERE user_id = %s", (str(uid),))
     yield uid
     with conn.cursor() as cur:
         cur.execute("DELETE FROM auth.users WHERE id = %s", (str(uid),))

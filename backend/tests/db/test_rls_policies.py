@@ -21,7 +21,10 @@ These confirm the security-critical invariants we rely on across the codebase:
 """
 from __future__ import annotations
 
+import uuid
+
 import psycopg
+
 import pytest
 
 pytestmark = pytest.mark.db
@@ -137,28 +140,38 @@ def test_user_roles_insert_locked_down_authenticated(db_conn, make_user):
             cur.execute("SELECT set_config('request.jwt.claim.role', '', false)")
 
 
-def test_signup_trigger_assigns_role_from_metadata(db_conn, make_user):
-    """The SECURITY DEFINER trigger must still create the role row."""
-    uid = make_user(role="professor")
+def _sign_up(cur, requested_role: str) -> uuid.UUID:
+    """Insert an auth.users row the way a sign-up does, without the
+    make_user fixture (which also grants non-student roles server-side)."""
+    uid = uuid.uuid4()
+    cur.execute(
+        "INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES (%s, %s, %s::jsonb)",
+        (str(uid), f"signup-{uid}@test.local", f'{{"role": "{requested_role}"}}'),
+    )
+    return uid
+
+
+def test_signup_trigger_creates_a_single_student_role_row(db_conn):
+    """The SECURITY DEFINER trigger must still create the role row, and since
+    20261121000200 it is always 'student', whatever the metadata asks for."""
     with db_conn.cursor() as cur:
+        uid = _sign_up(cur, "professor")
         cur.execute(
             "SELECT role::text FROM public.user_roles WHERE user_id = %s",
             (str(uid),),
         )
         roles = [r[0] for r in cur.fetchall()]
-    assert "professor" in roles, f"trigger did not insert role row, got {roles!r}"
+    assert roles == ["student"], f"expected one 'student' row, got {roles!r}"
 
 
-def test_signup_trigger_refuses_admin_self_assignment(db_conn, make_user):
+def test_signup_trigger_refuses_admin_self_assignment(db_conn):
     """
-    Privilege-escalation guard (migration 20260615000800): a user must NOT be
-    able to grant themselves 'admin' by putting it in signup metadata. The
-    trigger only honours the self-serve roles ('student' / 'professor') and
-    falls back to 'student' for anything else, including 'admin'. Admin must
-    only ever be granted server-side / by another admin.
+    Privilege-escalation guard: a user must NOT be able to grant themselves
+    'admin' (or, since 20261121000200, 'professor') by putting it in sign-up
+    metadata. Both are granted server-side only.
     """
-    uid = make_user(role="admin")
     with db_conn.cursor() as cur:
+        uid = _sign_up(cur, "admin")
         cur.execute(
             "SELECT role::text FROM public.user_roles WHERE user_id = %s",
             (str(uid),),

@@ -81,6 +81,7 @@ def test_cascade_removes_every_direct_pii_table(conn):
             "INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES (%s, %s, '{\"role\": \"professor\"}'::jsonb)",
             (prof_id, f"{prof_id}@test.local"),
         )
+        cur.execute("UPDATE user_roles SET role = 'professor' WHERE user_id = %s", (prof_id,))  # sign-up yields student (20261121000200)
         cur.execute(
             "INSERT INTO lectures (id, title, professor_id, pdf_hash) VALUES (%s, 'L', %s, 'hash-direct')",
             (lecture_id, prof_id),
@@ -167,6 +168,7 @@ def test_cascade_removes_lecture_owned_data_for_professor(conn):
             "INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES (%s, %s, '{\"role\": \"professor\"}'::jsonb)",
             (uid, f"{uid}@test.local"),
         )
+        cur.execute("UPDATE user_roles SET role = 'professor' WHERE user_id = %s", (uid,))  # sign-up yields student (20261121000200)
         cur.execute(
             "INSERT INTO lectures (id, title, professor_id, pdf_hash) VALUES (%s, 'L', %s, 'hash-a')",
             (lecture_id, uid),
@@ -225,6 +227,7 @@ def test_cascade_removes_luna_sessions_turns_memory_and_owned_cards(conn):
                 "INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES (%s, %s, jsonb_build_object('role', %s::text))",
                 (user, f"{user}@test.local", role),
             )
+        cur.execute("UPDATE user_roles SET role = 'professor' WHERE user_id = %s", (prof_id,))  # sign-up yields student (20261121000200)
         cur.execute(
             "INSERT INTO lectures (id, title, professor_id, pdf_hash) VALUES (%s, 'L', %s, 'hash-luna')",
             (lecture_id, prof_id),
