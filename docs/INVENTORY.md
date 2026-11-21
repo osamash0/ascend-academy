@@ -120,7 +120,6 @@ These are not product documentation and were not moved. Each is one line so nobo
 | `creation-flow/` | 2026-07-13 | Design exploration for the creation flow (2026-07) |
 | `stop-slop-main/` | 2026-06-02 | Vendored copy of the stop-slop lint used by the design review |
 | `3d-web-experience/` | 2026-04-26 | One file from a 2026-04 experiment |
-| `GPU-Server/` | 2026-06-02 | One note on a GPU parsing server (2026-06) |
 | `vision/` | 2026-03-02 | One vision note from 2026-03 |
 | `attached_assets/` | 2026-05-02 | Three files attached in 2026-05 |
 | `load-testing/` | 2026-06-02 | k6 smoke script |

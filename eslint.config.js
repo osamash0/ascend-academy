@@ -19,7 +19,6 @@ export default tseslint.config(
       "pdf_testset/**",
       "scratch/**",
       ".agent_scratch/**",
-      "GPU-Server/**",
       "test-results/**",
       ".venv/**",
       "venv/**",
