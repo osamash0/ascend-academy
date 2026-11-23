@@ -13,7 +13,7 @@ describe('useAsk', () => {
     act(() => { p = result.current.ask('Why does repeated data cause problems?'); });
     expect(result.current.answering).toBe(true);
     await act(async () => { vi.advanceTimersByTime(ASK_LATENCY_MS); });
-    await expect(p).resolves.toMatchObject({ kind: 'answer', answer: { anchorId: 's-p5-2' } });
+    await expect(p).resolves.toMatchObject({ kind: 'answer', answer: { anchorId: 's-p8-1' } });
     expect(result.current.answering).toBe(false);
   });
   it('reports a second ask in flight as busy, not unknown, and keeps the first one', async () => {
@@ -26,7 +26,7 @@ describe('useAsk', () => {
     });
     await expect(second).resolves.toEqual({ kind: 'busy' });
     await act(async () => { vi.advanceTimersByTime(ASK_LATENCY_MS); });
-    await expect(first).resolves.toMatchObject({ kind: 'answer', answer: { anchorId: 's-p5-2' } });
+    await expect(first).resolves.toMatchObject({ kind: 'answer', answer: { anchorId: 's-p8-1' } });
     expect(result.current.answering).toBe(false);
   });
   it('says so honestly when it has no answer', async () => {

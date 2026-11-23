@@ -12,7 +12,7 @@ import { Avatar } from '../Avatar';
  * hero's meta line was "Öffentlich · 128 Mitglieder · 12 Lektionen". Each of
  * those is now said the way a person would say it, with the faces beside it:
  *
- *   (avatar) von Thorsten Papenbrock
+ *   (avatar) von Jana Keller
  *   (avatars) Lea, Jonas und 125 andere lernen hier
  *   Du warst zuletzt auf Seite 32 · Drei-Schichten-Modell
  *

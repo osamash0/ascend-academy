@@ -2,11 +2,12 @@
 reaches a learner.
 
 The lexical grounding verdict only asks whether the key's words are on the
-cited slide. On 2026-10-30 a fresh upload of the DBS Normalization deck kept
-"During database design, which step directly follows Conceptional Design and
+cited slide. On 2026-10-30 a fresh upload of a database-design deck kept
+"During database design, which step directly follows conceptual design and
 leads to relation schemas?" — all four options are steps on that slide, so
-the word check passed, but "directly follows" points to Distribution Design
-and "relation schemas" to Logical Design (LS-115).
+the word check passed, but "directly follows" points to distribution design
+and "relation schemas" to logical design (LS-115). The slide used here is our
+own wording of that shape (backend/eval/data/ls115_deck.py).
 
 ``ground_deck_quiz`` therefore asks a model to answer each question from the
 cited slide WITHOUT seeing the key. Agreement keeps it; a different answer or
@@ -20,37 +21,20 @@ import json
 
 import pytest
 
+from backend.eval.data.ls115_deck import LS115, LS115_SOUND, SLIDES
 from backend.services.parser import synthesis
 from backend.services.parser.deck_plan import build_deck_skeleton
 
-# Slide 2 of public/v4-mock/normalization.pdf, as PyMuPDF extracts it.
-NORMALIZATION_SLIDE_2 = (
-    "Normalization\n1.\nRequirement Analysis\n\nInformal description\n2.\nConceptional Design\n\n"
-    "Entity-Relationship Diagram\n3.\nDistribution Design\n\nPartitioning\n4.\nLogical Design\n\n"
-    "Relation schemas\n5.\nData Definition\n\nSQL DDL\n6.\nPhysical Design\n\nParameters and Indices\n"
-    "7.\nImplementation and Maintenance\n\nInstallationen, Backups, etc.\n"
-)
-FILLER = [
-    "Functional dependencies: a set of attributes X determines A when rows agreeing on X agree on A",
-    "Armstrong axioms reflexivity augmentation transitivity derive every implied dependency",
-    "Boyce Codd normal form every determinant of a nontrivial dependency is a superkey",
-]
-SLIDES = ["Database Systems Normalization Thorsten Papenbrock", NORMALIZATION_SLIDE_2, *FILLER]
-
 THE_LS115_QUESTION = {
-    "question": "During database design, which step directly follows Conceptional Design and leads to relation schemas?",
-    "options": ["Logical Design", "Physical Design", "Data Definition", "Distribution Design"],
-    "correctAnswer": "Logical Design",
+    **LS115,
     "explanation": "Logical design turns the ER diagram into relation schemas.",
     "concept": "Database design steps",
     "difficulty": "medium",
     "source_slide": 2,
 }
 SOUND_QUESTION = {
-    "question": "Which design step produces the relation schemas?",
-    "options": ["Logical Design", "Physical Design", "Data Definition", "Requirement Analysis"],
-    "correctAnswer": "Logical Design",
-    "explanation": "Step 4, Logical Design, yields relation schemas.",
+    **LS115_SOUND,
+    "explanation": "Step 4, logical design, yields relation schemas.",
     "concept": "Logical design",
     "difficulty": "easy",
     "source_slide": 2,
@@ -105,7 +89,7 @@ async def test_the_check_never_sees_the_key(llm, skeleton):
     (prompt,) = verify_prompts(llm)
     assert SOUND_QUESTION["explanation"] not in prompt
     assert "correctAnswer" not in prompt
-    assert "Logical Design" in prompt and "Requirement Analysis" in prompt  # every option, unmarked
+    assert "Logical design" in prompt and "Requirements" in prompt  # every option, unmarked
     assert "Relation schemas" in prompt  # the cited slide's own text
 
 
@@ -120,10 +104,10 @@ async def test_the_checker_is_not_the_author(llm, skeleton):
 async def test_the_ls115_question_is_repaired_or_dropped(llm, skeleton):
     """A second defensible option is a dispute: one repair, and a repair that is disputed again is dropped."""
     llm["verify"] = [
-        {"answer": "A", "also_fits": ["D"], "reason": "Distribution Design directly follows Conceptional Design."},
+        {"answer": "A", "also_fits": ["D"], "reason": "Distribution design directly follows conceptual design."},
         {"answer": "B", "also_fits": [], "reason": "The repaired key is not what the slide says."},
     ]
-    llm["repair"] = [{**THE_LS115_QUESTION, "question": "Which step directly follows Conceptional Design?"}]
+    llm["repair"] = [{**THE_LS115_QUESTION, "question": "Which step directly follows conceptual design?"}]
     stats: dict = {}
     kept = await synthesis.ground_deck_quiz([THE_LS115_QUESTION], skeleton, "Normalization", "openai", stats=stats)
     assert kept == []
@@ -133,7 +117,7 @@ async def test_the_ls115_question_is_repaired_or_dropped(llm, skeleton):
 
 async def test_a_disputed_question_whose_repair_agrees_is_kept(llm, skeleton):
     llm["verify"] = [
-        {"answer": "D", "also_fits": [], "reason": "Distribution Design directly follows."},
+        {"answer": "D", "also_fits": [], "reason": "Distribution design directly follows."},
         {"answer": "A", "also_fits": []},
     ]
     llm["repair"] = [SOUND_QUESTION]

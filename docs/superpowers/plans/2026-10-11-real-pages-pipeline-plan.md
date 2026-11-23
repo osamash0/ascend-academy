@@ -802,10 +802,10 @@ def test_prompt_marks_blocks_and_leaves_footers_out(monkeypatch):
 
     monkeypatch.setattr(ss, "generate_text_bulk", fake)
     out = asyncio.run(ss.summarize_text_pages(
-        [(2, _pb(2, ["Every determinant is a key."], footer="Papenbrock 2024"))],
+        [(2, _pb(2, ["Every determinant is a key."], footer="Sample deck 2024"))],
         lecture_title="Normalization", ai_model="openai", source_language="en"))
     assert "[p2-b0] Every determinant is a key." in seen["prompt"]
-    assert "Papenbrock 2024" not in seen["prompt"]
+    assert "Sample deck 2024" not in seen["prompt"]
     assert seen["kw"]["json_mode"] is True
     assert seen["kw"]["prompt_name"] == "studio_summary"
     assert out == {2: [{"markdown": "A **key** idea.", "covers": ["p2-b0"]}]}
@@ -1511,7 +1511,7 @@ def _pdf() -> bytes:
     p1 = d.new_page(width=720, height=405)
     p1.insert_text((72, 80), "Functional dependencies", fontsize=28)
     p1.insert_text((72, 140), "A determines B when equal A values imply equal B values.", fontsize=14)
-    p1.insert_text((72, 390), "Papenbrock 2024", fontsize=9)
+    p1.insert_text((72, 390), "Sample deck 2024", fontsize=9)
     p2 = d.new_page(width=720, height=405)
     pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 40, 40), False)
     pix.clear_with(200)

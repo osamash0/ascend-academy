@@ -10,9 +10,9 @@
 /v4/space/s-dbs/lesson/l-s-dbs-4/faces
 ```
 
-Dev-only, like every `/v4` route. It sits **beside** the existing reader at `/read` so the two can be compared; nothing in the old reader changed. The Material is the real Normalization deck (82 pages, `public/v4-mock/normalization.pdf`, 5.5 MB — copied from Downloads, not yet committed). The only Lesson with content is `l-s-dbs-4`; every other Lesson says "Nothing to read yet" and offers the way back.
+Dev-only, like every `/v4` route. It sits **beside** the existing reader at `/read` so the two can be compared; nothing in the old reader changed. The Material is the Normalization sample deck (`public/v4-mock/normalization.pdf`). It was first built on a real 82-page lecture deck; since 2026-11-15 it is 12 pages written for Learnstation, rendered from `src/features/spaces/mocks/normalization-deck.json`. The only Lesson with content is `l-s-dbs-4`; every other Lesson says "Nothing to read yet" and offers the way back.
 
-What to try, in order: the page is the light; press the dark around it. `\` turns it over from the keyboard. Select a sentence on either face. Press an idea's name in the text. Press the small white page beside a block. Press the formula on page 6. Press the spine at the right edge. Practise what you just read, then press the room.
+What to try, in order: the page is the light; press the dark around it. `\` turns it over from the keyboard. Select a sentence on either face. Press an idea's name in the text. Press the small white page beside a block. Press the formula on page 2. Press the spine at the right edge. Practise what you just read, then press the room.
 
 ## Reused, extended, new — and why
 
@@ -87,7 +87,7 @@ Built from `READER_TWO_FACES_PHASE_A2.md`, on the same skeleton:
 - **The turn is a verb on the words.** `SelectionAsk` gained an optional third verb (`also`): **Read this** on the page, **Show page** in the text. The caption's Concept press and the page chips remain as the other bridges; `\` and the sr-only button for the keyboard.
 - **The same sentence, found.** `findText.ts` locates the selected words on the other face across its markup (text layer spans or paragraphs); `FoundLine.tsx` draws a hairline in the accent under each line of the match, left to right, and fades. Absent where the words are not on the other face (authored prose; scanned pages).
 - **Companion on the page** (Moonlight) at the height of the selected words when the window is ≥ 760px; under the page otherwise. Beside the column in the text as before.
-- Verified in the browser: room still behind the card; `\` turns; select "Thorsten Papenbrock" on page 1 → Read this → the column arrives with those words underlined; select "Requirement Analysis" in the text → Show page → page 2 with the words lit on the text layer; Ask from the page → card on the page.
+- Verified in the browser: room still behind the card; `\` turns; select a line on page 1 → Read this → the column arrives with those words underlined; select a phrase in the text → Show page → its page with the words lit on the text layer; Ask from the page → card on the page.
 - Gates: `tsc` clean · spaces suite green · vocabulary clean · lint no errors.
 
 ## Phase B3 — the document, and a studio above it (2026-09-18)

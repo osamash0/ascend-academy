@@ -36,13 +36,13 @@ describe('asking on the canvas', () => {
     const { container } = await mount();
     await ask('Why does repeated data cause problems?');
     const ids = order(container);
-    const at = ids.indexOf('s-p5-2');
+    const at = ids.indexOf('s-p8-1');
     expect(ids[at + 1]).toMatch(/^ans-/);
     // Said a beat after it lands (cleared first, so a repeat is announced again).
     await act(async () => { vi.advanceTimersByTime(100); });
     // The Composer has its own status region for notices; the screen's is named.
     expect(screen.getByRole('status', { name: 'Canvas updates' })).toHaveTextContent(
-      /Answer added under: The tools are functional.*\(for: Why does repeated data cause problems\?\)/,
+      /Answer added under: When the product name.*\(for: Why does repeated data cause problems\?\)/,
     );
   });
 
@@ -169,7 +169,7 @@ describe('asking on the canvas', () => {
   it('an answer removed before it settles takes its glow with it', async () => {
     const { container } = await mount();
     await ask('What is a functional dependency?');
-    expect(container.querySelector('[data-block-id="s-p6-1"]')).toHaveAttribute('data-glow', 'true');
+    expect(container.querySelector('[data-block-id="s-p2-1"]')).toHaveAttribute('data-glow', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Remove this answer' }));
     await act(async () => { vi.advanceTimersByTime(500); });
     expect(order(container).some((id) => id?.startsWith('ans-'))).toBe(false);
@@ -179,13 +179,13 @@ describe('asking on the canvas', () => {
   it('a citation opens Peek on the paragraph that covers its source', async () => {
     await mount();
     await ask('Why does repeated data cause problems?');
-    fireEvent.click(screen.getByRole('button', { name: 'p. 5 — Goal: Avoid redundancies' }));
-    expect(screen.getByRole('complementary', { name: 'Source page' })).toHaveTextContent('page 5');
+    fireEvent.click(screen.getByRole('button', { name: 'p. 1 — Redundancy is one fact stored in more than one row' }));
+    expect(screen.getByRole('complementary', { name: 'Source page' })).toHaveTextContent('page 1');
   });
 
   it('answers under the paragraph you selected text in, even after the click into the composer', async () => {
     const { container } = await mount();
-    const para = container.querySelector('[data-view="clean"] [data-block-id="s-p2-1"]')!;
+    const para = container.querySelector('[data-view="clean"] [data-block-id="s-p6-1"]')!;
     const text = document.createTreeWalker(para, NodeFilter.SHOW_TEXT).nextNode()!;
     const sel = vi.spyOn(window, 'getSelection');
     sel.mockReturnValue({ isCollapsed: false, anchorNode: text } as unknown as Selection);
@@ -197,13 +197,13 @@ describe('asking on the canvas', () => {
     sel.mockRestore();
     await ask('What is a functional dependency?');
     const ids = order(container);
-    expect(ids[ids.indexOf('s-p2-1') + 1]).toMatch(/^ans-/);
-    expect(ids[ids.indexOf('s-p6-1') + 1]).not.toMatch(/^ans-/);
+    expect(ids[ids.indexOf('s-p6-1') + 1]).toMatch(/^ans-/);
+    expect(ids[ids.indexOf('s-p2-1') + 1]).not.toMatch(/^ans-/);
   });
 
   it('forgets a selection once you click somewhere other than the composer', async () => {
     const { container } = await mount();
-    const para = container.querySelector('[data-view="clean"] [data-block-id="s-p2-1"]')!;
+    const para = container.querySelector('[data-view="clean"] [data-block-id="s-p6-1"]')!;
     const text = document.createTreeWalker(para, NodeFilter.SHOW_TEXT).nextNode()!;
     const sel = vi.spyOn(window, 'getSelection');
     sel.mockReturnValue({ isCollapsed: false, anchorNode: text } as unknown as Selection);
@@ -214,8 +214,8 @@ describe('asking on the canvas', () => {
     sel.mockRestore();
     await ask('What is a functional dependency?');
     const ids = order(container);
-    expect(ids[ids.indexOf('s-p2-1') + 1]).not.toMatch(/^ans-/);
-    expect(ids[ids.indexOf('s-p6-1') + 1]).toMatch(/^ans-/);
+    expect(ids[ids.indexOf('s-p6-1') + 1]).not.toMatch(/^ans-/);
+    expect(ids[ids.indexOf('s-p2-1') + 1]).toMatch(/^ans-/);
   });
 
   it('Esc on an offered outline withdraws the offer and stays in Source', async () => {
@@ -253,11 +253,11 @@ describe('asking on the canvas', () => {
     await mount();
     await ask('What is a functional dependency?');
     await act(async () => { vi.advanceTimersByTime(3000); });
-    const card = screen.getByRole('group', { name: 'Does Name → Weight hold?' });
+    const card = screen.getByRole('group', { name: 'Does Product → Product name hold?' });
     expect(card).toBeInTheDocument();
-    const cell = within(card).getAllByRole('textbox', { name: /Weight/ })[2];
+    const cell = within(card).getAllByRole('textbox', { name: /Product name/ })[2];
     expect(card.querySelector('[data-violates="true"]')).toBeNull();
-    fireEvent.change(cell, { target: { value: '8.5' } });
+    fireEvent.change(cell, { target: { value: 'Reading lamp' } });
     expect(card.querySelector('[data-violates="true"]')).not.toBeNull();
   });
 

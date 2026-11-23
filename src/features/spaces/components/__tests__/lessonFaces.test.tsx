@@ -105,7 +105,11 @@ describe('the document, and nothing else', () => {
     await renderFaces();
     expect(screen.queryByRole('complementary', { name: 'Studio' })).toBeNull();
     expect(screen.queryByRole('complementary', { name: 'Explain' })).toBeNull();
-    expect(screen.getAllByRole('tablist').map((t) => t.getAttribute('aria-label'))).toEqual(['How to read this page']);
+    // Page 1 is a list, so its points are a row of their own; nothing else is a tablist.
+    expect(screen.getAllByRole('tablist').map((t) => t.getAttribute('aria-label'))).toEqual([
+      'How to read this page',
+      'Points on this page',
+    ]);
     expect(screen.queryByPlaceholderText('Ask about this Lesson')).toBeNull();
     expect(screen.queryByRole('button', { name: /Notes for/ })).toBeNull();
   });
@@ -115,10 +119,10 @@ describe('the document, and nothing else', () => {
     const nav = screen.getByRole('navigation', { name: 'Ideas in this Lesson' });
     expect([...nav.querySelectorAll('button')].map((b) => b.getAttribute('aria-label')?.split(',')[0])).toEqual([
       'Functional dependency',
-      'BCNF',
       '1NF',
       '2NF',
       '3NF',
+      'BCNF',
     ]);
     expect(spineTick('Functional dependency').getAttribute('aria-current')).toBe('location');
   });
@@ -126,8 +130,8 @@ describe('the document, and nothing else', () => {
   it('scrolls the document to a Concept’s first page from the spine', async () => {
     await renderFaces();
     fireEvent.click(spineTick('1NF'));
-    await waitFor(() => expect(pageLine()).toHaveTextContent('Page 67'));
-    expect(jumps).toContain(67);
+    await waitFor(() => expect(pageLine()).toHaveTextContent('Page 4'));
+    expect(jumps).toContain(4);
     expect(spineTick('1NF').getAttribute('aria-current')).toBe('location');
   });
 });
@@ -223,7 +227,7 @@ describe('Explain answers the page as an interface', () => {
     const panel = await screen.findByRole('complementary', { name: 'Explain' });
     fireEvent.click(spineTick('1NF'));
     await waitFor(() =>
-      expect(within(panel).getByText('A ladder: each rung forbids one more kind of redundancy')).toBeInTheDocument(),
+      expect(within(panel).getByText('One value per cell')).toBeInTheDocument(),
     );
   });
 });

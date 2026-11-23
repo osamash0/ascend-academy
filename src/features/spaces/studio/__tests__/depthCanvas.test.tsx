@@ -57,9 +57,9 @@ describe('the Depth dial on the canvas', () => {
     const { container } = await mount();
     await choose(6, 'Full');
     const shown = ids(container, 6);
-    expect(shown).toContain('full-p6-b6');
+    expect(shown).toContain('full-p6-b3');
     expect(shown).not.toContain('s-p6-1');
-    expect(shown.indexOf('full-p6-b1')).toBeLessThan(shown.indexOf('full-p6-b6'));
+    expect(shown.indexOf('full-p6-b1')).toBeLessThan(shown.indexOf('full-p6-b3'));
   });
 
   it('Page on page 5 shows the page itself in Learn, and page 4 stays a summary', async () => {
@@ -125,14 +125,14 @@ describe('the Depth dial on the canvas', () => {
     expect(checked(2)).toBe('Gist');
     expect(checked(6)).toBe('Full');
     expect(ids(container, 2)).toEqual(['s-p2-1', 'w-1', 'c-p2-hw']);
-    expect(ids(container, 6)).toContain('full-p6-b6');
+    expect(ids(container, 6)).toContain('full-p6-b3');
   });
 
   it('an answer asked while page 6 is at Gist is there, after the gist', async () => {
     const { container } = await mount();
     await choose(6, 'Gist');
     const box = screen.getByRole('textbox', { name: 'Ask about this Material' });
-    fireEvent.change(box, { target: { value: 'What is a functional dependency?' } });
+    fireEvent.change(box, { target: { value: 'Can I split the left-hand side too?' } });
     fireEvent.submit(box.closest('form')!);
     await run(700);
     const shown = ids(container, 6);
@@ -144,7 +144,7 @@ describe('the Depth dial on the canvas', () => {
   it('at Page your own blocks still follow the page: notes, handwriting and answers', async () => {
     const { container } = await mount();
     const box = screen.getByRole('textbox', { name: 'Ask about this Material' });
-    fireEvent.change(box, { target: { value: 'What is a functional dependency?' } });
+    fireEvent.change(box, { target: { value: 'Can I split the left-hand side too?' } });
     fireEvent.submit(box.closest('form')!);
     await run(700);
     await choose(6, 'Page');
@@ -231,7 +231,7 @@ describe('the Depth dial on the canvas', () => {
   it('a question asked from text selected in the full text lands under the summary that covers it', async () => {
     const { container } = await mount();
     await choose(6, 'Full');
-    const para = container.querySelector('[data-view="clean"] [data-block-id="full-p6-b6"]')!;
+    const para = container.querySelector('[data-view="clean"] [data-block-id="full-p6-b1"]')!;
     const text = document.createTreeWalker(para, NodeFilter.SHOW_TEXT).nextNode()!;
     const sel = vi.spyOn(window, 'getSelection');
     sel.mockReturnValue({ isCollapsed: false, anchorNode: text } as unknown as Selection);

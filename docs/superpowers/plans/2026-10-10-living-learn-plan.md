@@ -405,7 +405,7 @@ const s = (page: number, n: number, blockIds: string[], markdown: string, edited
 });
 
 export const STUDIO_SUMMARY: SummaryBlock[] = [
-  s(1, 1, ['p1-b2'], '**Normalization**, from Database Systems by Thorsten Papenbrock.'),
+  s(1, 1, ['p1-b2'], '**Normalization**, from a Database Systems lecture.'),
 
   s(2, 1, ['p2-b2', 'p2-b3', 'p2-b4', 'p2-b5', 'p2-b6', 'p2-b7', 'p2-b8'],
     'Building a database follows a fixed path. It starts with **requirement analysis**, an informal description of what people need, then a **conceptual design** drawn as an **ER diagram**, and a **distribution design** that decides how data is partitioned.'),

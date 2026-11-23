@@ -98,7 +98,7 @@ const seed = (): ShelfItem[] => [
    with no entry shows its canvas as it came. Samples that open the same canvas
    each get their own entry, so nothing one page gains shows on another. */
 
-const SEED_QUESTIONS = ['What does pseudotransitivity give me?', 'Quiz me on Armstrong’s axioms'];
+const SEED_QUESTIONS = ['What makes a dependency transitive?', 'Quiz me on the normal forms'];
 
 /** Two answers already asked on Normalization.pdf: the "2 answers" its cover says are on its page. */
 function seedCanvases(): Map<string, CanvasDoc> {
