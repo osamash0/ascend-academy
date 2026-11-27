@@ -29,6 +29,11 @@ RECENT = 8
 RECAP_EVERY = 8
 PLAN_LOOKAHEAD = 8
 FEATURE = "luna_session"
+# prompts.PROMPT_VERSIONS keys: each call's llm_calls row records its prompt and version.
+PLAN_PROMPT = "LUNA_PLAN_PROMPT"
+TURN_PROMPT = "LUNA_TURN_PROMPT"
+WRAP_PROMPT = "LUNA_WRAP_PROMPT"
+PRACTICE_PROMPT = "LUNA_PRACTICE_PROMPT"
 
 FALLBACK = {
     "en": "I lost my thread for a second. Could you say that again?",
@@ -87,7 +92,9 @@ def _attempt_seconds() -> float:
 LUNA_ATTEMPT_SECONDS = _attempt_seconds()
 
 
-async def default_ai(prompt: str, *, user_id: str, course_id: Optional[str], feature: str) -> Any:
+async def default_ai(
+    prompt: str, *, user_id: str, course_id: Optional[str], feature: str, prompt_name: Optional[str] = None,
+) -> Any:
     """Try providers in turn, each bounded: a hung provider does not fail over inside the
     orchestrator chain (only at the global timeout), so the failover is done here."""
     from backend.services.v4_reader_service import _generate_json
@@ -96,7 +103,8 @@ async def default_ai(prompt: str, *, user_id: str, course_id: Optional[str], fea
     for provider in LUNA_PROVIDERS:
         try:
             result = await asyncio.wait_for(
-                _generate_json(prompt, user_id=user_id, course_id=course_id, feature=feature, prefer=provider),
+                _generate_json(prompt, user_id=user_id, course_id=course_id, feature=feature, prefer=provider,
+                               prompt_name=prompt_name),
                 LUNA_ATTEMPT_SECONDS,
             )
         except asyncio.TimeoutError as exc:
@@ -166,7 +174,7 @@ async def start(
     raw: Any = None
     try:
         raw = await ai(plan_prompt(view, page=page, opener=opener, memory=memory, locale=locale),
-                       user_id=user_id, course_id=view.course_id, feature=FEATURE)
+                       user_id=user_id, course_id=view.course_id, feature=FEATURE, prompt_name=PLAN_PROMPT)
     except Exception as exc:
         if _is_budget(exc):
             raise LunaError(429, BUDGET[_lang(locale)])
@@ -296,7 +304,7 @@ async def _run(
             write_recap=count % RECAP_EVERY == 0,
         )
         try:
-            raw = await ai(prompt, user_id=user_id, course_id=view.course_id, feature=FEATURE)
+            raw = await ai(prompt, user_id=user_id, course_id=view.course_id, feature=FEATURE, prompt_name=TURN_PROMPT)
         except Exception as exc:
             yield "error", {"detail": BUDGET[lang] if _is_budget(exc) else FALLBACK[lang]}
             return
@@ -396,7 +404,7 @@ async def wrap(
     memory = await store.active_memory(user_id, session["space_id"])
     try:
         raw = await ai(wrap_prompt(view, plan=session["plan"], turns=turns, memory=memory, locale=locale),
-                       user_id=user_id, course_id=view.course_id, feature=FEATURE)
+                       user_id=user_id, course_id=view.course_id, feature=FEATURE, prompt_name=WRAP_PROMPT)
     except Exception as exc:
         if _is_budget(exc):
             raise LunaError(429, BUDGET[_lang(locale)])
@@ -435,7 +443,7 @@ async def practice(
               if t["role"] == "learner" and isinstance(t["content"].get("check"), dict) and not t["content"]["check"].get("correct")]
     try:
         raw = await ai(practice_prompt(view, shaky=shaky, missed=missed, locale=locale),
-                       user_id=user_id, course_id=view.course_id, feature=FEATURE)
+                       user_id=user_id, course_id=view.course_id, feature=FEATURE, prompt_name=PRACTICE_PROMPT)
     except Exception as exc:
         if _is_budget(exc):
             raise LunaError(429, BUDGET[_lang(locale)])
