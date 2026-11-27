@@ -21,11 +21,11 @@ logger = logging.getLogger(__name__)
 GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
 OPENAI_EMBEDDING_MODEL = os.environ.get("OPENAI_EMBED_MODEL") or "text-embedding-3-small"
 # Confirmed live (768-dim response) — the freshness test holds it to 45 days.
-OPENAI_EMBEDDING_MODEL_VERIFIED_ON = datetime.date(2026, 10, 11)
+OPENAI_EMBEDDING_MODEL_VERIFIED_ON = datetime.date(2026, 11, 27)
 EMBEDDING_MODEL = OPENAI_EMBEDDING_MODEL if OPENAI_ONLY else GEMINI_EMBEDDING_MODEL
 # Same freshness rule as orchestrator.ProviderConfig.verified_on
 # (tests/unit/test_provider_pin_freshness.py).
-EMBEDDING_MODEL_VERIFIED_ON = datetime.date(2026, 10, 10)
+EMBEDDING_MODEL_VERIFIED_ON = datetime.date(2026, 11, 27)
 EMBEDDING_DIMS = 768
 
 
