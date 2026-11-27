@@ -105,10 +105,13 @@ OPENAI_ONLY = AI_PROVIDER_MODE == "openai_only"
 OPENAI_QUALITY_MODEL = os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
 OPENAI_BULK_MODEL = os.environ.get("OPENAI_BULK_MODEL") or OPENAI_QUALITY_MODEL
 OPENAI_VISION_MODEL = os.environ.get("OPENAI_VISION_MODEL") or OPENAI_QUALITY_MODEL
-# When the bulk and vision tier models were last confirmed live (one real
-# call each — gpt-4.1-nano text, gpt-4.1-mini with an image). Same 45-day rule
-# as every registry pin (test_provider_pin_freshness): re-probe, never re-date.
-OPENAI_TIER_MODELS_VERIFIED_ON = datetime.date(2026, 10, 11)
+# When the bulk and vision tier models were last confirmed live: on
+# 2026-11-27 the defaults (gpt-4o-mini, text and with an image) and the
+# launch OPENAI_MODEL gpt-4.1-mini (text and with an image) answered, while
+# gpt-4.1-nano, the old launch bulk model, answered 404 "deprecated". Same
+# 45-day rule as every registry pin (test_provider_pin_freshness): re-probe,
+# never re-date.
+OPENAI_TIER_MODELS_VERIFIED_ON = datetime.date(2026, 11, 27)
 
 # Keys whose presence in openai_only mode means some leg could still reach a
 # provider other than OpenAI.
@@ -258,7 +261,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             # response_format=json_object.
             id="groq_fast",
             model=os.environ.get("GROQ_FAST_MODEL") or "openai/gpt-oss-20b",
-            verified_on=datetime.date(2026, 10, 10),
+            verified_on=datetime.date(2026, 11, 27),
             daily_limit=14_400, rpm=30, tpm=6_000,
             env_var="GROQ_API_KEY",
             base_url="https://api.groq.com/openai/v1",
@@ -271,7 +274,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             # pinned for reproducibility.
             id="gemma",
             model=os.environ.get("GEMMA_MODEL") or "gemini-flash-lite-latest",
-            verified_on=datetime.date(2026, 10, 10),
+            verified_on=datetime.date(2026, 11, 27),
             daily_limit=14_400, rpm=30, tpm=15_000,
             env_var="GEMINI_API_KEY",
             base_url=None,
@@ -282,7 +285,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             model="mistral-small-latest",
             verified_on=datetime.date(2026, 5, 2),
             unverifiable_reason="no MISTRAL_API_KEY configured; leg is disabled at runtime while keyless",
-            unverifiable_noted_on=datetime.date(2026, 10, 10),
+            unverifiable_noted_on=datetime.date(2026, 11, 27),
             daily_limit=0, rpm=60, tpm=500_000,
             env_var="MISTRAL_API_KEY",
             base_url="https://api.mistral.ai/v1",
@@ -304,7 +307,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             # honors response_format=json_object; several other `:free` models
             # (qwen3.8, glm-5.2) are listed but 429 immediately upstream.
             model=os.environ.get("OPENROUTER_MODEL") or "nvidia/nemotron-3.5-lightning:free",
-            verified_on=datetime.date(2026, 10, 10),
+            verified_on=datetime.date(2026, 11, 27),
             daily_limit=50, rpm=20, tpm=0,
             env_var="OPENROUTER_API_KEY",
             base_url="https://openrouter.ai/api/v1",
@@ -317,7 +320,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             model="@cf/meta/llama-3.3-70b-instruct-fp8-fast",
             verified_on=datetime.date(2026, 5, 2),
             unverifiable_reason="no CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID configured; leg is disabled at runtime while keyless",
-            unverifiable_noted_on=datetime.date(2026, 10, 10),
+            unverifiable_noted_on=datetime.date(2026, 11, 27),
             daily_limit=10_000, rpm=300, tpm=0,
             env_var="CLOUDFLARE_API_TOKEN",
             base_url="https://api.cloudflare.com/client/v4/accounts",
@@ -329,7 +332,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             # `gemini-flash-latest` served fine.
             id="gemini",
             model=os.environ.get("GEMINI_MODEL") or "gemini-flash-latest",
-            verified_on=datetime.date(2026, 10, 10),
+            verified_on=datetime.date(2026, 11, 27),
             daily_limit=1_500, rpm=15, tpm=250_000,
             env_var="GEMINI_API_KEY",
             base_url=None,
@@ -345,7 +348,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             # so this is safe here — but see prompts that set their own.
             id="groq",
             model=os.environ.get("GROQ_MODEL") or "openai/gpt-oss-120b",
-            verified_on=datetime.date(2026, 10, 10),
+            verified_on=datetime.date(2026, 11, 27),
             daily_limit=1_000, rpm=30, tpm=12_000,
             env_var="GROQ_API_KEY",
             base_url="https://api.groq.com/openai/v1",
@@ -358,7 +361,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             # `or` rather than a get() default, so a key that is present but
             # blank in .env falls back instead of being sent to the API.
             model=OPENAI_QUALITY_MODEL,
-            verified_on=datetime.date(2026, 10, 10),
+            verified_on=datetime.date(2026, 11, 27),
             daily_limit=0, rpm=60, tpm=100000,
             env_var="OPENAI_API_KEY",
             base_url=os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1",
