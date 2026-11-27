@@ -36,7 +36,6 @@ ONLY_IN_FULL: dict[str, str] = {
     "pytesseract": "only consumer is ocr_fallback.py via the retired v2 parse path; "
                    "the tesseract binary is not in the image either",
     # Not imported anywhere under backend/ (grep-verified 2026-10-10).
-    "pandas": "no import under backend/; local-dev only",
     "tabulate": "no import under backend/; local-dev only",
 }
 
