@@ -285,13 +285,16 @@ async def get_lecture(lecture_id: UUID, locale: str) -> dict[str, Any]:
 
 
 async def _generate_json(
-    prompt: str, *, user_id: str, course_id: Optional[str], feature: str, prefer: str = "cerebras"
+    prompt: str, *, user_id: str, course_id: Optional[str], feature: str, prefer: str = "cerebras",
+    prompt_name: Optional[str] = None,
 ) -> Any:
-    """One model call through the quality chain; `prefer` moves a provider to its head."""
+    """One model call through the quality chain; `prefer` moves a provider to its head.
+    `prompt_name` (a prompts.PROMPT_VERSIONS key) is logged to llm_calls with its version."""
     from backend.services.ai.orchestrator import generate_text, parse_json_response
 
     raw = await generate_text(
-        prompt, prefer, json_mode=True, user_id=user_id, course_id=course_id, feature=feature
+        prompt, prefer, json_mode=True, user_id=user_id, course_id=course_id, feature=feature,
+        prompt_name=prompt_name,
     )
     return parse_json_response(raw)
 

@@ -13,7 +13,7 @@ class LLMBudgetExceededError(Exception):
 def _run(monkeypatch, behaviours):
     calls = []
 
-    async def fake(prompt, *, user_id, course_id, feature, prefer):
+    async def fake(prompt, *, user_id, course_id, feature, prefer, prompt_name=None):
         calls.append(prefer)
         return await behaviours[prefer]()
 
@@ -72,6 +72,18 @@ async def test_non_dict_moves_on(monkeypatch):
     calls = _run(monkeypatch, {"groq": lst, "openai": ok})
     assert await _call() == {"b": 2}
     assert calls == ["groq", "openai"]
+
+
+async def test_the_prompt_name_is_passed_on(monkeypatch):
+    seen = []
+
+    async def fake(prompt, *, user_id, course_id, feature, prefer, prompt_name=None):
+        seen.append(prompt_name)
+        return {"a": 1}
+
+    monkeypatch.setattr(v4_reader_service, "_generate_json", fake)
+    await ss.default_ai("p", user_id="u", course_id=None, feature="f", prompt_name="LUNA_TURN_PROMPT")
+    assert seen == ["LUNA_TURN_PROMPT"]
 
 
 def test_gemini_goes_last_and_attempts_are_bounded_at_15s(monkeypatch):

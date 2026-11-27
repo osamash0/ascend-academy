@@ -101,15 +101,18 @@ async def fake_load(lecture_id, locale, around):
 
 def scripted(*replies):
     calls = []
+    names = []
 
-    async def ai(prompt, *, user_id, course_id, feature):
+    async def ai(prompt, *, user_id, course_id, feature, prompt_name=None):
         calls.append(prompt)
+        names.append(prompt_name)
         r = replies[len(calls) - 1]
         if isinstance(r, Exception):
             raise r
         return r
 
     ai.calls = calls
+    ai.names = names
     return ai
 
 
@@ -476,3 +479,48 @@ async def test_a_question_from_the_learner_does_not_move_the_page_by_itself():
                                                text="what does X → Y mean?", action="accept_plan", plan_edit=None,
                                                reading_at=None, check_result=None, locale="en", ai=ai, load=fake_load))
     assert [e for e, _ in events] == ["say", "plan", "end"]
+
+
+async def test_every_model_call_names_its_prompt_for_llm_calls():
+    """llm_calls.prompt_name (and its version) trace each Luna call to its prompt."""
+    store = FakeStore()
+    q = {"question": "Does it hold?", "page": 4, "options": [{"text": "Yes", "why": "a"}, {"text": "No", "correct": True, "why": "b"}]}
+    ai = scripted(PLAN_REPLY, {"say": "This line is the whole idea.", "step_done": True}, WRAP_REPLY, {"questions": [q]})
+    sid = await _started(store, ai)
+    await _events(await svc.open_turn(store, user_id=U, session_id=sid, client_turn_id=str(uuid.uuid4()), text=None,
+                                      action="accept_plan", plan_edit=None, reading_at=4, check_result=None,
+                                      locale="en", ai=ai, load=fake_load))
+    await svc.wrap(store, user_id=U, session_id=sid, locale="en", ai=ai, load=fake_load)
+    await svc.practice(store, user_id=U, session_id=sid, locale="en", ai=ai, load=fake_load)
+    assert ai.names == ["LUNA_PLAN_PROMPT", "LUNA_TURN_PROMPT", "LUNA_WRAP_PROMPT", "LUNA_PRACTICE_PROMPT"]
+
+
+async def test_the_prompt_name_reaches_the_orchestrator_on_every_path(monkeypatch):
+    """Through the real default_ai and _generate_json, down to generate_text."""
+    import json
+
+    from backend.services.ai import orchestrator
+    from backend.services.ai.prompts import PROMPT_VERSIONS
+
+    q = {"question": "Does it hold?", "page": 4, "options": [{"text": "Yes", "why": "a"}, {"text": "No", "correct": True, "why": "b"}]}
+    replies = iter([PLAN_REPLY, {"say": "This line is the whole idea.", "step_done": True}, WRAP_REPLY, {"questions": [q]}])
+    seen = []
+
+    async def generate_text(prompt, ai_model="cerebras", **kwargs):
+        seen.append((kwargs.get("prompt_name"), kwargs.get("feature")))
+        return json.dumps(next(replies))
+
+    monkeypatch.setattr(orchestrator, "generate_text", generate_text)
+    store = FakeStore()
+    out = await svc.start(store, user_id=U, space_id=U, lecture_id=L, page=4, opener="exam Friday",
+                          locale="en", load=fake_load)
+    sid = out["session"]["id"]
+    await _events(await svc.open_turn(store, user_id=U, session_id=sid, client_turn_id=str(uuid.uuid4()), text=None,
+                                      action="accept_plan", plan_edit=None, reading_at=4, check_result=None,
+                                      locale="en", load=fake_load))
+    await svc.wrap(store, user_id=U, session_id=sid, locale="en", load=fake_load)
+    await svc.practice(store, user_id=U, session_id=sid, locale="en", load=fake_load)
+    names = ["LUNA_PLAN_PROMPT", "LUNA_TURN_PROMPT", "LUNA_WRAP_PROMPT", "LUNA_PRACTICE_PROMPT"]
+    assert seen == [(n, "luna_session") for n in names]
+    # Registered, so _account_for_call records a version rather than NULL.
+    assert all(n in PROMPT_VERSIONS for n in names)
